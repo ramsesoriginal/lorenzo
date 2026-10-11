@@ -256,3 +256,4 @@ Numbered sequentially, never renumbered. Superseded ADRs stay in place with a st
 - [0256 - Bench: the pack editor](0256-bench-pack-editor.md) — the ADR 0145 contents list edited as rows (move, indent, count, make an item), written back to the description; total weight.
 - [0257 - Bench: moving tabs with the keyboard](0257-bench-keyboard-moves-for-tabs.md) — arrows between tabs, Ctrl+Alt+arrows into the group beside, Alt+D to dock, announced; listed in the palette.
 - [0258 - Bench: the repository menu, the start screen and the first-run welcome](0258-bench-repository-menu-start-screen-and-welcome.md) — a menu with roles, a "Your repositories" start screen (also when there are none), a once-only welcome strip.
+- [0259 - Bench: the quiet interface](0259-bench-the-quiet-interface.md) — the prototype's type and palette, hairline chrome, the entry as a document, a lineage-only ancestry, an inline editor that sizes to its text, and page drawing that scales.

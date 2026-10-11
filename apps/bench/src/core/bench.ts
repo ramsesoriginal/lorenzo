@@ -41,6 +41,8 @@ const HISTORY_LIMIT = 50;
 export class Bench {
   /** The server's list of entries, as last read. */
   entries: EntrySummary[] = [];
+  private indexed: { of: EntrySummary[]; byId: Map<string, EntrySummary> } | null = null;
+  private listed: EntrySummary[] | null = null;
   /** The stats the repository defines, as last read: what an entry can have a value for. */
   statDefs: StatDef[] = [];
   /** The mirror: entries as the server last said, by id. */
@@ -59,7 +61,7 @@ export class Bench {
   /** The formulas that work out stats. */
   readonly formulas: FormulaStore;
   private nextId = 1;
-  private listeners = new Set<() => void>();
+  private listeners = new Set<(background: boolean) => void>();
   private current: Promise<void> | null = null;
   private again = false;
 
@@ -69,25 +71,59 @@ export class Bench {
   ) {
     this.links = new LinkResolver(transport);
     this.links.stats = (home) => this.statChips(home);
-    this.formulas = new FormulaStore(transport, () => this.emit());
+    this.formulas = new FormulaStore(transport, () => this.emitLater());
     this.pictures = new Pictures(
       transport,
-      () => this.emit(),
+      () => {
+        for (const fn of this.pictureListeners) fn();
+      },
       (id) => this.links.forgetPicture(id),
     );
   }
 
-  subscribe(fn: () => void): () => void {
+  private pictureListeners = new Set<() => void>();
+  /**
+   * `fn` is told when a picture has been read, set or taken away, and nothing else: a picture is
+   * one small part of the page, which should not be drawn again whole for it.
+   */
+  subscribePictures(fn: () => void): () => void {
+    this.pictureListeners.add(fn);
+    return () => this.pictureListeners.delete(fn);
+  }
+
+  /** `fn` is told of every change; `background` says it was not asked for by the person. */
+  subscribe(fn: (background: boolean) => void): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
   }
-  private emit() {
-    for (const fn of this.listeners) fn();
+  private emit(background = false) {
+    this.listed = null;
+    for (const fn of this.listeners) fn(background);
+  }
+
+  /**
+   * Tells the screen soon, once, for what arrives in the background (entries and pictures being
+   * read): a drawing for each would be the whole page again and again.
+   */
+  private emitLater() {
+    if (this.soon) return;
+    this.soon = setTimeout(() => {
+      this.soon = null;
+      this.emit(true);
+    }, 60);
+  }
+  private soon: ReturnType<typeof setTimeout> | null = null;
+
+  /** The server's entries by id (rebuilt when the list is replaced). */
+  private entry(id: string): EntrySummary | undefined {
+    if (this.indexed?.of !== this.entries)
+      this.indexed = { of: this.entries, byId: new Map(this.entries.map((e) => [e.id, e])) };
+    return this.indexed.byId.get(id);
   }
 
   /** The formula that works out the stat on the entry, held by it or above it; null when none. */
   formulaFor(id: string, statId: string): HeldFormula | null {
-    const parents = (x: string) => this.entries.find((e) => e.id === x)?.parentIds ?? [];
+    const parents = (x: string) => this.entry(x)?.parentIds ?? [];
     return findFormula((e) => this.formulas.held(e), parents, id, statId);
   }
 
@@ -97,7 +133,7 @@ export class Bench {
     const up = (x: string) => {
       if (seen.has(x)) return;
       seen.add(x);
-      for (const p of this.entries.find((e) => e.id === x)?.parentIds ?? []) up(p);
+      for (const p of this.entry(x)?.parentIds ?? []) up(p);
     };
     up(id);
     return this.formulas.load([...seen]);
@@ -135,9 +171,10 @@ export class Bench {
    */
   async open(id: string, quiet = false): Promise<void> {
     if (this.mirror.has(id) || this.pendingCreate(id)) return;
-    if (!this.entries.some((e) => e.id === id)) return;
+    if (!this.entry(id)) return;
     try {
       this.mirror.set(id, await this.transport.getEntry(id));
+      this.listed = null;
       this.loadError = null;
     } catch (e) {
       this.loadError = e instanceof Error ? e.message : 'Could not load this entry.';
@@ -173,7 +210,7 @@ export class Bench {
 
   /** Whether the server has the entry (it is not one made here and not sent yet). */
   onServer(id: string): boolean {
-    return this.entries.some((e) => e.id === id) && !this.pendingCreate(id);
+    return !!this.entry(id) && !this.pendingCreate(id);
   }
 
   /**
@@ -198,11 +235,11 @@ export class Bench {
     const worker = async () => {
       while (next < ids.length) {
         await this.open(ids[next++] as string, true);
-        if (++done % 12 === 0) this.emit();
+        if (++done % 60 === 0) this.emitLater();
       }
     };
     await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
-    if (ids.length) this.emit();
+    if (ids.length) this.emitLater();
   }
 
   /** How many entries have their detail read, of how many there are. */
@@ -240,6 +277,12 @@ export class Bench {
 
   /** Every entry, the server's and those not made yet, by name. */
   listing(): EntrySummary[] {
+    // Worked out once between changes: every pane asks, and each answer is a pass over everything.
+    this.listed ??= this.makeListing();
+    return this.listed;
+  }
+
+  private makeListing(): EntrySummary[] {
     const made = new Set(this.entries.map((e) => e.id));
     const pending = this.outbox
       .filter((c) => c.type === 'entry.create' && !made.has(c.entryId))
@@ -255,11 +298,11 @@ export class Bench {
   }
 
   kindsOf(id: string): string[] {
-    return this.view(id)?.kinds ?? this.entries.find((e) => e.id === id)?.kinds ?? [];
+    return this.view(id)?.kinds ?? this.entry(id)?.kinds ?? [];
   }
 
   displayName(id: string): string {
-    return this.view(id)?.name ?? this.entries.find((e) => e.id === id)?.name ?? id;
+    return this.view(id)?.name ?? this.entry(id)?.name ?? id;
   }
 
   /** The entries under this one: what the server lists, and those made here not yet sent. */
@@ -662,7 +705,7 @@ export class Bench {
     if (this.history.length > HISTORY_LIMIT) this.history.shift();
     // A rename is in the list too.
     const entry = this.mirror.get(c.entryId);
-    const row = this.entries.find((e) => e.id === c.entryId);
+    const row = this.entry(c.entryId);
     if (entry && row) {
       row.name = entry.name;
       row.kinds = entry.kinds;

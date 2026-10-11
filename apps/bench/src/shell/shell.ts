@@ -41,10 +41,19 @@ import {
 } from '../workspace/presets';
 import { renderAncestry } from './ancestryPane';
 import { openConflicts } from './conflictDialog';
-import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
+import {
+  kindsText,
+  pictureSection,
+  redraw,
+  renderEntry,
+  renderLinks,
+  statusText,
+} from './entryPane';
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
 import { type FormulaUi, newFormulaUi, renderFormulas } from './formulaPane';
 import { type GridState, newGridState, renderGrid } from './gridPane';
+import { icon, kindIcon } from './icons';
+import { focusing } from './linkPreview';
 import { newPackUi, type PackUi, renderPack } from './packPane';
 import { newPicturesUi, type PicturesUi, renderPictures } from './picturesPane';
 import { renderStats } from './statsPane';
@@ -124,6 +133,7 @@ export class Shell {
   /** What the Table and the Compare grid keep while the page is drawn again. */
   private packUi: PackUi = newPackUi();
   private picturesUi: PicturesUi = newPicturesUi();
+  private newOpen = false;
   private formulaUi: FormulaUi = newFormulaUi();
   private vocabularyUi: VocabularyUi = newVocabularyUi();
   private grids: Record<'table' | 'grid', GridState> = {
@@ -163,16 +173,34 @@ export class Shell {
     window.addEventListener('pointermove', (e) => this.onMove(e));
     window.addEventListener('pointerup', (e) => this.onUp(e));
     window.addEventListener('keydown', (e) => this.onKey(e));
-    this.unsubscribe = bench.subscribe(() => this.render());
+    this.watchPending();
+    this.unsubscribe = bench.subscribe((background) => (background ? this.later() : this.render()));
+    this.unsubscribePictures = bench.subscribePictures(() => this.pictureChanged());
     this.render();
+  }
+
+  private unsubscribePictures: (() => void) | null = null;
+
+  /**
+   * A picture was read, set or taken away. Where it shows next to the entry, that part is made
+   * again on its own, so what is being written in the entry is left alone; panes that list pictures
+   * are drawn again.
+   */
+  private pictureChanged() {
+    if (this.root.querySelector('.pane-pictures')) return this.later();
+    const id = this.selected;
+    const now = this.root.querySelector('.pane-entry .picture');
+    if (id && now) now.replaceWith(pictureSection(this.bench, id));
   }
 
   /** Hands the shell the bench to show, once the session has said which repository it is. */
   use(bench: Bench) {
     this.unsubscribe?.();
+    this.unsubscribePictures?.();
     this.bench = bench;
     this.selected = null;
-    this.unsubscribe = bench.subscribe(() => this.render());
+    this.unsubscribe = bench.subscribe((background) => (background ? this.later() : this.render()));
+    this.unsubscribePictures = bench.subscribePictures(() => this.pictureChanged());
     this.render();
   }
 
@@ -248,7 +276,47 @@ export class Shell {
 
   // ---- drawing --------------------------------------------------------------------------------
 
+  /**
+   * Draws the page once, after what is running now, however many changes come before then. It is a
+   * microtask, not a frame: the page is as it should be before anything else (a click, a test)
+   * looks at it, and a burst of changes in one go is still one drawing.
+   */
+  private later() {
+    if (this.pending) return;
+    this.pending = true;
+    queueMicrotask(() => {
+      if (!this.pending) return;
+      this.render();
+    });
+  }
+  private pending = false;
+
+  /**
+   * A field that was typed in when the page was drawn again keeps its text but starts over as to
+   * what counts as changed: Enter or leaving it would make no change. So a field put back with
+   * something typed in it says "change" itself when it is left or Enter is pressed.
+   */
+  private watchPending() {
+    const settle = (e: Event) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.dataset.pending !== '1') return;
+      delete t.dataset.pending;
+      t.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    window.addEventListener('keydown', (e) => e.key === 'Enter' && settle(e), true);
+    window.addEventListener('focusout', settle, true);
+    // The field's own change says it is settled.
+    window.addEventListener(
+      'change',
+      (e) => {
+        if (e.isTrusted && e.target instanceof HTMLElement) delete e.target.dataset.pending;
+      },
+      true,
+    );
+  }
+
   private render() {
+    this.pending = false;
     const s = this.surface;
     // Keep what a person is typing when something else changes the page.
     const active = document.activeElement;
@@ -260,6 +328,7 @@ export class Shell {
             // Only a field has what is typed in it; a link is only found again.
             value: typing ? active.value : null,
             at: typing ? active.selectionStart : null,
+            to: typing ? active.selectionEnd : null,
           }
         : null;
     this.drawLayouts();
@@ -279,13 +348,19 @@ export class Shell {
       s.append(empty);
     }
     if (kept) {
+      focusing.restoring = true;
       const found = s.querySelector<HTMLElement>(`[data-key="${kept.key}"]`);
       if (found instanceof HTMLInputElement || found instanceof HTMLTextAreaElement) {
-        if (kept.value !== null) found.value = kept.value;
+        if (kept.value !== null) {
+          if (found instanceof HTMLInputElement && found.value !== kept.value)
+            found.dataset.pending = '1';
+          found.value = kept.value;
+        }
         found.dispatchEvent(new Event('input')); // the preview follows what is typed
         found.focus();
-        if (kept.at !== null) found.setSelectionRange(kept.at, kept.at);
+        if (kept.at !== null) found.setSelectionRange(kept.at, kept.to ?? kept.at);
       } else found?.focus();
+      focusing.restoring = false;
     }
   }
 
@@ -319,6 +394,16 @@ export class Shell {
       bar.classList.add('solo');
     }
     for (const p of g.panes) bar.append(this.tabEl(g, p, floating));
+    if (!floating) {
+      const out = el('button', 'icon');
+      out.append(icon('float', 14));
+      out.type = 'button';
+      out.title = `Open ${titleOf(g.active)} in its own window`;
+      out.setAttribute('aria-label', `Float ${titleOf(g.active)}`);
+      out.addEventListener('click', () => this.floatPane(g.active));
+      out.addEventListener('pointerdown', (e) => e.stopPropagation());
+      bar.append(el('span', 'grow'), out);
+    }
     if (floating) {
       const dock = el('button', 'icon', 'Dock');
       dock.title = 'Dock this window';
@@ -355,6 +440,8 @@ export class Shell {
       }
     }
     b.type = 'button';
+    // Found again when the page is drawn again, so the focus is put back on it.
+    b.dataset.key = `tab:${p}`;
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', String(p === g.active));
     b.addEventListener('click', () => {
@@ -362,7 +449,8 @@ export class Shell {
       this.set(setActive(this.ws, g.id, p));
     });
     b.addEventListener('keydown', (e) => this.onTabKey(e, g, p));
-    const x = el('button', 'x', '×');
+    const x = el('button', 'x');
+    x.append(icon('x', 13));
     x.type = 'button';
     x.title = `Close ${titleOf(p)}`;
     x.setAttribute('aria-label', `Close ${titleOf(p)}`);
@@ -437,7 +525,9 @@ export class Shell {
         this.render();
       }
     });
-    box.append(search);
+    const wrap = el('label', 'rsearch');
+    wrap.append(icon('search', 15), search);
+    box.append(wrap);
 
     const head = el('div', 'explorer-head');
     head.append(
@@ -447,10 +537,20 @@ export class Shell {
         filtering
           ? `${n.entries} of ${all.length} entries`
           : n.places > n.entries
-            ? `${n.entries} entries · ${n.places} places in the list`
+            ? `${n.entries} entries`
             : `${n.entries} entries`,
       ),
+      el('span', 'grow'),
     );
+    const add = el('button', 'btn quiet new-btn');
+    add.type = 'button';
+    add.append(icon('plus', 14), document.createTextNode(' New'));
+    add.setAttribute('aria-expanded', String(this.newOpen));
+    add.addEventListener('click', () => {
+      this.newOpen = !this.newOpen;
+      this.render();
+    });
+    head.append(add);
     const seg = el('div', 'seg');
     seg.setAttribute('role', 'group');
     seg.setAttribute('aria-label', 'Order');
@@ -461,13 +561,16 @@ export class Shell {
       b.addEventListener('click', () => this.setOrder(o));
       seg.append(b);
     }
-    box.append(head, seg);
+    box.append(head);
+    if (this.newOpen) box.append(this.newEntryForm());
+    box.append(seg);
     const move = this.moveControl();
     if (move) box.append(move);
     if (filtering && !rows.length)
       box.append(el('p', 'muted pad', 'No entry matches that filter.'));
 
     const list = el('ul', 'list');
+    const byId = new Map(all.map((x) => [x.id, x]));
     for (const row of rows) {
       const li = el('li', row.type === 'header' ? 'group-head' : 'place');
       if (row.type === 'header') {
@@ -475,12 +578,13 @@ export class Shell {
         list.append(li);
         continue;
       }
-      const e = bench.listing().find((x) => x.id === row.id);
+      const e = byId.get(row.id);
       if (!e) continue;
       li.style.paddingLeft = `${row.depth * 14}px`;
       if (this.order === 'inherits' && !filtering) {
         if (row.hasChildren) {
-          const fold = el('button', 'fold', row.open ? '▾' : '▸');
+          const fold = el('button', 'fold');
+          fold.append(icon(row.open ? 'down' : 'right', 13));
           fold.type = 'button';
           fold.setAttribute('aria-label', `${row.open ? 'Fold' : 'Unfold'} ${e.name}`);
           fold.setAttribute('aria-expanded', String(row.open));
@@ -492,7 +596,8 @@ export class Shell {
           li.append(fold);
         } else li.append(el('span', 'fold'));
       }
-      const b = el('button', row.id === this.selected ? 'row on' : 'row', e.name);
+      const b = el('button', row.id === this.selected ? 'row on' : 'row');
+      b.append(icon(kindIcon(e.kinds), 15), el('span', 'nm', e.name));
       b.type = 'button';
       b.dataset.entry = row.id;
       b.dataset.place = row.key;
@@ -500,7 +605,8 @@ export class Shell {
       b.addEventListener('click', () => this.select(row.id));
       li.append(b);
       if (row.parentCount) {
-        const multi = el('span', 'multi', '⑂');
+        const multi = el('span', 'multi');
+        multi.append(icon('branch', 13));
         multi.title = `Has ${row.parentCount} parents: it is in each of those places`;
         multi.setAttribute('role', 'img');
         multi.setAttribute('aria-label', `Has ${row.parentCount} parents`);
@@ -566,7 +672,6 @@ export class Shell {
     const c = el('div', `pane pane-${id}`);
     if (id === 'explorer') {
       if (bench.loadError && !bench.entries.length) c.append(el('p', 'bad', bench.loadError));
-      c.append(this.newEntryForm());
       c.append(this.explorerList());
     }
     return c;

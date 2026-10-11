@@ -58,13 +58,12 @@ export function valuesOf(entry: EntryState | null): Values {
  * value of its own for the stat, or nowhere. Nearest first; the first parent first on a tie.
  */
 export function valueSource(
-  entries: readonly EntrySummary[],
+  byId: ReadonlyMap<string, EntrySummary>,
   values: ReadonlyMap<string, Values>,
   id: string,
   stat: string,
 ): { kind: 'own' } | { kind: 'inherited'; from: string } | { kind: 'none' } {
   if (values.get(id)?.get(stat)?.own) return { kind: 'own' };
-  const byId = new Map(entries.map((e) => [e.id, e]));
   const seen = new Set([id]);
   let level = byId.get(id)?.parentIds ?? [];
   while (level.length) {
@@ -133,7 +132,11 @@ export function gridOrder(
   for (const e of [...entries].sort(byName)) {
     const parents = e.parentIds.filter((p) => known.has(p));
     if (!parents.length) roots.push(e);
-    for (const p of parents) kids.set(p, [...(kids.get(p) ?? []), e]);
+    for (const p of parents) {
+      const list = kids.get(p);
+      if (list) list.push(e);
+      else kids.set(p, [e]);
+    }
   }
   const out: { entry: EntrySummary; depth: number }[] = [];
   const walk = (e: EntrySummary, depth: number, trail: Set<string>) => {

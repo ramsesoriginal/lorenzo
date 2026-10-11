@@ -38,6 +38,8 @@ interface State {
   caret: 'start' | 'end' | number;
   /** Something was typed since `base`. */
   dirty: boolean;
+  /** The caret was in the editor when the page was last drawn (so it is put back). */
+  focused: boolean;
 }
 const states = new Map<string, State>();
 
@@ -49,9 +51,17 @@ export interface LiveOptions {
   home: string;
   label: string;
   text: string;
+  /** Said where the text is empty. */
+  placeholder?: string;
   onChange: (text: string) => void;
   go: (id: string) => void;
 }
+
+/** Makes a field as tall as its text, however the lines wrap. */
+const grow = (a: HTMLTextAreaElement) => {
+  a.style.height = 'auto';
+  a.style.height = `${a.scrollHeight}px`;
+};
 
 const quoted = (slugs: string[]) => slugs.map((s) => `“${s}”`).join(', ');
 
@@ -63,9 +73,11 @@ export function liveEditor(o: LiveOptions): HTMLElement {
     st = {
       base: o.text,
       blocks,
+      // An empty text is a field to write in, shown as its prompt; it does not take the focus.
       active: blocks.length === 1 && blocks[0] === '' ? 0 : null,
       caret: 'end',
       dirty: false,
+      focused: false,
     };
   }
   states.set(o.key, st);
@@ -94,18 +106,26 @@ export function liveEditor(o: LiveOptions): HTMLElement {
       if (state.active === i) {
         const a = el('textarea', 'text-edit live-source');
         a.value = block;
-        a.rows = Math.max(1, block.split('\n').length);
+        a.placeholder = o.placeholder ?? '';
+        a.rows = 1;
         a.dataset.key = o.key;
         a.setAttribute('aria-label', o.label);
         area = a;
+        a.addEventListener('focus', () => {
+          state.focused = true;
+        });
         attachEntryPicker(a, o.bench);
         wireSource(a, i);
         doc.append(a);
+        // Sized to what is in it, wrapped lines included (after it is on the page).
+        requestAnimationFrame(() => grow(a));
       } else {
         const b = el('div', 'live-block');
         b.dataset.block = String(i);
-        if (block.trim() === '') b.classList.add('live-empty');
-        else {
+        if (block.trim() === '') {
+          b.classList.add('live-empty');
+          b.textContent = o.placeholder ?? '';
+        } else {
           const drawn = html(block);
           b.innerHTML = drawn; // escaped by the renderer (ADR 0100)
           b.dataset.raw = drawn;
@@ -113,6 +133,9 @@ export function liveEditor(o: LiveOptions): HTMLElement {
         }
         b.querySelectorAll<HTMLElement>('a.ls-entity').forEach((a, n) => {
           a.dataset.key = `${o.key}:link:${i}:${n}`;
+        });
+        b.querySelectorAll<HTMLElement>('.ls-stat').forEach((c, n) => {
+          c.dataset.key = `${o.key}:stat:${i}:${n}`;
         });
         b.addEventListener('mousedown', (ev) => {
           if (linkId(ev) || (ev.target as Element).closest?.('.stat-step'))
@@ -209,6 +232,7 @@ export function liveEditor(o: LiveOptions): HTMLElement {
   const leave = (refocus: boolean) => {
     if (state.active === null) return;
     state.active = null;
+    state.focused = false;
     commit();
     draw();
     if (refocus) {
@@ -220,9 +244,7 @@ export function liveEditor(o: LiveOptions): HTMLElement {
   // ---- the source of one block ----------------------------------------------------------------
 
   const wireSource = (a: HTMLTextAreaElement, i: number) => {
-    const fit = () => {
-      a.rows = Math.max(1, a.value.split('\n').length);
-    };
+    const fit = () => grow(a);
     a.addEventListener('input', () => {
       state.blocks[i] = a.value;
       state.dirty = true;
@@ -369,7 +391,10 @@ export function liveEditor(o: LiveOptions): HTMLElement {
   wrap.append(bar, doc, notes);
   void paint();
   // A redraw of the page while a block is source puts it back as source.
-  if (state.active !== null && document.activeElement === document.body)
-    queueMicrotask(focusSource);
+  if (state.active !== null && state.focused && document.activeElement === document.body)
+    queueMicrotask(() => {
+      // The page may have put the focus and the selection back itself by now.
+      if (document.activeElement === document.body) focusSource();
+    });
   return wrap;
 }

@@ -45,17 +45,21 @@ export class FormulaStore {
     const wanted = ids.filter((id) => again || !this.tried.has(id));
     if (!wanted.length) return;
     for (const id of wanted) this.tried.add(id);
+    let found = false;
     await Promise.all(
       wanted.map(async (id) => {
         try {
-          this.byEntry.set(id, await this.transport.listFormulas(id));
+          const held = await this.transport.listFormulas(id);
+          this.byEntry.set(id, held);
+          if (held.length) found = true;
         } catch {
           // Not read (offline, or the entry is not on the server yet): not asked again until it is
           // asked to (a failed read must not redraw the screen into asking again).
         }
       }),
     );
-    this.changed();
+    // Most entries hold none, and a screen drawn again for nothing loses what is being written.
+    if (found) this.changed();
   }
 
   async save(

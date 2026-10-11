@@ -123,11 +123,11 @@ test('using theirs drops my change', async ({ page }) => {
 test('parents can be added and removed', async ({ page }) => {
   await page.locator('[data-entry="ghoul"]').click();
   const parents = page.locator('.pane-entry .parent');
-  await expect(parents).toHaveText(['Undead×', 'Beast×']);
+  await expect(parents).toHaveText(['Undead', 'Beast']);
   await page.getByLabel('Remove parent Beast').click();
-  await expect(parents).toHaveText(['Undead×']);
+  await expect(parents).toHaveText(['Undead']);
   await page.getByLabel('Add a parent').selectOption({ label: 'Zombie' });
-  await expect(parents).toHaveText(['Undead×', 'Zombie×']);
+  await expect(parents).toHaveText(['Undead', 'Zombie']);
   await expect(status(page)).toHaveText('Synced');
   const last = (await writes(page)).at(-1);
   expect(last).toMatchObject({ id: 'ghoul', field: 'parents', value: ['undead', 'zombie'] });
@@ -147,7 +147,32 @@ test('a refused change says why, and Discard puts the old value back', async ({ 
   await expect(page.getByRole('alert')).toContainText('own parent');
   await page.getByRole('button', { name: 'Discard' }).click();
   await expect(status(page)).toHaveText('Synced');
-  await expect(page.locator('.pane-entry .parent')).toHaveText(['Undead×', 'Beast×']);
+  await expect(page.locator('.pane-entry .parent')).toHaveText(['Undead', 'Beast']);
+});
+
+test('what was typed when the page was drawn again is still a change when Enter is pressed', async ({
+  page,
+}) => {
+  await page.locator('[data-entry="wolf"]').click();
+  await name(page).focus();
+  await name(page).fill('Fenrir');
+  await page.evaluate(() => {
+    const b = (
+      window as unknown as {
+        bench: {
+          bench: {
+            change(t: string, id: string, v: unknown): void;
+            open(id: string): Promise<void>;
+          };
+        };
+      }
+    ).bench.bench;
+    return b.open('zombie').then(() => b.change('entry.set-name', 'zombie', 'Walker'));
+  });
+  await expect(page.locator('[data-entry="zombie"]')).toHaveText('Walker');
+  await name(page).press('Enter');
+  await expect(page.locator('[data-entry="wolf"]')).toHaveText('Fenrir');
+  expect((await writes(page)).map((w) => w.value)).toContain('Fenrir');
 });
 
 test('what is being typed survives another change arriving', async ({ page }) => {
@@ -187,14 +212,22 @@ test('a bare entry or a being is shown with what it is; only an item can be rena
 test('the parents of a being can be changed', async ({ page }) => {
   await page.locator('[data-entry="ashfang"]').click();
   await page.getByLabel('Add a parent').selectOption({ label: 'Wolf' });
-  await expect(page.locator('.pane-entry .parent')).toHaveText(['The Hollow×', 'Wolf×']);
+  await expect(page.locator('.pane-entry .parent')).toHaveText(['The Hollow', 'Wolf']);
   await expect(status(page)).toHaveText('Synced');
 });
 
 // --- making entries --------------------------------------------------------------------------
 
+/** The name field of the form that makes an entry, which is opened if it is not. */
+const newEntry = async (page: Page) => {
+  const field = page.getByLabel('Name of the new entry');
+  if (!(await field.isVisible()))
+    await page.getByRole('button', { name: 'New', exact: true }).click();
+  return field;
+};
+
 const make = async (page: Page, text: string, kind: string, parent: string) => {
-  await page.getByLabel('Name of the new entry').fill(text);
+  await (await newEntry(page)).fill(text);
   await page.getByLabel('Kind of the new entry').selectOption({ label: kind });
   await page.getByLabel('Parent of the new entry').selectOption({ label: parent });
   await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -206,14 +239,14 @@ test('a new item shows at once under its parent, and is sent with its own id', a
   await expect(name(page)).toHaveValue('Winter wolf');
   await expect(page.locator('[data-entry]', { hasText: 'Winter wolf' })).toBeVisible();
   await expect(status(page)).toHaveText('Synced');
-  await expect(page.locator('.pane-entry .parent')).toHaveText(['Wolf×']);
+  await expect(page.locator('.pane-entry .parent')).toHaveText(['Wolf']);
   const writes = await page.evaluate(() => (window as unknown as SampleWindow).sample.writes);
   expect(writes).toEqual([
     { id: expect.stringMatching(/^[0-9a-f-]{36}$/), field: 'create', value: 'Winter wolf' },
   ]);
   // and the parent lists it as a child
   await page.locator('[data-entry="wolf"]').click();
-  await page.getByRole('tab', { name: 'Parents and children' }).click();
+  await page.getByRole('tab', { name: 'Links' }).click();
   await expect(page.locator('.pane-links')).toContainText('Winter wolf');
 });
 
@@ -225,7 +258,7 @@ test('with no connection a new entry is saved here, edited, and all of it sent i
   await expect(status(page)).toHaveText('Saved on this device');
   await expect(page.locator('.pane-entry')).toContainText('being');
   await page.getByLabel('Add a parent').selectOption({ label: 'Monster' });
-  await expect(page.locator('.pane-entry .parent')).toHaveText(['Monster×']);
+  await expect(page.locator('.pane-entry .parent')).toHaveText(['Monster']);
   expect(await writes(page)).toEqual([]);
   await palette(page, 'get the connection back');
   await expect(status(page)).toHaveText('Synced');
@@ -303,6 +336,7 @@ test('the description is shown as it reads, and edited with a preview that follo
 
 test('an entry with no description gets one when text is written', async ({ page }) => {
   await page.locator('[data-entry="beast"]').click();
+  await openText(page, 'Description');
   await expect(description(page)).toHaveValue('');
   await description(page).fill('Natural creatures.');
   await blur(page);
@@ -490,9 +524,7 @@ test.describe('the explorer', () => {
 
   test('is a tree of what entries inherit from, one row for each place', async ({ page }) => {
     await expect(rows(page).filter({ hasText: /^Ghoul$/ })).toHaveCount(2);
-    await expect(page.locator('.pane-explorer')).toContainText(
-      '12 entries · 13 places in the list',
-    );
+    await expect(page.locator('.pane-explorer')).toContainText('12 entries');
     await expect(page.getByRole('img', { name: 'Has 2 parents' })).toHaveCount(2);
   });
 
@@ -550,7 +582,7 @@ test.describe('the explorer', () => {
     await expect(rows(page)).toHaveText(['Dire wolf', 'Wolf']);
     await filter.press('Escape');
     await expect(filter).toHaveValue('');
-    await expect(page.locator('.pane-explorer')).toContainText('12 entries · 13 places');
+    await expect(page.locator('.pane-explorer')).toContainText('12 entries');
   });
 
   test('says when nothing matches, and an entry found can be opened', async ({ page }) => {
@@ -566,6 +598,7 @@ test.describe('the explorer', () => {
   });
 
   test('a new entry shows under its parent at once', async ({ page }) => {
+    await page.getByRole('button', { name: 'New', exact: true }).click();
     await page.getByLabel('Name of the new entry').fill('Pup');
     await page.getByLabel('Parent of the new entry').selectOption({ label: 'Wolf' });
     await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -587,8 +620,8 @@ test('an entry can be an item, a being, both or neither', async ({ page }) => {
   const item = page.getByRole('checkbox', { name: /Item/ });
   await expect(being).toBeChecked();
   await expect(item).not.toBeChecked();
-  await item.check();
-  await being.uncheck();
+  await item.check({ force: true });
+  await being.uncheck({ force: true });
   await expect(status(page)).toHaveText('Synced');
   await expect(page.locator('.pane-entry .kind')).toHaveText('item');
   expect(await writes(page)).toEqual([
@@ -596,13 +629,13 @@ test('an entry can be an item, a being, both or neither', async ({ page }) => {
     { id: 'ashfang', field: 'kind:being', value: false },
   ]);
   // the entry may be neither: a bare entry is what a group is
-  await item.uncheck();
+  await item.uncheck({ force: true });
   await expect(page.locator('.pane-entry .kind')).toHaveText('bare entry');
 });
 
 test('a kind change is undone from the entry', async ({ page }) => {
   await page.locator('[data-entry="ashfang"]').click();
-  await page.getByRole('checkbox', { name: /Item/ }).check();
+  await page.getByRole('checkbox', { name: /Item/ }).check({ force: true });
   await expect(status(page)).toHaveText('Synced');
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('checkbox', { name: /Item/ })).not.toBeChecked();
@@ -669,7 +702,7 @@ test.describe('links to entries in text', () => {
   test('links work in notes too, and a link to an entry made here shows once it is sent', async ({
     page,
   }) => {
-    await page.getByLabel('Name of the new entry').fill('Winter wolf');
+    await (await newEntry(page)).fill('Winter wolf');
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(page.locator('[data-entry]', { hasText: 'Winter wolf' })).toBeVisible();
     await page.locator('[data-entry="wolf"]').click();
@@ -869,6 +902,8 @@ test.describe('the link buttons', () => {
     page,
   }) => {
     await page.locator('[data-entry="zombie"]').click();
+    // The entry's picture draws the page again when it arrives, which would take the selection.
+    await expect(page.locator('.pane-entry .picture')).not.toContainText('Loading');
     await description(page).fill('Fears dire');
     await description(page).evaluate((a: HTMLTextAreaElement) => a.setSelectionRange(6, 10));
     await page.getByRole('button', { name: 'Link to an entry' }).first().click();
@@ -1161,8 +1196,10 @@ test.describe('the ancestry graph', () => {
   }) => {
     await page.locator('[data-entry="undead"]').click();
     await palette(page, 'Open Ancestry');
-    for (const id of ['monster', 'undead', 'zombie', 'ghoul', 'beast'])
+    // Its line only: what it inherits from, itself and what is directly under it.
+    for (const id of ['monster', 'undead', 'zombie', 'ghoul'])
       await expect(node(page, id)).toBeVisible();
+    await expect(node(page, 'beast')).toHaveCount(0);
     await expect(node(page, 'undead')).toHaveAttribute('aria-label', 'Undead (this entry)');
   });
 
@@ -1197,7 +1234,7 @@ test.describe('entry editor polish', () => {
 
   test('the Links tab counts the parents and children of the entry', async ({ page }) => {
     await page.locator('[data-entry="undead"]').click();
-    await expect(page.getByRole('tab', { name: /Parents and children/ })).toContainText('3');
+    await expect(page.getByRole('tab', { name: /Links/ })).toContainText('3');
   });
 
   test('a decimal stat is edited, and a typo is put back', async ({ page }) => {
@@ -1305,6 +1342,8 @@ test.describe('link names', () => {
 
   test('a link name the API would refuse is said, not sent', async ({ page }) => {
     await page.locator('[data-entry="wolf"]').click();
+    // What the entry is waiting for (its picture) draws the page again when it comes.
+    await expect(page.locator('.pane-entry .picture')).not.toContainText('Loading');
     await linkName(page).fill('two words');
     await linkName(page).press('Enter');
     await expect(page.locator('.link-name .bad')).toContainText('letters, digits');
@@ -1313,6 +1352,8 @@ test.describe('link names', () => {
 
   test("another entry having it is Needs attention, with the API's words", async ({ page }) => {
     await page.locator('[data-entry="wolf"]').click();
+    // What the entry is waiting for (its picture) draws the page again when it comes.
+    await expect(page.locator('.pane-entry .picture')).not.toContainText('Loading');
     await linkName(page).fill('monster');
     await linkName(page).press('Enter');
     await expect(page.getByRole('alert')).toContainText('already in use');
@@ -1339,7 +1380,7 @@ test.describe('link names', () => {
   test('a new entry is made with the link name its name makes, so a link to it works at once', async ({
     page,
   }) => {
-    await page.getByLabel('Name of the new entry').fill('Frost drake');
+    await (await newEntry(page)).fill('Frost drake');
     await page.getByRole('button', { name: 'Add', exact: true }).click();
     await page.locator('[data-entry="zombie"]').click();
     await page.getByLabel('Description', { exact: true }).fill('Fears the [[Frost drake]].');
@@ -1389,7 +1430,7 @@ test.describe('formulas and the stat vocabulary', () => {
     const editor = page.getByRole('region', { name: 'Formula for Armor class' });
     await editor.getByLabel('Stat in row 1').selectOption({ label: 'Weight' });
     await editor.getByRole('button', { name: 'Save' }).click();
-    await page.getByRole('tab', { name: 'Explorer' }).click();
+    await page.getByRole('tab', { name: 'Entries' }).click();
     await page.locator('[data-entry="dire-wolf"]').click();
     await page.getByRole('tab', { name: 'Formulas' }).click();
     const row = formula(page).locator('[data-formula="armor"]');
@@ -1534,5 +1575,45 @@ test.describe('the pack editor', () => {
     await expect(pane(page).locator('[data-row="0"]')).toBeFocused();
     await pane(page).getByLabel('Make this an item').first().selectOption({ label: 'Ashfang' });
     await expect(rows(page).first()).toHaveText('Ashfang');
+  });
+});
+
+test.describe('the quiet interface', () => {
+  test('an empty description says what to write, and is written in once it is clicked', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="beast"]').click();
+    const prompt = page.getByPlaceholder('Write a description…');
+    await expect(prompt).toBeVisible();
+    // Showing it does not take the focus from wherever the person is.
+    await expect(prompt).not.toBeFocused();
+    await prompt.click();
+    await page.keyboard.type('Natural creatures.');
+    await blur(page);
+    await expect
+      .poll(() => writes(page))
+      .toEqual([{ id: 'beast', field: 'description', value: 'Natural creatures.' }]);
+  });
+
+  test('a long paragraph is shown whole when it is clicked, wrapped lines and all', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="beast"]').click();
+    await page.getByPlaceholder('Write a description…').click();
+    const words = Array.from({ length: 120 }, (_, i) => `word${i}`).join(' ');
+    await page.keyboard.insertText(words);
+    const field = description(page);
+    await expect(field).toHaveValue(words);
+    const cut = await field.evaluate((a) => a.scrollHeight - a.clientHeight);
+    expect(cut).toBeLessThanOrEqual(1);
+  });
+
+  test('the ancestry shows the line of the entry only, as names', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'Open Ancestry');
+    await expect(page.locator('[data-ancestry]')).toHaveCount(4);
+    for (const id of ['monster', 'beast', 'wolf', 'dire-wolf'])
+      await expect(page.locator(`[data-ancestry="${id}"]`)).toBeVisible();
+    await expect(page.locator('[data-ancestry="ghoul"]')).toHaveCount(0);
   });
 });

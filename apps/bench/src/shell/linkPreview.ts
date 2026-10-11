@@ -35,6 +35,9 @@ export function excerptOf(text: string): string {
 let card: HTMLElement | null = null;
 let turn = 0;
 
+/** Set while the page puts a focus back after drawing: that is not a person reaching a link. */
+export const focusing = { restoring: false };
+
 export function hideCard() {
   turn++;
   card?.remove();
@@ -83,7 +86,7 @@ export function attachLinkPreviews(
     if (linkOf(e)) hideCard();
   });
   root.addEventListener('focusin', (e) => {
-    const link = linkOf(e);
+    const link = focusing.restoring ? null : linkOf(e);
     if (link) void show(link);
   });
   root.addEventListener('focusout', (e) => {

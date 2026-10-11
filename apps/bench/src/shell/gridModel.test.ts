@@ -81,6 +81,7 @@ describe('typed cells', () => {
 
 describe('where a value comes from', () => {
   const entries = [e('a', 'A'), e('b', 'B', ['a']), e('c', 'C', ['b']), e('d', 'D', ['x', 'a'])];
+  const byId = new Map(entries.map((x) => [x.id, x]));
   const ids: Record<string, string> = { Weight: 'w', Price: 'p' };
   const state = (stats: { name: string; value: number; own: boolean }[]) =>
     valuesOf({
@@ -94,16 +95,16 @@ describe('where a value comes from', () => {
   ]);
 
   it('is the entry itself when the value is its own', () => {
-    expect(valueSource(entries, values, 'a', 'w')).toEqual({ kind: 'own' });
+    expect(valueSource(byId, values, 'a', 'w')).toEqual({ kind: 'own' });
   });
 
   it('is the nearest entry above with a value of its own', () => {
-    expect(valueSource(entries, values, 'c', 'w')).toEqual({ kind: 'inherited', from: 'a' });
+    expect(valueSource(byId, values, 'c', 'w')).toEqual({ kind: 'inherited', from: 'a' });
   });
 
   it('is nowhere when nothing above has one, and a parent that is not there is skipped', () => {
-    expect(valueSource(entries, values, 'a', 'p')).toEqual({ kind: 'none' });
-    expect(valueSource(entries, values, 'd', 'w')).toEqual({ kind: 'inherited', from: 'a' });
+    expect(valueSource(byId, values, 'a', 'p')).toEqual({ kind: 'none' });
+    expect(valueSource(byId, values, 'd', 'w')).toEqual({ kind: 'inherited', from: 'a' });
   });
 });
 

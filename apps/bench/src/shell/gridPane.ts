@@ -82,11 +82,11 @@ export function renderGrid(bench: Bench, state: GridState, opts: GridOptions): H
     .map((id) => defs.get(id))
     .filter((d): d is StatDef => d !== undefined);
   const rows = gridOrder(bench.listing(), state.order, state.filter);
-  const values = new Map<string, Values>();
-  for (const { entry } of rows) values.set(entry.id, valuesOf(bench.view(entry.id)));
   // The sources of inherited values need what is above a row, which may not be in the rows shown.
-  for (const e of bench.listing())
-    if (!values.has(e.id)) values.set(e.id, valuesOf(bench.view(e.id)));
+  const listing = bench.listing();
+  const byId = new Map(listing.map((e) => [e.id, e]));
+  const values = new Map<string, Values>();
+  for (const e of listing) values.set(e.id, valuesOf(bench.view(e.id)));
 
   const rerender = () => opts.redraw();
   const cellDef = (col: number) => columns[col];
@@ -325,7 +325,7 @@ export function renderGrid(bench: Bench, state: GridState, opts: GridOptions): H
       td.dataset.cell = `${row},${col}`;
       td.setAttribute('role', 'gridcell');
       const mine = values.get(entry.id)?.get(def.id);
-      const source = valueSource(bench.listing(), values, entry.id, def.id);
+      const source = valueSource(byId, values, entry.id, def.id);
       if (inRange(row, col)) td.classList.add('sel');
       if (state.focus?.row === row && state.focus.col === col) td.classList.add('cur');
       if (state.editing?.row === row && state.editing.col === col) {
@@ -450,7 +450,7 @@ export function renderGrid(bench: Bench, state: GridState, opts: GridOptions): H
     const entry = rows[state.focus.row]?.entry;
     const def = cellDef(state.focus.col);
     if (entry && def) {
-      const source = valueSource(bench.listing(), values, entry.id, def.id);
+      const source = valueSource(byId, values, entry.id, def.id);
       const card = el('div', 'grid-source');
       card.append(el('strong', undefined, entry.name));
       card.append(

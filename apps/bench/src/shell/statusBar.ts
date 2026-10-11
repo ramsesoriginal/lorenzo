@@ -3,6 +3,7 @@
 import type { Bench } from '../core/bench';
 import type { Command } from '../core/commands';
 import { kindsText } from './entryPane';
+import { icon } from './icons';
 
 export interface Sync {
   conflicts: number;
@@ -43,7 +44,11 @@ export function drawStatusBar(
 ): void {
   const sync = summarize(bench.outbox);
   const problem = sync.conflicts + sync.attention > 0;
-  const state = el(problem ? 'button' : 'span', `sb-sync ${problem ? 'bad' : ''}`, syncText(sync));
+  const state = el(problem ? 'button' : 'span', `sb-sync ${problem ? 'bad' : ''}`);
+  state.append(
+    icon(problem ? 'alert' : sync.waiting ? 'sync' : 'check', 14),
+    document.createTextNode(syncText(sync)),
+  );
   if (state instanceof HTMLButtonElement) {
     state.type = 'button';
     state.title = 'Review what could not be sent';
