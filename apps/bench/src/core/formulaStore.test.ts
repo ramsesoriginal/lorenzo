@@ -49,6 +49,6 @@ describe('FormulaStore', () => {
     expect(held?.statId).toBe('w');
     await store.remove('e', 'w', held?.version ?? '');
     expect(store.held('e')).toEqual([]);
-    expect(changes).toBeGreaterThan(2);
+    expect(changes).toBe(2); // a save and a removal; reading none says nothing
   });
 });

@@ -227,7 +227,7 @@ function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLEl
  * loses focus (so a half-typed sentence is never sent).
  */
 /** The entry's main picture, with a way to choose another and to take it away. Online only. */
-function pictureSection(bench: Bench, id: string): HTMLElement {
+export function pictureSection(bench: Bench, id: string): HTMLElement {
   const box = el('div', 'picture');
   const pictures = bench.pictures;
   if (!bench.onServer(id)) {

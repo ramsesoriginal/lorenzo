@@ -41,11 +41,19 @@ import {
 } from '../workspace/presets';
 import { renderAncestry } from './ancestryPane';
 import { openConflicts } from './conflictDialog';
-import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
+import {
+  kindsText,
+  pictureSection,
+  redraw,
+  renderEntry,
+  renderLinks,
+  statusText,
+} from './entryPane';
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
 import { type FormulaUi, newFormulaUi, renderFormulas } from './formulaPane';
 import { type GridState, newGridState, renderGrid } from './gridPane';
 import { icon, kindIcon } from './icons';
+import { focusing } from './linkPreview';
 import { newPackUi, type PackUi, renderPack } from './packPane';
 import { newPicturesUi, type PicturesUi, renderPictures } from './picturesPane';
 import { renderStats } from './statsPane';
@@ -167,15 +175,32 @@ export class Shell {
     window.addEventListener('keydown', (e) => this.onKey(e));
     this.watchPending();
     this.unsubscribe = bench.subscribe((background) => (background ? this.later() : this.render()));
+    this.unsubscribePictures = bench.subscribePictures(() => this.pictureChanged());
     this.render();
+  }
+
+  private unsubscribePictures: (() => void) | null = null;
+
+  /**
+   * A picture was read, set or taken away. Where it shows next to the entry, that part is made
+   * again on its own, so what is being written in the entry is left alone; panes that list pictures
+   * are drawn again.
+   */
+  private pictureChanged() {
+    if (this.root.querySelector('.pane-pictures')) return this.later();
+    const id = this.selected;
+    const now = this.root.querySelector('.pane-entry .picture');
+    if (id && now) now.replaceWith(pictureSection(this.bench, id));
   }
 
   /** Hands the shell the bench to show, once the session has said which repository it is. */
   use(bench: Bench) {
     this.unsubscribe?.();
+    this.unsubscribePictures?.();
     this.bench = bench;
     this.selected = null;
     this.unsubscribe = bench.subscribe((background) => (background ? this.later() : this.render()));
+    this.unsubscribePictures = bench.subscribePictures(() => this.pictureChanged());
     this.render();
   }
 
@@ -323,6 +348,7 @@ export class Shell {
       s.append(empty);
     }
     if (kept) {
+      focusing.restoring = true;
       const found = s.querySelector<HTMLElement>(`[data-key="${kept.key}"]`);
       if (found instanceof HTMLInputElement || found instanceof HTMLTextAreaElement) {
         if (kept.value !== null) {
@@ -334,6 +360,7 @@ export class Shell {
         found.focus();
         if (kept.at !== null) found.setSelectionRange(kept.at, kept.to ?? kept.at);
       } else found?.focus();
+      focusing.restoring = false;
     }
   }
 

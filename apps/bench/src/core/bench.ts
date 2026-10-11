@@ -74,9 +74,21 @@ export class Bench {
     this.formulas = new FormulaStore(transport, () => this.emitLater());
     this.pictures = new Pictures(
       transport,
-      () => this.emitLater(),
+      () => {
+        for (const fn of this.pictureListeners) fn();
+      },
       (id) => this.links.forgetPicture(id),
     );
+  }
+
+  private pictureListeners = new Set<() => void>();
+  /**
+   * `fn` is told when a picture has been read, set or taken away, and nothing else: a picture is
+   * one small part of the page, which should not be drawn again whole for it.
+   */
+  subscribePictures(fn: () => void): () => void {
+    this.pictureListeners.add(fn);
+    return () => this.pictureListeners.delete(fn);
   }
 
   /** `fn` is told of every change; `background` says it was not asked for by the person. */

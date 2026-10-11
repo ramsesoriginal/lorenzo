@@ -214,6 +214,7 @@ export function renderPack(
       const input = el('input');
       input.type = 'text';
       input.placeholder = 'Something that is not an item';
+      input.dataset.key = 'pack-text';
       input.setAttribute('aria-label', 'Plain text row');
       const add = el('button', 'btn', 'Add text');
       add.type = 'submit';

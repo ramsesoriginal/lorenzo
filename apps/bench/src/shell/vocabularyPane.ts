@@ -93,6 +93,7 @@ export function renderVocabulary(bench: Bench, ui: VocabularyUi, redraw: () => v
   const name = el('input');
   name.type = 'text';
   name.placeholder = 'Name of the new stat';
+  name.dataset.key = 'vocab-name';
   name.setAttribute('aria-label', 'Name of the new stat');
   const type = el('select');
   type.setAttribute('aria-label', 'Kind of value');
@@ -100,6 +101,7 @@ export function renderVocabulary(bench: Bench, ui: VocabularyUi, redraw: () => v
   const values = el('input');
   values.type = 'text';
   values.placeholder = 'Values, separated by commas';
+  values.dataset.key = 'vocab-values';
   values.setAttribute('aria-label', 'Values');
   values.hidden = true;
   type.addEventListener('change', () => {
@@ -112,6 +114,7 @@ export function renderVocabulary(bench: Bench, ui: VocabularyUi, redraw: () => v
   const groupName = el('input');
   groupName.type = 'text';
   groupName.placeholder = 'Name of the new group';
+  groupName.dataset.key = 'vocab-group';
   groupName.setAttribute('aria-label', 'Name of the new group');
   groupName.hidden = true;
   const syncGroup = () => {
