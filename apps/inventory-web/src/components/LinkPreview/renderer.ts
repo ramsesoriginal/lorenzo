@@ -119,6 +119,8 @@ export function installLinkPreviews(): void {
     if (linkOf(event)) state.leave();
   });
   document.addEventListener('focusin', (event) => {
+    // A tap focuses the link too; the tap's own click decides what it does.
+    if (touched) return;
     const link = linkOf(event);
     if (link) state.focus(link);
   });
@@ -126,6 +128,7 @@ export function installLinkPreviews(): void {
     if (linkOf(event)) state.blur();
   });
   document.addEventListener('keydown', (event) => {
+    touched = false;
     if (event.key === 'Escape' && state.shown()) {
       state.escape();
     }
