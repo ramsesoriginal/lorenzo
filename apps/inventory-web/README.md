@@ -101,6 +101,9 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
   and a "used as a prototype by" reverse lookup
 - Instantiate a catalog item into a new instance, with an optional owner and
   slug
+- Edit an item's or instance's stat values on its page (a field per type, its
+  own value or inherited again; [ADR
+  0263](../../docs/adr/0263-inventory-web-editing-stat-values.md))
 - Browse/reassign/unassign/delete existing instances
 - Browse any being's inventory (not just their own characters) — by
   search, or an entity id or slug for a "bare" being with no Character row — and
@@ -109,7 +112,7 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
 
 Deliberately not built yet: naming who may read a private piece of
 information (ADR 0109's knowers) beyond a note's own character, showing who
-wrote a note, editing stat values other than tags, and uploading pictures —
+wrote a note, and uploading pictures —
 see the tracking issue for what's actually in flight.
 
 ## Commands

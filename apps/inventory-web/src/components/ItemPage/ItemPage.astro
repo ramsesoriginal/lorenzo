@@ -6,6 +6,7 @@ import ItemView from '../ItemView/ItemView.astro';
 import MentionedIn from '../MentionedIn/MentionedIn.astro';
 import Notes from '../Notes/Notes.astro';
 import SlugEditor from '../SlugEditor/SlugEditor.astro';
+import StatEditor from '../StatEditor/StatEditor.astro';
 import TagEditor from '../TagEditor/TagEditor.astro';
 import UsedBy from '../UsedBy/UsedBy.astro';
 ---
@@ -50,6 +51,10 @@ import UsedBy from '../UsedBy/UsedBy.astro';
         <div class="section" role="region" aria-labelledby="item-tags-heading">
           <h2 id="item-tags-heading">Tags</h2>
           <TagEditor />
+        </div>
+        <div class="section" role="region" aria-labelledby="item-stats-heading">
+          <h2 id="item-stats-heading">Stats</h2>
+          <StatEditor />
         </div>
         <div class="section" role="region" aria-labelledby="item-information-heading">
           <h2 id="item-information-heading">Information</h2>

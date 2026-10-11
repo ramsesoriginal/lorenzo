@@ -16,6 +16,7 @@ import { renderItemView } from '../ItemView/renderer';
 import { renderMentionedIn } from '../MentionedIn/renderer';
 import { type Reader, renderNotes } from '../Notes/renderer';
 import { renderSlugEditor } from '../SlugEditor/renderer';
+import { renderStatEditor } from '../StatEditor/renderer';
 import { renderTagEditor } from '../TagEditor/renderer';
 import { renderUsedBy } from '../UsedBy/renderer';
 
@@ -78,6 +79,7 @@ export function renderItemPage(options: ItemPageOptions): RenderedItemPage {
     gmSections.hidden = false;
     void slugEditor.load(item.entity_id, item.title, isInstance ? 'instance' : 'item');
     void tagEditor.load(item.entity_id);
+    void statEditor.load(item.entity_id);
     showInformation();
   }
 
@@ -112,6 +114,11 @@ export function renderItemPage(options: ItemPageOptions): RenderedItemPage {
   });
   const tagEditor = renderTagEditor({
     root: required<HTMLElement>(root, '[data-tag-editor]'),
+    tenantId,
+    onChanged: () => void refresh(),
+  });
+  const statEditor = renderStatEditor({
+    root: required<HTMLElement>(root, '[data-stat-editor]'),
     tenantId,
     onChanged: () => void refresh(),
   });
