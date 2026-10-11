@@ -7,6 +7,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 import ActivityLog from '../ActivityLog/ActivityLog.astro';
 import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
+import TenantDelete from '../TenantDelete/TenantDelete.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
 ---
 
@@ -129,6 +130,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           </button>
           <span class="status-text" role="status" data-leave-status hidden></span>
         </div>
+
+        <!-- An Owner deletes it; an Organizer is told why not (ADR 0267). -->
+        <div data-delete-slot hidden></div>
       </section>
     </div>
 
@@ -253,6 +257,10 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       </div>
     </form>
   </dialog>
+
+  <template data-tenant-delete-template>
+    <TenantDelete />
+  </template>
 
   <template data-release-template>
     <li class="card card-body stack">

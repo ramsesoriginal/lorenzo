@@ -132,14 +132,18 @@ _KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character]], 
 async def parents_of(
     session: SessionDep, entity_ids: Sequence[uuid.UUID]
 ) -> dict[uuid.UUID, list[uuid.UUID]]:
-    """The direct parents of each of entity_ids, in id order, one query for all of them (ADR
-    0229): an entry with none has an empty list."""
+    """The direct parents of each of entity_ids, in their order (ADR 0266, ties by id), one query
+    for all of them (ADR 0229): an entry with none has an empty list."""
     found: dict[uuid.UUID, list[uuid.UUID]] = {entity_id: [] for entity_id in entity_ids}
     if entity_ids:
         edges = (
             select(EntityPrototype.entity_id, EntityPrototype.prototype_id)
             .where(entity_id_among(EntityPrototype.entity_id, entity_ids))
-            .order_by(EntityPrototype.entity_id, EntityPrototype.prototype_id)
+            .order_by(
+                EntityPrototype.entity_id,
+                EntityPrototype.position,
+                EntityPrototype.prototype_id,
+            )
         )
         for entity_id, parent_id in (await session.execute(edges)).tuples():
             found[entity_id].append(parent_id)

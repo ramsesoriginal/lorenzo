@@ -10,7 +10,7 @@ app_user.last_seen_roles remembers the Authgear roles on the user's latest inter
 a personal token can carry the tenant-creator capability the user had when they last signed in.
 
 Revision ID: b9d1e47a3c62
-Revises: c4e7a19b5d28
+Revises: d7a3f1b9c2e4
 Create Date: 2026-10-11 12:00:00.000000
 
 """
@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b9d1e47a3c62"
-down_revision: str | None = "c4e7a19b5d28"
+down_revision: str | None = "d7a3f1b9c2e4"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 

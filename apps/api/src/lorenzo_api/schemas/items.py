@@ -231,11 +231,11 @@ class ItemUpdate(BaseModel):
 
 def _prototype_ids_out(entity: Entity) -> list[uuid.UUID]:
     """entity.prototype_links (ADR 0015) - this entity's own direct
-    prototypes, as bare ids. Sorted for a deterministic response; the
-    underlying edges are an unordered set (entity_prototype carries no
-    ordering column of its own).
+    prototypes, as bare ids, in their order (`position`, ADR 0266), ties by id so the response
+    is deterministic.
     """
-    return sorted((link.prototype_id for link in entity.prototype_links), key=str)
+    links = sorted(entity.prototype_links, key=lambda link: (link.position, str(link.prototype_id)))
+    return [link.prototype_id for link in links]
 
 
 def _named_number(view: VItem | VItemInstance, name: str, column: int | None) -> int | float | None:

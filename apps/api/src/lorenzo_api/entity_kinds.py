@@ -65,7 +65,7 @@ async def create_entry(
     name: str,
     slug: str | None,
     kinds: Collection[Kind],
-    parents: Collection[uuid.UUID],
+    parents: Sequence[uuid.UUID],
     in_public_catalog: bool,
     entity_id: uuid.UUID | None = None,
 ) -> Entity:
@@ -112,9 +112,11 @@ async def create_entry(
         )
     if "being" in kinds:
         session.add(Being(entity_id=entity.id, tenant_id=tenant_id))
-    for parent_id in wanted:
+    for position, parent_id in enumerate(dict.fromkeys(parents)):
         session.add(
-            EntityPrototype(entity_id=entity.id, prototype_id=parent_id, tenant_id=tenant_id)
+            EntityPrototype(
+                entity_id=entity.id, prototype_id=parent_id, tenant_id=tenant_id, position=position
+            )
         )
     await session.flush()
     return entity

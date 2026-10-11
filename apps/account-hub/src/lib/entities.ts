@@ -19,3 +19,15 @@ export async function getEntityLabel(tenantId: string, entityId: string): Promis
     return null;
   }
 }
+
+// How many entries a library or repository holds, for saying what deleting it would lose. One
+// request for a page of one: the answer is the total, not the page.
+export async function countEntries(tenantId: string): Promise<number> {
+  const page = await unwrap(
+    await client.GET('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id: tenantId }, query: { page: 1, size: 1 } },
+    }),
+  );
+
+  return page.total ?? page.items.length;
+}

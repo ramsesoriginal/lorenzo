@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, FetchedValue
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, TenantFk, same_tenant_fk
@@ -33,6 +33,9 @@ class EntityPrototype(Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     prototype_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
+    # The place among the entry's parents, earlier first (ADR 0266). Left unset, a trigger puts
+    # the row last; it is what breaks a tie between ancestors of equal distance and priority.
+    position: Mapped[int] = mapped_column(server_default=FetchedValue())
 
     entity: Mapped[Entity] = relationship(
         lazy="raise_on_sql", foreign_keys=[entity_id], back_populates="prototype_links"

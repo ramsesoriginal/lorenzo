@@ -41,6 +41,7 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
   // A saved name and slug show in the heading at once, without loading everything again.
   const tenantHooks: TenantHooks = {
     onChanged: hooks.onChanged,
+    onDeleted: hooks.onDeleted,
     onRenamed(updated: TenantOut) {
       name.textContent = updated.name;
       slug.textContent = updated.slug;
