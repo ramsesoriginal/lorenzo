@@ -189,18 +189,17 @@ export function renderNotificationBell(root: HTMLElement): void {
     }
   });
 
-  // Escape closes; Tab stays between the bell and the end of its dropdown.
-  bell.addEventListener('keydown', (event) => {
-    if (panel.hidden) return;
-
-    if (event.key === 'Escape') {
+  // Escape closes wherever the focus has got to (a button that was clicked may be gone).
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !panel.hidden) {
       event.preventDefault();
       close();
-
-      return;
     }
+  });
 
-    if (event.key !== 'Tab') return;
+  // Tab stays between the bell and the end of its dropdown.
+  bell.addEventListener('keydown', (event) => {
+    if (panel.hidden || event.key !== 'Tab') return;
 
     const stops = focusables();
     const first = stops[0];
