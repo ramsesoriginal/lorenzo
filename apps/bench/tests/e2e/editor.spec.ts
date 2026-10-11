@@ -1405,3 +1405,47 @@ test.describe('formulas and the stat vocabulary', () => {
     await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toHaveCount(0);
   });
 });
+
+test.describe('the status bar and the conflict review', () => {
+  const bar = (page: Page) => page.locator('.statusbar');
+  const conflict = async (page: Page) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await page.evaluate(() =>
+      (window as unknown as SampleWindow).sample.renameElsewhere('wolf', 'Coyote'),
+    );
+  };
+
+  test('says what is selected, how the changes are doing, and the connection', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await expect(bar(page)).toContainText('Wolf · item · 2 links');
+    await expect(bar(page)).toContainText('Synced');
+    await expect(bar(page)).toContainText('Online');
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await expect(bar(page)).toContainText('Waiting to sync (1)');
+    await expect(bar(page)).toContainText('Offline');
+  });
+
+  test('a conflict is reviewed from the bar, with what it was, mine and theirs', async ({
+    page,
+  }) => {
+    await conflict(page);
+    await palette(page, 'get the connection back');
+    await expect(bar(page)).toContainText('Conflict (1)');
+    await bar(page)
+      .getByRole('button', { name: /Conflict/ })
+      .click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Was');
+    await expect(dialog).toContainText('“Hound”');
+    await expect(dialog).toContainText('“Coyote”');
+    await expect(dialog).toContainText('Other entries keep syncing while these wait.');
+    await dialog.getByRole('button', { name: 'Keep mine' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(bar(page)).toContainText('Synced');
+  });
+});

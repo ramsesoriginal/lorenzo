@@ -39,11 +39,13 @@ import {
   type Preset,
 } from '../workspace/presets';
 import { renderAncestry } from './ancestryPane';
+import { openConflicts } from './conflictDialog';
 import { kindsText, redraw, renderEntry, renderLinks, statusText } from './entryPane';
 import { buildRows, counts, filterEntries, moveTargets, ORDERS, type Order } from './explorerRows';
 import { type FormulaUi, newFormulaUi, renderFormulas } from './formulaPane';
 import { type GridState, newGridState, renderGrid } from './gridPane';
 import { renderStats } from './statsPane';
+import { drawStatusBar } from './statusBar';
 import { PANE_IDS, PANES } from './stub';
 import { newVocabularyUi, renderVocabulary, type VocabularyUi } from './vocabularyPane';
 
@@ -114,6 +116,7 @@ export class Shell {
   private palette: HTMLElement | null = null;
   /** The Write / Inspect / Compare switch; the page puts it in the title bar. */
   readonly layoutEl = el('div', 'layouts');
+  readonly statusEl = el('footer', 'statusbar');
   /** What the Table and the Compare grid keep while the page is drawn again. */
   private formulaUi: FormulaUi = newFormulaUi();
   private vocabularyUi: VocabularyUi = newVocabularyUi();
@@ -252,6 +255,9 @@ export class Shell {
           }
         : null;
     this.drawLayouts();
+    drawStatusBar(this.statusEl, this.bench, this.selected, () =>
+      openConflicts(this.bench, (x) => this.select(x)),
+    );
     redraw.active = true;
     s.replaceChildren();
     redraw.active = false;

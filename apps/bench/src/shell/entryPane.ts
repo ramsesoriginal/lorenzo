@@ -337,7 +337,7 @@ function newNote(bench: Bench, entryId: string): HTMLElement {
 export const kindsText = (kinds: readonly string[]): string =>
   kinds.length ? kinds.map((k) => k.replace('_', ' ')).join(' and ') : 'bare entry';
 
-const show = (v: unknown, bench: Bench, cmd?: Command): string => {
+export const showValue = (v: unknown, bench: Bench, cmd?: Command): string => {
   if (cmd?.type === 'notes.set-order') return 'another order';
   if (cmd?.type === 'entry.set-slug' && v === null) return 'no link name';
   if (Array.isArray(v)) return v.map((p) => bench.displayName(p)).join(', ') || 'none';
@@ -346,18 +346,24 @@ const show = (v: unknown, bench: Bench, cmd?: Command): string => {
   return typeof v === 'string' ? `“${v}”` : String(v);
 };
 
-function conflictRow(bench: Bench, cmd: Command): HTMLElement {
-  const label =
+/** What a command changes, in a person's words: "name", "Weight", "link name". */
+export function fieldLabel(cmd: Command): string {
+  return (
     cmd.stat?.name ??
     (cmd.type === 'entry.set-slug' ? 'link name' : undefined) ??
     (cmd.type === 'notes.set-order' ? 'order of the notes' : undefined) ??
-    (cmd.kind ? `${cmd.kind} kind` : cmd.type === 'entry.set-name' ? 'name' : 'parents');
+    (cmd.kind ? `${cmd.kind} kind` : cmd.type === 'entry.set-name' ? 'name' : 'parents')
+  );
+}
+
+function conflictRow(bench: Bench, cmd: Command): HTMLElement {
+  const label = fieldLabel(cmd);
   const box = el('div', 'problem problem-conflict');
   box.setAttribute('role', 'alert');
   box.append(
     el('strong', undefined, 'Conflict. '),
     document.createTextNode(
-      `The ${label} was changed elsewhere to ${show(cmd.theirs, bench, cmd)}. Yours: ${show(cmd.mine, bench, cmd)}.`,
+      `The ${label} was changed elsewhere to ${showValue(cmd.theirs, bench, cmd)}. Yours: ${showValue(cmd.mine, bench, cmd)}.`,
     ),
   );
   const actions = el('span', 'actions');

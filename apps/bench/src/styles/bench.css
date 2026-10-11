@@ -1092,3 +1092,69 @@ table.grid td.cur {
   flex-wrap: wrap;
   gap: 4px;
 }
+
+.statusbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  height: 22px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bar);
+  border-top: 1px solid var(--line);
+}
+.statusbar .sb-selection {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.statusbar .bad {
+  color: var(--danger, #b3261e);
+}
+.statusbar button.sb-sync {
+  font: inherit;
+  padding: 0;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.review {
+  max-width: 560px;
+}
+.review-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.review-item {
+  border: 1px solid var(--line);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.review-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.review-values {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.review-values dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.review-values dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

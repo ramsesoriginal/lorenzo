@@ -28,6 +28,7 @@ import '../styles/bench.css';
     </header>
     <div class="live" id="live" role="status" hidden></div>
     <main id="bench"></main>
+    <footer class="statusbar" id="statusbar"></footer>
     <script>
       import { Bench } from '../core/bench';
       import { SampleTransport } from '../core/sample';
@@ -71,6 +72,7 @@ import '../styles/bench.css';
         guardUnsent(() => bench);
         renderTitleBar(bar, session, () => location.reload(), leave);
         bar.insertBefore(shell.layoutEl, bar.querySelector('.hint'));
+        document.getElementById('statusbar')?.replaceWith(shell.statusEl);
 
         const extra = [];
         if (session.kind === 'signed-in') {
