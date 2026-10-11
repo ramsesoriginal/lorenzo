@@ -39,6 +39,7 @@ from lorenzo_api.models.payload_description import PayloadDescription
 from lorenzo_api.models.payload_document import PayloadDocument
 from lorenzo_api.models.payload_number import PayloadNumber
 from lorenzo_api.models.payload_picture import PayloadPicture
+from lorenzo_api.models.personal_access_token import DeviceAuthorization, PersonalAccessToken
 from lorenzo_api.models.player import Player
 from lorenzo_api.models.profile_picture import ProfilePicture
 from lorenzo_api.models.repository_copy import (
@@ -107,6 +108,8 @@ __all__ = [
     "PayloadDocument",
     "PayloadNumber",
     "PayloadPicture",
+    "DeviceAuthorization",
+    "PersonalAccessToken",
     "Player",
     "ProfilePicture",
     "RepositoryCopy",

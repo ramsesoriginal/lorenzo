@@ -10,6 +10,7 @@ stable, programmatically-distinguishable value beyond the human-readable
 """
 
 from fastapi_problem.error import (
+    BadRequestProblem,
     ConflictProblem,
     ForbiddenProblem,
     NotFoundProblem,
@@ -111,6 +112,15 @@ __all__ = [
     "RepositoryHasUnprovenKindsError",
     "ReleaseNotFoundError",
     "UpdateNeedsConfirmationError",
+    "AuthorizationPendingError",
+    "SlowDownError",
+    "DeviceCodeExpiredError",
+    "AccessDeniedError",
+    "DeviceCodeNotFoundError",
+    "PersonalTokenNotFoundError",
+    "PersonalTokenForbiddenError",
+    "InvalidTokenExpiryError",
+    "TooManyTokensError",
 ]
 
 
@@ -1076,3 +1086,58 @@ class InvalidExportCursorError(UnprocessableProblem):
     """GET .../entities/export with a cursor that this API did not give out (ADR 0262)."""
 
     title = "Invalid export cursor"
+
+
+class AuthorizationPendingError(BadRequestProblem):
+    """POST /device-codes/token - the user has not approved yet; keep polling (ADR 0268, the
+    RFC 8628 `authorization_pending`). The `type` of the problem is what a client reads.
+    """
+
+    title = "Authorization pending"
+
+
+class SlowDownError(BadRequestProblem):
+    """POST /device-codes/token - polled faster than `interval` (RFC 8628 `slow_down`)."""
+
+    title = "Slow down"
+
+
+class DeviceCodeExpiredError(BadRequestProblem):
+    """POST /device-codes/token - the code is unknown, used up or past its time (RFC 8628
+    `expired_token`); one answer for all three, so a response says nothing about which.
+    """
+
+    title = "Device code expired"
+
+
+class AccessDeniedError(BadRequestProblem):
+    """POST /device-codes/token - the user denied the request (RFC 8628 `access_denied`)."""
+
+    title = "Access denied"
+
+
+class DeviceCodeNotFoundError(NotFoundProblem):
+    """GET/POST /me/device-codes/{user_code}... - no pending request has this code."""
+
+    title = "Device code not found"
+
+
+class PersonalTokenNotFoundError(NotFoundProblem):
+    title = "Personal access token not found"
+
+
+class PersonalTokenForbiddenError(ForbiddenProblem):
+    """A personal access token tried to manage personal access tokens (ADR 0268): only a
+    signed-in session may approve, list or revoke them, so that a leaked token cannot make
+    itself permanent.
+    """
+
+    title = "A personal access token cannot manage personal access tokens"
+
+
+class InvalidTokenExpiryError(UnprocessableProblem):
+    title = "Invalid token expiry"
+
+
+class TooManyTokensError(ConflictProblem):
+    title = "Too many personal access tokens"
