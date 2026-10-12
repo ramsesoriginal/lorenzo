@@ -2,9 +2,11 @@
 it shows no more than the single read does."""
 
 import uuid
+from collections.abc import AsyncGenerator
 
+import pytest
 from _admin_db import admin_session_factory
-from conftest import make_character, make_plain_participant
+from conftest import delete_tenant, make_character, make_plain_participant
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +32,18 @@ from lorenzo_api.models import (
     Tenant,
 )
 
+_MADE: list[uuid.UUID] = []
+
+
+@pytest.fixture(autouse=True)
+async def _remove_the_tenants_made() -> AsyncGenerator[None]:
+    """Every test here makes a library the shared test user owns; left behind, it makes the user
+    the sole owner of something and the `DELETE /me` tests that follow in the same worker answer
+    409."""
+    yield
+    while _MADE:
+        await delete_tenant(_MADE.pop())
+
 
 async def _tenant(user_id: uuid.UUID) -> uuid.UUID:
     async with admin_session_factory() as session:
@@ -38,6 +52,7 @@ async def _tenant(user_id: uuid.UUID) -> uuid.UUID:
         await session.flush()
         session.add(Membership(tenant_id=tenant.id, user_id=user_id, role=MembershipRole.OWNER))
         await session.commit()
+        _MADE.append(tenant.id)
         return tenant.id
 
 

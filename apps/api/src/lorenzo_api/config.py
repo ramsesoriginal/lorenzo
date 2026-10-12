@@ -2,7 +2,7 @@ import json
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -65,6 +65,43 @@ class Settings(BaseSettings):
     # into pydantic_settings' own EnvSettingsSource, never reaching this
     # class at all). NoDecode defers all decoding to _parse_cors_origins.
     cors_allowed_origins: Annotated[list[str], NoDecode] = []
+
+    # The registry of app links (ADR 0273): where the Lorenzo apps live. Official Cloudflare
+    # Pages addresses by default; a deployment (or a custom domain) overrides them with the
+    # env variables of the same name. GET /app-links serves them, so no app carries another
+    # app's address in its own variable.
+    account_hub_url: str = "https://lorenzo-account-hub.pages.dev"
+    inventory_web_url: str = "https://lorenzo-inventory-web.pages.dev"
+    beings_url: str = "https://lorenzo-beings.pages.dev"
+    bench_url: str = "https://lorenzo-bench.pages.dev"
+    # Optional per-link overrides in APP_LINK_TEMPLATES: space-separated `name=template`
+    # pairs (like CORS_ALLOWED_ORIGINS, no commas and no JSON, for the deploy action's sake),
+    # e.g. "item=https://i.example.com/i/{tenant}/{id}". NoDecode, as cors_allowed_origins.
+    app_link_templates: Annotated[dict[str, str], NoDecode] = {}
+
+    @field_validator(
+        "account_hub_url", "inventory_web_url", "beings_url", "bench_url", mode="before"
+    )
+    @classmethod
+    def _blank_app_url_is_the_default(cls, v: object, info: ValidationInfo) -> object:
+        # An unset GitHub variable reaches the container as "" (see cors_allowed_origins):
+        # that must mean "the official address", not an empty one.
+        if isinstance(v, str) and not v.strip():
+            return cls.model_fields[info.field_name or ""].default
+        return v
+
+    @field_validator("app_link_templates", mode="before")
+    @classmethod
+    def _parse_app_link_templates(cls, v: object) -> object:
+        if isinstance(v, str):
+            pairs: dict[str, str] = {}
+            for part in v.split():
+                name, sep, template = part.partition("=")
+                if not sep or not name or not template:
+                    raise ValueError(f"APP_LINK_TEMPLATES entry {part!r} is not name=template")
+                pairs[name] = template
+            return pairs
+        return v
 
     # ADR 0092's in-process backstop for the two public invite-link routes:
     # requests per minute per client address, per instance. Cloud Run runs
