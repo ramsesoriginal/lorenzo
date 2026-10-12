@@ -16,6 +16,8 @@ A datasheet shows what a being has equipped as a table of the stats of a weapon 
 - **Visibility is unchanged.** Items follow [ADR 0040](0040-item-instance-read-visibility.md): someone who cannot reach an owned item's owner sees no weapon. Another player's datasheet is empty of weapons, for now. Abilities follow the information visibility of the caller.
 - **`campaign_id`** must be a campaign of the tenant that the caller can read (404 otherwise). Today it changes nothing; it is accepted so a campaign can later override the library's settings without a new route.
 
+- **The stat vocabulary is readable by every participant.** `GET .../stat-groups` and `.../stat-definitions` (the lists and the by-id reads) were for library members only. A sheet draws a being for its player, who is usually no member, and needs the groups, order, units, flags and hints to draw it, and to know which numbers a table may change (found while building the sheet, [ADR 0283](0283-beings-sheet-play-stats-and-undo.md)). Any participant of the tenant ([ADR 0030](0030-tenant-campaign-read-api.md): a membership, a player seat or a GM seat) may read them; writing is unchanged. Someone with no standing in the tenant gets the same 404 as before. The vocabulary is names, types and display settings, not content.
+
 ## Not in scope
 
 Per-campaign overrides; entity templates; a different rule for who sees an opponent's weapons; setting these in the apps.
