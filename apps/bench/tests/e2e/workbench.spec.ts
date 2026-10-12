@@ -162,3 +162,20 @@ test('the palette lists the keyboard shortcuts for tabs', async ({ page }) => {
   await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog')).toContainText('Ctrl + Alt + arrows');
 });
+
+test('the explorer draws each entry’s kind from the atlas, and the atlas is served', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const use = page.locator('.explorer .row .ic use').first();
+  await expect(use).toBeAttached();
+  const href = (await use.getAttribute('href')) ?? '';
+  expect(href).toMatch(/\.svg#icon-kind-/);
+  const [file, symbol] = href.split('#');
+  const served = await page.request.get(new URL(file ?? '', page.url()).toString());
+  expect(served.ok()).toBe(true);
+  expect(await served.text()).toContain(`id="${symbol}"`);
+  // And it is drawn: the box has a size.
+  const box = await page.locator('.explorer .row .ic').first().boundingBox();
+  expect(box?.width).toBeGreaterThan(8);
+});

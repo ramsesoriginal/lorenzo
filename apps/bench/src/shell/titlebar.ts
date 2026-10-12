@@ -1,6 +1,5 @@
 // The title bar: the repository picker on the left, who is signed in on the right.
 
-import { icon } from './icons';
 import { openStartScreen, type RepoChoice, repositoryMenu } from './repositories';
 import { chooseRepository, type Session, signIn } from './session';
 
@@ -20,7 +19,13 @@ export function renderTitleBar(
   onSignOut: () => void,
 ) {
   const brand = el('span', 'brand');
-  brand.append(icon('star', 15), el('b', undefined, 'Bench'));
+  // The real brand mark (identity §17.1: the spark is the logo, not an interface icon).
+  const mark = el('img', 'brand-mark');
+  mark.src = '/favicon.svg';
+  mark.alt = '';
+  mark.width = 16;
+  mark.height = 16;
+  brand.append(mark, el('b', undefined, 'Bench'));
   bar.replaceChildren(brand, el('span', 'sep'));
   const right = el('div', 'who');
   switch (session.kind) {

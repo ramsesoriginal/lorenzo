@@ -9,7 +9,7 @@ import { canRename, canSetParents, type EditableKind, slugProblem } from '../cor
 import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
 import { openLink } from './entryPickerText';
-import { icon } from './icons';
+import { icon, kindIcon } from './icons';
 import { liveEditor } from './liveEditor';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
@@ -215,7 +215,7 @@ function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLEl
     input.addEventListener('change', () => {
       if (!redraw.active) bench.setKind(id, choice.kind, input.checked);
     });
-    label.append(input, icon(choice.kind, 14), el('span', undefined, choice.label));
+    label.append(input, icon(kindIcon([choice.kind]), 14), el('span', undefined, choice.label));
     box.append(label);
   }
   return box;
@@ -404,7 +404,7 @@ function parentsEditor(
     open.type = 'button';
     open.addEventListener('click', () => go(p));
     const remove = el('button', 'x');
-    remove.append(icon('x', 12));
+    remove.append(icon('close', 12));
     remove.type = 'button';
     remove.title = `Remove parent ${bench.displayName(p)}`;
     remove.setAttribute('aria-label', `Remove parent ${bench.displayName(p)}`);

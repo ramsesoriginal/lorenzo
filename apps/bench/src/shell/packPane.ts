@@ -3,6 +3,7 @@
 // and synced like any text change; the prose around the list is kept as it was.
 
 import type { Bench } from '../core/bench';
+import { type IconName, iconButton } from './icons';
 import {
   indent,
   move,
@@ -30,17 +31,16 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   if (text !== undefined) e.textContent = text;
   return e;
 };
-const button = (text: string, label: string, run: () => void) => {
-  const b = el('button', 'btn pack-btn', text);
-  b.type = 'button';
-  b.setAttribute('aria-label', label);
-  b.title = label;
-  b.addEventListener('click', (e) => {
-    e.stopPropagation();
-    run();
-  });
-  return b;
-};
+const packButton = (name: IconName, label: string, run: () => void) =>
+  iconButton(
+    name,
+    label,
+    (e) => {
+      e.stopPropagation();
+      run();
+    },
+    'btn pack-btn',
+  );
 
 /** Reads the weight of the entries the rows link to (once each). */
 async function loadWeights(bench: Bench, ui: PackUi, rows: Row[]): Promise<boolean> {
@@ -183,20 +183,22 @@ export function renderPack(
       if (edit) {
         const up = move(pack.rows, i, -1);
         const down = move(pack.rows, i, 1);
-        const b1 = button('↑', 'Move up', () => write(up.rows, up.at));
+        const b1 = packButton('up', 'Move up', () => write(up.rows, up.at));
         b1.disabled = up.at === i;
-        const b2 = button('↓', 'Move down', () => write(down.rows, down.at));
+        const b2 = packButton('down', 'Move down', () => write(down.rows, down.at));
         b2.disabled = down.at === i;
-        const b3 = button('←', 'Out of its container', () => write(outdent(pack.rows, i), i));
+        const b3 = packButton('outdent', 'Out of its container', () =>
+          write(outdent(pack.rows, i), i),
+        );
         b3.disabled = r.depth === 0;
-        const b4 = button('→', 'Into the row above', () => write(indent(pack.rows, i), i));
+        const b4 = packButton('indent', 'Into the row above', () => write(indent(pack.rows, i), i));
         b4.disabled = indent(pack.rows, i).every((x, j) => x.depth === (pack.rows[j] as Row).depth);
         li.append(
           b1,
           b2,
           b3,
           b4,
-          button('×', `Remove ${r.label}`, () => write(remove(pack.rows, i))),
+          packButton('close', `Remove ${r.label}`, () => write(remove(pack.rows, i))),
         );
       }
       list.append(li);

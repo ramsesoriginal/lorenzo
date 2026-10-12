@@ -1,46 +1,49 @@
-// The few icons Bench draws, as small stroked SVGs (the same line weight and round ends the brand
-// icons use). Plain DOM, no sprite: each is one element with a title-less, hidden-from-readers shape.
+// The icons Bench draws, from the brand atlas (`apps/brand/icons.svg`, identity §17): one shared
+// sprite, one Lorenzo-owned name for each. `<use>` points at the sprite as a file the bundler
+// emits, so the drawings are not repeated in the page.
+import spriteUrl from '@lorenzo/brand/icons.svg?url';
 
 const NS = 'http://www.w3.org/2000/svg';
 
-const PATHS = {
-  item: [
-    'M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z',
-    'm3.3 7 8.7 5 8.7-5',
-    'M12 22V12',
-  ],
-  being: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z'],
-  bare: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z'],
-  search: ['M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z', 'm21 21-4.3-4.3'],
-  plus: ['M5 12h14', 'M12 5v14'],
-  x: ['M18 6 6 18', 'm6 6 12 12'],
-  down: ['m6 9 6 6 6-6'],
-  right: ['m9 18 6-6-6-6'],
-  float: ['M15 3h6v6', 'M10 14 21 3', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'],
-  check: ['M20 6 9 17l-5-5'],
-  alert: [
-    'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z',
-    'M12 9v4',
-    'M12 17h.01',
-  ],
-  sync: [
-    'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8',
-    'M21 3v5h-5',
-    'M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16',
-    'M8 16H3v5',
-  ],
-  star: ['M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z'],
-  branch: [
-    'M6 3v12',
-    'M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
-    'M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
-    'M18 9a9 9 0 0 1-9 9',
-  ],
-} as const;
+/** Every atlas icon Bench names, without the `icon-` the sprite's ids start with. A test checks each is in the sprite. */
+export const ICON_NAMES = [
+  // Window chrome
+  'close',
+  'search',
+  'add',
+  'decrease',
+  'expand',
+  'next',
+  'up',
+  'down',
+  'outdent',
+  'indent',
+  'float',
+  'dock',
+  'inherited-from',
+  // State
+  'select-item',
+  'warning',
+  'refresh',
+  'ancestry',
+  // Kinds
+  'kind-entity',
+  'kind-item',
+  'kind-being',
+  'kind-group',
+  'kind-location',
+  'kind-fact',
+  'kind-clock',
+  'kind-calendar',
+  'kind-connection',
+  'kind-event',
+  'kind-book',
+  'kind-chapter',
+] as const;
 
-export type IconName = keyof typeof PATHS;
+export type IconName = (typeof ICON_NAMES)[number];
 
-/** A 16px stroked icon; `fill` for the one that is a solid shape. */
+/** A stroked icon of the atlas, `size` pixels square; it takes the colour of its text. */
 export function icon(name: IconName, size = 16): SVGSVGElement {
   const s = document.createElementNS(NS, 'svg');
   s.setAttribute('viewBox', '0 0 24 24');
@@ -48,17 +51,58 @@ export function icon(name: IconName, size = 16): SVGSVGElement {
   s.setAttribute('height', String(size));
   s.setAttribute('aria-hidden', 'true');
   s.setAttribute('class', `ic ic-${name}`);
-  for (const d of PATHS[name]) {
-    const p = document.createElementNS(NS, 'path');
-    p.setAttribute('d', d);
-    s.append(p);
-  }
+  const use = document.createElementNS(NS, 'use');
+  use.setAttribute('href', `${spriteUrl}#icon-${name}`);
+  s.append(use);
   return s;
 }
 
-/** The icon for an entry's kinds: an item, a being, or neither. */
+/**
+ * The icon of each entry kind. A kind not here (a new one) is drawn as a bare entry until it has
+ * its own; the kinds that have no part of the app yet are listed so they arrive with an icon.
+ */
+const KIND_ICONS: Readonly<Record<string, IconName>> = {
+  character: 'kind-being',
+  being: 'kind-being',
+  item: 'kind-item',
+  item_instance: 'kind-item',
+  group: 'kind-group',
+  location: 'kind-location',
+  fact: 'kind-fact',
+  clock: 'kind-clock',
+  calendar: 'kind-calendar',
+  connection: 'kind-connection',
+  event: 'kind-event',
+  book: 'kind-book',
+  chapter: 'kind-chapter',
+};
+
+/** The icon for an entry's kinds: the first of its kinds that has one, else the bare entry's. */
 export function kindIcon(kinds: readonly string[]): IconName {
-  if (kinds.includes('being') || kinds.includes('character')) return 'being';
-  if (kinds.some((k) => k === 'item' || k === 'item_instance')) return 'item';
-  return 'bare';
+  for (const kind of kinds) {
+    const known = KIND_ICONS[kind];
+    if (known) return known;
+  }
+  return 'kind-entity';
+}
+
+/**
+ * A button that is only an icon: it is named and titled by `label`, the drawing is hidden from
+ * readers. `className` is the button's own, so each pane keeps its look.
+ */
+export function iconButton(
+  name: IconName,
+  label: string,
+  onClick: (event: MouseEvent) => void,
+  className = 'btn',
+  size = 14,
+): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = className;
+  b.setAttribute('aria-label', label);
+  b.title = label;
+  b.append(icon(name, size));
+  b.addEventListener('click', onClick);
+  return b;
 }

@@ -10,6 +10,7 @@ import {
   type StatValue,
 } from '../core/transport';
 import { redraw } from './entryPane';
+import { icon } from './icons';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const e = document.createElement(tag);
@@ -95,8 +96,9 @@ export function renderStats(bench: Bench, id: string | null): HTMLElement {
     }
     li.append(control(bench, id, def, stat));
     if (stat.own && canEditStat(def.type)) {
-      const clear = el('button', 'x', '×');
+      const clear = el('button', 'x');
       clear.type = 'button';
+      clear.append(icon('close', 12));
       clear.title = `Remove ${def.name} from this entry (it inherits again)`;
       clear.setAttribute('aria-label', `Remove ${def.name}`);
       clear.addEventListener('click', () => bench.setStat(id, def.id, null));

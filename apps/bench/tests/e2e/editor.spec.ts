@@ -1204,7 +1204,7 @@ test.describe('the compare grid and the table', () => {
   }) => {
     await openGrid(page);
     await rowOf(page, 'Longsword').locator('td').nth(1).click();
-    await page.getByRole('button', { name: '+', exact: true }).click();
+    await page.getByRole('button', { name: 'Increase by a step' }).click();
     await expect(rowOf(page, 'Longsword').locator('td').nth(1)).toHaveText('1.6');
     await page.keyboard.press('ArrowDown');
     await expect(page.locator('td.cur')).toHaveCount(1);
