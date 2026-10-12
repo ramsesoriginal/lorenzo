@@ -31,9 +31,16 @@ window.BEINGS = [
       {
         name: "Vitals",
         stats: [
-          { label: "Hit points", type: "int", value: 31, adjustable: true },
+          {
+            pin: true,
+            label: "Hit points",
+            type: "int",
+            value: 31,
+            adjustable: true,
+          },
           { label: "Hit point maximum", type: "int", value: 38 },
           {
+            pin: true,
             label: "Armour class",
             type: "int",
             value: 15,
@@ -55,7 +62,14 @@ window.BEINGS = [
               parts: [["Dexterity modifier", "+2"]],
             },
           },
-          { label: "Speed", type: "int", value: 25, unit: "ft", from: "Dwarf" },
+          {
+            pin: true,
+            label: "Speed",
+            type: "int",
+            value: 25,
+            unit: "ft",
+            from: "Dwarf",
+          },
         ],
       },
       {
@@ -183,6 +197,7 @@ window.BEINGS = [
         stats: [
           { label: "Attitude", type: "enum", value: "Wary" },
           {
+            pin: true,
             label: "Trust in the party",
             type: "int",
             value: 2,
@@ -190,6 +205,7 @@ window.BEINGS = [
             adjustable: true,
           },
           {
+            pin: true,
             label: "Patience",
             type: "int",
             value: 3,
@@ -279,6 +295,7 @@ window.BEINGS = [
         name: "Condition",
         stats: [
           {
+            pin: true,
             label: "Stress",
             type: "int",
             value: 3,
@@ -286,6 +303,7 @@ window.BEINGS = [
             adjustable: true,
           },
           {
+            pin: true,
             label: "Trauma",
             type: "int",
             value: 1,
@@ -293,7 +311,7 @@ window.BEINGS = [
             adjustable: true,
           },
           { label: "Harm", type: "text", value: "Level 1: bruised ribs" },
-          { label: "Coin", type: "int", value: 2, adjustable: true },
+          { pin: true, label: "Coin", type: "int", value: 2, adjustable: true },
           { label: "Stash", type: "int", value: 14, adjustable: true },
         ],
       },
@@ -393,10 +411,16 @@ window.BEINGS = [
       {
         name: "Profile",
         stats: [
-          { label: "Move", type: "int", value: 6, unit: "in" },
-          { label: "Action points", type: "int", value: 3 },
+          { pin: true, label: "Move", type: "int", value: 6, unit: "in" },
+          { pin: true, label: "Action points", type: "int", value: 3 },
           { label: "Save", type: "text", value: "4+" },
-          { label: "Wounds", type: "int", value: 12, adjustable: true },
+          {
+            pin: true,
+            label: "Wounds",
+            type: "int",
+            value: 12,
+            adjustable: true,
+          },
         ],
       },
     ],

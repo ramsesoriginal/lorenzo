@@ -7,8 +7,13 @@
   "use strict";
 
   const BRAND = "../../../../apps/brand/";
-  const beings = JSON.parse(JSON.stringify(window.BEINGS));
+  const clone = () => JSON.parse(JSON.stringify(window.BEINGS));
+  const beings = clone();
   const state = {
+    adjust: null, // "g-s" of the tile whose adjuster is open
+    flash: null, // { key, delta } for the last change
+    history: [], // undo stack
+
     id: beings[0].id,
     mode: "read",
     view: "sheet",
@@ -17,7 +22,6 @@
     savedAt: null,
   };
   const root = document.getElementById("app");
-  const bar = document.getElementById("stickybar-slot");
 
   /* ---------- helpers ---------- */
   const esc = (s) =>
@@ -51,6 +55,13 @@
     t.textContent = msg;
     clearTimeout(toast.t);
     toast.t = setTimeout(() => t.remove(), 2600);
+  }
+  /* One small live region, so a screen reader hears "Hit points 24" and not the whole page. */
+  function announce(msg) {
+    const el = document.getElementById("live");
+    if (!el) return;
+    el.textContent = "";
+    setTimeout(() => (el.textContent = msg), 30);
   }
   function saved() {
     state.savedAt = Date.now();
@@ -112,42 +123,62 @@
   function derived(s) {
     return Boolean(s.from || s.formula);
   }
+  const sign = (n) => (n > 0 ? "+" : n < 0 ? "−" : "±") + Math.abs(n);
   function provenance(s) {
     if (s.formula) {
-      return `<div class="stat-prov"><details class="why"><summary>${ic("formula")}Calculated</summary>
+      return `<details class="why"><summary>${ic("formula")}Calculated</summary>
         <div class="why-panel"><p>${esc(s.formula.text)}</p><dl>${s.formula.parts
           .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`)
           .join(
             "",
-          )}<dt><strong>Total</strong></dt><dd><strong>${esc(s.value)}</strong></dd></dl></div></details></div>`;
+          )}<dt><strong>Total</strong></dt><dd><strong>${esc(s.value)}</strong></dd></dl></div></details>`;
     }
     if (s.from)
-      return `<div class="stat-prov">${ic("inherited-from")}From ${esc(s.from)}</div>`;
+      return `<span class="stat-prov">${ic("inherited-from")}From ${esc(s.from)}</span>`;
     return "";
   }
-  function valueControl(s, gi, si) {
+  const canAdjust = (s) => mode() === "play" && s.adjustable && canEdit();
+
+  /* The value: a field in Edit, a button that opens the adjuster in Play, plain text otherwise. */
+  function valueEl(s, gi, si, id) {
     const m = mode();
-    const id = `stat-${gi}-${si}`;
+    const unit = s.unit ? `<span class="unit">${esc(s.unit)}</span>` : "";
     if (m === "edit" && !s.formula) {
       return `<input class="text-input" id="${id}" data-edit="stat" data-g="${gi}" data-s="${si}" aria-label="${esc(s.label)}" value="${esc(s.value)}" ${isNum(s) ? 'inputmode="numeric"' : ""}>`;
     }
-    return `<span class="stat-value">${esc(s.value)}${s.unit ? `<span class="unit">${esc(s.unit)}</span>` : ""}</span>`;
+    if (canAdjust(s)) {
+      return `<button type="button" class="stat-value stat-value-btn" data-act="adj-open" data-g="${gi}" data-s="${si}" data-focus="val-${gi}-${si}" aria-haspopup="dialog" aria-expanded="${state.adjust === gi + "-" + si}" aria-label="Change ${esc(s.label)}, now ${esc(s.value)}">${esc(s.value)}${unit}</button>`;
+    }
+    return `<span class="stat-value">${esc(s.value)}${unit}</span>`;
+  }
+  function stepper(s, gi, si) {
+    if (!canAdjust(s)) return "";
+    return `<span class="stat-stepper"><button type="button" class="icon-btn" data-act="step" data-g="${gi}" data-s="${si}" data-d="-1" data-focus="m${gi}-${si}" aria-label="Lower ${esc(s.label)} by 1">−</button><button type="button" class="icon-btn" data-act="step" data-g="${gi}" data-s="${si}" data-d="1" data-focus="p${gi}-${si}" aria-label="Raise ${esc(s.label)} by 1">+</button></span>`;
+  }
+  /* Take away, add, or set: the amount is what the table says ("seven damage"). */
+  function adjustPanel(s, gi, si) {
+    if (state.adjust !== gi + "-" + si) return "";
+    return `<div class="adjust" role="dialog" aria-label="Change ${esc(s.label)}">
+      <label class="field-label" for="adj-amt">Amount</label>
+      <input class="text-input" id="adj-amt" type="number" inputmode="numeric" min="0" value="1" data-focus="adj-amt">
+      <div class="adjust-actions">
+        <button type="button" class="btn btn-secondary" data-act="adj-sub" data-g="${gi}" data-s="${si}">Take away</button>
+        <button type="button" class="btn btn-secondary" data-act="adj-add" data-g="${gi}" data-s="${si}">Add</button>
+        <button type="button" class="btn btn-secondary" data-act="adj-set" data-g="${gi}" data-s="${si}">Set to</button>
+      </div>
+      <button type="button" class="btn btn-quiet" data-act="adj-close">Close</button></div>`;
   }
   function tile(s, gi, si) {
-    const m = mode();
-    const stepper =
-      m === "play" && s.adjustable && canEdit()
-        ? `<div class="stat-stepper"><button type="button" class="icon-btn" data-act="step" data-g="${gi}" data-s="${si}" data-d="-1" data-focus="m${gi}-${si}" aria-label="Lower ${esc(s.label)}">−</button><button type="button" class="icon-btn" data-act="step" data-g="${gi}" data-s="${si}" data-d="1" data-focus="p${gi}-${si}" aria-label="Raise ${esc(s.label)}">+</button></div>`
-        : "";
     const useInherited =
-      m === "edit" && s.from
+      mode() === "edit" && s.from
         ? `<button type="button" class="btn btn-quiet" data-act="inherit" data-g="${gi}" data-s="${si}">Use inherited</button>`
         : "";
-    return `<div class="stat-tile ${derived(s) ? "is-derived" : ""}">
+    /* Always four children, so the label, value, caption and foot rows line up across a row of tiles (subgrid). */
+    return `<div class="stat-tile ${derived(s) ? "is-derived" : ""}" data-key="${gi}-${si}">
       <span class="stat-label">${esc(s.label)}</span>
-      ${valueControl(s, gi, si)}
-      ${s.sub ? `<span class="stat-sub">${esc(s.sub)}</span>` : ""}
-      ${provenance(s)}${useInherited}${stepper}
+      ${valueEl(s, gi, si, `stat-${gi}-${si}`)}
+      <span class="stat-sub">${s.sub ? esc(s.sub) : ""}</span>
+      <div class="stat-foot">${provenance(s)}${useInherited}${stepper(s, gi, si)}${adjustPanel(s, gi, si)}</div>
     </div>`;
   }
   function groupBlock(g, gi) {
@@ -173,18 +204,21 @@
       }
     </div>`;
   }
+  const legend = `<details class="legend"><summary>Key</summary><div class="legend-panel">
+      <p><span class="swatch"></span> Set on this being.</p>
+      <p><span class="swatch is-derived"></span> Inherited from a prototype, or calculated.</p></div></details>`;
   function statsSection(b) {
     const m = mode();
     const edit = m === "edit";
+    const add = edit
+      ? `<button type="button" class="btn btn-secondary" data-act="todo" data-msg="The stat picker lists the library's stat definitions.">${ic("add")}Add a stat</button>`
+      : "";
     if (!b.groups.length) {
-      return `<section class="sheet-section" id="stats"><header><h2>Stats</h2></header>
-        <div class="empty"><p>${esc(b.name)} has no stats. That is fine: a being without numbers is still a being.</p>
-        ${edit ? `<button type="button" class="btn btn-secondary" data-act="todo" data-msg="The stat picker lists the library's stat definitions.">${ic("add")}Add a stat</button>` : ""}</div></section>`;
+      return `<section class="sheet-section" id="stats"><header><h2>Stats</h2><span class="grow"></span>${add}</header>
+        <div class="empty"><p>${esc(b.name)} has no stats. That is fine: a being without numbers is still a being.</p></div></section>`;
     }
-    return `<section class="sheet-section" id="stats"><header><h2>Stats</h2>
-      <span class="caption">Dashed means the value is inherited or calculated.</span>
-      ${edit ? `<button type="button" class="btn btn-secondary" data-act="todo" data-msg="The stat picker lists the library's stat definitions.">${ic("add")}Add a stat</button>` : ""}</header>
-      ${b.groups.map(groupBlock).join("")}</section>`;
+    return `<section class="sheet-section" id="stats"><header><h2>Stats</h2>${legend}<span class="grow"></span>${add}</header>
+      <div class="stat-band">${b.groups.map(groupBlock).join("")}</div></section>`;
   }
 
   /* ---------- tags ---------- */
@@ -309,7 +343,7 @@
         ? `<form class="stack-tight" data-form="hand" style="margin-top:var(--space-2)">
             <div class="field"><label class="field-label" for="h-camp">Campaign</label><select class="text-input" id="h-camp"><option>${esc(b.library)}</option></select></div>
             <div class="field"><label class="field-label" for="h-pl">Player</label><select class="text-input" id="h-pl"><option>Dana Okafor</option><option>Tobias Reyes</option><option>Mara Quill</option></select></div>
-            <button class="btn btn-primary" type="submit">${ic("handoff")}Hand over</button></form>`
+            <button class="btn btn-secondary" type="submit">${ic("handoff")}Hand over</button></form>`
         : "";
     return `<aside class="card rail-card" aria-labelledby="people-h"><h2 id="people-h">Played by</h2>${people}${hand}</aside>`;
   }
@@ -335,16 +369,16 @@
     const seg = `<div class="segmented" role="radiogroup" aria-label="Mode">${modes
       .map(([k, l]) => {
         const dis = k === "edit" && !canEdit();
-        return `<label ${dis ? 'title="You can’t edit this being."' : ""}><input type="radio" name="mode" value="${k}" ${m === k ? "checked" : ""} ${dis ? "disabled" : ""}>${l}</label>`;
+        return `<label ${dis ? 'title="You can’t edit this being."' : ""}><input type="radio" name="mode" value="${k}" data-focus="mode-${k}" ${m === k ? "checked" : ""} ${dis ? "disabled" : ""}>${l}</label>`;
       })
       .join("")}</div>`;
-    const view = `<div class="segmented" role="radiogroup" aria-label="Layout">${[
+    const view = `<div class="segmented quiet" role="radiogroup" aria-label="Layout">${[
       ["sheet", "Sheet"],
       ["datasheet", "Datasheet"],
     ]
       .map(
         ([k, l]) =>
-          `<label><input type="radio" name="view" value="${k}" ${state.view === k ? "checked" : ""}>${l}</label>`,
+          `<label><input type="radio" name="view" value="${k}" data-focus="view-${k}" ${state.view === k ? "checked" : ""}>${l}</label>`,
       )
       .join("")}</div>`;
     return `<header class="card sheet-head" id="top">
@@ -363,16 +397,8 @@
 
   /* ---------- datasheet ---------- */
   function dsCell(s, gi, si) {
-    const m = mode();
-    const val =
-      m === "edit" && !s.formula
-        ? `<input class="text-input" id="ds-${gi}-${si}" data-edit="stat" data-g="${gi}" data-s="${si}" aria-label="${esc(s.label)}" value="${esc(s.value)}">`
-        : `<span class="stat-value">${esc(s.value)}${s.unit ? `<span class="unit">${esc(s.unit)}</span>` : ""}</span>`;
-    const step =
-      m === "play" && s.adjustable && canEdit()
-        ? `<div class="stat-stepper"><button type="button" class="icon-btn" data-act="step" data-g="${gi}" data-s="${si}" data-d="-1" data-focus="dm${gi}-${si}" aria-label="Lower ${esc(s.label)}">−</button><button type="button" class="icon-btn" data-act="step" data-g="${gi}" data-s="${si}" data-d="1" data-focus="dp${gi}-${si}" aria-label="Raise ${esc(s.label)}">+</button></div>`
-        : "";
-    return `<div class="ds-cell ${derived(s) ? "is-derived" : ""}"><span class="stat-label">${esc(s.label)}</span>${val}${s.sub ? `<span class="stat-sub">${esc(s.sub)}</span>` : ""}${provenance(s)}${step}</div>`;
+    const unit = s.unit ? `<span class="unit">${esc(s.unit)}</span>` : "";
+    return `<div class="ds-cell ${derived(s) ? "is-derived" : ""}" data-key="${gi}-${si}"><span class="stat-label">${esc(s.label)}</span>${valueEl(s, gi, si, `ds-${gi}-${si}`)}${s.sub ? `<span class="stat-sub">${esc(s.sub)}</span>` : ""}<div class="stat-foot">${provenance(s)}${stepper(s, gi, si)}${adjustPanel(s, gi, si)}</div></div>`;
   }
   function datasheet(b) {
     const keys = [...new Set(b.items.flatMap((i) => Object.keys(i.stats)))];
@@ -421,11 +447,24 @@
 
   /* ---------- page ---------- */
   function stickyBar(b) {
-    const first = b.groups[0];
-    const vit = first ? first.stats.filter(isNum).slice(0, 3) : [];
-    return `<div class="sticky-bar" id="stickybar" hidden><span class="display">${esc(b.name)}</span>
-      <span class="sticky-vitals">${vit.map((s) => `${esc(s.label)} <strong>${esc(s.value)}${s.unit ? " " + esc(s.unit) : ""}</strong>`).join("<span aria-hidden='true'>·</span>")}</span>
-      <span class="grow"></span>${state.view === "sheet" ? `<nav class="sticky-nav" aria-label="Sections"><a href="#about">About</a><a href="#notes">Notes</a><a href="#stats">Stats</a><a href="#inventory">Inventory</a></nav>` : ""}</div>`;
+    const pinned = b.groups.flatMap((g) => g.stats).filter((s) => s.pin);
+    const vit = pinned.length
+      ? pinned
+      : (b.groups[0] ? b.groups[0].stats.filter(isNum) : []).slice(0, 3);
+    const m = mode();
+    const seg = `<div class="segmented" role="radiogroup" aria-label="Mode">${[
+      ["read", "Read"],
+      ["play", "Play"],
+      ["edit", "Edit"],
+    ]
+      .map(([k, l]) => {
+        const dis = k === "edit" && !canEdit();
+        return `<label><input type="radio" name="mode-sticky" value="${k}" data-focus="smode-${k}" ${m === k ? "checked" : ""} ${dis ? "disabled" : ""}>${l}</label>`;
+      })
+      .join("")}</div>`;
+    return `<div class="sticky-bar" id="stickybar" hidden><span class="display sticky-name">${esc(b.name)}</span>
+      <span class="sticky-vitals">${vit.map((s) => `<span>${esc(s.label)} <strong>${esc(s.value)}${s.unit ? " " + esc(s.unit) : ""}</strong></span>`).join("")}</span>
+      <span class="grow"></span>${state.view === "sheet" ? `<nav class="sticky-nav" aria-label="Sections"><a href="#about">About</a><a href="#notes">Notes</a><a href="#stats">Stats</a><a href="#inventory">Inventory</a></nav>` : ""}${seg}</div>`;
   }
 
   function render() {
@@ -457,7 +496,8 @@
             ];
       body = `<div class="sheet-layout"><div class="sheet-main">${order.join("")}</div><div class="sheet-rail">${railPeople(b)}${railDetails(b)}</div></div>`;
     }
-    root.innerHTML = `<div class="sheet-page">${header(b)}${stickyBar(b)}${body}</div>`;
+    root.innerHTML = `<div class="sheet-page ${state.view === "datasheet" ? "is-datasheet" : ""}">${header(b)}${stickyBar(b)}${body}</div>`;
+    applyFlash();
     const lib = document.getElementById("lib-name");
     if (lib) lib.textContent = b.library;
     watchSticky();
@@ -466,6 +506,7 @@
       const el = root.querySelector(`[data-focus="${keep}"]`);
       if (el) el.focus({ preventScroll: true });
     }
+    placeAdjuster(); // last, so the amount field keeps the focus when the adjuster has just opened
   }
 
   let io;
@@ -480,12 +521,94 @@
     io.observe(head);
   }
 
+  /* ---------- changes, undo and what-changed ---------- */
+  let undoTimer;
+  function showUndo(label) {
+    const bar = document.getElementById("undo-bar");
+    document.getElementById("undo-text").textContent = label;
+    bar.hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => (bar.hidden = true), 9000);
+  }
+  /* Every change in play goes through here: apply it, remember how to take it back, say what happened. */
+  function change(label, key, delta, doIt, undoIt) {
+    doIt();
+    state.history.push({ label, undoIt });
+    if (state.history.length > 30) state.history.shift();
+    state.flash = { key, delta };
+    state.adjust = null;
+    announce(label);
+    showUndo(label);
+    saved();
+    render();
+  }
+  function undo() {
+    const h = state.history.pop();
+    if (!h) return;
+    h.undoIt();
+    state.flash = null;
+    announce("Undone: " + h.label);
+    const bar = document.getElementById("undo-bar");
+    if (state.history.length) showUndo("Undone: " + h.label);
+    else bar.hidden = true;
+    saved();
+    render();
+  }
+  /* The changed tile gets a short highlight and the amount; both go away by themselves. */
+  function applyFlash() {
+    const f = state.flash;
+    state.flash = null;
+    if (!f) return;
+    const el = root.querySelector(`[data-key="${f.key}"]`);
+    if (!el) return;
+    el.classList.add("is-changed");
+    const chip = document.createElement("span");
+    chip.className = "stat-delta";
+    chip.textContent = f.delta;
+    chip.setAttribute("aria-hidden", "true");
+    el.append(chip);
+    setTimeout(() => {
+      el.classList.remove("is-changed");
+      chip.remove();
+    }, 2600);
+  }
+  /* Keep the adjuster on screen: flip it to the tile's other edge when it would run off. */
+  function placeAdjuster() {
+    const a = root.querySelector(".adjust");
+    if (!a) return;
+    const r = a.getBoundingClientRect();
+    if (r.right > window.innerWidth - 8) a.classList.add("to-end");
+    a.scrollIntoView({ block: "nearest" });
+    document.getElementById("adj-amt")?.focus({ preventScroll: true });
+  }
+  const closeWhy = () =>
+    document
+      .querySelectorAll("details.why[open]")
+      .forEach((d) => (d.open = false));
+
+  function setValue(b, g, s, next, how) {
+    const stat = b.groups[g].stats[s];
+    const old = Number(stat.value);
+    const nv = Math.max(0, next);
+    if (nv === old) return;
+    change(
+      `${stat.label} ${old} → ${nv}`,
+      `${g}-${s}`,
+      sign(nv - old),
+      () => (stat.value = nv),
+      () => (stat.value = old),
+    );
+  }
+
   /* ---------- events ---------- */
   document.addEventListener("change", (e) => {
     const t = e.target;
-    if (t.name === "mode") {
+    if (t.name === "mode" || t.name === "mode-sticky") {
       state.mode = t.value;
       state.noteForm = false;
+      state.adjust = null;
+      announce(t.value[0].toUpperCase() + t.value.slice(1) + " mode");
+      // The sticky bar stays where it is; the header may be out of view.
       render();
     } else if (t.name === "view") {
       state.view = t.value;
@@ -493,10 +616,12 @@
     } else if (t.id === "pick-being") {
       state.id = t.value;
       state.noteForm = false;
+      state.adjust = null;
       render();
     } else if (t.id === "pick-viewer") {
       state.viewer = t.value;
       state.noteForm = false;
+      state.adjust = null;
       render();
     } else if (t.dataset && t.dataset.edit) {
       const b = cur();
@@ -514,29 +639,98 @@
     }
   });
 
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeWhy();
+      if (state.adjust) {
+        const [g, s] = state.adjust.split("-");
+        state.adjust = null;
+        render();
+        root.querySelector(`[data-focus="val-${g}-${s}"]`)?.focus();
+      }
+    }
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(
+      document.activeElement.tagName,
+    );
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !typing) {
+      e.preventDefault();
+      undo();
+    }
+  });
+
   document.addEventListener("click", (e) => {
+    if (!e.target.closest(".why")) closeWhy();
+    if (
+      state.adjust &&
+      !e.target.closest(".adjust") &&
+      !e.target.closest('[data-act="adj-open"]')
+    ) {
+      state.adjust = null;
+      render();
+    }
     const el = e.target.closest("[data-act]");
     if (!el) return;
     const b = cur();
     const act = el.dataset.act;
     if (el.tagName === "A") e.preventDefault();
     if (act === "step") {
-      const s = b.groups[el.dataset.g].stats[el.dataset.s];
-      s.value = Math.max(0, Number(s.value) + Number(el.dataset.d));
-      saved();
+      const stat = b.groups[el.dataset.g].stats[el.dataset.s];
+      setValue(
+        b,
+        el.dataset.g,
+        el.dataset.s,
+        Number(stat.value) + Number(el.dataset.d),
+      );
+    } else if (act === "adj-open") {
+      const key = el.dataset.g + "-" + el.dataset.s;
+      state.adjust = state.adjust === key ? null : key;
       render();
+    } else if (act === "adj-close") {
+      const [g, s] = state.adjust.split("-");
+      state.adjust = null;
+      render();
+      root.querySelector(`[data-focus="val-${g}-${s}"]`)?.focus();
+    } else if (act === "adj-sub" || act === "adj-add" || act === "adj-set") {
+      const input = document.getElementById("adj-amt");
+      const n = Number(input.value);
+      if (input.value.trim() === "" || isNaN(n) || n < 0) {
+        announce("Enter an amount, zero or more.");
+        input.focus();
+        return;
+      }
+      const stat = b.groups[el.dataset.g].stats[el.dataset.s];
+      const old = Number(stat.value);
+      const next =
+        act === "adj-sub" ? old - n : act === "adj-add" ? old + n : n;
+      const g = el.dataset.g;
+      const s = el.dataset.s;
+      if (Math.max(0, next) === old) {
+        state.adjust = null;
+        render();
+        return;
+      }
+      setValue(b, g, s, next);
+      root.querySelector(`[data-focus="val-${g}-${s}"]`)?.focus();
+    } else if (act === "undo") {
+      undo();
     } else if (act === "tag") {
       const t = b.tags[el.dataset.i];
-      t.state =
+      const before = t.state;
+      const after =
         mode() === "edit"
           ? { inherited: "on", on: "off", off: t.from ? "inherited" : "on" }[
-              t.state
+              before
             ]
-          : t.state === "off"
+          : before === "off"
             ? "on"
             : "off";
-      saved();
-      render();
+      change(
+        `${t.label} ${after === "off" ? "off" : after === "on" ? "on" : "inherited"}`,
+        "",
+        "",
+        () => (t.state = after),
+        () => (t.state = before),
+      );
     } else if (act === "inherit") {
       toast("Cleared. The value now comes from the prototype again.");
     } else if (act === "note-new") {
@@ -560,6 +754,13 @@
       }
     } else if (act === "copy") {
       toast("Link copied.");
+    } else if (act === "reset") {
+      beings.splice(0, beings.length, ...clone());
+      state.history = [];
+      state.adjust = null;
+      document.getElementById("undo-bar").hidden = true;
+      announce("Example data restored");
+      render();
     } else if (act === "todo") {
       toast(el.dataset.msg || "Not in the prototype.");
     }
@@ -612,7 +813,8 @@
         <select class="text-input" id="pick-being">${beings.map((b) => `<option value="${b.id}">${esc(b.name)} · ${b.kind}</option>`).join("")}</select></div>
       <div class="field"><label class="field-label" for="pick-viewer">Viewing as</label>
         <select class="text-input" id="pick-viewer"><option value="gm">The GM</option><option value="player">A player of this being</option><option value="other">Another player</option></select></div>
-      <button class="btn btn-secondary" type="button" id="theme">Dark theme</button>`;
+      <button class="btn btn-secondary" type="button" id="theme">Dark theme</button>
+      <button class="btn btn-secondary" type="button" data-act="reset">Restore example data</button>`;
     document.getElementById("theme").addEventListener("click", (e) => {
       const dark = document.documentElement.dataset.theme !== "dark";
       document.documentElement.dataset.theme = dark ? "dark" : "light";
@@ -621,12 +823,15 @@
   }
 
   /* ---------- start ---------- */
-  fetch(BRAND + "icons.svg")
+  const spriteReady = Boolean(document.getElementById("icon-add"));
+  (spriteReady ? Promise.resolve(null) : fetch(BRAND + "icons.svg"))
     .then((r) => {
+      if (r === null) return null;
       if (!r.ok) throw new Error(r.status);
       return r.text();
     })
     .then((svg) => {
+      if (svg === null) return;
       const d = document.createElement("div");
       d.hidden = true;
       d.innerHTML = svg;

@@ -259,19 +259,30 @@
 }
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  column-gap: var(--space-2);
+  row-gap: 0;
+  margin-bottom: calc(var(--space-2) * -1);
 }
+/* Four rows in every tile (label, value, caption, foot), shared with the tiles beside it, so the numbers line up. */
 .stat-tile {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 2px;
+  margin-bottom: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
   background: var(--surface-default);
   min-width: 0;
+}
+@supports not (grid-template-rows: subgrid) {
+  .stat-tile {
+    display: flex;
+    flex-direction: column;
+  }
 }
 /* Derived values (inherited or calculated) are dashed, so they read as derived in greyscale (identity.md section 18). */
 .stat-tile.is-derived {
@@ -297,15 +308,23 @@
 .stat-value .unit {
   margin-inline-start: 4px;
 }
-.stat-prov {
+.stat-foot {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
   font-size: 12px;
   color: var(--text-tertiary);
   margin-top: var(--space-1);
+  min-width: 0;
 }
-.stat-prov summary {
+.stat-prov {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.stat-foot summary {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -316,10 +335,10 @@
   padding: 2px 4px;
   margin-inline: -4px;
 }
-.stat-prov summary::-webkit-details-marker {
+.stat-foot summary::-webkit-details-marker {
   display: none;
 }
-.stat-prov summary:hover {
+.stat-foot summary:hover {
   background: var(--fill-soft);
 }
 .why {
@@ -358,7 +377,7 @@
 .stat-stepper {
   display: flex;
   gap: var(--space-1);
-  margin-top: var(--space-2);
+  align-self: stretch;
 }
 .icon-btn {
   display: inline-grid;
@@ -849,5 +868,288 @@ textarea.text-input {
   }
   .sticky-nav {
     display: none;
+  }
+}
+
+/* ---- Iteration 2: sections, the stat band, play ---- */
+
+/* Sections are told apart by a rule under their title, and Stats sits on a surface of its own. */
+.sheet-section > header {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sheet-section > header h2 {
+  font-size: 22px;
+}
+.stat-band {
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.stat-band .stat-group:first-child {
+  margin-top: 0;
+}
+.stat-band .stat-rows {
+  border-top-color: var(--border-strong);
+}
+.stat-band .stat-rows dt,
+.stat-band .stat-rows dd {
+  border-bottom-color: var(--border-strong);
+}
+
+/* The key to solid and dashed, one tap away instead of a sentence under every heading. */
+.legend {
+  position: relative;
+}
+.legend summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-control);
+}
+.legend summary::-webkit-details-marker {
+  display: none;
+}
+.legend summary:hover {
+  background: var(--fill-soft);
+}
+.legend-panel {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  width: max-content;
+  max-width: min(18rem, 80vw);
+  padding: var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-ink) 28%, transparent);
+  font-size: 13px;
+}
+.legend-panel p {
+  margin: 0 0 var(--space-2);
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.legend-panel p:last-child {
+  margin: 0;
+}
+.swatch {
+  flex: none;
+  width: 28px;
+  height: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--surface-default);
+}
+.swatch.is-derived {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+
+/* In play, the value is the control: tap it for "take 7 away". */
+.stat-value-btn {
+  display: block;
+  width: fit-content;
+  padding: 0 4px;
+  margin-inline: -4px;
+  background: none;
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline dotted var(--border-strong);
+  text-underline-offset: 6px;
+  cursor: pointer;
+}
+.ds-cell .stat-value-btn {
+  font-size: 22px;
+}
+.stat-value-btn:hover {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+}
+.stat-value-btn .unit {
+  text-decoration: none;
+  display: inline-block;
+}
+.adjust {
+  position: absolute;
+  z-index: 4;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  width: 15rem;
+  max-width: 80vw;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-ink) 28%, transparent);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.adjust.to-end {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+.adjust-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1);
+}
+.adjust-actions .btn {
+  padding-inline: var(--space-1);
+}
+
+/* What just changed: a short highlight and the amount, gone on their own. */
+.stat-tile.is-changed,
+.ds-cell.is-changed {
+  background: var(--surface-selected);
+  border-color: var(--action);
+}
+.stat-delta {
+  position: absolute;
+  /* beside the value, not on the label */
+  inset-block-start: 2.4rem;
+  inset-inline-end: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stat-tile,
+  .ds-cell {
+    transition:
+      background-color 400ms ease,
+      border-color 400ms ease;
+  }
+  .stat-delta {
+    animation: delta-in 180ms ease-out;
+  }
+  @keyframes delta-in {
+    from {
+      transform: translateY(4px);
+      opacity: 0;
+    }
+  }
+}
+
+.undo-bar {
+  position: fixed;
+  z-index: 21;
+  inset-inline: var(--space-3);
+  inset-block-end: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto;
+  width: fit-content;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+}
+.undo-bar[hidden] {
+  display: none;
+}
+.undo-bar .btn {
+  background: var(--surface-default);
+  color: var(--text-primary);
+  border-color: transparent;
+}
+
+/* ---- The mode switch stays in reach ---- */
+.sticky-bar {
+  gap: var(--space-2) var(--space-3);
+}
+.sticky-name {
+  min-width: 0;
+}
+.sticky-vitals span + span::before {
+  content: "·";
+  margin-inline: var(--space-2);
+  color: var(--text-tertiary);
+}
+
+/* The layout switch is a quieter control than the mode switch. */
+.segmented.quiet {
+  border-color: transparent;
+  background: transparent;
+}
+.segmented.quiet label {
+  font-size: 13px;
+  min-height: 28px;
+}
+
+/* The datasheet is the header's own frame, not a second card under it. */
+.sheet-page.is-datasheet {
+  gap: 0;
+}
+.is-datasheet .sheet-head {
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.is-datasheet .datasheet {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.is-datasheet .sticky-bar {
+  margin-block-end: 0;
+}
+.ds-cell {
+  position: relative;
+}
+.ds-cell .stat-foot {
+  margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  /* On a phone the adjuster is a sheet at the bottom of the screen, where the thumb is. */
+  .adjust {
+    position: fixed;
+    inset-inline: var(--space-3);
+    inset-block: auto calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-width: none;
+  }
+  .adjust.to-end {
+    inset-inline: var(--space-3);
+  }
+  /* On a phone the bar has two rows: name and mode switch, then the numbers. */
+  .sticky-bar .sticky-name {
+    font-size: 17px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sticky-vitals {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .sticky-bar .segmented label {
+    padding-inline: var(--space-2);
+  }
+  .stat-band {
+    padding: var(--space-3);
   }
 }

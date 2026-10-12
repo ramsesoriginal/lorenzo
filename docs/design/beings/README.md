@@ -11,7 +11,9 @@ python3 -m http.server 8731    # from the repository root
 # open http://localhost:8731/docs/design/beings/prototype/index.html
 ```
 
-The bar at the top ("Prototype") picks the being, who is viewing, and the theme. It is not part of the design.
+The bar at the top ("Prototype") picks the being, who is viewing, the theme, and restores the example data. It is not part of the design.
+
+To open it without serving anything, [`prototype/build-single-file.mjs`](prototype/build-single-file.mjs) builds one self-contained HTML file (brand CSS, icon sprite and lockups inlined): `node docs/design/beings/prototype/build-single-file.mjs OUT.html`.
 
 ## Who it is for
 
@@ -39,13 +41,14 @@ So the page does not pick a use. It lets the person pick how they are looking at
 | Header  | Name, kind, tags               | Same, and the sticky bar keeps three numbers in view | Name, link name and picture become fields |
 
 - **In-place editing outside Edit.** What people do during play is small: change a number, switch a condition, jot a note. Those work in Read and Play without entering Edit. Edit is for building the being. Changes save as you go; there is no page-level Save.
+- **Play changes can be undone.** Every change in Play (a number, a tag) shows what it did ("Hit points 31 → 24") with **Undo**, also on Ctrl or Cmd+Z, up to 30 steps. The changed tile is highlighted and shows the amount (−7) for a moment. A screen reader hears only the change, through one small live region, not the page.
 - **Edit is offered only to those the API will allow** (a GM, or a player of the being). Otherwise the control is disabled with its reason. The API still decides every write.
-- **Datasheet** draws the same data as a datasheet: each stat group is one line of labelled cells, inventory with stat columns becomes a table (weapons, for an operative with item stats), and notes become "Abilities and notes". It adds no data; it is a different density.
+- **Datasheet** (a quieter control than the mode switch) draws the same data as a datasheet: each stat group is one line of labelled cells, inventory with stat columns becomes a table (weapons, for an operative with item stats), and notes become "Abilities and notes". It adds no data; it is a different density. It shares the header's frame instead of sitting as a second card under it.
 
 ## The page
 
 - **Identity header.** Picture, name (the one place the serif is used, [identity §5.2](../../brand/identity.md)), kind, who plays it, link name, tags, the two switches.
-- **Sticky bar.** Appears when the header scrolls away: the name, the first three numbers (what a table needs at a glance) and links to the sections. Section links replace tabs: nothing hides behind a click.
+- **Sticky bar.** Appears when the header scrolls away: the name, the pinned numbers (what a table needs at a glance), links to the sections, and **the mode switch**, so changing mode never means scrolling back up. Section links replace tabs: nothing hides behind a click. On a phone the bar has two rows (name and switch, then the numbers) and drops the links.
 - **Rail.** Who plays it (and Hand over, in Edit, for a GM) and the details. On a phone it moves under the content.
 - **Sections.** About, Notes, Stats, Inventory. Each has a title, a count where there is one, and its own action at the right (Add a note, Open the board).
 
@@ -57,6 +60,10 @@ No game system is assumed. A group is its stat definitions, and a stat is drawn 
 - **Text and enums** are rows under the tiles.
 - **Tags** (bool stats) are chips in the header: on, off, or inherited.
 
+### The stat area
+
+Stats sit on a surface of their own (`--surface-muted`) with the tiles in `--surface-default` on it, so the page has one clear place for the numbers. Sections are told apart by a larger title and a rule under it. Tiles in a row share their label, value, caption and foot rows (CSS subgrid), so numbers line up even when one label wraps ("Hit point maximum"). A **Key** beside the title opens what solid and dashed mean, instead of a sentence under every heading.
+
 ### Where a value comes from
 
 The grammar of [identity §18](../../brand/identity.md#18-information-visualization-grammar): **solid is direct, dashed is derived.** A tile with its own value has a solid border. An inherited value (from a prototype such as Dwarf) or a calculated one is dashed, and also says so in words ("From Dwarf", "Calculated"). Calculated values open a small panel that shows the parts that add up to the value, so "why is my armour 15?" is one tap. The data for this already exists (`own`, the source entry, the formula and its parts); nothing new is asked of the API.
@@ -65,7 +72,7 @@ The grammar of [identity §18](../../brand/identity.md#18-information-visualizat
 
 - **Pairs** such as hit points over a maximum are two stats today and two tiles. A template could say one stat is the other's maximum and draw them as one. The prototype does not pretend.
 - **Dots, tracks and clocks** for small whole numbers (Blades in the Dark actions, stress) are a visual template, as are weapon tables for a particular game. They belong to entity templates, which are later work.
-- **Which stats are vitals.** The sticky bar takes the first three numbers of the first group. A template should choose them.
+- **Which stats are vitals.** The prototype marks a few stats as pinned (`pin: true` in the sample data) for the sticky bar, and falls back to the first three numbers of the first group. A template should choose them; there is no such field in the API today.
 
 ## Notes and who can read them
 
@@ -124,8 +131,9 @@ The API, saving, who may do what (it follows the rules of ADR 0271 and 0272 only
 
 ## Open questions for the maintainer
 
-1. **Three numbers in the sticky bar.** Right number? Should a template or the person choose which?
+1. **Pinned numbers.** Right place to choose them? Today it is sample data; a template would own it.
 2. **Notes before stats in Read.** A long set of notes pushes stats down; the section links help. Is prose-first right for Read, or should Read and Play share one order?
 3. **Datasheet as a layout.** Should it be reachable from the list (a being's card as a datasheet), or only on the page?
 4. **Play for people who cannot edit.** It is shown, without steppers. Should it exist for them?
 5. **Mode memory.** Remember the last mode per library, per being, or not at all?
+6. **Undo scope.** Play changes only, for now. Should note and tag edits in Edit also be undoable?

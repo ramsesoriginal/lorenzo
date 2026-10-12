@@ -56,7 +56,18 @@
       </div>
     </header>
 
-    <main id="app" aria-live="polite"></main>
+    <main id="app"></main>
+
+    <div
+      id="live"
+      class="visually-hidden"
+      role="status"
+      aria-live="polite"
+    ></div>
+    <div class="undo-bar" id="undo-bar" hidden>
+      <span id="undo-text"></span>
+      <button type="button" class="btn" data-act="undo">Undo</button>
+    </div>
 
     <script src="data.js"></script>
     <script src="app.js"></script>
