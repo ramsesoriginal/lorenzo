@@ -128,7 +128,14 @@ export async function buildWorld() {
     return ok(
       api.POST('/tenants/{tenant_id}/stat-definitions', {
         ...t,
-        body: { name, stat_group_id: created.id, value_type },
+        body: {
+          name,
+          stat_group_id: created.id,
+          value_type,
+          adjustable_in_play: false,
+          pin: false,
+          signed: false,
+        },
       }),
     );
   }

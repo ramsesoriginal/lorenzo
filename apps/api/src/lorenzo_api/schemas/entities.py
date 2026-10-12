@@ -6,7 +6,7 @@ from fastapi import Request
 from pydantic import BaseModel, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, Information
+from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 from lorenzo_api.stat_evaluation import evaluate
@@ -207,6 +207,19 @@ class InformationOut(BaseModel):
         )
 
 
+def stat_display_key(stat: VEffectiveStat) -> tuple[int, str, int, str]:
+    """Where a stat comes in an entity's list (ADR 0278): its group's
+    position and name, then its own position and name. Needs the stat's
+    definition and its group loaded."""
+    definition = stat.stat_definition
+    return (
+        definition.stat_group.position,
+        definition.stat_group.name,
+        definition.position,
+        definition.name,
+    )
+
+
 def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
     """Every effective stat with a value, computed ones evaluated (ADR
     0104). A computed stat whose inputs don't resolve is left out, like an
@@ -227,7 +240,7 @@ def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
             ),
             computed=stat.computed_entity_id is not None,
         )
-        for stat in entity.effective_stats
+        for stat in sorted(entity.effective_stats, key=stat_display_key)
         if stat.stat_definition_id in values
     ]
 

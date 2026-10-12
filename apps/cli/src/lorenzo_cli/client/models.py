@@ -1187,6 +1187,18 @@ class SplitItemInstanceRequest(BaseModel):
     owner_character_id: UUID | None = Field(None, title="Owner Character Id")
 
 
+class StatDefinitionOrder(BaseModel):
+    stat_definition_ids: list[UUID] = Field(..., title="Stat Definition Ids")
+
+
+class StatDefinitionUpdate(BaseModel):
+    unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
+    adjustable_in_play: bool | None = Field(None, title="Adjustable In Play")
+    pin: bool | None = Field(None, title="Pin")
+    signed: bool | None = Field(None, title="Signed")
+    position: int | None = Field(None, title="Position")
+
+
 class StatEnumValueCreate(BaseModel):
     value: str = Field(..., title="Value")
     sort_order: int | None = Field(None, title="Sort Order")
@@ -1196,6 +1208,11 @@ class StatGroupCreate(BaseModel):
     name: str = Field(..., title="Name")
     priority: int | None = Field(0, title="Priority")
     mandatory: bool | None = Field(False, title="Mandatory")
+    position: int | None = Field(None, title="Position")
+
+
+class StatGroupOrder(BaseModel):
+    stat_group_ids: list[UUID] = Field(..., title="Stat Group Ids")
 
 
 class StatGroupOut(BaseModel):
@@ -1203,8 +1220,16 @@ class StatGroupOut(BaseModel):
     name: str = Field(..., title="Name")
     priority: int = Field(..., title="Priority")
     mandatory: bool = Field(..., title="Mandatory")
+    position: int = Field(..., title="Position")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class StatGroupUpdate(BaseModel):
+    name: str | None = Field(None, title="Name")
+    priority: int | None = Field(None, title="Priority")
+    mandatory: bool | None = Field(None, title="Mandatory")
+    position: int | None = Field(None, title="Position")
 
 
 class StatValueOut(BaseModel):
@@ -1851,6 +1876,11 @@ class StatDefinitionCreate(BaseModel):
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
     enum_values: list[str] | None = Field(None, title="Enum Values")
+    unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
+    adjustable_in_play: bool | None = Field(False, title="Adjustable In Play")
+    pin: bool | None = Field(False, title="Pin")
+    signed: bool | None = Field(False, title="Signed")
+    position: int | None = Field(None, title="Position")
 
 
 class StatDefinitionOut(BaseModel):
@@ -1859,6 +1889,11 @@ class StatDefinitionOut(BaseModel):
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
     enum_values: list[str] = Field(..., title="Enum Values")
+    unit: str | None = Field(..., title="Unit")
+    adjustable_in_play: bool = Field(..., title="Adjustable In Play")
+    pin: bool = Field(..., title="Pin")
+    signed: bool = Field(..., title="Signed")
+    position: int = Field(..., title="Position")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 

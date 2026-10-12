@@ -37,7 +37,13 @@ ALL = LAYERS
 
 def group(name: str) -> StatGroupOut:
     return StatGroupOut(
-        id=uuid.uuid4(), name=name, priority=0, mandatory=False, created_at=NOW, updated_at=NOW
+        id=uuid.uuid4(),
+        name=name,
+        priority=0,
+        mandatory=False,
+        position=0,
+        created_at=NOW,
+        updated_at=NOW,
     )
 
 
@@ -49,6 +55,11 @@ def definition(name: str, group_out: StatGroupOut, value_type: str) -> StatDefin
             "stat_group_id": group_out.id,
             "value_type": value_type,
             "enum_values": [],
+            "unit": None,
+            "adjustable_in_play": False,
+            "pin": False,
+            "signed": False,
+            "position": 0,
             "created_at": NOW,
             "updated_at": NOW,
         }

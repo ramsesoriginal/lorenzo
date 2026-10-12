@@ -4,7 +4,7 @@ import enum
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, UniqueConstraint
+from sqlalchemy import Enum, FetchedValue, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk, same_tenant_fk
@@ -55,6 +55,16 @@ class StatDefinition(Base):
             values_callable=lambda enum_cls: [member.value for member in enum_cls],
         ),
     )
+    # How the stat is shown (ADR 0278): a unit ("ft"), a leading sign, whether a person can
+    # change it in play (a number's stepper, a tag's toggle), and whether the sheet's fixed bar
+    # keeps it in view. None of it limits or changes a value.
+    unit: Mapped[str | None]
+    adjustable_in_play: Mapped[bool] = mapped_column(server_default=text("false"))
+    pin: Mapped[bool] = mapped_column(server_default=text("false"))
+    signed: Mapped[bool] = mapped_column(server_default=text("false"))
+    # Where it comes in its group (ADR 0278): not dense, not unique. Left unset on insert, a
+    # trigger appends it after the group's last definition; FetchedValue reads it back.
+    position: Mapped[int] = mapped_column(server_default=FetchedValue())
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 

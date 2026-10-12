@@ -2,19 +2,27 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from lorenzo_api.models import StatDefinition, StatValueType
 
 __all__ = [
     "SetEntityStatRequest",
     "StatDefinitionCreate",
+    "StatDefinitionOrder",
     "StatDefinitionOut",
+    "StatDefinitionUpdate",
     "StatEnumValueCreate",
     "StatGroupCreate",
+    "StatGroupOrder",
     "StatGroupOut",
+    "StatGroupUpdate",
 ]
+
+# ADR 0278: a unit is a few characters ("ft", "lb", "in.").
+UnitText = Annotated[str, Field(min_length=1, max_length=32)]
 
 
 class StatGroupCreate(BaseModel):
@@ -29,6 +37,40 @@ class StatGroupCreate(BaseModel):
     # Display-only (ADR 0103): a client shows this group's fields even when
     # empty. Nothing checks they're filled in.
     mandatory: bool = False
+    # Where it comes in the vocabulary (ADR 0278); omitted, it goes last.
+    position: int | None = None
+
+
+class StatGroupUpdate(BaseModel):
+    """PATCH /stat-groups/{id} - ADR 0278. Merge-patch semantics
+    (`exclude_unset`): an omitted field is left alone, and none of these can
+    be cleared to null."""
+
+    name: str | None = None
+    priority: int | None = None
+    mandatory: bool | None = None
+    position: int | None = None
+
+    @model_validator(mode="after")
+    def _no_nulls(self) -> StatGroupUpdate:
+        for field in self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
+
+
+class StatGroupOrder(BaseModel):
+    """PUT /stat-groups/order - every group of the tenant, once each, in the
+    order they should come in (ADR 0278)."""
+
+    stat_group_ids: list[uuid.UUID]
+
+
+class StatDefinitionOrder(BaseModel):
+    """PUT /stat-groups/{id}/order - every definition of the group, once
+    each, in the order they should come in (ADR 0278)."""
+
+    stat_definition_ids: list[uuid.UUID]
 
 
 class StatGroupOut(BaseModel):
@@ -43,6 +85,7 @@ class StatGroupOut(BaseModel):
     name: str
     priority: int
     mandatory: bool
+    position: int
     created_at: datetime
     updated_at: datetime
 
@@ -59,6 +102,32 @@ class StatDefinitionCreate(BaseModel):
     # Required and non-empty for value_type=enum, absent or empty otherwise
     # (ADR 0103). List position becomes each value's sort_order.
     enum_values: list[str] | None = None
+    # How the stat is shown (ADR 0278). None of it limits or changes a value.
+    unit: UnitText | None = None
+    adjustable_in_play: bool = False
+    pin: bool = False
+    signed: bool = False
+    # Where it comes in its group; omitted, it goes last.
+    position: int | None = None
+
+
+class StatDefinitionUpdate(BaseModel):
+    """PATCH /stat-definitions/{id} - ADR 0278. Merge-patch semantics
+    (`exclude_unset`); `unit` may be set to null to clear it. A definition's
+    name, type and group are not editable here."""
+
+    unit: UnitText | None = None
+    adjustable_in_play: bool | None = None
+    pin: bool | None = None
+    signed: bool | None = None
+    position: int | None = None
+
+    @model_validator(mode="after")
+    def _no_nulls(self) -> StatDefinitionUpdate:
+        for field in self.model_fields_set - {"unit"}:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
 
 
 class StatDefinitionOut(BaseModel):
@@ -74,6 +143,12 @@ class StatDefinitionOut(BaseModel):
     # The allowed values of an enum stat, in display order; empty for any
     # other type (ADR 0103).
     enum_values: list[str]
+    # How the stat is shown, and where it comes in its group (ADR 0278).
+    unit: str | None
+    adjustable_in_play: bool
+    pin: bool
+    signed: bool
+    position: int
     created_at: datetime
     updated_at: datetime
 
@@ -85,6 +160,11 @@ class StatDefinitionOut(BaseModel):
             stat_group_id=stat_definition.stat_group_id,
             value_type=stat_definition.value_type,
             enum_values=[row.value for row in stat_definition.enum_values],
+            unit=stat_definition.unit,
+            adjustable_in_play=stat_definition.adjustable_in_play,
+            pin=stat_definition.pin,
+            signed=stat_definition.signed,
+            position=stat_definition.position,
             created_at=stat_definition.created_at,
             updated_at=stat_definition.updated_at,
         )

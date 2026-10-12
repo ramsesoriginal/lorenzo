@@ -74,6 +74,7 @@ from lorenzo_api.models import (
     ItemInstance,
     Ownership,
     Payload,
+    StatDefinition,
     VEffectiveStat,
     formula_load_options,
 )
@@ -465,7 +466,9 @@ async def get_entity_detail_or_404(
         .options(
             # The entity's own rows, so each stat can say whether it's own (ADR 0111).
             selectinload(Entity.stats),
-            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.stat_group),
             # Where an inherited value comes from (ADR 0276).
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             # A winning formula's parameters, for stat_evaluation (ADR 0104).

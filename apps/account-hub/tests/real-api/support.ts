@@ -158,7 +158,14 @@ export async function addStatGroup(api: Api, tenantId: string, name: string, sta
     await ok(
       api.POST('/tenants/{tenant_id}/stat-definitions', {
         params: { path: { tenant_id: tenantId } },
-        body: { name: stat, stat_group_id: group.id, value_type: 'int' },
+        body: {
+          name: stat,
+          stat_group_id: group.id,
+          value_type: 'int',
+          adjustable_in_play: false,
+          pin: false,
+          signed: false,
+        },
       }),
     );
   }

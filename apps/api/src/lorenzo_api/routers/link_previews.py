@@ -31,6 +31,7 @@ from lorenzo_api.models import (
     Information,
     Payload,
     PayloadPicture,
+    StatDefinition,
     VEffectiveStat,
     formula_load_options,
 )
@@ -90,7 +91,9 @@ async def get_entity_preview(
         select(Entity)
         .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
         .options(
-            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.stat_group),
             # Where an inherited value comes from (ADR 0276).
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             *formula_load_options(

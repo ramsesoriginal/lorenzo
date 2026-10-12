@@ -126,6 +126,7 @@ class Shelf:
                     "name": name,
                     "priority": 0,
                     "mandatory": False,
+                    "position": 0,
                     "created_at": NOW,
                     "updated_at": NOW,
                 }
@@ -140,6 +141,11 @@ class Shelf:
                     "stat_group_id": str(self.group_id),
                     "value_type": "int",
                     "enum_values": [],
+                    "unit": None,
+                    "adjustable_in_play": False,
+                    "pin": False,
+                    "signed": False,
+                    "position": 0,
                     "created_at": NOW,
                     "updated_at": NOW,
                 }

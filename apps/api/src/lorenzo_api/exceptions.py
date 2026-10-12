@@ -427,6 +427,20 @@ class StatDefinitionNotFoundError(NotFoundProblem):
     title = "Stat definition not found"
 
 
+class StatGroupNameTakenError(ConflictProblem):
+    """PATCH /stat-groups/{id} - another group of the tenant already has the
+    name (UNIQUE(tenant_id, name), ADR 0278)."""
+
+    title = "A stat group with this name already exists"
+
+
+class InvalidStatOrderError(UnprocessableProblem):
+    """PUT .../order - the ids are not exactly the rows being ordered, each
+    once (ADR 0278)."""
+
+    title = "The order must list every row exactly once"
+
+
 class EntityStatNotFoundError(NotFoundProblem):
     """GET .../entities/{id}/stats/{stat_definition_id}/explanation - the
     entity has no value for that stat, stored, inherited or computed (ADR
