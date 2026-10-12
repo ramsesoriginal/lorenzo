@@ -1854,6 +1854,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/beings/{entity_id}/sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Being Sheet
+         * @description The datasheet's weapons and abilities (ADR 0281). The weapons are the items the being
+         *     holds directly (contained by it), with the stats of the tenant's weapon group; what the
+         *     caller may see of them is ADR 0040's, so another player's being shows none. The abilities
+         *     are the being's information of the tenant's ability type, as the caller can see it.
+         */
+        get: operations["get_being_sheet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/payloads/{payload_id}/content": {
         parameters: {
             query?: never;
@@ -7798,6 +7821,10 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms: boolean;
+            /** Weapon Stat Group Id */
+            weapon_stat_group_id: string | null;
+            /** Ability Information Type */
+            ability_information_type: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -8266,6 +8293,39 @@ export interface components {
              * @default []
              */
             prototype_ids: string[];
+        };
+        /**
+         * SheetOut
+         * @description GET /tenants/{id}/beings/{id}/sheet (ADR 0281): the datasheet's weapons and abilities in
+         *     one read. A section whose setting the library has not made is empty and says so.
+         */
+        SheetOut: {
+            /** Weapons Configured */
+            weapons_configured: boolean;
+            /** Abilities Configured */
+            abilities_configured: boolean;
+            /** Weapons */
+            weapons: components["schemas"]["SheetWeaponOut"][];
+            /** Abilities */
+            abilities: components["schemas"]["InformationOut"][];
+        };
+        /**
+         * SheetWeaponOut
+         * @description One equipped item on the datasheet (ADR 0281): what the being holds directly, with the
+         *     stats of the library's weapon group, calculated ones evaluated, in the group's order.
+         */
+        SheetWeaponOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number | null;
+            /** Stats */
+            stats: components["schemas"]["EntityStatValueOut"][];
         };
         /**
          * SplitItemInstanceRequest
@@ -8742,6 +8802,10 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms: boolean;
+            /** Weapon Stat Group Id */
+            weapon_stat_group_id: string | null;
+            /** Ability Information Type */
+            ability_information_type: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -8792,6 +8856,10 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms?: boolean | null;
+            /** Weapon Stat Group Id */
+            weapon_stat_group_id?: string | null;
+            /** Ability Information Type */
+            ability_information_type?: string | null;
         };
         /**
          * UnprovenKindOut
@@ -15326,6 +15394,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_BeingSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_being_sheet: {
+        parameters: {
+            query?: {
+                /** @description A campaign of the tenant the caller can read. Accepted so a campaign can later override the library's sheet settings; it changes nothing today. */
+                campaign_id?: string | null;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SheetOut"];
                 };
             };
             /** @description Validation Error */

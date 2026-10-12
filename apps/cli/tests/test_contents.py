@@ -44,6 +44,8 @@ def tenant(tenant_id: uuid.UUID, slug: str, kind: str, published: str | None) ->
         "kind": kind,
         "published_at": published,
         "npcs_shared_with_gms": True,
+        "weapon_stat_group_id": None,
+        "ability_information_type": None,
         "created_by": None,
         "updated_by": None,
     }

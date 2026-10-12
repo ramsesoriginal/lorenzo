@@ -39,7 +39,10 @@ class StatGroup(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="stat_groups")
+    # ADR 0281: the tenant also points at one of its groups, so this names the key it means.
+    tenant: Mapped[Tenant] = relationship(
+        foreign_keys="StatGroup.tenant_id", lazy="raise_on_sql", back_populates="stat_groups"
+    )
     stat_definitions: Mapped[list[StatDefinition]] = relationship(
         foreign_keys="StatDefinition.stat_group_id",
         lazy="raise_on_sql",

@@ -442,6 +442,13 @@ class InvalidStatHintError(UnprocessableProblem):
     title = "That stat cannot be used as a hint here"
 
 
+class InvalidSheetSettingError(UnprocessableProblem):
+    """PATCH /tenants/{id} - the weapon stat group is not a stat group of this
+    tenant (ADR 0281)."""
+
+    title = "That is not a valid sheet setting"
+
+
 class InvalidStatOrderError(UnprocessableProblem):
     """PUT .../order - the ids are not exactly the rows being ordered, each
     once (ADR 0278)."""

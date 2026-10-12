@@ -67,6 +67,8 @@ beforeEach(() => {
       published_at: null,
       description: 'Library description',
       npcs_shared_with_gms: true,
+      weapon_stat_group_id: null,
+      ability_information_type: null,
       created_by: null,
       updated_by: null,
     },

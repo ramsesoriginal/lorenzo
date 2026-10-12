@@ -104,6 +104,8 @@ class World:
                     "updated_at": "2026-01-01T00:00:00Z",
                     "published_at": None,
                     "npcs_shared_with_gms": True,
+                    "weapon_stat_group_id": None,
+                    "ability_information_type": None,
                 },
             )
         if path == f"{base}/characters":
