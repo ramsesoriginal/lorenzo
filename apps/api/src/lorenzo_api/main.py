@@ -12,6 +12,7 @@ from lorenzo_api.compression import GzipForPathsMiddleware
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import engine
 from lorenzo_api.errors import register_error_handlers
+from lorenzo_api.forwarded_scheme import ForwardedSchemeMiddleware
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
 from lorenzo_api.observability.tracing import configure_tracing
@@ -83,6 +84,9 @@ def create_app() -> FastAPI:
 
     # ADR 0262: gzip, for the one response big enough to need it.
     app.add_middleware(GzipForPathsMiddleware, path_suffixes=("/entities/export",))
+
+    # The scheme the client used, for the URLs the API writes; Cloud Run speaks plain HTTP to it.
+    app.add_middleware(ForwardedSchemeMiddleware)
 
     register_error_handlers(app)
     app.include_router(health_router)
