@@ -14,7 +14,9 @@ export function getAppLinks(
   baseUrl: string,
   fetchImpl: typeof fetch = (...args) => fetch(...args),
 ): Promise<AppLinks> {
-  const key = baseUrl.replace(/\/+$/, '');
+  // Trailing slashes off, by a loop: a regular expression on caller input can run slowly.
+  let key = baseUrl;
+  while (key.endsWith('/')) key = key.slice(0, -1);
   const known = cache.get(key);
   if (known) return known;
   const pending = fetchImpl(`${key}/app-links`, { headers: { Accept: 'application/json' } })
