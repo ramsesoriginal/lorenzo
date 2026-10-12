@@ -42,10 +42,38 @@ test('a GM creates a being, which starts as an NPC, and hands it over to a playe
   expect(character.owner_player_id).toBe(world.pia.playerId);
 });
 
-test('a player is offered neither the form to create a being nor a hand over', async ({
+test('a player makes a character of their own, which they own from the start', async ({
   world,
   as,
 }) => {
+  const page = await as(world.pia);
+  await page.goto(`/beings/?tenant=${world.tenantId}`);
+
+  const form = page.locator('[data-own-form]');
+  await expect(form.getByLabel('Where you play')).toContainText('The Sunken Crown');
+  await form.getByLabel('Character name').fill('Wren');
+  await form.getByRole('button', { name: 'Create character' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Wren', level: 1 })).toBeVisible();
+  await expect(page.locator('[data-kind]')).toHaveText('Character');
+  await expect(page.locator('[data-people] li', { hasText: 'Pia' })).toContainText('Owner');
+
+  const found = await ok(
+    world.gm.api.GET('/tenants/{tenant_id}/beings', {
+      params: { path: { tenant_id: world.tenantId }, query: { q: 'Wren' } },
+    }),
+  );
+  const character = await ok(
+    world.gm.api.GET('/tenants/{tenant_id}/characters/{character_id}', {
+      params: {
+        path: { tenant_id: world.tenantId, character_id: found.items[0]?.entity_id ?? '' },
+      },
+    }),
+  );
+  expect(character.owner_player_id).toBe(world.pia.playerId);
+});
+
+test('a player is offered no form for an NPC and no hand over', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(`/beings/?tenant=${world.tenantId}`);
   await expect(page.getByRole('link', { name: 'Ashfang' })).toBeVisible();

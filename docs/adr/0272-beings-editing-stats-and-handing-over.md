@@ -35,7 +35,15 @@ The form itself (`StatEditor`, about 190 lines) is **copied, not extracted**: it
 
 ## Consequences
 
-- A GM can create an NPC, describe it, give it a picture, stats and tags, write notes in the four audiences and hand it to a player without leaving one app.
+- A GM can create an NPC, describe it, give it a picture, stats and tags, write notes in the four audiences and hand it to a player without leaving one app; a player makes a character of their own the same way.
 - One implementation of the stat rules serves two apps, and a fix to them lands in both. The price is a fourth package under `packages/` (`pkg:stat-values`) and a thin binding in inventory-web.
 - Two screens can now hand a being over; they use the same routes in the same order, so they agree. If the rules change, both need the change.
 - A player of a being can edit its description, picture, stats and tags if the API's self-or-managed gate lets them. The page offers the controls and the API says no where it does.
+
+## Addendum (2026-10-12): players make their own characters
+
+The list's "New being" form is for those who run the table and makes an NPC (above). A player had no way to make a character of their own here, though the API allows it: `POST .../characters` is accepted from a player when every player it names is a seat of the caller's own ([ADR 0036](0036-user-player-character-crud-api.md)), and the hub's own tests do it.
+
+- **A second form, "New character of mine", for anyone with a seat in the library.** They choose which of their seats (shown by campaign name, by name) and a name; the app sends `owner_player_id` set to that seat and opens the new character's page. They own it from the start, so no hand-over is needed. A GM or member who also plays gets both forms.
+- **No switch.** The maintainer decided a campaign does not need a setting for this yet; the API's rule above is the only gate, and a refusal is shown as its own message. The player self-service switches of [ADR 0185](0185-player-self-service-the-switches.md) concern items, not characters.
+- The label is "Where you play", not "Campaign", so it does not collide with the list's Campaign filter for assistive technology or for tests that find a control by its label.
