@@ -109,6 +109,10 @@ class StatDefinitionCreate(BaseModel):
     signed: bool = False
     # Where it comes in its group; omitted, it goes last.
     position: int | None = None
+    # Clues, each another definition of the tenant (ADR 0279).
+    max_hint_id: uuid.UUID | None = None
+    min_hint_id: uuid.UUID | None = None
+    resolved_hint_id: uuid.UUID | None = None
 
 
 class StatDefinitionUpdate(BaseModel):
@@ -121,10 +125,15 @@ class StatDefinitionUpdate(BaseModel):
     pin: bool | None = None
     signed: bool | None = None
     position: int | None = None
+    # Each hint may be set to null to clear it (ADR 0279).
+    max_hint_id: uuid.UUID | None = None
+    min_hint_id: uuid.UUID | None = None
+    resolved_hint_id: uuid.UUID | None = None
 
     @model_validator(mode="after")
     def _no_nulls(self) -> StatDefinitionUpdate:
-        for field in self.model_fields_set - {"unit"}:
+        clearable = {"unit", "max_hint_id", "min_hint_id", "resolved_hint_id"}
+        for field in self.model_fields_set - clearable:
             if getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be null")
         return self
@@ -149,6 +158,10 @@ class StatDefinitionOut(BaseModel):
     pin: bool
     signed: bool
     position: int
+    # Clues for a sheet (ADR 0279): other definitions of the tenant, or null.
+    max_hint_id: uuid.UUID | None
+    min_hint_id: uuid.UUID | None
+    resolved_hint_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -165,6 +178,9 @@ class StatDefinitionOut(BaseModel):
             pin=stat_definition.pin,
             signed=stat_definition.signed,
             position=stat_definition.position,
+            max_hint_id=stat_definition.max_hint_id,
+            min_hint_id=stat_definition.min_hint_id,
+            resolved_hint_id=stat_definition.resolved_hint_id,
             created_at=stat_definition.created_at,
             updated_at=stat_definition.updated_at,
         )

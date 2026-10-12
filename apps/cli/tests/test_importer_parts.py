@@ -450,6 +450,9 @@ class FakeTenant:
                     "pin": False,
                     "signed": False,
                     "position": 0,
+                    "max_hint_id": None,
+                    "min_hint_id": None,
+                    "resolved_hint_id": None,
                     "created_at": NOW,
                     "updated_at": NOW,
                 }

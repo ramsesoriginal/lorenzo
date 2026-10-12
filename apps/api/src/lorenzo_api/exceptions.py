@@ -434,6 +434,14 @@ class StatGroupNameTakenError(ConflictProblem):
     title = "A stat group with this name already exists"
 
 
+class InvalidStatHintError(UnprocessableProblem):
+    """POST/PATCH /stat-definitions - a hint is not a stat definition of this
+    tenant, is the definition itself, or (a minimum or maximum) is not a
+    number (ADR 0279)."""
+
+    title = "That stat cannot be used as a hint here"
+
+
 class InvalidStatOrderError(UnprocessableProblem):
     """PUT .../order - the ids are not exactly the rows being ordered, each
     once (ADR 0278)."""

@@ -19,6 +19,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     InvalidStatEnumValuesError,
     InvalidStatGroupError,
+    InvalidStatHintError,
     InvalidStatOrderError,
     StatDefinitionInUseError,
     StatDefinitionNotFoundError,
@@ -96,6 +97,44 @@ async def _get_stat_definition_or_404(
             detail=f"No stat definition with id {stat_definition_id} in tenant {tenant_id}"
         )
     return stat_definition
+
+
+_NUMERIC = (StatValueType.INT, StatValueType.FLOAT)
+
+
+async def _check_hints(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    hints: dict[str, uuid.UUID | None],
+    *,
+    own_id: uuid.UUID | None,
+) -> None:
+    """Every hint set is a definition of this tenant other than `own_id`, and a minimum or
+    maximum is a number (ADR 0279). The database's key already keeps a hint in its tenant; this
+    says so in words, before it would refuse in code."""
+    wanted = {name: target for name, target in hints.items() if target is not None}
+    if not wanted:
+        return
+    found = {
+        row.id: row.value_type
+        for row in await session.execute(
+            select(StatDefinition.id, StatDefinition.value_type).where(
+                StatDefinition.tenant_id == tenant_id, StatDefinition.id.in_(set(wanted.values()))
+            )
+        )
+    }
+    for name, target in wanted.items():
+        label = name.removesuffix("_id")
+        if target not in found:
+            raise InvalidStatHintError(
+                detail=f"{label} {target} is not a stat definition in tenant {tenant_id}"
+            )
+        if target == own_id:
+            raise InvalidStatHintError(detail=f"A stat definition cannot be its own {label}")
+        if name in ("max_hint_id", "min_hint_id") and found[target] not in _NUMERIC:
+            raise InvalidStatHintError(
+                detail=f"{label} must be an int or float stat, not {found[target].value}"
+            )
 
 
 @router.post("/stat-groups", status_code=201)
@@ -346,6 +385,16 @@ async def create_stat_definition(
             detail=f"enum_values only apply to enum stats, not {body.value_type.value}"
         )
 
+    await _check_hints(
+        session,
+        tenant_id,
+        {
+            "max_hint_id": body.max_hint_id,
+            "min_hint_id": body.min_hint_id,
+            "resolved_hint_id": body.resolved_hint_id,
+        },
+        own_id=None,
+    )
     stat_definition = StatDefinition(
         tenant_id=tenant_id,
         stat_group_id=body.stat_group_id,
@@ -355,6 +404,9 @@ async def create_stat_definition(
         adjustable_in_play=body.adjustable_in_play,
         pin=body.pin,
         signed=body.signed,
+        max_hint_id=body.max_hint_id,
+        min_hint_id=body.min_hint_id,
+        resolved_hint_id=body.resolved_hint_id,
     )
     if body.position is not None:
         stat_definition.position = body.position
@@ -436,12 +488,20 @@ async def update_stat_definition(
     session: SessionDep,
 ) -> StatDefinitionOut:
     """Edits how a stat is shown - its unit, sign, adjustable-in-play and
-    pinned flags and its position in its group (ADR 0278). A definition's
+    pinned flags, its position in its group (ADR 0278) and its hints (ADR
+    0279). A definition's
     name, type and group are not editable here; a retype is breaking for the
     libraries that copied it. Not recorded in the activity log (ADR 0084:
     drawing, not what exists or who can see it)."""
     stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    await _check_hints(
+        session,
+        tenant_id,
+        {k: v for k, v in changes.items() if k.endswith("_hint_id")},
+        own_id=stat_definition_id,
+    )
+    for field, value in changes.items():
         setattr(stat_definition, field, value)
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)

@@ -1197,6 +1197,9 @@ class StatDefinitionUpdate(BaseModel):
     pin: bool | None = Field(None, title="Pin")
     signed: bool | None = Field(None, title="Signed")
     position: int | None = Field(None, title="Position")
+    max_hint_id: UUID | None = Field(None, title="Max Hint Id")
+    min_hint_id: UUID | None = Field(None, title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
 
 
 class StatEnumValueCreate(BaseModel):
@@ -1881,6 +1884,9 @@ class StatDefinitionCreate(BaseModel):
     pin: bool | None = Field(False, title="Pin")
     signed: bool | None = Field(False, title="Signed")
     position: int | None = Field(None, title="Position")
+    max_hint_id: UUID | None = Field(None, title="Max Hint Id")
+    min_hint_id: UUID | None = Field(None, title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
 
 
 class StatDefinitionOut(BaseModel):
@@ -1894,6 +1900,9 @@ class StatDefinitionOut(BaseModel):
     pin: bool = Field(..., title="Pin")
     signed: bool = Field(..., title="Signed")
     position: int = Field(..., title="Position")
+    max_hint_id: UUID | None = Field(..., title="Max Hint Id")
+    min_hint_id: UUID | None = Field(..., title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(..., title="Resolved Hint Id")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 

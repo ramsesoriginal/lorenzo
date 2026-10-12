@@ -3782,7 +3782,8 @@ export interface paths {
         /**
          * Update Stat Definition
          * @description Edits how a stat is shown - its unit, sign, adjustable-in-play and
-         *     pinned flags and its position in its group (ADR 0278). A definition's
+         *     pinned flags, its position in its group (ADR 0278) and its hints (ADR
+         *     0279). A definition's
          *     name, type and group are not editable here; a retype is breaking for the
          *     libraries that copied it. Not recorded in the activity log (ADR 0084:
          *     drawing, not what exists or who can see it).
@@ -8319,6 +8320,12 @@ export interface components {
             signed: boolean;
             /** Position */
             position?: number | null;
+            /** Max Hint Id */
+            max_hint_id?: string | null;
+            /** Min Hint Id */
+            min_hint_id?: string | null;
+            /** Resolved Hint Id */
+            resolved_hint_id?: string | null;
         };
         /**
          * StatDefinitionOrder
@@ -8361,6 +8368,12 @@ export interface components {
             signed: boolean;
             /** Position */
             position: number;
+            /** Max Hint Id */
+            max_hint_id: string | null;
+            /** Min Hint Id */
+            min_hint_id: string | null;
+            /** Resolved Hint Id */
+            resolved_hint_id: string | null;
             /**
              * Created At
              * Format: date-time
@@ -8389,6 +8402,12 @@ export interface components {
             signed?: boolean | null;
             /** Position */
             position?: number | null;
+            /** Max Hint Id */
+            max_hint_id?: string | null;
+            /** Min Hint Id */
+            min_hint_id?: string | null;
+            /** Resolved Hint Id */
+            resolved_hint_id?: string | null;
         };
         /**
          * StatEnumValueCreate
