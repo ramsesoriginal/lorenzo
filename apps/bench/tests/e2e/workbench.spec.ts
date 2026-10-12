@@ -179,3 +179,43 @@ test('the explorer draws each entry’s kind from the atlas, and the atlas is se
   const box = await page.locator('.explorer .row .ic').first().boundingBox();
   expect(box?.width).toBeGreaterThan(8);
 });
+
+test.describe('appearance', () => {
+  const open = async (page: import('@playwright/test').Page) => {
+    await page.getByRole('button', { name: 'Appearance' }).click();
+    return page.getByRole('dialog', { name: 'Appearance' });
+  };
+
+  test('the theme is chosen from the popover and remembered across a reload', async ({ page }) => {
+    const ap = await open(page);
+    await ap.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'Dark' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Appearance' })).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('System follows the device', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const ap = await open(page);
+    await ap.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'System' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  });
+});
+
+test.describe('the Write layout is a focused page', () => {
+  const layout = (page: import('@playwright/test').Page, name: string) =>
+    page.getByRole('group', { name: 'Layout' }).getByRole('button', { name });
+
+  test('hides inheritance and notes, and only in Write', async ({ page }) => {
+    await expect(page.locator('.pane-entry .entry-extra')).toBeVisible();
+    await layout(page, 'Write').click();
+    await expect(page.locator('.pane-entry .entry-extra')).toBeHidden();
+    await expect(page.locator('.entry-name')).toBeVisible();
+    await layout(page, 'Inspect').click();
+    await expect(page.locator('.pane-entry .entry-extra')).toBeVisible();
+  });
+});

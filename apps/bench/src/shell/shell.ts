@@ -40,6 +40,18 @@ import {
   type Preset,
 } from '../workspace/presets';
 import { renderAncestry } from './ancestryPane';
+import {
+  applySans,
+  applyTheme,
+  FACES,
+  rememberSans,
+  rememberTheme,
+  savedSans,
+  savedTheme,
+  THEMES,
+  type Theme,
+  watchDevice,
+} from './appearance';
 import { openConflicts } from './conflictDialog';
 import {
   kindsText,
@@ -61,7 +73,7 @@ import {
 } from './explorerRows';
 import { type FormulaUi, newFormulaUi, renderFormulas } from './formulaPane';
 import { type GridState, newGridState, renderGrid } from './gridPane';
-import { icon, kindIcon } from './icons';
+import { type IconName, icon, kindIcon, LAYOUT_ICONS, paneIcon } from './icons';
 import { focusing } from './linkPreview';
 import { newPackUi, type PackUi, renderPack } from './packPane';
 import { newPicturesUi, type PicturesUi, renderPictures } from './picturesPane';
@@ -72,10 +84,15 @@ import { newVocabularyUi, renderVocabulary, type VocabularyUi } from './vocabula
 
 const BAR = 30;
 const STORE = 'bench:workspace';
-const THEME = 'bench:theme';
 const ORDER = 'bench:explorer-order';
 /** The "Move to…" choice for no parent at all. */
 const TOP = '__top';
+const ORDER_ICON: Record<Order, IconName> = {
+  inherits: 'ancestry',
+  kind: 'kinds',
+  name: 'sort',
+};
+
 const ORDER_LABEL: Record<Order, string> = {
   inherits: 'Inherits',
   kind: 'Kind',
@@ -106,6 +123,8 @@ const el = <K extends keyof HTMLElementTagNameMap>(
   if (text !== undefined) e.textContent = text;
   return e;
 };
+
+type Command = { label: string; run: () => void; icon?: IconName };
 
 const titleOf = (id: string) => PANES.find((p) => p.id === id)?.title ?? id;
 
@@ -155,7 +174,7 @@ export class Shell {
   /** What is typed in the explorer's filter: entries with a name that has it are listed. */
   private filter = '';
   /** Commands the page adds to the palette, such as switching repository. */
-  extra: { label: string; run: () => void }[] = [];
+  extra: Command[] = [];
 
   private unsubscribe: (() => void) | null = null;
 
@@ -171,10 +190,9 @@ export class Shell {
       saved = null;
     }
     this.ws = saved ?? defaultWorkspace();
-    this.applyTheme(this.theme());
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () =>
-      this.applyTheme(this.theme()),
-    );
+    applyTheme(savedTheme());
+    applySans(savedSans());
+    watchDevice();
     this.announceEl.setAttribute('role', 'status');
     this.announceEl.setAttribute('aria-live', 'polite');
     root.append(this.surface, this.overlay, this.ghost, this.mark, this.announceEl);
@@ -237,25 +255,23 @@ export class Shell {
     this.render();
   }
 
-  private theme(): string {
-    try {
-      return localStorage.getItem(THEME) ?? 'system';
-    } catch {
-      return 'system';
-    }
+  /** The theme the reader chose, and what it is for the text: kept by `appearance`. */
+  theme(): Theme {
+    return savedTheme();
   }
-  private applyTheme(t: string) {
-    const dark =
-      t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+
+  setTheme(t: Theme) {
+    rememberTheme(t);
+    applyTheme(t);
   }
-  setTheme(t: string) {
-    try {
-      localStorage.setItem(THEME, t);
-    } catch {
-      /* ignore */
-    }
-    this.applyTheme(t);
+
+  sans(): boolean {
+    return savedSans();
+  }
+
+  setSans(on: boolean) {
+    rememberSans(on);
+    applySans(on);
   }
 
   select(id: string) {
@@ -301,7 +317,8 @@ export class Shell {
     this.layoutEl.setAttribute('aria-label', 'Layout');
     this.layoutEl.replaceChildren(
       ...PRESETS.map((p) => {
-        const b = el('button', 'btn', PRESET_LABEL[p]);
+        const b = el('button', 'btn');
+        b.append(icon(LAYOUT_ICONS[p], 14), document.createTextNode(PRESET_LABEL[p]));
         b.type = 'button';
         b.setAttribute('aria-pressed', String(p === now));
         b.addEventListener('click', () => this.layout(p));
@@ -373,6 +390,8 @@ export class Shell {
           }
         : null;
     this.drawLayouts();
+    // Write is for writing: the page says so, and what is not the text steps back (see bench.css).
+    this.root.dataset.layout = activePreset(this.ws) ?? '';
     drawStatusBar(this.statusEl, this.bench, this.selected, () =>
       openConflicts(this.bench, (x) => this.select(x)),
     );
@@ -463,7 +482,8 @@ export class Shell {
       bar.append(el('span', 'grow'), out);
     }
     if (floating) {
-      const dock = el('button', 'icon', 'Dock');
+      const dock = el('button', 'icon');
+      dock.append(icon('dock', 14), document.createTextNode('Dock'));
       dock.title = 'Dock this window';
       dock.addEventListener('click', () => this.dock(g.id));
       dock.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -487,7 +507,10 @@ export class Shell {
   private tabEl(g: Group, p: string, floating: boolean) {
     const t = el('div', p === g.active ? 'tab on' : 'tab');
     t.dataset.tab = p;
-    const b = el('button', 'name', titleOf(p));
+    const b = el('button', 'name');
+    const pi = paneIcon(p);
+    if (pi) b.append(icon(pi, 14));
+    b.append(document.createTextNode(titleOf(p)));
     if (p === 'links') {
       // How many parents and children the selected entry has.
       const n = this.selected ? this.bench.linkCount(this.selected) : 0;
@@ -613,7 +636,8 @@ export class Shell {
     seg.setAttribute('role', 'group');
     seg.setAttribute('aria-label', 'Order');
     for (const o of ORDERS) {
-      const b = el('button', 'btn', ORDER_LABEL[o]);
+      const b = el('button', 'btn');
+      b.append(icon(ORDER_ICON[o], 14), document.createTextNode(ORDER_LABEL[o]));
       b.type = 'button';
       b.setAttribute('aria-pressed', String(o === this.order));
       b.addEventListener('click', () => this.setOrder(o));
@@ -1192,26 +1216,45 @@ export class Shell {
 
   // ---- palette --------------------------------------------------------------------------------
 
-  private commands(): { label: string; run: () => void }[] {
-    const c: { label: string; run: () => void }[] = [];
-    for (const p of PANES) c.push({ label: `Open ${p.title}`, run: () => this.open(p.id) });
+  private commands(): Command[] {
+    const c: Command[] = [];
+    for (const p of PANES)
+      c.push({
+        label: `Open ${p.title}`,
+        run: () => this.open(p.id),
+        icon: paneIcon(p.id) ?? undefined,
+      });
     for (const e of this.bench.listing())
-      c.push({ label: `Go to ${e.name}`, run: () => this.select(e.id) });
+      c.push({ label: `Go to ${e.name}`, run: () => this.select(e.id), icon: kindIcon(e.kinds) });
     const sel = this.selected;
     if (sel && this.bench.canUndo(sel))
-      c.push({ label: 'Undo the last change to this entry', run: () => this.bench.undo(sel) });
+      c.push({
+        label: 'Undo the last change to this entry',
+        run: () => this.bench.undo(sel),
+        icon: 'undo',
+      });
     const focus = this.focus;
-    c.push({ label: `Float ${titleOf(focus)}`, run: () => this.floatPane(focus) });
+    c.push({ label: `Float ${titleOf(focus)}`, run: () => this.floatPane(focus), icon: 'float' });
     for (const s of ['right', 'bottom', 'left', 'top'] as const)
       c.push({ label: `Split ${titleOf(focus)} to the ${s}`, run: () => this.splitPane(focus, s) });
     for (const f of this.ws.floats)
-      c.push({ label: `Dock window with ${titleOf(f.active)}`, run: () => this.dock(f.id) });
+      c.push({
+        label: `Dock window with ${titleOf(f.active)}`,
+        run: () => this.dock(f.id),
+        icon: 'dock',
+      });
     c.push({ label: 'Keyboard shortcuts for tabs', run: () => this.showKeys() });
     c.push({ label: 'Reset layout', run: () => this.reset() });
     for (const p of PRESETS)
-      c.push({ label: `Layout: ${PRESET_LABEL[p]}`, run: () => this.layout(p) });
-    for (const t of ['system', 'light', 'dark'])
-      c.push({ label: `Appearance: ${t}`, run: () => this.setTheme(t) });
+      c.push({
+        label: `Layout: ${PRESET_LABEL[p]}`,
+        run: () => this.layout(p),
+        icon: LAYOUT_ICONS[p],
+      });
+    for (const [t, name] of THEMES)
+      c.push({ label: `Theme: ${name}`, run: () => this.setTheme(t) });
+    for (const [face, name] of FACES)
+      c.push({ label: `Writing font: ${name}`, run: () => this.setSans(face === 'sans') });
     return c.concat(this.extra);
   }
 
@@ -1235,7 +1278,9 @@ export class Shell {
     const draw = () => {
       list.replaceChildren();
       shown.slice(0, 12).forEach((cmd, i) => {
-        const li = el('li', i === sel ? 'on' : '', cmd.label);
+        const li = el('li', i === sel ? 'on' : '');
+        if (cmd.icon) li.append(icon(cmd.icon, 14));
+        li.append(document.createTextNode(cmd.label));
         li.addEventListener('click', () => {
           this.closePalette();
           cmd.run();
