@@ -370,8 +370,41 @@ input.invalid {
   background: var(--soft);
   color: var(--text);
 }
-.aa[aria-pressed="true"] {
-  font-family: var(--font-ui);
+.aa[aria-expanded="true"] {
+  background: var(--soft);
+  color: var(--text);
+}
+
+/* The appearance popover: under the Aa button, at the right of the title bar. */
+.ap-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+}
+.ap {
+  position: fixed;
+  top: 44px;
+  right: 12px;
+  z-index: 36;
+  width: 292px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.aph {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.apn {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.ap .seg {
+  margin-bottom: 14px;
 }
 
 .repo-menu {
@@ -1823,4 +1856,14 @@ table.grid {
 }
 .pack-total {
   color: var(--muted);
+}
+
+/* ---- Write: only the text ------------------------------------------------------------------- */
+
+/* In the Write layout the entry is its name and its text: the line of kinds, the link name and the
+   state, the breadcrumb, where it inherits from and its notes step back. A conflict still shows. */
+[data-layout="write"] .pane-entry .meta,
+[data-layout="write"] .pane-entry .breadcrumb,
+[data-layout="write"] .pane-entry .entry-extra {
+  display: none;
 }
