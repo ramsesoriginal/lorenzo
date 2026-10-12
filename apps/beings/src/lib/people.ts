@@ -87,6 +87,42 @@ export async function createBeing(tenantId: string, name: string): Promise<Chara
   );
 }
 
+/** A seat the viewer has in the library, as a choice of "which campaign is this character for". */
+export type SeatOption = { seatId: string; label: string };
+
+/**
+ * One option per seat of the viewer's own, named by its campaign where the campaign can be listed
+ * (the id otherwise), by name. Pure: the reads are done by the caller.
+ */
+export function seatOptions(
+  seats: readonly { id: string; campaign_id: string }[],
+  campaigns: ReadonlyMap<string, string>,
+): SeatOption[] {
+  return seats
+    .map((seat) => ({
+      seatId: seat.id,
+      label: campaigns.get(seat.campaign_id) ?? seat.campaign_id,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * A new character the viewer plays: made with their own seat as its owner, which the API accepts
+ * from a player for a seat that is theirs (ADR 0036), so no hand-over is needed.
+ */
+export async function createOwnCharacter(
+  tenantId: string,
+  name: string,
+  seatId: string,
+): Promise<Character> {
+  return unwrap(
+    await client.POST('/tenants/{tenant_id}/characters', {
+      params: { path: { tenant_id: tenantId } },
+      body: { name, owner_player_id: seatId, player_ids: [] },
+    }),
+  );
+}
+
 /** Renames a being (its character row's own name, ADR 0079). */
 export async function renameBeing(tenantId: string, entityId: string, name: string) {
   return unwrap(

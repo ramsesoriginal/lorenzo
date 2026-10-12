@@ -14,8 +14,8 @@ import {
 } from '../../lib/beingList';
 import { beingPageHref } from '../../lib/entityLinks';
 import { errorMessage } from '../../lib/errorMessage';
-import { gmCampaignsIn, isTenantMember, listCampaigns } from '../../lib/me';
-import { createBeing } from '../../lib/people';
+import { gmCampaignsIn, isTenantMember, listCampaigns, seatsIn } from '../../lib/me';
+import { createBeing, createOwnCharacter, seatOptions } from '../../lib/people';
 import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 
@@ -44,7 +44,7 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
   root.hidden = false;
   say(status, 'Loading beings…');
 
-  const [beings, campaigns, gm, member, owned] = await Promise.all([
+  const [beings, campaigns, gm, member, owned, seats] = await Promise.all([
     listBeings(tenantId),
     listCampaigns(tenantId).catch(() => []),
     gmCampaignsIn(tenantId).then(
@@ -54,6 +54,7 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
     isTenantMember(tenantId).catch(() => false),
     // Which are the viewer's own: for the Mine filter and the badge. Without it, none is marked.
     ownedBeingIds(tenantId).catch(() => new Set<string>()),
+    seatsIn(tenantId).catch(() => []),
   ]);
 
   // The Campaign filter lists the campaigns the viewer can list; "All" is first.
@@ -183,6 +184,42 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
       } catch (error) {
         say(createStatus, errorMessage(error), true);
         create.disabled = false;
+      }
+    });
+  }
+
+  // A player may make a character of their own in a campaign they play in; the API still decides.
+  if (seats.length > 0) {
+    const ownForm = required<HTMLFormElement>(root, '[data-own-form]');
+    const seat = required<HTMLSelectElement>(ownForm, '[data-own-seat]');
+    const ownName = required<HTMLInputElement>(ownForm, '[data-own-name]');
+    const ownCreate = required<HTMLButtonElement>(ownForm, '[data-own-create]');
+    const ownStatus = required<HTMLElement>(ownForm, '[data-own-status]');
+    const names = new Map(campaigns.map((campaign) => [campaign.id, campaign.name]));
+
+    for (const option of seatOptions(seats, names)) {
+      seat.append(new Option(option.label, option.seatId));
+    }
+
+    ownForm.hidden = false;
+
+    ownForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const wanted = ownName.value.trim();
+
+      if (!wanted || !seat.value) return;
+
+      ownCreate.disabled = true;
+      say(ownStatus, 'Creating…');
+
+      try {
+        const made = await createOwnCharacter(tenantId, wanted, seat.value);
+
+        window.location.assign(beingPageHref(tenantAddress, made));
+      } catch (error) {
+        say(ownStatus, errorMessage(error), true);
+        ownCreate.disabled = false;
       }
     });
   }

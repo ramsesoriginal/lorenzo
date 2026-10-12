@@ -48,6 +48,27 @@
     <p class="status-text" role="status" data-create-status hidden></p>
   </form>
 
+  <form class="stack-tight section" data-own-form hidden>
+    <h2>New character of mine</h2>
+    <label class="field">
+      <span class="field-label">Where you play</span>
+      <select class="text-input" data-own-seat></select>
+    </label>
+    <label class="field">
+      <span class="field-label">Character name</span>
+      <input type="text" class="text-input" required maxlength="200" data-own-name />
+    </label>
+    <p class="status-text">
+      You will be its owner. Open it afterwards to describe it and add notes.
+    </p>
+    <div class="row">
+      <button type="submit" data-own-create>
+        Create character
+      </button>
+    </div>
+    <p class="status-text" role="status" data-own-status hidden></p>
+  </form>
+
   <template data-being-template>
     <li>
       <a data-link>

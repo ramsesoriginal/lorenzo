@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 // The sign-in library needs a browser; nothing here signs in.
 vi.mock('./auth', () => ({ getAccessToken: vi.fn() }));
 
-import { describePeople, playerName } from './people';
+import { describePeople, playerName, seatOptions } from './people';
 
 const seat = (id: string, campaign_id: string) => ({
   id,
@@ -46,5 +46,33 @@ describe('playerName', () => {
     expect(playerName({ display_name: 'Pia', nickname: 'P' })).toBe('Pia');
     expect(playerName({ display_name: null, nickname: 'P' })).toBe('P');
     expect(playerName(undefined)).toBe('A player');
+  });
+});
+
+describe('seatOptions', () => {
+  const names = new Map([
+    ['c1', 'The Sunken Crown'],
+    ['c2', 'Ashes of Verrin'],
+  ]);
+
+  it("names each of the viewer's seats by its campaign, by name", () => {
+    expect(
+      seatOptions(
+        [
+          { id: 's1', campaign_id: 'c1' },
+          { id: 's2', campaign_id: 'c2' },
+        ],
+        names,
+      ),
+    ).toEqual([
+      { seatId: 's2', label: 'Ashes of Verrin' },
+      { seatId: 's1', label: 'The Sunken Crown' },
+    ]);
+  });
+
+  it('falls back to the campaign id where the campaign cannot be listed', () => {
+    expect(seatOptions([{ id: 's9', campaign_id: 'c-unknown' }], names)).toEqual([
+      { seatId: 's9', label: 'c-unknown' },
+    ]);
   });
 });
