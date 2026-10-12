@@ -80,6 +80,57 @@ export async function statDefinitions(
     );
 }
 
+/** A stat definition with its group, as the library orders them (ADR 0278). */
+export type VocabularyEntry = {
+  definition: StatDefinition;
+  group: string;
+  groupId: string;
+};
+
+/**
+ * Every stat definition, tags included, in the library's own order: its groups by position, and a
+ * group's definitions by position, then name. For a sheet, which draws them the way the library set
+ * them out (`statDefinitions` is for a picker, in alphabetical order).
+ */
+export async function statVocabulary(
+  client: LorenzoClient,
+  tenantId: string,
+): Promise<VocabularyEntry[]> {
+  const path = { tenant_id: tenantId };
+  const query = (page: number) => ({ page, size: MAX_PAGE_SIZE });
+  const [groups, definitions] = await Promise.all([
+    fetchAllPages(async (page) =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/stat-groups', {
+          params: { path, query: query(page) },
+        }),
+      ),
+    ),
+    fetchAllPages(async (page) =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/stat-definitions', {
+          params: { path, query: query(page) },
+        }),
+      ),
+    ),
+  ]);
+  const byId = new Map(groups.map((group) => [group.id, group]));
+
+  return definitions
+    .map((definition) => ({
+      definition,
+      group: byId.get(definition.stat_group_id)?.name ?? '',
+      groupId: definition.stat_group_id,
+    }))
+    .sort(
+      (a, b) =>
+        (byId.get(a.groupId)?.position ?? 0) - (byId.get(b.groupId)?.position ?? 0) ||
+        a.group.localeCompare(b.group) ||
+        a.definition.position - b.definition.position ||
+        a.definition.name.localeCompare(b.definition.name),
+    );
+}
+
 /** The rows for an item: every stat, with what it resolves to if it has a value at all. */
 export function statRows(
   definitions: { definition: StatDefinition; group: string }[],

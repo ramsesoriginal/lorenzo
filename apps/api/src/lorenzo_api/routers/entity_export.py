@@ -83,6 +83,7 @@ async def _information_of(
         )
         .order_by(Information.entity_id, Information.order)
         .options(
+            selectinload(Information.author),
             selectinload(Information.payloads).selectinload(Payload.description),
             selectinload(Information.payloads).selectinload(Payload.number),
             selectinload(Information.payloads)

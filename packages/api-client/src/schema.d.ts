@@ -1854,6 +1854,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/beings/{entity_id}/sheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Being Sheet
+         * @description The datasheet's weapons and abilities (ADR 0281). The weapons are the items the being
+         *     holds directly (contained by it), with the stats of the tenant's weapon group; what the
+         *     caller may see of them is ADR 0040's, so another player's being shows none. The abilities
+         *     are the being's information of the tenant's ability type, as the caller can see it.
+         */
+        get: operations["get_being_sheet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/payloads/{payload_id}/content": {
         parameters: {
             query?: never;
@@ -2414,6 +2437,30 @@ export interface paths {
          *     identical to set_entity_tag, group acquisition included.
          */
         patch: operations["unset_entity_tag"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Explain Entity Stat
+         * @description How this entity's stat came to have its value (ADR 0276): where it comes
+         *     from and, for a calculated one, the formula and what it read. The preview
+         *     under `computed-stats` answers a tenant administrator about an unsaved
+         *     formula; this answers anyone who may read the entity ("why is my armour
+         *     class 15?"). Writes nothing.
+         */
+        get: operations["explain_entity_stat"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/tenants/{tenant_id}/entities/{entity_id}/computed-stats": {
@@ -3602,9 +3649,10 @@ export interface paths {
         };
         /**
          * List Stat Groups
-         * @description Every stat group in the tenant, name-ordered - the listing the
-         *     by-id route below never had, so a stat vocabulary is discoverable
-         *     (and exportable, ADR 0085) without already knowing its ids.
+         * @description Every stat group in the tenant, in display order (position, then
+         *     name; ADR 0278) - the listing the by-id route below never had, so a stat
+         *     vocabulary is discoverable (and exportable, ADR 0085) without already
+         *     knowing its ids.
          */
         get: operations["list_stat_groups"];
         put?: never;
@@ -3620,6 +3668,29 @@ export interface paths {
          *     actually re-queries.
          */
         post: operations["create_stat_group"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/stat-groups/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder Stat Groups
+         * @description Puts the tenant's stat groups in this order - ADR 0278. The ids must be
+         *     every group of the tenant, each once (422 otherwise); positions are
+         *     renumbered from 0. Registered before `/stat-groups/{id}`, whose path would
+         *     otherwise take "order" for an id.
+         */
+        put: operations["reorder_stat_groups"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3647,6 +3718,35 @@ export interface paths {
         delete: operations["delete_stat_group"];
         options?: never;
         head?: never;
+        /**
+         * Update Stat Group
+         * @description Edits a stat group's name, priority, `mandatory` flag or position - ADR
+         *     0278, which also says why this is not recorded in the activity log: it
+         *     changes how things are drawn, not what exists or who can see it (ADR
+         *     0084).
+         */
+        patch: operations["update_stat_group"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/stat-groups/{stat_group_id}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder Stat Definitions
+         * @description Puts this group's stat definitions in this order - ADR 0278. The ids
+         *     must be every definition of the group, each once (422 otherwise);
+         *     positions are renumbered from 0.
+         */
+        put: operations["reorder_stat_definitions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -3659,7 +3759,8 @@ export interface paths {
         };
         /**
          * List Stat Definitions
-         * @description Every stat definition in the tenant, name-ordered - see
+         * @description Every stat definition in the tenant, in display order (its group's
+         *     position and name, then its own position and name; ADR 0278) - see
          *     `list_stat_groups` (ADR 0085).
          */
         get: operations["list_stat_definitions"];
@@ -3701,7 +3802,16 @@ export interface paths {
         delete: operations["delete_stat_definition"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Stat Definition
+         * @description Edits how a stat is shown - its unit, sign, adjustable-in-play and
+         *     pinned flags, its position in its group (ADR 0278) and its hints (ADR
+         *     0279). A definition's
+         *     name, type and group are not editable here; a retype is breaking for the
+         *     libraries that copied it. Not recorded in the activity log (ADR 0084:
+         *     drawing, not what exists or who can see it).
+         */
+        patch: operations["update_stat_definition"];
         trace?: never;
     };
     "/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values": {
@@ -4874,6 +4984,22 @@ export interface components {
             inputs: components["schemas"]["PreviewInputOut"][];
         };
         /**
+         * ContentsExplanationOut
+         * @description What a contents formula counted (ADR 0276): the things directly
+         *     inside, not one input per thing. The total is the stat's own `value`.
+         */
+        ContentsExplanationOut: {
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /** Source Name */
+            source_name: string;
+            /** Things */
+            things: number;
+        };
+        /**
          * ContentsFormulaBody
          * @description `Σ stat × quantity` over what's directly inside - ADR 0127.
          *     `contents_weight` is `contents(weight)`: each thing inside's own
@@ -5494,6 +5620,12 @@ export interface components {
             value: number | string | boolean;
             /** Own */
             own: boolean;
+            from_entity?: components["schemas"]["EntitySummary"] | null;
+            /**
+             * Computed
+             * @default false
+             */
+            computed: boolean;
         };
         /**
          * EntityStatWriteOut
@@ -5854,7 +5986,7 @@ export interface components {
          *     payloads already resolved to their concrete kind - see ADR 0020. A
          *     single Information row's payloads can be of heterogeneous kinds, so
          *     each is resolved independently via payload_to_schema rather than
-         *     assuming one kind per row.
+         *     assuming one kind per row. Needs `author` loaded (ADR 0277).
          */
         InformationOut: {
             /**
@@ -5877,6 +6009,10 @@ export interface components {
             updated_at: string;
             /** Payloads */
             payloads: (components["schemas"]["PayloadDescriptionOut"] | components["schemas"]["PayloadNumberOut"] | components["schemas"]["PayloadPictureOut"] | components["schemas"]["PayloadDocumentOut"])[];
+            /** Created By */
+            created_by?: string | null;
+            /** Created By Name */
+            created_by_name?: string | null;
         };
         /**
          * InformationUpdate
@@ -7685,6 +7821,10 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms: boolean;
+            /** Weapon Stat Group Id */
+            weapon_stat_group_id: string | null;
+            /** Ability Information Type */
+            ability_information_type: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -8155,6 +8295,39 @@ export interface components {
             prototype_ids: string[];
         };
         /**
+         * SheetOut
+         * @description GET /tenants/{id}/beings/{id}/sheet (ADR 0281): the datasheet's weapons and abilities in
+         *     one read. A section whose setting the library has not made is empty and says so.
+         */
+        SheetOut: {
+            /** Weapons Configured */
+            weapons_configured: boolean;
+            /** Abilities Configured */
+            abilities_configured: boolean;
+            /** Weapons */
+            weapons: components["schemas"]["SheetWeaponOut"][];
+            /** Abilities */
+            abilities: components["schemas"]["InformationOut"][];
+        };
+        /**
+         * SheetWeaponOut
+         * @description One equipped item on the datasheet (ADR 0281): what the being holds directly, with the
+         *     stats of the library's weapon group, calculated ones evaluated, in the group's order.
+         */
+        SheetWeaponOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number | null;
+            /** Stats */
+            stats: components["schemas"]["EntityStatValueOut"][];
+        };
+        /**
          * SplitItemInstanceRequest
          * @description POST /item-instances/{id}/split body - see ADR 0041/0044. `quantity`
          *     is how many units to split *off* into a new sibling instance; the
@@ -8188,6 +8361,40 @@ export interface components {
             value_type: components["schemas"]["StatValueType"];
             /** Enum Values */
             enum_values?: string[] | null;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Adjustable In Play
+             * @default false
+             */
+            adjustable_in_play: boolean;
+            /**
+             * Pin
+             * @default false
+             */
+            pin: boolean;
+            /**
+             * Signed
+             * @default false
+             */
+            signed: boolean;
+            /** Position */
+            position?: number | null;
+            /** Max Hint Id */
+            max_hint_id?: string | null;
+            /** Min Hint Id */
+            min_hint_id?: string | null;
+            /** Resolved Hint Id */
+            resolved_hint_id?: string | null;
+        };
+        /**
+         * StatDefinitionOrder
+         * @description PUT /stat-groups/{id}/order - every definition of the group, once
+         *     each, in the order they should come in (ADR 0278).
+         */
+        StatDefinitionOrder: {
+            /** Stat Definition Ids */
+            stat_definition_ids: string[];
         };
         /**
          * StatDefinitionOut
@@ -8211,6 +8418,22 @@ export interface components {
             value_type: components["schemas"]["StatValueType"];
             /** Enum Values */
             enum_values: string[];
+            /** Unit */
+            unit: string | null;
+            /** Adjustable In Play */
+            adjustable_in_play: boolean;
+            /** Pin */
+            pin: boolean;
+            /** Signed */
+            signed: boolean;
+            /** Position */
+            position: number;
+            /** Max Hint Id */
+            max_hint_id: string | null;
+            /** Min Hint Id */
+            min_hint_id: string | null;
+            /** Resolved Hint Id */
+            resolved_hint_id: string | null;
             /**
              * Created At
              * Format: date-time
@@ -8223,6 +8446,30 @@ export interface components {
             updated_at: string;
         };
         /**
+         * StatDefinitionUpdate
+         * @description PATCH /stat-definitions/{id} - ADR 0278. Merge-patch semantics
+         *     (`exclude_unset`); `unit` may be set to null to clear it. A definition's
+         *     name, type and group are not editable here.
+         */
+        StatDefinitionUpdate: {
+            /** Unit */
+            unit?: string | null;
+            /** Adjustable In Play */
+            adjustable_in_play?: boolean | null;
+            /** Pin */
+            pin?: boolean | null;
+            /** Signed */
+            signed?: boolean | null;
+            /** Position */
+            position?: number | null;
+            /** Max Hint Id */
+            max_hint_id?: string | null;
+            /** Min Hint Id */
+            min_hint_id?: string | null;
+            /** Resolved Hint Id */
+            resolved_hint_id?: string | null;
+        };
+        /**
          * StatEnumValueCreate
          * @description POST .../stat-definitions/{id}/enum-values - see ADR 0103. An
          *     omitted sort_order places the value after the last one.
@@ -8232,6 +8479,35 @@ export interface components {
             value: string;
             /** Sort Order */
             sort_order?: number | null;
+        };
+        /**
+         * StatExplanationOut
+         * @description How an entity's stat came to have its value, for any participant who
+         *     may read the entity (ADR 0276). `formula` is the winning formula, held by
+         *     this entity or inherited (see `from_entity`), null for a stored value;
+         *     `inputs` are the values it read. A contents formula has no inputs of its
+         *     own: `contents` says what it counted instead.
+         */
+        StatExplanationOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | string | boolean;
+            /** Own */
+            own: boolean;
+            /** Computed */
+            computed: boolean;
+            from_entity: components["schemas"]["EntitySummary"] | null;
+            /** Formula */
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"]) | null;
+            /** Inputs */
+            inputs: components["schemas"]["PreviewInputOut"][];
+            contents: components["schemas"]["ContentsExplanationOut"] | null;
         };
         /**
          * StatGroupCreate
@@ -8253,6 +8529,17 @@ export interface components {
              * @default false
              */
             mandatory: boolean;
+            /** Position */
+            position?: number | null;
+        };
+        /**
+         * StatGroupOrder
+         * @description PUT /stat-groups/order - every group of the tenant, once each, in the
+         *     order they should come in (ADR 0278).
+         */
+        StatGroupOrder: {
+            /** Stat Group Ids */
+            stat_group_ids: string[];
         };
         /**
          * StatGroupOut
@@ -8272,6 +8559,8 @@ export interface components {
             priority: number;
             /** Mandatory */
             mandatory: boolean;
+            /** Position */
+            position: number;
             /**
              * Created At
              * Format: date-time
@@ -8282,6 +8571,22 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * StatGroupUpdate
+         * @description PATCH /stat-groups/{id} - ADR 0278. Merge-patch semantics
+         *     (`exclude_unset`): an omitted field is left alone, and none of these can
+         *     be cleared to null.
+         */
+        StatGroupUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Priority */
+            priority?: number | null;
+            /** Mandatory */
+            mandatory?: boolean | null;
+            /** Position */
+            position?: number | null;
         };
         /**
          * StatValueOut
@@ -8497,6 +8802,10 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms: boolean;
+            /** Weapon Stat Group Id */
+            weapon_stat_group_id: string | null;
+            /** Ability Information Type */
+            ability_information_type: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -8547,6 +8856,10 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms?: boolean | null;
+            /** Weapon Stat Group Id */
+            weapon_stat_group_id?: string | null;
+            /** Ability Information Type */
+            ability_information_type?: string | null;
         };
         /**
          * UnprovenKindOut
@@ -15128,6 +15441,75 @@ export interface operations {
             };
         };
     };
+    get_being_sheet: {
+        parameters: {
+            query?: {
+                /** @description A campaign of the tenant the caller can read. Accepted so a campaign can later override the library's sheet settings; it changes nothing today. */
+                campaign_id?: string | null;
+            };
+            header?: never;
+            path: {
+                entity_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SheetOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     payload_content: {
         parameters: {
             query?: never;
@@ -17010,6 +17392,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityStatWriteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    explain_entity_stat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatExplanationOut"];
                 };
             };
             /** @description Validation Error */
@@ -21057,6 +21506,75 @@ export interface operations {
             };
         };
     };
+    reorder_stat_groups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatGroupOrder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatGroupOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_stat_group: {
         parameters: {
             query?: never;
@@ -21141,6 +21659,146 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_stat_group: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatGroupUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatGroupOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reorder_stat_definitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatDefinitionOrder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatDefinitionOut"][];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -21408,6 +22066,76 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_stat_definition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatDefinitionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatDefinitionOut"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -8,18 +8,22 @@ import { kindLabel } from '../../lib/beingList';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
 import { gmCampaignsIn, isTenantMember, myBeingIds } from '../../lib/me';
+import { valueText, vitalsOf } from '../../lib/statBand';
+import { say } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import type { Character, EntityDetail } from '../../lib/types';
 import { renderBeingNotes } from '../BeingNotes/renderer';
 import { renderBeingView } from '../BeingView/renderer';
+import { renderDatasheet } from '../Datasheet/renderer';
 import { renderDescriptionEdit } from '../DescriptionEdit/renderer';
 import { renderHandOver } from '../HandOver/renderer';
 import { renderInventorySummary } from '../InventorySummary/renderer';
 import { renderNameEdit } from '../NameEdit/renderer';
 import { renderPeople } from '../People/renderer';
 import { renderPictureEdit } from '../PictureEdit/renderer';
+import { renderSheetControls } from '../SheetControls/renderer';
 import { renderSlugEditor } from '../SlugEditor/renderer';
-import { renderStatEditor } from '../StatEditor/renderer';
+import { renderStatBand } from '../StatBand/renderer';
 import { renderTagEditor } from '../TagEditor/renderer';
 
 export type BeingPageOptions = {
@@ -46,8 +50,17 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const kind = required<HTMLElement>(root, '[data-kind]');
   const slug = required<HTMLElement>(root, '[data-link-name]');
   const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
-  const editSections = required<HTMLElement>(root, '[data-edit-sections]');
-  const nameSection = required<HTMLElement>(root, '[data-name-section]');
+  const nameSection = required<HTMLElement>(root, '[data-name-section] > div');
+  const saveStatus = required<HTMLElement>(root, '[data-save-status]');
+  const statBand = renderStatBand({
+    root: required<HTMLElement>(root, '[data-stat-band]'),
+    page: root,
+    lines: required<HTMLElement>(root, '[data-ds-lines]'),
+    tenantId,
+    onChanged: (entity) => showEntity(entity),
+    announce: (message) => controls.announce(message),
+    say: (message, failed) => say(saveStatus, message, failed),
+  });
 
   back.href = `/beings/?tenant=${encodeURIComponent(tenantAddress)}`;
 
@@ -84,7 +97,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     window.history.replaceState(window.history.state, '', url);
   }
 
-  const view = renderBeingView(required<HTMLElement>(root, '[data-being-view]'), { renderer });
+  const view = renderBeingView(root, { renderer });
   const people = renderPeople(required<HTMLElement>(root, '[data-people]'));
   const inventory = renderInventorySummary(required<HTMLElement>(root, '[data-inventory]'));
   const description = renderDescriptionEdit({
@@ -92,6 +105,26 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     renderer,
     onSaved: () => void refresh(),
+  });
+  const datasheet = renderDatasheet({
+    root: required<HTMLElement>(root, '[data-datasheet]'),
+    tenantId,
+    renderer,
+    vocabulary: () => statBand.vocabulary(),
+  });
+  const controls = renderSheetControls({
+    root,
+    onLayout: (layout) => {
+      if (shown) {
+        redrawStats(shown);
+        if (layout === 'datasheet') void datasheet.load(shown.id);
+      }
+    },
+    onMode: (mode) => {
+      // The description's way into its form is for building the being, not for reading it.
+      description.allow(canEdit && mode === 'edit');
+      if (shown) redrawStats(shown);
+    },
   });
   const nameEdit = renderNameEdit({
     root: required<HTMLFormElement>(root, '[data-name-edit]'),
@@ -113,12 +146,6 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     onChanged: () => void refresh(),
   });
-  const statEditor = renderStatEditor({
-    root: required<HTMLElement>(root, '[data-stat-editor]'),
-    tenantId,
-    onChanged: () => void refresh(),
-  });
-
   copyLink.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -136,6 +163,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     shown = entity;
     document.title = `${entity.name} — Lorenzo Beings`;
     title.textContent = entity.name;
+    controls.setName(entity.name);
     showSlug(entity.slug);
     view.show(entity);
     description.show({
@@ -144,6 +172,20 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       hasDescription: descriptionOf(entity) !== '',
     });
     pictureEdit.load(entity.id, pictureOf(entity) !== undefined);
+
+    datasheet.show({ id: entity.id, name: entity.name, description: descriptionOf(entity) });
+    redrawStats(entity);
+  }
+
+  // The numbers and tags as the mode shows them, and the few the sticky bar keeps in view.
+  function redrawStats(entity: EntityDetail) {
+    const drawn = statBand.show(entity, controls.mode(), canEdit, controls.layout());
+
+    datasheet.setHasStats(drawn.length > 0);
+
+    controls.setVitals(
+      vitalsOf(drawn).map((tile) => ({ label: tile.label, value: valueText(tile) })),
+    );
   }
 
   return {
@@ -154,7 +196,11 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
 
       character = await getCharacter(tenantId, entityId).catch(() => null);
       kind.textContent = character ? kindLabel(character) : 'NPC';
+      await statBand.load();
       showEntity(entity);
+
+      // Asked for the datasheet before the being had arrived (a link, or a quick hand).
+      if (controls.layout() === 'datasheet') void datasheet.load(entityId);
 
       void people.load(tenantId, character);
       void inventory.load(tenantId, tenantAddress, entityId);
@@ -177,14 +223,17 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       });
 
       void notes.load({ canWrite: canEdit, runsTheTable });
-      description.allow(canEdit);
+      controls.allowEdit(
+        canEdit,
+        'Only the people who run this table, or play this being, can edit it.',
+      );
+      // Who may write is known now: the numbers and tags can show their controls.
+      redrawStats(current());
 
       if (!canEdit) return;
 
-      editSections.hidden = false;
       void slugEditor.load(entityId, entity.name, 'item');
       void tagEditor.load(entityId);
-      void statEditor.load(entityId);
 
       // Renaming and handing over are of a character: a bare being has no such row (ADR 0031).
       if (character) {

@@ -6,7 +6,7 @@ from fastapi import Request
 from pydantic import BaseModel, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, Information
+from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 from lorenzo_api.stat_evaluation import evaluate
@@ -161,6 +161,11 @@ class EntityStatValueOut(BaseModel):
     # ADR 0111: the entity holds the winning value itself, stored or
     # computed; false when it's inherited.
     own: bool
+    # ADR 0276: where the winning row is held, when it is not this entity: the
+    # prototype the value (or its formula) comes from. Null when `own`.
+    from_entity: EntitySummary | None = None
+    # ADR 0276: a formula produced the value, held by this entity or inherited.
+    computed: bool = False
 
 
 class InformationOut(BaseModel):
@@ -168,7 +173,7 @@ class InformationOut(BaseModel):
     payloads already resolved to their concrete kind - see ADR 0020. A
     single Information row's payloads can be of heterogeneous kinds, so
     each is resolved independently via payload_to_schema rather than
-    assuming one kind per row.
+    assuming one kind per row. Needs `author` loaded (ADR 0277).
     """
 
     id: uuid.UUID
@@ -180,9 +185,15 @@ class InformationOut(BaseModel):
     # 0042/0101). Each payload carries its own, separately.
     updated_at: datetime
     payloads: list[PayloadOut]
+    # ADR 0277: who wrote it, shown wherever the row is. Null for a row written
+    # before attribution existed or by an account since deleted; the name is
+    # the author's display name, else their nickname, else null.
+    created_by: uuid.UUID | None = None
+    created_by_name: str | None = None
 
     @classmethod
     def from_information(cls, information: Information, request: Request) -> InformationOut:
+        author = information.author
         return cls(
             id=information.id,
             title=information.title,
@@ -191,26 +202,45 @@ class InformationOut(BaseModel):
             order=information.order,
             updated_at=information.updated_at,
             payloads=[payload_to_schema(payload, request) for payload in information.payloads],
+            created_by=information.created_by,
+            created_by_name=(author.display_name or author.nickname) if author else None,
         )
+
+
+def stat_display_key(stat: VEffectiveStat) -> tuple[int, str, int, str]:
+    """Where a stat comes in an entity's list (ADR 0278): its group's
+    position and name, then its own position and name. Needs the stat's
+    definition and its group loaded."""
+    definition = stat.stat_definition
+    return (
+        definition.stat_group.position,
+        definition.stat_group.name,
+        definition.position,
+        definition.name,
+    )
 
 
 def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
     """Every effective stat with a value, computed ones evaluated (ADR
     0104). A computed stat whose inputs don't resolve is left out, like an
-    unset stat. Needs entity.stats (the entity's own rows) loaded too: an
-    own row always wins at hop 0, and an entity never holds both a value
-    and a formula for one stat (ADR 0104), so `own` is either of those.
-    A contents formula needs stat_contents.attach_contents first (ADR
-    0127)."""
+    unset stat. Needs each stat's `source_entity` loaded: the view names the
+    holder of every winner (ADR 0276), so `own` is "the holder is this entity"
+    and an inherited value says which prototype it comes from. A contents
+    formula needs stat_contents.attach_contents first (ADR 0127)."""
     values = evaluate(entity.effective_stats, entity_id=entity.id, contents=entity.stat_contents)
-    stored = {stat.stat_definition_id for stat in entity.stats}
     return [
         EntityStatValueOut(
             name=stat.stat_definition.name,
             value=values[stat.stat_definition_id],
-            own=stat.stat_definition_id in stored or stat.computed_entity_id == entity.id,
+            own=stat.source_entity_id == entity.id,
+            from_entity=(
+                None
+                if stat.source_entity_id == entity.id
+                else EntitySummary.from_entity(stat.source_entity)
+            ),
+            computed=stat.computed_entity_id is not None,
         )
-        for stat in entity.effective_stats
+        for stat in sorted(entity.effective_stats, key=stat_display_key)
         if stat.stat_definition_id in values
     ]
 

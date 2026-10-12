@@ -1,0 +1,1148 @@
+/*
+ * The being sheet (RFC 0043, docs/design/beings): what apps/brand does not have yet.
+ *
+ * Everything here is built from apps/brand's semantic tokens (tokens.css) and sits on top of its
+ * components (components.css). There is no colour, radius, spacing or font literal in this file,
+ * and no token is redefined. Per ADR 0098 nothing here moves into apps/brand until a second app
+ * wants it; the README lists which of these are the likely candidates.
+ */
+
+/* ---- Page ---- */
+.sheet-page {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Segmented control (Read / Play / Edit, Sheet / Datasheet) ---- */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface-default);
+  padding: 2px;
+  gap: 2px;
+}
+.segmented label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-3);
+  min-height: 32px;
+  border-radius: calc(var(--radius-control) - 2px);
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.segmented label:hover {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+}
+.segmented input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.segmented label:has(input:checked) {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.segmented label:has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.segmented label:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Identity header ---- */
+.sheet-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  align-items: start;
+}
+.portrait {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-subtle);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 40px;
+  color: var(--text-secondary);
+  overflow: hidden;
+}
+.portrait[data-tone="blue"] {
+  background: var(--action-surface);
+}
+.portrait[data-tone="ink"] {
+  background: var(--surface-muted);
+}
+.portrait[data-tone="gold"] {
+  background: var(--surface-warm);
+}
+
+.sheet-name {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.sheet-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sheet-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.sheet-sub .mono {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.sheet-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+  gap: var(--space-2);
+}
+.edit-picture {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+/* ---- Sticky bar ---- */
+.sticky-bar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  margin-inline: calc(var(--space-4) * -1);
+  background: var(--surface-canvas);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: opacity 150ms ease;
+}
+.sticky-bar[hidden] {
+  display: none;
+}
+.sticky-bar .display {
+  font-size: 20px;
+}
+.sticky-vitals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.sticky-vitals strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Layout ---- */
+.sheet-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: var(--space-5);
+  align-items: start;
+}
+.sheet-main,
+.sheet-rail {
+  position: sticky;
+  top: calc(var(--space-6) + var(--space-3));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+.sheet-page section {
+  margin-bottom: 0;
+}
+.sheet-section > header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.sheet-section > header h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.sheet-section > header .caption {
+  flex: 1;
+}
+
+/* ---- Stats ---- */
+.stat-group + .stat-group {
+  margin-top: var(--space-4);
+}
+.stat-group > h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2);
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.stat-group > h3 .caption {
+  font-weight: 400;
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  column-gap: var(--space-2);
+  row-gap: 0;
+  margin-bottom: calc(var(--space-2) * -1);
+}
+/* Four rows in every tile (label, value, caption, foot), shared with the tiles beside it, so the numbers line up. */
+.stat-tile {
+  position: relative;
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 2px;
+  margin-bottom: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+  min-width: 0;
+}
+@supports not (grid-template-rows: subgrid) {
+  .stat-tile {
+    display: flex;
+    flex-direction: column;
+  }
+}
+/* Derived values (inherited or calculated) are dashed, so they read as derived in greyscale (identity.md section 18). */
+.stat-tile.is-derived {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.stat-value .unit,
+.stat-sub {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+.stat-value .unit {
+  margin-inline-start: 4px;
+}
+.stat-foot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+  min-width: 0;
+}
+.stat-prov {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.stat-foot summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-secondary);
+  border-radius: var(--radius-control);
+  padding: 2px 4px;
+  margin-inline: -4px;
+}
+.stat-foot summary::-webkit-details-marker {
+  display: none;
+}
+.stat-foot summary:hover {
+  background: var(--fill-soft);
+}
+.why {
+  position: relative;
+}
+.why-panel {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  min-width: 220px;
+  padding: var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-ink) 28%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.why-panel p {
+  margin: 0 0 var(--space-2);
+  color: var(--text-secondary);
+}
+.why-panel dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.why-panel dd {
+  margin: 0;
+  text-align: end;
+  font-family: var(--font-mono);
+}
+.stat-stepper {
+  display: flex;
+  gap: var(--space-1);
+  align-self: stretch;
+}
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+.icon-btn:hover {
+  background: var(--fill-soft);
+}
+.stat-stepper .icon-btn {
+  flex: 1;
+}
+
+.stat-rows {
+  margin: var(--space-2) 0 0;
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  border-top: 1px solid var(--border-subtle);
+}
+.stat-rows dt,
+.stat-rows dd {
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.stat-rows dt {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.stat-rows dd.is-derived {
+  font-style: normal;
+}
+
+.empty {
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.empty p {
+  margin: 0;
+  max-width: 52ch;
+}
+
+/* ---- Tags ---- */
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+}
+.tag-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-default);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  cursor: default;
+}
+button.tag-toggle {
+  cursor: pointer;
+}
+button.tag-toggle:hover {
+  background: var(--fill-soft);
+}
+.tag-toggle[data-state="on"] {
+  background: var(--surface-selected);
+  border-color: var(--action);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.tag-toggle[data-state="inherited"] {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.tag-toggle[data-state="off"] {
+  color: var(--text-tertiary);
+}
+.tag-toggle .state {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ---- Notes ---- */
+.note {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.note > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.note h3 {
+  font-size: 16px;
+  margin: 0;
+  flex: 1;
+  min-width: 10rem;
+}
+.note .ls-content {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.note .ls-content p {
+  margin-block: 0 var(--space-2);
+}
+.note-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+.audience-options {
+  display: grid;
+  gap: var(--space-2);
+}
+.audience-options label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--space-2);
+  align-items: baseline;
+}
+.audience-options .caption {
+  grid-column: 2;
+}
+
+/* ---- Description ---- */
+.about .ls-content {
+  max-width: 68ch;
+  font-size: 16px;
+  line-height: 1.65;
+}
+.about .ls-content h4 {
+  font-size: 16px;
+  margin: var(--space-4) 0 var(--space-1);
+}
+.entity-link {
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+textarea.text-input {
+  min-height: 9rem;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+/* ---- Inventory ---- */
+.inv-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.inv-list > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  align-items: baseline;
+}
+.inv-list > li:first-child {
+  border-top: none;
+}
+.inv-list .where {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.inv-list .num {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-size: 13px;
+  min-width: 4.5ch;
+  text-align: end;
+}
+.inv-load {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.bar {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--fill-soft);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--text-tertiary);
+}
+
+/* ---- Rail ---- */
+.rail-card {
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.rail-card h2 {
+  font-size: 14px;
+  margin: 0;
+  color: var(--text-secondary);
+}
+.person {
+  display: flex;
+  flex-direction: column;
+}
+.person .caption {
+  font-size: 13px;
+}
+
+/* ---- Datasheet ---- */
+.datasheet {
+  display: flex;
+  flex-direction: column;
+}
+.ds-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border-strong);
+}
+.ds-head h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  margin: 0;
+}
+.ds-head .grow {
+  flex: 1;
+}
+.ds-line {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ds-line > h3 {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--surface-muted);
+  border-inline-end: 1px solid var(--border-subtle);
+}
+.ds-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+}
+.ds-cell {
+  padding: var(--space-2) var(--space-3);
+  border-inline-end: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ds-cell:last-child {
+  border-inline-end: none;
+}
+.ds-cell .stat-label {
+  font-size: 12px;
+}
+.ds-cell .stat-value {
+  font-size: 22px;
+}
+.ds-cell.is-derived {
+  background: var(--fill-soft);
+}
+.ds-block {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ds-block:last-child {
+  border-bottom: none;
+}
+.ds-block > h3 {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2);
+}
+.ds-table-wrap {
+  overflow-x: auto;
+}
+.ds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.ds-table th,
+.ds-table td {
+  text-align: start;
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.ds-table th {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.ds-table td:first-child {
+  white-space: normal;
+  font-weight: 500;
+}
+.ds-note {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.ds-note:first-of-type {
+  border-top: none;
+}
+.ds-note p {
+  margin: 0;
+}
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed;
+  inset-inline: var(--space-3);
+  inset-block-end: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto;
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  z-index: 20;
+}
+
+/* ---- Phone (identity.md section 8.5: one breakpoint, one column) ---- */
+@media (max-width: 720px) {
+  .sheet-head {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+  .portrait {
+    width: 80px;
+    height: 80px;
+    font-size: 28px;
+  }
+  .sheet-name {
+    font-size: 26px;
+  }
+  .sheet-tools {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .sheet-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+  .sticky-bar {
+    margin-inline: calc(var(--space-3) * -1);
+    padding-inline: var(--space-3);
+  }
+  .stat-rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stat-rows dt {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .ds-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ds-line > h3 {
+    border-inline-end: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: var(--space-2) var(--space-3);
+  }
+  .ds-note {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+  .segmented label {
+    min-height: var(--target-min);
+    padding-inline: var(--space-3);
+  }
+}
+
+/* Anything pressed is at least 44px for a coarse pointer (section 8.5). */
+@media (pointer: coarse) {
+  .icon-btn,
+  .btn,
+  .tag-toggle,
+  .segmented label,
+  .stat-prov summary {
+    min-height: var(--target-min);
+  }
+  .icon-btn {
+    min-width: var(--target-min);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sticky-bar {
+    transition: none;
+  }
+}
+
+/* ---- Section links in the sticky bar ---- */
+.sticky-nav {
+  display: flex;
+  gap: 2px;
+}
+.sticky-nav a {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+}
+.sticky-nav a:hover {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+}
+.sheet-section {
+  scroll-margin-top: calc(var(--space-6) + var(--space-3));
+}
+.btn-quiet {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin-inline: -4px;
+  font-size: 12px;
+  color: var(--action);
+  align-self: flex-start;
+}
+.btn-quiet:hover {
+  background: var(--fill-soft);
+  color: var(--action-hover);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+@media (max-width: 720px) {
+  .sheet-rail {
+    position: static;
+  }
+  .sticky-nav {
+    display: none;
+  }
+}
+
+/* ---- Iteration 2: sections, the stat band, play ---- */
+
+/* Sections are told apart by a rule under their title, and Stats sits on a surface of its own. */
+.sheet-section > header {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sheet-section > header h2 {
+  font-size: 22px;
+}
+.stat-band {
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.stat-band .stat-group:first-child {
+  margin-top: 0;
+}
+.stat-band .stat-rows {
+  border-top-color: var(--border-strong);
+}
+.stat-band .stat-rows dt,
+.stat-band .stat-rows dd {
+  border-bottom-color: var(--border-strong);
+}
+
+/* The key to solid and dashed, one tap away instead of a sentence under every heading. */
+.legend {
+  position: relative;
+}
+.legend summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-control);
+}
+.legend summary::-webkit-details-marker {
+  display: none;
+}
+.legend summary:hover {
+  background: var(--fill-soft);
+}
+.legend-panel {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  width: max-content;
+  max-width: min(18rem, 80vw);
+  padding: var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-ink) 28%, transparent);
+  font-size: 13px;
+}
+.legend-panel p {
+  margin: 0 0 var(--space-2);
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.legend-panel p:last-child {
+  margin: 0;
+}
+.swatch {
+  flex: none;
+  width: 28px;
+  height: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  background: var(--surface-default);
+}
+.swatch.is-derived {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+
+/* In play, the value is the control: tap it for "take 7 away". */
+.stat-value-btn {
+  display: block;
+  width: fit-content;
+  padding: 0 4px;
+  margin-inline: -4px;
+  background: none;
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline dotted var(--border-strong);
+  text-underline-offset: 6px;
+  cursor: pointer;
+}
+.ds-cell .stat-value-btn {
+  font-size: 22px;
+}
+.stat-value-btn:hover {
+  background: var(--fill-soft);
+  color: var(--text-primary);
+}
+.stat-value-btn .unit {
+  text-decoration: none;
+  display: inline-block;
+}
+.adjust {
+  position: absolute;
+  z-index: 4;
+  inset-block-start: calc(100% + 4px);
+  inset-inline-start: 0;
+  width: 15rem;
+  max-width: 80vw;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-ink) 28%, transparent);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.adjust.to-end {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+.adjust-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1);
+}
+.adjust-actions .btn {
+  padding-inline: var(--space-1);
+}
+
+/* What just changed: a short highlight and the amount, gone on their own. */
+.stat-tile.is-changed,
+.ds-cell.is-changed {
+  background: var(--surface-selected);
+  border-color: var(--action);
+}
+.stat-delta {
+  position: absolute;
+  /* beside the value, not on the label */
+  inset-block-start: 2.4rem;
+  inset-inline-end: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .stat-tile,
+  .ds-cell {
+    transition:
+      background-color 400ms ease,
+      border-color 400ms ease;
+  }
+  .stat-delta {
+    animation: delta-in 180ms ease-out;
+  }
+  @keyframes delta-in {
+    from {
+      transform: translateY(4px);
+      opacity: 0;
+    }
+  }
+}
+
+.undo-bar {
+  position: fixed;
+  z-index: 21;
+  inset-inline: var(--space-3);
+  inset-block-end: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  margin-inline: auto;
+  width: fit-content;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  border-radius: var(--radius-control);
+  font-size: 14px;
+}
+.undo-bar[hidden] {
+  display: none;
+}
+.undo-bar .btn {
+  background: var(--surface-default);
+  color: var(--text-primary);
+  border-color: transparent;
+}
+
+/* ---- The mode switch stays in reach ---- */
+.sticky-bar {
+  gap: var(--space-2) var(--space-3);
+}
+.sticky-name {
+  min-width: 0;
+}
+.sticky-vitals span + span::before {
+  content: "·";
+  margin-inline: var(--space-2);
+  color: var(--text-tertiary);
+}
+
+/* The layout switch is a quieter control than the mode switch. */
+.segmented.quiet {
+  border-color: transparent;
+  background: transparent;
+}
+.segmented.quiet label {
+  font-size: 13px;
+  min-height: 28px;
+}
+
+/* The datasheet is the header's own frame, not a second card under it. */
+.sheet-page.is-datasheet {
+  gap: 0;
+}
+.is-datasheet .sheet-head {
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.is-datasheet .datasheet {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.is-datasheet .sticky-bar {
+  margin-block-end: 0;
+}
+.ds-cell {
+  position: relative;
+}
+.ds-cell .stat-foot {
+  margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  /* On a phone the adjuster is a sheet at the bottom of the screen, where the thumb is. */
+  .adjust {
+    position: fixed;
+    inset-inline: var(--space-3);
+    inset-block: auto calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-width: none;
+  }
+  .adjust.to-end {
+    inset-inline: var(--space-3);
+  }
+  /* On a phone the bar has two rows: name and mode switch, then the numbers. */
+  .sticky-bar .sticky-name {
+    font-size: 17px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sticky-vitals {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .sticky-bar .segmented label {
+    padding-inline: var(--space-2);
+  }
+  .stat-band {
+    padding: var(--space-3);
+  }
+}
+
+/* ---- Modes ---- */
+/* Moving, editing and deleting a note are for building the being, not for reading or playing it. */
+[data-mode]:not([data-mode="edit"]) [data-being-notes] [data-actions] {
+  display: none;
+}
+
+/* The inventory summary brings its own heading; it is drawn like the other sections' headers. */
+.sheet-section > [data-inventory] > h2 {
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 22px;
+}
+
+/* The datasheet has its own order and no sections to link to. */
+.is-datasheet .sticky-nav {
+  display: none;
+}

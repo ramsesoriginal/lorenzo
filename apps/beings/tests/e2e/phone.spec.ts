@@ -21,6 +21,6 @@ test('the list and a being’s page fit a phone without sideways scrolling', asy
 
   await page.getByRole('link', { name: 'Ashfang' }).click();
   await expect(page.getByRole('heading', { name: 'Backstory' })).toBeVisible();
-  await expect(page.locator('[data-edit-sections]')).toBeVisible();
+  await expect(page.locator('[data-sheet-head] [data-mode-switch]')).toBeVisible();
   expect(await overflows()).toBe(false);
 });

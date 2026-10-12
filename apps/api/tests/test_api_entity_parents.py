@@ -4,6 +4,7 @@ RFC 0041)."""
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
+from unittest.mock import ANY
 
 from _admin_db import admin_session_factory
 from _fake_jwks import FakeJwksServer
@@ -246,9 +247,13 @@ async def test_a_being_inherits_stats_through_its_new_parents(
 
     assert await stats() == []
     await _put(client, tenant_id, grunt, [race])
-    assert await stats() == [{"name": "hp", "value": 30, "own": False}]
+    assert await stats() == [
+        {"name": "hp", "value": 30, "own": False, "from_entity": ANY, "computed": False}
+    ]
     await _put(client, tenant_id, grunt, [other_race])
-    assert await stats() == [{"name": "hp", "value": 12, "own": False}]
+    assert await stats() == [
+        {"name": "hp", "value": 12, "own": False, "from_entity": ANY, "computed": False}
+    ]
     await _put(client, tenant_id, grunt, [])
     assert await stats() == []
     await delete_tenant(tenant_id)
@@ -276,7 +281,9 @@ async def test_a_value_the_entry_holds_itself_stays_when_parents_change(
     await _put(client, tenant_id, grunt, [race])
     await _put(client, tenant_id, grunt, [])
     detail = await client.get(f"/tenants/{tenant_id}/entities/{grunt}")
-    assert detail.json()["stats"] == [{"name": "hp", "value": 99, "own": True}]
+    assert detail.json()["stats"] == [
+        {"name": "hp", "value": 99, "own": True, "from_entity": None, "computed": False}
+    ]
     await delete_tenant(tenant_id)
 
 

@@ -337,6 +337,12 @@ class Source(StrEnum):
     unset = "unset"
 
 
+class ContentsExplanationOut(BaseModel):
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    source_name: str = Field(..., title="Source Name")
+    things: int = Field(..., title="Things")
+
+
 class ContentsFormulaBody(BaseModel):
     kind: Literal["contents"] = Field("contents", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
@@ -495,12 +501,6 @@ class EntitySlugOut(BaseModel):
 
 class EntitySlugUpdate(BaseModel):
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) = Field(..., title="Slug")
-
-
-class EntityStatValueOut(BaseModel):
-    name: str = Field(..., title="Name")
-    value: int | str | float | bool = Field(..., title="Value")
-    own: bool = Field(..., title="Own")
 
 
 class EntitySummary(BaseModel):
@@ -1187,6 +1187,21 @@ class SplitItemInstanceRequest(BaseModel):
     owner_character_id: UUID | None = Field(None, title="Owner Character Id")
 
 
+class StatDefinitionOrder(BaseModel):
+    stat_definition_ids: list[UUID] = Field(..., title="Stat Definition Ids")
+
+
+class StatDefinitionUpdate(BaseModel):
+    unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
+    adjustable_in_play: bool | None = Field(None, title="Adjustable In Play")
+    pin: bool | None = Field(None, title="Pin")
+    signed: bool | None = Field(None, title="Signed")
+    position: int | None = Field(None, title="Position")
+    max_hint_id: UUID | None = Field(None, title="Max Hint Id")
+    min_hint_id: UUID | None = Field(None, title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
+
+
 class StatEnumValueCreate(BaseModel):
     value: str = Field(..., title="Value")
     sort_order: int | None = Field(None, title="Sort Order")
@@ -1196,6 +1211,11 @@ class StatGroupCreate(BaseModel):
     name: str = Field(..., title="Name")
     priority: int | None = Field(0, title="Priority")
     mandatory: bool | None = Field(False, title="Mandatory")
+    position: int | None = Field(None, title="Position")
+
+
+class StatGroupOrder(BaseModel):
+    stat_group_ids: list[UUID] = Field(..., title="Stat Group Ids")
 
 
 class StatGroupOut(BaseModel):
@@ -1203,8 +1223,16 @@ class StatGroupOut(BaseModel):
     name: str = Field(..., title="Name")
     priority: int = Field(..., title="Priority")
     mandatory: bool = Field(..., title="Mandatory")
+    position: int = Field(..., title="Position")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class StatGroupUpdate(BaseModel):
+    name: str | None = Field(None, title="Name")
+    priority: int | None = Field(None, title="Priority")
+    mandatory: bool | None = Field(None, title="Mandatory")
+    position: int | None = Field(None, title="Position")
 
 
 class StatValueOut(BaseModel):
@@ -1287,6 +1315,8 @@ class TenantOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
+    ability_information_type: str | None = Field(..., title="Ability Information Type")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
 
@@ -1313,6 +1343,10 @@ class TenantUpdate(BaseModel):
         None,
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
+    )
+    weapon_stat_group_id: UUID | None = Field(None, title="Weapon Stat Group Id")
+    ability_information_type: constr(min_length=1, max_length=100) | None = Field(
+        None, title="Ability Information Type"
     )
 
 
@@ -1454,6 +1488,14 @@ class DescriptionOut(BaseModel):
     from_entity: EntitySummary | None
 
 
+class EntityStatValueOut(BaseModel):
+    name: str = Field(..., title="Name")
+    value: int | str | float | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    from_entity: EntitySummary | None = None
+    computed: bool | None = Field(False, title="Computed")
+
+
 class GroupMemberResultItem(BaseModel):
     character_entity_id: UUID = Field(..., title="Character Entity Id")
     status: Status7 = Field(..., title="Status")
@@ -1483,6 +1525,8 @@ class InformationOut(BaseModel):
     order: int = Field(..., title="Order")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     payloads: list[Payloads] = Field(..., title="Payloads")
+    created_by: UUID | None = Field(None, title="Created By")
+    created_by_name: str | None = Field(None, title="Created By Name")
 
 
 class InviteCreate(BaseModel):
@@ -1836,11 +1880,26 @@ class RowRefOut(BaseModel):
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
+class SheetWeaponOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    quantity: int | None = Field(..., title="Quantity")
+    stats: list[EntityStatValueOut] = Field(..., title="Stats")
+
+
 class StatDefinitionCreate(BaseModel):
     name: str = Field(..., title="Name")
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
     enum_values: list[str] | None = Field(None, title="Enum Values")
+    unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
+    adjustable_in_play: bool | None = Field(False, title="Adjustable In Play")
+    pin: bool | None = Field(False, title="Pin")
+    signed: bool | None = Field(False, title="Signed")
+    position: int | None = Field(None, title="Position")
+    max_hint_id: UUID | None = Field(None, title="Max Hint Id")
+    min_hint_id: UUID | None = Field(None, title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
 
 
 class StatDefinitionOut(BaseModel):
@@ -1849,6 +1908,14 @@ class StatDefinitionOut(BaseModel):
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
     enum_values: list[str] = Field(..., title="Enum Values")
+    unit: str | None = Field(..., title="Unit")
+    adjustable_in_play: bool = Field(..., title="Adjustable In Play")
+    pin: bool = Field(..., title="Pin")
+    signed: bool = Field(..., title="Signed")
+    position: int = Field(..., title="Position")
+    max_hint_id: UUID | None = Field(..., title="Max Hint Id")
+    min_hint_id: UUID | None = Field(..., title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(..., title="Resolved Hint Id")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -2136,9 +2203,36 @@ class PublishedOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
+    ability_information_type: str | None = Field(..., title="Ability Information Type")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
     release: ReleaseAuthoredOut
+
+
+class SheetOut(BaseModel):
+    weapons_configured: bool = Field(..., title="Weapons Configured")
+    abilities_configured: bool = Field(..., title="Abilities Configured")
+    weapons: list[SheetWeaponOut] = Field(..., title="Weapons")
+    abilities: list[InformationOut] = Field(..., title="Abilities")
+
+
+class StatExplanationOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    name: str = Field(..., title="Name")
+    value: int | float | str | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    computed: bool = Field(..., title="Computed")
+    from_entity: EntitySummary | None
+    formula: (
+        LinearFormulaBodyOutput
+        | ComparisonFormulaBodyOutput
+        | SumFormulaBodyOutput
+        | ContentsFormulaBody
+        | None
+    ) = Field(..., title="Formula")
+    inputs: list[PreviewInputOut] = Field(..., title="Inputs")
+    contents: ContentsExplanationOut | None
 
 
 class UpdatesOut(BaseModel):

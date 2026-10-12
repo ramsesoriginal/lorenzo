@@ -379,6 +379,8 @@ TENANT = TenantOut.model_validate(
         "kind": "repository",
         "published_at": None,
         "npcs_shared_with_gms": True,
+        "weapon_stat_group_id": None,
+        "ability_information_type": None,
         "created_by": None,
         "updated_by": None,
     }
@@ -445,6 +447,14 @@ class FakeTenant:
                     "stat_group_id": group["id"],
                     "value_type": d.value_type,
                     "enum_values": [],
+                    "unit": None,
+                    "adjustable_in_play": False,
+                    "pin": False,
+                    "signed": False,
+                    "position": 0,
+                    "max_hint_id": None,
+                    "min_hint_id": None,
+                    "resolved_hint_id": None,
                     "created_at": NOW,
                     "updated_at": NOW,
                 }

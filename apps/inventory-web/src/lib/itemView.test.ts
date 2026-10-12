@@ -16,7 +16,12 @@ describe('statLabel', () => {
 });
 
 describe('tagState', () => {
-  const stat = (value: boolean, own: boolean) => ({ name: 'is_magical', value, own });
+  const stat = (value: boolean, own: boolean) => ({
+    name: 'is_magical',
+    value,
+    own,
+    computed: false,
+  });
 
   it('is On or Off when the entity sets the tag itself', () => {
     expect(tagState(stat(true, true))).toEqual({ state: 'on', hint: '' });

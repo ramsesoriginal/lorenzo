@@ -108,27 +108,65 @@ export async function buildWorld() {
   }
 
   /** Adds a note, as a GM does; private unless `isPublic`. */
-  async function note(entityId: string, title: string, content: string, isPublic = false) {
+  async function note(
+    entityId: string,
+    title: string,
+    content: string,
+    isPublic = false,
+    type = 'note',
+  ) {
     return ok(
       api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
         params: { path: { tenant_id: tenant.id, entity_id: entityId } },
-        body: { title, type: 'note', is_public: isPublic, content, locale: 'en' },
+        body: { title, type, is_public: isPublic, content, locale: 'en' },
       }),
     );
   }
 
   /** A stat definition in a group of its own, for the page to show and edit. */
-  async function defineStat(group: string, name: string, value_type: 'int' | 'bool') {
-    const created = await ok(
-      api.POST('/tenants/{tenant_id}/stat-groups', {
-        ...t,
-        body: { name: group, priority: 0, mandatory: false },
-      }),
-    );
+  const groups = new Map<string, string>();
+
+  /** A stat definition, in its group (made the first time it is named); `extra` sets how it is shown. */
+  async function defineStat(
+    group: string,
+    name: string,
+    value_type: 'int' | 'bool',
+    extra: {
+      adjustable_in_play?: boolean;
+      pin?: boolean;
+      signed?: boolean;
+      unit?: string;
+      max_hint_id?: string;
+      min_hint_id?: string;
+      resolved_hint_id?: string;
+    } = {},
+  ) {
+    let groupId = groups.get(group);
+
+    if (!groupId) {
+      const created = await ok(
+        api.POST('/tenants/{tenant_id}/stat-groups', {
+          ...t,
+          body: { name: group, priority: 0, mandatory: false },
+        }),
+      );
+
+      groupId = created.id;
+      groups.set(group, groupId);
+    }
+
     return ok(
       api.POST('/tenants/{tenant_id}/stat-definitions', {
         ...t,
-        body: { name, stat_group_id: created.id, value_type },
+        body: {
+          name,
+          stat_group_id: groupId,
+          value_type,
+          adjustable_in_play: false,
+          pin: false,
+          signed: false,
+          ...extra,
+        },
       }),
     );
   }
@@ -140,6 +178,30 @@ export async function buildWorld() {
           path: { tenant_id: tenant.id, entity_id: entityId, stat_definition_id: definitionId },
         },
         body: { value, acquire_group: true },
+      }),
+    );
+  }
+
+  /** A linear formula an entity holds: `source × multiplier + offset`. */
+  async function formula(
+    entityId: string,
+    definitionId: string,
+    sourceId: string,
+    multiplier: string,
+    offset: string,
+  ) {
+    await ok(
+      api.PUT('/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}', {
+        params: {
+          path: { tenant_id: tenant.id, entity_id: entityId, stat_definition_id: definitionId },
+        },
+        body: {
+          kind: 'linear',
+          source_stat_definition_id: sourceId,
+          multiplier,
+          offset,
+          round_mode: 'none',
+        },
       }),
     );
   }
@@ -168,6 +230,47 @@ export async function buildWorld() {
     return made.entity_id;
   }
 
+  /** An item instance the being holds directly: equipped, with stats of its own. */
+  async function equip(
+    being: { entity_id: string },
+    name: string,
+    stats: [definitionId: string, value: number][] = [],
+  ) {
+    const item = await ok(
+      api.POST('/tenants/{tenant_id}/items', {
+        ...t,
+        body: { name, prototype_ids: [], in_public_catalog: false },
+      }),
+    );
+    const made = await ok(
+      api.POST('/tenants/{tenant_id}/item-instances', {
+        ...t,
+        body: {
+          prototype_id: item.entity_id,
+          owner_character_id: being.entity_id,
+          container_entity_id: being.entity_id,
+          slug: null,
+          override: false,
+          quantity: 1,
+        },
+      }),
+    );
+
+    for (const [definitionId, value] of stats) await setStat(made.entity_id, definitionId, value);
+
+    return made.entity_id;
+  }
+
+  /** Tells the library where the datasheet finds weapons and abilities. */
+  async function configureSheet(weaponGroupId: string | null, abilityType: string | null) {
+    await ok(
+      api.PATCH('/tenants/{tenant_id}', {
+        ...t,
+        body: { weapon_stat_group_id: weaponGroupId, ability_information_type: abilityType },
+      }),
+    );
+  }
+
   async function slug(entityId: string, value: string) {
     await ok(
       api.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
@@ -192,6 +295,9 @@ export async function buildWorld() {
     note,
     defineStat,
     setStat,
+    formula,
+    equip,
+    configureSheet,
     carry,
     slug,
   };

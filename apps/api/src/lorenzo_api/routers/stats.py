@@ -14,17 +14,22 @@ from lorenzo_api.dependencies import (
     ParamsDep,
     SessionDep,
     get_tenant_context,
+    get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.exceptions import (
     InvalidStatEnumValuesError,
     InvalidStatGroupError,
+    InvalidStatHintError,
+    InvalidStatOrderError,
     StatDefinitionInUseError,
     StatDefinitionNotFoundError,
     StatEnumValueAlreadyExistsError,
     StatEnumValueInUseError,
     StatEnumValueNotFoundError,
     StatGroupInUseError,
+    StatGroupNameTakenError,
     StatGroupNotFoundError,
 )
 from lorenzo_api.models import (
@@ -42,11 +47,16 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.schemas.stats import (
     StatDefinitionCreate,
+    StatDefinitionOrder,
     StatDefinitionOut,
+    StatDefinitionUpdate,
     StatEnumValueCreate,
     StatGroupCreate,
+    StatGroupOrder,
     StatGroupOut,
+    StatGroupUpdate,
 )
+
 
 # get_tenant_context here, not per-route (ADR 0020's revised guidance,
 # matching routers/items.py's identical precedent) - every route on this
@@ -54,10 +64,24 @@ from lorenzo_api.schemas.stats import (
 # are the shared stat vocabulary ("physical," "weight," ...), the same kind
 # of tenant-admin-authored catalog concern as item's own prototypes
 # (ADR 0032/ADR 0037, RFC 0008).
+async def _vocabulary_gate(
+    request: Request, tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> None:
+    """Writing the stat vocabulary is for the tenant's administrators, as it always was;
+    reading it is for any participant of the tenant (ADR 0281). A sheet needs the groups and
+    definitions - which numbers a table may change, units, order, pins - to draw a being for
+    the player of it, who has no membership. Not a participant is the same 404 as ever."""
+    if request.method == "GET":
+        await get_tenant_or_404(tenant_id, session, user)
+        await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    else:
+        await get_tenant_context(tenant_id, session, user)
+
+
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
     tags=["stats"],
-    dependencies=[Depends(get_tenant_context)],
+    dependencies=[Depends(_vocabulary_gate)],
 )
 
 
@@ -92,6 +116,44 @@ async def _get_stat_definition_or_404(
     return stat_definition
 
 
+_NUMERIC = (StatValueType.INT, StatValueType.FLOAT)
+
+
+async def _check_hints(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    hints: dict[str, uuid.UUID | None],
+    *,
+    own_id: uuid.UUID | None,
+) -> None:
+    """Every hint set is a definition of this tenant other than `own_id`, and a minimum or
+    maximum is a number (ADR 0279). The database's key already keeps a hint in its tenant; this
+    says so in words, before it would refuse in code."""
+    wanted = {name: target for name, target in hints.items() if target is not None}
+    if not wanted:
+        return
+    found = {
+        row.id: row.value_type
+        for row in await session.execute(
+            select(StatDefinition.id, StatDefinition.value_type).where(
+                StatDefinition.tenant_id == tenant_id, StatDefinition.id.in_(set(wanted.values()))
+            )
+        )
+    }
+    for name, target in wanted.items():
+        label = name.removesuffix("_id")
+        if target not in found:
+            raise InvalidStatHintError(
+                detail=f"{label} {target} is not a stat definition in tenant {tenant_id}"
+            )
+        if target == own_id:
+            raise InvalidStatHintError(detail=f"A stat definition cannot be its own {label}")
+        if name in ("max_hint_id", "min_hint_id") and found[target] not in _NUMERIC:
+            raise InvalidStatHintError(
+                detail=f"{label} must be an int or float stat, not {found[target].value}"
+            )
+
+
 @router.post("/stat-groups", status_code=201)
 async def create_stat_group(
     tenant_id: uuid.UUID,
@@ -113,6 +175,8 @@ async def create_stat_group(
     stat_group = StatGroup(
         tenant_id=tenant_id, name=body.name, priority=body.priority, mandatory=body.mandatory
     )
+    if body.position is not None:
+        stat_group.position = body.position
     session.add(stat_group)
     await session.flush()
     await record_activity(
@@ -129,6 +193,112 @@ async def create_stat_group(
         request.url_for("get_stat_group", tenant_id=tenant_id, stat_group_id=stat_group.id)
     )
     return StatGroupOut.model_validate(stat_group)
+
+
+@router.put("/stat-groups/order")
+async def reorder_stat_groups(
+    tenant_id: uuid.UUID, body: StatGroupOrder, session: SessionDep
+) -> list[StatGroupOut]:
+    """Puts the tenant's stat groups in this order - ADR 0278. The ids must be
+    every group of the tenant, each once (422 otherwise); positions are
+    renumbered from 0. Registered before `/stat-groups/{id}`, whose path would
+    otherwise take "order" for an id."""
+    groups = list(
+        await session.scalars(
+            select(StatGroup).where(StatGroup.tenant_id == tenant_id).with_for_update()
+        )
+    )
+    by_id = {group.id: group for group in groups}
+    if len(set(body.stat_group_ids)) != len(body.stat_group_ids) or set(body.stat_group_ids) != set(
+        by_id
+    ):
+        raise InvalidStatOrderError(
+            detail=f"The order lists {len(body.stat_group_ids)} id(s); the tenant has "
+            f"{len(by_id)} stat group(s), and each must appear once"
+        )
+    for position, stat_group_id in enumerate(body.stat_group_ids):
+        by_id[stat_group_id].position = position
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    reread = await session.scalars(
+        select(StatGroup)
+        .where(StatGroup.tenant_id == tenant_id)
+        .order_by(StatGroup.position, StatGroup.name, StatGroup.id)
+        .execution_options(populate_existing=True)
+    )
+    return [StatGroupOut.model_validate(group) for group in reread]
+
+
+@router.patch("/stat-groups/{stat_group_id}")
+async def update_stat_group(
+    tenant_id: uuid.UUID, stat_group_id: uuid.UUID, body: StatGroupUpdate, session: SessionDep
+) -> StatGroupOut:
+    """Edits a stat group's name, priority, `mandatory` flag or position - ADR
+    0278, which also says why this is not recorded in the activity log: it
+    changes how things are drawn, not what exists or who can see it (ADR
+    0084)."""
+    stat_group = await _get_stat_group_or_404(tenant_id, stat_group_id, session)
+    changes = body.model_dump(exclude_unset=True)
+    if "name" in changes and changes["name"] != stat_group.name:
+        taken = await session.scalar(
+            select(StatGroup.id).where(
+                StatGroup.tenant_id == tenant_id,
+                StatGroup.name == changes["name"],
+                StatGroup.id != stat_group_id,
+            )
+        )
+        if taken is not None:
+            raise StatGroupNameTakenError(
+                detail=f"Another stat group in tenant {tenant_id} is already called "
+                f"{changes['name']!r}"
+            )
+    for field, value in changes.items():
+        setattr(stat_group, field, value)
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return StatGroupOut.model_validate(
+        await _get_stat_group_or_404(tenant_id, stat_group_id, session)
+    )
+
+
+@router.put("/stat-groups/{stat_group_id}/order")
+async def reorder_stat_definitions(
+    tenant_id: uuid.UUID, stat_group_id: uuid.UUID, body: StatDefinitionOrder, session: SessionDep
+) -> list[StatDefinitionOut]:
+    """Puts this group's stat definitions in this order - ADR 0278. The ids
+    must be every definition of the group, each once (422 otherwise);
+    positions are renumbered from 0."""
+    await _get_stat_group_or_404(tenant_id, stat_group_id, session)
+    definitions = list(
+        await session.scalars(
+            select(StatDefinition)
+            .where(
+                StatDefinition.tenant_id == tenant_id, StatDefinition.stat_group_id == stat_group_id
+            )
+            .options(selectinload(StatDefinition.enum_values))
+            .with_for_update()
+        )
+    )
+    by_id = {definition.id: definition for definition in definitions}
+    if len(set(body.stat_definition_ids)) != len(body.stat_definition_ids) or set(
+        body.stat_definition_ids
+    ) != set(by_id):
+        raise InvalidStatOrderError(
+            detail=f"The order lists {len(body.stat_definition_ids)} id(s); the group has "
+            f"{len(by_id)} stat definition(s), and each must appear once"
+        )
+    for position, definition_id in enumerate(body.stat_definition_ids):
+        by_id[definition_id].position = position
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    reread = await session.scalars(
+        select(StatDefinition)
+        .where(StatDefinition.tenant_id == tenant_id, StatDefinition.stat_group_id == stat_group_id)
+        .options(selectinload(StatDefinition.enum_values))
+        .order_by(StatDefinition.position, StatDefinition.name, StatDefinition.id)
+        .execution_options(populate_existing=True)
+    )
+    return [StatDefinitionOut.from_definition(definition) for definition in reread]
 
 
 @router.delete("/stat-groups/{stat_group_id}", status_code=204)
@@ -176,14 +346,15 @@ async def delete_stat_group(
 async def list_stat_groups(
     tenant_id: uuid.UUID, session: SessionDep, params: ParamsDep
 ) -> Page[StatGroupOut]:
-    """Every stat group in the tenant, name-ordered - the listing the
-    by-id route below never had, so a stat vocabulary is discoverable
-    (and exportable, ADR 0085) without already knowing its ids.
+    """Every stat group in the tenant, in display order (position, then
+    name; ADR 0278) - the listing the by-id route below never had, so a stat
+    vocabulary is discoverable (and exportable, ADR 0085) without already
+    knowing its ids.
     """
     stmt = (
         select(StatGroup)
         .where(StatGroup.tenant_id == tenant_id)
-        .order_by(StatGroup.name, StatGroup.id)
+        .order_by(StatGroup.position, StatGroup.name, StatGroup.id)
     )
     page: Page[StatGroupOut] = await apaginate(session, stmt, params)
     return page
@@ -231,12 +402,31 @@ async def create_stat_definition(
             detail=f"enum_values only apply to enum stats, not {body.value_type.value}"
         )
 
+    await _check_hints(
+        session,
+        tenant_id,
+        {
+            "max_hint_id": body.max_hint_id,
+            "min_hint_id": body.min_hint_id,
+            "resolved_hint_id": body.resolved_hint_id,
+        },
+        own_id=None,
+    )
     stat_definition = StatDefinition(
         tenant_id=tenant_id,
         stat_group_id=body.stat_group_id,
         name=body.name,
         value_type=body.value_type,
+        unit=body.unit,
+        adjustable_in_play=body.adjustable_in_play,
+        pin=body.pin,
+        signed=body.signed,
+        max_hint_id=body.max_hint_id,
+        min_hint_id=body.min_hint_id,
+        resolved_hint_id=body.resolved_hint_id,
     )
+    if body.position is not None:
+        stat_definition.position = body.position
     session.add(stat_definition)
     await session.flush()
     for position, value in enumerate(enum_values):
@@ -273,14 +463,22 @@ async def create_stat_definition(
 async def list_stat_definitions(
     tenant_id: uuid.UUID, session: SessionDep, params: ParamsDep
 ) -> Page[StatDefinitionOut]:
-    """Every stat definition in the tenant, name-ordered - see
+    """Every stat definition in the tenant, in display order (its group's
+    position and name, then its own position and name; ADR 0278) - see
     `list_stat_groups` (ADR 0085).
     """
     stmt = (
         select(StatDefinition)
+        .join(StatGroup, StatGroup.id == StatDefinition.stat_group_id)
         .where(StatDefinition.tenant_id == tenant_id)
         .options(selectinload(StatDefinition.enum_values))
-        .order_by(StatDefinition.name, StatDefinition.id)
+        .order_by(
+            StatGroup.position,
+            StatGroup.name,
+            StatDefinition.position,
+            StatDefinition.name,
+            StatDefinition.id,
+        )
     )
     page: Page[StatDefinitionOut] = await apaginate(
         session,
@@ -297,6 +495,36 @@ async def get_stat_definition(
 ) -> StatDefinitionOut:
     stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
     return StatDefinitionOut.from_definition(stat_definition)
+
+
+@router.patch("/stat-definitions/{stat_definition_id}")
+async def update_stat_definition(
+    tenant_id: uuid.UUID,
+    stat_definition_id: uuid.UUID,
+    body: StatDefinitionUpdate,
+    session: SessionDep,
+) -> StatDefinitionOut:
+    """Edits how a stat is shown - its unit, sign, adjustable-in-play and
+    pinned flags, its position in its group (ADR 0278) and its hints (ADR
+    0279). A definition's
+    name, type and group are not editable here; a retype is breaking for the
+    libraries that copied it. Not recorded in the activity log (ADR 0084:
+    drawing, not what exists or who can see it)."""
+    stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
+    changes = body.model_dump(exclude_unset=True)
+    await _check_hints(
+        session,
+        tenant_id,
+        {k: v for k, v in changes.items() if k.endswith("_hint_id")},
+        own_id=stat_definition_id,
+    )
+    for field, value in changes.items():
+        setattr(stat_definition, field, value)
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return StatDefinitionOut.from_definition(
+        await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
+    )
 
 
 def _in_use_parts(*counted: tuple[int | None, str]) -> str:

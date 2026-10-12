@@ -1,0 +1,19 @@
+---
+import { MODES } from '../../lib/sheetMode';
+
+interface Props {
+  // Radios of one switch share a name; the header's and the sticky bar's are told apart by it.
+  name: string;
+}
+
+const { name } = Astro.props;
+---
+
+<div class="segmented" role="radiogroup" aria-label="Mode" data-mode-switch>
+  {MODES.map(({ mode, label }) => (
+    <label>
+      <input type="radio" name={name} value={mode} checked={mode === 'read'} />
+      {label}
+    </label>
+  ))}
+</div>

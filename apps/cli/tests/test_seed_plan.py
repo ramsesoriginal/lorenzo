@@ -28,6 +28,8 @@ TENANT = TenantOut.model_validate(
         "kind": "repository",
         "published_at": None,
         "npcs_shared_with_gms": True,
+        "weapon_stat_group_id": None,
+        "ability_information_type": None,
         "created_by": None,
         "updated_by": None,
     }
@@ -37,7 +39,13 @@ ALL = LAYERS
 
 def group(name: str) -> StatGroupOut:
     return StatGroupOut(
-        id=uuid.uuid4(), name=name, priority=0, mandatory=False, created_at=NOW, updated_at=NOW
+        id=uuid.uuid4(),
+        name=name,
+        priority=0,
+        mandatory=False,
+        position=0,
+        created_at=NOW,
+        updated_at=NOW,
     )
 
 
@@ -49,6 +57,14 @@ def definition(name: str, group_out: StatGroupOut, value_type: str) -> StatDefin
             "stat_group_id": group_out.id,
             "value_type": value_type,
             "enum_values": [],
+            "unit": None,
+            "adjustable_in_play": False,
+            "pin": False,
+            "signed": False,
+            "position": 0,
+            "max_hint_id": None,
+            "min_hint_id": None,
+            "resolved_hint_id": None,
             "created_at": NOW,
             "updated_at": NOW,
         }
@@ -511,3 +527,36 @@ def test_an_attachment_to_something_that_is_not_an_item_is_a_problem() -> None:
     plan = make_plan(SPEC, state, TENANT, ("dnd5e-equipment",))
 
     assert any("'weapon' belongs to something that isn't an item" in p for p in plan.problems)
+
+
+def test_display_fields_and_hints_in_the_spec_are_planned_after_the_definitions() -> None:
+    first, second = SPEC.definitions[0], SPEC.definitions[1]
+    spec = SPEC.model_copy(
+        update={
+            "definitions": [
+                first.model_copy(update={"unit": "ft", "max_hint": second.name}),
+                second.model_copy(update={"pin": True}),
+                *SPEC.definitions[2:],
+            ]
+        }
+    )
+
+    plan = make_plan(spec, TenantState(), TENANT, ALL)
+    kinds = [a.kind for a in plan.actions]
+    displays = [a for a in plan.actions if a.kind == "display"]
+
+    assert [(a.name, a.detail) for a in displays] == [(first.name, "max_hint")]
+    last_definition = max(i for i, k in enumerate(kinds) if k == "definition")
+    assert kinds.index("display") > last_definition
+
+    # A tenant that has them already is left alone, and a differing flag is an update.
+    state = fully_seeded()
+    held = state.definitions[first.name]
+    held.unit = "ft"
+    held.max_hint_id = state.definitions[second.name].id
+    held_second = state.definitions[second.name]
+    held_second.pin = False
+    plan = make_plan(spec, state, TENANT, ALL)
+    assert [(a.name, a.detail) for a in plan.actions if a.kind == "display"] == [
+        (second.name, "pin")
+    ]

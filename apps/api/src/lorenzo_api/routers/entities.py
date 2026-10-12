@@ -74,6 +74,7 @@ from lorenzo_api.models import (
     ItemInstance,
     Ownership,
     Payload,
+    StatDefinition,
     VEffectiveStat,
     formula_load_options,
 )
@@ -465,7 +466,11 @@ async def get_entity_detail_or_404(
         .options(
             # The entity's own rows, so each stat can say whether it's own (ADR 0111).
             selectinload(Entity.stats),
-            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.stat_group),
+            # Where an inherited value comes from (ADR 0276).
+            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             # A winning formula's parameters, for stat_evaluation (ADR 0104).
             *formula_load_options(
                 selectinload(Entity.effective_stats).selectinload(VEffectiveStat.computed_stat)
@@ -484,6 +489,8 @@ async def get_entity_detail_or_404(
             .selectinload(Information.payloads)
             .selectinload(Payload.document),
             selectinload(Entity.information).selectinload(Information.knowledge_links),
+            # Who wrote each (ADR 0277).
+            selectinload(Entity.information).selectinload(Information.author),
             selectinload(Entity.prototypes),
             selectinload(Entity.instances),
             # ADR 0041: Entity.containment/contained_links (the Containment
@@ -910,6 +917,8 @@ _INFORMATION_LOAD_OPTIONS = (
     selectinload(Information.payloads).selectinload(Payload.picture),
     selectinload(Information.payloads).selectinload(Payload.document),
     selectinload(Information.knowledge_links),
+    # Who wrote it (ADR 0277).
+    selectinload(Information.author),
 )
 
 

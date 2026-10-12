@@ -288,6 +288,9 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
               stat_group_id: def.groupId,
               value_type: def.type,
               enum_values: def.type === 'enum' ? def.enumValues : null,
+              adjustable_in_play: false,
+              pin: false,
+              signed: false,
             },
           }),
         );

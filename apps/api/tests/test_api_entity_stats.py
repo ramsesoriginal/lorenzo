@@ -85,7 +85,9 @@ async def test_set_entity_stat_creates_a_value(
     assert response.status_code == 200
     body = response.json()
     assert body["id"] == str(entity_id)
-    assert body["stats"] == [{"name": "weight", "value": 5, "own": True}]
+    assert body["stats"] == [
+        {"name": "weight", "value": 5, "own": True, "from_entity": None, "computed": False}
+    ]
 
     async with admin_session_factory() as session:
         stat = await session.get_one(EntityStat, (entity_id, stat_definition_id))
@@ -112,7 +114,9 @@ async def test_set_entity_stat_overwrites_an_existing_value(
     )
 
     assert response.status_code == 200
-    assert response.json()["stats"] == [{"name": "weight", "value": 9, "own": True}]
+    assert response.json()["stats"] == [
+        {"name": "weight", "value": 9, "own": True, "from_entity": None, "computed": False}
+    ]
 
     await delete_tenant(tenant_id)
 
@@ -147,7 +151,9 @@ async def test_set_entity_stat_on_own_character_directly(
     )
 
     assert response.status_code == 200
-    assert response.json()["stats"] == [{"name": "hp", "value": 12, "own": True}]
+    assert response.json()["stats"] == [
+        {"name": "hp", "value": 12, "own": True, "from_entity": None, "computed": False}
+    ]
 
     await delete_tenant(tenant_id)
 
@@ -508,7 +514,9 @@ async def test_effective_stats_resolve_through_prototype_chain_and_survive_conta
         f"/tenants/{tenant_id}/entities/{ashfang_id}/stats/{weight_id}", json={"value": 99}
     )
     assert override_response.status_code == 200
-    assert override_response.json()["stats"] == [{"name": "weight", "value": 99, "own": True}]
+    assert override_response.json()["stats"] == [
+        {"name": "weight", "value": 99, "own": True, "from_entity": None, "computed": False}
+    ]
 
     overridden_get = await client.get(f"/tenants/{tenant_id}/item-instances/{ashfang_id}")
     assert overridden_get.status_code == 200

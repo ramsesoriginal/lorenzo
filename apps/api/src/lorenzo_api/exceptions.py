@@ -427,6 +427,43 @@ class StatDefinitionNotFoundError(NotFoundProblem):
     title = "Stat definition not found"
 
 
+class StatGroupNameTakenError(ConflictProblem):
+    """PATCH /stat-groups/{id} - another group of the tenant already has the
+    name (UNIQUE(tenant_id, name), ADR 0278)."""
+
+    title = "A stat group with this name already exists"
+
+
+class InvalidStatHintError(UnprocessableProblem):
+    """POST/PATCH /stat-definitions - a hint is not a stat definition of this
+    tenant, is the definition itself, or (a minimum or maximum) is not a
+    number (ADR 0279)."""
+
+    title = "That stat cannot be used as a hint here"
+
+
+class InvalidSheetSettingError(UnprocessableProblem):
+    """PATCH /tenants/{id} - the weapon stat group is not a stat group of this
+    tenant (ADR 0281)."""
+
+    title = "That is not a valid sheet setting"
+
+
+class InvalidStatOrderError(UnprocessableProblem):
+    """PUT .../order - the ids are not exactly the rows being ordered, each
+    once (ADR 0278)."""
+
+    title = "The order must list every row exactly once"
+
+
+class EntityStatNotFoundError(NotFoundProblem):
+    """GET .../entities/{id}/stats/{stat_definition_id}/explanation - the
+    entity has no value for that stat, stored, inherited or computed (ADR
+    0276)."""
+
+    title = "This entity has no value for that stat"
+
+
 class InvalidStatGroupError(UnprocessableProblem):
     """POST /stat-definitions - stat_group_id doesn't resolve to a stat
     group in this tenant. See ADR 0037/RFC 0008; mirrors

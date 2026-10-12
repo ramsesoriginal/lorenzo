@@ -6,8 +6,9 @@ from typing import Self
 from pydantic import BaseModel
 
 from lorenzo_api.models import Being
+from lorenzo_api.schemas.entities import EntityStatValueOut, InformationOut
 
-__all__ = ["BeingSummaryOut"]
+__all__ = ["BeingSummaryOut", "SheetOut", "SheetWeaponOut"]
 
 
 class BeingSummaryOut(BaseModel):
@@ -40,3 +41,23 @@ class BeingSummaryOut(BaseModel):
             if being.character is not None
             else None,
         )
+
+
+class SheetWeaponOut(BaseModel):
+    """One equipped item on the datasheet (ADR 0281): what the being holds directly, with the
+    stats of the library's weapon group, calculated ones evaluated, in the group's order."""
+
+    entity_id: uuid.UUID
+    name: str
+    quantity: int | None
+    stats: list[EntityStatValueOut]
+
+
+class SheetOut(BaseModel):
+    """GET /tenants/{id}/beings/{id}/sheet (ADR 0281): the datasheet's weapons and abilities in
+    one read. A section whose setting the library has not made is empty and says so."""
+
+    weapons_configured: bool
+    abilities_configured: bool
+    weapons: list[SheetWeaponOut]
+    abilities: list[InformationOut]

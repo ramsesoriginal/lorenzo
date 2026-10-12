@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
@@ -15,13 +15,32 @@ from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
+    get_campaign_context,
+    get_entity_or_404,
     get_tenant_or_404,
+    require_tenant_participant,
 )
 from lorenzo_api.entity_access import entity_id_among
-from lorenzo_api.exceptions import TenantNotFoundError
-from lorenzo_api.information_visibility import resolve_information_visibility
-from lorenzo_api.models import Being, Entity
-from lorenzo_api.schemas.beings import BeingSummaryOut
+from lorenzo_api.exceptions import EntityNotFoundError, TenantNotFoundError
+from lorenzo_api.information_visibility import (
+    resolve_information_visibility,
+    visible_information_clause,
+)
+from lorenzo_api.models import (
+    Being,
+    Containment,
+    Entity,
+    Information,
+    StatDefinition,
+    Tenant,
+    VItemInstance,
+)
+from lorenzo_api.routers.entities import _INFORMATION_LOAD_OPTIONS
+from lorenzo_api.routers.item_instances import _owner_predicate_for, caller_reach
+from lorenzo_api.routers.items import eager_load_options
+from lorenzo_api.schemas.beings import BeingSummaryOut, SheetOut, SheetWeaponOut
+from lorenzo_api.schemas.entities import InformationOut, _stats_out
+from lorenzo_api.stat_contents import attach_contents
 
 # No router-level gate: who may list, and which beings, is decided in the
 # route (ADR 0078's original tier, as amended by ADR 0173). The tenant must
@@ -87,4 +106,107 @@ async def list_beings(
     return cast(
         Page[BeingSummaryOut],
         await apaginate(session, stmt, params, transformer=_beings_out),
+    )
+
+
+@router.get("/{entity_id}/sheet")
+async def get_being_sheet(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_or_404)],
+    entity_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+    campaign_id: Annotated[
+        uuid.UUID | None,
+        Query(
+            description=(
+                "A campaign of the tenant the caller can read. Accepted so a campaign can later "
+                "override the library's sheet settings; it changes nothing today."
+            )
+        ),
+    ] = None,
+) -> SheetOut:
+    """The datasheet's weapons and abilities (ADR 0281). The weapons are the items the being
+    holds directly (contained by it), with the stats of the tenant's weapon group; what the
+    caller may see of them is ADR 0040's, so another player's being shows none. The abilities
+    are the being's information of the tenant's ability type, as the caller can see it."""
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    if campaign_id is not None:
+        await get_campaign_context(tenant_id, campaign_id, session, user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    if await session.get(Being, entity_id) is None:
+        raise EntityNotFoundError(detail=f"No being with id {entity_id} in tenant {tenant_id}")
+    tenant = await session.get_one(Tenant, tenant_id)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+
+    weapons: list[SheetWeaponOut] = []
+    if tenant.weapon_stat_group_id is not None:
+        names = set(
+            (
+                await session.scalars(
+                    select(StatDefinition.name).where(
+                        StatDefinition.stat_group_id == tenant.weapon_stat_group_id,
+                        StatDefinition.tenant_id == tenant_id,
+                    )
+                )
+            ).all()
+        )
+        reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+        views = (
+            (
+                await session.execute(
+                    select(VItemInstance)
+                    .join(Entity, Entity.id == VItemInstance.entity_id)
+                    .where(
+                        VItemInstance.tenant_id == tenant_id,
+                        VItemInstance.entity_id.in_(
+                            select(Containment.child_entity_id).where(
+                                Containment.parent_entity_id == entity_id,
+                                Containment.tenant_id == tenant_id,
+                            )
+                        ),
+                        _owner_predicate_for(reach),
+                    )
+                    .options(*eager_load_options(VItemInstance.entity))
+                    .order_by(Entity.name, VItemInstance.entity_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        await attach_contents(session, [view.entity for view in views], tenant_id=tenant_id)
+        for view in views:
+            stats = [s for s in _stats_out(view.entity) if s.name in names]
+            if stats:
+                weapons.append(
+                    SheetWeaponOut(
+                        entity_id=view.entity_id,
+                        name=view.entity.name,
+                        quantity=view.quantity,
+                        stats=stats,
+                    )
+                )
+
+    abilities: list[InformationOut] = []
+    if tenant.ability_information_type is not None:
+        rows = (
+            await session.scalars(
+                select(Information)
+                .where(
+                    Information.entity_id == entity_id,
+                    Information.tenant_id == tenant_id,
+                    Information.type == tenant.ability_information_type,
+                    visible_information_clause(visibility),
+                )
+                .options(*_INFORMATION_LOAD_OPTIONS)
+                .order_by(Information.order, Information.id)
+            )
+        ).all()
+        abilities = [InformationOut.from_information(row, request) for row in rows]
+
+    return SheetOut(
+        weapons_configured=tenant.weapon_stat_group_id is not None,
+        abilities_configured=tenant.ability_information_type is not None,
+        weapons=weapons,
+        abilities=abilities,
     )
