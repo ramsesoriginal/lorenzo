@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/app-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Links
+         * @description The registry of app links (ADR 0273). Public: it says nothing about any library.
+         */
+        get: operations["get_app_links"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/tenants": {
         parameters: {
             query?: never;
@@ -3702,6 +3722,22 @@ export interface components {
             created_at: string;
         };
         /**
+         * AppLinksOut
+         * @description Where the apps live, and URL templates (`{tenant}`, `{id}`, `{slug}`) between them.
+         */
+        AppLinksOut: {
+            apps: components["schemas"]["AppsOut"];
+            /** Links */
+            links: {
+                [key: string]: string;
+            };
+        };
+        /** AppOut */
+        AppOut: {
+            /** Url */
+            url: string;
+        };
+        /**
          * ApplyUpdatesOut
          * @description An attachment that couldn't be added is a `not_applied` entry of kind
          *     `attachment`, its `source_id` the child's origin and its `field`
@@ -3736,6 +3772,13 @@ export interface components {
             attachments?: components["schemas"]["AttachmentActionIn"][] | null;
             /** Dry Run */
             dry_run?: boolean | null;
+        };
+        /** AppsOut */
+        AppsOut: {
+            account_hub: components["schemas"]["AppOut"];
+            inventory_web: components["schemas"]["AppOut"];
+            beings: components["schemas"]["AppOut"];
+            bench: components["schemas"]["AppOut"];
         };
         /**
          * AttachmentActionIn
@@ -8493,6 +8536,60 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_app_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppLinksOut"];
                 };
             };
             /** @description Client Error */

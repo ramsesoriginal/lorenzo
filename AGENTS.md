@@ -12,7 +12,7 @@ Lorenzo: a multi-tenant REST API plus static frontend(s), Discord bot(s), and mo
 
 | Path | Purpose |
 | --- | --- |
-| `apps/api` | Backend REST API — full domain model, full read/write REST API, Authgear auth, repositories (RFC 0024: tenants other tenants are granted, copy from, and sync with) |
+| `apps/api` | Backend REST API — full domain model, full read/write REST API, Authgear auth, repositories (RFC 0024: tenants other tenants are granted, copy from, and sync with); the registry of app links, `GET /app-links` (ADR 0273: where the apps live and the URL templates between them, from `ACCOUNT_HUB_URL` etc.; an app's own address variable is only a fallback) |
 | `apps/loot-bot` | Discord bot — talks to `apps/api`; account linking, inventory, loot-splitting, GM drops/claims |
 | `apps/inventory-web` | Static Astro frontend — GM item catalog/instance management, kanban-style container board, LorenzoScript descriptions, tag, stat value, information and slug editing, players' notes, handing items over, a public catalog for players, hover/focus/tap previews on links in texts (ADR 0264); end-to-end tests against the real API (`mise run //apps/inventory-web:test-e2e`, ADR 0114) |
 | `apps/account-hub` | Static Astro frontend — a user's own account: profile, notifications, tenant/campaign roster and admin |
