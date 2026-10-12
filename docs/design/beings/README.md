@@ -137,3 +137,16 @@ The API, saving, who may do what (it follows the rules of ADR 0271 and 0272 only
 4. **Play for people who cannot edit.** It is shown, without steppers. Should it exist for them?
 5. **Mode memory.** Remember the last mode per library, per being, or not at all?
 6. **Undo scope.** Play changes only, for now. Should note and tag edits in Edit also be undoable?
+
+## As built
+
+The design is built in `apps/beings` ([RFC 0043](../../rfcs/0043-the-being-sheet.md), [ADR 0282](../../adr/0282-beings-sheet-shell-modes-and-sections.md) to [0284](../../adr/0284-beings-sheet-datasheet.md)). Where this brief asked, the answers were:
+
+1. **Pinned numbers** are a flag on the stat definition (`pin`); with none, the first three numbers of the first group.
+2. **Notes before stats in Read**: kept; the section links in the sticky bar are the answer to a long set of notes.
+3. **Datasheet as a layout** of the page only, for now; not from the list.
+4. **Play for people who cannot edit**: the mode is offered; without a stepper, since there is nothing they may change.
+5. **Mode memory**: none. A page opens in Read and as a sheet.
+6. **Undo scope**: Play changes only.
+
+Differences from the prototype: the datasheet's notes say only "Not for everyone" where a note is not public (the sheet's notes keep the full audience); a library with no weapon group gets "Carried", the names and counts of what the being owns; the stat vocabulary is readable by every participant so a player's sheet can be drawn. The prototype remains the reference for anything not listed.

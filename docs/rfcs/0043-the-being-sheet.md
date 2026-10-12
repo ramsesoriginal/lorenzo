@@ -1,6 +1,6 @@
 # RFC 0043: The being sheet: a page to read, play and edit a being, and the API it needs
 
-- **Status:** accepted, decided with the maintainer (2026-10-12), from a clickable prototype agreed with them. Each slice's details are in its ADR.
+- **Status:** accepted and built (2026-10-12): the API slices A1 to A6 and the Beings slices U1 to U3, each in its ADR. §7 says where the build differs from what is written here.
 - **Builds on:** [ADR 0270](../adr/0270-beings-app.md) to [0272](../adr/0272-beings-editing-stats-and-handing-over.md) (the Beings app), [ADR 0111](../adr/0111-inherited-descriptions-and-stat-value-sources.md) (what a value inherits), [ADR 0103](../adr/0103-stat-tags-enum-values-and-mandatory-groups.md) and [0104](../adr/0104-computed-stats.md) (tags and computed stats), [ADR 0118](../adr/0118-repository-tenants-subscriptions-and-a-gated-read.md) to [0121](../adr/0121-repository-updates-and-re-sync.md) (repositories), [ADR 0040](../adr/0040-item-instance-read-visibility.md) (what an owned item shows).
 - **Picture:** [docs/design/beings](../design/beings/README.md) and its clickable prototype.
 
@@ -45,9 +45,9 @@ Read against the code, not assumed. Most of the sheet works on the API as it is 
 | A4 | Stat hints | [0279](../adr/0279-stat-hints.md) | #666 | A3 |
 | A5 | Display fields in repository copy, updates, digest and the seed | [0280](../adr/0280-display-fields-in-repository-copy-updates-and-seed.md) | #667 | A3, A4 |
 | A6 | Sheet settings and the sheet read | [0281](../adr/0281-sheet-settings-and-the-sheet-read.md) | #668 | A3 |
-| U1 | Beings: the shell (modes, sticky bar, layouts) | 0282 | #669 | |
-| U2 | Beings: stats on the sheet | 0283 | #670 | A1, A3, A4 |
-| U3 | Beings: the datasheet | 0284 | #671 | A2, A6, U1 |
+| U1 | Beings: the shell (modes, sticky bar, sections) | [0282](../adr/0282-beings-sheet-shell-modes-and-sections.md) | #669 | |
+| U2 | Beings: stats on the sheet, and playing them | [0283](../adr/0283-beings-sheet-play-stats-and-undo.md) | #670 | A1, A3, A4 |
+| U3 | Beings: the datasheet | [0284](../adr/0284-beings-sheet-datasheet.md) | #671 | A2, A6, U1 |
 
 The migrations of A1, A3, A4 and A6 form one chain, so the API slices are built and merged in the order A1, A2, A3, A4, A5, A6. U1 to U3 follow once the API is in.
 
@@ -70,3 +70,13 @@ Entity templates and visual templates (dots, tracks, clocks, a stat paired with 
 - **Templates.** When they come, they can choose which stats are vitals, which are shown as a pair, and the weapon group, instead of the settings and flags this RFC adds. Do the flags stay as defaults?
 - **Reading a being's sheet as another player.** A skirmish opponent reads your datasheet. Item visibility says no today; a rule that equipped weapons are readable with the being is the likely answer.
 - **Undo beyond Play.** Play changes only, for now.
+
+## 7. As built
+
+What changed on the way, each in its ADR:
+
+- **The stat vocabulary is readable by every participant** ([ADR 0281](../adr/0281-sheet-settings-and-the-sheet-read.md), amended). It was for library members only, and a player has no membership; without it a player's sheet could not know which numbers a table may change. Writing is unchanged.
+- **The mode and the layout are not remembered** ([ADR 0282](../adr/0282-beings-sheet-shell-modes-and-sections.md)); a page opens in Read and as a sheet. This answers the design brief's question 5.
+- **The datasheet's note badges** say only "Not for everyone" where a note is not public; the sheet's notes still show the audience in full ([ADR 0284](../adr/0284-beings-sheet-datasheet.md)). A library with no weapon group gets a "Carried" table.
+- **Edits in Edit are not undoable**, as in §6; Play's are, up to thirty steps ([ADR 0283](../adr/0283-beings-sheet-play-stats-and-undo.md)).
+- **The numbers of the ADRs are 0276 to 0284.** Another ADR took 0275 while this was being written, so the series moved up by one from what the milestone's title says.
