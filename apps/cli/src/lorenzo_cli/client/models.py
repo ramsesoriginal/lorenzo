@@ -40,6 +40,17 @@ class AdminUserOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class AppOut(BaseModel):
+    url: str = Field(..., title="Url")
+
+
+class AppsOut(BaseModel):
+    account_hub: AppOut
+    inventory_web: AppOut
+    beings: AppOut
+    bench: AppOut
+
+
 class AttachmentActionName(StrEnum):
     add = "add"
     detach = "detach"
@@ -1347,6 +1358,11 @@ class Problem(BaseModel):
     type: str = Field(..., title="Problem type")
     status: int = Field(..., title="Status code")
     detail: str | None = Field(None, title="Problem detail")
+
+
+class AppLinksOut(BaseModel):
+    apps: AppsOut
+    links: dict[str, str] = Field(..., title="Links")
 
 
 class ApplyUpdatesOut(BaseModel):

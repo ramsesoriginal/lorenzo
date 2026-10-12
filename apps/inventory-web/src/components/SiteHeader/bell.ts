@@ -1,3 +1,4 @@
+import { notificationsUrl } from '../../lib/appLinks';
 import { ACCOUNT_HUB_URL } from '../../lib/config';
 import { errorMessage } from '../../lib/errorMessage';
 import {
@@ -32,7 +33,11 @@ export function renderNotificationBell(root: HTMLElement): void {
   const markAll = required<HTMLButtonElement>(bell, '[data-bell-mark-all]');
   const seeAll = required<HTMLAnchorElement>(bell, '[data-bell-all]');
 
+  // The registry knows where the hub is; the build's own address is the answer until it replies.
   seeAll.href = hubNotificationsUrl(ACCOUNT_HUB_URL);
+  void notificationsUrl(ACCOUNT_HUB_URL).then((url) => {
+    seeAll.href = url;
+  });
 
   let shown: Recent | undefined;
   let failures = 0;
