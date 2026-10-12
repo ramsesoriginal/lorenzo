@@ -161,6 +161,11 @@ class EntityStatValueOut(BaseModel):
     # ADR 0111: the entity holds the winning value itself, stored or
     # computed; false when it's inherited.
     own: bool
+    # ADR 0276: where the winning row is held, when it is not this entity: the
+    # prototype the value (or its formula) comes from. Null when `own`.
+    from_entity: EntitySummary | None = None
+    # ADR 0276: a formula produced the value, held by this entity or inherited.
+    computed: bool = False
 
 
 class InformationOut(BaseModel):
@@ -197,18 +202,22 @@ class InformationOut(BaseModel):
 def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
     """Every effective stat with a value, computed ones evaluated (ADR
     0104). A computed stat whose inputs don't resolve is left out, like an
-    unset stat. Needs entity.stats (the entity's own rows) loaded too: an
-    own row always wins at hop 0, and an entity never holds both a value
-    and a formula for one stat (ADR 0104), so `own` is either of those.
-    A contents formula needs stat_contents.attach_contents first (ADR
-    0127)."""
+    unset stat. Needs each stat's `source_entity` loaded: the view names the
+    holder of every winner (ADR 0276), so `own` is "the holder is this entity"
+    and an inherited value says which prototype it comes from. A contents
+    formula needs stat_contents.attach_contents first (ADR 0127)."""
     values = evaluate(entity.effective_stats, entity_id=entity.id, contents=entity.stat_contents)
-    stored = {stat.stat_definition_id for stat in entity.stats}
     return [
         EntityStatValueOut(
             name=stat.stat_definition.name,
             value=values[stat.stat_definition_id],
-            own=stat.stat_definition_id in stored or stat.computed_entity_id == entity.id,
+            own=stat.source_entity_id == entity.id,
+            from_entity=(
+                None
+                if stat.source_entity_id == entity.id
+                else EntitySummary.from_entity(stat.source_entity)
+            ),
+            computed=stat.computed_entity_id is not None,
         )
         for stat in entity.effective_stats
         if stat.stat_definition_id in values

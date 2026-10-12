@@ -2416,6 +2416,30 @@ export interface paths {
         patch: operations["unset_entity_tag"];
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Explain Entity Stat
+         * @description How this entity's stat came to have its value (ADR 0276): where it comes
+         *     from and, for a calculated one, the formula and what it read. The preview
+         *     under `computed-stats` answers a tenant administrator about an unsaved
+         *     formula; this answers anyone who may read the entity ("why is my armour
+         *     class 15?"). Writes nothing.
+         */
+        get: operations["explain_entity_stat"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/computed-stats": {
         parameters: {
             query?: never;
@@ -4874,6 +4898,22 @@ export interface components {
             inputs: components["schemas"]["PreviewInputOut"][];
         };
         /**
+         * ContentsExplanationOut
+         * @description What a contents formula counted (ADR 0276): the things directly
+         *     inside, not one input per thing. The total is the stat's own `value`.
+         */
+        ContentsExplanationOut: {
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /** Source Name */
+            source_name: string;
+            /** Things */
+            things: number;
+        };
+        /**
          * ContentsFormulaBody
          * @description `Σ stat × quantity` over what's directly inside - ADR 0127.
          *     `contents_weight` is `contents(weight)`: each thing inside's own
@@ -5494,6 +5534,12 @@ export interface components {
             value: number | string | boolean;
             /** Own */
             own: boolean;
+            from_entity?: components["schemas"]["EntitySummary"] | null;
+            /**
+             * Computed
+             * @default false
+             */
+            computed: boolean;
         };
         /**
          * EntityStatWriteOut
@@ -8232,6 +8278,35 @@ export interface components {
             value: string;
             /** Sort Order */
             sort_order?: number | null;
+        };
+        /**
+         * StatExplanationOut
+         * @description How an entity's stat came to have its value, for any participant who
+         *     may read the entity (ADR 0276). `formula` is the winning formula, held by
+         *     this entity or inherited (see `from_entity`), null for a stored value;
+         *     `inputs` are the values it read. A contents formula has no inputs of its
+         *     own: `contents` says what it counted instead.
+         */
+        StatExplanationOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | string | boolean;
+            /** Own */
+            own: boolean;
+            /** Computed */
+            computed: boolean;
+            from_entity: components["schemas"]["EntitySummary"] | null;
+            /** Formula */
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"]) | null;
+            /** Inputs */
+            inputs: components["schemas"]["PreviewInputOut"][];
+            contents: components["schemas"]["ContentsExplanationOut"] | null;
         };
         /**
          * StatGroupCreate
@@ -17010,6 +17085,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityStatWriteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    explain_entity_stat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatExplanationOut"];
                 };
             };
             /** @description Validation Error */

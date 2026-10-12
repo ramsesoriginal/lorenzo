@@ -427,6 +427,14 @@ class StatDefinitionNotFoundError(NotFoundProblem):
     title = "Stat definition not found"
 
 
+class EntityStatNotFoundError(NotFoundProblem):
+    """GET .../entities/{id}/stats/{stat_definition_id}/explanation - the
+    entity has no value for that stat, stored, inherited or computed (ADR
+    0276)."""
+
+    title = "This entity has no value for that stat"
+
+
 class InvalidStatGroupError(UnprocessableProblem):
     """POST /stat-definitions - stat_group_id doesn't resolve to a stat
     group in this tenant. See ADR 0037/RFC 0008; mirrors

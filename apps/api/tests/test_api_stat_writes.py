@@ -4,6 +4,7 @@ a write moves the entry's version, says what it replaced, and an own value can b
 import uuid
 from datetime import datetime
 from typing import Any
+from unittest.mock import ANY
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_tenant
@@ -203,7 +204,9 @@ async def test_clearing_an_own_value_inherits_again_and_says_what_it_removed(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["previous"] == {"had_own_value": True, "value": 9}
-    assert body["stats"] == [{"name": "damage", "value": 5, "own": False}]
+    assert body["stats"] == [
+        {"name": "damage", "value": 5, "own": False, "from_entity": ANY, "computed": False}
+    ]
     assert response.headers["etag"] != before
     assert await _own(child, stats["damage"]) is None
     assert await _own(parent, stats["damage"]) is not None

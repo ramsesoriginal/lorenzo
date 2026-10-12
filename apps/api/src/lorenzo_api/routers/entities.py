@@ -466,6 +466,8 @@ async def get_entity_detail_or_404(
             # The entity's own rows, so each stat can say whether it's own (ADR 0111).
             selectinload(Entity.stats),
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
+            # Where an inherited value comes from (ADR 0276).
+            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             # A winning formula's parameters, for stat_evaluation (ADR 0104).
             *formula_load_options(
                 selectinload(Entity.effective_stats).selectinload(VEffectiveStat.computed_stat)

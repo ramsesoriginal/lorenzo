@@ -337,6 +337,12 @@ class Source(StrEnum):
     unset = "unset"
 
 
+class ContentsExplanationOut(BaseModel):
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    source_name: str = Field(..., title="Source Name")
+    things: int = Field(..., title="Things")
+
+
 class ContentsFormulaBody(BaseModel):
     kind: Literal["contents"] = Field("contents", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
@@ -495,12 +501,6 @@ class EntitySlugOut(BaseModel):
 
 class EntitySlugUpdate(BaseModel):
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) = Field(..., title="Slug")
-
-
-class EntityStatValueOut(BaseModel):
-    name: str = Field(..., title="Name")
-    value: int | str | float | bool = Field(..., title="Value")
-    own: bool = Field(..., title="Own")
 
 
 class EntitySummary(BaseModel):
@@ -1454,6 +1454,14 @@ class DescriptionOut(BaseModel):
     from_entity: EntitySummary | None
 
 
+class EntityStatValueOut(BaseModel):
+    name: str = Field(..., title="Name")
+    value: int | str | float | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    from_entity: EntitySummary | None = None
+    computed: bool | None = Field(False, title="Computed")
+
+
 class GroupMemberResultItem(BaseModel):
     character_entity_id: UUID = Field(..., title="Character Entity Id")
     status: Status7 = Field(..., title="Status")
@@ -2139,6 +2147,24 @@ class PublishedOut(BaseModel):
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
     release: ReleaseAuthoredOut
+
+
+class StatExplanationOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    name: str = Field(..., title="Name")
+    value: int | float | str | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    computed: bool = Field(..., title="Computed")
+    from_entity: EntitySummary | None
+    formula: (
+        LinearFormulaBodyOutput
+        | ComparisonFormulaBodyOutput
+        | SumFormulaBodyOutput
+        | ContentsFormulaBody
+        | None
+    ) = Field(..., title="Formula")
+    inputs: list[PreviewInputOut] = Field(..., title="Inputs")
+    contents: ContentsExplanationOut | None
 
 
 class UpdatesOut(BaseModel):

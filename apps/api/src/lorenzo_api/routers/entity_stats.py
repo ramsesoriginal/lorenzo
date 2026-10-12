@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
@@ -16,6 +17,7 @@ from lorenzo_api.dependencies import (
     SessionDep,
     get_entity_or_404,
     get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.entity_access import can_self_manage_entity
@@ -23,6 +25,7 @@ from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     ComputedStatConflictError,
     EntityStatManagementForbiddenError,
+    EntityStatNotFoundError,
     InvalidStatValueError,
     InvalidStatValueTypeError,
     StatDefinitionNotFoundError,
@@ -37,10 +40,21 @@ from lorenzo_api.models import (
     StatDefinition,
     StatDefinitionEnumValue,
     StatValueType,
+    VEffectiveStat,
+    formula_load_options,
 )
 from lorenzo_api.routers.entities import get_entity_detail_or_404
+from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.computed_stats import (
+    ContentsExplanationOut,
+    PreviewInputOut,
+    StatExplanationOut,
+    formula_body_of,
+)
 from lorenzo_api.schemas.entities import EntityDetailOut, EntityStatWriteOut, PreviousOwnStat
 from lorenzo_api.schemas.stats import SetEntityStatRequest
+from lorenzo_api.stat_contents import load_contents
+from lorenzo_api.stat_evaluation import ContentsFormula, evaluate, formula_of, input_ids
 
 # get_tenant_or_404 here, not get_tenant_context (mirrors
 # routers/item_instances.py's identical ADR 0032/RFC 0005 precedent) -
@@ -566,4 +580,90 @@ async def clear_entity_tag(
         request=request,
         user=user,
         previous=previous,
+    )
+
+
+@router.get("/stats/{stat_definition_id}/explanation")
+async def explain_entity_stat(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    stat_definition_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> StatExplanationOut:
+    """How this entity's stat came to have its value (ADR 0276): where it comes
+    from and, for a calculated one, the formula and what it read. The preview
+    under `computed-stats` answers a tenant administrator about an unsaved
+    formula; this answers anyone who may read the entity ("why is my armour
+    class 15?"). Writes nothing."""
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    definition = await _get_stat_definition_or_404(session, stat_definition_id, tenant_id)
+    stats = list(
+        await session.scalars(
+            select(VEffectiveStat)
+            .where(VEffectiveStat.entity_id == entity_id, VEffectiveStat.tenant_id == tenant_id)
+            .options(
+                selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.source_entity),
+                *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
+            )
+        )
+    )
+    # What a contents formula reads, when one is involved (ADR 0127).
+    contents = (
+        await load_contents(session, tenant_id=tenant_id, root_ids=[entity_id])
+        if any(s.computed_stat is not None and s.computed_stat.contents for s in stats)
+        else None
+    )
+    values = evaluate(stats, entity_id=entity_id, contents=contents)
+    winner = next((s for s in stats if s.stat_definition_id == definition.id), None)
+    if winner is None or definition.id not in values:
+        raise EntityStatNotFoundError(
+            detail=f"Entity {entity_id} has no value for stat {stat_definition_id}"
+        )
+
+    formula = (
+        formula_of(winner.computed_stat)
+        if winner.computed_entity_id is not None and winner.computed_stat is not None
+        else None
+    )
+    names = {s.stat_definition_id: s.stat_definition.name for s in stats}
+    wanted = [] if formula is None else input_ids(formula)
+    if isinstance(formula, ContentsFormula):
+        wanted = [formula.source_stat_definition_id]
+    missing = [i for i in wanted if i not in names]
+    if missing:
+        names |= {
+            row.id: row.name
+            for row in await session.execute(
+                select(StatDefinition.id, StatDefinition.name).where(
+                    StatDefinition.id.in_(missing), StatDefinition.tenant_id == tenant_id
+                )
+            )
+        }
+    own = winner.source_entity_id == entity_id
+    return StatExplanationOut(
+        stat_definition_id=definition.id,
+        name=definition.name,
+        value=values[definition.id],
+        own=own,
+        computed=winner.computed_entity_id is not None,
+        from_entity=None if own else EntitySummary.from_entity(winner.source_entity),
+        formula=None if formula is None else formula_body_of(formula),
+        inputs=[]
+        if formula is None or isinstance(formula, ContentsFormula)
+        else [
+            PreviewInputOut(stat_definition_id=i, name=names.get(i, ""), value=values.get(i))
+            for i in input_ids(formula)
+        ],
+        contents=(
+            ContentsExplanationOut(
+                source_stat_definition_id=formula.source_stat_definition_id,
+                source_name=names.get(formula.source_stat_definition_id, ""),
+                things=len(contents.children.get(entity_id, ())) if contents is not None else 0,
+            )
+            if isinstance(formula, ContentsFormula)
+            else None
+        ),
     )

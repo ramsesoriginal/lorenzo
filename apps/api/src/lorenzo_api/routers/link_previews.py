@@ -91,6 +91,8 @@ async def get_entity_preview(
         .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
         .options(
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
+            # Where an inherited value comes from (ADR 0276).
+            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             *formula_load_options(
                 selectinload(Entity.effective_stats).selectinload(VEffectiveStat.computed_stat)
             ),
