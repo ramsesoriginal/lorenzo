@@ -9,7 +9,7 @@ import { canRename, canSetParents, type EditableKind, slugProblem } from '../cor
 import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
 import { openLink } from './entryPickerText';
-import { icon, kindIcon } from './icons';
+import { icon, iconButton, kindIcon, statusIcon } from './icons';
 import { liveEditor } from './liveEditor';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
@@ -28,6 +28,11 @@ const button = (label: string, onClick: () => void, cls = 'btn') => {
   b.addEventListener('click', onClick);
   return b;
 };
+
+/** The icon of an entry in the list: its kinds', or a bare entry's while it is not known yet. */
+function kindIconOf(bench: Bench, id: string) {
+  return kindIcon(bench.listing().find((e) => e.id === id)?.kinds ?? []);
+}
 
 const STATUS_TEXT: Record<EntryStatus, (n: number) => string> = {
   synced: () => 'Synced',
@@ -94,9 +99,13 @@ export function renderEntry(
   const kinds = kindsEditor(bench, id, item.kinds);
   meta.append(kinds, linkNameField(bench, id, item.name, item.slug));
   const status = bench.status(id);
-  const chip = el('span', `status status-${status}`, statusText(bench, id));
+  const chip = el('span', `status status-${status}`);
+  chip.append(icon(statusIcon(status), 13), document.createTextNode(statusText(bench, id)));
   chip.setAttribute('role', 'status');
-  const undo = button('Undo', () => bench.undo(id), 'btn quiet');
+  const undo = el('button', 'btn quiet');
+  undo.type = 'button';
+  undo.append(icon('undo', 14), document.createTextNode(' Undo'));
+  undo.addEventListener('click', () => bench.undo(id));
   undo.disabled = !bench.canUndo(id);
   meta.append(el('span', 'grow'), chip, undo);
   c.append(meta, el('p', 'kind sr-only', kindsText(item.kinds)));
@@ -121,12 +130,15 @@ export function renderEntry(
   );
   c.append(main);
 
-  c.append(
+  // What is around the text: where it inherits from and its notes. In Write, which is for writing,
+  // this steps back (bench.css).
+  const extra = el('div', 'entry-extra');
+  extra.append(
     el('h2', 'section', 'Inherits from'),
     parentsEditor(bench, id, item.parentIds, canSetParents(item.kinds), go),
   );
 
-  c.append(el('h2', 'section', 'Notes'));
+  extra.append(el('h2', 'section', 'Notes'));
   item.notes.forEach((note, i) => {
     const row = el('div', 'note-row');
     const editor = textEditor(bench, go, {
@@ -141,17 +153,22 @@ export function renderEntry(
       ['Move note up', -1, i === 0],
       ['Move note down', 1, i === item.notes.length - 1],
     ] as const) {
-      const b = button(by < 0 ? '↑' : '↓', () => bench.moveNote(id, note.id, by));
-      b.title = label;
-      b.setAttribute('aria-label', `${label}: ${note.title}`);
+      const b = iconButton(
+        by < 0 ? 'up' : 'down',
+        `${label}: ${note.title}`,
+        () => bench.moveNote(id, note.id, by),
+        'btn',
+        14,
+      );
       b.disabled = disabled;
       b.dataset.key = `note-${by < 0 ? 'up' : 'down'}:${note.id}`;
       order.append(b);
     }
     row.append(order, editor);
-    c.append(row);
+    extra.append(row);
   });
-  c.append(newNote(bench, id));
+  extra.append(newNote(bench, id));
+  c.append(extra);
   return c;
 }
 
@@ -400,7 +417,8 @@ function parentsEditor(
   if (!parentIds.length) list.append(el('li', 'muted', 'No parents.'));
   for (const p of parentIds) {
     const li = el('li', 'parent');
-    const open = el('button', 'row', bench.displayName(p));
+    const open = el('button', 'row');
+    open.append(icon(kindIconOf(bench, p), 14), document.createTextNode(bench.displayName(p)));
     open.type = 'button';
     open.addEventListener('click', () => go(p));
     const remove = el('button', 'x');
@@ -445,7 +463,7 @@ export function renderLinks(
   const row = (target: string, name: string, note?: string) => {
     const li = el('li');
     const b = el('button', 'row');
-    b.append(el('span', 'nm', name));
+    b.append(icon(kindIconOf(bench, target), 14), el('span', 'nm', name));
     if (note) b.append(el('span', 'where muted', note));
     b.type = 'button';
     b.addEventListener('click', () => go(target));

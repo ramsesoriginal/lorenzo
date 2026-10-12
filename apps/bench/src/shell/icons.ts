@@ -24,10 +24,33 @@ export const ICON_NAMES = [
   // State
   'select-item',
   'warning',
+  'error',
+  'pending',
+  'offline',
   'refresh',
   'ancestry',
+  // The panes and the layouts
+  'edit',
+  'stat',
+  'link',
+  'table',
+  'compare',
+  'formula',
+  'picture',
+  'pack',
+  'list',
+  'kinds',
+  'sort',
+  'layout-write',
+  'layout-inspect',
+  'layout-compare',
+  // Things done
+  'undo',
+  'login',
+  'logout',
   // Kinds
   'kind-entity',
+  'kind-entities',
   'kind-item',
   'kind-being',
   'kind-group',
@@ -106,3 +129,47 @@ export function iconButton(
   b.addEventListener('click', onClick);
   return b;
 }
+
+/** The icon of each pane, for its tab, its title line and the palette. */
+const PANE_ICONS: Readonly<Record<string, IconName>> = {
+  explorer: 'kind-entities',
+  entry: 'edit',
+  props: 'stat',
+  links: 'link',
+  ancestry: 'ancestry',
+  table: 'table',
+  grid: 'compare',
+  formula: 'formula',
+  pictures: 'picture',
+  pack: 'pack',
+  vocabulary: 'list',
+};
+
+export function paneIcon(pane: string): IconName | null {
+  return PANE_ICONS[pane] ?? null;
+}
+
+/** The icon for how an entry's changes are doing; the words beside it say it (identity §17.8). */
+export function statusIcon(
+  status: 'synced' | 'waiting' | 'offline' | 'conflict' | 'attention',
+): IconName {
+  switch (status) {
+    case 'synced':
+      return 'select-item';
+    case 'waiting':
+      return 'pending';
+    case 'offline':
+      return 'offline';
+    case 'conflict':
+      return 'warning';
+    case 'attention':
+      return 'error';
+  }
+}
+
+/** The layout presets' icons. */
+export const LAYOUT_ICONS = {
+  write: 'layout-write',
+  inspect: 'layout-inspect',
+  compare: 'layout-compare',
+} as const satisfies Record<string, IconName>;
