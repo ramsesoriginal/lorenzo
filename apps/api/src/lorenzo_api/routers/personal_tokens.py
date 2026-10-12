@@ -12,6 +12,7 @@ import structlog
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy import func, select
 
+from lorenzo_api.app_links import device_url
 from lorenzo_api.config import get_settings
 from lorenzo_api.dependencies import InteractiveUser, SessionDep
 from lorenzo_api.exceptions import (
@@ -54,7 +55,7 @@ log = structlog.get_logger()
 async def create_device_code(body: DeviceCodeCreate, session: SessionDep) -> DeviceCodeOut:
     """Unauthenticated. A device asks for a code to be approved by its user (ADR 0268)."""
     device_code, row = await start_device_authorization(session, client_name=body.client_name)
-    page = f"{get_settings().account_hub_url.rstrip('/')}/device"
+    page = device_url(get_settings()).rstrip("/")
     return DeviceCodeOut(
         device_code=device_code,
         user_code=row.user_code,

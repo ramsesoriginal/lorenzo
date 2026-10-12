@@ -27,3 +27,7 @@ Two facts shaped the design. A notification is written with its `title` and `bod
 - Each visible tab makes two small requests a minute per signed-in person; hidden tabs make none.
 - "Mark all" costs one request per unread notification until a bulk route exists.
 - The hub and this bell show the same `title` and `body`; if the API ever stops composing sentences, both apps need the mapping and it becomes a package.
+
+## Addendum (2026-10-12): the hub's address comes from the registry
+
+"See all" no longer depends on a variable of this app. The API's registry of app links ([ADR 0273](0273-app-links-registry.md), `GET /app-links`) says where the account hub's notifications page is, and the bell asks it through `getAppLinks`. `PUBLIC_ACCOUNT_HUB_URL` stays as a fallback only: it is the link used until the registry answers, and the one used when it cannot (offline, an API without the endpoint).

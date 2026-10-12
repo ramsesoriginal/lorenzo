@@ -44,5 +44,5 @@ Authentication today ([ADR 0023](0023-authgear-token-verification.md), [ADR 0027
 - Existing clients are untouched: a bearer that is not `lor_pat_` takes the old path. `DELETE /me` now needs a signed-in session.
 - `/device-codes` joins the unauthenticated surface (with `/invites/{token}`); both are rate-limited in-process and expected to have an edge rule before going live.
 - Revoked rows are kept (they hold no secret); pruning them, and abandoned `device_authorization` rows (they are deleted when polled after expiry, otherwise they stay), is a later chore.
-- A deploy sets `ACCOUNT_HUB_URL` (the workflow defaults it to the official hub).
+- The hub address a device is sent to comes from the registry of app links ([ADR 0273](0273-app-links-registry.md)): `device_url(settings)`, so `ACCOUNT_HUB_URL` is set once for every app.
 - The account hub and the CLI are in [ADR 0269](0269-personal-access-tokens-hub-and-cli.md).
