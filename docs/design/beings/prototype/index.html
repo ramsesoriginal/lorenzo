@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Beings: the sheet</title>
+    <!-- Everything visual comes from apps/brand, linked in place. Nothing is copied or redefined. -->
+    <link rel="stylesheet" href="../../../../apps/brand/normalize.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/tokens.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/fonts.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/base.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/layout.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/components.css" />
+    <link rel="stylesheet" href="../../../../apps/brand/motion.css" />
+    <link rel="stylesheet" href="sheet.css" />
+  </head>
+  <body>
+    <div class="proto-bar" id="controls" aria-label="Prototype controls"></div>
+    <p
+      class="error-text"
+      id="icons-note"
+      hidden
+      style="padding: var(--space-2) var(--space-4)"
+    >
+      The icon sprite could not be loaded. Serve the repository root (<code
+        >python3 -m http.server</code
+      >) and open this page from there.
+    </p>
+
+    <header class="site-header">
+      <div class="row">
+        <a class="brand display" href="#" aria-label="Lorenzo">
+          <img
+            class="brand-mark brand-mark--light"
+            src="../../../brand/assets/lorenzo_horizontal_lockup_light_bg.svg"
+            alt="Lorenzo"
+          />
+          <img
+            class="brand-mark brand-mark--dark"
+            src="../../../brand/assets/lorenzo_horizontal_lockup_dark_bg.svg"
+            alt="Lorenzo"
+          />
+        </a>
+        <span class="display" style="color: var(--text-secondary)">Beings</span>
+        <nav class="row" aria-label="Subpages">
+          <a href="#">Home</a>
+          <a href="#" aria-current="page">Beings</a>
+        </nav>
+      </div>
+      <div class="row-tight">
+        <svg class="icon" aria-hidden="true">
+          <use href="#icon-library"></use>
+        </svg>
+        <span id="lib-name">The Ashfang Road</span>
+      </div>
+    </header>
+
+    <main id="app" aria-live="polite"></main>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
