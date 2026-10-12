@@ -9,6 +9,7 @@ import {
   APP_POSTGRES_URL,
   AUTHGEAR_URL,
   DATABASE_NAME,
+  INVENTORY_URL,
   POSTGRES_URL,
   SITE_URL,
 } from './env.ts';
@@ -39,6 +40,9 @@ const env = {
   AUTHGEAR_JWKS_URL: `${AUTHGEAR_URL}/oauth2/jwks`,
   AUTHGEAR_USERINFO_URL: `${AUTHGEAR_URL}/oauth2/userinfo`,
   CORS_ALLOWED_ORIGINS: SITE_URL,
+  // Where the app-links registry says inventory-web is: the site gets it from the API, not from
+  // a variable of its own (ADR 0273).
+  INVENTORY_WEB_URL: INVENTORY_URL,
   // The API prints every trace span to the console; that would bury the test output.
   OTEL_SDK_DISABLED: 'true',
 };

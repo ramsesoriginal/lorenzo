@@ -31,7 +31,7 @@ The form itself (`StatEditor`, about 190 lines) is **copied, not extracted**: it
 - **New being:** a form at the foot of the list, for those who run the table (a GM of a campaign in the library, or a member). It makes a character with no owner (`POST .../characters` with no `owner_player_id`), which is an NPC, and opens its page. A being is not given a player at creation: that is what the next step is for.
 - **Hand over to a player**, on the being's page, for a GM of one or more campaigns in the library: pick one of those campaigns, then one of its players (named as ADR 0176 allows), and **Hand over**. It is the order account-hub uses ([ADR 0079](0079-account-hub-roster-reuse-and-being-handoff.md)): first the being joins the player's roster (`PUT .../characters/{id}/players/{player}`), then the player becomes its owner (`PATCH` with `owner_player_id`). A being linked but not yet owned is recoverable; the reverse is not. Anyone who already plays it keeps playing it. The page then shows the being as a Character with its new owner.
 - **Not here:** inviting a new player to a campaign by email (account-hub's user picker does it), handing a being back to nobody, deleting a being, promoting a bare being to a character.
-- **account-hub keeps its page.** Where `PUBLIC_BEINGS_BASE_URL` is set in its build, each library on its Beings page also links to the list in Lorenzo Beings; nothing else of the hub changed.
+- **account-hub keeps its page.** Where the API's registry of app links ([ADR 0273](0273-app-links-registry.md)) says Lorenzo Beings lives (the build's `PUBLIC_BEINGS_BASE_URL` is only the fallback), each library on its Beings page also links to the list in Lorenzo Beings; nothing else of the hub changed.
 
 ## Consequences
 

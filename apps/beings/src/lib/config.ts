@@ -24,12 +24,8 @@ export const BRANDING_CSS_URL: string = (
   import.meta.env.PUBLIC_BRANDING_CSS_URL || '/branding'
 ).replace(/\/$/, '');
 
-// Where inventory-web is deployed, to link a being to its board and an item to its page. Optional:
-// without it those links are simply not shown (ADR 0270). Trailing slash stripped like the one above.
+// Where inventory-web is deployed, as a FALLBACK: the API's registry of app links says where it is
+// (ADR 0273), and this is used only when the registry cannot be reached. Optional: without either,
+// the links to a being's board and an item's page are simply not shown (ADR 0270). Trailing slash stripped like the one above.
 export const INVENTORY_WEB_BASE_URL: string | undefined =
   import.meta.env.PUBLIC_INVENTORY_WEB_BASE_URL?.replace(/\/$/, '') || undefined;
-
-// Where the account hub is deployed, for the way back to its pages (the hand-over there, a library's
-// people). Optional in the same way.
-export const ACCOUNT_HUB_BASE_URL: string | undefined =
-  import.meta.env.PUBLIC_ACCOUNT_HUB_BASE_URL?.replace(/\/$/, '') || undefined;

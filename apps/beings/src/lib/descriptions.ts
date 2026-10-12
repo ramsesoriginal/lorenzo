@@ -11,6 +11,7 @@ import {
   statNames,
 } from '@lorenzo/lorenzoscript';
 import { client, type components, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
+import { loadAppLinks } from './appLinks';
 import { type EntityReference, entityHref, linkNote, type ResolvedSlug } from './entityLinks';
 import { viewerLocales } from './me';
 
@@ -251,6 +252,8 @@ export async function showDescriptions(
   const turn = {};
   pending.set(container, turn);
   container.replaceChildren();
+  // Links to items point into inventory-web, which the registry says where to find (ADR 0273).
+  await loadAppLinks();
   const rendered = await renderer(
     shown.map(({ text }) => text),
     shown.map(({ home }) => home),

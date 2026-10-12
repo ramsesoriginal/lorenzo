@@ -21,7 +21,7 @@ One page per being, `/being/?tenant=&slug=` (or `&id=`). After it loads, the add
 1. its **name**, its **kind** (Character or NPC) and its **link name**;
 2. its **picture** (the entry's main picture, fetched with the viewer's token, [ADR 0108](0108-lorenzoscript-in-inventory-web.md)), its **description** rendered as LorenzoScript with the shared package (links to beings open their pages here; links to items open inventory-web's item page if it is configured, else are plain text), its **tags** and the **stats** it has, its own or inherited;
 3. **Played by:** the owner first, then the others who share it, each with the campaign and "You" where it is the viewer. Names come from the campaign rosters ([ADR 0176](0176-a-campaigns-people-come-with-their-names.md)) where the viewer may read them, else "A player". A being no one plays says so;
-4. **Inventory:** how many things it owns, the first few by name and a link to its board in inventory-web (`PUBLIC_INVENTORY_WEB_BASE_URL`; left out without it). It uses the existing `owned-by` read, and says so when the viewer may not read it;
+4. **Inventory:** how many things it owns, the first few by name and a link to its board in inventory-web (the address in the app-links registry ([ADR 0273](0273-app-links-registry.md)), with `PUBLIC_INVENTORY_WEB_BASE_URL` as the fallback; left out without it). It uses the existing `owned-by` read, and says so when the viewer may not read it;
 5. **Notes**;
 6. for those who may, the editing sections ([ADR 0272](0272-beings-editing-stats-and-handing-over.md)).
 

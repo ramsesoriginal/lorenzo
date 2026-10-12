@@ -2,6 +2,7 @@
 // link to inventory-web's board for it, where it is configured. The owned-by read is the API's, and
 // is refused to someone who may not see the inventory; then the section says so and stays small.
 
+import { loadAppLinks } from '../../lib/appLinks';
 import { getOwned, summariseInventory } from '../../lib/being';
 import { inventoryBoardHref } from '../../lib/entityLinks';
 import { errorMessage } from '../../lib/errorMessage';
@@ -30,6 +31,8 @@ export function renderInventorySummary(root: HTMLElement): RenderedInventorySumm
       list.hidden = true;
       more.hidden = true;
       say(message, 'Loading the inventory…');
+
+      await loadAppLinks();
 
       const href = inventoryBoardHref(tenantAddress, entityId);
 

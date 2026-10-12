@@ -23,7 +23,7 @@ mise run //apps/beings:test       # Vitest
 mise run //apps/beings:test-e2e   # Playwright against the real API; needs Postgres and uv
 ```
 
-Copy `.env.example` to `.env` and fill in the Authgear endpoint and client id (see [docs/operations/beings-setup.md](../../docs/operations/beings-setup.md); it needs an Authgear client of its own, with `http://127.0.0.1:4323/auth/redirect/` as a redirect address). `PUBLIC_API_BASE_URL` defaults to the deployed API. `PUBLIC_INVENTORY_WEB_BASE_URL` makes the link to a being's board appear.
+Copy `.env.example` to `.env` and fill in the Authgear endpoint and client id (see [docs/operations/beings-setup.md](../../docs/operations/beings-setup.md); it needs an Authgear client of its own, with `http://127.0.0.1:4323/auth/redirect/` as a redirect address). `PUBLIC_API_BASE_URL` defaults to the deployed API. Where inventory-web lives comes from the API's app-links registry ([ADR 0273](../../docs/adr/0273-app-links-registry.md)); `PUBLIC_INVENTORY_WEB_BASE_URL` is only the fallback.
 
 The end-to-end tests start a fake Authgear (4410), the real API on a fresh database (8775, database `lorenzo_beings_e2e`, `E2E_DATABASE` overrides it; the name must end in `_e2e`) and the built site (4341), so they can run beside inventory-web's. Playwright's `E2E_REUSE_SERVERS=1` reuses servers already running.
 

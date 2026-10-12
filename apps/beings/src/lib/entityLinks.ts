@@ -3,14 +3,18 @@
 // it's tested without a browser; descriptions.ts does the fetching.
 import type { EntityRef, Reference } from '@lorenzo/lorenzoscript';
 import type { components } from './api';
-import { INVENTORY_WEB_BASE_URL } from './config';
+import { boardUrl, itemUrl } from './appLinks';
 
 export type ResolvedSlug = components['schemas']['ResolvedSlugOut'];
 /** A link or picture naming an entity by slug. */
 export type EntityReference = Extract<Reference, EntityRef>;
 type Kind = ResolvedSlug['kinds'][number];
 
-type View = { kind: Kind; page: string; href: (tenantId: string, entityId: string) => string };
+type View = {
+  kind: Kind;
+  page: string;
+  href: (tenantId: string, entityId: string) => string | null;
+};
 
 /** A being's own page here, named by its slug when it has one, else by its id (ADR 0135). */
 export function beingPageHref(
@@ -22,37 +26,35 @@ export function beingPageHref(
   return `/being/?tenant=${encodeURIComponent(tenant)}&${named}`;
 }
 
-/** A being's board in inventory-web, or null if this deployment does not know where that is. */
-export function inventoryBoardHref(tenant: string, entityId: string): string | null {
-  return INVENTORY_WEB_BASE_URL
-    ? `${INVENTORY_WEB_BASE_URL}/board/?tenant=${encodeURIComponent(tenant)}&character=${entityId}`
-    : null;
-}
+/** A being's board in inventory-web, or null if nothing says where that is (ADR 0273). */
+export const inventoryBoardHref = boardUrl;
 
 const beingPage: View['href'] = (t, id) => beingPageHref(t, { entity_id: id });
-// An item has no page here: inventory-web has, when it is configured (ADR 0270).
-const itemPage: View['href'] = (t, id) =>
-  `${INVENTORY_WEB_BASE_URL}/item/?tenant=${encodeURIComponent(t)}&id=${id}`;
+// An item has no page here: inventory-web has, when something says where it is (ADR 0270, 0273).
+const itemPage: View['href'] = itemUrl;
 
-// The pages an entity can open in, in the order a link without a usable hint tries them.
-const VIEWS: View[] = [
-  { kind: 'character', page: 'its page', href: beingPage },
-  { kind: 'being', page: 'its page', href: beingPage },
-  ...(INVENTORY_WEB_BASE_URL
-    ? ([
-        { kind: 'item_instance', page: 'its item page in Inventory', href: itemPage },
-        { kind: 'item', page: 'its item page in Inventory', href: itemPage },
-      ] as View[])
-    : []),
-];
+// The pages an entity can open in, in the order a link without a usable hint tries them. An item's
+// page is listed only when inventory-web's address is known, which is decided when it is asked.
+function views(): View[] {
+  return [
+    { kind: 'character', page: 'its page', href: beingPage },
+    { kind: 'being', page: 'its page', href: beingPage },
+    ...(itemUrl('', '') === null
+      ? []
+      : ([
+          { kind: 'item_instance', page: 'its item page in Inventory', href: itemPage },
+          { kind: 'item', page: 'its item page in Inventory', href: itemPage },
+        ] as View[])),
+  ];
+}
 
 /** What choosing a page needs to know about an entity: a resolved slug, or a backlink. */
 type Linkable = Pick<ResolvedSlug, 'entity_id' | 'kinds'>;
 
 // The hint's view if the entity is one, else the entity's first kind with a view.
 function viewFor(entity: Linkable, hint: string) {
-  const views = VIEWS.filter(({ kind }) => entity.kinds.includes(kind));
-  return views.find(({ kind }) => kind === hint) ?? views[0];
+  const found = views().filter(({ kind }) => entity.kinds.includes(kind));
+  return found.find(({ kind }) => kind === hint) ?? found[0];
 }
 
 /** Where a link to `entity` leads, or null if it has no page here. */

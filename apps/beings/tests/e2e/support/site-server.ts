@@ -5,7 +5,7 @@
 // preview lock: a lock left by an earlier run made it report "already running" and exit.
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { API_URL, AUTHGEAR_URL, CLIENT_ID, INVENTORY_URL, SITE_URL } from './env.ts';
+import { API_URL, AUTHGEAR_URL, CLIENT_ID, SITE_URL } from './env.ts';
 
 const env = {
   ...process.env,
@@ -13,7 +13,6 @@ const env = {
   PUBLIC_AUTHGEAR_ENDPOINT: AUTHGEAR_URL,
   PUBLIC_AUTHGEAR_CLIENT_ID: CLIENT_ID,
   // A stand-in origin, so the link to the inventory board can be checked (nothing is loaded from it).
-  PUBLIC_INVENTORY_WEB_BASE_URL: INVENTORY_URL,
 };
 
 const built = spawnSync('pnpm run build', { env, stdio: 'inherit', shell: true });
