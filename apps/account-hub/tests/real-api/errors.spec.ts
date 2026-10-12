@@ -49,7 +49,14 @@ test('an expired session says so, and "Log in" comes back to the same page', asy
   const api = await apiAs(subject);
   await ok(api.GET('/me'));
   await signIn(page, context, subject);
-  await page.evaluate(() => sessionStorage.clear());
+  // What signing in read is held for the next page (lib/cache.ts); this page is to ask again.
+  // Emptied before the first /profile page script runs, once: a read still landing from the last
+  // page cannot refill it, and the sign-in that "Log in" starts later keeps what it stores.
+  await page.addInitScript(() => {
+    if (location.pathname !== '/profile' || sessionStorage.getItem('e2e-cache-emptied')) return;
+    sessionStorage.clear();
+    sessionStorage.setItem('e2e-cache-emptied', '1');
+  });
   await page.route('**/me', (route) =>
     route.fulfill({
       status: 401,
