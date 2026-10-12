@@ -281,9 +281,10 @@ input.invalid {
   font-weight: 500;
   font-size: 14px;
 }
-.brand .ic {
-  fill: currentColor;
-  stroke: none;
+.brand .brand-mark {
+  flex: none;
+  width: 16px;
+  height: 16px;
 }
 .sep {
   width: 1px;

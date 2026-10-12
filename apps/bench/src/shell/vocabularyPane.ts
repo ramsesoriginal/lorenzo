@@ -3,6 +3,7 @@
 
 import type { Bench } from '../core/bench';
 import type { StatGroup, StatType } from '../core/transport';
+import { icon } from './icons';
 
 export interface VocabularyUi {
   groups: StatGroup[] | null;
@@ -57,7 +58,8 @@ export function renderVocabulary(bench: Bench, ui: VocabularyUi, redraw: () => v
     const type = TYPES.find(([t]) => t === d.type)?.[1] ?? d.type;
     li.append(el('span', 'stat-name', d.name), el('span', 'muted', type));
     if (d.type === 'enum') li.append(el('span', 'muted', d.enumValues.join(' · ')));
-    const del = el('button', 'x', ui.confirming === d.id ? 'Delete it' : '×');
+    const del = el('button', 'x', ui.confirming === d.id ? 'Delete it' : undefined);
+    if (ui.confirming !== d.id) del.append(icon('close', 12));
     del.type = 'button';
     del.setAttribute('aria-label', `Delete ${d.name}`);
     del.addEventListener('click', async () => {

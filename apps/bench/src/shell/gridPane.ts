@@ -22,6 +22,7 @@ import {
   valueSource,
   valuesOf,
 } from './gridModel';
+import { type IconName, icon, iconButton } from './icons';
 
 /** What a grid remembers while the page is drawn again around it. */
 export interface GridState {
@@ -56,6 +57,16 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   if (text !== undefined) e.textContent = text;
   return e;
 };
+const iconBtn = (name: IconName, label: string, onClick: () => void) =>
+  iconButton(name, label, () => onClick());
+
+/** "Comes from X": the arrow of inheritance and the name of where the value is found. */
+function inheritedFrom(from: string): HTMLElement {
+  const span = el('span', 'grid-from');
+  span.append(icon('inherited-from', 12), document.createTextNode(` ${from} `));
+  return span;
+}
+
 const button = (label: string, onClick: () => void, cls = 'btn') => {
   const b = el('button', cls, label);
   b.type = 'button';
@@ -270,11 +281,11 @@ export function renderGrid(bench: Bench, state: GridState, opts: GridOptions): H
     bar.append(
       value,
       button('Set', set),
-      button('−', nudge(-1)),
-      button('+', nudge(1)),
+      iconBtn('decrease', 'Decrease by a step', nudge(-1)),
+      iconBtn('add', 'Increase by a step', nudge(1)),
       button('Fill down', fill),
       button('Make inherit', inherit),
-      button('×', () => {
+      iconBtn('close', 'Clear the selection', () => {
         state.anchor = state.focus = null;
         rerender();
       }),
@@ -337,10 +348,7 @@ export function renderGrid(bench: Bench, state: GridState, opts: GridOptions): H
         if (source.kind === 'inherited') {
           td.classList.add('inh');
           td.title = `From ${bench.displayName(source.from)}`;
-          td.append(
-            el('span', 'grid-from', `↳ ${bench.displayName(source.from)} `),
-            document.createTextNode(shown),
-          );
+          td.append(inheritedFrom(bench.displayName(source.from)), document.createTextNode(shown));
         } else td.append(document.createTextNode(shown || '—'));
         if (!shown) td.classList.add('blank');
       }

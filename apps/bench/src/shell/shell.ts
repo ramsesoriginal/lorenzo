@@ -508,7 +508,7 @@ export class Shell {
     });
     b.addEventListener('keydown', (e) => this.onTabKey(e, g, p));
     const x = el('button', 'x');
-    x.append(icon('x', 13));
+    x.append(icon('close', 13));
     x.type = 'button';
     x.title = `Close ${titleOf(p)}`;
     x.setAttribute('aria-label', `Close ${titleOf(p)}`);
@@ -602,7 +602,7 @@ export class Shell {
     );
     const add = el('button', 'btn quiet new-btn');
     add.type = 'button';
-    add.append(icon('plus', 14), document.createTextNode(' New'));
+    add.append(icon('add', 14), document.createTextNode(' New'));
     add.setAttribute('aria-expanded', String(this.newOpen));
     add.addEventListener('click', () => {
       this.newOpen = !this.newOpen;
@@ -643,7 +643,7 @@ export class Shell {
       if (this.order === 'inherits' && !filtering) {
         if (row.hasChildren) {
           const fold = el('button', 'fold');
-          fold.append(icon(row.open ? 'down' : 'right', 13));
+          fold.append(icon(row.open ? 'expand' : 'next', 13));
           fold.type = 'button';
           fold.setAttribute('aria-label', `${row.open ? 'Fold' : 'Unfold'} ${e.name}`);
           fold.setAttribute('aria-expanded', String(row.open));
@@ -666,7 +666,7 @@ export class Shell {
       if (this.order === 'inherits' && !filtering) this.dragRow(li, b, row.id, row.key, byId);
       if (row.parentCount) {
         const multi = el('span', 'multi');
-        multi.append(icon('branch', 13));
+        multi.append(icon('ancestry', 13));
         multi.title = `Has ${row.parentCount} parents: it is in each of those places`;
         multi.setAttribute('role', 'img');
         multi.setAttribute('aria-label', `Has ${row.parentCount} parents`);

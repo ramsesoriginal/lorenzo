@@ -46,7 +46,7 @@ export function drawStatusBar(
   const problem = sync.conflicts + sync.attention > 0;
   const state = el(problem ? 'button' : 'span', `sb-sync ${problem ? 'bad' : ''}`);
   state.append(
-    icon(problem ? 'alert' : sync.waiting ? 'sync' : 'check', 14),
+    icon(problem ? 'warning' : sync.waiting ? 'refresh' : 'select-item', 14),
     document.createTextNode(syncText(sync)),
   );
   if (state instanceof HTMLButtonElement) {

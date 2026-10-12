@@ -29,7 +29,7 @@ export function repositoryMenu(
   const wrap = el('div', 'repo-menu');
   const current = repos.find((r) => r.id === currentId);
   const button = el('button', 'btn repo-button');
-  button.append(document.createTextNode(current?.name ?? 'No repository'), icon('down', 14));
+  button.append(document.createTextNode(current?.name ?? 'No repository'), icon('expand', 14));
   button.type = 'button';
   button.setAttribute('aria-haspopup', 'menu');
   button.setAttribute('aria-expanded', 'false');
