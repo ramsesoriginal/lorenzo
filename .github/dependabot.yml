@@ -103,6 +103,7 @@ updates:
     directories:
       - "/"
       - "/apps/account-hub"
+      - "/apps/beings"
       - "/apps/bench"
       - "/apps/inventory-web"
       - "/apps/loot-bot"
@@ -111,6 +112,7 @@ updates:
       - "/packages/inventory-names"
       - "/packages/lorenzoscript"
       - "/packages/lorenzoscript-editor"
+      - "/packages/stat-values"
     schedule:
       interval: "weekly"
     commit-message:

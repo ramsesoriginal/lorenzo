@@ -145,3 +145,5 @@ export async function fetchAllPages<T>(getPage: (page: number) => Promise<Page<T
 export function etagOf(response: Response): string | null {
   return response.headers.get('etag');
 }
+
+export { type AppLinks, clearAppLinksCache, fill, getAppLinks } from './appLinks';

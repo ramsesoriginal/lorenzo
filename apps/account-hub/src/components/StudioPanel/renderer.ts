@@ -4,7 +4,7 @@
 
 import { onCacheRefreshed } from '../../lib/cache';
 import { isEditingIn } from '../../lib/editing';
-import { sayError } from '../../lib/statusLine';
+import { say, sayError } from '../../lib/statusLine';
 import { CREATE_NOT_OPEN, readStudioLocation, STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { canCreateTenants, isRepository } from '../../lib/tenantKind';
@@ -29,6 +29,7 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
   const list = required<HTMLElement>(root, '[data-list]');
   const createUnavailable = required<HTMLElement>(root, '[data-create-unavailable]');
   const error = required<HTMLElement>(root, '[data-error]');
+  const notice = required<HTMLElement>(root, '[data-notice]');
   const createView = required<HTMLElement>(root, '[data-create]');
   const emptyView = required<HTMLElement>(root, '[data-empty]');
 
@@ -42,6 +43,7 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
   const repositoryView = renderRepository(repositoryRoot, me.id, {
     onChanged: () => void reload(),
     onRenamed,
+    onDeleted: (message) => void left(message),
     mayCreate,
   });
 
@@ -140,6 +142,7 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
   }
 
   function navigate(view: View): void {
+    say(notice, '');
     window.history.pushState(null, '', urlFor(view));
     void show(view);
   }
@@ -164,6 +167,13 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
     } catch (cause) {
       sayError(error, cause);
     }
+  }
+
+  // A repository was deleted (ADR 0267): the list again without it, and the message where the
+  // person lands. The cache was emptied by the delete, so the list is read afresh.
+  async function left(message: string): Promise<void> {
+    await reload();
+    say(notice, message);
   }
 
   // What was just made, open: on its Overview, where a new repository starts.

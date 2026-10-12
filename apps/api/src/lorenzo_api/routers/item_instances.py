@@ -1593,9 +1593,9 @@ async def _set_down_pieces(
     stack = await session.get_one(Entity, stack_id)
     prototype_ids = (
         await session.scalars(
-            select(EntityPrototype.prototype_id).where(
-                EntityPrototype.entity_id == stack_id, EntityPrototype.tenant_id == tenant_id
-            )
+            select(EntityPrototype.prototype_id)
+            .where(EntityPrototype.entity_id == stack_id, EntityPrototype.tenant_id == tenant_id)
+            .order_by(EntityPrototype.position, EntityPrototype.prototype_id)
         )
     ).all()
     owner_id = await _current_owner_character_id(session, entity_id=stack_id, tenant_id=tenant_id)
@@ -1622,8 +1622,13 @@ async def _set_down_pieces(
         await session.flush()
         session.add(ItemInstance(entity_id=piece.id, tenant_id=tenant_id))
         session.add_all(
-            EntityPrototype(entity_id=piece.id, prototype_id=prototype_id, tenant_id=tenant_id)
-            for prototype_id in prototype_ids
+            EntityPrototype(
+                entity_id=piece.id,
+                prototype_id=prototype_id,
+                tenant_id=tenant_id,
+                position=position,
+            )
+            for position, prototype_id in enumerate(prototype_ids)
         )
         if owner_id is not None:
             session.add(
@@ -2345,9 +2350,11 @@ async def _perform_split(
     prototype_ids = (
         (
             await session.execute(
-                select(EntityPrototype.prototype_id).where(
+                select(EntityPrototype.prototype_id)
+                .where(
                     EntityPrototype.entity_id == entity_id, EntityPrototype.tenant_id == tenant_id
                 )
+                .order_by(EntityPrototype.position, EntityPrototype.prototype_id)
             )
         )
         .scalars()
@@ -2374,9 +2381,14 @@ async def _perform_split(
     session.add(new_entity)
     await session.flush()
     session.add(ItemInstance(entity_id=new_entity.id, tenant_id=tenant_id))
-    for prototype_id in prototype_ids:
+    for position, prototype_id in enumerate(prototype_ids):
         session.add(
-            EntityPrototype(entity_id=new_entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
+            EntityPrototype(
+                entity_id=new_entity.id,
+                prototype_id=prototype_id,
+                tenant_id=tenant_id,
+                position=position,
+            )
         )
     await copy_binding(session, tenant_id=tenant_id, source_id=entity_id, target_id=new_entity.id)
     if new_owner_id is not None:

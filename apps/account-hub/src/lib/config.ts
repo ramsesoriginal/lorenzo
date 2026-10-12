@@ -23,3 +23,9 @@ export const AUTHGEAR_CLIENT_ID: string | undefined = import.meta.env.PUBLIC_AUT
 export const BRANDING_CSS_URL: string = (
   import.meta.env.PUBLIC_BRANDING_CSS_URL || '/branding'
 ).replace(/\/$/, '');
+
+// Where Lorenzo Beings (apps/beings) is deployed, as a FALLBACK (ADR 0272): the API's registry of
+// app links says where it is (ADR 0273), and this is used only when the registry cannot be reached.
+// Optional: without either the link is not shown. Trailing slash stripped like the one above.
+export const BEINGS_BASE_URL: string | undefined =
+  import.meta.env.PUBLIC_BEINGS_BASE_URL?.replace(/\/$/, '') || undefined;

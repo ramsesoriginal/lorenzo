@@ -1,0 +1,22 @@
+<!-- Your personal access tokens (ADR 0269), on /profile. Rendered by renderPersonalTokens. -->
+<section class="section stack" id="personal-access-tokens" data-personal-tokens hidden>
+  <h2>Personal access tokens</h2>
+  <p>
+    A token lets a program such as the <code>lorenzo</code> command line act as you. You make one by
+    <a href="/device/">connecting a device</a>; revoke it here when you no longer need it.
+  </p>
+  <span class="status-text" role="status" data-list-status hidden></span>
+  <ul class="list" data-list></ul>
+
+  <template data-token-template>
+    <li class="row">
+      <strong data-name></strong>
+      <span class="badge" data-state></span>
+      <span class="campaign-meta grow" data-meta></span>
+      <button type="button" class="btn-danger" data-revoke>
+        Revoke
+      </button>
+      <span class="status-text" role="status" data-status hidden></span>
+    </li>
+  </template>
+</section>

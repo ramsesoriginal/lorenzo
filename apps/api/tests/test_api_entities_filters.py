@@ -377,7 +377,8 @@ async def test_rows_name_their_parents_so_the_tree_can_be_drawn_from_the_list(
         "Root": [],
         "Left": [str(made["Root"])],
         "Right": [str(made["Root"])],
-        "Both": sorted([str(made["Left"]), str(made["Right"])]),
+        # In the order the parents were added: the entry's own parent order (ADR 0266).
+        "Both": [str(made["Left"]), str(made["Right"])],
     }
     # A filtered list names them too.
     child = (await client.get(f"/tenants/{tenant_id}/entities", params={"q": "left"})).json()

@@ -17,6 +17,7 @@ from lorenzo_api.observability.health import router as health_router
 from lorenzo_api.observability.tracing import configure_tracing
 from lorenzo_api.routers.activity_log import router as activity_log_router
 from lorenzo_api.routers.admin import router as admin_router
+from lorenzo_api.routers.app_links import router as app_links_router
 from lorenzo_api.routers.beings import router as beings_router
 from lorenzo_api.routers.campaign_invites import router as campaign_invites_router
 from lorenzo_api.routers.campaigns import router as campaigns_router
@@ -31,7 +32,9 @@ from lorenzo_api.routers.invites import router as invites_router
 from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.knowledge import router as knowledge_router
+from lorenzo_api.routers.link_previews import router as link_previews_router
 from lorenzo_api.routers.payloads import router as payloads_router
+from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
 from lorenzo_api.routers.pictures import router as pictures_router
 from lorenzo_api.routers.players import router as players_router
 from lorenzo_api.routers.repositories import router as repositories_router
@@ -83,9 +86,11 @@ def create_app() -> FastAPI:
 
     register_error_handlers(app)
     app.include_router(health_router)
+    app.include_router(app_links_router)
     app.include_router(admin_router)
     app.include_router(activity_log_router)
     app.include_router(users_router)
+    app.include_router(personal_tokens_router)
     app.include_router(tenants_router)
     app.include_router(repositories_router)
     app.include_router(campaigns_router)
@@ -99,6 +104,7 @@ def create_app() -> FastAPI:
     # Before entities_router: its /{entity_id} would take "export" (ADR 0262).
     app.include_router(entity_export_router)
     app.include_router(entities_router)
+    app.include_router(link_previews_router)
     app.include_router(entity_stats_router)
     app.include_router(computed_stats_router)
     app.include_router(groups_router)
