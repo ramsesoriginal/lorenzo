@@ -295,3 +295,43 @@ async def test_the_definitions_are_not_confused_across_tenants(
     assert (await client.get(_url(tenant_id, being))).json()["weapons"] == []
     await delete_tenant(tenant_id)
     await delete_tenant(other)
+
+
+# --- who may read the vocabulary -----------------------------------------------
+
+
+async def test_any_participant_reads_the_stat_vocabulary_and_only_an_administrator_writes_it(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """A sheet draws a being for its player, who is no member (ADR 0281)."""
+    tenant_id = await make_tenant(test_user_id)
+    group = await _group(client, tenant_id, "Vitals")
+    definition = await _definition(client, tenant_id, group["id"], "speed")
+    await make_plain_participant(tenant_id, test_user_id)
+
+    groups = await client.get(f"/tenants/{tenant_id}/stat-groups")
+    definitions = await client.get(f"/tenants/{tenant_id}/stat-definitions")
+    one = await client.get(f"/tenants/{tenant_id}/stat-definitions/{definition['id']}")
+    refused = await client.patch(
+        f"/tenants/{tenant_id}/stat-definitions/{definition['id']}", json={"pin": True}
+    )
+
+    assert [g["name"] for g in groups.json()["items"]] == ["Vitals"]
+    assert [d["name"] for d in definitions.json()["items"]] == ["speed"]
+    assert one.status_code == 200
+    assert refused.status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_someone_with_no_standing_in_the_tenant_does_not_read_its_vocabulary(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        membership = await session.get_one(Membership, (tenant_id, test_user_id))
+        await session.delete(membership)
+        await session.commit()
+
+    for path in ("stat-groups", "stat-definitions"):
+        assert (await client.get(f"/tenants/{tenant_id}/{path}")).status_code == 404
+    await delete_tenant(tenant_id)

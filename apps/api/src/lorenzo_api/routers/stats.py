@@ -14,6 +14,8 @@ from lorenzo_api.dependencies import (
     ParamsDep,
     SessionDep,
     get_tenant_context,
+    get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.exceptions import (
@@ -55,16 +57,31 @@ from lorenzo_api.schemas.stats import (
     StatGroupUpdate,
 )
 
+
 # get_tenant_context here, not per-route (ADR 0020's revised guidance,
 # matching routers/items.py's identical precedent) - every route on this
 # router needs it and none read its return value. stat_group/stat_definition
 # are the shared stat vocabulary ("physical," "weight," ...), the same kind
 # of tenant-admin-authored catalog concern as item's own prototypes
 # (ADR 0032/ADR 0037, RFC 0008).
+async def _vocabulary_gate(
+    request: Request, tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> None:
+    """Writing the stat vocabulary is for the tenant's administrators, as it always was;
+    reading it is for any participant of the tenant (ADR 0281). A sheet needs the groups and
+    definitions - which numbers a table may change, units, order, pins - to draw a being for
+    the player of it, who has no membership. Not a participant is the same 404 as ever."""
+    if request.method == "GET":
+        await get_tenant_or_404(tenant_id, session, user)
+        await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    else:
+        await get_tenant_context(tenant_id, session, user)
+
+
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
     tags=["stats"],
-    dependencies=[Depends(get_tenant_context)],
+    dependencies=[Depends(_vocabulary_gate)],
 )
 
 
