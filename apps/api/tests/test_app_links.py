@@ -43,7 +43,10 @@ def test_template_overrides_win_and_can_add_links() -> None:
     links = app_links.links(settings)
     assert links["item"] == "https://i.example/{tenant}/{id}"
     assert links["extra"] == "https://x.example/?a=b"
-    assert links["board"].startswith("https://lorenzo-inventory-web.pages.dev")
+    assert (
+        links["board"]
+        == app_links.apps(Settings())["inventory_web"] + "/board/?tenant={tenant}&character={id}"
+    )
 
 
 def test_env_variables_feed_the_settings(monkeypatch: pytest.MonkeyPatch) -> None:
