@@ -173,7 +173,7 @@ class InformationOut(BaseModel):
     payloads already resolved to their concrete kind - see ADR 0020. A
     single Information row's payloads can be of heterogeneous kinds, so
     each is resolved independently via payload_to_schema rather than
-    assuming one kind per row.
+    assuming one kind per row. Needs `author` loaded (ADR 0277).
     """
 
     id: uuid.UUID
@@ -185,9 +185,15 @@ class InformationOut(BaseModel):
     # 0042/0101). Each payload carries its own, separately.
     updated_at: datetime
     payloads: list[PayloadOut]
+    # ADR 0277: who wrote it, shown wherever the row is. Null for a row written
+    # before attribution existed or by an account since deleted; the name is
+    # the author's display name, else their nickname, else null.
+    created_by: uuid.UUID | None = None
+    created_by_name: str | None = None
 
     @classmethod
     def from_information(cls, information: Information, request: Request) -> InformationOut:
+        author = information.author
         return cls(
             id=information.id,
             title=information.title,
@@ -196,6 +202,8 @@ class InformationOut(BaseModel):
             order=information.order,
             updated_at=information.updated_at,
             payloads=[payload_to_schema(payload, request) for payload in information.payloads],
+            created_by=information.created_by,
+            created_by_name=(author.display_name or author.nickname) if author else None,
         )
 
 

@@ -5900,7 +5900,7 @@ export interface components {
          *     payloads already resolved to their concrete kind - see ADR 0020. A
          *     single Information row's payloads can be of heterogeneous kinds, so
          *     each is resolved independently via payload_to_schema rather than
-         *     assuming one kind per row.
+         *     assuming one kind per row. Needs `author` loaded (ADR 0277).
          */
         InformationOut: {
             /**
@@ -5923,6 +5923,10 @@ export interface components {
             updated_at: string;
             /** Payloads */
             payloads: (components["schemas"]["PayloadDescriptionOut"] | components["schemas"]["PayloadNumberOut"] | components["schemas"]["PayloadPictureOut"] | components["schemas"]["PayloadDocumentOut"])[];
+            /** Created By */
+            created_by?: string | null;
+            /** Created By Name */
+            created_by_name?: string | null;
         };
         /**
          * InformationUpdate

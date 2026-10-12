@@ -1491,6 +1491,8 @@ class InformationOut(BaseModel):
     order: int = Field(..., title="Order")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     payloads: list[Payloads] = Field(..., title="Payloads")
+    created_by: UUID | None = Field(None, title="Created By")
+    created_by_name: str | None = Field(None, title="Created By Name")
 
 
 class InviteCreate(BaseModel):

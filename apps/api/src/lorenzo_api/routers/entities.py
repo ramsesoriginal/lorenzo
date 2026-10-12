@@ -486,6 +486,8 @@ async def get_entity_detail_or_404(
             .selectinload(Information.payloads)
             .selectinload(Payload.document),
             selectinload(Entity.information).selectinload(Information.knowledge_links),
+            # Who wrote each (ADR 0277).
+            selectinload(Entity.information).selectinload(Information.author),
             selectinload(Entity.prototypes),
             selectinload(Entity.instances),
             # ADR 0041: Entity.containment/contained_links (the Containment
@@ -912,6 +914,8 @@ _INFORMATION_LOAD_OPTIONS = (
     selectinload(Information.payloads).selectinload(Payload.picture),
     selectinload(Information.payloads).selectinload(Payload.document),
     selectinload(Information.knowledge_links),
+    # Who wrote it (ADR 0277).
+    selectinload(Information.author),
 )
 
 
