@@ -132,6 +132,11 @@ test('a calculated number says so and shows how it came to be', async ({ world, 
 
   const tile = page.locator('[data-stat="armour_class"]');
   await expect(tile.locator('.stat-value')).toContainText('15');
+  // The page redraws its numbers once it knows who may write; an explanation opened before that
+  // would be closed with it.
+  await expect(
+    page.locator('[data-sheet-head] [data-mode-switch] input[value="edit"]'),
+  ).toBeEnabled();
   await tile.getByText('Calculated').click();
   const panel = tile.locator('.why-panel');
   await expect(panel).toContainText('Dexterity × 1 + 1');
