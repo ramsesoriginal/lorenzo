@@ -30,3 +30,15 @@ export function sectionOrder(mode: Mode): readonly SheetSection[] {
 export function isMode(value: string | null | undefined): value is Mode {
   return value === 'read' || value === 'play' || value === 'edit';
 }
+
+/** How densely a being is drawn: as a sheet, or as a datasheet (a stat line, a weapons table, abilities). */
+export type Layout = 'sheet' | 'datasheet';
+
+export const LAYOUTS: readonly { layout: Layout; label: string }[] = [
+  { layout: 'sheet', label: 'Sheet' },
+  { layout: 'datasheet', label: 'Datasheet' },
+];
+
+export function isLayout(value: string | null | undefined): value is Layout {
+  return value === 'sheet' || value === 'datasheet';
+}

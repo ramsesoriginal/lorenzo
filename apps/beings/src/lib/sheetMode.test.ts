@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveMode, isMode, sectionOrder } from './sheetMode';
+import { effectiveMode, isLayout, isMode, sectionOrder } from './sheetMode';
 
 describe('effectiveMode', () => {
   it('keeps Edit for someone who may edit and falls back to Read for someone who may not', () => {
@@ -29,5 +29,12 @@ describe('isMode', () => {
     expect(['read', 'play', 'edit'].every(isMode)).toBe(true);
     expect(isMode('datasheet')).toBe(false);
     expect(isMode(null)).toBe(false);
+  });
+});
+
+describe('isLayout', () => {
+  it('knows the two layouts and nothing else', () => {
+    expect(isLayout('sheet') && isLayout('datasheet')).toBe(true);
+    expect(isLayout('play')).toBe(false);
   });
 });

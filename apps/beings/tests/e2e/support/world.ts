@@ -108,11 +108,17 @@ export async function buildWorld() {
   }
 
   /** Adds a note, as a GM does; private unless `isPublic`. */
-  async function note(entityId: string, title: string, content: string, isPublic = false) {
+  async function note(
+    entityId: string,
+    title: string,
+    content: string,
+    isPublic = false,
+    type = 'note',
+  ) {
     return ok(
       api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
         params: { path: { tenant_id: tenant.id, entity_id: entityId } },
-        body: { title, type: 'note', is_public: isPublic, content, locale: 'en' },
+        body: { title, type, is_public: isPublic, content, locale: 'en' },
       }),
     );
   }
@@ -224,6 +230,47 @@ export async function buildWorld() {
     return made.entity_id;
   }
 
+  /** An item instance the being holds directly: equipped, with stats of its own. */
+  async function equip(
+    being: { entity_id: string },
+    name: string,
+    stats: [definitionId: string, value: number][] = [],
+  ) {
+    const item = await ok(
+      api.POST('/tenants/{tenant_id}/items', {
+        ...t,
+        body: { name, prototype_ids: [], in_public_catalog: false },
+      }),
+    );
+    const made = await ok(
+      api.POST('/tenants/{tenant_id}/item-instances', {
+        ...t,
+        body: {
+          prototype_id: item.entity_id,
+          owner_character_id: being.entity_id,
+          container_entity_id: being.entity_id,
+          slug: null,
+          override: false,
+          quantity: 1,
+        },
+      }),
+    );
+
+    for (const [definitionId, value] of stats) await setStat(made.entity_id, definitionId, value);
+
+    return made.entity_id;
+  }
+
+  /** Tells the library where the datasheet finds weapons and abilities. */
+  async function configureSheet(weaponGroupId: string | null, abilityType: string | null) {
+    await ok(
+      api.PATCH('/tenants/{tenant_id}', {
+        ...t,
+        body: { weapon_stat_group_id: weaponGroupId, ability_information_type: abilityType },
+      }),
+    );
+  }
+
   async function slug(entityId: string, value: string) {
     await ok(
       api.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
@@ -249,6 +296,8 @@ export async function buildWorld() {
     defineStat,
     setStat,
     formula,
+    equip,
+    configureSheet,
     carry,
     slug,
   };

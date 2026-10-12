@@ -14,6 +14,7 @@ import { requiredIn } from '../../lib/template';
 import type { Character, EntityDetail } from '../../lib/types';
 import { renderBeingNotes } from '../BeingNotes/renderer';
 import { renderBeingView } from '../BeingView/renderer';
+import { renderDatasheet } from '../Datasheet/renderer';
 import { renderDescriptionEdit } from '../DescriptionEdit/renderer';
 import { renderHandOver } from '../HandOver/renderer';
 import { renderInventorySummary } from '../InventorySummary/renderer';
@@ -54,6 +55,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const statBand = renderStatBand({
     root: required<HTMLElement>(root, '[data-stat-band]'),
     page: root,
+    lines: required<HTMLElement>(root, '[data-ds-lines]'),
     tenantId,
     onChanged: (entity) => showEntity(entity),
     announce: (message) => controls.announce(message),
@@ -104,8 +106,20 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     renderer,
     onSaved: () => void refresh(),
   });
+  const datasheet = renderDatasheet({
+    root: required<HTMLElement>(root, '[data-datasheet]'),
+    tenantId,
+    renderer,
+    vocabulary: () => statBand.vocabulary(),
+  });
   const controls = renderSheetControls({
     root,
+    onLayout: (layout) => {
+      if (shown) {
+        redrawStats(shown);
+        if (layout === 'datasheet') void datasheet.load(shown.id);
+      }
+    },
     onMode: (mode) => {
       // The description's way into its form is for building the being, not for reading it.
       description.allow(canEdit && mode === 'edit');
@@ -159,12 +173,15 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     });
     pictureEdit.load(entity.id, pictureOf(entity) !== undefined);
 
+    datasheet.show({ id: entity.id, name: entity.name, description: descriptionOf(entity) });
     redrawStats(entity);
   }
 
   // The numbers and tags as the mode shows them, and the few the sticky bar keeps in view.
   function redrawStats(entity: EntityDetail) {
-    const drawn = statBand.show(entity, controls.mode(), canEdit);
+    const drawn = statBand.show(entity, controls.mode(), canEdit, controls.layout());
+
+    datasheet.setHasStats(drawn.length > 0);
 
     controls.setVitals(
       vitalsOf(drawn).map((tile) => ({ label: tile.label, value: valueText(tile) })),
@@ -181,6 +198,9 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       kind.textContent = character ? kindLabel(character) : 'NPC';
       await statBand.load();
       showEntity(entity);
+
+      // Asked for the datasheet before the being had arrived (a link, or a quick hand).
+      if (controls.layout() === 'datasheet') void datasheet.load(entityId);
 
       void people.load(tenantId, character);
       void inventory.load(tenantId, tenantAddress, entityId);

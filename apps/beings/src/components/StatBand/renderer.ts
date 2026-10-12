@@ -12,7 +12,7 @@ import { nextValue, parseAmount, UndoStack } from '../../lib/adjust';
 import { getEntityDetail } from '../../lib/entities';
 import { errorMessage } from '../../lib/errorMessage';
 import { explain } from '../../lib/explain';
-import type { Mode } from '../../lib/sheetMode';
+import type { Layout, Mode } from '../../lib/sheetMode';
 import {
   type BandGroup,
   bandOf,
@@ -37,11 +37,15 @@ import type { EntityDetail } from '../../lib/types';
 
 type Vocabulary = Awaited<ReturnType<typeof statVocabulary>>;
 
+export type StatBandVocabulary = Vocabulary;
+
 export type StatBandOptions = {
   // The <StatBand />.
   root: HTMLElement;
   // The page, where the tag chips and the undo bar are.
   page: HTMLElement;
+  // Where the datasheet's stat lines go; the same stats, drawn as cells (RFC 0043).
+  lines: HTMLElement;
   tenantId: string;
   // After a write, with the being as it now is, so the whole page can show it.
   onChanged: (entity: EntityDetail) => void;
@@ -55,7 +59,9 @@ export type RenderedStatBand = {
   /** Loads the library's stat vocabulary; without it (not a member) stats are drawn ungrouped. */
   load(): Promise<void>;
   /** Draws the being as `mode` shows it, for someone who `canEdit` or not; returns the groups drawn. */
-  show(entity: EntityDetail, mode: Mode, canEdit: boolean): BandGroup[];
+  show(entity: EntityDetail, mode: Mode, canEdit: boolean, layout: Layout): BandGroup[];
+  /** The library's stat vocabulary, as loaded. */
+  vocabulary(): Vocabulary;
   /** Takes the last change back, if there is one. */
   undo(): Promise<void>;
 };
@@ -98,7 +104,7 @@ const quoted = (name: string) => CSS.escape(name);
 
 // `options.root` is the <StatBand />.
 export function renderStatBand(options: StatBandOptions): RenderedStatBand {
-  const { root, page, tenantId } = options;
+  const { root, page, lines, tenantId } = options;
   const groups = required<HTMLElement>(root, '[data-groups]');
   const message = required<HTMLElement>(root, '[data-message]');
   const chips = required<HTMLUListElement>(page, '[data-tag-chips]');
@@ -110,6 +116,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   let entity: EntityDetail | null = null;
   let mode: Mode = 'read';
   let canEdit = false;
+  let layout: Layout = 'sheet';
   let busy = false;
   // The name of the tile whose adjuster is open.
   let adjusting: string | null = null;
@@ -209,7 +216,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
       adjusting = null;
       redraw();
-      root.querySelector<HTMLElement>(`[data-stat="${quoted(name)}"] .stat-value-btn`)?.focus();
+      page.querySelector<HTMLElement>(`[data-stat="${quoted(name)}"] .stat-value-btn`)?.focus();
     }
 
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? '');
@@ -314,7 +321,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     close.addEventListener('click', () => {
       adjusting = null;
       redraw();
-      root
+      page
         .querySelector<HTMLElement>(`[data-stat="${quoted(tile.name)}"] .stat-value-btn`)
         ?.focus();
     });
@@ -455,8 +462,10 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
   // ---- tiles and rows ---------------------------------------------------------------------------
 
-  function tileElement(tile: Tile): HTMLElement {
-    const box = el('div', tile.own && !tile.computed ? 'stat-tile' : 'stat-tile is-derived');
+  /** A tile on the sheet, or a cell of a datasheet line: the same stat, drawn denser. */
+  function tileElement(tile: Tile, cell = false): HTMLElement {
+    const base = cell ? 'ds-cell' : 'stat-tile';
+    const box = el('div', tile.own && !tile.computed ? base : `${base} is-derived`);
     const foot = el('div', 'stat-foot');
     let value: HTMLElement;
 
@@ -532,6 +541,21 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     return [term, detail];
   }
 
+  /** A group of the datasheet: one line of labelled cells. */
+  function lineElement(group: BandGroup): HTMLElement {
+    const box = el('div', 'ds-line');
+    const cells = el('div', 'ds-cells');
+
+    if (group.name) box.append(el('h3', '', group.name));
+
+    cells.replaceChildren(
+      ...[...group.tiles, ...group.rows].map((tile) => tileElement(tile, true)),
+    );
+    box.append(cells);
+
+    return box;
+  }
+
   function groupElement(group: BandGroup): HTMLElement {
     const box = el('div', 'stat-group');
 
@@ -546,7 +570,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     if (group.tiles.length > 0) {
       const grid = el('div', 'stat-grid');
 
-      grid.replaceChildren(...group.tiles.map(tileElement));
+      grid.replaceChildren(...group.tiles.map((tile) => tileElement(tile)));
       box.append(grid);
     }
 
@@ -634,7 +658,9 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
 
     if (!shown) return;
 
-    const tile = groups.querySelector<HTMLElement>(`[data-stat="${quoted(shown.name)}"]`);
+    const tile = (layout === 'datasheet' ? lines : groups).querySelector<HTMLElement>(
+      `[data-stat="${quoted(shown.name)}"]`,
+    );
 
     if (!tile) return;
 
@@ -656,7 +682,12 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     const focused = document.activeElement?.closest<HTMLElement>('[data-stat]')?.dataset.stat;
 
     drawn = bandOf(vocabulary, entity, { includeUnset: editing && vocabulary.length > 0 });
-    groups.replaceChildren(...drawn.map(groupElement));
+
+    // Only the layout in view is drawn; the other is drawn when it is asked for.
+    const [into, draw] =
+      layout === 'datasheet' ? ([lines, lineElement] as const) : ([groups, groupElement] as const);
+
+    into.replaceChildren(...drawn.map(draw));
     drawTags(entity);
     applyFlash();
     message.hidden = !(editing && vocabulary.length === 0);
@@ -664,7 +695,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       'Only library members can see the list of stats, so only the ones this being has can change.';
 
     // The adjuster takes the focus when it opens; otherwise the tile keeps it.
-    const amount = groups.querySelector<HTMLInputElement>('#adjust-amount');
+    const amount = into.querySelector<HTMLInputElement>('#adjust-amount');
 
     if (amount) {
       amount.focus({ preventScroll: true });
@@ -672,7 +703,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     } else if (focused) {
       const tile = `[data-stat="${quoted(focused)}"]`;
 
-      groups.querySelector<HTMLElement>(`${tile} button, ${tile} input`)?.focus({
+      into.querySelector<HTMLElement>(`${tile} button, ${tile} input`)?.focus({
         preventScroll: true,
       });
     }
@@ -683,10 +714,12 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
       // Listing definitions needs library membership; without it the stats are drawn ungrouped.
       vocabulary = await statVocabulary(tenantId).catch(() => []);
     },
-    show(next, nextMode, nextCanEdit) {
+    vocabulary: () => vocabulary,
+    show(next, nextMode, nextCanEdit, nextLayout) {
       entity = next;
       mode = nextMode;
       canEdit = nextCanEdit;
+      layout = nextLayout;
       if (mode !== 'play') adjusting = null;
       redraw();
 

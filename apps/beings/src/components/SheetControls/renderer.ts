@@ -2,7 +2,14 @@
 // keeps the name, a few numbers and the mode switch in view once the header has scrolled away, and
 // the one small live region that says what changed. It draws no content itself.
 
-import { effectiveMode, isMode, type Mode, sectionOrder } from '../../lib/sheetMode';
+import {
+  effectiveMode,
+  isLayout,
+  isMode,
+  type Layout,
+  type Mode,
+  sectionOrder,
+} from '../../lib/sheetMode';
 import { requiredIn } from '../../lib/template';
 
 export type SheetControlsOptions = {
@@ -10,6 +17,8 @@ export type SheetControlsOptions = {
   root: HTMLElement;
   // After the drawn mode changed, so the parts that depend on it can redraw.
   onMode: (mode: Mode) => void;
+  // After the layout changed, so the datasheet can be read when it is first wanted.
+  onLayout: (layout: Layout) => void;
 };
 
 export type RenderedSheetControls = {
@@ -17,6 +26,8 @@ export type RenderedSheetControls = {
   allowEdit(allowed: boolean, reason: string): void;
   /** The mode being drawn. */
   mode(): Mode;
+  /** The layout being drawn. */
+  layout(): Layout;
   /** Says something to screen readers, through the one live region. */
   announce(message: string): void;
   /** Shows these as the numbers kept in the sticky bar. */
@@ -35,8 +46,10 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
   const main = required<HTMLElement>(root, '[data-sheet-main]');
   const live = required<HTMLElement>(root, '[data-live]');
   const switches = [...root.querySelectorAll<HTMLElement>('[data-mode-switch]')];
+  const layoutSwitches = [...root.querySelectorAll<HTMLElement>('[data-layout-switch]')];
 
   let wanted: Mode = 'read';
+  let layout: Layout = 'sheet';
   let canEdit = false;
   let editReason = 'You can’t edit this being.';
 
@@ -81,6 +94,23 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
     options.onMode(mode);
   }
 
+  function applyLayout() {
+    root.dataset.layout = layout;
+    root.classList.toggle('is-datasheet', layout === 'datasheet');
+
+    for (const group of layoutSwitches) {
+      for (const radio of group.querySelectorAll<HTMLInputElement>('input')) {
+        radio.checked = radio.value === layout;
+      }
+    }
+
+    for (const part of root.querySelectorAll<HTMLElement>('[data-only-layout]')) {
+      part.hidden = part.dataset.onlyLayout !== layout;
+    }
+
+    options.onLayout(layout);
+  }
+
   for (const group of switches) {
     group.addEventListener('change', (event) => {
       const value = (event.target as HTMLInputElement).value;
@@ -93,6 +123,18 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
     });
   }
 
+  for (const group of layoutSwitches) {
+    group.addEventListener('change', (event) => {
+      const value = (event.target as HTMLInputElement).value;
+
+      if (!isLayout(value)) return;
+
+      layout = value;
+      applyLayout();
+      announce(value === 'datasheet' ? 'Datasheet layout' : 'Sheet layout');
+    });
+  }
+
   // The bar shows while the header is out of view.
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(([entry]) => {
@@ -101,6 +143,7 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
   }
 
   apply();
+  applyLayout();
 
   return {
     allowEdit(allowed, reason) {
@@ -109,6 +152,7 @@ export function renderSheetControls(options: SheetControlsOptions): RenderedShee
       apply();
     },
     mode: shown,
+    layout: () => layout,
     announce,
     setVitals(values) {
       vitals.replaceChildren(

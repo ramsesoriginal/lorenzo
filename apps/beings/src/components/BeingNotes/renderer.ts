@@ -163,6 +163,12 @@ export function renderBeingNotes(
       ]);
     }
 
+    // Who wrote it: shown exactly when the note is (ADR 0277).
+    const author = required<HTMLElement>(item, '[data-author]');
+
+    author.hidden = !info.created_by_name;
+    author.textContent = info.created_by_name ?? '';
+
     const actions = required<HTMLElement>(item, '[data-actions]');
 
     if (!viewer.canWrite) {

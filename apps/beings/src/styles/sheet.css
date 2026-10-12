@@ -1141,3 +1141,8 @@ textarea.text-input {
   border-bottom: 1px solid var(--border-subtle);
   font-size: 22px;
 }
+
+/* The datasheet has its own order and no sections to link to. */
+.is-datasheet .sticky-nav {
+  display: none;
+}

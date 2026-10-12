@@ -1,8 +1,10 @@
 ---
 import BeingNotes from '../BeingNotes/BeingNotes.astro';
+import Datasheet from '../Datasheet/Datasheet.astro';
 import DescriptionEdit from '../DescriptionEdit/DescriptionEdit.astro';
 import HandOver from '../HandOver/HandOver.astro';
 import InventorySummary from '../InventorySummary/InventorySummary.astro';
+import LayoutSwitch from '../LayoutSwitch/LayoutSwitch.astro';
 import ModeSwitch from '../ModeSwitch/ModeSwitch.astro';
 import NameEdit from '../NameEdit/NameEdit.astro';
 import People from '../People/People.astro';
@@ -71,6 +73,7 @@ import TagEditor from '../TagEditor/TagEditor.astro';
 
     <div class="sheet-tools">
       <ModeSwitch name="mode" />
+      <LayoutSwitch />
       <span class="status-text" data-save-status role="status" hidden></span>
     </div>
   </header>
@@ -88,7 +91,9 @@ import TagEditor from '../TagEditor/TagEditor.astro';
     <ModeSwitch name="mode-sticky" />
   </div>
 
-  <div class="sheet-layout">
+  <Datasheet />
+
+  <div class="sheet-layout" data-only-layout="sheet">
     <div class="sheet-main" data-sheet-main>
       <section
         class="sheet-section"
