@@ -10,6 +10,7 @@ import {
   sourceOf,
   statDefinitions,
   statRows,
+  statVocabulary,
 } from '../src/index';
 
 const api = { GET: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() };
@@ -57,6 +58,53 @@ describe('statDefinitions', () => {
 
     expect(found.map((row) => row.definition.name)).toEqual(['reach', 'weight']);
     expect(found[0]?.group).toBe('physical');
+  });
+});
+
+describe('statVocabulary', () => {
+  it('lists every definition, tags too, by group position and then definition position', async () => {
+    const at = (name: string, group: string, position: number, value_type = 'int') =>
+      definition(name, value_type as StatDefinition['value_type'], {
+        stat_group_id: group,
+        position,
+      });
+
+    api.GET.mockImplementation(async (path: string) => ({
+      data: path.endsWith('/stat-groups')
+        ? {
+            items: [
+              { id: 'g1', name: 'vitals', position: 1 },
+              { id: 'g2', name: 'abilities', position: 0 },
+            ],
+            total: 2,
+            page: 1,
+            size: 100,
+            pages: 1,
+          }
+        : {
+            items: [
+              at('speed', 'g1', 1),
+              at('hit_points', 'g1', 0),
+              at('strength', 'g2', 0),
+              at('is_undead', 'g1', 2, 'bool'),
+            ],
+            total: 4,
+            page: 1,
+            size: 100,
+            pages: 1,
+          },
+      response: new Response(),
+    }));
+
+    const found = await statVocabulary(client, 't');
+
+    expect(found.map((row) => row.definition.name)).toEqual([
+      'strength',
+      'hit_points',
+      'speed',
+      'is_undead',
+    ]);
+    expect(found.map((row) => row.group)).toEqual(['abilities', 'vitals', 'vitals', 'vitals']);
   });
 });
 

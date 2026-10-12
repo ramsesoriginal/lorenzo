@@ -49,18 +49,19 @@ test('a GM sets a stat and a tag, and clears the stat again', async ({ world, as
   await page.goto(url(world, goblin.entity_id));
   await enterMode(page, 'Edit');
 
-  const stats = page.locator('[data-stat-editor]');
+  const stats = page.locator('[data-stat-band]');
   await stats.getByLabel('Strength', { exact: true }).fill('14');
-  await stats.getByRole('button', { name: 'Save Strength' }).click();
-  await expect(page.locator('[data-stat-band] .stat-value')).toHaveText('14');
-  await expect(stats).toContainText('Set on this being');
+  await stats.getByLabel('Strength', { exact: true }).press('Enter');
+  await expect(page.locator('[data-save-status]')).toHaveText('Saved.');
+  await expect(stats.getByLabel('Strength', { exact: true })).toHaveValue('14');
+  await expect(stats.getByRole('button', { name: 'Use inherited Strength' })).toBeVisible();
 
   const tags = page.locator('[data-tag-editor]');
   await tags.getByRole('group', { name: 'Undead' }).getByLabel('On').check();
   await expect(page.locator('[data-tag-chips] li')).toHaveText('Undead');
 
   await stats.getByRole('button', { name: 'Use inherited Strength' }).click();
-  await expect(page.locator('[data-stat-band] .stat-value')).toHaveCount(0);
+  await expect(stats.getByLabel('Strength', { exact: true })).toHaveValue('');
 });
 
 test('a GM gives a being a picture, and takes it away', async ({ world, as }) => {

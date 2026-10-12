@@ -26,13 +26,14 @@ test('Read puts the prose first, Play the numbers first, and Edit keeps Read’s
 
   await enterMode(page, 'Play');
   expect(await order(page)).toEqual(['stats', 'inventory', 'notes', 'about']);
-  await expect(page.locator('[data-stat-band]')).toBeVisible();
-  await expect(page.locator('[data-stat-editor]')).toBeHidden();
+  await expect(page.locator('[data-stat-band]').getByRole('textbox')).toHaveCount(0);
 
   await enterMode(page, 'Edit');
   expect(await order(page)).toEqual(['about', 'notes', 'stats', 'inventory']);
-  await expect(page.locator('[data-stat-band]')).toBeHidden();
-  await expect(page.locator('[data-stat-editor]')).toBeVisible();
+  // Every value is a field in Edit.
+  await expect(
+    page.locator('[data-stat-band]').getByLabel('Strength', { exact: true }),
+  ).toHaveValue('17');
   await expect(page.locator('[data-name-edit]')).toBeVisible();
 });
 

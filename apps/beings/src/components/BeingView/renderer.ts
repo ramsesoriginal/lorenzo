@@ -1,11 +1,10 @@
-// What a being's page says about it (ADR 0271): its picture, its description as LorenzoScript and its
-// tags. Read-only; the editors are separate, and the numbers are the stat band's (RFC 0043).
+// What a being's page says about it (ADR 0271): its picture, its description as LorenzoScript. Read-only;
+// the editors are separate, and the numbers and tags are the stat band's (RFC 0043).
 
 import { blobUrl } from '../../lib/api';
 import { descriptionOf, pictureOf } from '../../lib/being';
 import { type Renderer, showDescriptions } from '../../lib/descriptions';
-import { statLabel } from '../../lib/statLabel';
-import { cloneTemplate, requiredIn } from '../../lib/template';
+import { requiredIn } from '../../lib/template';
 import type { EntityDetail } from '../../lib/types';
 
 /** The letters standing in for a being with no picture: the first of its first two words. */
@@ -32,9 +31,7 @@ export function renderBeingView(root: HTMLElement, options: BeingViewOptions): R
   const picture = required<HTMLImageElement>(root, '[data-picture]');
   const portrait = required<HTMLElement>(root, '[data-portrait]');
   const description = required<HTMLElement>(root, '[data-description]');
-  const tags = required<HTMLUListElement>(root, '[data-tag-chips]');
   const nothing = required<HTMLElement>(root, '[data-nothing]');
-  const tagTemplate = required<HTMLTemplateElement>(root, '[data-chip-template]');
 
   // The picture shown, so an unrelated change does not fetch it again.
   let pictureId: string | null = null;
@@ -70,18 +67,6 @@ export function renderBeingView(root: HTMLElement, options: BeingViewOptions): R
       portrait.textContent = initialsOf(entity.name);
 
       void showDescriptions(description, options.renderer, text ? [{ text, home: entity.id }] : []);
-
-      const on = entity.stats.filter((stat) => stat.value === true);
-      tags.hidden = on.length === 0;
-      tags.replaceChildren(
-        ...on.map((tag) => {
-          const chip = cloneTemplate<HTMLLIElement>(tagTemplate, 'li');
-
-          chip.textContent = statLabel(tag.name);
-
-          return chip;
-        }),
-      );
 
       nothing.hidden = Boolean(text) || main !== undefined;
     },

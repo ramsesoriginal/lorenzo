@@ -9,6 +9,7 @@ import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
 import { gmCampaignsIn, isTenantMember, myBeingIds } from '../../lib/me';
 import { valueText, vitalsOf } from '../../lib/statBand';
+import { say } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import type { Character, EntityDetail } from '../../lib/types';
 import { renderBeingNotes } from '../BeingNotes/renderer';
@@ -22,7 +23,6 @@ import { renderPictureEdit } from '../PictureEdit/renderer';
 import { renderSheetControls } from '../SheetControls/renderer';
 import { renderSlugEditor } from '../SlugEditor/renderer';
 import { renderStatBand } from '../StatBand/renderer';
-import { renderStatEditor } from '../StatEditor/renderer';
 import { renderTagEditor } from '../TagEditor/renderer';
 
 export type BeingPageOptions = {
@@ -50,7 +50,15 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const slug = required<HTMLElement>(root, '[data-link-name]');
   const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
   const nameSection = required<HTMLElement>(root, '[data-name-section] > div');
-  const statBand = renderStatBand(required<HTMLElement>(root, '[data-stat-band]'));
+  const saveStatus = required<HTMLElement>(root, '[data-save-status]');
+  const statBand = renderStatBand({
+    root: required<HTMLElement>(root, '[data-stat-band]'),
+    page: root,
+    tenantId,
+    onChanged: (entity) => showEntity(entity),
+    announce: (message) => controls.announce(message),
+    say: (message, failed) => say(saveStatus, message, failed),
+  });
 
   back.href = `/beings/?tenant=${encodeURIComponent(tenantAddress)}`;
 
@@ -101,6 +109,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     onMode: (mode) => {
       // The description's way into its form is for building the being, not for reading it.
       description.allow(canEdit && mode === 'edit');
+      if (shown) redrawStats(shown);
     },
   });
   const nameEdit = renderNameEdit({
@@ -123,12 +132,6 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     onChanged: () => void refresh(),
   });
-  const statEditor = renderStatEditor({
-    root: required<HTMLElement>(root, '[data-stat-editor]'),
-    tenantId,
-    onChanged: () => void refresh(),
-  });
-
   copyLink.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -156,7 +159,12 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     });
     pictureEdit.load(entity.id, pictureOf(entity) !== undefined);
 
-    const drawn = statBand.show(entity);
+    redrawStats(entity);
+  }
+
+  // The numbers and tags as the mode shows them, and the few the sticky bar keeps in view.
+  function redrawStats(entity: EntityDetail) {
+    const drawn = statBand.show(entity, controls.mode(), canEdit);
 
     controls.setVitals(
       vitalsOf(drawn).map((tile) => ({ label: tile.label, value: valueText(tile) })),
@@ -171,7 +179,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
 
       character = await getCharacter(tenantId, entityId).catch(() => null);
       kind.textContent = character ? kindLabel(character) : 'NPC';
-      await statBand.load(tenantId);
+      await statBand.load();
       showEntity(entity);
 
       void people.load(tenantId, character);
@@ -199,12 +207,13 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
         canEdit,
         'Only the people who run this table, or play this being, can edit it.',
       );
+      // Who may write is known now: the numbers and tags can show their controls.
+      redrawStats(current());
 
       if (!canEdit) return;
 
       void slugEditor.load(entityId, entity.name, 'item');
       void tagEditor.load(entityId);
-      void statEditor.load(entityId);
 
       // Renaming and handing over are of a character: a bare being has no such row (ADR 0031).
       if (character) {

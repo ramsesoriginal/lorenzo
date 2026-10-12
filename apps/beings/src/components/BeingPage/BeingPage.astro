@@ -9,7 +9,6 @@ import People from '../People/People.astro';
 import PictureEdit from '../PictureEdit/PictureEdit.astro';
 import SlugEditor from '../SlugEditor/SlugEditor.astro';
 import StatBand from '../StatBand/StatBand.astro';
-import StatEditor from '../StatEditor/StatEditor.astro';
 import TagEditor from '../TagEditor/TagEditor.astro';
 ---
 
@@ -72,6 +71,7 @@ import TagEditor from '../TagEditor/TagEditor.astro';
 
     <div class="sheet-tools">
       <ModeSwitch name="mode" />
+      <span class="status-text" data-save-status role="status" hidden></span>
     </div>
   </header>
 
@@ -134,17 +134,7 @@ import TagEditor from '../TagEditor/TagEditor.astro';
         <header>
           <h2 id="being-stats-heading-view">Stats</h2>
         </header>
-        <div data-only-in="read play" data-stats-view>
-          <StatBand />
-        </div>
-        <div data-only-in="edit" hidden>
-          <div role="region" aria-labelledby="being-stats-heading">
-            <h3 id="being-stats-heading" class="visually-hidden">
-              Edit stats
-            </h3>
-            <StatEditor />
-          </div>
-        </div>
+        <StatBand />
       </section>
 
       <section class="sheet-section" id="inventory" data-section="inventory">
@@ -162,9 +152,11 @@ import TagEditor from '../TagEditor/TagEditor.astro';
     </div>
   </div>
 
-  <template data-chip-template>
-    <li class="tag-toggle" data-state="on"></li>
-  </template>
-
   <div class="visually-hidden" data-live role="status" aria-live="polite"></div>
+  <div class="undo-bar" data-undo-bar hidden>
+    <span data-undo-text></span>
+    <button type="button" class="btn" data-undo>
+      Undo
+    </button>
+  </div>
 </div>
