@@ -26,8 +26,8 @@
   /* ---------- helpers ---------- */
   const esc = (s) =>
     String(s).replace(
-      /[&<>"]/g,
-      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
     );
   const ic = (name) =>
     `<svg class="icon" aria-hidden="true"><use href="#icon-${name}"></use></svg>`;
@@ -832,9 +832,11 @@
     })
     .then((svg) => {
       if (svg === null) return;
+      // Parsed, never assigned to innerHTML: the sprite is data, not markup to trust.
+      const sprite = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
       const d = document.createElement("div");
       d.hidden = true;
-      d.innerHTML = svg;
+      d.append(document.importNode(sprite, true));
       document.body.prepend(d);
     })
     .catch(() => {
