@@ -51,7 +51,10 @@ ${read(here, "sheet.css")}
 </script>
 <div hidden>${brand("icons.svg")}</div>
 ${body
-  .replace(/<script src="[^"]+"><\/script>/g, "")
+  .split("\n")
+  // The page's own script tags are replaced by the inlined files below; no pattern matching on HTML.
+  .filter((line) => !line.trim().startsWith('<script src="'))
+  .join("\n")
   .replace(
     "../../../brand/assets/lorenzo_horizontal_lockup_light_bg.svg",
     dataUri("lorenzo_horizontal_lockup_light_bg.svg"),
