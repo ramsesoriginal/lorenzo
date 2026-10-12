@@ -69,8 +69,8 @@ describe('statRows and sourceOf', () => {
     ],
     {
       stats: [
-        { name: 'weight', value: 3, own: true },
-        { name: 'reach', value: 1.5, own: false },
+        { name: 'weight', value: 3, own: true, computed: false },
+        { name: 'reach', value: 1.5, own: false, computed: false },
       ],
     },
   );
