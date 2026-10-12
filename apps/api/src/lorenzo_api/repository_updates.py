@@ -100,6 +100,8 @@ State = Literal["clean", "conflict", "not_applicable"]
 
 # `kinds` is a set like the others: an entry gaining or losing a kind is shown, and a kind is added
 # or removed element by element (ADR 0217). Before, an entry's kinds were not compared.
+_HINTS = ("max_hint", "min_hint", "resolved_hint")
+_DISPLAY = ("unit", "adjustable_in_play", "pin", "signed")
 _SETS = {"prototypes", "stat_groups", "enum_values", "kinds"}
 _KEYED = {"stats", "formulas"}
 # Shown when they change, never applied: converting every value is a
@@ -369,6 +371,8 @@ def mentioned(change: FieldChange) -> list[tuple[str, str]]:
     if change.field in ("prototypes", "stat_groups"):
         kind = "entity" if change.field == "prototypes" else "stat_group"
         found += [(kind, ref) for value in values for ref in value or []]
+    elif change.field in _HINTS:
+        found += [("stat_definition", value) for value in values if isinstance(value, str)]
     elif change.field == "stat_group":
         found += [("stat_group", value) for value in values if isinstance(value, str)]
     elif change.field.partition(":")[0] in _KEYED:
@@ -950,6 +954,26 @@ class _Applier:
                 update(StatDefinition)
                 .where(StatDefinition.id == d, StatDefinition.tenant_id == t)
                 .values(stat_group_id=group)
+            )
+            return True
+        if change.field in _DISPLAY:
+            await s.execute(
+                update(StatDefinition)
+                .where(StatDefinition.id == d, StatDefinition.tenant_id == t)
+                .values({change.field: change.upstream})
+            )
+            return True
+        if change.field in _HINTS:
+            target = None
+            if change.upstream is not None:
+                target = self.resolve("stat_definition", change.upstream)
+                if target is None:
+                    self.skip(row, change.field, "that stat wasn't copied here")
+                    return False
+            await s.execute(
+                update(StatDefinition)
+                .where(StatDefinition.id == d, StatDefinition.tenant_id == t)
+                .values({f"{change.field}_id": target})
             )
             return True
         # enum_values

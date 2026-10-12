@@ -17,7 +17,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from sqlalchemy import delete, exists, func, insert, or_, select, tuple_
+from sqlalchemy import delete, exists, func, insert, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -450,6 +450,7 @@ class _Planner:
 
         # Stat definitions.
         namer = origin_namer(c)
+        fresh: dict[uuid.UUID, uuid.UUID] = {}
         for d in sorted(
             (d for d in c.definitions if copies("stat_definition", d)),
             key=lambda d: c.definitions[d]["name"],
@@ -497,6 +498,11 @@ class _Planner:
                     "stat_group_id": local_group,
                     "name": name,
                     "value_type": definition["value_type"],
+                    "unit": definition["unit"],
+                    "adjustable_in_play": definition["adjustable_in_play"],
+                    "pin": definition["pin"],
+                    "signed": definition["signed"],
+                    "position": definition["position"],
                 }
             )
             for value, sort_order in c.enum_values.get(d, []):
@@ -512,6 +518,21 @@ class _Planner:
                 self._link(repository_id, d, new, stat_definition_snapshot(c, d, namer), "copied")
             )
             step.stat_definitions += 1
+            fresh[d] = new
+
+        # Hints link definitions to each other, so they go in once all of them have ids: a hint
+        # whose target wasn't copied (skipped, dropped) is left unset (ADR 0280).
+        for d, new in fresh.items():
+            hints = {
+                f"{key}_id": self._local(c, "stat_definition", hinted)
+                for key, hinted in c.definitions[d]["hints"].items()
+                if hinted is not None
+            }
+            hints = {key: target for key, target in hints.items() if target is not None}
+            if hints:
+                self.rows["stat_definition_hint"].append(
+                    {"id": new, "tenant_id": tenant_id} | hints
+                )
 
         # Entities, and everything that belongs to one.
         own = [e for e in c.entities if copies("entity", e)]
@@ -906,6 +927,16 @@ async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]
     for key, model in _TABLES:
         if rows.get(key):
             await session.execute(insert(model), rows[key])
+        if key == "stat_definition":
+            for hint in rows.get("stat_definition_hint", []):
+                await session.execute(
+                    update(StatDefinition)
+                    .where(
+                        StatDefinition.id == hint["id"],
+                        StatDefinition.tenant_id == hint["tenant_id"],
+                    )
+                    .values({k: v for k, v in hint.items() if k.endswith("_hint_id")})
+                )
     for key, model, local in _LINKS:
         if rows.get(key):
             await session.execute(

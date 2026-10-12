@@ -54,6 +54,7 @@ from lorenzo_cli.client.models import (
     SetPrototypesRequest,
     StatDefinitionCreate,
     StatDefinitionOut,
+    StatDefinitionUpdate,
     StatGroupCreate,
     StatGroupOut,
     SubscriberOut,
@@ -107,6 +108,13 @@ CREATE_STAT_GROUP: Op[StatGroupOut] = Op(
     f"{_TENANT}/stat-groups",
     request_type=StatGroupCreate,
     response_type=StatGroupOut,
+)
+PATCH_STAT_DEFINITION: Op[StatDefinitionOut] = Op(
+    "patch_stat_definition",
+    "PATCH",
+    f"{_TENANT}/stat-definitions/{{stat_definition_id}}",
+    request_type=StatDefinitionUpdate,
+    response_type=StatDefinitionOut,
 )
 LIST_STAT_DEFINITIONS: Op[PageStatDefinitionOut] = Op(
     "list_stat_definitions",

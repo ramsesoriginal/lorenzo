@@ -525,3 +525,36 @@ def test_an_attachment_to_something_that_is_not_an_item_is_a_problem() -> None:
     plan = make_plan(SPEC, state, TENANT, ("dnd5e-equipment",))
 
     assert any("'weapon' belongs to something that isn't an item" in p for p in plan.problems)
+
+
+def test_display_fields_and_hints_in_the_spec_are_planned_after_the_definitions() -> None:
+    first, second = SPEC.definitions[0], SPEC.definitions[1]
+    spec = SPEC.model_copy(
+        update={
+            "definitions": [
+                first.model_copy(update={"unit": "ft", "max_hint": second.name}),
+                second.model_copy(update={"pin": True}),
+                *SPEC.definitions[2:],
+            ]
+        }
+    )
+
+    plan = make_plan(spec, TenantState(), TENANT, ALL)
+    kinds = [a.kind for a in plan.actions]
+    displays = [a for a in plan.actions if a.kind == "display"]
+
+    assert [(a.name, a.detail) for a in displays] == [(first.name, "max_hint")]
+    last_definition = max(i for i, k in enumerate(kinds) if k == "definition")
+    assert kinds.index("display") > last_definition
+
+    # A tenant that has them already is left alone, and a differing flag is an update.
+    state = fully_seeded()
+    held = state.definitions[first.name]
+    held.unit = "ft"
+    held.max_hint_id = state.definitions[second.name].id
+    held_second = state.definitions[second.name]
+    held_second.pin = False
+    plan = make_plan(spec, state, TENANT, ALL)
+    assert [(a.name, a.detail) for a in plan.actions if a.kind == "display"] == [
+        (second.name, "pin")
+    ]

@@ -16,6 +16,7 @@ from lorenzo_cli.client.models import (
     ItemCreate,
     SetEntityStatRequest,
     StatDefinitionCreate,
+    StatDefinitionUpdate,
     StatGroupCreate,
     StatValueType,
     SumFormulaBodyInput,
@@ -26,6 +27,7 @@ from lorenzo_cli.client.ops import (
     CREATE_ITEM,
     CREATE_STAT_DEFINITION,
     CREATE_STAT_GROUP,
+    PATCH_STAT_DEFINITION,
     SET_COMPUTED_STAT,
     SET_ENTITY_STAT,
     SET_ENTITY_TAG,
@@ -59,9 +61,28 @@ def apply_plan(client: LorenzoClient, spec: SeedSpec, plan: SeedPlan, state: Ten
                     name=definition.name,
                     stat_group_id=groups[definition.group],
                     value_type=StatValueType(definition.value_type),
+                    unit=definition.unit,
+                    adjustable_in_play=bool(definition.adjustable_in_play),
+                    pin=bool(definition.pin),
+                    signed=bool(definition.signed),
                 ),
             )
             definitions[action.name] = created_def.value.id
+        elif action.kind == "display":
+            # Planned after every definition, so a hint finds its target.
+            definition = next(d for d in spec.definitions if d.name == action.name)
+            changed = [field.strip() for field in action.detail.split(",")]
+            values: dict[str, object] = {}
+            for key in changed:
+                wanted = getattr(definition, key)
+                values[f"{key}_id" if key.endswith("_hint") else key] = (
+                    definitions[wanted] if key.endswith("_hint") else wanted
+                )
+            client.call(
+                PATCH_STAT_DEFINITION,
+                path={**tenant, "stat_definition_id": definitions[action.name]},
+                body=StatDefinitionUpdate(**values),
+            )
         elif action.kind == "node":
             node = spec.node(action.name)
             created_node = client.call(
