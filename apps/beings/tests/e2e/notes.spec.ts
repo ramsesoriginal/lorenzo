@@ -1,5 +1,6 @@
 import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
+import { enterMode } from './support/modes.ts';
 
 const url = (world: { tenantId: string }, id: string) =>
   `/being/?tenant=${world.tenantId}&id=${id}`;
@@ -64,6 +65,7 @@ test('a GM edits a note and changes who can read it, then deletes it', async ({ 
   const page = await as(world.gm);
   page.on('dialog', (dialog) => void dialog.accept());
   await page.goto(url(world, target));
+  await enterMode(page, 'Edit');
 
   const row = page.locator('[data-being-notes] ul > li', { hasText: 'Backstory' });
   await expect(row.locator('[data-audience]')).toHaveText('GM only');
@@ -89,6 +91,7 @@ test('a GM reorders notes', async ({ world, as }) => {
   await world.note(target, 'Third', 'c');
   const page = await as(world.gm);
   await page.goto(url(world, target));
+  await enterMode(page, 'Edit');
 
   const headings = page.locator('[data-being-notes] h3');
   await expect(headings).toHaveText(['First', 'Second', 'Third']);
@@ -99,6 +102,7 @@ test('a GM reorders notes', async ({ world, as }) => {
     .click();
   await expect(headings).toHaveText(['First', 'Third', 'Second']);
   await page.reload();
+  await enterMode(page, 'Edit');
   await expect(headings).toHaveText(['First', 'Third', 'Second']);
   // The first cannot go up, the last cannot go down.
   await expect(page.getByRole('button', { name: 'Move up' }).first()).toBeDisabled();

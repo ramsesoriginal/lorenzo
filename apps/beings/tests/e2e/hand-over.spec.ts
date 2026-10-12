@@ -1,5 +1,6 @@
 import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
+import { enterMode } from './support/modes.ts';
 
 test('a GM creates a being, which starts as an NPC, and hands it over to a player', async ({
   world,
@@ -13,6 +14,7 @@ test('a GM creates a being, which starts as an NPC, and hands it over to a playe
   await expect(page.getByRole('heading', { name: 'Thorn', level: 1 })).toBeVisible();
   await expect(page.locator('[data-kind]')).toHaveText('NPC');
 
+  await enterMode(page, 'Edit');
   const handOver = page.locator('[data-hand-over]');
   await handOver.getByLabel('Campaign').selectOption({ label: 'The Sunken Crown' });
   const pia = handOver.locator('li', { hasText: 'Pia' });

@@ -8,6 +8,7 @@ import { kindLabel } from '../../lib/beingList';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
 import { gmCampaignsIn, isTenantMember, myBeingIds } from '../../lib/me';
+import { valueText, vitalsOf } from '../../lib/statBand';
 import { requiredIn } from '../../lib/template';
 import type { Character, EntityDetail } from '../../lib/types';
 import { renderBeingNotes } from '../BeingNotes/renderer';
@@ -18,7 +19,9 @@ import { renderInventorySummary } from '../InventorySummary/renderer';
 import { renderNameEdit } from '../NameEdit/renderer';
 import { renderPeople } from '../People/renderer';
 import { renderPictureEdit } from '../PictureEdit/renderer';
+import { renderSheetControls } from '../SheetControls/renderer';
 import { renderSlugEditor } from '../SlugEditor/renderer';
+import { renderStatBand } from '../StatBand/renderer';
 import { renderStatEditor } from '../StatEditor/renderer';
 import { renderTagEditor } from '../TagEditor/renderer';
 
@@ -46,8 +49,8 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const kind = required<HTMLElement>(root, '[data-kind]');
   const slug = required<HTMLElement>(root, '[data-link-name]');
   const copyLink = required<HTMLButtonElement>(root, '[data-copy-link]');
-  const editSections = required<HTMLElement>(root, '[data-edit-sections]');
-  const nameSection = required<HTMLElement>(root, '[data-name-section]');
+  const nameSection = required<HTMLElement>(root, '[data-name-section] > div');
+  const statBand = renderStatBand(required<HTMLElement>(root, '[data-stat-band]'));
 
   back.href = `/beings/?tenant=${encodeURIComponent(tenantAddress)}`;
 
@@ -84,7 +87,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     window.history.replaceState(window.history.state, '', url);
   }
 
-  const view = renderBeingView(required<HTMLElement>(root, '[data-being-view]'), { renderer });
+  const view = renderBeingView(root, { renderer });
   const people = renderPeople(required<HTMLElement>(root, '[data-people]'));
   const inventory = renderInventorySummary(required<HTMLElement>(root, '[data-inventory]'));
   const description = renderDescriptionEdit({
@@ -92,6 +95,13 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     tenantId,
     renderer,
     onSaved: () => void refresh(),
+  });
+  const controls = renderSheetControls({
+    root,
+    onMode: (mode) => {
+      // The description's way into its form is for building the being, not for reading it.
+      description.allow(canEdit && mode === 'edit');
+    },
   });
   const nameEdit = renderNameEdit({
     root: required<HTMLFormElement>(root, '[data-name-edit]'),
@@ -136,6 +146,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     shown = entity;
     document.title = `${entity.name} — Lorenzo Beings`;
     title.textContent = entity.name;
+    controls.setName(entity.name);
     showSlug(entity.slug);
     view.show(entity);
     description.show({
@@ -144,6 +155,12 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       hasDescription: descriptionOf(entity) !== '',
     });
     pictureEdit.load(entity.id, pictureOf(entity) !== undefined);
+
+    const drawn = statBand.show(entity);
+
+    controls.setVitals(
+      vitalsOf(drawn).map((tile) => ({ label: tile.label, value: valueText(tile) })),
+    );
   }
 
   return {
@@ -154,6 +171,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
 
       character = await getCharacter(tenantId, entityId).catch(() => null);
       kind.textContent = character ? kindLabel(character) : 'NPC';
+      await statBand.load(tenantId);
       showEntity(entity);
 
       void people.load(tenantId, character);
@@ -177,11 +195,13 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       });
 
       void notes.load({ canWrite: canEdit, runsTheTable });
-      description.allow(canEdit);
+      controls.allowEdit(
+        canEdit,
+        'Only the people who run this table, or play this being, can edit it.',
+      );
 
       if (!canEdit) return;
 
-      editSections.hidden = false;
       void slugEditor.load(entityId, entity.name, 'item');
       void tagEditor.load(entityId);
       void statEditor.load(entityId);

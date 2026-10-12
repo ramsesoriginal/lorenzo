@@ -1,4 +1,5 @@
 import { expect, test } from './support/fixtures.ts';
+import { enterMode } from './support/modes.ts';
 
 const url = (world: { tenantId: string }, id: string) =>
   `/being/?tenant=${world.tenantId}&id=${id}`;
@@ -16,6 +17,7 @@ test('a GM renames a being, writes its description and gives it a link name', as
   const goblin = await world.npc('Goblin Chief');
   const page = await as(world.gm);
   await page.goto(url(world, goblin.entity_id));
+  await enterMode(page, 'Edit');
 
   const name = page.locator('[data-name-edit]');
   await name.getByLabel('Name').fill('Goblin King');
@@ -45,25 +47,27 @@ test('a GM sets a stat and a tag, and clears the stat again', async ({ world, as
   const goblin = await world.npc('Goblin Chief');
   const page = await as(world.gm);
   await page.goto(url(world, goblin.entity_id));
+  await enterMode(page, 'Edit');
 
   const stats = page.locator('[data-stat-editor]');
   await stats.getByLabel('Strength', { exact: true }).fill('14');
   await stats.getByRole('button', { name: 'Save Strength' }).click();
-  await expect(page.locator('[data-being-view] dd')).toHaveText('14');
+  await expect(page.locator('[data-stat-band] .stat-value')).toHaveText('14');
   await expect(stats).toContainText('Set on this being');
 
   const tags = page.locator('[data-tag-editor]');
   await tags.getByRole('group', { name: 'Undead' }).getByLabel('On').check();
-  await expect(page.locator('[data-being-view] .chip')).toHaveText('Undead');
+  await expect(page.locator('[data-tag-chips] li')).toHaveText('Undead');
 
   await stats.getByRole('button', { name: 'Use inherited Strength' }).click();
-  await expect(page.locator('[data-being-view] dd')).toHaveCount(0);
+  await expect(page.locator('[data-stat-band] .stat-value')).toHaveCount(0);
 });
 
 test('a GM gives a being a picture, and takes it away', async ({ world, as }) => {
   const goblin = await world.npc('Goblin Chief');
   const page = await as(world.gm);
   await page.goto(url(world, goblin.entity_id));
+  await enterMode(page, 'Edit');
 
   await expect(page.locator('[data-picture-figure]')).toBeHidden();
   await page.getByLabel('Picture file').setInputFiles({
@@ -82,6 +86,7 @@ test('a picture that is not one is refused before it is sent', async ({ world, a
   const goblin = await world.npc('Goblin Chief');
   const page = await as(world.gm);
   await page.goto(url(world, goblin.entity_id));
+  await enterMode(page, 'Edit');
 
   await page.getByLabel('Picture file').setInputFiles({
     name: 'chief.txt',
@@ -95,6 +100,7 @@ test('a picture that is not one is refused before it is sent', async ({ world, a
 test('a player edits their own being, and is not offered a hand over', async ({ world, as }) => {
   const page = await as(world.pia);
   await page.goto(url(world, world.pia.character.entity_id));
+  await enterMode(page, 'Edit');
 
   await page.getByRole('button', { name: 'Write a description' }).click();
   const form = page.locator('[data-description-edit] form');
