@@ -12,7 +12,7 @@ The only explanation of a computed value is `POST .../computed-stats/{id}/previe
 
 - **The view names every winner.** `v_effective_stat` gains `source_entity_id`, the holder of the winning row, stored or computed, appended as the last column (`CREATE OR REPLACE VIEW`, so no dependent view changes). `computed_entity_id` stays. The rule that picks the winner is not touched.
 - **`EntityStatValueOut` gains** `from_entity` (`EntitySummary`, null when the entity holds the value itself, otherwise the holder of the stored value or of the formula) and `computed` (true when a formula produced the value). `own` is now "the source is this entity". Both fields are additive.
-- **An explanation read any participant may call:** `GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation`, allowed to whoever may read the entity. It returns the stat's value, `computed`, `from_entity`, and, for a computed stat, the winning formula in the shape of `ComputedStatOut.formula` and the inputs it read as `{stat_definition_id, name, value}`. For a contents formula it returns the number of things counted and the total instead of one input per thing. A stat that is not computed returns no formula. It reuses `stat_evaluation`; there are no new tables.
+- **An explanation read any participant may call:** `GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation`, allowed to whoever may read the entity. It returns the stat's value, `computed`, `from_entity`, and, for a computed stat, the winning formula in the shape of `ComputedStatOut.formula` and the inputs it read as `{stat_definition_id, name, value}`. For a contents formula it returns `contents`, the stat it reads and the number of things directly inside, instead of one input per thing; the total is the stat's own `value`. An entity with no value for the stat is a 404. A stat that is not computed returns no formula. It reuses `stat_evaluation`; there are no new tables.
 
 ## Not in scope
 
@@ -21,5 +21,5 @@ An explanation per content item; a history of a value; naming every ancestor tha
 ## Consequences
 
 - A sheet can draw "From Dwarf", "Calculated" and "how was this made up" for a player as well as a GM.
-- One migration, with a downgrade that re-issues the view without the column.
+- One migration. A view cannot lose a column while other views are built on it, so its downgrade leaves the column in place.
 - The OpenAPI change is additive; clients are regenerated.
