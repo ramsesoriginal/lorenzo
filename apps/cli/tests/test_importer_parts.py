@@ -379,6 +379,8 @@ TENANT = TenantOut.model_validate(
         "kind": "repository",
         "published_at": None,
         "npcs_shared_with_gms": True,
+        "weapon_stat_group_id": None,
+        "ability_information_type": None,
         "created_by": None,
         "updated_by": None,
     }
@@ -410,6 +412,7 @@ class FakeTenant:
             "created_at": NOW,
             "updated_at": NOW,
             "stats": [],
+            "kinds": [],
             "stat_groups": [],
             "information": [],
             "prototypes": [{"id": str(self.ids[p]), "name": p} for p in self.parents.get(slug, [])],
@@ -417,6 +420,7 @@ class FakeTenant:
             "parent": None,
             "quantity": None,
             "children": [],
+            "previous": {"had_own_value": False, "value": None},
         }
 
     def slug_of(self, entity_id: str) -> str:
@@ -443,6 +447,14 @@ class FakeTenant:
                     "stat_group_id": group["id"],
                     "value_type": d.value_type,
                     "enum_values": [],
+                    "unit": None,
+                    "adjustable_in_play": False,
+                    "pin": False,
+                    "signed": False,
+                    "position": 0,
+                    "max_hint_id": None,
+                    "min_hint_id": None,
+                    "resolved_hint_id": None,
                     "created_at": NOW,
                     "updated_at": NOW,
                 }

@@ -1,4 +1,4 @@
-"""The inventory file, format v1 (ADR 0191; the spec is docs/guides/inventory-file-format.md).
+"""The LorenzoLedger, format v1 (ADR 0191, 0226; the spec is docs/guides/inventory-file-format.md).
 
 Pure: text or JSON in, an `Inventory` out, and back. Nothing here talks to the API. A problem stops
 the import (a line that cannot be made as written); a warning does not (something was ignored).
@@ -11,8 +11,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-FORMAT = "lorenzo-inventory/1"
+FORMAT = "lorenzo-ledger/1"
+# The name the format had before ADR 0226: still read, and means exactly what it did.
+FORMATS = (FORMAT, "lorenzo-inventory/1")
 MAX_LINES = 1024
+MAX_DESCRIPTION = 20_000
 MAX_DEPTH = 6
 MAX_QUANTITY = 1000
 
@@ -36,6 +39,7 @@ class Line:
     kind: str | None = None
     note: str | None = None
     place: str | None = None
+    description: str | None = None  # LorenzoScript, from the quoted lines under the item (ADR 0226)
     contents: list[Line] = field(default_factory=list)
     number: int = 0  # the line in the file, for what is said about it; 0 when there is none
 
@@ -87,6 +91,7 @@ def parse(text: str) -> Inventory:
     return inventory
 
 
+_QUOTE = re.compile(r"^[ \t]*>[ \t]?(?P<text>.*)$")
 _ITEM = re.compile(r"^(?P<indent>[ \t]*)- (?P<rest>.*\S.*)$")
 _COUNT = re.compile(r"^(?P<quantity>\d+)\s*[x×]\s+(?P<rest>.+)$")
 _LINK = re.compile(r"^\[(?P<label>[^\]\n]+)\]\((?P<ref>[^)\s]+)\)$")
@@ -114,6 +119,8 @@ def parse_markdown(text: str) -> Inventory:
     section: str | None = None  # None before the first section; "ignored" under an unknown one
     stack: list[Line] = []  # the lines being built, one per level
     skip_below: int | None = None  # a line that did not fit: what is indented under it goes too
+    last: Line | None = None  # the item a quoted line would belong to
+    quoted: dict[int, list[str]] = {}  # id(line) -> its description, a row at a time
     items = 0
     seen_format = False
 
@@ -128,7 +135,18 @@ def parse_markdown(text: str) -> Inventory:
                         number, f"the heading “{line[3:].strip()}” is ignored, and what is under it"
                     )
                 )
-            stack, skip_below = [], None
+            stack, skip_below, last = [], None, None
+            continue
+        quote = _QUOTE.match(line)
+        if quote is not None:
+            if section in (None, "ignored"):
+                continue
+            if last is None:
+                inventory.warnings.append(
+                    Remark(number, "a quoted line with no item above it in this section is ignored")
+                )
+                continue
+            quoted.setdefault(id(last), []).append(quote["text"].rstrip())
             continue
         match = _ITEM.match(line)
         if match is None:
@@ -155,28 +173,33 @@ def parse_markdown(text: str) -> Inventory:
                 inventory.problems.append(Remark(number, f"a file holds at most {MAX_LINES} lines"))
             continue
         if skip_below is not None and level > skip_below:
+            last = None
             continue
         skip_below = None
         if level >= MAX_DEPTH:
             inventory.problems.append(
                 Remark(number, f"containers go {MAX_DEPTH} levels deep, no more")
             )
-            skip_below = level - 1
+            skip_below, last = level - 1, None
             continue
         if level > len(stack):
             inventory.problems.append(Remark(number, "indented one level too far"))
-            skip_below = level - 1
+            skip_below, last = level - 1, None
             continue
         parsed = _line(inventory, number, match["rest"])
         if parsed is None:
-            skip_below = level
+            skip_below, last = level, None
             continue
+        last = parsed
         del stack[level:]
         if level == 0:
             getattr(inventory, section).append(parsed)
         else:
             stack[level - 1].contents.append(parsed)
         stack.append(parsed)
+    for item in walk(inventory.equipped) + walk(inventory.not_carried):
+        if (rows := quoted.get(id(item))) is not None:
+            item.description = "\n".join(rows).strip("\n") or None
     if not seen_format:
         inventory.problems.append(Remark(0, f"the file needs a “format: {FORMAT}” line first"))
     return inventory
@@ -184,7 +207,7 @@ def parse_markdown(text: str) -> Inventory:
 
 def _header(inventory: Inventory, number: int, key: str, value: str) -> None:
     if key == "format":
-        if value != FORMAT:
+        if value not in FORMATS:
             inventory.problems.append(Remark(number, f"this is “{value}”, and this reads {FORMAT}"))
     elif key == "owner":
         inventory.owner = value
@@ -242,7 +265,7 @@ def parse_json(text: str) -> Inventory:
     if not isinstance(data, dict):
         inventory.problems.append(Remark(0, "a JSON inventory is an object"))
         return inventory
-    if data.get("format") != FORMAT:
+    if data.get("format") not in FORMATS:
         inventory.problems.append(
             Remark(0, f"this is “{data.get('format')}”, and this reads {FORMAT}")
         )
@@ -280,7 +303,7 @@ def _json_line(inventory: Inventory, entry: Any, where: str, depth: int) -> Line
         inventory.problems.append(Remark(0, f"“{entry['name']}”: quantity is a whole number"))
         quantity = 1
     line = Line(name=entry["name"].strip(), quantity=quantity)
-    for key in ("ref", "item", "value", "kind", "note", "place"):
+    for key in ("ref", "item", "value", "kind", "note", "place", "description"):
         value = entry.get(key)
         if isinstance(value, str) and value.strip():
             setattr(line, key, value.strip())
@@ -299,7 +322,7 @@ def _json_line(inventory: Inventory, entry: Any, where: str, depth: int) -> Line
             if (child := _json_line(inventory, e, line.name, depth + 1)) is not None
         ]
     for key in entry:
-        if key not in (*FIELDS, "name", "quantity", "contents"):
+        if key not in (*FIELDS, "description", "name", "quantity", "contents"):
             inventory.warnings.append(
                 Remark(0, f"“{line.name}”: “{key}” is not known, and is ignored")
             )
@@ -322,6 +345,13 @@ def _check(inventory: Inventory) -> None:
                     )
                 )
     for line in walk(inventory.equipped) + walk(inventory.not_carried):
+        if line.description is not None and len(line.description) > MAX_DESCRIPTION:
+            inventory.problems.append(
+                Remark(
+                    line.number,
+                    f"{line.name}: a description is at most {MAX_DESCRIPTION:,} characters",
+                )
+            )
         if line.quantity < 1 or line.quantity > MAX_QUANTITY:
             inventory.problems.append(
                 Remark(line.number, f"{line.name}: a count is from 1 to {MAX_QUANTITY}")
@@ -354,6 +384,9 @@ def render_line(line: Line, depth: int = 0) -> list[str]:
             continue
         parts.append(f"{key}: {_weight(value) if key == 'weight' else _text(value)}")
     rows = ["  " * depth + "- " + " | ".join(parts)]
+    if line.description is not None:
+        pad = "  " * (depth + 1)
+        rows.extend(f"{pad}> {row}".rstrip() for row in line.description.split("\n"))
     for child in line.contents:
         rows.extend(render_line(child, depth + 1))
     return rows
@@ -383,6 +416,8 @@ def _json_form(line: Line) -> dict[str, Any]:
         value = getattr(line, key)
         if value is not None:
             out[key] = value
+    if line.description is not None:
+        out["description"] = line.description
     if line.contents:
         out["contents"] = [_json_form(child) for child in line.contents]
     return out

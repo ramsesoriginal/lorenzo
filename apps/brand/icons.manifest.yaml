@@ -56,6 +56,224 @@ icon-library-plus: library-plus
 icon-library-minus: library-minus
 icon-library-photo: library-photo
 
+# Kinds: entity (triangle)
+icon-kind-entity: triangle
+icon-kind-entity-add: triangle-plus
+icon-kind-entity-remove: triangle-minus
+icon-kind-entities: triangles
+icon-kind-entity-dashed: triangle-dashed
+icon-kind-entity-inverted: triangle-inverted
+icon-kind-entity-off: triangle-off
+icon-kind-entity-unknown: help-triangle
+icon-kind-entity-info: info-triangle
+icon-warning: alert-triangle
+
+# Kinds: item (square)
+icon-kind-item: square
+icon-kind-item-add: square-plus
+icon-kind-item-remove: square-minus
+icon-kind-item-delete: square-x
+icon-kind-item-off: square-off
+icon-kind-item-toggle: square-toggle
+icon-kind-item-unknown: help-square
+icon-kind-item-info: info-square
+icon-kind-item-locked: lock-square
+icon-kind-item-alert: alert-square
+icon-kind-items: squares
+icon-kind-items-selected: squares-selected
+
+# Kinds: being (user)
+icon-kind-being: user
+icon-kind-being-warning: user-exclamation
+icon-kind-being-cancel: user-cancel
+icon-kind-being-off: user-off
+icon-kind-being-search: user-search
+icon-kind-being-replace: replace-user
+icon-kind-being-edit: user-edit
+icon-kind-being-share: user-share
+icon-kind-being-unknown: user-question
+icon-kind-being-heart: user-heart
+icon-kind-beings: users
+
+# Kinds: group (circle)
+icon-kind-group: circle
+icon-kind-group-heart: circle-heart
+icon-kind-group-dashed: circle-dashed
+icon-kind-group-half: circle-half-2
+icon-kind-group-key: circle-key
+icon-kind-group-remove: circle-minus
+icon-kind-group-add: circle-plus
+icon-kind-group-toggle: circle-plus-minus
+icon-error: alert-circle
+icon-info: info-circle
+icon-help: help-circle
+icon-account: user-circle
+icon-kind-group-items: circle-square
+icon-kind-group-entities: circle-triangle
+icon-kind-group-off: circle-off
+icon-kind-groups: circles
+
+# Kinds menu
+icon-kinds: triangle-square-circle
+
+# Kinds: location (map pin)
+icon-kind-location: map-pin
+icon-kind-location-add: map-pin-plus
+icon-kind-location-remove: map-pin-minus
+icon-kind-location-check: map-pin-check
+icon-kind-location-cancel: map-pin-cancel
+icon-kind-location-bolt: map-pin-bolt
+icon-kind-location-off: map-pin-off
+icon-kind-location-heart: map-pin-heart
+icon-kind-location-warning: map-pin-exclamation
+icon-kind-location-star: map-pin-star
+icon-kind-location-delete: map-pin-x
+icon-kind-locations: map-pins
+icon-kind-location-locked: map-lock
+
+# Kinds: fact (hexagon)
+icon-kind-fact: hexagon
+icon-kind-fact-add: hexagon-plus
+icon-kind-fact-remove: hexagon-minus
+icon-kind-fact-info: info-hexagon
+icon-kind-fact-unknown: help-hexagon
+icon-kind-fact-asterisk: hexagon-asterisk
+icon-kind-fact-off: hexagon-off
+icon-kind-fact-known-by: user-hexagon
+icon-kind-fact-picture: photo-hexagon
+icon-kind-facts: hexagons
+icon-kind-fact-alert: alert-hexagon
+
+# Kinds: clock
+icon-kind-clock: clock
+icon-kind-clock-add: clock-plus
+icon-kind-clock-remove: clock-minus
+icon-kind-clock-unknown: clock-question
+icon-kind-clock-play: clock-play
+icon-kind-clock-pause: clock-pause
+icon-kind-clock-off: clock-off
+icon-kind-clock-warning: clock-exclamation
+icon-kind-clock-delete: clock-x
+icon-kind-clock-bolt: clock-bolt
+icon-kind-clock-cancel: clock-cancel
+icon-kind-clock-settings: clock-cog
+icon-kind-clock-search: clock-search
+icon-kind-clock-pin: clock-pin
+icon-history-toggle: history-toggle
+icon-timezone: timezone
+
+# Kinds: calendar
+icon-kind-calendar: calendar
+icon-kind-calendar-pin: calendar-pin
+icon-kind-calendar-add: calendar-plus
+icon-kind-calendar-remove: calendar-minus
+icon-kind-calendar-unknown: calendar-question
+icon-kind-calendar-user: calendar-user
+icon-kind-calendar-time: calendar-time
+icon-kind-calendar-sad: calendar-sad
+icon-kind-calendar-code: calendar-code
+icon-kind-calendar-cancel: calendar-cancel
+icon-kind-calendar-delete: calendar-x
+icon-kind-calendar-warning: calendar-exclamation
+
+# Kinds: connection (plug)
+icon-kind-connection: plug
+icon-kind-connection-connected: plug-connected
+icon-kind-connection-off: plug-off
+icon-kind-connection-connected-x: plug-connected-x
+icon-kind-connection-x: plug-x
+icon-connection: connection
+icon-social: social
+icon-social-off: social-off
+icon-relations: affiliate
+
+# Kinds: event (timeline event)
+icon-kind-event: timeline-event
+icon-kind-event-add: timeline-event-plus
+icon-kind-event-remove: timeline-event-minus
+icon-kind-event-warning: timeline-event-exclamation
+icon-kind-event-text: timeline-event-text
+icon-kind-event-delete: timeline-event-x
+
+# Kinds: book
+icon-kind-book: book
+icon-kind-book-off: book-off
+icon-kind-book-alt: book-2
+icon-kind-book-download: book-download
+icon-kind-book-upload: book-upload
+icon-kind-books: books
+
+# Kinds: chapter (text file)
+icon-kind-chapter: file-text
+icon-kind-chapter-add: file-plus
+icon-kind-chapter-search: file-search
+icon-kind-chapter-broken: file-broken
+icon-kind-chapter-alert: file-alert
+icon-kind-chapter-locked: file-lock
+icon-kind-chapter-unknown: file-unknown
+icon-kind-chapter-remove: file-minus
+icon-kind-chapter-spark: file-spark
+icon-kind-chapter-download: file-download
+icon-kind-chapter-stack: file-stack
+
+# Honest state
+icon-stale: refresh-alert
+icon-sync-off: refresh-off
+icon-reload: reload
+icon-offline: cloud-x
+icon-pending: hourglass-empty
+icon-waiting: hourglass
+icon-waiting-off: hourglass-off
+
+# Window chrome
+icon-float: app-window
+icon-dock: layout-sidebar
+icon-next: chevron-right
+icon-previous: chevron-left
+icon-up: arrow-up
+icon-down: arrow-down
+icon-drag: grip-vertical
+icon-more: dots
+icon-layout-write: layout-columns
+icon-layout-inspect: layout-rows
+icon-layout-compare: layout-grid
+icon-outdent: indent-decrease
+icon-indent: indent-increase
+icon-decrease: minus
+icon-inherited-from: corner-down-right
+
+# Editing
+icon-redo: arrow-forward-up
+icon-sort: arrows-sort
+icon-filter: filter
+icon-pin: pin
+icon-tag: tag
+icon-stat: adjustments
+icon-formula: math-function
+icon-picture: photo
+icon-picture-main: photo-star
+icon-link: link
+icon-bold: bold
+icon-italic: italic
+icon-list: list
+icon-quote: quote
+icon-code: code
+
+# Views
+icon-table: table
+icon-compare: columns-3
+icon-timeline: timeline
+icon-causality: arrow-merge
+icon-sheet: id
+icon-manuscript: writing
+icon-pack: packages
+
+# Outside Bench
+icon-token: key
+icon-device: device-laptop
+icon-release: tag-starred
+icon-inventory: backpack
+
 # Aliases - reuse an existing symbol id above, not a new one:
 #   icon-remove            -> icon-close   (removing a chip/tag)
 #   icon-clear-selection   -> icon-close   (clearing a bulk-selection toolbar)
@@ -64,3 +282,18 @@ icon-library-photo: library-photo
 #   icon-mark-read          -> icon-select-item (both are a plain confirmation checkmark)
 #   icon-invite             -> icon-reassign (both read as "assign a person," add vs. reassign)
 #   icon-restricted         -> icon-private (identity.md §6.6's --visibility-restricted-* naming)
+#
+# Added with the Bench icons (ADR 0274):
+#   icon-kind-being-add         -> the existing icon-reassign (a person added)
+#   icon-kind-being-remove      -> the existing icon-unassign (a person removed)
+#   icon-kind-entity-alert      -> icon-warning
+#   icon-kind-group-alert       -> icon-error
+#   icon-kind-group-info        -> icon-info
+#   icon-kind-group-unknown     -> icon-help
+#   icon-audience-gm            -> icon-private (a note only the GM reads)
+#   icon-audience-everyone      -> icon-eye (a note everyone reads)
+#   icon-audience-some          -> icon-kind-beings (a note some characters read)
+#   icon-audience-player        -> icon-kind-being (a player's own note)
+#   icon-being                  -> icon-kind-being
+#   icon-increase               -> icon-add (the plus beside a decrease)
+#   icon-synced                 -> icon-select-item (Synced: the plain check)

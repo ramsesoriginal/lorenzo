@@ -1,0 +1,30 @@
+---
+import DeviceConnect from '../components/DeviceConnect/DeviceConnect.astro';
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Connect a device — Lorenzo">
+  <!-- The address carries a one-time code for a few minutes (ADR 0269); never send it on. -->
+  <meta slot="head" name="referrer" content="no-referrer" />
+
+  <h1 class="display">Connect a device</h1>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+
+  <DeviceConnect />
+
+  <p>
+    <a href="/profile/#personal-access-tokens">Your personal access tokens</a>
+  </p>
+
+  <script>
+    import { renderDeviceConnect } from '../components/DeviceConnect/renderer';
+    import { runPage } from '../lib/pageLoad';
+    import { requiredIn } from '../lib/template';
+
+    const connect = requiredIn('Device')<HTMLElement>(document, '[data-device-connect]');
+
+    await runPage(() => renderDeviceConnect(connect, window.location.search));
+  </script>
+</Base>

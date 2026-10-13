@@ -17,7 +17,12 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from lorenzo_api.db import engine
-from lorenzo_api.models import RepositorySubscription, Tenant, TenantKind
+from lorenzo_api.models import (
+    RepositoryProfile,
+    RepositorySubscription,
+    Tenant,
+    TenantKind,
+)
 from lorenzo_api.repository_access import REPOSITORY_CONTENT_TABLES, REPOSITORY_EXCLUDED_TABLES
 
 
@@ -37,6 +42,9 @@ async def world() -> AsyncIterator[_World]:
         session.add_all([repository, subscriber, stranger])
         await session.flush()
         await seed_every_content_table(session, repository.id, with_copy_records=True)
+        # The profile is a repository's alone (ADR 0213), so the seed, which plays tenants use too,
+        # does not carry it.
+        session.add(RepositoryProfile(tenant_id=repository.id))
         await session.commit()
         ids = _World(repository.id, subscriber.id, stranger.id)
     yield ids

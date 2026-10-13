@@ -8,12 +8,13 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import CTE, delete, func, select
+from sqlalchemy import CTE, func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import InstrumentedAttribute, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.client_ids import existing_in_tenant, insert_with_client_id
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -24,8 +25,11 @@ from lorenzo_api.dependencies import (
     require_tenant_participant,
     set_tenant_rls_context,
 )
+from lorenzo_api.entity_access import prototype_descendants_cte
+from lorenzo_api.entity_parents import replace_parents
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    ClientIdUnavailableError,
     EntityPrototypeCycleError,
     EntitySlugConflictError,
     InvalidPrototypeError,
@@ -141,35 +145,9 @@ _ITEM_OPTIONS = (
 )
 
 
-def _prototype_descendants_cte(prototype_id: uuid.UUID, tenant_id: uuid.UUID) -> CTE:
-    """Every entity that transitively depends on prototype_id (has it as a
-    direct or indirect prototype) - see ADR 0073. Plain UNION, not UNION
-    ALL: entity_prototype allows multiple inheritance, so the same
-    descendant can be reached via more than one path, and UNION's own
-    de-duplication is what makes "keep walking until nothing new appears"
-    correct here - the exact technique entity_prototype's own BEFORE INSERT
-    cycle-check trigger (ADR 0015, migration 8fd1b287598a) already uses for
-    its ancestor walk, mirrored in the opposite direction. No path-array
-    cycle guard the way entity_access.py's containment walk needs one -
-    that graph can legitimately cycle (ADR 0016), this one cannot (the
-    trigger already guarantees it), so plain UNION alone is sufficient and
-    always terminates.
-    """
-    base = select(EntityPrototype.entity_id.label("descendant_id")).where(
-        EntityPrototype.prototype_id == prototype_id, EntityPrototype.tenant_id == tenant_id
-    )
-    cte = base.cte("item_prototype_descendants", recursive=True)
-    recursive_term = (
-        select(EntityPrototype.entity_id.label("descendant_id"))
-        .select_from(cte.join(EntityPrototype, EntityPrototype.prototype_id == cte.c.descendant_id))
-        .where(EntityPrototype.tenant_id == tenant_id)
-    )
-    return cte.union(recursive_term)
-
-
 def _prototype_ancestors_cte(entity_id: uuid.UUID, tenant_id: uuid.UUID) -> CTE:
     """Every one of entity_id's own transitive ancestors (direct and
-    indirect prototypes) - the exact mirror of _prototype_descendants_cte's
+    indirect prototypes) - the exact mirror of entity_access.prototype_descendants_cte's
     downward walk. See that function's own docstring for why plain UNION
     (no path-array guard) is correct here.
     """
@@ -234,7 +212,7 @@ async def list_items(
         .join(Entity, Entity.id == VItem.entity_id)
         .where(VItem.tenant_id == tenant_id)
         .options(*_ITEM_OPTIONS)
-        .order_by(VItem.entity_id)
+        .order_by(Entity.name, VItem.entity_id)
     )
     if not await _is_member(session, tenant_id=tenant_id, user=user):
         stmt = stmt.join(Item, Item.entity_id == VItem.entity_id).where(
@@ -248,7 +226,7 @@ async def list_items(
         # container_id already gets on the item-instances list route.
         await get_entity_or_404(session, prototype_id, tenant_id)
         if recursive:
-            descendants_cte = _prototype_descendants_cte(prototype_id, tenant_id)
+            descendants_cte = prototype_descendants_cte(prototype_id, tenant_id)
             stmt = stmt.where(VItem.entity_id.in_(select(descendants_cte.c.descendant_id)))
         else:
             stmt = stmt.join(EntityPrototype, EntityPrototype.entity_id == VItem.entity_id).where(
@@ -373,7 +351,22 @@ async def create_item(
     """Authoring the shared catalog vocabulary is a tenant-admin concern
     (get_tenant_context, unchanged, per ADR 0032/RFC 0005) - not
     self-or-managed, unlike item-instances below.
+
+    A body with an `id` makes the item under that id (ADR 0222): an item the library already has
+    under it means the create was done, and it is returned with `200`, writing nothing; an id that
+    belongs to something else, or to something the caller cannot see, is a generic `409`.
     """
+    if (
+        body.id is not None
+        and (await existing_in_tenant(session, Entity, body.id, tenant_id)) is not None
+    ):
+        if await session.get(Item, body.id) is None:
+            raise ClientIdUnavailableError(detail="That id is not available.")
+        response.status_code = 200
+        response.headers["Location"] = str(
+            request.url_for("get_item", tenant_id=tenant_id, entity_id=body.id)
+        )
+        return await _item_out(tenant_id, body.id, request, response, session, user)
     if body.slug is not None:
         # Every entity's slug lives in entity_slug (ADR 0107), so this is unique across the
         # tenant, not only among items. Checked first, as PUT .../slug does, so a taken slug is
@@ -386,16 +379,25 @@ async def create_item(
                 detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
             )
     entity = Entity(tenant_id=tenant_id, name=body.name, created_by=user.id, updated_by=user.id)
-    session.add(entity)
-    await session.flush()
+    if body.id is None:
+        session.add(entity)
+        await session.flush()
+    else:
+        entity.id = body.id
+        await insert_with_client_id(session, entity)
     if body.slug is not None:
         session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
         Item(entity_id=entity.id, tenant_id=tenant_id, in_public_catalog=body.in_public_catalog)
     )
-    for prototype_id in body.prototype_ids:
+    for position, prototype_id in enumerate(dict.fromkeys(body.prototype_ids)):
         session.add(
-            EntityPrototype(entity_id=entity.id, prototype_id=prototype_id, tenant_id=tenant_id)
+            EntityPrototype(
+                entity_id=entity.id,
+                prototype_id=prototype_id,
+                tenant_id=tenant_id,
+                position=position,
+            )
         )
     await record_activity(
         session,
@@ -488,56 +490,25 @@ async def replace_item_prototypes(
     entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
     check_if_match(if_match, updated_at=entity.updated_at)
 
-    prototype_ids = set(body.prototype_ids)
-    if entity_id in prototype_ids:
-        raise EntityPrototypeCycleError(detail=f"Item {entity_id} cannot be its own prototype")
-
-    if prototype_ids:
-        found_stmt = select(Entity.id).where(
-            Entity.id.in_(prototype_ids), Entity.tenant_id == tenant_id
-        )
-        found_ids = set((await session.execute(found_stmt)).scalars().all())
-        missing_ids = prototype_ids - found_ids
-        if missing_ids:
-            raise InvalidPrototypeError(
-                detail=(
-                    f"Prototype id(s) {sorted(str(i) for i in missing_ids)} do not exist "
-                    f"in tenant {tenant_id}"
-                )
-            )
-
-    await session.execute(
-        delete(EntityPrototype).where(
-            EntityPrototype.entity_id == entity_id, EntityPrototype.tenant_id == tenant_id
-        )
-    )
-    for prototype_id in prototype_ids:
-        session.add(
-            EntityPrototype(entity_id=entity_id, prototype_id=prototype_id, tenant_id=tenant_id)
-        )
-    entity.updated_by = user.id
-
-    try:
-        await session.flush()
-    except DBAPIError as exc:
-        # entity_prototype's own BEFORE INSERT trigger (ADR 0015) - the
-        # first write path able to actually reach it through client input,
-        # since every prototype id up to now only ever appeared on a
-        # brand-new entity (POST /items/POST /item-instances), which can't
-        # yet be anyone's ancestor. Translated rather than left as a 500.
-        raise EntityPrototypeCycleError(
-            detail=f"Replacing item {entity_id}'s prototypes would create an inheritance cycle"
-        ) from exc
-
-    await record_activity(
+    # The one write path every kind of entry shares (ADR 0216), so a rule is made once.
+    changed = await replace_parents(
         session,
         tenant_id=tenant_id,
-        actor_id=user.id,
-        action="item.prototypes_replaced",
-        target_type="item",
-        target_id=entity_id,
-        detail=f"prototypes={len(prototype_ids)}",
+        entity=entity,
+        parent_ids=body.prototype_ids,
+        user_id=user.id,
     )
+
+    if changed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item.prototypes_replaced",
+            target_type="item",
+            target_id=entity_id,
+            detail=f"prototypes={len(set(body.prototype_ids))}",
+        )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _item_out(tenant_id, entity_id, request, response, session, user)

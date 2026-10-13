@@ -133,6 +133,8 @@ def answering(seen: list[httpx.Request]) -> httpx.MockTransport:
                     "kind": "repository",
                     "published_at": None,
                     "npcs_shared_with_gms": True,
+                    "weapon_stat_group_id": None,
+                    "ability_information_type": None,
                     "created_by": None,
                     "updated_by": None,
                 },

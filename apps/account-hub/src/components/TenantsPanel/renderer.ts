@@ -5,7 +5,7 @@
 
 import { onCacheRefreshed } from '../../lib/cache';
 import { isEditingIn } from '../../lib/editing';
-import { sayError } from '../../lib/statusLine';
+import { say, sayError } from '../../lib/statusLine';
 import { STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
 import { cloneRoot, fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import { canCreateTenants, isRepository, type TenantKind } from '../../lib/tenantKind';
@@ -39,6 +39,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   const librariesDetails = required<HTMLDetailsElement>(root, '[data-libraries-details]');
   const createUnavailable = required<HTMLElement>(root, '[data-create-unavailable]');
   const error = required<HTMLElement>(root, '[data-error]');
+  const notice = required<HTMLElement>(root, '[data-notice]');
   const createView = required<HTMLElement>(root, '[data-create]');
   const emptyView = required<HTMLElement>(root, '[data-empty]');
   const setup = required<HTMLElement>(root, '[data-setup]');
@@ -55,6 +56,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   const tenantView = renderTenant(tenantRoot, me, {
     onChanged: () => void reload(),
     onRenamed,
+    onDeleted: (message) => void left(message),
   });
 
   function urlFor(view: View): string {
@@ -187,6 +189,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   }
 
   function navigate(view: View) {
+    say(notice, '');
     window.history.pushState(null, '', urlFor(view));
     void show(view);
   }
@@ -210,6 +213,13 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     } catch (cause) {
       sayError(error, cause);
     }
+  }
+
+  // A library was deleted (ADR 0267): the list again without it, and the message where the person
+  // lands. The cache was emptied by the delete, so the list is read afresh.
+  async function left(message: string) {
+    await reload();
+    say(notice, message);
   }
 
   // What was just made, open.

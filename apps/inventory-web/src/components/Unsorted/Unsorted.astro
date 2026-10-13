@@ -1,0 +1,82 @@
+---
+import Combobox from '../Combobox/Combobox.astro';
+---
+
+<section id="unsorted" class="section-lg" aria-labelledby="unsorted-heading" data-unsorted-view>
+  <h2 id="unsorted-heading">Unsorted items</h2>
+  <p class="field-note" data-intro>
+    What players wrote down that the catalog did not know, grouped by name. Give a group to a
+    catalog item and every item keeps the player's own name and notes; its holders are told.
+  </p>
+  <p data-empty hidden></p>
+  <p role="status" data-result hidden></p>
+  <ul class="list" data-groups></ul>
+
+  <template data-group-template>
+    <li class="section">
+      <div class="row grow">
+        <strong data-name></strong>
+        <span class="field-note" data-count></span>
+        <button type="button" class="btn-secondary" data-toggle aria-expanded="false">
+          Sort
+        </button>
+      </div>
+      <div class="stack" data-body hidden>
+        <ul class="list" data-instances></ul>
+
+        <div class="field">
+          <span class="field-label">Looks like</span>
+          <div class="row" data-suggestions></div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Search the catalog</span>
+          <Combobox placeholder="Search items…" label="Search the catalog" />
+        </div>
+
+        <div class="row" data-chosen hidden>
+          <span data-chosen-text></span>
+          <button type="button" class="btn-primary" data-assign>
+            Assign
+          </button>
+        </div>
+
+        <form class="field" data-create>
+          <span class="field-label">Or make it a new catalog item</span>
+          <div class="row">
+            <input
+              type="text"
+              class="text-input grow"
+              aria-label="Name of the new item"
+              data-create-name
+            />
+            <label class="row-tight">
+              <input type="checkbox" data-create-public />
+              In the public catalog
+            </label>
+            <button type="submit" class="btn-secondary">
+              Create and assign
+            </button>
+          </div>
+        </form>
+
+        <div class="row">
+          <button type="button" class="btn-secondary" data-keep>
+            Keep as it is
+          </button>
+        </div>
+        <p role="status" data-progress hidden></p>
+      </div>
+    </li>
+  </template>
+
+  <template data-instance-template>
+    <li>
+      <label class="row-tight">
+        <input type="checkbox" checked data-pick />
+        <span data-holder></span>
+      </label>
+      <ul class="list" data-notes></ul>
+    </li>
+  </template>
+</section>

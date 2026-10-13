@@ -10,13 +10,21 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from lorenzo_cli.client.errors import LorenzoApiError
 from lorenzo_cli.client.models import (
+    BeingSummaryOut,
     CharacterSummaryOut,
     ItemInstanceCreate,
     ItemInstanceOut,
     ItemOut,
 )
-from lorenzo_cli.client.ops import CREATE_ITEM_INSTANCE, GET_ITEM, LIST_CHARACTERS, LIST_ITEMS
+from lorenzo_cli.client.ops import (
+    CREATE_ITEM_INSTANCE,
+    GET_ITEM,
+    LIST_BEINGS,
+    LIST_CHARACTERS,
+    LIST_ITEMS,
+)
 from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.importer import tenant_view
@@ -92,11 +100,33 @@ def resolve_item(client: LorenzoClient, tenant_id: UUID, reference: str) -> Item
     )
 
 
+def beings_named(client: LorenzoClient, tenant_id: UUID, name: str) -> list[BeingSummaryOut]:
+    """The beings called exactly `name` (any case) that the caller may list: every being for a
+    library's administrators, those in their reach for a GM (ADR 0173). Anyone else is answered
+    `404`, and for them there are none (ADR 0232)."""
+    try:
+        found = list(
+            all_items(
+                client,
+                LIST_BEINGS,
+                path={"tenant_id": tenant_id},
+                query={"q": name},
+                of=BeingSummaryOut,
+            )
+        )
+    except LorenzoApiError as error:
+        if error.status in (403, 404):
+            return []
+        raise
+    return [being for being in found if being.name.lower() == name.lower()]
+
+
 def resolve_owner(
     client: LorenzoClient, tenant_id: UUID, reference: str | None
 ) -> tuple[UUID, str]:
-    """The character to add to, and what to call it: one of your own by id or name, or your only
-    one when none is named. Another being's id is passed on, for the API to judge."""
+    """The being to add to, and what to call it: one of your own characters by id or name, or
+    your only one when none is named; a GM's or an administrator's, any being they may list by
+    its exact name (ADR 0232). Another being's id is passed on, for the API to judge."""
     mine = characters(client, tenant_id)
     if reference is None:
         if len(mine) == 1:
@@ -115,6 +145,14 @@ def resolve_owner(
             return character.entity_id, character.name
     if owner_id is not None:
         return owner_id, reference
+    named = beings_named(client, tenant_id, reference)
+    if len(named) == 1:
+        return named[0].entity_id, named[0].name
+    if named:
+        names = "".join(f"\n  - {b.name}  {b.entity_id}" for b in named)
+        raise SelfServiceError(
+            f"More than one being is called “{reference}”: name it by id.{names}"
+        )
     raise SelfServiceError(
         f"None of your characters here is called “{reference}”. "
         "`lorenzo character list` shows them."

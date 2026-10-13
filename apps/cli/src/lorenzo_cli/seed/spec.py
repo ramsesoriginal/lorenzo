@@ -51,6 +51,15 @@ class DefinitionSpec(_Strict):
     group: str
     value_type: ValueType
     layer: Layer
+    # How the stat is shown (ADR 0278); left out means "leave it as the tenant has it". The hints
+    # name other definitions of the seed (ADR 0279).
+    unit: str | None = None
+    adjustable_in_play: bool | None = None
+    pin: bool | None = None
+    signed: bool | None = None
+    max_hint: str | None = None
+    min_hint: str | None = None
+    resolved_hint: str | None = None
 
 
 class NodeSpec(_Strict):
@@ -108,6 +117,9 @@ class SeedSpec(_Strict):
         defs = {d.name: d for d in self.definitions}
         _unique([d.name for d in self.definitions], "definition")
         for definition in self.definitions:
+            for hint in (definition.max_hint, definition.min_hint, definition.resolved_hint):
+                if hint is not None and hint not in defs:
+                    raise ValueError(f"definition {definition.name!r}: no hinted stat {hint!r}")
             if definition.group not in groups:
                 raise ValueError(f"definition {definition.name!r}: no group {definition.group!r}")
             _may_name(

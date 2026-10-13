@@ -113,7 +113,14 @@ export async function buildWorld() {
           const definition = await ok(
             api.POST('/tenants/{tenant_id}/stat-definitions', {
               ...t,
-              body: { name, stat_group_id: created.id, value_type },
+              body: {
+                name,
+                stat_group_id: created.id,
+                value_type,
+                adjustable_in_play: false,
+                pin: false,
+                signed: false,
+              },
             }),
           );
           stats[name] = definition.id;
@@ -135,6 +142,9 @@ export async function buildWorld() {
             stat_group_id: created.id,
             value_type: 'enum',
             enum_values: ['on_own', 'on_pickup', 'on_equip', 'none'],
+            adjustable_in_play: false,
+            pin: false,
+            signed: false,
           },
         }),
       );

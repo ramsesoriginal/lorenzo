@@ -1,0 +1,114 @@
+[
+  {
+    "name": "Seil",
+    "alternatives": ["rope, hempen (50 feet)", "rope"]
+  },
+  {
+    "name": "Seile",
+    "alternatives": []
+  },
+  {
+    "name": "Ropes (old)",
+    "alternatives": ["ropes", "rope"]
+  },
+  {
+    "name": "Rope (50 ft)",
+    "alternatives": ["rope"]
+  },
+  {
+    "name": "Rope 50 feet",
+    "alternatives": ["rope"]
+  },
+  {
+    "name": "Bag of Holding ($125m^3$)",
+    "alternatives": ["bag of holding"]
+  },
+  {
+    "name": "Crossbow Bolts",
+    "alternatives": ["crossbow bolt", "crossbow bolts (20)", "bolts (20)", "bolt"]
+  },
+  {
+    "name": "crossbow bolts",
+    "alternatives": ["crossbow bolt", "crossbow bolts (20)", "bolts (20)", "bolt"]
+  },
+  {
+    "name": "Torches",
+    "alternatives": ["torch"]
+  },
+  {
+    "name": "Kiste",
+    "alternatives": ["chest"]
+  },
+  {
+    "name": "Schild",
+    "alternatives": ["shield"]
+  },
+  {
+    "name": "Armbrustbolzen",
+    "alternatives": ["crossbow bolts (20)", "bolts (20)"]
+  },
+  {
+    "name": "Goldbarren",
+    "alternatives": ["gold bar", "ingot, gold"]
+  },
+  {
+    "name": "Diamanten",
+    "alternatives": ["diamonds", "diamond"]
+  },
+  {
+    "name": "Batteries",
+    "alternatives": ["battery"]
+  },
+  {
+    "name": "Boxes",
+    "alternatives": ["box"]
+  },
+  {
+    "name": "Dishes",
+    "alternatives": ["dish"]
+  },
+  {
+    "name": "Glasses",
+    "alternatives": ["glass"]
+  },
+  {
+    "name": "Seil, 15 m",
+    "alternatives": ["seil", "rope, hempen (50 feet)", "rope"]
+  },
+  {
+    "name": "Heiltrank",
+    "alternatives": ["potion of healing"]
+  },
+  {
+    "name": "Zzz Unknown",
+    "alternatives": []
+  },
+  {
+    "name": "  Spaced   Out  ",
+    "alternatives": []
+  },
+  {
+    "name": "Pickaxe",
+    "alternatives": ["pick, miner's", "pick, miner'", "miner's pick"]
+  },
+  {
+    "name": "Seil (Hanf) 50 ft, alt",
+    "alternatives": ["seil, alt"]
+  },
+  {
+    "name": "Fackeln",
+    "alternatives": ["torch", "torches"]
+  },
+  {
+    "name": "Fackel",
+    "alternatives": ["torch"]
+  },
+  {
+    "name": "",
+    "alternatives": []
+  },
+  {
+    "name": "Bolts (20)",
+    "alternatives": ["bolts", "bolt"]
+  }
+]

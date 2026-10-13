@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { type apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
-import { libraryCard, newCampaign, newLibrary, newUser, signedInPage } from './support';
+import {
+  campaignCard,
+  newCampaign,
+  newLibrary,
+  newUser,
+  openLibrary,
+  seatFor,
+  signedInPage,
+} from './support';
 
 async function addPlayer(
   owner: Awaited<ReturnType<typeof apiAs>>,
@@ -32,12 +40,11 @@ test('a library admin removes a player, named on the roster, from a campaign', a
   await addPlayer(owner.api, library.id, campaign.id, player.me.id);
 
   const session = await signedInPage(browser, owner.subject);
-  await session.page.goto('/tenants');
-  const row = libraryCard(session.page, library.name)
-    .locator('li')
-    .filter({ hasText: 'Pia Player' });
+  const open = await openLibrary(session.page, library);
+  const zorro = campaignCard(open, 'Zorro');
+  const row = zorro.locator('[data-list] > li').filter({ hasText: 'Pia Player' });
   await row.getByRole('button', { name: 'Remove', exact: true }).click();
-  await expect(libraryCard(session.page, library.name)).not.toContainText('Pia Player');
+  await expect(zorro).not.toContainText('Pia Player');
   expect(session.confirmations[0]).toContain('Remove Pia Player from "Zorro"?');
   const players = await ok(
     owner.api.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
@@ -62,13 +69,12 @@ test('a campaign GM with no library membership sees the players, and removes one
   await addPlayer(owner.api, library.id, campaign.id, player.me.id);
 
   const session = await signedInPage(browser, gm.subject);
-  await session.page.goto('/tenants');
+  const open = await openLibrary(session.page, library);
+  const zorro = campaignCard(open, 'Zorro');
   // No roster read without a Membership, so the player is shown by user id.
-  const row = libraryCard(session.page, library.name)
-    .locator('li')
-    .filter({ hasText: player.me.id });
+  const row = zorro.locator('[data-list] > li').filter({ hasText: player.me.id });
   await row.getByRole('button', { name: 'Remove', exact: true }).click();
-  await expect(libraryCard(session.page, library.name)).not.toContainText(player.me.id);
+  await expect(zorro).not.toContainText(player.me.id);
   const players = await ok(
     owner.api.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
       params: { path: { tenant_id: library.id, campaign_id: campaign.id } },
@@ -100,20 +106,25 @@ test('a player undoes a reused character; an owner link is never offered', async
 
   const session = await signedInPage(browser, player.subject);
   await session.page.goto('/campaigns');
-  const zorro = session.page.locator('section.campaign-subsection').filter({ hasText: 'Zorro' });
-  const hood = session.page.locator('section.campaign-subsection').filter({ hasText: 'Hood' });
+  const zorro = seatFor(session.page, 'Zorro');
+  const hood = seatFor(session.page, 'Hood');
   await expect(zorro).toContainText('Cael');
   await expect(hood).toContainText('Cael');
   await expect(zorro.getByRole('button', { name: 'Stop using in this campaign' })).toHaveCount(0);
   await hood.getByRole('button', { name: 'Stop using in this campaign' }).click();
   await expect(hood).toContainText("You don't have a character here yet.");
   expect(session.confirmations[0]).toContain('Stop using "Cael" in "Hood"?');
-  const after = await ok(
-    player.api.GET('/tenants/{tenant_id}/characters/{character_id}', {
-      params: { path: { tenant_id: library.id, character_id: character.entity_id } },
-    }),
-  );
-  expect(after.players.map((p) => p.id)).toEqual([seat1.id]);
+  // The page says so as soon as it has asked; the API may take a moment longer to have done it.
+  await expect
+    .poll(async () => {
+      const after = await ok(
+        player.api.GET('/tenants/{tenant_id}/characters/{character_id}', {
+          params: { path: { tenant_id: library.id, character_id: character.entity_id } },
+        }),
+      );
+      return after.players.map((p) => p.id);
+    })
+    .toEqual([seat1.id]);
   await session.context.close();
 });
 
@@ -145,26 +156,21 @@ test('a campaign manager unlinks a character, but never its owner', async ({ bro
     ).then((c) => c.players.map((p) => p.id).sort());
 
   const session = await signedInPage(browser, owner.subject);
-  await session.page.goto('/tenants');
-  const card = libraryCard(session.page, library.name);
-  const zorroRow = card
-    .locator('li')
-    .filter({ hasText: 'Zorro' })
-    .locator('li')
+  const open = await openLibrary(session.page, library);
+  const zorroRow = campaignCard(open, 'Zorro')
+    .locator('[data-list] > li')
     .filter({ hasText: 'Pia Player' });
-  const hoodRow = card
-    .locator('li')
-    .filter({ hasText: 'Hood' })
-    .locator('li')
+  const hoodRow = campaignCard(open, 'Hood')
+    .locator('[data-list] > li')
     .filter({ hasText: 'Pia Player' });
 
   // The owner's own link: refused in words, nothing changes.
-  await zorroRow.getByRole('button', { name: 'Unlink' }).click();
+  await zorroRow.getByRole('button', { name: 'Unlink Cael' }).click();
   await expect(zorroRow).toContainText('is owned by Pia Player here, so the link stays');
   expect(await links()).toEqual([seat1.id, seat2.id].sort());
 
   // The reused link goes.
-  await hoodRow.getByRole('button', { name: 'Unlink' }).click();
+  await hoodRow.getByRole('button', { name: 'Unlink Cael' }).click();
   await expect(hoodRow).not.toContainText('Cael');
   expect(await links()).toEqual([seat1.id]);
   await session.context.close();
@@ -183,15 +189,14 @@ test('an organizer edits a library name and description, and sees the new name a
   );
 
   const session = await signedInPage(browser, owner.subject);
-  await session.page.goto('/tenants');
-  const card = libraryCard(session.page, library.name);
+  const card = await openLibrary(session.page, library);
   await card.getByRole('button', { name: 'Edit library' }).click();
   await expect(card.getByLabel('Description')).toHaveValue('The first draft.');
   const name = `Renamed ${crypto.randomUUID()}`;
   await card.getByLabel('Library name').fill(name);
   await card.getByLabel('Description').fill('A better one.');
   await card.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(session.page.getByRole('heading', { name: new RegExp(`^${name}`) })).toBeVisible();
+  await expect(card.locator('h2[data-name]')).toHaveText(name);
   const saved = await ok(
     owner.api.GET('/tenants/{tenant_id}', { params: { path: { tenant_id: library.id } } }),
   );
@@ -201,11 +206,11 @@ test('an organizer edits a library name and description, and sees the new name a
 
   // A taken slug is the API's own sentence, not a body.
   const other = await newLibrary(owner.api);
-  const renamedCard = libraryCard(session.page, name);
-  await renamedCard.getByRole('button', { name: 'Edit library' }).click();
-  await renamedCard.getByLabel('Library slug').fill(other.slug);
-  await renamedCard.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(renamedCard.locator('.tenant-details')).not.toContainText('{');
-  await expect(renamedCard.locator('.tenant-details')).toContainText(/already in use|taken/i);
+  await card.getByRole('button', { name: 'Edit library' }).click();
+  await card.getByLabel('Library slug').fill(other.slug);
+  await card.getByRole('button', { name: 'Save', exact: true }).click();
+  const formStatus = card.locator('[data-form-status]');
+  await expect(formStatus).not.toContainText('{');
+  await expect(formStatus).toContainText(/already in use|taken/i);
   await session.context.close();
 });

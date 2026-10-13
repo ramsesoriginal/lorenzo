@@ -241,13 +241,20 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         EntitySlug.entity_id, EntitySlug.slug, where=EntitySlug.tenant_id == t
     ):
         c.slugs[entity_id] = slug
+    # In each entry's own order (ADR 0266): a copy gives the parents the same places.
     c.prototypes = [
         (e, p)
-        for e, p in await rows(
-            EntityPrototype.entity_id,
-            EntityPrototype.prototype_id,
-            where=EntityPrototype.tenant_id == t,
-        )
+        for e, p in (
+            await session.execute(
+                select(EntityPrototype.entity_id, EntityPrototype.prototype_id)
+                .where(EntityPrototype.tenant_id == t)
+                .order_by(
+                    EntityPrototype.entity_id,
+                    EntityPrototype.position,
+                    EntityPrototype.prototype_id,
+                )
+            )
+        ).all()
     ]
     for group_id, name, priority, mandatory in await rows(
         StatGroup.id,
@@ -257,14 +264,49 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         where=StatGroup.tenant_id == t,
     ):
         c.groups[group_id] = {"name": name, "priority": priority, "mandatory": mandatory}
-    for def_id, name, value_type, group_id in await rows(
+    for (
+        def_id,
+        name,
+        value_type,
+        group_id,
+        unit,
+        adjustable,
+        pin,
+        signed,
+        position,
+        max_hint,
+        min_hint,
+        resolved_hint,
+    ) in await rows(
         StatDefinition.id,
         StatDefinition.name,
         StatDefinition.value_type,
         StatDefinition.stat_group_id,
+        StatDefinition.unit,
+        StatDefinition.adjustable_in_play,
+        StatDefinition.pin,
+        StatDefinition.signed,
+        StatDefinition.position,
+        StatDefinition.max_hint_id,
+        StatDefinition.min_hint_id,
+        StatDefinition.resolved_hint_id,
         where=StatDefinition.tenant_id == t,
     ):
-        c.definitions[def_id] = {"name": name, "value_type": value_type, "group": group_id}
+        c.definitions[def_id] = {
+            "name": name,
+            "value_type": value_type,
+            "group": group_id,
+            "unit": unit,
+            "adjustable_in_play": adjustable,
+            "pin": pin,
+            "signed": signed,
+            "position": position,
+            "hints": {
+                "max_hint": max_hint,
+                "min_hint": min_hint,
+                "resolved_hint": resolved_hint,
+            },
+        }
     for def_id, value, sort_order in await rows(
         StatDefinitionEnumValue.stat_definition_id,
         StatDefinitionEnumValue.value,
@@ -606,4 +648,12 @@ def stat_definition_snapshot(
         "value_type": definition["value_type"].value,
         "stat_group": name("stat_group", definition["group"]),
         "enum_values": sorted(v for v, _ in content.enum_values.get(definition_id, [])),
+        "unit": definition["unit"],
+        "adjustable_in_play": definition["adjustable_in_play"],
+        "pin": definition["pin"],
+        "signed": definition["signed"],
+        **{
+            key: name("stat_definition", hinted) if hinted is not None else None
+            for key, hinted in definition["hints"].items()
+        },
     }

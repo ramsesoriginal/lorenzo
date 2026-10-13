@@ -1,7 +1,7 @@
 // Runs every example embedded in SPEC.md (ADR 0100, 0105): the spec is the test suite.
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import { parse, type RenderOptions, references, render } from '../src';
+import { parse, type RenderOptions, references, render, statNames } from '../src';
 
 const FENCE = '`'.repeat(8);
 /** `refs`: the optional third section, the JSON `references()` must return. */
@@ -25,6 +25,7 @@ const OPTIONS: RenderOptions = {
     },
     calendar: (expression) =>
       expression === 'harptos 1492-mirtul-12' ? '12 Mirtul 1492 DR' : null,
+    stat: (name) => (name === 'weight' ? { text: '1.5 kg', title: 'Weight' } : null),
   },
 };
 
@@ -180,5 +181,41 @@ describe('hostile input', () => {
     const chain = Array.from({ length: 5000 }, (_, k) => `[^${k}]: see[^${k + 1}]`).join('\n');
     expect(count(render(parse(`${chain}\n\nstart[^0]`)), '<li id="ls-fn-')).toBe(5000);
     expect(render(parse('# a\n'.repeat(5000)))).toContain('id="ls-a-5000"');
+  });
+});
+
+describe('statNames', () => {
+  test('lists the stats a text names, once each, lowercased, in order, including in headings and tables', () => {
+    const doc = parse(
+      '# {Weight} here\n\nA {price} and {weight} and **{hp}**.\n\n| a |\n|---|\n| {price} |\n',
+    );
+    expect(statNames(doc)).toEqual(['weight', 'price', 'hp']);
+  });
+
+  test('finds none in text that only looks like one', () => {
+    expect(statNames(parse('{#id} {.c} a{3} { weight } `{weight}`'))).toEqual([]);
+  });
+});
+
+describe('the stat resolver', () => {
+  test('may add classes, of letters, digits, dashes and underscores only', () => {
+    const doc = parse('{weight}');
+    const html = render(doc, {
+      resolve: { stat: () => ({ text: '2', class: 'inherited bad"x two-words' }) },
+    });
+    expect(html).toBe('<p><span class="ls-stat inherited two-words">2</span></p>\n');
+  });
+
+  test('is not asked for text that is only braces', () => {
+    let asked = 0;
+    render(parse('{{date 2026-01-01}} {#a} {3}'), {
+      resolve: {
+        stat: () => {
+          asked++;
+          return null;
+        },
+      },
+    });
+    expect(asked).toBe(0);
   });
 });

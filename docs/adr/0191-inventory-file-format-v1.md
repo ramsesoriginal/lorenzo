@@ -1,6 +1,6 @@
 # 0191 - The inventory file, format v1
 
-Status: accepted, decided with the maintainer on 2026-10-05.
+Status: accepted, decided with the maintainer on 2026-10-05. Amended by [ADR 0226](0226-lorenzoledger.md): the format is named LorenzoLedger, identifies itself as `lorenzo-ledger/1` (this id is still read) and gains descriptions.
 
 Slice 1 of [RFC 0035](../rfcs/0035-inventory-files-and-placeholder-items.md). Records the file format and nothing that reads it: the commands, the placeholder item and the screens are later slices, each its own ADR.
 

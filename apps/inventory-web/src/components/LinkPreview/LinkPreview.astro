@@ -1,0 +1,10 @@
+---
+// Hover, focus and tap cards for links to entities in LorenzoScript texts (ADR 0264). Nothing
+// is drawn until a link is pointed at; the card is styled in styles/components.css.
+---
+
+<script>
+  import { installLinkPreviews } from './renderer';
+
+  installLinkPreviews();
+</script>

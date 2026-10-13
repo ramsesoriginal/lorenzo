@@ -85,3 +85,8 @@ export type NotAppliedOut = Schema<'NotAppliedOut'>;
 export type RepositoryEntityOut = Schema<'RepositoryEntityOut'>;
 export type RepositoryStatGroupOut = Schema<'RepositoryStatGroupOut'>;
 export type RepositoryStatDefinitionOut = Schema<'RepositoryStatDefinitionOut'>;
+
+// Personal access tokens and the device-code flow (ADR 0268).
+export type PersonalTokenOut = Schema<'PersonalTokenOut'>;
+export type DeviceCodePreviewOut = Schema<'DeviceCodePreviewOut'>;
+export type DeviceApproval = Schema<'DeviceApproval'>;
