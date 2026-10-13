@@ -1,6 +1,6 @@
 # RFC: Releases and public snapshots — what publishing a repository means
 
-Status: accepted, decided with the maintainer on 2026-10-07: publishing becomes a *release* with a free-text label, notes and a breaking flag ([§1](#1-the-release-ledger)); release snapshots exist **only for public repositories**, and private repositories stay live-read with a LIVE banner and a digest ([§4](#4-the-release-document-for-public-repositories), [§5](#5-the-read-switch-retention-and-rollback)); and the wording rule ("Matches release 1.3", "Edited since 1.3", never "stable" or "frozen"). The digest and released rows ([§2](#2-the-digest-and-the-released-rows)), the breaking-change detector ([§3](#3-the-breaking-change-detector)) and the exact shape of the release document, the read switch and the flips ([§4](#4-the-release-document-for-public-repositories) to [§6](#6-flips-between-private-and-public)) are proposals for review, and §4 to §6 are gated on the spike in [Spikes](#spikes): if the release document cannot reproduce a repository's content exactly, they are redrawn before public discovery starts. Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands. Serves the rows "Publish, subscribe, update screens" and "Authoring tool" of [v1.0](../../v1.0.md), and is the ground [RFC 0038](0038-public-repositories-and-discovery.md) (public repositories and discovery) stands on. It is one of the five topic RFCs under [RFC 0036](0036-repository-tooling.md).
+Status: accepted, decided with the maintainer on 2026-10-07: publishing becomes a *release* with a free-text label, notes and a breaking flag ([§1](#1-the-release-ledger)); release snapshots exist **only for public repositories**, and private repositories stay live-read with a LIVE banner and a digest ([§4](#4-the-release-document-for-public-repositories), [§5](#5-the-read-switch-retention-and-rollback)); and the wording rule ("Matches release 1.3", "Edited since 1.3", never "stable" or "frozen"). The digest and released rows ([§2](#2-the-digest-and-the-released-rows)), the breaking-change detector ([§3](#3-the-breaking-change-detector)) and the exact shape of the release document, the read switch and the flips ([§4](#4-the-release-document-for-public-repositories) to [§6](#6-flips-between-private-and-public)) are proposals for review. §4 to §6 were gated on the spike R1 in [Spikes](#spikes), which passed ([What was tried](#what-was-tried)): the release document reproduces a repository's content exactly, so they stand as drawn. Built in the slices in [Slices](#slices), each recorded as its own ADR when it lands. Serves the rows "Publish, subscribe, update screens" and "Authoring tool" of [v1.0](../../v1.0.md), and is the ground [RFC 0038](0038-public-repositories-and-discovery.md) (public repositories and discovery) stands on. It is one of the five topic RFCs under [RFC 0036](0036-repository-tooling.md).
 
 Words: in the product a *library* is a tenant of kind `play` and a *repository* is a tenant of kind `repository`; the user-facing words (release, edited since, libraries using it, built on, Update) are those of [ADR 0194](../adr/0194-user-facing-terminology.md). This RFC says *tenant*, *grant* and *subscription* where the schema and the API do.
 
@@ -163,11 +163,56 @@ It also records the document's size, plain and gzipped. A failure the serialiser
 
 **R2, scale.** Build repositories of 1,000, 5,000 and 20,000 entities with realistic stats, prototypes and attachments, and measure `copy-plan`, `updates` (first and repeated), the digest at publish, building and reading a document, the live digest of [§1](#1-the-release-ledger) ("Matches release 1.3" needs one), and memory. The results decide, and nothing else in this RFC depends on them: whether the digest and document stay in the publish request or the release is built in a "building" state; whether "Matches" is computed on demand or cached; whether a release read is cached per release id (the document is immutable, so it can be); whether browse needs a SQL path; and whether a per-library "updates available" summary is cheap enough to offer. A result that makes `updates` on a document unacceptable at 20,000 entities is a reason to cache, not to change the design.
 
+## What was tried
+
+**R1 was run on 2026-10-08 and passed.** The serialiser, about two hundred lines, and the tests live on the throwaway branch `spike/release-roundtrip`, which is not merged.
+
+**What it ran on.** The four seed repositories made the way a person makes them (`tenant create`, `seed --layer`, `repo offer`, `apply --part`, `repo publish`, as in [ADR 0183](../adr/0183-setting-up-the-four-repositories-and-what-trying-it-showed.md)): core, the equipment, D&D rules, and the bridge built on the last two, so the diamond (both are built on core) and the bridge's attachments are the real ones. Then the library that took the bridge, whose `Content` carries copy links, snapshots and attachments of its own. Then a repository made for the purpose, with a row in every content table, one picture used twice and two documents, and a copy record of each kind, deleted and merged links included. The edits for the update checks were made in the database, as authors would through the routes, on the seed repositories and on the Armoury world of [ADR 0208](../adr/0208-the-release-digest-and-the-breaking-change-detector.md)'s tests, which has an enum, a formula, a slug and a prototype edge between two items.
+
+**The document.** Every field of `Content` becomes JSON: ids as strings, tuples and sets as lists (sets sorted), `Decimal` as its string, `StatValueType` as its value, a stat or a formula as an object, picture and document bytes as their SHA-256 with the file type and name kept beside it, the copy links as maps. Read back, it builds the same classes. The gzip header carries no time, so equal documents are equal bytes.
+
+**Field for field.** A walk that checks the class of every container and scalar, the scale of every `Decimal`, `bool` against `int`, a `defaultdict` against a `dict` and what its factory makes, a tuple against a list, a set against a list, and the order of every list and dict, found no difference on any of the six contents. The one thing that is not the same class is the id: the database driver returns its own `UUID` subclass and the document reads back the standard one. They compare, hash and print equal and nothing reads the class. Two loads of unchanged rows came out equal down to the order of every list, but SQL does not promise that, so nothing relies on it.
+
+**The engines.** `plan_copy` and `compute_updates` read a repository at one place each, through `load_content`; the spike put a function there that answers from the read-back for the repositories named and from the rows for every other tenant. Their results, compared with the same walk (new ids made deterministic), were identical for:
+
+- a first copy of the bridge, a manifest of four steps with its attachments planned, and a first copy of each of the other three alone;
+- a first copy of the repository with pictures and documents, whose planned rows hold the bytes;
+- an update of the library that took the bridge after changes in three of the four repositories: the equipment (a rename, a slug, a prototype edge removed, a stat value, an entry added, an entry removed, a kind added), core (a stat group's priority and mandatory flag, a formula's offset) and the bridge (an attachment added). Core showed 3 changed rows, the equipment 4 changed, 1 added and 1 removed, the bridge 1 attachment added, the rules nothing;
+- an update after the edits of ADR 0208's tests on the Armoury world, the eleven that are not a removal together and the removal alone. The fields that came out changed were name, slug, prototypes, stat groups, stat values, formulas, enum values, value type and group priority; a kind change is in the digest and not in `updates`, since the diff skips `kinds`.
+
+The manifest reads `repository_copy` directly and not through `load_content`; a document holds the same set in `links.copies`, which `load_links` reads from those rows.
+
+**The digest.** `live_rows` and `digest_of` over the read-back gave the digest of the live load for all six contents, and so did every entity, stat group and stat definition snapshot.
+
+**Pictures once.** The repository with files holds five payloads with bytes, one picture twice. Two documents of it refer to four blobs by SHA-256: 160,008 bytes kept once, where inlined in both they would be 400,016. A map keyed by SHA-256 stood in for the blob table, which the spike did not build.
+
+**Size and time.** Plain is the compact JSON, gzipped the stored document, and the files are not in either.
+
+| Content | Entries | Plain | Gzipped |
+| --- | --- | --- | --- |
+| Core | 2 | 3,628 | 1,283 |
+| Equipment | 39 | 23,900 | 4,959 |
+| D&D rules | 32 | 29,630 | 6,890 |
+| Bridge | 73 | 88,648 | 16,074 |
+| Library that took the bridge | 73 | 92,536 | 16,496 |
+| Repository with files | 5 | 7,165 | 2,068 |
+
+That is 0.6 to 1.2 kB per entry plain and 0.1 to 0.2 kB gzipped. In the bridge's document the copy links are 48% (42,436 bytes, 24,248 of them the snapshots), the prototype edges 8%, the text and file payloads 8%, the stat definitions 6%, the stat values 5%. On the bridge, encoding takes 0.2 ms, compressing 1.6 ms and reading back 1.5 ms. These are four small repositories; scale is [R2](#spikes)'s question and nothing here extrapolates it.
+
+**What it found beyond the criteria.**
+
+- **The API accepts `NaN` and `Infinity` as a float stat value**, and the database stores them (`PUT .../stats/{definition}` with those literals answers `200`). Standard JSON cannot carry them, so a serialiser that refuses them fails a publish on a value the API let in, and one that writes them anyway makes a document other readers cannot parse. The serialiser can fix it: write a non-finite float as a tag and read it back as the float. Whether the API should refuse them is a separate question, not this RFC's.
+- **Nothing the engines read was missing from `Content`.** No field needed to be added to it or taken out of it.
+
+**Not tried.** The blob table and its keys in Postgres, the immutability trigger, a document written under an older format, `load_upstream` as the one read function, and what a copy does today with a repository that holds a non-finite float (its copy link snapshot is JSONB, which cannot hold one either).
+
+**Verdict.** The release document reproduces the content exactly, and the engines cannot tell it from the live rows. [§4](#4-the-release-document-for-public-repositories) to [§6](#6-flips-between-private-and-public) stand as drawn, and [R5](#slices) can be built.
+
 ## Slices
 
 | Slice | What | Depends on | Touches |
 | --- | --- | --- | --- |
-| **R1** | Spike: release round-trip ([Spikes](#spikes)); findings written back here | none | api (throwaway branch), docs |
+| **R1** | Spike: release round-trip ([Spikes](#spikes)); passed, findings in [What was tried](#what-was-tried) | none | api (throwaway branch), docs |
 | **R2** | Spike: scale ([Spikes](#spikes)); findings written back here | none | api (throwaway branch), docs |
 | **R3** | Ledger-lite: `repository_release`, `PUT /published {label, notes, breaking}`, `GET /releases`, the notification text, `synced_release_id`, `lorenzo repo publish --label/--notes` | none | api, cli |
 | **R4** | Digest and `repository_released_row`, released and edited on `/updates`, "apply all clean" rule, the breaking-change detector with `acknowledge_breaking` and `update-needs-confirmation`, the description-edit hint | R3; R2's findings | api, cli |
