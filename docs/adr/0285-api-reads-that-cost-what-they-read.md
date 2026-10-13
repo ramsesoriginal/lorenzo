@@ -49,7 +49,7 @@ Measured as above, with the new views (JIT on or off; it no longer matters): one
 - **A read of every stat of a tenant costs what it did** (a walk per entity instead of one walk of all), so a full export is neither faster nor slower.
 - **The walk still enumerates paths,** not distinct ancestors: an entry with several parents that share ancestors walks each path. Chains are short and parents few in libraries; a dense graph of parents is the one thing that would make a read expensive, as it did before.
 - **The role setting is the server's, not the database's.** `ALTER ROLE ... SET` applies to the role in every database of the cluster, so downgrading the migration in one database resets it for all of them, and the test that checks it fails in the others until the migration is applied again.
-- **Not done here:** the statements of an item read that no view change removes (the eager loads of to-one relationships, information visibility resolved even when everything read is public or the caller is an admin, the prototype chain of an item's description), tracked in the same milestone.
+- **The statements of an item read** are the addendum below.
 
 ## Tests
 
@@ -58,3 +58,23 @@ Measured as above, with the new views (JIT on or off; it no longer matters): one
 - The views return the rows they returned before: a generated library (parents in orders of their own, stats, formulas, groups with priorities) compared in both directions with the previous definitions of `v_effective_stat`, `v_item` and `v_item_instance`, kept in the test as the reference. Before the change was written the same comparison was made on libraries of 400 to 3,000 entities and up to 6,823 rows, with no difference.
 - A read of one entity walks that entity and not the library: the plan of `SELECT ... WHERE entity_id = ...` over 300 unrelated entries produces at most ten rows in its recursive walks (306 for `v_effective_stat` and 1,836 for `v_item` with the previous definitions).
 - The app role runs without JIT.
+
+## Addendum (2026-10-13): the statements of an item read
+
+With the views fixed, a read of one catalog item through the route (the caller's identity supplied, so without the per-request user upsert) was 31 statements and 36.5 ms for an owner, 47 and 54.4 ms for an owner who also GMs a campaign (three characters), and 32 and 36.3 ms for a player. A statement costs about 1.1 ms all in (a bare `SELECT 1` through the same stack is 0.25 ms; the rest is the ORM's work on each result), and the GM's reach alone was 16 statements and 18 ms.
+
+- **A to-one relationship loads with the row that has it.** `VItem.entity` (and `VItemInstance.entity`), `Entity.item`, `Payload.description` and `Payload.picture`, `VEffectiveStat.stat_definition` and `StatDefinition.stat_group` are joined into their parent's query, six statements fewer. The collections (information, payloads, knowledge links, effective stats, containment, parents) stay separate selects: a join of several would multiply their rows.
+- **The prototype chain is one recursive query.** `prototype_ancestors` walks `entity_prototype` once, whatever the depth, keeps a row per (entity, ancestor, distance), takes each ancestor at its shortest distance and joins the entities to it; it used to ask for the edges one level at a time and then for the entities. The order of the answer (nearest first, then name, then id) is the same.
+- **Who may read is resolved after the rows are, and only as far as `can_see` needs** (`resolve_information_reader`). When every row the answer may show (the item's and its ancestors') is public, nothing is resolved: `can_see` is true of a public row for anyone. For an admin, who `can_see` everything, only their tier is (their Membership and the opt-out check, which suppresses the bypass). Anyone else, with a row that is not public among them, gets `resolve_information_visibility` as before. The catalog item routes use it; they ask nothing of the caller's sight but `can_see`. The item-instance routes, beings and the export use the sets that the full resolve returns (the GM's reach narrows the inventory tier, ADR 0040), so they still resolve it.
+
+Measured the same way, with the Postgres and the tests pinned to four cores:
+
+| Caller | Before | After |
+| --- | --- | --- |
+| Owner | 31 statements, 36.5 ms | 15 statements, 19.7 ms |
+| Owner who also GMs | 47 statements, 54.4 ms | 15 statements, 20.4 ms |
+| Player of a public item | 32 statements, 36.3 ms | 16 statements, 21.3 ms |
+
+- **Not changed:** a caller who is not an admin and reads a row that is not public (a campaign GM reading a GM-only note) still resolves their sight in full; resolving the GM's reach only when a row asks for it is the next step. Some lookups are still repeated inside a request (the Membership is read for the participant check and again for the tier, when a row is hidden), and the other routes that read information (entities, item instances, link previews) have not taken the reader yet.
+
+Tests: `apps/api/tests/test_item_read_statements.py` holds the counts for the three callers (with room for a few statements, so that they fail when the old work returns and not when a statement is added), and that an owner reads a private description of an ancestor and a player does not; `apps/api/tests/test_information_reader.py` the reader itself: nothing resolved for public rows, an admin's tier alone, an owner who opted out and anyone else resolved in full, equal to `resolve_information_visibility`.

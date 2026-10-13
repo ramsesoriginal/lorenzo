@@ -2,10 +2,10 @@
 
 An item's descriptions and pictures are its own, then its ancestors':
 every entity it reaches through entity_prototype, nearest first. This
-module finds those ancestors for a whole page of items at once, one query
-per level of the prototype graph, and loads their description information
-so schemas/items.py can render it with the same visibility check as the
-item's own.
+module finds those ancestors for a whole page of items at once, in one
+recursive query whatever the depth of the prototype graph (ADR 0285), and
+loads their description information so schemas/items.py can render it with
+the same visibility check as the item's own.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterable
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -31,68 +31,67 @@ async def prototype_ancestors(
     distance, equally near ones by name then id. Their information,
     payloads (description and picture), and knowledge links are loaded.
     Every requested id has an entry, empty when it has no prototypes.
+
+    The walk is one recursive query (ADR 0285): a plain UNION, so a row is
+    kept once per (entity, ancestor, distance) and an ancestor reached by
+    several paths is walked on from once at each distance, not once per
+    path; the entities come with it, joined to their shortest distance.
+    The prototype graph is acyclic (ADR 0015's trigger), and the walk stops
+    at MAX_PROTOTYPE_HOPS regardless.
     """
     roots = set(entity_ids)
-    parents: dict[uuid.UUID, list[uuid.UUID]] = {}
-    frontier = set(roots)
-    # The prototype graph is acyclic (ADR 0015's trigger), so each level only
-    # asks about entities not asked about yet.
-    for _ in range(MAX_PROTOTYPE_HOPS):
-        frontier -= parents.keys()
-        if not frontier:
-            break
-        edges = await session.execute(
-            select(EntityPrototype.entity_id, EntityPrototype.prototype_id).where(
-                EntityPrototype.tenant_id == tenant_id, EntityPrototype.entity_id.in_(frontier)
+    result: dict[uuid.UUID, list[Entity]] = {root: [] for root in roots}
+    if not roots:
+        return result
+
+    walk = (
+        select(
+            EntityPrototype.entity_id.label("root_id"),
+            EntityPrototype.prototype_id.label("ancestor_id"),
+            literal(1).label("hops"),
+        )
+        .where(EntityPrototype.tenant_id == tenant_id, EntityPrototype.entity_id.in_(roots))
+        .cte("prototype_walk", recursive=True)
+    )
+    walk = walk.union(
+        select(walk.c.root_id, EntityPrototype.prototype_id, walk.c.hops + 1)
+        .select_from(
+            walk.join(
+                EntityPrototype,
+                and_(
+                    EntityPrototype.entity_id == walk.c.ancestor_id,
+                    EntityPrototype.tenant_id == tenant_id,
+                ),
             )
         )
-        for child in frontier:
-            parents[child] = []
-        for child, parent in edges:
-            parents[child].append(parent)
-        frontier = {parent for child in frontier for parent in parents[child]}
-
-    distances = {root: _distances(root, parents) for root in roots}
-    ancestor_ids = {ancestor for found in distances.values() for ancestor in found}
-    entities: dict[uuid.UUID, Entity] = {}
-    if ancestor_ids:
-        loaded = await session.scalars(
-            select(Entity)
-            .where(Entity.tenant_id == tenant_id, Entity.id.in_(ancestor_ids))
-            .options(
-                selectinload(Entity.information)
-                .selectinload(Information.payloads)
-                .selectinload(Payload.description),
-                selectinload(Entity.information)
-                .selectinload(Information.payloads)
-                .selectinload(Payload.picture),
-                selectinload(Entity.information).selectinload(Information.knowledge_links),
-            )
+        .where(walk.c.hops < MAX_PROTOTYPE_HOPS)
+    )
+    nearest = (
+        select(walk.c.root_id, walk.c.ancestor_id, func.min(walk.c.hops).label("hops"))
+        .group_by(walk.c.root_id, walk.c.ancestor_id)
+        .subquery("nearest_ancestor")
+    )
+    rows = await session.execute(
+        select(nearest.c.root_id, nearest.c.hops, Entity)
+        .join(Entity, Entity.id == nearest.c.ancestor_id)
+        .where(Entity.tenant_id == tenant_id)
+        .options(
+            selectinload(Entity.information)
+            .selectinload(Information.payloads)
+            .joinedload(Payload.description),
+            selectinload(Entity.information)
+            .selectinload(Information.payloads)
+            .joinedload(Payload.picture),
+            selectinload(Entity.information).selectinload(Information.knowledge_links),
         )
-        entities = {entity.id: entity for entity in loaded}
-    return {
-        root: sorted(
-            (entities[ancestor] for ancestor in found if ancestor in entities),
-            key=lambda entity: (found[entity.id], entity.name, str(entity.id)),
-        )
-        for root, found in distances.items()
-    }
-
-
-def _distances(root: uuid.UUID, parents: dict[uuid.UUID, list[uuid.UUID]]) -> dict[uuid.UUID, int]:
-    """Breadth-first from `root`: each ancestor's fewest hops, up to the limit."""
-    found: dict[uuid.UUID, int] = {}
-    level = [root]
-    for hops in range(1, MAX_PROTOTYPE_HOPS + 1):
-        # dict.fromkeys: an ancestor reached twice at one level is walked once.
-        level = list(
-            dict.fromkeys(p for child in level for p in parents.get(child, []) if p not in found)
-        )
-        if not level:
-            break
-        for ancestor in level:
-            found[ancestor] = hops
-    return found
+    )
+    found: dict[uuid.UUID, list[tuple[int, Entity]]] = {root: [] for root in roots}
+    for root_id, hops, ancestor in rows:
+        found[root_id].append((hops, ancestor))
+    for root, ancestors in found.items():
+        ancestors.sort(key=lambda found_at: (found_at[0], found_at[1].name, str(found_at[1].id)))
+        result[root] = [ancestor for _, ancestor in ancestors]
+    return result
 
 
 async def ancestors_of(
