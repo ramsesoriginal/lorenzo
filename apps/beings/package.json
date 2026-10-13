@@ -9,7 +9,7 @@
   "scripts": {
     "build-branding-package": "pnpm --filter @lorenzo/brand run build",
     "copy-branding": "node scripts/copy-branding.mjs",
-    "dev": "pnpm run build-branding-package && pnpm run copy-branding && astro dev",
+    "dev": "astro dev",
     "build": "pnpm run build-branding-package && pnpm run copy-branding && astro build",
     "preview": "astro preview",
     "astro": "astro",
