@@ -57,6 +57,21 @@ def full_content() -> Content:
         might: {"name": "Might", "value_type": StatValueType.INT, "group": other_group},
         name_text: {"name": "Title", "value_type": StatValueType.TEXT, "group": other_group},
     }
+    # The display fields of a definition (ADR 0278, 0279): every one filled somewhere, hints too.
+    for position, definition in enumerate(c.definitions.values()):
+        definition.update(
+            unit="kg" if position % 2 else None,
+            adjustable_in_play=bool(position % 2),
+            pin=bool(position % 3),
+            signed=bool(position % 2),
+            position=position,
+            hints={"max_hint": None, "min_hint": None, "resolved_hint": None},
+        )
+    c.definitions[strength]["hints"] = {
+        "max_hint": speed,
+        "min_hint": damage,
+        "resolved_hint": None,
+    }
     c.enum_values[mood] = [("calm", 0), ("angry", 1), ("héroïque", 2)]
     c.entity_groups = [(sword, group), (dagger, other_group)]
     c.stats = {
