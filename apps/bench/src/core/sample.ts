@@ -1,0 +1,635 @@
+// A server in memory, for the page without sign-in and for tests. It behaves as the real one
+// does where the command layer cares: an `etag` that moves on every write, a refused write when
+// `If-Match` is stale, an id the client chose that is a replay when it is already there, and no
+// connection when `offline` is set.
+
+import { parse, references, slugify } from '@lorenzo/lorenzoscript';
+import { type Formula, same } from './formulas';
+import {
+  type Backlink,
+  canRename,
+  canSetParents,
+  type EditableKind,
+  type EntryState,
+  type EntrySummary,
+  type HeldFormula,
+  type NewEntry,
+  type NewText,
+  OfflineError,
+  type Preview,
+  RefusedError,
+  type ResolvedEntry,
+  type StatDef,
+  type StatGroup,
+  type StatScalar,
+  type StatType,
+  type StatValue,
+  type TextDoc,
+  type Transport,
+} from './transport';
+
+export interface SampleEntry {
+  id: string;
+  name: string;
+  kinds: string[];
+  parents: string[];
+  description?: string;
+  notes?: { id: string; title?: string; text: string }[];
+  /** Its own stat values, by the stat's id. */
+  stats?: Record<string, StatScalar>;
+  /** Its link name; the slug of its name when left out, `null` for none. */
+  slug?: string | null;
+  /** A main picture (a plain coloured square, as an SVG), by its colour; none when left out. */
+  picture?: string;
+  /** The entry that owns it, or holds it (the sample has no more to tell the two apart). */
+  heldBy?: string;
+}
+
+interface Text {
+  id: string;
+  title: string;
+  text: string;
+  version: number;
+}
+
+export type SampleWrite =
+  | { id: string; field: 'name' | 'parents' | 'slug'; value: string | string[] }
+  | { id: string; field: `kind:${EditableKind}`; value: boolean }
+  | { id: string; field: 'create'; value: string }
+  | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string }
+  | { id: string; field: `stat:${string}`; value: StatScalar | null }
+  | { id: string; field: 'note.order'; value: string[] };
+
+const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
+
+const doc = (t: Text): TextDoc => ({
+  id: t.id,
+  payloadId: `p-${t.id}`,
+  title: t.title,
+  text: t.text,
+  version: `"t${t.version}"`,
+});
+
+export class SampleTransport implements Transport {
+  offline = false;
+  /** Every write that reached the server, for tests to look at. */
+  writes: SampleWrite[] = [];
+  /** Ids that other tenants hold: a create with one is refused the same way the API does. */
+  heldElsewhere = new Set<string>();
+  private formulas = new Map<string, { formula: Formula; version: number }>();
+  private groups: StatGroup[] = [{ id: 'group-general', name: 'General' }];
+  private rows = new Map<
+    string,
+    Omit<SampleEntry, 'description' | 'notes' | 'stats' | 'slug' | 'picture'> & {
+      picture: string | null;
+      version: number;
+      slug: string | null;
+      stats: Map<string, StatScalar>;
+      description: Text | null;
+      notes: Text[];
+    }
+  >();
+
+  constructor(
+    entries: SampleEntry[],
+    private readonly defs: StatDef[] = [],
+  ) {
+    for (const e of entries)
+      this.rows.set(e.id, {
+        id: e.id,
+        name: e.name,
+        kinds: e.kinds,
+        parents: [...e.parents],
+        version: 1,
+        slug: e.slug === undefined ? slugify(e.name) : e.slug,
+        picture: e.picture ?? null,
+        heldBy: e.heldBy,
+        stats: new Map(Object.entries(e.stats ?? {})),
+        description:
+          e.description === undefined
+            ? null
+            : { id: `${e.id}-description`, title: 'Description', text: e.description, version: 1 },
+        notes: (e.notes ?? []).map((n) => ({
+          id: n.id,
+          title: n.title ?? 'Note',
+          text: n.text,
+          version: 1,
+        })),
+      });
+  }
+
+  private need() {
+    if (this.offline) throw new OfflineError();
+  }
+  private row(id: string) {
+    const row = this.rows.get(id);
+    if (!row) throw new RefusedError(`No entry with id ${id}.`);
+    return row;
+  }
+  /** Own values first, then what the parents have, as the API resolves them (first parent wins). */
+  private effective(id: string, seen = new Set<string>()): StatValue[] {
+    const row = this.row(id);
+    seen.add(id);
+    const out = new Map<string, StatValue>();
+    for (const [statId, value] of row.stats) {
+      const def = this.defs.find((d) => d.id === statId);
+      if (def) out.set(statId, { statId, name: def.name, value, own: true });
+    }
+    for (const p of row.parents)
+      if (!seen.has(p))
+        for (const v of this.effective(p, seen))
+          if (!out.has(v.statId)) out.set(v.statId, { ...v, own: false });
+    return [...out.values()];
+  }
+  private state(id: string): EntryState {
+    const row = this.row(id);
+    return {
+      id,
+      name: row.name,
+      kinds: [...row.kinds],
+      parentIds: [...row.parents],
+      childIds: [...this.rows.values()].filter((r) => r.parents.includes(id)).map((r) => r.id),
+      description: row.description ? doc(row.description) : null,
+      notes: row.notes.map(doc),
+      stats: this.effective(id),
+      slug: row.slug,
+      etag: `"v${row.version}"`,
+    };
+  }
+  private guard(id: string, etag: string | null) {
+    if (etag !== null && etag !== `"v${this.row(id).version}"`)
+      throw new RefusedError('The entry changed since it was read.', true);
+  }
+
+  async listEntries(): Promise<EntrySummary[]> {
+    this.need();
+    return [...this.rows.values()].map(({ id, name, kinds, parents }) => ({
+      id,
+      name,
+      kinds: [...kinds],
+      parentIds: [...parents],
+    }));
+  }
+  /** The sample entries have no link names of their own: each has the slug of its name. */
+  async resolveSlugs(slugs: string[], from?: string): Promise<ResolvedEntry[]> {
+    this.need();
+    const bySlug = new Map<string, ResolvedEntry>();
+    for (const row of this.rows.values())
+      if (row.slug)
+        bySlug.set(row.slug, { slug: row.slug, id: row.id, name: row.name, kinds: [...row.kinds] });
+    const anchor = from ? this.anchorOf(from) : null;
+    return slugs.flatMap((s) => {
+      if (!s.startsWith('my/')) return bySlug.get(s) ?? [];
+      const target = bySlug.get(s.slice(3));
+      const held = anchor && target ? this.heldInstanceOf(anchor, target.id) : null;
+      return held ? { slug: s, id: held.id, name: held.name, kinds: [...held.kinds] } : [];
+    });
+  }
+  /** The being the entry is, or is held by, up the chain (ADR 0240). */
+  private anchorOf(id: string): string | null {
+    const seen = new Set<string>();
+    for (let at: string | undefined = id; at && !seen.has(at); at = this.rows.get(at)?.heldBy) {
+      seen.add(at);
+      if (this.rows.get(at)?.kinds.includes('being')) return at;
+    }
+    return null;
+  }
+  /** An instance of the item that the anchor holds, nearest and then first by name. */
+  private heldInstanceOf(anchor: string, item: string) {
+    const derives = (id: string, seen = new Set<string>()): boolean => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return (this.rows.get(id)?.parents ?? []).some((p) => p === item || derives(p, seen));
+    };
+    const depth = (id: string): number => {
+      let n = 0;
+      for (let at = this.rows.get(id)?.heldBy; at && at !== anchor && n < 20; n++)
+        at = this.rows.get(at)?.heldBy;
+      return n;
+    };
+    const held = (id: string): boolean => {
+      for (
+        let at = this.rows.get(id)?.heldBy, n = 0;
+        at && n < 20;
+        n++, at = this.rows.get(at)?.heldBy
+      )
+        if (at === anchor) return true;
+      return false;
+    };
+    return [...this.rows.values()]
+      .filter((r) => r.kinds.includes('item_instance') && held(r.id) && derives(r.id))
+      .sort(
+        (a, b) =>
+          Number(!a.parents.includes(item)) - Number(!b.parents.includes(item)) ||
+          depth(a.id) - depth(b.id) ||
+          a.name.localeCompare(b.name),
+      )[0];
+  }
+
+  async listStatDefinitions(): Promise<StatDef[]> {
+    this.need();
+    return this.defs.map((d) => ({ ...d, enumValues: [...d.enumValues] }));
+  }
+  async getEntry(id: string) {
+    this.need();
+    return this.state(id);
+  }
+  /** Asked for pictures, for tests to look at. */
+  pictureReads: string[] = [];
+  /** The files given and taken away, for tests to look at. */
+  pictureWrites: string[] = [];
+  async setPicture(id: string, file: File): Promise<void> {
+    this.need();
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type))
+      throw new RefusedError(`Unsupported content type '${file.type}'.`);
+    if (file.size > 2_000_000) throw new RefusedError('The picture is over the size limit.');
+    this.row(id).picture = '#36c';
+    this.pictureWrites.push(`set:${id}`);
+  }
+  async clearPicture(id: string): Promise<void> {
+    this.need();
+    this.row(id).picture = null;
+    this.pictureWrites.push(`clear:${id}`);
+  }
+  async pictureOf(id: string): Promise<string | null> {
+    this.need();
+    this.pictureReads.push(id);
+    const colour = this.row(id).picture;
+    if (!colour) return null;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="${colour}"/></svg>`;
+    return URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  }
+  async createEntry(entry: NewEntry) {
+    this.need();
+    if (this.rows.has(entry.id)) return this.state(entry.id); // a replay
+    if (this.heldElsewhere.has(entry.id)) throw new RefusedError('That id is not available.');
+    for (const p of entry.parents)
+      if (!this.rows.has(p)) throw new RefusedError(`No entry with id ${p}.`);
+    this.rows.set(entry.id, {
+      id: entry.id,
+      name: entry.name,
+      kinds: [...entry.kinds],
+      parents: [...new Set(entry.parents)],
+      version: 1,
+      // A link name another entry has is not taken: the entry is made without one.
+      slug:
+        entry.slug && ![...this.rows.values()].some((r) => r.slug === entry.slug)
+          ? entry.slug
+          : null,
+      picture: null,
+      stats: new Map(),
+      description: null,
+      notes: [],
+    });
+    this.writes.push({ id: entry.id, field: 'create', value: entry.name });
+    return this.state(entry.id);
+  }
+  async setName(id: string, name: string, etag: string | null) {
+    this.need();
+    this.guard(id, etag);
+    const row = this.row(id);
+    if (!canRename(row.kinds)) throw new RefusedError('Only an item can be renamed so far.');
+    row.name = name;
+    row.version++;
+    this.writes.push({ id, field: 'name', value: name });
+    return this.state(id);
+  }
+  async setNoteOrder(id: string, noteIds: string[]) {
+    this.need();
+    const row = this.row(id);
+    const known = noteIds.filter((n) => row.notes.some((x) => x.id === n));
+    const ordered = [
+      ...known.flatMap((n) => row.notes.filter((x) => x.id === n)),
+      ...row.notes.filter((x) => !known.includes(x.id)),
+    ];
+    if (ordered.some((n, i) => n !== row.notes[i])) {
+      row.notes = ordered;
+      row.version++;
+      this.writes.push({ id, field: 'note.order', value: ordered.map((n) => n.id) });
+    }
+    return this.state(id);
+  }
+  async setSlug(id: string, slug: string | null) {
+    this.need();
+    const row = this.row(id);
+    if (slug !== null && [...this.rows.values()].some((r) => r.id !== id && r.slug === slug))
+      throw new RefusedError(`Slug '${slug}' is already in use.`);
+    if (row.slug !== slug) {
+      row.slug = slug;
+      this.writes.push({ id, field: 'slug', value: slug ?? '' });
+    }
+    return this.state(id);
+  }
+  async setParents(id: string, parentIds: string[], etag: string | null) {
+    this.need();
+    this.guard(id, etag);
+    const row = this.row(id);
+    if (!canSetParents(row.kinds)) throw new RefusedError('An inventory item has its own route.');
+    for (const p of parentIds) {
+      if (p === id) throw new RefusedError('An entry cannot be its own parent.');
+      if (!this.rows.has(p)) throw new RefusedError(`No entry with id ${p}.`);
+    }
+    row.parents = [...parentIds];
+    row.version++;
+    this.writes.push({ id, field: 'parents', value: [...parentIds] });
+    return this.state(id);
+  }
+
+  async setStat(
+    id: string,
+    stat: { id: string; type: StatType },
+    value: StatScalar | null,
+    etag: string | null,
+  ) {
+    this.need();
+    this.guard(id, etag);
+    const row = this.row(id);
+    const def = this.defs.find((d) => d.id === stat.id);
+    if (!def) throw new RefusedError(`No stat with id ${stat.id}.`);
+    if (value === null) {
+      if (row.stats.delete(stat.id)) {
+        row.version++;
+        this.writes.push({ id, field: `stat:${stat.id}`, value: null });
+      }
+      return this.state(id);
+    }
+    const fits =
+      def.type === 'bool'
+        ? typeof value === 'boolean'
+        : def.type === 'int'
+          ? Number.isInteger(value)
+          : def.type === 'float'
+            ? typeof value === 'number'
+            : def.type === 'text'
+              ? typeof value === 'string'
+              : typeof value === 'string' && def.enumValues.includes(value);
+    if (!fits) throw new RefusedError(`That is not a ${def.type} value for ${def.name}.`);
+    if (row.stats.get(stat.id) !== value) {
+      row.stats.set(stat.id, value);
+      row.version++;
+      this.writes.push({ id, field: `stat:${stat.id}`, value });
+    }
+    return this.state(id);
+  }
+
+  async setKind(id: string, kind: EditableKind, on: boolean, etag: string | null) {
+    this.need();
+    this.guard(id, etag);
+    const row = this.row(id);
+    if (on && kind === 'item' && row.kinds.includes('item_instance'))
+      throw new RefusedError('An inventory item is not an item of the catalog.');
+    if (on !== row.kinds.includes(kind)) {
+      row.kinds = on
+        ? [...row.kinds, kind].sort((a, b) => KIND_ORDER.indexOf(a) - KIND_ORDER.indexOf(b))
+        : row.kinds.filter((k) => k !== kind);
+      row.version++;
+      this.writes.push({ id, field: `kind:${kind}`, value: on });
+    }
+    return this.state(id);
+  }
+
+  private findText(payloadId: string): { text: Text; label: 'description' | 'note.text' } {
+    const id = payloadId.replace(/^p-/, '');
+    for (const row of this.rows.values()) {
+      if (row.description?.id === id) return { text: row.description, label: 'description' };
+      const note = row.notes.find((n) => n.id === id);
+      if (note) return { text: note, label: 'note.text' };
+    }
+    throw new RefusedError(`No payload ${payloadId}.`);
+  }
+
+  async createText(entryId: string, text: NewText) {
+    this.need();
+    const row = this.row(entryId);
+    const known = [...this.rows.values()].flatMap((r) => [r.description, ...r.notes]);
+    if (known.some((t) => t?.id === text.id)) return; // a replay
+    if (this.heldElsewhere.has(text.id)) throw new RefusedError('That id is not available.');
+    const made = { id: text.id, title: text.title, text: text.text, version: 1 };
+    if (text.type === 'description') {
+      if (row.description) throw new RefusedError('The entry already has a description.');
+      row.description = made;
+      this.writes.push({ id: entryId, field: 'description', value: text.text });
+    } else {
+      row.notes.push(made);
+      this.writes.push({ id: entryId, field: 'note.add', value: text.text });
+    }
+  }
+  async setText(payloadId: string, text: string, version: string | null) {
+    this.need();
+    const { text: target, label } = this.findText(payloadId);
+    if (version !== null && version !== `"t${target.version}"`)
+      throw new RefusedError('The text changed since it was read.', true);
+    target.text = text;
+    target.version++;
+    this.writes.push({ id: target.id, field: label, value: text });
+  }
+
+  /** Someone else changes a description or a note, behind the person's back. */
+  editTextElsewhere(entryId: string, which: 'description' | string, text: string) {
+    const row = this.row(entryId);
+    const target =
+      which === 'description' ? row.description : row.notes.find((n) => n.id === which);
+    if (!target) throw new Error(`No ${which} on ${entryId}.`);
+    target.text = text;
+    target.version++;
+  }
+
+  /** Someone else sets (or with null clears) an entry's own value for a stat, behind its back. */
+  setStatElsewhere(id: string, statId: string, value: StatScalar | null) {
+    const row = this.row(id);
+    if (value === null) row.stats.delete(statId);
+    else row.stats.set(statId, value);
+    row.version++;
+  }
+
+  /** Someone else gives (or takes away) a kind, behind the person's back. */
+  setKindElsewhere(id: string, kind: EditableKind, on: boolean) {
+    const row = this.row(id);
+    row.kinds = on ? [...new Set([...row.kinds, kind])] : row.kinds.filter((k) => k !== kind);
+    row.version++;
+  }
+
+  /** Someone else gives (or takes away) the entry's link name, behind the person's back. */
+  setSlugElsewhere(id: string, slug: string | null) {
+    this.row(id).slug = slug;
+  }
+
+  /** Someone else renames the entry, behind the person's back. */
+  renameElsewhere(id: string, name: string) {
+    const row = this.row(id);
+    row.name = name;
+    row.version++;
+  }
+
+  // ----- formulas and the stat vocabulary (ADR 0253) -----
+
+  private numberOf(entryId: string, statId: string): number {
+    const v = this.effective(entryId).find((x) => x.statId === statId)?.value;
+    return typeof v === 'number' ? v : 0;
+  }
+  private evaluate(entryId: string, f: Formula): { value: StatScalar | null; read: string[] } {
+    const num = (t: string) => Number(t.replace(',', '.'));
+    const round = (n: number, mode: string) =>
+      mode === 'floor'
+        ? Math.floor(n)
+        : mode === 'ceil'
+          ? Math.ceil(n)
+          : mode === 'truncate'
+            ? Math.trunc(n)
+            : mode === 'round'
+              ? Math.sign(n) * Math.round(Math.abs(n))
+              : n;
+    if (f.kind === 'sum') {
+      const n = f.terms.reduce(
+        (a, t) => a + num(t.coefficient) * this.numberOf(entryId, t.stat),
+        0,
+      );
+      return { value: round(n + num(f.offset), f.round), read: f.terms.map((t) => t.stat) };
+    }
+    if (f.kind === 'linear')
+      return {
+        value: round(this.numberOf(entryId, f.source) * num(f.multiplier) + num(f.offset), f.round),
+        read: [f.source],
+      };
+    if (f.kind === 'contents') {
+      let n = 0;
+      for (const [id, r] of this.rows) if (r.heldBy === entryId) n += this.numberOf(id, f.source);
+      return { value: n, read: [f.source] };
+    }
+    const left = this.numberOf(entryId, f.left);
+    const right = 'stat' in f.right ? this.numberOf(entryId, f.right.stat) : num(f.right.constant);
+    const holds = {
+      lt: left < right,
+      le: left <= right,
+      eq: left === right,
+      ne: left !== right,
+      ge: left >= right,
+      gt: left > right,
+    }[f.comparator];
+    const chosen = holds ? f.trueValue : f.falseValue;
+    return {
+      value: chosen === '' ? holds : Number.isNaN(Number(chosen)) ? chosen : Number(chosen),
+      read: 'stat' in f.right ? [f.left, f.right.stat] : [f.left],
+    };
+  }
+  private held(entryId: string, statId: string): HeldFormula | null {
+    const h = this.formulas.get(`${entryId}/${statId}`);
+    return h ? { entryId, statId, formula: h.formula, version: `"f${h.version}"` } : null;
+  }
+
+  async backlinks(entryId: string): Promise<Backlink[]> {
+    this.need();
+    const slug = this.row(entryId).slug;
+    if (!slug) return [];
+    const out: Backlink[] = [];
+    for (const [id, r] of this.rows) {
+      if (id === entryId) continue;
+      const texts = [
+        ...(r.description ? [{ t: r.description, type: 'description' }] : []),
+        ...r.notes.map((n) => ({ t: n, type: 'note' })),
+      ];
+      for (const { t, type } of texts)
+        if (references(parse(t.text)).some((x) => 'slug' in x && x.slug === slug))
+          out.push({
+            entryId: id,
+            name: r.name,
+            kinds: r.kinds,
+            informationId: t.id,
+            title: t.title,
+            type,
+          });
+    }
+    return out;
+  }
+  async listFormulas(entryId: string): Promise<HeldFormula[]> {
+    this.need();
+    this.row(entryId);
+    return this.defs.flatMap((d) => this.held(entryId, d.id) ?? []);
+  }
+  async previewFormula(entryId: string, statId: string, formula: Formula | null): Promise<Preview> {
+    this.need();
+    this.row(entryId);
+    const f = formula ?? this.held(entryId, statId)?.formula ?? null;
+    if (!f) {
+      const own = this.effective(entryId).find((x) => x.statId === statId);
+      return { value: own?.value ?? null, source: own ? 'direct' : 'unset', inputs: [] };
+    }
+    const { value, read } = this.evaluate(entryId, f);
+    return {
+      value,
+      source: 'computed',
+      inputs: read.map((id) => ({
+        name: this.defs.find((d) => d.id === id)?.name ?? '?',
+        value: this.effective(entryId).find((x) => x.statId === id)?.value ?? null,
+      })),
+    };
+  }
+  async setFormula(
+    entryId: string,
+    statId: string,
+    formula: Formula,
+    version: string | null,
+  ): Promise<HeldFormula> {
+    this.need();
+    this.row(entryId);
+    const key = `${entryId}/${statId}`;
+    const current = this.held(entryId, statId);
+    if (current && version !== current.version)
+      throw new RefusedError('The formula changed.', true);
+    if (current && same(current.formula, formula)) return current;
+    this.formulas.set(key, { formula, version: (this.formulas.get(key)?.version ?? 0) + 1 });
+    return this.held(entryId, statId) as HeldFormula;
+  }
+  async clearFormula(entryId: string, statId: string, version: string): Promise<void> {
+    this.need();
+    const current = this.held(entryId, statId);
+    if (!current) return;
+    if (version !== current.version) throw new RefusedError('The formula changed.', true);
+    this.formulas.delete(`${entryId}/${statId}`);
+  }
+  async formulaDependents(statId: string): Promise<{ entryId: string; statId: string }[]> {
+    this.need();
+    const out: { entryId: string; statId: string }[] = [];
+    for (const [key, h] of this.formulas) {
+      const [entryId, target] = key.split('/') as [string, string];
+      if (this.evaluate(entryId, h.formula).read.includes(statId))
+        out.push({ entryId, statId: target });
+    }
+    return out;
+  }
+  async listStatGroups(): Promise<StatGroup[]> {
+    this.need();
+    return [...this.groups];
+  }
+  async createStatGroup(name: string): Promise<StatGroup> {
+    this.need();
+    if (this.groups.some((g) => g.name.toLowerCase() === name.toLowerCase()))
+      throw new RefusedError(`There is a group called ${name} already.`);
+    const g = { id: `group-${this.groups.length + 1}`, name };
+    this.groups.push(g);
+    return g;
+  }
+  async createStat(def: {
+    name: string;
+    groupId: string;
+    type: StatType;
+    enumValues: string[];
+  }): Promise<StatDef> {
+    this.need();
+    if (this.defs.some((d) => d.name.toLowerCase() === def.name.toLowerCase()))
+      throw new RefusedError(`There is a stat called ${def.name} already.`);
+    const made = {
+      id: `stat-${slugify(def.name)}`,
+      name: def.name,
+      type: def.type,
+      enumValues: def.enumValues,
+    };
+    this.defs.push(made);
+    return made;
+  }
+  async deleteStat(statId: string): Promise<void> {
+    this.need();
+    const at = this.defs.findIndex((d) => d.id === statId);
+    if (at >= 0) this.defs.splice(at, 1);
+  }
+}

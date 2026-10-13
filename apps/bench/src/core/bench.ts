@@ -1,0 +1,788 @@
+// The command layer's state: the mirror (what the server last said), the outbox (commands not
+// yet sent), and the runner that sends them. What a person sees is the mirror with every command
+// still in the outbox applied in order, so a change shows at once and cancelling one is just
+// taking it out. Online-first: the outbox is in memory, it does not survive a closed tab (B4).
+
+import { slugify } from '@lorenzo/lorenzoscript';
+import {
+  type Command,
+  type CommandType,
+  type CreateArgs,
+  compare,
+  docOf,
+  inverseOf,
+  makesId,
+  REGISTRY,
+  sameValue,
+  usedIds,
+  type Value,
+} from './commands';
+import { FormulaStore, findFormula } from './formulaStore';
+import { LinkResolver, type StatTexts } from './links';
+import { Pictures } from './pictures';
+import {
+  type Backlink,
+  canEditStat,
+  type EditableKind,
+  type EntryState,
+  type EntrySummary,
+  type HeldFormula,
+  OfflineError,
+  RefusedError,
+  type ResolvedEntry,
+  type StatDef,
+  type StatScalar,
+  slugProblem,
+  type Transport,
+} from './transport';
+
+export type EntryStatus = 'synced' | 'waiting' | 'offline' | 'conflict' | 'attention';
+
+const HISTORY_LIMIT = 50;
+
+/** What an entry links to (and where), and what links to it. */
+export interface Connections {
+  outgoing: { entry: ResolvedEntry; where: string }[];
+  incoming: Backlink[];
+  /** The texts these were made from. */
+  stamp: string;
+}
+
+export class Bench {
+  /** The server's list of entries, as last read. */
+  entries: EntrySummary[] = [];
+  private indexed: { of: EntrySummary[]; byId: Map<string, EntrySummary> } | null = null;
+  private listed: EntrySummary[] | null = null;
+  /** The stats the repository defines, as last read: what an entry can have a value for. */
+  statDefs: StatDef[] = [];
+  /** The mirror: entries as the server last said, by id. */
+  private mirror = new Map<string, EntryState>();
+  /** Every command that is not synced, in the order written. */
+  outbox: Command[] = [];
+  /** Commands that were sent, newest last: what undo reaches. */
+  history: Command[] = [];
+  /** The last send found no connection. */
+  offline = false;
+  loadError: string | null = null;
+  /** What the entry links in text lead to. */
+  readonly links: LinkResolver;
+  /** Entries' main pictures. */
+  readonly pictures: Pictures;
+  /** The formulas that work out stats. */
+  readonly formulas: FormulaStore;
+  private nextId = 1;
+  private listeners = new Set<(background: boolean) => void>();
+  private current: Promise<void> | null = null;
+  private again = false;
+
+  constructor(
+    readonly transport: Transport,
+    private readonly makeId: () => string = () => crypto.randomUUID(),
+  ) {
+    this.links = new LinkResolver(transport);
+    this.links.stats = (home) => this.statChips(home);
+    this.formulas = new FormulaStore(transport, () => this.emitLater());
+    this.pictures = new Pictures(
+      transport,
+      () => {
+        for (const fn of this.pictureListeners) fn();
+      },
+      (id) => this.links.forgetPicture(id),
+    );
+  }
+
+  private pictureListeners = new Set<() => void>();
+  /**
+   * `fn` is told when a picture has been read, set or taken away, and nothing else: a picture is
+   * one small part of the page, which should not be drawn again whole for it.
+   */
+  subscribePictures(fn: () => void): () => void {
+    this.pictureListeners.add(fn);
+    return () => this.pictureListeners.delete(fn);
+  }
+
+  // ---- what an entry links to, and what links to it ---------------------------------------------
+
+  private connected = new Map<string, Connections & { at: number }>();
+  private connecting = new Set<string>();
+  private connectionListeners = new Set<() => void>();
+  /** `fn` is told when the connections of an entry have been read. */
+  subscribeConnections(fn: () => void): () => void {
+    this.connectionListeners.add(fn);
+    return () => this.connectionListeners.delete(fn);
+  }
+
+  /** What the entry's texts say, which is what its links are made from. */
+  private textsOf(id: string): { where: string; text: string }[] {
+    const v = this.view(id);
+    if (!v) return [];
+    return [
+      ...(v.description ? [{ where: 'Description', text: v.description.text }] : []),
+      ...v.notes.map((n) => ({ where: `Note: ${n.title}`, text: n.text })),
+    ];
+  }
+
+  /**
+   * What the entry's description and notes link to, and which texts, on other entries, link to it.
+   * What was read last is answered at once (null before the first answer); a read is started when
+   * the entry's texts changed since or it is a while old, and the listeners hear when it is done.
+   */
+  connections(id: string): Connections | null {
+    const stamp = JSON.stringify(this.textsOf(id));
+    const had = this.connected.get(id);
+    const stale = !had || had.stamp !== stamp || Date.now() - had.at > 20_000;
+    if (stale && !this.connecting.has(id) && this.onServer(id))
+      void this.readConnections(id, stamp);
+    return had ?? null;
+  }
+
+  private async readConnections(id: string, stamp: string): Promise<void> {
+    this.connecting.add(id);
+    try {
+      const outgoing: Connections['outgoing'] = [];
+      for (const { where, text } of this.textsOf(id))
+        for (const entry of await this.links.linkedFrom(text, id))
+          if (entry.id !== id) outgoing.push({ entry, where });
+      const incoming = await this.transport.backlinks(id).catch(() => []);
+      this.connected.set(id, { outgoing, incoming, stamp, at: Date.now() });
+      for (const fn of this.connectionListeners) fn();
+    } catch {
+      // left as it was; tried again when asked again
+    } finally {
+      this.connecting.delete(id);
+    }
+  }
+
+  /** `fn` is told of every change; `background` says it was not asked for by the person. */
+  subscribe(fn: (background: boolean) => void): () => void {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+  private emit(background = false) {
+    this.listed = null;
+    for (const fn of this.listeners) fn(background);
+  }
+
+  /**
+   * Tells the screen soon, once, for what arrives in the background (entries and pictures being
+   * read): a drawing for each would be the whole page again and again.
+   */
+  private emitLater() {
+    if (this.soon) return;
+    this.soon = setTimeout(() => {
+      this.soon = null;
+      this.emit(true);
+    }, 60);
+  }
+  private soon: ReturnType<typeof setTimeout> | null = null;
+
+  /** The server's entries by id (rebuilt when the list is replaced). */
+  private entry(id: string): EntrySummary | undefined {
+    if (this.indexed?.of !== this.entries)
+      this.indexed = { of: this.entries, byId: new Map(this.entries.map((e) => [e.id, e])) };
+    return this.indexed.byId.get(id);
+  }
+
+  /** The formula that works out the stat on the entry, held by it or above it; null when none. */
+  formulaFor(id: string, statId: string): HeldFormula | null {
+    const parents = (x: string) => this.entry(x)?.parentIds ?? [];
+    return findFormula((e) => this.formulas.held(e), parents, id, statId);
+  }
+
+  /** Reads the formulas of the entry and of everything above it. */
+  loadFormulas(id: string): Promise<void> {
+    const seen = new Set<string>();
+    const up = (x: string) => {
+      if (seen.has(x)) return;
+      seen.add(x);
+      for (const p of this.entry(x)?.parentIds ?? []) up(p);
+    };
+    up(id);
+    return this.formulas.load([...seen]);
+  }
+
+  /** Reads the stat vocabulary again (after a stat was made or deleted). */
+  async reloadStatDefinitions(): Promise<void> {
+    this.statDefs = await this.transport.listStatDefinitions();
+    this.emit();
+  }
+
+  // ---- reading ----------------------------------------------------------------------------
+
+  async loadEntries(): Promise<void> {
+    try {
+      this.entries = await this.transport.listEntries();
+      this.statDefs = await this.transport.listStatDefinitions();
+      this.loadError = null;
+      this.offline = false;
+    } catch (e) {
+      this.loadError = e instanceof Error ? e.message : 'Could not load the entries.';
+      if (e instanceof OfflineError) this.offline = true;
+    }
+    this.emit();
+  }
+
+  private pendingCreate(id: string): Command | undefined {
+    return this.outbox.find((c) => c.type === 'entry.create' && c.entryId === id);
+  }
+
+  /**
+   * Brings an entry's detail into the mirror, unless it is there or not made yet. `quiet` says
+   * nothing about it to the screen: for reading an entry that is only being looked at in passing
+   * (a card for a link), which must not redraw the page under a focus or a pointer.
+   */
+  async open(id: string, quiet = false): Promise<void> {
+    if (this.mirror.has(id) || this.pendingCreate(id)) return;
+    if (!this.entry(id)) return;
+    try {
+      this.mirror.set(id, await this.transport.getEntry(id));
+      this.listed = null;
+      this.loadError = null;
+    } catch (e) {
+      this.loadError = e instanceof Error ? e.message : 'Could not load this entry.';
+    }
+    if (!quiet) this.emit();
+  }
+
+  /**
+   * The stats the entry has, as text for `{weight}` in its texts: by the slug of each stat's name,
+   * with whether the value is its own. Null while the entry has not been read.
+   */
+  statChips(id: string): StatTexts | null {
+    const entry = this.view(id);
+    if (!entry) return null;
+    const out = new Map<string, { name: string; text: string; own: boolean }>();
+    for (const s of entry.stats) {
+      const def = this.statDefs.find((d) => d.id === s.statId);
+      if (def)
+        out.set(slugify(def.name), {
+          name: def.name,
+          text: typeof s.value === 'boolean' ? (s.value ? 'On' : 'Off') : String(s.value),
+          own: s.own,
+        });
+    }
+    return out;
+  }
+
+  /** How many entries this one has a parent link or a child link with. */
+  linkCount(id: string): number {
+    const v = this.view(id);
+    return v ? v.parentIds.length + this.childrenOf(id).length : 0;
+  }
+
+  /** Whether the server has the entry (it is not one made here and not sent yet). */
+  onServer(id: string): boolean {
+    return !!this.entry(id) && !this.pendingCreate(id);
+  }
+
+  /**
+   * Reads every entry's detail, a few at a time, quietly, so a view of many entries (the compare
+   * grid) has their stats. There is no bulk read yet (RFC 0041 K7): this is one read an entry,
+   * which is fine for hundreds and slow for thousands. The screen is told now and then, and at the end.
+   */
+  async loadAll(concurrency = 6): Promise<void> {
+    // One run at a time: the grid asks again each time the page is drawn.
+    this.reading ??= this.readAll(concurrency).finally(() => {
+      this.reading = null;
+    });
+    return this.reading;
+  }
+  private reading: Promise<void> | null = null;
+  private async readAll(concurrency: number): Promise<void> {
+    const ids = this.entries
+      .map((e) => e.id)
+      .filter((id) => !this.mirror.has(id) && !this.pendingCreate(id));
+    let next = 0;
+    let done = 0;
+    const worker = async () => {
+      while (next < ids.length) {
+        await this.open(ids[next++] as string, true);
+        if (++done % 60 === 0) this.emitLater();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
+    if (ids.length) this.emitLater();
+  }
+
+  /** How many entries have their detail read, of how many there are. */
+  loaded(): { read: number; of: number } {
+    const of = this.entries.length;
+    return {
+      read: this.entries.filter((e) => this.mirror.has(e.id) || this.pendingCreate(e.id)).length,
+      of,
+    };
+  }
+
+  /** The entry as the person sees it: the mirror with its pending commands applied. */
+  view(id: string): EntryState | null {
+    let base = this.mirror.get(id) ?? null;
+    if (!base) {
+      const create = this.pendingCreate(id);
+      if (!create) return null;
+      base = {
+        id,
+        name: '',
+        kinds: create.args?.kinds ?? [],
+        parentIds: create.args?.parents ?? [],
+        childIds: [],
+        description: null,
+        notes: [],
+        stats: [],
+        slug: create.args?.slug ?? null,
+        etag: null,
+      };
+    }
+    return this.outbox
+      .filter((c) => c.entryId === id)
+      .reduce((entry, c) => REGISTRY[c.type].apply(entry, c.mine, c), base);
+  }
+
+  /** Every entry, the server's and those not made yet, by name. */
+  listing(): EntrySummary[] {
+    // Worked out once between changes: every pane asks, and each answer is a pass over everything.
+    this.listed ??= this.makeListing();
+    return this.listed;
+  }
+
+  private makeListing(): EntrySummary[] {
+    const made = new Set(this.entries.map((e) => e.id));
+    const pending = this.outbox
+      .filter((c) => c.type === 'entry.create' && !made.has(c.entryId))
+      .map((c) => ({ id: c.entryId, name: '', kinds: c.args?.kinds ?? [], parentIds: [] }));
+    return [...this.entries, ...pending]
+      .map((e) => ({
+        ...e,
+        name: this.displayName(e.id),
+        kinds: this.kindsOf(e.id),
+        parentIds: this.view(e.id)?.parentIds ?? e.parentIds,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  }
+
+  kindsOf(id: string): string[] {
+    return this.view(id)?.kinds ?? this.entry(id)?.kinds ?? [];
+  }
+
+  displayName(id: string): string {
+    return this.view(id)?.name ?? this.entry(id)?.name ?? id;
+  }
+
+  /** The entries under this one: what the server lists, and those made here not yet sent. */
+  /** The entries that have this one as a parent, by name. Worked out once between changes. */
+  childrenOf(id: string): string[] {
+    if (this.childIndexFor !== this.listing()) {
+      const index = new Map<string, string[]>();
+      for (const e of this.listing())
+        for (const p of e.parentIds) {
+          const list = index.get(p);
+          if (list) list.push(e.id);
+          else index.set(p, [e.id]);
+        }
+      this.childIndex = index;
+      this.childIndexFor = this.listing();
+    }
+    return this.childIndex.get(id) ?? [];
+  }
+  private childIndex = new Map<string, string[]>();
+  private childIndexFor: EntrySummary[] | null = null;
+
+  /** What has not been sent, by entry: the changes that are only here until they are. */
+  unsent(): { id: string; name: string; count: number }[] {
+    const counts = new Map<string, number>();
+    for (const c of this.outbox) counts.set(c.entryId, (counts.get(c.entryId) ?? 0) + 1);
+    return [...counts].map(([id, count]) => ({ id, name: this.displayName(id), count }));
+  }
+
+  /** Gives up every change not sent (what is being sent is let finish first). */
+  async discardUnsent(): Promise<void> {
+    this.outbox = this.outbox.filter((c) => c.state === 'sending');
+    if (this.current) await this.current;
+    this.outbox = [];
+    this.emit();
+  }
+
+  commandsFor(id: string): Command[] {
+    return this.outbox.filter((c) => c.entryId === id);
+  }
+
+  status(id: string): EntryStatus {
+    const cs = this.commandsFor(id);
+    if (cs.some((c) => c.state === 'attention')) return 'attention';
+    if (cs.some((c) => c.state === 'conflict')) return 'conflict';
+    if (cs.length) return this.offline ? 'offline' : 'waiting';
+    return 'synced';
+  }
+
+  // ---- writing ----------------------------------------------------------------------------
+
+  /** Makes a new entry under an id of its own, and returns the id. It shows at once. */
+  create(draft: { name: string; kinds: string[]; parents: string[] }): string {
+    const id = this.makeId();
+    // Made with the link name its name makes, so a link to it works as soon as it is sent.
+    const slug = slugify(draft.name);
+    const args: CreateArgs = {
+      kinds: [...draft.kinds],
+      parents: [...draft.parents],
+      slug: slug && !slugProblem(slug) ? slug : null,
+    };
+    this.outbox.push({
+      id: this.nextId++,
+      type: 'entry.create',
+      version: 1,
+      entryId: id,
+      base: '',
+      mine: draft.name,
+      state: 'waiting',
+      args,
+    });
+    this.emit();
+    queueMicrotask(() => void this.run());
+    return id;
+  }
+
+  /** Writes a change down and starts sending. Nothing happens if it changes nothing. */
+  change(
+    type: Exclude<CommandType, 'entry.create' | 'note.add'>,
+    entryId: string,
+    mine: Value,
+    ref?: string,
+  ): Command | null {
+    const entry = this.view(entryId);
+    if (!entry) return null;
+    const command: Command = {
+      id: this.nextId++,
+      type,
+      version: 1,
+      entryId,
+      base: '',
+      mine,
+      state: 'waiting',
+    };
+    if (type === 'description.set-text') {
+      // A description not there yet is made under an id of the client's own (ADR 0222).
+      command.textId = entry.description?.id ?? this.makeId();
+    } else if (type === 'note.set-text') {
+      if (!ref || !entry.notes.some((n) => n.id === ref)) return null;
+      command.textId = ref;
+    } else if (type === 'entry.set-kind') {
+      if (ref !== 'item' && ref !== 'being') return null;
+      command.kind = ref;
+    } else if (type === 'stat.set') {
+      const def = this.statDefs.find((d) => d.id === ref);
+      if (!def || !canEditStat(def.type)) return null;
+      command.stat = { id: def.id, name: def.name, type: def.type };
+    }
+    const base = REGISTRY[type].read(entry, command);
+    if (sameValue(base, mine)) return null;
+    command.base = base;
+    this.outbox.push(command);
+    this.emit();
+    queueMicrotask(() => void this.run());
+    return command;
+  }
+
+  /** Changes the text of the entry's description, making the description if there is none. */
+  setDescription(entryId: string, text: string): Command | null {
+    return this.change('description.set-text', entryId, text);
+  }
+
+  /** Changes the text of one of the entry's notes. */
+  setNoteText(entryId: string, noteId: string, text: string): Command | null {
+    return this.change('note.set-text', entryId, text, noteId);
+  }
+
+  /** Moves one of the entry's notes up (-1) or down (+1) among its notes. */
+  moveNote(entryId: string, noteId: string, by: -1 | 1): Command | null {
+    const notes = this.view(entryId)?.notes.map((n) => n.id) ?? [];
+    const from = notes.indexOf(noteId);
+    const to = from + by;
+    if (from < 0 || to < 0 || to >= notes.length) return null;
+    [notes[from], notes[to]] = [notes[to] as string, notes[from] as string];
+    return this.change('notes.set-order', entryId, notes.join(','));
+  }
+
+  /** Gives the entry a link name, or with `null` takes it away. */
+  setSlug(entryId: string, slug: string | null): Command | null {
+    if (slug !== null && slugProblem(slug)) return null;
+    return this.change('entry.set-slug', entryId, slug);
+  }
+
+  /** Gives the entry a kind (an item, a being), or takes it away. */
+  setKind(entryId: string, kind: EditableKind, on: boolean): Command | null {
+    return this.change('entry.set-kind', entryId, on, kind);
+  }
+
+  /** Sets the entry's own value for a stat, or with `null` removes it so the entry inherits. */
+  setStat(entryId: string, statId: string, value: StatScalar | null): Command | null {
+    return this.change('stat.set', entryId, value, statId);
+  }
+
+  /** Adds a note to the entry, under an id of its own. It shows at once. */
+  addNote(entryId: string, text: string): string | null {
+    if (!this.view(entryId) || !text.trim()) return null;
+    const noteId = this.makeId();
+    this.outbox.push({
+      id: this.nextId++,
+      type: 'note.add',
+      version: 1,
+      entryId,
+      base: '',
+      mine: text,
+      state: 'waiting',
+      textId: noteId,
+    });
+    this.emit();
+    queueMicrotask(() => void this.run());
+    return noteId;
+  }
+
+  /**
+   * Takes a command that has not been sent out of the outbox. Cancelling a create takes with it
+   * everything that waits on what it would have made.
+   */
+  cancel(commandId: number) {
+    const c = this.outbox.find((x) => x.id === commandId);
+    if (!c || c.state === 'sending') return;
+    const gone = this.withDependants(c);
+    if (gone.some((x) => x.state === 'sending')) return;
+    this.outbox = this.outbox.filter((x) => !gone.includes(x));
+    this.emit();
+  }
+
+  /** Undoes the entry's latest change: cancels it if waiting, else queues its inverse. */
+  undo(entryId: string): boolean {
+    const waiting = [...this.outbox]
+      .reverse()
+      .find((c) => c.entryId === entryId && c.state === 'waiting');
+    if (waiting) {
+      this.cancel(waiting.id);
+      return true;
+    }
+    if (this.commandsFor(entryId).length) return false;
+    const last = [...this.history].reverse().find((c) => c.entryId === entryId);
+    const inv = last && inverseOf(last);
+    if (!last || !inv || inv.type === 'entry.create' || inv.type === 'note.add') return false;
+    this.history.splice(this.history.indexOf(last), 1);
+    this.change(inv.type, inv.entryId, inv.mine, inv.textId ?? inv.stat?.id ?? inv.kind);
+    return true;
+  }
+
+  canUndo(entryId: string): boolean {
+    if (this.outbox.some((c) => c.entryId === entryId && c.state === 'waiting')) return true;
+    if (this.commandsFor(entryId).length) return false;
+    const last = [...this.history].reverse().find((c) => c.entryId === entryId);
+    return !!last && inverseOf(last) !== null;
+  }
+
+  /** A conflict resolved in favour of the person's own value: it is sent over theirs. */
+  keepMine(commandId: number) {
+    const c = this.outbox.find((x) => x.id === commandId);
+    if (c?.state !== 'conflict' || c.theirs === undefined) return;
+    c.base = c.theirs;
+    c.theirs = undefined;
+    c.state = 'waiting';
+    this.emit();
+    queueMicrotask(() => void this.run());
+  }
+
+  /** A conflict or a refused command given up: the server's value stands. */
+  discard(commandId: number) {
+    const c = this.outbox.find((x) => x.id === commandId);
+    if (!c || c.state === 'sending' || c.state === 'waiting') return;
+    // A create given up takes what waits on it with it.
+    const gone = this.withDependants(c);
+    this.outbox = this.outbox.filter((x) => !gone.includes(x));
+    this.emit();
+  }
+
+  /** The command, and, if it makes an id, every command that waits on that id. */
+  private withDependants(c: Command): Command[] {
+    const made = makesId(c);
+    return made ? this.outbox.filter((x) => x === c || usedIds(x).includes(made)) : [c];
+  }
+
+  retry(commandId: number) {
+    const c = this.outbox.find((x) => x.id === commandId);
+    if (c?.state !== 'attention') return;
+    c.state = 'waiting';
+    c.error = undefined;
+    this.emit();
+    queueMicrotask(() => void this.run());
+  }
+
+  // ---- the runner -------------------------------------------------------------------------
+
+  /**
+   * Sends what is waiting, one command at a time, in the order written. Resolves when nothing
+   * more can be sent now; called while a run is going, it joins that run.
+   */
+  run(): Promise<void> {
+    if (this.current) {
+      this.again = true;
+      return this.current;
+    }
+    this.current = this.loop().finally(() => {
+      this.current = null;
+      this.emit();
+    });
+    return this.current;
+  }
+
+  private async loop(): Promise<void> {
+    do {
+      this.again = false;
+      for (let next = this.nextToSend(); next; next = this.nextToSend()) {
+        const stop = await this.send(next);
+        if (stop) break;
+      }
+    } while (this.again);
+  }
+
+  /**
+   * The first waiting command that can go: nothing earlier on its entry is stuck, and every
+   * entry it needs (its own, and the parents it names) has been made.
+   */
+  private nextToSend(): Command | undefined {
+    return this.outbox.find((c, i) => {
+      if (c.state !== 'waiting') return false;
+      const before = this.outbox.slice(0, i);
+      const stuck = before.some(
+        (p) => p.entryId === c.entryId && (p.state === 'conflict' || p.state === 'attention'),
+      );
+      const needs = usedIds(c);
+      const unmade = before.some((p) => {
+        const made = makesId(p);
+        return made !== undefined && needs.includes(made);
+      });
+      return !stuck && !unmade;
+    });
+  }
+
+  /** Returns true when the runner should stop (there is no connection). */
+  private async send(c: Command): Promise<boolean> {
+    c.state = 'sending';
+    this.emit();
+    try {
+      if (c.type === 'entry.create') await this.sendCreate(c);
+      else if (c.type === 'note.add') await this.sendNote(c);
+      else await this.sendChange(c);
+      // The server answered, whatever it said about the change: there is a connection.
+      this.offline = false;
+      return false;
+    } catch (e) {
+      if (e instanceof OfflineError) {
+        c.state = 'waiting';
+        this.offline = true;
+        return true;
+      }
+      c.state = 'attention';
+      c.error = e instanceof Error ? e.message : 'The server refused this change.';
+      return false;
+    }
+  }
+
+  private async sendCreate(c: Command) {
+    const made = await this.transport.createEntry({
+      id: c.entryId,
+      name: c.mine as string,
+      kinds: c.args?.kinds ?? [],
+      parents: c.args?.parents ?? [],
+      slug: c.args?.slug ?? null,
+    });
+    this.mirror.set(c.entryId, made);
+    // The server's list now has it, and its parents have a new child.
+    this.entries = [
+      ...this.entries.filter((e) => e.id !== c.entryId),
+      { id: made.id, name: made.name, kinds: made.kinds, parentIds: made.parentIds },
+    ];
+    for (const parentId of made.parentIds) {
+      const parent = this.mirror.get(parentId);
+      if (parent && !parent.childIds.includes(c.entryId))
+        this.mirror.set(parentId, { ...parent, childIds: [...parent.childIds, c.entryId] });
+    }
+    this.finish(c);
+  }
+
+  private async sendNote(c: Command) {
+    await this.transport.createText(c.entryId, {
+      id: c.textId as string,
+      type: 'note',
+      title: 'Note',
+      text: c.mine as string,
+    });
+    this.mirror.set(c.entryId, await this.transport.getEntry(c.entryId));
+    this.finish(c);
+  }
+
+  /** What the server has for the field this command changes: a text, or a name or parents. */
+  private theirsOf(c: Command, server: EntryState): Value {
+    if (c.type === 'description.set-text' || c.type === 'note.set-text')
+      return docOf(server, c)?.text ?? '';
+    return REGISTRY[c.type].read(server, c);
+  }
+
+  /** Sends a change of text: the three-way compare, then a write of the payload or a create. */
+  private async writeText(c: Command, server: EntryState): Promise<void> {
+    const doc = docOf(server, c);
+    if (doc) {
+      await this.transport.setText(doc.payloadId, c.mine as string, doc.version);
+    } else if (c.type === 'description.set-text') {
+      await this.transport.createText(c.entryId, {
+        id: c.textId as string,
+        type: 'description',
+        title: 'Description',
+        text: c.mine as string,
+      });
+    } else {
+      throw new RefusedError('That note is no longer there.');
+    }
+    this.mirror.set(c.entryId, await this.transport.getEntry(c.entryId));
+  }
+
+  private async sendChange(c: Command) {
+    const def = REGISTRY[c.type];
+    const isText = c.type === 'description.set-text' || c.type === 'note.set-text';
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const server = await this.transport.getEntry(c.entryId);
+      this.mirror.set(c.entryId, server);
+      if (c.type === 'note.set-text' && !docOf(server, c))
+        throw new RefusedError('That note is no longer there.');
+      const verdict = compare(c.base, c.mine, this.theirsOf(c, server));
+      if (verdict === 'conflict') {
+        c.state = 'conflict';
+        c.theirs = this.theirsOf(c, server);
+        return;
+      }
+      if (verdict === 'send') {
+        try {
+          if (isText) await this.writeText(c, server);
+          else this.mirror.set(c.entryId, await def.send(this.transport, server, c.mine, c));
+        } catch (e) {
+          // The entry changed between the read and the write: read it again once.
+          if (e instanceof RefusedError && e.precondition && attempt === 0) continue;
+          throw e;
+        }
+      }
+      this.finish(c);
+      return;
+    }
+    throw new RefusedError(`This ${def.label} kept changing while it was being saved.`);
+  }
+
+  private finish(c: Command) {
+    this.offline = false;
+    c.state = 'synced';
+    this.outbox.splice(this.outbox.indexOf(c), 1);
+    this.history.push(c);
+    if (this.history.length > HISTORY_LIMIT) this.history.shift();
+    // A rename is in the list too.
+    const entry = this.mirror.get(c.entryId);
+    const row = this.entry(c.entryId);
+    if (entry && row) {
+      row.name = entry.name;
+      row.kinds = entry.kinds;
+      row.parentIds = entry.parentIds;
+    }
+    this.emit();
+  }
+}

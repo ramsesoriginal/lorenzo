@@ -1,0 +1,46 @@
+---
+import Base from '../../layouts/Base.astro';
+import BeingList from '../../components/BeingList/BeingList.astro';
+---
+
+<Base title="Beings — Lorenzo Beings">
+  <h1 class="display">Beings</h1>
+  <p id="status">
+    Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span>
+  </p>
+
+  <BeingList />
+
+  <script>
+    import { renderBeingList } from '../../components/BeingList/renderer';
+    import { addressedTenant } from '../../lib/addresses';
+    import { isAuthenticated } from '../../lib/auth';
+    import { errorMessage } from '../../lib/errorMessage';
+    import { say } from '../../lib/statusLine';
+    import { requiredIn } from '../../lib/template';
+
+    const required = requiredIn('Beings page');
+    const status = required<HTMLElement>(document, '#status');
+    const root = required<HTMLElement>(document, '[data-being-list]');
+
+    const named = new URLSearchParams(window.location.search).get('tenant');
+    // By id or by slug (ADR 0135).
+    const addressed = await addressedTenant(named);
+
+    if (!(await isAuthenticated())) {
+      say(status, "You're not logged in. Log in to continue.");
+    } else if (addressed.problem) {
+      say(status, addressed.problem);
+    } else if (!addressed.id || !named) {
+      say(status, 'Choose a library on the home page first.');
+    } else {
+      try {
+        say(status, '');
+        await renderBeingList({ root, tenantId: addressed.id, tenantAddress: named });
+      } catch (error) {
+        say(status, errorMessage(error), true);
+        root.hidden = true;
+      }
+    }
+  </script>
+</Base>

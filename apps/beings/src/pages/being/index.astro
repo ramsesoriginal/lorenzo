@@ -1,0 +1,60 @@
+---
+import Base from '../../layouts/Base.astro';
+import BeingPage from '../../components/BeingPage/BeingPage.astro';
+---
+
+<Base title="Being — Lorenzo Beings">
+  <p id="status">
+    Loading&hellip; <span class="spinner" role="status" aria-label="Loading"></span>
+  </p>
+
+  <BeingPage />
+
+  <script>
+    import { renderBeingPage } from '../../components/BeingPage/renderer';
+    import { addressedTenant, isId } from '../../lib/addresses';
+    import { isAuthenticated } from '../../lib/auth';
+    import { findBeing } from '../../lib/being';
+    import { descriptionRenderer } from '../../lib/descriptions';
+    import { errorMessage } from '../../lib/errorMessage';
+    import { say } from '../../lib/statusLine';
+    import { requiredIn } from '../../lib/template';
+
+    const required = requiredIn('Being page');
+    const status = required<HTMLElement>(document, '#status');
+    const page = required<HTMLElement>(document, '[data-being-page]');
+
+    const params = new URLSearchParams(window.location.search);
+    const named = params.get('tenant');
+    // By id or by slug (ADR 0135).
+    const addressed = await addressedTenant(named);
+    const beingId = params.get('id');
+    // ?slug=, or an ?id= that's a slug (ADR 0113, 0135).
+    const beingSlug = params.get('slug') ?? (beingId && !isId(beingId) ? beingId : null);
+
+    if (!(await isAuthenticated())) {
+      say(status, "You're not logged in. Log in to continue.");
+    } else if (addressed.problem) {
+      say(status, addressed.problem);
+    } else if (!addressed.id || !named || !(beingId || beingSlug)) {
+      say(status, "This link is incomplete — it's missing a library or a being.");
+    } else {
+      const tenantId = addressed.id;
+
+      try {
+        const found = await findBeing(tenantId, { slug: beingSlug, id: beingId });
+
+        say(status, '');
+        await renderBeingPage({
+          root: page,
+          tenantId,
+          tenantAddress: named,
+          renderer: descriptionRenderer(tenantId),
+        }).show(found.entityId);
+      } catch (error) {
+        say(status, errorMessage(error), true);
+        page.hidden = true;
+      }
+    }
+  </script>
+</Base>

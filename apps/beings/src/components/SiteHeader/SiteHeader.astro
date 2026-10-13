@@ -1,0 +1,69 @@
+---
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<header class="site-header" data-site-header>
+  <div class="row">
+    <a class="brand display" href="/" aria-label="Lorenzo">
+      <span class="display">✧ Lorenzo</span>
+    </a>
+    <span class="product display">Beings</span>
+    <nav class="row" aria-label="Subpages">
+      <a href="/" data-path="/">
+        Home
+      </a>
+      <a href="/beings/" data-path="/beings/" data-needs-tenant hidden>
+        Beings
+      </a>
+    </nav>
+  </div>
+  <div class="row v-mobile">
+    <div class="row-tight" data-tenant-switcher-group hidden>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${BRANDING_CSS_URL}/icons.svg#icon-library`}></use>
+      </svg>
+      <select
+        aria-label="Library"
+        class="text-input grow"
+        style="width: auto;"
+        data-tenant-switcher
+      ></select>
+    </div>
+    <div class="row-tight">
+      <div class="row-tight">
+        <p data-account-loading>Checking your session&hellip;</p>
+        <p class="error-text" data-account-error hidden></p>
+        <div class="row" data-account-signed-out hidden>
+          <button type="button" class="btn row-tight" data-login>
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-login`}></use>
+            </svg>
+            Log in
+          </button>
+        </div>
+        <div class="row" data-account-signed-in hidden>
+          <span>
+            Signed in as <strong data-account-email></strong>.
+          </span>
+          <button type="button" class="btn btn-secondary row-tight" data-logout>
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-logout`}></use>
+            </svg>
+            Log out
+          </button>
+        </div>
+        <button type="button" class="btn btn-secondary" aria-pressed="false" data-theme-toggle>
+          ☾ dark
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  import { renderSiteHeader } from './renderer';
+
+  const header = document.querySelector<HTMLElement>('[data-site-header]');
+
+  if (header) await renderSiteHeader(header);
+</script>

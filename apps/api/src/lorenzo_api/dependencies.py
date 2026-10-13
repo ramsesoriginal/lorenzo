@@ -27,15 +27,18 @@ from lorenzo_api.exceptions import (
     CampaignNotFoundError,
     EntityNotFoundError,
     InvalidTokenError,
+    PersonalTokenForbiddenError,
     PlatformOperatorRoleRequiredError,
     TenantAdminRequiredError,
     TenantCreationForbiddenError,
     TenantNotFoundError,
 )
 from lorenzo_api.models import Campaign, Entity, Membership, Tenant, User
+from lorenzo_api.personal_tokens import find_live_token, is_personal_token, touch_last_used
 
 __all__ = [
     "CurrentUser",
+    "InteractiveUser",
     "ParamsDep",
     "SessionDep",
     "get_campaign_context",
@@ -62,6 +65,9 @@ __all__ = [
 # against yet, so this is implemented per Authgear's roles/groups guide and
 # left for that empirical confirmation before relying on it in production.
 _AUTHGEAR_ROLES_CLAIM = "https://authgear.com/claims/user/roles"
+
+# verify_token's stand-in "claims" for a personal access token (ADR 0268).
+_PERSONAL_TOKEN_CLAIM = "_personal_access_token"
 
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 ParamsDep = Annotated[Params, Depends()]
@@ -109,6 +115,9 @@ async def verify_token(
     """
     settings = get_settings()
     token = credentials.credentials
+    if is_personal_token(token):
+        # Not a JWT (ADR 0268): get_current_user resolves it against the token table instead.
+        return {_PERSONAL_TOKEN_CLAIM: True}
     try:
         signing_key = await run_in_threadpool(jwks_client.get_signing_key_from_jwt, token)
         claims: dict[str, Any] = await run_in_threadpool(
@@ -259,16 +268,25 @@ async def get_current_user(
     else below runs - a fresh auto-provisioned user is never suspended by
     construction, so this can't interfere with first-login provisioning.
     """
+    if claims.get(_PERSONAL_TOKEN_CLAIM):
+        return await _personal_token_user(session, credentials.credentials)
+
     subject = claims.get("sub")
     if not isinstance(subject, str) or not subject:
         raise InvalidTokenError(detail="Token has no subject claim")
 
+    roles_claim = claims.get(_AUTHGEAR_ROLES_CLAIM)
+    last_seen_roles = (
+        sorted({r for r in roles_claim if isinstance(r, str)})
+        if isinstance(roles_claim, list)
+        else []
+    )
     stmt = (
         pg_insert(User)
-        .values(authgear_subject_id=subject)
+        .values(authgear_subject_id=subject, last_seen_roles=last_seen_roles)
         .on_conflict_do_update(
             index_elements=[User.authgear_subject_id],
-            set_={"authgear_subject_id": subject},
+            set_={"authgear_subject_id": subject, "last_seen_roles": last_seen_roles},
         )
         .returning(User)
     )
@@ -294,6 +312,45 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def _personal_token_user(session: AsyncSession, secret: str) -> User:
+    """Resolves a `lor_pat_` bearer token to its user (ADR 0268): the same user, so the same
+    memberships and permissions, as that user's interactive session - with two differences. The
+    platform-operator role is never carried (admin needs a signed-in session), and the
+    tenant-creator role is the one the user's latest interactive token had. A revoked, expired or
+    unknown token is the usual 401, with one message for all three; so is a suspended account's
+    (403, like the interactive path).
+    """
+    token = await find_live_token(session, secret)
+    if token is None:
+        raise InvalidTokenError(detail="Invalid or expired authentication token")
+    user = await session.get(User, token.user_id)
+    if user is None:
+        raise InvalidTokenError(detail="Invalid or expired authentication token")
+    if user.suspended_at is not None:
+        reason = f": {user.suspension_reason}" if user.suspension_reason else ""
+        raise AccountSuspendedError(detail=f"User {user.id} is suspended{reason}")
+    await touch_last_used(session, token.id)
+    await session.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user.id)})
+    creator_key = get_settings().tenant_creator_role_key
+    user.authgear_roles = frozenset(r for r in user.last_seen_roles if r == creator_key)
+    user.via_personal_token = token
+    return user
+
+
+async def require_interactive_session(user: CurrentUser) -> User:
+    """Gates what a personal access token must not do (ADR 0268): approve, list or revoke
+    tokens, and delete the account. A leaked token then cannot make itself permanent.
+    """
+    if user.via_personal_token is not None:
+        raise PersonalTokenForbiddenError(
+            detail="Sign in to the account hub to do this; a personal access token cannot."
+        )
+    return user
+
+
+InteractiveUser = Annotated[User, Depends(require_interactive_session)]
 
 
 def can_create_tenant(user: User) -> bool:

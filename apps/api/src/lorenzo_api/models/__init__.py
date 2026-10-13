@@ -39,6 +39,7 @@ from lorenzo_api.models.payload_description import PayloadDescription
 from lorenzo_api.models.payload_document import PayloadDocument
 from lorenzo_api.models.payload_number import PayloadNumber
 from lorenzo_api.models.payload_picture import PayloadPicture
+from lorenzo_api.models.personal_access_token import DeviceAuthorization, PersonalAccessToken
 from lorenzo_api.models.player import Player
 from lorenzo_api.models.profile_picture import ProfilePicture
 from lorenzo_api.models.repository_copy import (
@@ -48,7 +49,10 @@ from lorenzo_api.models.repository_copy import (
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
 )
+from lorenzo_api.models.repository_profile import RepositoryProfile
 from lorenzo_api.models.repository_release import RepositoryRelease
+from lorenzo_api.models.repository_release_blob import RepositoryReleaseBlob
+from lorenzo_api.models.repository_release_document import RepositoryReleaseDocument
 from lorenzo_api.models.repository_released_row import RepositoryReleasedRow
 from lorenzo_api.models.repository_subscription import RepositorySubscription
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
@@ -107,6 +111,8 @@ __all__ = [
     "PayloadDocument",
     "PayloadNumber",
     "PayloadPicture",
+    "DeviceAuthorization",
+    "PersonalAccessToken",
     "Player",
     "ProfilePicture",
     "RepositoryCopy",
@@ -114,7 +120,10 @@ __all__ = [
     "RepositoryCopyLinkEntity",
     "RepositoryCopyLinkStatDefinition",
     "RepositoryCopyLinkStatGroup",
+    "RepositoryProfile",
     "RepositoryRelease",
+    "RepositoryReleaseBlob",
+    "RepositoryReleaseDocument",
     "RepositoryReleasedRow",
     "RepositorySubscription",
     "StatDefinition",

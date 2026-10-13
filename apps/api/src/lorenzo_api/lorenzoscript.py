@@ -59,6 +59,8 @@ def _space(s: str) -> bool:
 # --- Shared syntax (inline.ts) --------------------------------------------------
 
 ATTR_LIST = r"[.#][A-Za-z][A-Za-z0-9_-]*(?:[ \t]+[.#][A-Za-z][A-Za-z0-9_-]*)*"
+# `{weight}`: a stat name. It starts with a letter, so `{#id}`, `{.class}` and `a{3}` are never one.
+_STAT = re.compile(r"\{([A-Za-z][A-Za-z0-9_-]*)\}")
 _ATTRS = re.compile(rf"\{{[ \t]*({ATTR_LIST})[ \t]*\}}")
 _SPAN_OPEN = re.compile(rf"\{{\{{({ATTR_LIST})(?:[ \t]+|(?=\}}\}}))")
 _AUTOLINK = re.compile(rf"<([A-Za-z][A-Za-z0-9+.-]{{1,31}}:[^{_WS_CLASS}<>]*)>")
@@ -121,6 +123,7 @@ def _plain_of(n: Node) -> str:
         "math": n.get("tex"),
         "date": n.get("date"),
         "calendar": n.get("expression"),
+        "stat": n.get("name"),
         "break": " ",
     }.get(n["type"]) or ""
 
@@ -295,7 +298,7 @@ class _Inline:
                     if c == "<"
                     else _math(src, i)
                     if c == "$"
-                    else _pending(src, i)
+                    else (_stat(src, i) or _pending(src, i))
                     if c == "{"
                     else None
                 )
@@ -383,6 +386,11 @@ def _math(src: str, i: int) -> Token:
     if not display and (tex[0] in _WS or tex[-1] in _WS or digit_after):
         return None
     return {"type": "math", "tex": _trim(tex)}, k + len(fence) - i
+
+
+def _stat(src: str, i: int) -> Token:
+    m = _STAT.match(src, i)
+    return ({"type": "stat", "name": m[1]}, len(m[0])) if m else None
 
 
 def _pending(src: str, i: int) -> Token:

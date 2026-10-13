@@ -1,0 +1,13 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Signing in — Lorenzo">
+  <p>Signing you in&hellip;</p>
+  <script>
+    import { completeLogin } from '../../lib/auth';
+
+    await completeLogin();
+    window.location.replace('/');
+  </script>
+</Base>

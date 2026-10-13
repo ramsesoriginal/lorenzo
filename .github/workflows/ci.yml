@@ -78,7 +78,7 @@ jobs:
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
             postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       # pnpm itself ships via corepack, not as a mise [tools] entry (ADR
@@ -151,7 +151,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: base
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: mise run openapi-schema
@@ -190,7 +190,7 @@ jobs:
         include: ${{ fromJson(needs.discover.outputs.drift_matrix) }}
     steps:
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
@@ -220,7 +220,7 @@ jobs:
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
             postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
@@ -271,6 +271,109 @@ jobs:
             apps/inventory-web/test-results/
           retention-days: 7
 
+  # apps/beings' end-to-end tests (ADR 0270): the built site in a browser, against the real apps/api
+  # and a fake Authgear, its own launchers on its own ports. The `beings-e2e` suite in
+  # .github/ci-graph.toml: it runs when beings, anything it depends on, or the API is affected.
+  e2e-beings:
+    name: e2e (beings ${{ matrix.shard }})
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'beings-e2e')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["1/2", "2/2"]
+    steps:
+      # Postgres in the background and a cached headless shell: see the inventory-web job.
+      - name: Start Postgres
+        run: |
+          nohup docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
+            postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: npm install --global corepack@latest && corepack enable
+      - name: Build the API's environment
+        run: |
+          nohup sh -c 'uv sync --frozen --no-dev --project apps/api; echo $? > "$RUNNER_TEMP/api-env.status"' \
+            > "$RUNNER_TEMP/api-env.log" 2>&1 < /dev/null &
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/beings
+      - name: Wait for Postgres and the API's environment
+        run: |
+          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
+            || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
+          timeout 120 sh -c 'until [ -f "$RUNNER_TEMP/api-env.status" ]; do sleep 1; done'
+          [ "$(cat "$RUNNER_TEMP/api-env.status")" = 0 ] || { cat "$RUNNER_TEMP/api-env.log"; exit 1; }
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        working-directory: apps/beings
+      - uses: actions/cache@v6
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-headless-shell-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm exec playwright install chromium-headless-shell
+        if: steps.browsers.outputs.cache-hit != 'true'
+        working-directory: apps/beings
+      - run: pnpm exec playwright test --shard=${{ matrix.shard }}
+        working-directory: apps/beings
+        env:
+          UV_NO_DEV: 1
+          E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
+          E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-beings-${{ strategy.job-index }}
+          path: |
+            apps/beings/playwright-report/
+            apps/beings/test-results/
+          retention-days: 7
+
+  # apps/bench's browser tests (ADR 0210): the built static page in a browser, with no API or
+  # database yet. The `bench-e2e` suite in .github/ci-graph.toml: it runs when bench or anything it
+  # depends on is affected.
+  e2e-bench:
+    name: e2e (bench)
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'bench-e2e')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: npm install --global corepack@latest && corepack enable
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/bench
+      # The same cached headless shell as the inventory-web job, installed without `--with-deps`.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        working-directory: apps/bench
+      - uses: actions/cache@v6
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-headless-shell-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm exec playwright install chromium-headless-shell
+        if: steps.browsers.outputs.cache-hit != 'true'
+        working-directory: apps/bench
+      - run: pnpm exec playwright test
+        working-directory: apps/bench
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-bench
+          path: |
+            apps/bench/playwright-report/
+            apps/bench/test-results/
+          retention-days: 7
+
   # apps/account-hub's browser tests against the real API (ADR 0136, ADR 0196): the same stack as the
   # job above, started by inventory-web's launchers. The `account-hub-real-api` suite in
   # .github/ci-graph.toml: it runs when the hub, the API or inventory-web is affected. It runs the
@@ -289,7 +392,7 @@ jobs:
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
             postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - run: npm install --global corepack@latest && corepack enable
@@ -353,7 +456,7 @@ jobs:
             -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
             postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
         with:
           version: ${{ env.MISE_VERSION }}
       - name: Wait for Postgres
@@ -373,7 +476,7 @@ jobs:
   # in `needs` without naming them: skipped is fine, failed or cancelled is not. A job that gates a
   # merge must be listed in `needs`, or nothing will ever wait for it.
   ci-summary:
-    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, account-hub-real-api, cli-e2e]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-bench, account-hub-real-api, cli-e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:

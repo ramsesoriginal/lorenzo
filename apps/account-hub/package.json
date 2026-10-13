@@ -9,7 +9,7 @@
   "scripts": {
     "build-branding-package": "pnpm --filter @lorenzo/brand run build",
     "copy-branding": "node scripts/copy-branding.mjs",
-    "dev": "pnpm run build-branding-package && pnpm run copy-branding && astro dev",
+    "dev": "astro dev",
     "build": "pnpm run build-branding-package && pnpm run copy-branding && astro build",
     "preview": "astro preview",
     "astro": "astro",
@@ -19,7 +19,7 @@
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "test:real-api": "playwright test --config playwright.real-api.config.ts",
-    "test:real-api:ci": "playwright test --config playwright.real-api.config.ts tests/e2e tests/real-api/shelf.spec.ts tests/real-api/copy.spec.ts tests/real-api/studio.spec.ts tests/real-api/studio-using.spec.ts tests/real-api/studio-publish.spec.ts tests/real-api/studio-releases.spec.ts tests/real-api/updates.spec.ts"
+    "test:real-api:ci": "playwright test --config playwright.real-api.config.ts tests/e2e tests/real-api/shelf.spec.ts tests/real-api/copy.spec.ts tests/real-api/studio.spec.ts tests/real-api/studio-using.spec.ts tests/real-api/studio-publish.spec.ts tests/real-api/studio-releases.spec.ts tests/real-api/studio-subscriber.spec.ts tests/real-api/updates.spec.ts tests/real-api/player-library.spec.ts tests/real-api/admin-basics.spec.ts tests/real-api/being-handoff.spec.ts tests/real-api/campaigns.spec.ts tests/real-api/errors.spec.ts tests/real-api/exits.spec.ts tests/real-api/invite-links.spec.ts tests/real-api/repositories.spec.ts tests/real-api/self-service.spec.ts tests/real-api/tenant-slug.spec.ts tests/real-api/setup.spec.ts tests/real-api/personal-tokens.spec.ts tests/real-api/tenant-deletion.spec.ts"
   },
   "dependencies": {
     "@authgear/web": "^6.0.0",

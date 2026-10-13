@@ -4,6 +4,7 @@ the entity's own."""
 
 import uuid
 from typing import Any
+from unittest.mock import ANY
 
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_plain_participant, make_tenant
@@ -227,7 +228,13 @@ async def test_a_stat_says_whether_it_is_the_entitys_own(
     off = await client.patch(f"{url}/tags/{magical_id}")
     back = await client.delete(f"{url}/tags/{magical_id}")
 
-    assert inherited == [{"name": "is_magical", "value": True, "own": False}]
-    assert off.json()["stats"] == [{"name": "is_magical", "value": False, "own": True}]
-    assert back.json()["stats"] == [{"name": "is_magical", "value": True, "own": False}]
+    assert inherited == [
+        {"name": "is_magical", "value": True, "own": False, "from_entity": ANY, "computed": False}
+    ]
+    assert off.json()["stats"] == [
+        {"name": "is_magical", "value": False, "own": True, "from_entity": None, "computed": False}
+    ]
+    assert back.json()["stats"] == [
+        {"name": "is_magical", "value": True, "own": False, "from_entity": ANY, "computed": False}
+    ]
     await delete_tenant(tenant_id)

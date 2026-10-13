@@ -1,0 +1,161 @@
+---
+import '@lorenzo/brand/normalize.css';
+import '@lorenzo/brand/tokens.css';
+import '@lorenzo/brand/fonts.css';
+import '@lorenzo/brand/base.css';
+import '../styles/bench.css';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Brand tokens turn dark only via [data-theme="dark"]; set it before first paint. -->
+    <script is:inline>
+      try {
+        var t = localStorage.getItem('bench:theme') || 'system';
+        var dark =
+          t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      } catch (e) {}
+    </script>
+    <title>Lorenzo Bench</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body>
+    <header class="top" id="titlebar">
+      <span class="brand">
+        <b>Bench</b>
+      </span>
+    </header>
+    <div class="live" id="live" role="status" hidden></div>
+    <div class="welcome" id="welcome" hidden></div>
+    <main id="bench"></main>
+    <footer class="statusbar" id="statusbar"></footer>
+    <script>
+      import { Bench } from '../core/bench';
+      import { SampleTransport } from '../core/sample';
+      import type { Transport } from '../core/transport';
+      import { apiTransport } from '../lib/transport';
+      import { LiveBanner } from '../shell/liveBanner';
+      import { chooseRepository, loadSession, signOut } from '../shell/session';
+      import { guardUnsent, requestSignOut } from '../shell/signOutDialog';
+      import { Shell } from '../shell/shell';
+      import { SAMPLE_ENTRIES, SAMPLE_STATS } from '../shell/stub';
+      import { openStartScreen, showWelcome } from '../shell/repositories';
+      import { decorateTopBar } from '../shell/topbar';
+      import { renderTitleBar } from '../shell/titlebar';
+
+      const root = document.getElementById('bench');
+      const bar = document.getElementById('titlebar');
+      if (root && bar) {
+        // The workbench and its shortcuts exist at once, empty; the session fills it in.
+        const shell = new Shell(root, new Bench(new SampleTransport([])));
+        (window as unknown as { bench: Shell }).bench = shell;
+        const live = new LiveBanner(document.getElementById('live') as HTMLElement);
+        const session = await loadSession();
+        live.set(session.kind === 'signed-in' && session.published);
+
+        // Signed in: the chosen repository, through the API. Otherwise a small sample one held
+        // in memory, so the page can still be tried.
+        let transport: Transport;
+        let sample: SampleTransport | null = null;
+        if (session.kind === 'signed-in' && session.current) {
+          const { client } = await import('../lib/api');
+          transport = apiTransport(client, session.current.id);
+        } else {
+          sample = new SampleTransport(
+            session.kind === 'signed-in' ? [] : SAMPLE_ENTRIES,
+            SAMPLE_STATS,
+          );
+          transport = sample;
+        }
+
+        const bench = new Bench(transport);
+        shell.use(bench);
+        const leave = () => requestSignOut(bench, signOut);
+        guardUnsent(() => bench);
+        renderTitleBar(bar, session, () => location.reload(), leave);
+        decorateTopBar(bar, shell);
+        document.getElementById('statusbar')?.replaceWith(shell.statusEl);
+
+        const extra = [];
+        if (session.kind === 'signed-in') {
+          extra.push(
+            ...session.repositories.map((r) => ({
+              label: `Open repository ${r.name}`,
+              run: () => {
+                chooseRepository(session.userId, r.id);
+                location.reload();
+              },
+            })),
+            {
+              label: 'Your repositories…',
+              run: () =>
+                openStartScreen(
+                  session.repositories.map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    role: r.role as string,
+                  })),
+                  session.current?.id ?? null,
+                  (id) => {
+                    chooseRepository(session.userId, id);
+                    location.reload();
+                  },
+                ),
+            },
+            { label: 'Sign out', run: leave },
+          );
+        }
+        if (sample) {
+          const s = sample;
+          // Exposed so the browser tests can play the server's part.
+          (window as unknown as { sample: SampleTransport }).sample = s;
+          extra.push(
+            {
+              label: 'Sample: sign out',
+              // There is no account on this page: a signed-out flag stands in for it.
+              run: () =>
+                requestSignOut(bench, () => {
+                  (window as unknown as { signedOut: boolean }).signedOut = true;
+                }),
+            },
+            {
+              label: 'Sample: publish the repository',
+              run: () => live.set(true),
+            },
+            {
+              label: 'Sample: lose the connection',
+              run: () => {
+                s.offline = true;
+              },
+            },
+            {
+              label: 'Sample: get the connection back',
+              run: () => {
+                s.offline = false;
+                void bench.run();
+              },
+            },
+          );
+        }
+        extra.push({
+          label: 'Show the welcome',
+          run: () => showWelcome(document.getElementById('welcome') as HTMLElement, true),
+        });
+        shell.extra = extra;
+        showWelcome(document.getElementById('welcome') as HTMLElement);
+        // Signed in with nothing to open: the start screen says what a repository is.
+        if (session.kind === 'signed-in' && !session.current) openStartScreen([], null, () => {});
+
+        await bench.loadEntries();
+        const first = bench.entries.find((e) => e.kinds.includes('item'));
+        if (first) shell.select(first.id);
+      }
+    </script>
+  </body>
+</html>

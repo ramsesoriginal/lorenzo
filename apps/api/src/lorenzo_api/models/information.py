@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.entity import Entity
     from lorenzo_api.models.knowledge import Knowledge
     from lorenzo_api.models.payload import Payload
+    from lorenzo_api.models.user import User
 
 
 class Information(Base):
@@ -62,6 +63,10 @@ class Information(Base):
 
     entity: Mapped[Entity] = relationship(
         foreign_keys="Information.entity_id", lazy="raise_on_sql", back_populates="information"
+    )
+    # The account that wrote it, for `created_by_name` (ADR 0277); null when it is gone.
+    author: Mapped[User | None] = relationship(
+        foreign_keys="Information.created_by", lazy="raise_on_sql", viewonly=True
     )
     payloads: Mapped[list[Payload]] = relationship(
         foreign_keys="Payload.information_id",

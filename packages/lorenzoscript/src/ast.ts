@@ -60,6 +60,8 @@ export type Inline =
   | { type: 'date'; date: string; attrs?: Attrs }
   /** `{{cal …}}`: an in-game date, not yet interpreted. */
   | { type: 'calendar'; expression: string; attrs?: Attrs }
+  /** `{weight}`: a stat of the entry the text belongs to, resolved when rendering. */
+  | { type: 'stat'; name: string; attrs?: Attrs }
   | { type: 'break' };
 
 /** Everything `references()` finds that a renderer needs resolved, or stage 7 stores. */

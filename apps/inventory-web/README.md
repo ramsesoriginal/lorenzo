@@ -29,6 +29,18 @@ board; a group's board and the unowned board have none
 ([ADR 0187](../../docs/adr/0187-inventory-web-adding-an-item-to-a-board.md), [ADR
 0186](../../docs/adr/0186-player-self-service-enforcement.md)).
 
+**Not in the list?** The same card takes an item the catalog doesn't have: a name, a description, a
+weight in pounds and a value. It is added as an *unsorted* item, with the description kept as notes
+for the character, and the card wears an **Unsorted** badge until the GM matches it to a catalog
+item ([ADR 0238](../../docs/adr/0238-inventory-web-not-in-the-list-and-the-unsorted-badge.md)).
+
+**Unsorted** (a GM's page) lists every unsorted item grouped by the name the player wrote. Open a
+group to see who holds each and their notes, then give the ticked ones to a catalog item (suggested
+by how alike the names are, or searched), make a new catalog item from the group, or keep it for
+now. The suggestions also know the other ways a name is written ("Seil" for "Rope, hempen"), from the
+same table `lorenzo inventory import` uses ([ADR 0242](../../docs/adr/0242-inventory-names-the-spelling-table-shared.md)). The names and notes stay on what is sorted, and its holders are told by the API
+([ADR 0241](../../docs/adr/0241-inventory-web-the-unsorted-view.md)).
+
 From that detail view, or when multiple cards are multi-selected:
 
 - **Give** an item (or part of a stack) to another being; a player finds the
@@ -89,6 +101,14 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
   and a "used as a prototype by" reverse lookup
 - Instantiate a catalog item into a new instance, with an optional owner and
   slug
+- Edit an item's or instance's stat values on its page (a field per type, its
+  own value or inherited again; [ADR
+  0263](../../docs/adr/0263-inventory-web-editing-stat-values.md))
+- A notification bell in the header: unread count, the latest ten with a link to
+  the board they are about, mark one or all as read, and "See all" in the account
+  hub, whose address comes from the API's app-links registry ([ADR 0265](../../docs/adr/0265-inventory-web-notification-bell.md),
+  [ADR 0273](../../docs/adr/0273-app-links-registry.md)); `PUBLIC_ACCOUNT_HUB_URL` is only the
+  fallback when the registry cannot be reached
 - Browse/reassign/unassign/delete existing instances
 - Browse any being's inventory (not just their own characters) — by
   search, or an entity id or slug for a "bare" being with no Character row — and
@@ -97,7 +117,7 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
 
 Deliberately not built yet: naming who may read a private piece of
 information (ADR 0109's knowers) beyond a note's own character, showing who
-wrote a note, editing stat values other than tags, and uploading pictures —
+wrote a note, and uploading pictures —
 see the tracking issue for what's actually in flight.
 
 ## Commands

@@ -10,6 +10,7 @@ stable, programmatically-distinguishable value beyond the human-readable
 """
 
 from fastapi_problem.error import (
+    BadRequestProblem,
     ConflictProblem,
     ForbiddenProblem,
     NotFoundProblem,
@@ -34,6 +35,8 @@ __all__ = [
     "EntitySlugManagementForbiddenError",
     "EntitySlugNotFoundError",
     "EntityStatManagementForbiddenError",
+    "ExportChangedError",
+    "InvalidExportCursorError",
     "InvalidCharacterError",
     "InvalidGroupMemberError",
     "InvalidItemPrototypeError",
@@ -50,6 +53,7 @@ __all__ = [
     "InheritedEntryDeletionForbiddenError",
     "InvalidTokenError",
     "InvalidUserError",
+    "InventoryItemParentsError",
     "ItemInstanceManagementForbiddenError",
     "ItemInstanceNotFoundError",
     "ItemInstanceSlugConflictError",
@@ -102,10 +106,24 @@ __all__ = [
     "InvalidRepositoryUpdateError",
     "RepositoryNotCopiedError",
     "RepositoryUpdateNeedsChoicesError",
+    "PublicRepositoriesNotAvailableError",
     "ReleaseLabelTakenError",
     "ReleaseHasBreakingChangesError",
+    "EntityKindInUseError",
+    "InvalidKindRequestError",
+    "InventoryItemKindError",
+    "RepositoryHasUnprovenKindsError",
     "ReleaseNotFoundError",
     "UpdateNeedsConfirmationError",
+    "AuthorizationPendingError",
+    "SlowDownError",
+    "DeviceCodeExpiredError",
+    "AccessDeniedError",
+    "DeviceCodeNotFoundError",
+    "PersonalTokenNotFoundError",
+    "PersonalTokenForbiddenError",
+    "InvalidTokenExpiryError",
+    "TooManyTokensError",
 ]
 
 
@@ -127,6 +145,15 @@ class EntitySlugNotFoundError(NotFoundProblem):
     """
 
     title = "Entity not found"
+
+
+class ClientIdUnavailableError(ConflictProblem):
+    """A create that carried its own `id` (ADR 0222) named an id that cannot be used: it belongs
+    to a row the caller cannot see, or to a row of another kind or another entry. The same
+    answer for each, so it does not say which, and never names another tenant.
+    """
+
+    title = "Id not available"
 
 
 class EntitySlugConflictError(ConflictProblem):
@@ -228,6 +255,40 @@ class InvalidProfilePictureError(UnprocessableProblem):
     title = "Invalid profile picture"
 
 
+class InvalidPictureError(UnprocessableProblem):
+    """POST .../information/{id}/payloads and PUT .../entities/{id}/picture - the uploaded
+    content-type isn't in the allow-list (image/png, image/jpeg, image/webp, image/gif), or the
+    body exceeds `Settings.picture_max_bytes`. See ADR 0237.
+    """
+
+    title = "Invalid picture"
+
+
+class PayloadNotRemovableError(ConflictProblem):
+    """DELETE .../payloads/{id} on a payload that isn't a picture (ADR 0237): a description is
+    edited, not removed, and numbers and documents are not authored through the API yet.
+    """
+
+    title = "Only picture payloads can be removed"
+
+
+class MainPictureThroughEntityError(ConflictProblem):
+    """POST .../information/{id}/payloads to the entry's `main_picture` (ADR 0237): that
+    information holds exactly one picture, written by PUT .../entities/{id}/picture.
+    """
+
+    title = "The main picture is set through the entry"
+
+
+class InformationOrderListError(ConflictProblem):
+    """PUT .../entities/{id}/information/order whose list is not exactly the information the
+    caller can see on the entry: one missing, one unknown, or one named twice (ADR 0237).
+    The client refetches and tries again.
+    """
+
+    title = "The list is not the entry's information"
+
+
 class InvalidItemPrototypeError(UnprocessableProblem):
     """POST /item-instances - prototype_id doesn't resolve to an entity with
     a matching Item row. See ADR 0032/RFC 0005 and ADR 0019's own
@@ -258,6 +319,14 @@ class EntityPrototypeCycleError(UnprocessableProblem):
     """
 
     title = "Prototype set would create an inheritance cycle"
+
+
+class InventoryItemParentsError(ConflictProblem):
+    """PUT /entities/{id}/parents - the entry is an inventory item (item_instance), whose one
+    parent changes through PATCH /item-instances/{id} (ADR 0192). See ADR 0216.
+    """
+
+    title = "An inventory item's parent is changed through its own route"
 
 
 class InvalidSplitQuantityError(UnprocessableProblem):
@@ -359,6 +428,43 @@ class StatGroupNotFoundError(NotFoundProblem):
 
 class StatDefinitionNotFoundError(NotFoundProblem):
     title = "Stat definition not found"
+
+
+class StatGroupNameTakenError(ConflictProblem):
+    """PATCH /stat-groups/{id} - another group of the tenant already has the
+    name (UNIQUE(tenant_id, name), ADR 0278)."""
+
+    title = "A stat group with this name already exists"
+
+
+class InvalidStatHintError(UnprocessableProblem):
+    """POST/PATCH /stat-definitions - a hint is not a stat definition of this
+    tenant, is the definition itself, or (a minimum or maximum) is not a
+    number (ADR 0279)."""
+
+    title = "That stat cannot be used as a hint here"
+
+
+class InvalidSheetSettingError(UnprocessableProblem):
+    """PATCH /tenants/{id} - the weapon stat group is not a stat group of this
+    tenant (ADR 0281)."""
+
+    title = "That is not a valid sheet setting"
+
+
+class InvalidStatOrderError(UnprocessableProblem):
+    """PUT .../order - the ids are not exactly the rows being ordered, each
+    once (ADR 0278)."""
+
+    title = "The order must list every row exactly once"
+
+
+class EntityStatNotFoundError(NotFoundProblem):
+    """GET .../entities/{id}/stats/{stat_definition_id}/explanation - the
+    entity has no value for that stat, stored, inherited or computed (ADR
+    0276)."""
+
+    title = "This entity has no value for that stat"
 
 
 class InvalidStatGroupError(UnprocessableProblem):
@@ -995,3 +1101,110 @@ class BindingNotLiftableError(UnprocessableProblem):
     for it - ADR 0129."""
 
     title = "That binding can't be lifted"
+
+
+class PublicRepositoriesNotAvailableError(UnprocessableProblem):
+    """Setting a repository's visibility to `public` - ADR 0213, RFC 0038 section 1. Refused until
+    the gates that come before it (the read, copying, delisting, quotas) are built, so that nothing
+    can be made public before they exist."""
+
+    title = "Public repositories are not available yet"
+
+
+class EntityKindInUseError(ConflictProblem):
+    """DELETE /entities/{id}/kinds/{kind} and DELETE /entities/{id} - the entry is a character,
+    which hangs off its being (its key would cascade away: demote it first), or belongs to a
+    campaign. See ADR 0217."""
+
+    title = "Another part of the entry depends on this"
+
+
+class InventoryItemKindError(ConflictProblem):
+    """PUT /entities/{id}/kinds/item and DELETE /entities/{id} - the entry is an inventory item
+    (item_instance), which is made from a catalog item, deleted with its own route and never
+    takes the kind `item`. See ADR 0217."""
+
+    title = "An inventory item is changed through its own routes"
+
+
+class RepositoryHasUnprovenKindsError(ConflictProblem):
+    """PUT .../published - an entry has a combination of kinds no round-trip matrix covers
+    (ADR 0217, RFC 0041 section 2). Carries `entries`: each entry, with its kinds."""
+
+    title = "Some entries have a combination of kinds that cannot be published yet"
+
+
+class InvalidKindRequestError(UnprocessableProblem):
+    """PUT /entities/{id}/kinds/{kind} - a column the kind does not have (ADR 0217)."""
+
+    title = "That column does not belong to this kind"
+
+
+class ExportChangedError(ConflictProblem):
+    """GET .../entities/export with a cursor from an export that has since changed: the
+    repository was written to, or what the caller may read moved, between two pages. The pages
+    already read no longer fit together; the caller starts again from the first (ADR 0262).
+    """
+
+    title = "The export changed while it was being read"
+
+
+class InvalidExportCursorError(UnprocessableProblem):
+    """GET .../entities/export with a cursor that this API did not give out (ADR 0262)."""
+
+    title = "Invalid export cursor"
+
+
+class AuthorizationPendingError(BadRequestProblem):
+    """POST /device-codes/token - the user has not approved yet; keep polling (ADR 0268, the
+    RFC 8628 `authorization_pending`). The `type` of the problem is what a client reads.
+    """
+
+    title = "Authorization pending"
+
+
+class SlowDownError(BadRequestProblem):
+    """POST /device-codes/token - polled faster than `interval` (RFC 8628 `slow_down`)."""
+
+    title = "Slow down"
+
+
+class DeviceCodeExpiredError(BadRequestProblem):
+    """POST /device-codes/token - the code is unknown, used up or past its time (RFC 8628
+    `expired_token`); one answer for all three, so a response says nothing about which.
+    """
+
+    title = "Device code expired"
+
+
+class AccessDeniedError(BadRequestProblem):
+    """POST /device-codes/token - the user denied the request (RFC 8628 `access_denied`)."""
+
+    title = "Access denied"
+
+
+class DeviceCodeNotFoundError(NotFoundProblem):
+    """GET/POST /me/device-codes/{user_code}... - no pending request has this code."""
+
+    title = "Device code not found"
+
+
+class PersonalTokenNotFoundError(NotFoundProblem):
+    title = "Personal access token not found"
+
+
+class PersonalTokenForbiddenError(ForbiddenProblem):
+    """A personal access token tried to manage personal access tokens (ADR 0268): only a
+    signed-in session may approve, list or revoke them, so that a leaked token cannot make
+    itself permanent.
+    """
+
+    title = "A personal access token cannot manage personal access tokens"
+
+
+class InvalidTokenExpiryError(UnprocessableProblem):
+    title = "Invalid token expiry"
+
+
+class TooManyTokensError(ConflictProblem):
+    title = "Too many personal access tokens"

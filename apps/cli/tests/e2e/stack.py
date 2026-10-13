@@ -110,6 +110,8 @@ class FakeAuthgear:
 class Stack:
     api_url: str
     authgear: FakeAuthgear
+    # The API's database, for the rare test that must see what the API stored (admin role).
+    database_dsn: str = ""
 
     def creator_token(self, subject: str = "creator") -> str:
         """A user allowed to create tenants (Authgear's `tenant_creator` role)."""
@@ -267,7 +269,11 @@ def running_stack() -> Iterator[Stack]:
             time.sleep(0.5)
         else:
             raise StackUnavailableError("the API didn't answer /healthz in time")
-        yield Stack(api_url=api_url, authgear=authgear)
+        yield Stack(
+            api_url=api_url,
+            authgear=authgear,
+            database_dsn=f"postgresql://lorenzo:lorenzo@{host}:{port}/{database}",
+        )
     finally:
         if server is not None:
             server.terminate()

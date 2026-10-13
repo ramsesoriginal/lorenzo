@@ -323,7 +323,12 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
 
       // Rendering its descriptions and pictures asks for what they link to: this has the
       // answers by then.
-      options.renderer(item.descriptions.map((description) => description.content)).catch(() => {});
+      options
+        .renderer(
+          item.descriptions.map((description) => description.content),
+          item.descriptions.map((description) => description.from_entity?.id ?? item.entity_id),
+        )
+        .catch(() => {});
 
       for (const picture of item.pictures) blobUrl(picture.url).catch(() => {});
     },

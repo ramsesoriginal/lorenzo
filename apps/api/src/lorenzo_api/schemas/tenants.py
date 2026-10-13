@@ -85,6 +85,9 @@ class TenantUpdate(BaseModel):
     # ADR 0152, 0200: false hides the entries no campaign owns from every GM but
     # their author and its co-GMs (and, to read, a scene a player character is in).
     npcs_shared_with_gms: Annotated[bool | None, Field(description=_SHARED_WITH_GMS)] = None
+    # ADR 0281: the being sheet's settings. Sent as null, they are cleared.
+    weapon_stat_group_id: uuid.UUID | None = None
+    ability_information_type: Annotated[str | None, Field(min_length=1, max_length=100)] = None
 
 
 class TenantSummaryOut(BaseModel):
@@ -129,6 +132,9 @@ class TenantOut(BaseModel):
     published_at: datetime | None
     # ADR 0152, 0200: whether every GM reads the entries no campaign owns (the default).
     npcs_shared_with_gms: Annotated[bool, Field(description=_SHARED_WITH_GMS)]
+    # ADR 0281: where the being sheet finds weapons and abilities; null until a library sets them.
+    weapon_stat_group_id: uuid.UUID | None
+    ability_information_type: str | None
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 

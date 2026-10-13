@@ -14,6 +14,9 @@ export type BoardState = {
   // The being whose board this is, who carries what's in no container of theirs (ADR 0115).
   // Null on a group's board (ADR 0124) and on the board of unowned things.
   ownerId: string | null;
+  // The library's `unsorted` item, which marks a card as a placeholder (ADR 0238); null if it has
+  // none, or it couldn't be found, and then no card is marked.
+  unsortedId: string | null;
   current: Board | null;
 };
 
@@ -24,6 +27,7 @@ export function createBoardState(): BoardState {
     occupied: new Set(),
     readOnly: new Set(),
     ownerId: null,
+    unsortedId: null,
     current: null,
   };
 }

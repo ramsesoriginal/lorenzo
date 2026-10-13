@@ -7,6 +7,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 import ActivityLog from '../ActivityLog/ActivityLog.astro';
 import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
+import TenantDelete from '../TenantDelete/TenantDelete.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
 ---
 
@@ -92,6 +93,24 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           <p class="caption" data-owner-only hidden></p>
           <p class="status-text" role="status" data-publish-status hidden></p>
         </div>
+        <div class="stack-tight" data-subscriber>
+          <h3 data-subscriber-heading></h3>
+          <p class="caption" data-subscriber-explanation></p>
+          <p data-subscriber-line hidden></p>
+          <div class="row" data-subscriber-buttons hidden>
+            <button type="button" class="btn btn-secondary" data-view-as>
+              View as a subscriber
+            </button>
+            <button type="button" class="btn btn-secondary" data-reset-test hidden>
+              Reset the Test library
+            </button>
+            <button type="button" class="btn-danger" data-remove-test hidden>
+              Remove the Test library
+            </button>
+          </div>
+          <p class="caption" data-subscriber-unavailable hidden></p>
+          <p class="status-text" role="status" data-subscriber-status hidden></p>
+        </div>
       </section>
     </div>
 
@@ -111,6 +130,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           </button>
           <span class="status-text" role="status" data-leave-status hidden></span>
         </div>
+
+        <!-- An Owner deletes it; an Organizer is told why not (ADR 0267). -->
+        <div data-delete-slot hidden></div>
       </section>
     </div>
 
@@ -235,6 +257,10 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       </div>
     </form>
   </dialog>
+
+  <template data-tenant-delete-template>
+    <TenantDelete />
+  </template>
 
   <template data-release-template>
     <li class="card card-body stack">
