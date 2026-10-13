@@ -34,8 +34,9 @@ openapi_source = "apps/api"
 
 [nodes."apps/api"]
 postgres = true
-# One leg: its tests run on four parallel workers, each with a database cloned from a migrated
-# template (apps/api/tests/_workers.py, ADR 0148), which is faster than two runners of one process.
+# Two legs, each running its half on four parallel workers, each with a database cloned from a migrated
+# template (apps/api/tests/_workers.py, ADR 0148): one leg of 1,635 tests took 116 s, the longest job.
+shards = 2
 
 [nodes."apps/cli"]
 # Its table of other spellings is a copy of packages/inventory-names' (ADR 0242), and a test compares them; another parses the golden ledgers of packages/converters (ADR 0246).

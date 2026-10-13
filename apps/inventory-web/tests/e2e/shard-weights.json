@@ -1,0 +1,23 @@
+{
+  "add-item.spec.ts": 49,
+  "addresses.spec.ts": 28,
+  "binding.spec.ts": 22,
+  "board.spec.ts": 106,
+  "capacity.spec.ts": 13,
+  "giving-contents.spec.ts": 18,
+  "groups.spec.ts": 20,
+  "hand-over.spec.ts": 48,
+  "item-gm.spec.ts": 19,
+  "item.spec.ts": 14,
+  "link-previews.spec.ts": 20,
+  "login.spec.ts": 4,
+  "manage-items.spec.ts": 44,
+  "merging.spec.ts": 12,
+  "notes.spec.ts": 37,
+  "notifications.spec.ts": 5,
+  "setting-down.spec.ts": 20,
+  "slugs.spec.ts": 27,
+  "stat-values.spec.ts": 12,
+  "unpack.spec.ts": 22,
+  "unsorted.spec.ts": 19
+}
