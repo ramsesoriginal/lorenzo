@@ -1642,7 +1642,7 @@ export interface paths {
         /**
          * Preview Invite
          * @description Unauthenticated - what the visitor is about to be asked, so a landing page can say so
-         *     before they log in (ADR 0092, 0211): for a campaign link the campaign's name and picture
+         *     before they log in (ADR 0092, 0220): for a campaign link the campaign's name and picture
          *     URL, as a player or as a GM (ADR 0177); for a role link the library's or repository's name
          *     and picture and the role, Author or Organizer; for a library link the repository's name and
          *     picture. Nothing else: no ids but those in a picture's address, no roster, no members. Does
@@ -1675,7 +1675,7 @@ export interface paths {
          *     row. Idempotent: someone who already holds the role gets `200` and no
          *     second seat, no use consumed. `201` the first time.
          *
-         *     The other kinds (ADR 0211): a role link makes the caller an Author or an Organizer of its
+         *     The other kinds (ADR 0220): a role link makes the caller an Author or an Organizer of its
          *     library or repository, and never changes a role they already hold; a library-access link
          *     grants its repository to the library named in the body.
          */
@@ -1708,7 +1708,7 @@ export interface paths {
          *     (`409` for a library), grants it to a library its redeemer owns. Always ends and is always
          *     capped: single use unless an Author or library link says more, up to a ceiling; the
          *     expiry defaults to 3 days for a role link and 7 for a library link, and may not be longer
-         *     than 7 and 30 (ADR 0211).
+         *     than 7 and 30 (ADR 0220).
          */
         post: operations["create_tenant_invite"];
         delete?: never;
@@ -6225,7 +6225,7 @@ export interface components {
          *     `role` (ADR 0177) is `player` unless said otherwise. A `gm` link is
          *     single use - `max_uses` omitted or 1 - and its `expires_at` is at most 7
          *     days out, which the route checks. A campaign's links make a player or a GM, and
-         *     nothing else (ADR 0211).
+         *     nothing else (ADR 0220).
          */
         InviteCreate: {
             /**
@@ -6278,9 +6278,9 @@ export interface components {
         };
         /**
          * InviteKind
-         * @description What redeeming an invite does (ADR 0211). `campaign` is every link ADR 0092 and 0177
+         * @description What redeeming an invite does (ADR 0220). `campaign` is every link ADR 0092 and 0177
          *     defined; `tenant_role` makes a membership of its tenant, a library or a repository (ADR
-         *     0210's Author, or an Organizer); `library_access` grants its repository to a library the
+         *     0219's Author, or an Organizer); `library_access` grants its repository to a library the
          *     redeemer owns. Never an Owner, by any kind.
          * @enum {string}
          */
@@ -6289,7 +6289,7 @@ export interface components {
          * InviteOut
          * @description An invite's metadata - never its token. `is_active` folds revocation,
          *     expiry and exhaustion into one flag for a management UI. `campaign_id` is null for a
-         *     role or a library link, and `role` for a library link (ADR 0211).
+         *     role or a library link, and `role` for a library link (ADR 0220).
          */
         InviteOut: {
             /**
@@ -6331,7 +6331,7 @@ export interface components {
          *     name for a campaign link, as before, and null for the other kinds. `tenant_kind` says
          *     whether `name` is a library (`play`) or a repository, null for a campaign. No tenant name
          *     of a campaign, no roster, nothing a holder of a leaked link couldn't already learn (ADR
-         *     0092, 0211).
+         *     0092, 0220).
          */
         InvitePreviewOut: {
             kind: components["schemas"]["InviteKind"];
@@ -6348,7 +6348,7 @@ export interface components {
          * InviteRedeemIn
          * @description POST /invites/{token}/redeem. The body is for a library-access link only: the library
          *     (or, for a bridge, the repository) to share with, which the caller must own. It travels
-         *     here and never in the path, with the token (ADR 0211).
+         *     here and never in the path, with the token (ADR 0220).
          */
         InviteRedeemIn: {
             /** Library Id */
@@ -6361,7 +6361,7 @@ export interface components {
          *     in the campaign, any role in the tenant, the grant - no second seat, no use consumed.
          *     `player_id` is null for every kind but a player link. `campaign_id` is null for a role or
          *     a library link, and `role` for a library link. `library_id` is the library a library link
-         *     shared its repository with (ADR 0211).
+         *     shared its repository with (ADR 0220).
          */
         InviteRedeemOut: {
             kind: components["schemas"]["InviteKind"];
@@ -6384,7 +6384,7 @@ export interface components {
          * InviteRole
          * @description What redeeming an invite makes someone. `player` is every link ADR 0092 defined and
          *     `gm` the one narrow exception in a campaign (ADR 0177); `author` and `orga` are what a
-         *     `tenant_role` link makes in its tenant (ADR 0211). A `library_access` link has no role.
+         *     `tenant_role` link makes in its tenant (ADR 0220). A `library_access` link has no role.
          * @enum {string}
          */
         InviteRole: "player" | "gm" | "author" | "orga";
@@ -9054,7 +9054,7 @@ export interface components {
         };
         /**
          * TenantInviteCreate
-         * @description POST /tenants/{id}/invites - an Owner's link for their library or repository (ADR 0211).
+         * @description POST /tenants/{id}/invites - an Owner's link for their library or repository (ADR 0220).
          *
          *     `kind` is `tenant_role`, which makes an Author or an Organizer of the tenant and takes a
          *     `role`, or `library_access`, which grants a repository to a library the redeemer owns and
