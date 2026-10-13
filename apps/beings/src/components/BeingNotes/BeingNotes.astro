@@ -1,0 +1,46 @@
+---
+import AudienceField from '../AudienceField/AudienceField.astro';
+import InfoForm from '../InfoForm/InfoForm.astro';
+---
+
+<div class="stack" data-being-notes>
+  <ul class="stack" data-list hidden></ul>
+  <p class="status-text" data-empty hidden>
+    No notes yet.
+  </p>
+  <div data-add-mount hidden></div>
+  <div class="row">
+    <button type="button" class="btn btn-secondary" data-add hidden>
+      Add a note
+    </button>
+  </div>
+  <p class="status-text" role="status" data-status hidden></p>
+
+  <template data-note-template>
+    <li class="stack-tight section">
+      <div class="row">
+        <h3 data-heading></h3>
+        <span class="badge-visibility" data-audience></span>
+      </div>
+      <div class="item-detail-descriptions" data-text></div>
+      <p class="caption" data-author hidden></p>
+      <div class="row" data-actions>
+        <button type="button" class="btn btn-secondary" data-up aria-label="Move up">
+          &uarr;
+        </button>
+        <button type="button" class="btn btn-secondary" data-down aria-label="Move down">
+          &darr;
+        </button>
+        <button type="button" class="btn btn-secondary" data-edit>
+          Edit
+        </button>
+        <button type="button" class="btn-danger" data-delete>
+          Delete
+        </button>
+      </div>
+    </li>
+  </template>
+
+  <AudienceField />
+  <InfoForm />
+</div>

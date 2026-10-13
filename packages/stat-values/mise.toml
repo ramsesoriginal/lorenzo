@@ -1,0 +1,25 @@
+# A pnpm workspace member like packages/api-client: the package ships its TypeScript source (ADR
+# 0122), so there is no `build`; `lint` also type-checks.
+[tasks.install]
+description = "Install dependencies (frozen lockfile)"
+run = "pnpm install --frozen-lockfile"
+hide = true
+
+[tasks.dev]
+description = "Nothing to run - the apps that use this package (inventory-web, beings) have the dev servers"
+run = "echo 'packages/stat-values has no dev server - run the tests, or an app that uses it.'"
+
+[tasks.lint]
+description = "Biome + tsc --noEmit"
+depends = ["install"]
+run = "pnpm run lint"
+
+[tasks.format]
+description = "Biome autoformat"
+depends = ["install"]
+run = "pnpm run format"
+
+[tasks.test]
+description = "Run the tests"
+depends = ["install"]
+run = "pnpm run test"

@@ -60,7 +60,7 @@ What stays: **accounts** and their roles, and **what other tenants copied** from
 - **An undo, or a soft delete.** A deleted tenant is gone.
 - **Emptying a tenant and keeping it** (a purge). Deleting and creating it again under the same slug does the same, and the slug is free.
 - **Several tenants in one command.** Five tenants are five commands, each with its own question.
-- **Account hub.** It isn't given a button, and `GET /me`'s `capabilities` doesn't gain a `delete_tenant`.
+- **Account hub.** It isn't given a button, and `GET /me`'s `capabilities` doesn't gain a `delete_tenant`. (The hub got its button in [ADR 0267](0267-hub-delete-library.md); `capabilities` did not change.)
 - **Deleting an account**, which exists ([ADR 0036](0036-user-player-character-crud-api.md)), and anything `loot-bot` keeps about a tenant in its own database.
 
 ## Consequences

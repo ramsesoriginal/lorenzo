@@ -26,6 +26,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    InvalidSheetSettingError,
     InvalidUserError,
     LastOwnerError,
     MembershipAlreadyExistsError,
@@ -45,7 +46,9 @@ from lorenzo_api.models import (
     Membership,
     MembershipRole,
     Player,
+    RepositoryProfile,
     RepositorySubscription,
+    StatGroup,
     Tenant,
     TenantKind,
     User,
@@ -59,6 +62,7 @@ from lorenzo_api.profile_pictures import (
     read_and_validate_upload,
     upsert_tenant_profile_picture,
 )
+from lorenzo_api.repository_profiles import delete_repository_cover
 from lorenzo_api.role_names import role_label, role_phrase, tenant_word
 from lorenzo_api.schemas.common import ProblemOut
 from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
@@ -266,6 +270,11 @@ async def create_tenant(
     session.add(tenant)
     await session.flush()
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role=MembershipRole.OWNER))
+    if tenant.kind is TenantKind.REPOSITORY:
+        # A repository says what it is about from the start: private, and nothing else (ADR 0213).
+        await session.flush()
+        await set_tenant_rls_context(session, tenant.id)
+        session.add(RepositoryProfile(tenant_id=tenant.id, updated_by=user.id))
     await session.commit()
     # tenant itself carries no RLS policy (it *is* the RLS boundary, ADR
     # 0002/0022) - re-reading it below needs no scoping. Still follows ADR
@@ -306,6 +315,22 @@ async def update_tenant(
         if update.get(field) is not None:
             setattr(tenant, field, update[field])
             changed_fields.append(field)
+    # ADR 0281: these two can be cleared, so an explicit null counts.
+    for field in ("weapon_stat_group_id", "ability_information_type"):
+        if field not in update or update[field] == getattr(tenant, field):
+            continue
+        if field == "weapon_stat_group_id" and update[field] is not None:
+            found = await session.scalar(
+                select(StatGroup.id).where(
+                    StatGroup.id == update[field], StatGroup.tenant_id == tenant_id
+                )
+            )
+            if found is None:
+                raise InvalidSheetSettingError(
+                    detail=f"No stat group with id {update[field]} in this tenant"
+                )
+        setattr(tenant, field, update[field])
+        changed_fields.append(field)
     if changed_fields:
         tenant.updated_by = user.id
         await record_activity(
@@ -359,6 +384,9 @@ async def delete_tenant(
         raise RepositoryStillGrantedError(
             detail=f"Tenant {tenant_id} is still granted to {grants} tenant(s)"
         )
+
+    # A repository's cover is a row of the blob table, which the tenant's deletion does not reach.
+    await delete_repository_cover(session, tenant_id=tenant_id)
 
     name, slug = tenant.name, tenant.slug
     await create_tenant_deleted_notifications(

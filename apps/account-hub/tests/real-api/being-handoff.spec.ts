@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
-import { AUTHGEAR_URL, SUBJECT_COOKIE } from '../../../inventory-web/tests/e2e/support/env';
-import { newCampaign, newLibrary, newUser, signedInPage } from './support';
+import { newCampaign, newLibrary, newUser, signedInPage, signIn } from './support';
 
 test('a library admin who GMs a campaign hands a being to a player, named by display name', async ({
   page,
@@ -48,12 +47,9 @@ test('a library admin who GMs a campaign hands a being to a player, named by dis
     }),
   );
 
-  await context.addCookies([{ name: SUBJECT_COOKIE, value: subject, url: AUTHGEAR_URL }]);
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Log in' }).click();
-  await expect(page.locator('#account-signed-in')).toBeVisible();
+  await signIn(page, context, subject);
   await page.goto('/beings');
-  const row = page.locator('li').filter({ hasText: 'Goblin' });
+  const row = page.locator('[data-beings] > [data-list] > li').filter({ hasText: 'Goblin' });
   await row.getByRole('button', { name: 'Use as a played character' }).click();
   await row.getByRole('combobox').selectOption({ label: 'Handoff' });
   const choice = row.locator('li').filter({ hasText: 'Pia Player' });
@@ -120,11 +116,11 @@ test('a campaign GM with no library membership hands over a being, and sees no o
   const session = await signedInPage(browser, gm.subject);
   await session.page.goto('/beings');
   await expect(session.page.locator('#load-error')).toBeHidden();
-  const list = session.page.locator('#tenant-list');
+  const list = session.page.locator('[data-beings-panel]');
   await expect(list).toContainText('Goblin');
   await expect(list).not.toContainText('Brisk the Bold');
 
-  const row = list.locator('li').filter({ hasText: 'Goblin' });
+  const row = list.locator('[data-beings] > [data-list] > li').filter({ hasText: 'Goblin' });
   await row.getByRole('button', { name: 'Use as a played character' }).click();
   await row.getByRole('combobox').selectOption({ label: 'Hood' });
   // No roster read without a membership, so the player is shown by user id.

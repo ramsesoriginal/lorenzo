@@ -184,3 +184,136 @@ test('a GM adds to any being, and sees the whole catalog, not only the public on
   ).toBeVisible();
   expect(await world.carried(world.oskar)).toEqual(['(none): Vault key']);
 });
+
+// --- "Not in the list" and the unsorted badge (ADR 0238) --------------------------------------
+
+/** The library's placeholder, as `lorenzo seed --layer core` makes it (ADR 0192). */
+async function seedUnsorted(world: World): Promise<string> {
+  const id = await world.item('Unsorted item', { public: true });
+  await world.slug(id, 'unsorted');
+  return id;
+}
+
+const notListed = (page: Page) =>
+  card(page).getByRole('button', { name: 'Not in the list? Add it as an unsorted item' });
+
+/** The notes on `title`, as its owner reads them: title to text. */
+async function notesOn(world: World, player: Player, title: string) {
+  const path = { tenant_id: world.tenantId };
+  const owned = await ok(
+    player.api.GET('/tenants/{tenant_id}/item-instances/owned-by/{owner_entity_id}', {
+      params: { path: { ...path, owner_entity_id: player.character.entity_id } },
+    }),
+  );
+  const made = owned.groups.flatMap((g) => g.item_instances).find((i) => i.title === title);
+  if (!made) throw new Error(`${title} is not owned`);
+  const notes = await ok(
+    player.api.GET('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      params: { path: { ...path, entity_id: made.entity_id }, query: { type: ['note'] } },
+    }),
+  );
+  return Object.fromEntries(
+    notes.items.map((note) => {
+      const text = note.payloads.find((p) => 'content' in p);
+      return [note.title, text && 'content' in text ? text.content : ''];
+    }),
+  );
+}
+
+test('a player adds what the catalog does not know as an unsorted item, with notes', async ({
+  world,
+  as,
+}) => {
+  await seedUnsorted(world);
+  await world.item('Rope', { public: true });
+  const page = await boardOf(as, world, world.pia);
+
+  // Typed in the search, and nothing matches.
+  await search(page).fill('Hydra Zahn');
+  await expect(card(page).getByText('No item matches “Hydra Zahn”.')).toBeVisible();
+  await notListed(page).click();
+
+  // The name is what was typed.
+  await expect(card(page).getByLabel('Name')).toHaveValue('Hydra Zahn');
+  await card(page).getByLabel('Description (optional)').fill('from the cave under the temple');
+  await card(page).getByLabel('Weight in pounds (optional)').fill('0,5');
+  await card(page).getByLabel('Value (optional)').fill('?');
+  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+
+  await expect(
+    card(page).getByText("Added Hydra Zahn to Ashfang's Not carried as an unsorted item."),
+  ).toBeVisible();
+  const added = column(page, 'Not carried').getByRole('button', { name: /Hydra Zahn/ });
+  await expect(added).toBeVisible();
+  await expect(added.getByText('Unsorted')).toBeVisible();
+  expect(await world.carried(world.pia)).toEqual(['(none): Hydra Zahn']);
+  // The player can read back what they wrote, laid out as the CLI writes it (ADR 0193).
+  expect(await notesOn(world, world.pia, 'Hydra Zahn')).toEqual({
+    Note: 'from the cave under the temple',
+    Details: 'Weight: 0.5 lb\nValue: ?',
+  });
+});
+
+test('takes an unsorted item back with Undo', async ({ world, as }) => {
+  await seedUnsorted(world);
+  const page = await boardOf(as, world, world.pia);
+
+  await notListed(page).click();
+  await card(page).getByLabel('Name').fill('Fishing rod');
+  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await expect(card(page).getByText(/^Added Fishing rod/)).toBeVisible();
+
+  await card(page).getByRole('button', { name: 'Undo' }).click();
+
+  await expect(card(page).getByText('Taken back.')).toBeVisible();
+  expect(await world.carried(world.pia)).toEqual([]);
+});
+
+test('asks for a name, and for a weight that is a number, and makes nothing otherwise', async ({
+  world,
+  as,
+}) => {
+  await seedUnsorted(world);
+  const page = await boardOf(as, world, world.pia);
+
+  await notListed(page).click();
+  await card(page).getByLabel('Name').fill('   ');
+  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await expect(card(page).getByText('Give it a name.')).toBeVisible();
+
+  await card(page).getByLabel('Name').fill('Anvil');
+  await card(page).getByLabel('Weight in pounds (optional)').fill('heavy');
+  await card(page).getByRole('button', { name: 'Add to Ashfang' }).click();
+  await expect(card(page).getByText('Weight is a number of pounds, such as 0.5.')).toBeVisible();
+  expect(await world.carried(world.pia)).toEqual([]);
+
+  // Back to the catalog search, with the option still there.
+  await card(page).getByRole('button', { name: 'Back' }).click();
+  await expect(search(page)).toBeVisible();
+  await expect(notListed(page)).toBeVisible();
+});
+
+test('says what the GM runs when the library has no unsorted item', async ({ world, as }) => {
+  await world.item('Rope', { public: true });
+  const page = await boardOf(as, world, world.pia);
+
+  await expect(card(page).getByText(/can't take unsorted items yet/)).toBeVisible();
+  await expect(card(page).getByText('lorenzo seed --layer core')).toBeVisible();
+  await expect(notListed(page)).toBeHidden();
+});
+
+test('marks only the unsorted things on the board', async ({ world, as }) => {
+  const unsorted = await seedUnsorted(world);
+  const rope = await world.item('Rope', { public: true });
+  await world.instance(unsorted, { owner: world.pia });
+  await world.instance(rope, { owner: world.pia });
+  const page = await boardOf(as, world, world.pia);
+
+  const notCarried = column(page, 'Not carried');
+  await expect(notCarried.getByRole('button', { name: /Unsorted item/ })).toBeVisible();
+  // Every card carries the badge, hidden unless it is one: count the ones that show.
+  await expect(notCarried.locator('[data-unsorted]:not([hidden])')).toHaveCount(1);
+  await expect(
+    notCarried.getByRole('button', { name: /^Rope/ }).getByText('Unsorted'),
+  ).toBeHidden();
+});

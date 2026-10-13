@@ -37,7 +37,7 @@ once), `preview/forms.html` (every field type on one form), `preview/trees.html`
 (a nested world hierarchy), `preview/outline.html` (`.outline` and the phone rules: narrow the window below 720px), `preview/editors.html` (`.editor-toolbar` +
 `.editor-content` composed with `.card`), `preview/full-width.html` (`.full-width`
 breaking a sidebar layout and a board out of `.wrap`'s reading column), `preview/scrolling.html` (`.grow`,
-`.sticky-top`, `.vertical-window`, `.vertical-mask`), `preview/item.html` (`.lineage`, `.key-values`, `.gallery`, `.caption`, `.option-group`, `.stack-tight`), and `preview/content/` — seven
+`.sticky-top`, `.vertical-window`, `.vertical-mask`), `preview/icons.html` (the whole icon atlas, each icon with the Tabler icon it is drawn from, ADR 0274), `preview/item.html` (`.lineage`, `.key-values`, `.gallery`, `.caption`, `.option-group`, `.stack-tight`), and `preview/content/` — seven
 "thematic lorem ipsum" pages (a 1993 tax office, a university research
 project, a starship crew, a Renaissance merchant family, a cyberpunk
 corporation, a mundane apartment inventory, a traditional fantasy

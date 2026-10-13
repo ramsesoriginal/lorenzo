@@ -51,6 +51,13 @@ describe('linkNote', () => {
     expect(linkNote(image, entity(['item']), true)).toBeNull();
   });
 
+  it('treats my/ as a scope, not a view: no mismatch, and its own words when nothing is held', () => {
+    expect(linkNote(link('my'), entity(['item_instance']), false)).toBeNull();
+    expect(linkNote(link('my'), null, false)).toBe(
+      'Nothing called “ashfang” is held by whoever this belongs to, so readers see plain text.',
+    );
+  });
+
   it('names slugs nothing holds', () => {
     expect(linkNote(link(), null, false)).toBe(
       'No entity has the slug “ashfang” yet, so readers see plain text.',

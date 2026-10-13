@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from lorenzo_api.models import Comparator, ComputedStat, RoundMode
+from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
     ContentsFormula,
@@ -24,10 +25,12 @@ __all__ = [
     "ComputedStatOut",
     "ComputedStatPreviewIn",
     "ComputedStatPreviewOut",
+    "ContentsExplanationOut",
     "FormulaBody",
     "LinearFormulaBody",
     "PreviewInputOut",
     "SumFormulaBody",
+    "StatExplanationOut",
     "SumTermBody",
 ]
 
@@ -194,6 +197,33 @@ class ComputedStatPreviewOut(BaseModel):
     value: int | float | str | bool | None
     source: Literal["computed", "direct", "unset"]
     inputs: list[PreviewInputOut]
+
+
+class ContentsExplanationOut(BaseModel):
+    """What a contents formula counted (ADR 0276): the things directly
+    inside, not one input per thing. The total is the stat's own `value`."""
+
+    source_stat_definition_id: uuid.UUID
+    source_name: str
+    things: int
+
+
+class StatExplanationOut(BaseModel):
+    """How an entity's stat came to have its value, for any participant who
+    may read the entity (ADR 0276). `formula` is the winning formula, held by
+    this entity or inherited (see `from_entity`), null for a stored value;
+    `inputs` are the values it read. A contents formula has no inputs of its
+    own: `contents` says what it counted instead."""
+
+    stat_definition_id: uuid.UUID
+    name: str
+    value: int | float | str | bool
+    own: bool
+    computed: bool
+    from_entity: EntitySummary | None
+    formula: FormulaBody | None
+    inputs: list[PreviewInputOut]
+    contents: ContentsExplanationOut | None
 
 
 class ComputedStatDependentOut(BaseModel):

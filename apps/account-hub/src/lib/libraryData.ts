@@ -1,5 +1,6 @@
 // What opening a library asks the API for, apart from what is then drawn: shared by <Tenant /> and by
 // the hover prefetch (lib/prefetch.ts), so warming a library asks for exactly what opening it does.
+import { ApiError } from './apiError';
 import { campaignRoleFor, isTenantAdmin } from './format';
 import {
   getCampaign,
@@ -52,17 +53,31 @@ export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<
   // own id comes from (ADR 0170).
   const managed = campaigns.filter((c) => admin || campaignRoleFor(c.id, me) === 'gm');
 
+  // The public catalog also lists campaigns this person does not play or GM (ADR 0030).
+  // Only their own campaigns, or an administrator's, admit a detail read.
+  const readable = campaigns.filter((c) => admin || campaignRoleFor(c.id, me) !== 'visible');
+
   // Everything that needs the campaigns, at once: one round after the first, not three.
   const [gmLists, playerPages, details] = await Promise.all([
     admin ? Promise.all(campaigns.map((c) => listCampaignGms(tenant.id, c.id))) : [],
     Promise.all(managed.map((c) => listCampaignPlayers(tenant.id, c.id))),
     // The list has no descriptions; each campaign's own read does.
-    Promise.all(campaigns.map((c) => getCampaign(tenant.id, c.id))),
+    Promise.all(
+      readable.map(async (c) => {
+        try {
+          return await getCampaign(tenant.id, c.id);
+        } catch (cause) {
+          // A stale seat or an administrator's opt-out must not hide the catalog.
+          if (cause instanceof ApiError && cause.status === 404) return null;
+          throw cause;
+        }
+      }),
+    ),
   ]);
 
   return {
     description: detail.tenant.description,
-    descriptions: new Map(details.map((c) => [c.id, c.description])),
+    descriptions: new Map(details.flatMap((c) => (c ? [[c.id, c.description] as const] : []))),
     campaigns,
     roster: rosterPage?.items ?? null,
     gmsByCampaign: new Map(

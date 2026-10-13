@@ -272,7 +272,14 @@ test('copying again: replace it, and what that would also remove is said first',
   await ok(
     owner.api.POST('/tenants/{tenant_id}/stat-definitions', {
       params: { path: { tenant_id: library.id } },
-      body: { name: 'Parry', stat_group_id: groups.items[0].id, value_type: 'int' },
+      body: {
+        name: 'Parry',
+        stat_group_id: groups.items[0].id,
+        value_type: 'int',
+        adjustable_in_play: false,
+        pin: false,
+        signed: false,
+      },
     }),
   );
 

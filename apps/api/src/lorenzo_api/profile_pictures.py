@@ -25,7 +25,7 @@ from lorenzo_api.models import (
 # Trusting the client-declared content_type, no deep image-content sniffing -
 # the same level of trust payload_picture/payload_document's own file_type
 # already gets (ADR 0017).
-_ALLOWED_CONTENT_TYPES = frozenset({"image/png", "image/jpeg", "image/webp", "image/gif"})
+ALLOWED_IMAGE_CONTENT_TYPES = frozenset({"image/png", "image/jpeg", "image/webp", "image/gif"})
 
 
 async def read_and_validate_upload(file: UploadFile) -> tuple[bytes, str]:
@@ -33,11 +33,11 @@ async def read_and_validate_upload(file: UploadFile) -> tuple[bytes, str]:
     a size cap (`Settings.profile_picture_max_bytes`), both a 422
     `InvalidProfilePictureError`.
     """
-    if file.content_type not in _ALLOWED_CONTENT_TYPES:
+    if file.content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
         raise InvalidProfilePictureError(
             detail=(
                 f"Unsupported content type '{file.content_type}'; expected one of "
-                f"{sorted(_ALLOWED_CONTENT_TYPES)}"
+                f"{sorted(ALLOWED_IMAGE_CONTENT_TYPES)}"
             )
         )
     data = await file.read()

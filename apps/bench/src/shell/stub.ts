@@ -1,0 +1,77 @@
+// Stand-in content for the page without sign-in: a small made-up repository, held in memory by
+// the sample transport (core/sample.ts), so the editor can be tried and tested with no server.
+
+import type { SampleEntry } from '../core/sample';
+import type { StatDef } from '../core/transport';
+
+export const SAMPLE_STATS: StatDef[] = [
+  { id: 'armor', name: 'Armor class', type: 'int', enumValues: [] },
+  { id: 'size', name: 'Size', type: 'enum', enumValues: ['tiny', 'small', 'medium', 'large'] },
+  { id: 'flavour', name: 'Flavour', type: 'text', enumValues: [] },
+  { id: 'undead', name: 'Undead', type: 'bool', enumValues: [] },
+  { id: 'weight', name: 'Weight', type: 'float', enumValues: [] },
+];
+
+export const SAMPLE_ENTRIES: SampleEntry[] = [
+  { id: 'monster', name: 'Monster', kinds: ['item'], parents: [], stats: { armor: 10 } },
+  { id: 'beast', name: 'Beast', kinds: ['item'], parents: ['monster'] },
+  {
+    id: 'wolf',
+    name: 'Wolf',
+    kinds: ['item'],
+    parents: ['beast'],
+    description: 'Hunts in **packs**.',
+    notes: [
+      { id: 'wolf-note', text: 'Pairs well with a ranger.' },
+      { id: 'wolf-tactics', title: 'Pack tactics', text: 'Flanks, then rushes.' },
+    ],
+  },
+  { id: 'dire-wolf', name: 'Dire wolf', kinds: ['item'], parents: ['wolf'] },
+  { id: 'undead', name: 'Undead', kinds: ['item'], parents: ['monster'], stats: { undead: true } },
+  { id: 'zombie', name: 'Zombie', kinds: ['item'], parents: ['undead'] },
+  { id: 'ghoul', name: 'Ghoul', kinds: ['item'], parents: ['undead', 'beast'] },
+  // Called something other than its name makes, so a link to it is [Longsword](blade).
+  {
+    id: 'sword',
+    name: 'Longsword',
+    kinds: ['item'],
+    parents: [],
+    slug: 'blade',
+    stats: { weight: 1.5 },
+  },
+  // Held by Ashfang, so [my sword](my/blade) in a text of Ashfang's leads here.
+  {
+    id: 'ashfang-sword',
+    name: 'Blade of the Hollow',
+    kinds: ['item_instance'],
+    parents: ['sword'],
+    heldBy: 'ashfang',
+  },
+  { id: 'hollow', name: 'The Hollow', kinds: [], parents: [] },
+  { id: 'ashfang', name: 'Ashfang', kinds: ['being'], parents: ['hollow'], picture: '#a33' },
+  // No link name: nothing can link to it until it is given one.
+  { id: 'mill', name: 'The old mill', kinds: [], parents: ['hollow'], slug: null },
+];
+
+export interface PaneDef {
+  id: string;
+  title: string;
+  /** Size of a window when this pane is floated out. */
+  float: [number, number];
+}
+
+export const PANES: PaneDef[] = [
+  { id: 'explorer', title: 'Entries', float: [264, 480] },
+  { id: 'entry', title: 'Entry', float: [720, 520] },
+  { id: 'props', title: 'Properties', float: [324, 500] },
+  { id: 'links', title: 'Links', float: [304, 380] },
+  { id: 'ancestry', title: 'Ancestry', float: [420, 320] },
+  { id: 'table', title: 'Table', float: [560, 320] },
+  { id: 'grid', title: 'Compare', float: [760, 480] },
+  { id: 'formula', title: 'Formulas', float: [420, 420] },
+  { id: 'pictures', title: 'Pictures', float: [480, 460] },
+  { id: 'pack', title: 'Pack', float: [460, 460] },
+  { id: 'vocabulary', title: 'Vocabulary', float: [420, 400] },
+];
+
+export const PANE_IDS = PANES.map((p) => p.id);

@@ -66,6 +66,7 @@ async def grant_repository_access(
             repository_tenant_id=repository.id,
             subscriber_tenant_id=subscriber.id,
             created_by=granted_by,
+            source="invited",
         )
     )
     await record_activity(

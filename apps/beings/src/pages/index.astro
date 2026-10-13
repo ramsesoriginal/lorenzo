@@ -1,0 +1,27 @@
+---
+import Base from '../layouts/Base.astro';
+import LibraryList from '../components/LibraryList/LibraryList.astro';
+---
+
+<Base>
+  <h1 class="display">Beings</h1>
+  <p>Choose a library to see its characters and NPCs.</p>
+
+  <LibraryList />
+
+  <script>
+    import { renderLibraryList } from '../components/LibraryList/renderer';
+    import { isAuthConfigured, isAuthenticated } from '../lib/auth';
+    import { requiredIn } from '../lib/template';
+
+    const libraries = renderLibraryList(
+      requiredIn('Home')<HTMLElement>(document, '[data-library-list]'),
+    );
+
+    // Signing in and out lives in the header: this page only lists a signed-in user's libraries.
+    // A failure there is the header's to show.
+    if (isAuthConfigured() && (await isAuthenticated().catch(() => false))) {
+      await libraries.load();
+    }
+  </script>
+</Base>

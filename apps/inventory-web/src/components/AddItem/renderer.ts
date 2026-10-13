@@ -1,11 +1,13 @@
 // "Add an item" on a being's board (ADR 0187): find an item in the catalog, confirm it, and
 // it's made for the board's being, owned and not carried. Whether to offer it at all is
-// lib/addItem.ts's `addItemStanding`; what the API makes of it is the API's.
+// lib/addItem.ts's `addItemStanding`; what the API makes of it is the API's. When the catalog
+// doesn't know it, "Not in the list" makes an unsorted item instead (ADR 0238).
 import { type AddItemStanding, searchAddableItems } from '../../lib/addItem';
 import { errorMessage } from '../../lib/errorMessage';
 import { createItemInstance, deleteItemInstance } from '../../lib/items';
 import { requiredIn } from '../../lib/template';
 import type { CatalogItem, ItemInstance } from '../../lib/types';
+import { addUnsortedItem, findUnsortedItem, readDraft } from '../../lib/unsorted';
 import { renderCombobox } from '../Combobox/renderer';
 
 export type AddItemHolder = Readonly<{ id: string; name: string }>;
@@ -48,6 +50,16 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
   const status = required<HTMLElement>(root, '[data-status]');
   const statusText = required<HTMLElement>(root, '[data-status-text]');
   const undo = required<HTMLButtonElement>(root, '[data-undo]');
+  const notListed = required<HTMLElement>(root, '[data-not-listed]');
+  const openUnsorted = required<HTMLButtonElement>(root, '[data-not-listed-open]');
+  const noUnsorted = required<HTMLElement>(root, '[data-no-unsorted]');
+  const unsortedForm = required<HTMLFormElement>(root, '[data-unsorted-form]');
+  const unsortedName = required<HTMLInputElement>(root, '[data-unsorted-name]');
+  const unsortedDescription = required<HTMLTextAreaElement>(root, '[data-unsorted-description]');
+  const unsortedWeight = required<HTMLInputElement>(root, '[data-unsorted-weight]');
+  const unsortedValue = required<HTMLInputElement>(root, '[data-unsorted-value]');
+  const unsortedAdd = required<HTMLButtonElement>(root, '[data-unsorted-add]');
+  const unsortedBack = required<HTMLButtonElement>(root, '[data-unsorted-back]');
 
   let holder: AddItemHolder | null = null;
   let item: CatalogItem | null = null;
@@ -56,6 +68,10 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
   let latest = 0;
   let undoTimer: ReturnType<typeof setTimeout> | undefined;
   let undoable: string | null = null;
+  // The library's `unsorted` item: null if it has none, undefined while not known (or when the
+  // lookup failed, in which case the option is left out rather than guessed at).
+  let unsortedId: string | null | undefined;
+  let unsortedLookup: Promise<string | null> | undefined;
 
   function say(text: string, failed = false) {
     statusText.textContent = text;
@@ -84,15 +100,42 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     change.disabled = value;
     callIt.disabled = value;
     undo.disabled = value;
+    openUnsorted.disabled = value;
+    unsortedAdd.disabled = value;
+    unsortedBack.disabled = value;
+  }
+
+  // Found once and kept; a failed lookup is tried again next time instead of being remembered.
+  async function findUnsorted(): Promise<string | null | undefined> {
+    try {
+      unsortedLookup ??= findUnsortedItem(tenantId);
+
+      return await unsortedLookup;
+    } catch {
+      unsortedLookup = undefined;
+
+      return undefined;
+    }
+  }
+
+  // Looking for something to pick, with the way out beside it when the library has one.
+  function showFind() {
+    unsortedForm.hidden = true;
+    confirm.hidden = true;
+    find.hidden = false;
+    notListed.hidden = typeof unsortedId !== 'string';
   }
 
   // Back to looking for something to pick.
   function reset() {
     item = null;
-    confirm.hidden = true;
-    find.hidden = false;
     callIt.value = '';
     search.value = '';
+    unsortedName.value = '';
+    unsortedDescription.value = '';
+    unsortedWeight.value = '';
+    unsortedValue.value = '';
+    showFind();
   }
 
   const catalog = renderCombobox<CatalogItem>(root, {
@@ -107,6 +150,7 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
       callIt.placeholder = chosen.title;
       add.textContent = `Add to ${holder?.name ?? 'them'}`;
       find.hidden = true;
+      notListed.hidden = true;
       confirm.hidden = false;
       say('');
       callIt.focus();
@@ -166,6 +210,89 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     { signal },
   );
 
+  openUnsorted.addEventListener(
+    'click',
+    () => {
+      const typed = search.value.trim();
+
+      catalog.close();
+      find.hidden = true;
+      notListed.hidden = true;
+      unsortedAdd.textContent = `Add to ${holder?.name ?? 'them'}`;
+      unsortedForm.hidden = false;
+      say('');
+
+      if (!unsortedName.value) unsortedName.value = typed;
+
+      unsortedName.focus();
+    },
+    { signal },
+  );
+
+  unsortedBack.addEventListener(
+    'click',
+    () => {
+      showFind();
+      say('');
+      search.focus();
+    },
+    { signal },
+  );
+
+  unsortedForm.addEventListener(
+    'submit',
+    async (event) => {
+      event.preventDefault();
+
+      const prototype = unsortedId;
+
+      if (busy || !holder || typeof prototype !== 'string') return;
+
+      const read = readDraft({
+        name: unsortedName.value,
+        description: unsortedDescription.value,
+        weight: unsortedWeight.value,
+        value: unsortedValue.value,
+      });
+
+      if (!read.ok) {
+        say(read.problem, true);
+        unsortedName.focus();
+
+        return;
+      }
+
+      const to = holder;
+
+      setBusy(true);
+      forgetUndo();
+      say('');
+
+      try {
+        const added = await addUnsortedItem(tenantId, prototype, to.id, read.item);
+
+        if (holder === to) reset();
+
+        await options.onAdded(added.instance);
+
+        if (holder === to) {
+          const lost = added.notesNotSaved.map((title) => title.toLowerCase());
+          const sorry = lost.length > 0 ? ` Its ${lost.join(' and ')} couldn't be saved.` : '';
+
+          offerUndo(
+            added.instance.entity_id,
+            `Added ${added.instance.title} to ${to.name}'s Not carried as an unsorted item.${sorry}`,
+          );
+        }
+      } catch (error) {
+        say(errorMessage(error), true);
+      } finally {
+        setBusy(false);
+      }
+    },
+    { signal },
+  );
+
   undo.addEventListener(
     'click',
     async () => {
@@ -193,12 +320,16 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     root.hidden = true;
     off.hidden = true;
     form.hidden = true;
+    notListed.hidden = true;
+    noUnsorted.hidden = true;
+    unsortedForm.hidden = true;
   }
 
   async function show(next: AddItemHolder | null) {
     const turn = ++latest;
 
     holder = next;
+    unsortedId = undefined;
     catalog.close();
     reset();
     forgetUndo();
@@ -228,6 +359,15 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
 
     hint.textContent = `Pick something from the catalog and it goes into ${next.name}'s inventory, in Not carried.`;
     form.hidden = false;
+
+    // What the library has for what the catalog doesn't (ADR 0238), once it's known.
+    const found = await findUnsorted();
+
+    if (turn !== latest) return;
+
+    unsortedId = found;
+    noUnsorted.hidden = found !== null;
+    showFind();
   }
 
   return {

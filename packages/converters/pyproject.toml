@@ -1,0 +1,49 @@
+[project]
+name = "lorenzo-converters"
+version = "0.0.0"
+description = "Simple converters from files players already have into a LorenzoLedger (RFC 0035, ADR 0246)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "openpyxl>=3.1",
+  "rich>=13.9",
+  "typer>=0.15",
+]
+
+[project.scripts]
+lorenzo-convert = "lorenzo_converters.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lorenzo_converters"]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.8",
+  "mypy>=2.3.1",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["openpyxl", "openpyxl.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src"]

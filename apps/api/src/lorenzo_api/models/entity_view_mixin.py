@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
     from lorenzo_api.information_visibility import InformationVisibility
     from lorenzo_api.models.entity import Entity
+    from lorenzo_api.models.v_effective_stat import VEffectiveStat
     from lorenzo_api.stat_evaluation import Value
 
 
@@ -86,7 +87,7 @@ class EntityViewMixin:
         # other type in the group still appears, with None (ADR 0039's shape, unchanged).
         values = self.resolved_stat_values()
         pairs: list[tuple[str, int | float | None]] = []
-        for stat in self.entity.effective_stats:
+        for stat in sorted(self.entity.effective_stats, key=_by_position):
             if stat.stat_definition.stat_group.name != group_name:
                 continue
             value = values.get(stat.stat_definition_id)
@@ -115,12 +116,17 @@ class EntityViewMixin:
     def tags(self) -> list[tuple[str, bool | None]]:
         values = self.resolved_stat_values()
         pairs: list[tuple[str, bool | None]] = []
-        for stat in self.entity.effective_stats:
+        for stat in sorted(self.entity.effective_stats, key=_by_position):
             if stat.stat_definition.stat_group.name != "tags":
                 continue
             value = values.get(stat.stat_definition_id)
             pairs.append((stat.stat_definition.name, value if isinstance(value, bool) else None))
         return pairs
+
+
+def _by_position(stat: VEffectiveStat) -> tuple[int, str]:
+    """A stat's place in its group (ADR 0278): position, then name."""
+    return (stat.stat_definition.position, stat.stat_definition.name)
 
 
 def description_pairs(entity: Entity, visibility: InformationVisibility) -> list[tuple[str, str]]:

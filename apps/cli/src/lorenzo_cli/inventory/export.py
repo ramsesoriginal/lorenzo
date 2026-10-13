@@ -3,7 +3,7 @@ about it, in the shape `lorenzo inventory import --add` reads back.
 
 An item's own id goes in `ref` (so a re-import moves it rather than making a second) and its
 prototype's in `item`. What is written about it is read from the two notes an import writes,
-"Note" and "Details".
+"Note", "Description" and "Details" (ADR 0226).
 """
 
 from __future__ import annotations
@@ -37,6 +37,8 @@ def _read_notes(client: LorenzoClient, tenant_id: UUID, line: Line, instance_id:
         text = _text(info)
         if info.title == "Note":
             line.note = text or None
+        elif info.title == "Description":
+            line.description = text or None
         elif info.title == "Details":
             for row in text.splitlines():
                 label, _, value = row.partition(":")

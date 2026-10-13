@@ -1,0 +1,167 @@
+---
+import BeingNotes from '../BeingNotes/BeingNotes.astro';
+import Datasheet from '../Datasheet/Datasheet.astro';
+import DescriptionEdit from '../DescriptionEdit/DescriptionEdit.astro';
+import HandOver from '../HandOver/HandOver.astro';
+import InventorySummary from '../InventorySummary/InventorySummary.astro';
+import LayoutSwitch from '../LayoutSwitch/LayoutSwitch.astro';
+import ModeSwitch from '../ModeSwitch/ModeSwitch.astro';
+import NameEdit from '../NameEdit/NameEdit.astro';
+import People from '../People/People.astro';
+import PictureEdit from '../PictureEdit/PictureEdit.astro';
+import SlugEditor from '../SlugEditor/SlugEditor.astro';
+import StatBand from '../StatBand/StatBand.astro';
+import TagEditor from '../TagEditor/TagEditor.astro';
+---
+
+<!-- A being's sheet (RFC 0043, docs/design/beings): an identity header, a sticky bar once it has
+     scrolled away, the sections (About, Notes, Stats, Inventory) and a rail. Read, Play and Edit say
+     what you are doing; the parts marked data-only-in show in those modes only. -->
+<div class="sheet-page" data-being-page hidden>
+  <p>
+    <a data-back>&larr; All beings</a>
+  </p>
+
+  <header class="card sheet-head" id="top" data-sheet-head>
+    <div>
+      <figure class="portrait being-picture" data-picture-figure hidden>
+        <img data-picture alt="" />
+      </figure>
+      <div class="portrait" data-portrait role="img" aria-label="No picture yet"></div>
+      <div class="edit-picture" data-only-in="edit" hidden>
+        <div class="stack-tight" role="region" aria-labelledby="being-picture-heading">
+          <h2 id="being-picture-heading" class="visually-hidden">
+            Picture
+          </h2>
+          <PictureEdit />
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-meta">
+      <h1 class="sheet-name" data-title></h1>
+      <div data-only-in="edit" data-name-section hidden>
+        <div role="region" aria-labelledby="being-name-heading" hidden>
+          <h2 id="being-name-heading" class="visually-hidden">
+            Name
+          </h2>
+          <NameEdit />
+        </div>
+      </div>
+      <div class="sheet-sub">
+        <span class="kind badge" data-kind></span>
+        <code class="mono" data-link-name hidden></code>
+      </div>
+      <div data-only-in="edit" hidden>
+        <div role="region" aria-labelledby="being-slug-heading">
+          <h2 id="being-slug-heading" class="visually-hidden">
+            Link name
+          </h2>
+          <SlugEditor />
+        </div>
+      </div>
+      <ul class="tag-row" aria-label="Tags" data-tag-chips hidden></ul>
+      <div data-only-in="edit" hidden>
+        <div role="region" aria-labelledby="being-tags-heading">
+          <h2 id="being-tags-heading" class="visually-hidden">
+            Tags
+          </h2>
+          <TagEditor />
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-tools">
+      <ModeSwitch name="mode" />
+      <LayoutSwitch />
+      <span class="status-text" data-save-status role="status" hidden></span>
+    </div>
+  </header>
+
+  <div class="sticky-bar" data-sticky hidden>
+    <span class="display sticky-name" data-sticky-name></span>
+    <span class="sticky-vitals" data-vitals></span>
+    <span class="grow"></span>
+    <nav class="sticky-nav" aria-label="Sections">
+      <a href="#about">About</a>
+      <a href="#notes">Notes</a>
+      <a href="#stats">Stats</a>
+      <a href="#inventory">Inventory</a>
+    </nav>
+    <ModeSwitch name="mode-sticky" />
+  </div>
+
+  <Datasheet />
+
+  <div class="sheet-layout" data-only-layout="sheet">
+    <div class="sheet-main" data-sheet-main>
+      <section
+        class="sheet-section"
+        id="about"
+        data-section="about"
+        aria-labelledby="about-heading"
+      >
+        <header>
+          <h2 id="about-heading">About</h2>
+          <span class="grow"></span>
+        </header>
+        <div class="stack" data-being-view>
+          <div class="stack item-detail-descriptions" data-description></div>
+          <p class="status-text" data-nothing hidden>
+            Nothing has been written about this being yet.
+          </p>
+        </div>
+        <DescriptionEdit>
+          <button type="button" class="btn btn-secondary" data-copy-link>
+            Copy link
+          </button>
+        </DescriptionEdit>
+      </section>
+
+      <section
+        class="sheet-section"
+        id="notes"
+        data-section="notes"
+        aria-labelledby="being-notes-heading"
+      >
+        <header>
+          <h2 id="being-notes-heading">Notes</h2>
+        </header>
+        <BeingNotes />
+      </section>
+
+      <section
+        class="sheet-section"
+        id="stats"
+        data-section="stats"
+        aria-labelledby="being-stats-heading-view"
+      >
+        <header>
+          <h2 id="being-stats-heading-view">Stats</h2>
+        </header>
+        <StatBand />
+      </section>
+
+      <section class="sheet-section" id="inventory" data-section="inventory">
+        <InventorySummary />
+      </section>
+    </div>
+
+    <div class="sheet-rail">
+      <aside class="card rail-card">
+        <People />
+        <div data-only-in="edit" hidden>
+          <HandOver />
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="visually-hidden" data-live role="status" aria-live="polite"></div>
+  <div class="undo-bar" data-undo-bar hidden>
+    <span data-undo-text></span>
+    <button type="button" class="btn" data-undo>
+      Undo
+    </button>
+  </div>
+</div>
