@@ -22,6 +22,55 @@ import Combobox from '../Combobox/Combobox.astro';
       <Combobox placeholder="Search the catalog…" labelledby="add-item-find-label" />
     </div>
 
+    <div class="stack-tight" data-not-listed hidden>
+      <button type="button" class="btn btn-secondary" data-not-listed-open>
+        Not in the list? Add it as an unsorted item
+      </button>
+      <p class="field-note">
+        Your GM matches it to a catalog item later. Your name and notes stay.
+      </p>
+    </div>
+
+    <p class="field-note" data-no-unsorted hidden>
+      This library can't take unsorted items yet. Ask your GM to run
+      <code>lorenzo seed --layer core</code>.
+    </p>
+
+    <form class="stack-tight" data-unsorted-form hidden>
+      <label class="field">
+        <span class="field-label">Name</span>
+        <input class="text-input" type="text" data-unsorted-name autocomplete="off" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Description (optional)</span>
+        <textarea class="text-input" rows="3" data-unsorted-description></textarea>
+      </label>
+      <div class="field-row">
+        <label class="field">
+          <span class="field-label">Weight in pounds (optional)</span>
+          <input
+            class="text-input"
+            type="text"
+            inputmode="decimal"
+            data-unsorted-weight
+            autocomplete="off"
+          />
+        </label>
+        <label class="field">
+          <span class="field-label">Value (optional)</span>
+          <input class="text-input" type="text" data-unsorted-value autocomplete="off" />
+        </label>
+      </div>
+      <div class="field-row">
+        <button type="submit" data-unsorted-add>
+          Add
+        </button>
+        <button type="button" class="btn btn-secondary" data-unsorted-back>
+          Back
+        </button>
+      </div>
+    </form>
+
     <form class="stack-tight" data-confirm hidden>
       <div class="field-row">
         <span class="chip" data-picked></span>

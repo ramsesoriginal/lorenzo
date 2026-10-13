@@ -30,10 +30,19 @@ from lorenzo_cli.client.ops import (
 )
 from lorenzo_cli.client.paging import PAGE_SIZE, all_items
 from lorenzo_cli.client.transport import LorenzoClient
-from lorenzo_cli.seed.spec import AttachmentSpec, NodeSpec, SeedSpec, StatValue
+from lorenzo_cli.seed.spec import AttachmentSpec, DefinitionSpec, NodeSpec, SeedSpec, StatValue
 
 ActionKind = Literal[
-    "group", "definition", "node", "description", "retitle", "tag", "stat", "attach", "recipe"
+    "group",
+    "definition",
+    "display",
+    "node",
+    "description",
+    "retitle",
+    "tag",
+    "stat",
+    "attach",
+    "recipe",
 ]
 _RESOLVE_BATCH = 100  # GET .../entities/resolve takes at most this many slugs (ADR 0107)
 # A page of the item listing costs about 40 ms and under a millisecond a row; a request for one item
@@ -194,6 +203,30 @@ def holds_layer(spec: SeedSpec, state: TenantState, layer: str) -> bool:
     )
 
 
+_FLAGS = ("unit", "adjustable_in_play", "pin", "signed")
+_HINTS = ("max_hint", "min_hint", "resolved_hint")
+
+
+def _display_changes(
+    definition: DefinitionSpec, present: StatDefinitionOut | None, state: TenantState
+) -> str:
+    """The fields of a definition the seed names and the tenant's differ in, as `a, b`. A new
+    definition is made with its flags, so for it only the hints (which need the other definitions
+    to exist) are left."""
+    by_id = {d.id: d.name for d in state.definitions.values()}
+    changes = []
+    for key in () if present is None else _FLAGS:
+        wanted = getattr(definition, key)
+        if wanted is not None and wanted != getattr(present, key):
+            changes.append(key)
+    for key in _HINTS:
+        wanted = getattr(definition, key)
+        current = getattr(present, f"{key}_id", None) if present is not None else None
+        if wanted is not None and wanted != (by_id.get(current) if current is not None else None):
+            changes.append(key)
+    return ", ".join(changes)
+
+
 def make_plan(
     spec: SeedSpec,
     state: TenantState,
@@ -239,6 +272,7 @@ def make_plan(
     def label_of(node: NodeSpec) -> str:
         return f"The node {node.slug!r}"
 
+    displays: list[Action] = []
     for definition in (d for d in spec.definitions if d.layer in layers):
         present = state.definitions.get(definition.name)
         if present is not None:
@@ -257,6 +291,9 @@ def make_plan(
                 )
                 continue
             plan.existing += 1
+            changes = _display_changes(definition, present, state)
+            if changes:
+                displays.append(Action("display", definition.name, definition.layer, changes))
             continue
         if definition.group not in have_groups:
             missing(
@@ -270,6 +307,11 @@ def make_plan(
             Action("definition", definition.name, definition.layer, definition.value_type)
         )
         have_definitions.add(definition.name)
+        hints = _display_changes(definition, None, state)
+        if hints:
+            displays.append(Action("display", definition.name, definition.layer, hints))
+    # After every definition, so a hint can name one made later in the list.
+    plan.actions.extend(displays)
 
     for node in (n for n in spec.nodes if n.layer in layers):
         parents_ok = True

@@ -1,0 +1,44 @@
+<!-- The same being as a datasheet (RFC 0043): a line of labelled cells for each stat group, what it
+     has equipped as a table, its abilities and notes. It adds no data; it is a different density,
+     and shares the header's frame. -->
+<article
+  class="card datasheet"
+  data-datasheet
+  data-only-layout="datasheet"
+  hidden
+  aria-label="Datasheet"
+>
+  <div data-ds-lines></div>
+  <div class="ds-block" data-ds-empty hidden>
+    <p class="status-text">No stats. The datasheet shows what there is.</p>
+  </div>
+
+  <div class="ds-block" data-ds-weapons hidden>
+    <h3 data-ds-weapons-title>Weapons</h3>
+    <div class="ds-table-wrap">
+      <table class="ds-table">
+        <thead>
+          <tr data-ds-head></tr>
+        </thead>
+        <tbody data-ds-body></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="ds-block" data-ds-notes hidden>
+    <h3>Abilities and notes</h3>
+    <div data-ds-note-list></div>
+  </div>
+
+  <p class="status-text ds-block" data-ds-status hidden></p>
+
+  <div class="ds-block about">
+    <details>
+      <summary>
+        <strong data-ds-about-title></strong>
+        <span class="caption">Read the description</span>
+      </summary>
+      <div class="stack item-detail-descriptions" data-ds-description></div>
+    </details>
+  </div>
+</article>

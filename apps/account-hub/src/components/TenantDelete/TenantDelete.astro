@@ -1,0 +1,45 @@
+---
+// The "Delete this library" section of a library's Admins tab, and of a repository's People tab in
+// Studio (ADR 0267). renderTenantDelete fills it: for an Owner a button that opens the dialog below,
+// for anyone else who sees the tab a sentence saying why there is no button.
+---
+
+<section class="stack-tight" data-tenant-delete hidden>
+  <h3 data-heading></h3>
+  <p class="caption" data-note hidden></p>
+  <div class="row" data-open-row hidden>
+    <button type="button" class="btn-danger" data-open></button>
+  </div>
+  <span class="status-text" role="status" data-status hidden></span>
+
+  <!-- What it loses, said before it does it. Escape closes it, and the focus goes back to the button. -->
+  <dialog aria-labelledby="delete-dialog-title" data-delete-dialog>
+    <form method="dialog" class="stack" data-delete-form>
+      <h3 id="delete-dialog-title" data-dialog-title></h3>
+      <p data-dialog-intro></p>
+      <p data-dialog-lost-heading hidden>
+        <strong>What goes with it</strong>
+      </p>
+      <ul class="stack-tight" data-dialog-lost></ul>
+      <p class="caption" data-dialog-footnote></p>
+      <label class="field">
+        <span class="field-label" data-confirm-label></span>
+        <input
+          type="text"
+          class="text-input"
+          autocomplete="off"
+          autocapitalize="none"
+          spellcheck="false"
+          data-confirm-input
+        />
+      </label>
+      <p class="error-text" role="alert" data-dialog-error hidden></p>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-dialog-cancel autofocus>
+          Cancel
+        </button>
+        <button type="submit" class="btn-danger" data-dialog-confirm disabled></button>
+      </div>
+    </form>
+  </dialog>
+</section>

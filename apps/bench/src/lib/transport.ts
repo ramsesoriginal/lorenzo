@@ -1,0 +1,563 @@
+// The command layer's transport on the typed client (ADR 0122), for one repository.
+
+import {
+  fetchAllPages,
+  LorenzoApiError,
+  type LorenzoClient,
+  MAX_PAGE_SIZE,
+  type Schema,
+  unwrap,
+} from '@lorenzo/api-client';
+import { fromBody, toBody } from '../core/formulas';
+import {
+  decimalText,
+  type EditableKind,
+  type EntryState,
+  type EntrySummary,
+  type NewEntry,
+  type NewText,
+  OfflineError,
+  RefusedError,
+  type ResolvedEntry,
+  type StatDef,
+  type StatType,
+  type TextDoc,
+  type Transport,
+} from '../core/transport';
+
+/** A refusal from the API as the layer understands it; a missing connection as offline. */
+function translate(e: unknown): never {
+  if (e instanceof LorenzoApiError) {
+    throw new RefusedError(e.message, e.status === 412);
+  }
+  // fetch rejects with a TypeError when there is no connection (or the request was blocked), and
+  // says so in its own words in each browser. Any other TypeError is a bug, not a lost connection.
+  if (e instanceof TypeError && /fetch|network|load failed/i.test(e.message))
+    throw new OfflineError();
+  throw e;
+}
+
+type EntityDetail = Schema<'EntityDetailOut'>;
+
+export function apiTransport(client: LorenzoClient, tenantId: string): Transport {
+  const path = { tenant_id: tenantId };
+
+  // The stat vocabulary, read once: an entry names its stats, and a write needs their ids.
+  let definitions: Promise<StatDef[]> | null = null;
+  const loadDefinitions = (): Promise<StatDef[]> => {
+    definitions ??= fetchAllPages(async (page) =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/stat-definitions', {
+          params: { path, query: { page, size: MAX_PAGE_SIZE } },
+        }),
+      ),
+    ).then((rows) =>
+      rows.map((d) => ({
+        id: d.id,
+        name: d.name,
+        type: d.value_type as StatType,
+        enumValues: [...d.enum_values],
+      })),
+    );
+    // A failed read is tried again next time, not remembered.
+    definitions.catch(() => {
+      definitions = null;
+    });
+    return definitions;
+  };
+
+  async function toState(
+    id: string,
+    entry: EntityDetail,
+    etag: string | null,
+  ): Promise<EntryState> {
+    const defs = await loadDefinitions();
+    const docs = (type: string): TextDoc[] =>
+      entry.information
+        .filter((info) => info.type === type)
+        .flatMap((info) => {
+          const text = info.payloads.find((p) => p.kind === 'description');
+          if (!text || text.kind !== 'description') return [];
+          return [
+            {
+              id: info.id,
+              payloadId: text.id,
+              title: info.title,
+              text: text.content,
+              // The payload's own `updated_at`, as a weak ETag (ADR 0108).
+              version: `W/"${text.updated_at}"`,
+            },
+          ];
+        });
+    return {
+      id,
+      name: entry.name,
+      kinds: [...entry.kinds],
+      parentIds: entry.prototypes.map((p) => p.id),
+      slug: entry.slug ?? null,
+      childIds: entry.children.map((c) => c.id),
+      description: docs('description')[0] ?? null,
+      notes: docs('note'),
+      stats: entry.stats.flatMap((st) => {
+        const def = defs.find((d) => d.name === st.name);
+        return def ? [{ statId: def.id, name: st.name, value: st.value, own: st.own }] : [];
+      }),
+      etag,
+    };
+  }
+
+  async function read(id: string): Promise<EntryState> {
+    const res = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+      params: { path: { ...path, entity_id: id } },
+    });
+    return toState(id, await unwrap(res), res.response.headers.get('etag'));
+  }
+
+  const guarded = async <T>(work: () => Promise<T>): Promise<T> => {
+    try {
+      return await work();
+    } catch (e) {
+      return translate(e);
+    }
+  };
+  // A null header is left out of the request by the client.
+  const ifMatch = (etag: string | null) => ({ 'if-match': etag });
+
+  return {
+    listEntries: () =>
+      guarded(async (): Promise<EntrySummary[]> => {
+        const rows = await fetchAllPages(async (page) =>
+          unwrap(
+            await client.GET('/tenants/{tenant_id}/entities', {
+              params: { path, query: { page, size: MAX_PAGE_SIZE } },
+            }),
+          ),
+        );
+        return rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          kinds: [...r.kinds],
+          parentIds: [...r.parent_ids],
+        }));
+      }),
+
+    listStatDefinitions: () => guarded(loadDefinitions),
+
+    backlinks: (entryId) =>
+      guarded(async () => {
+        const rows = await fetchAllPages(async (page) =>
+          unwrap(
+            await client.GET('/tenants/{tenant_id}/entities/{entity_id}/backlinks', {
+              params: {
+                path: { ...path, entity_id: entryId },
+                query: { page, size: MAX_PAGE_SIZE },
+              },
+            }),
+          ),
+        );
+        return rows.map((r) => ({
+          entryId: r.entity_id,
+          name: r.name,
+          kinds: [...r.kinds],
+          informationId: r.information_id,
+          title: r.title,
+          type: r.type,
+        }));
+      }),
+
+    listFormulas: (entryId) =>
+      guarded(async () => {
+        const rows = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/{entity_id}/computed-stats', {
+            params: { path: { ...path, entity_id: entryId } },
+          }),
+        );
+        return rows.map((r) => ({
+          entryId: r.entity_id,
+          statId: r.stat_definition_id,
+          formula: fromBody(r.formula as never),
+          version: `W/"${r.updated_at}"`,
+        }));
+      }),
+
+    previewFormula: (entryId, statId, formula) =>
+      guarded(async () => {
+        const out = await unwrap(
+          await client.POST(
+            '/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}/preview',
+            {
+              params: { path: { ...path, entity_id: entryId, stat_definition_id: statId } },
+              body: { formula: formula ? (toBody(formula) as never) : null },
+            },
+          ),
+        );
+        const defs = await loadDefinitions();
+        return {
+          value: out.value,
+          source: out.source,
+          inputs: out.inputs.map((i) => {
+            const row = i as unknown as { stat_definition_id: string; value: never };
+            return {
+              name: defs.find((d) => d.id === row.stat_definition_id)?.name ?? '?',
+              value: row.value,
+            };
+          }),
+        };
+      }),
+
+    setFormula: (entryId, statId, formula, version) =>
+      guarded(async () => {
+        const r = await unwrap(
+          await client.PUT(
+            '/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}',
+            {
+              params: {
+                path: { ...path, entity_id: entryId, stat_definition_id: statId },
+                header: ifMatch(version),
+              },
+              body: toBody(formula) as never,
+            },
+          ),
+        );
+        return {
+          entryId,
+          statId,
+          formula: fromBody(r.formula as never),
+          version: `W/"${r.updated_at}"`,
+        };
+      }),
+
+    clearFormula: (entryId, statId, version) =>
+      guarded(async () => {
+        await unwrap(
+          await client.DELETE(
+            '/tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}',
+            {
+              params: {
+                path: { ...path, entity_id: entryId, stat_definition_id: statId },
+                header: ifMatch(version),
+              },
+            },
+          ),
+        );
+      }),
+
+    formulaDependents: (statId) =>
+      guarded(async () => {
+        const rows = await unwrap(
+          await client.GET(
+            '/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents',
+            {
+              params: { path: { ...path, stat_definition_id: statId } },
+            },
+          ),
+        );
+        return rows.map((r) => ({ entryId: r.entity_id, statId: r.stat_definition_id }));
+      }),
+
+    listStatGroups: () =>
+      guarded(async () => {
+        const rows = await fetchAllPages(async (page) =>
+          unwrap(
+            await client.GET('/tenants/{tenant_id}/stat-groups', {
+              params: { path, query: { page, size: MAX_PAGE_SIZE } },
+            }),
+          ),
+        );
+        return rows.map((g) => ({ id: g.id, name: g.name }));
+      }),
+
+    createStatGroup: (name) =>
+      guarded(async () => {
+        const g = await unwrap(
+          await client.POST('/tenants/{tenant_id}/stat-groups', {
+            params: { path },
+            body: { name, priority: 0, mandatory: false },
+          }),
+        );
+        return { id: g.id, name: g.name };
+      }),
+
+    createStat: (def) =>
+      guarded(async () => {
+        const d = await unwrap(
+          await client.POST('/tenants/{tenant_id}/stat-definitions', {
+            params: { path },
+            body: {
+              name: def.name,
+              stat_group_id: def.groupId,
+              value_type: def.type,
+              enum_values: def.type === 'enum' ? def.enumValues : null,
+              adjustable_in_play: false,
+              pin: false,
+              signed: false,
+            },
+          }),
+        );
+        definitions = null;
+        return {
+          id: d.id,
+          name: d.name,
+          type: d.value_type as StatType,
+          enumValues: [...d.enum_values],
+        };
+      }),
+
+    deleteStat: (statId) =>
+      guarded(async () => {
+        await unwrap(
+          await client.DELETE('/tenants/{tenant_id}/stat-definitions/{stat_definition_id}', {
+            params: { path: { ...path, stat_definition_id: statId } },
+          }),
+        );
+        definitions = null;
+      }),
+
+    resolveSlugs: (slugs, from) =>
+      guarded(async (): Promise<ResolvedEntry[]> => {
+        if (!slugs.length) return [];
+        const rows = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/resolve', {
+            params: { path, query: { slug: slugs, ...(from ? { from } : {}) } },
+          }),
+        );
+        return rows.map((r) => ({
+          slug: r.slug,
+          id: r.entity_id,
+          name: r.name,
+          kinds: [...r.kinds],
+        }));
+      }),
+
+    getEntry: (id) => guarded(() => read(id)),
+
+    setPicture: (id, file) =>
+      guarded(async () => {
+        const res = await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/picture', {
+          params: { path: { ...path, entity_id: id } },
+          // OpenAPI types a file as a string; the serializer sends the real File as multipart, and
+          // the browser adds the boundary to the content type.
+          body: { file: file.name },
+          bodySerializer: () => {
+            const data = new FormData();
+            data.append('file', file);
+            return data;
+          },
+        });
+        await unwrap(res);
+      }),
+
+    clearPicture: (id) =>
+      guarded(async () => {
+        const res = await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}/picture', {
+          params: { path: { ...path, entity_id: id } },
+        });
+        await unwrap(res);
+      }),
+
+    pictureOf: (id) =>
+      guarded(async () => {
+        const entry = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+            params: { path: { ...path, entity_id: id } },
+          }),
+        );
+        const picture = entry.information
+          .filter((info) => info.type === 'main_picture')
+          .flatMap((info) => info.payloads)
+          .find((p) => p.kind === 'picture');
+        if (!picture) return null;
+        const { data } = await client.GET('/tenants/{tenant_id}/payloads/{payload_id}/content', {
+          params: { path: { ...path, payload_id: picture.id } },
+          parseAs: 'blob',
+        });
+        return data ? URL.createObjectURL(data) : null;
+      }),
+
+    // 201 when the kind was given, 200 when it already was: both are done.
+    setKind: (id, kind: EditableKind, on, etag) =>
+      guarded(async () => {
+        const params = {
+          path: { ...path, entity_id: id, kind },
+          header: ifMatch(etag),
+        };
+        const res = on
+          ? await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/kinds/{kind}', { params })
+          : await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}/kinds/{kind}', {
+              params,
+            });
+        return toState(id, await unwrap(res), res.response.headers.get('etag'));
+      }),
+
+    setStat: (id, stat, value, etag) =>
+      guarded(async () => {
+        const params = {
+          path: { ...path, entity_id: id, stat_definition_id: stat.id },
+          header: ifMatch(etag),
+        };
+        let res: { data?: EntityDetail; response: Response };
+        if (value === null) {
+          // A bool is cleared through its tag route, the rest through the stat route.
+          res =
+            stat.type === 'bool'
+              ? await client.DELETE(
+                  '/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}',
+                  { params },
+                )
+              : await client.DELETE(
+                  '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',
+                  { params },
+                );
+        } else if (typeof value === 'boolean') {
+          res = value
+            ? await client.PUT(
+                '/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}',
+                { params },
+              )
+            : await client.PATCH(
+                '/tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id}',
+                { params },
+              );
+        } else if (stat.type === 'float' && typeof value === 'number') {
+          // JSON written by the browser says `3` for `3.0`, which the API reads as a whole number
+          // and refuses for a decimal stat: the body is written by hand, point kept.
+          res = await client.PUT(
+            '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',
+            {
+              params,
+              body: { value: 0, acquire_group: true },
+              bodySerializer: () => `{"value":${decimalText(value)},"acquire_group":true}`,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          );
+        } else {
+          res = await client.PUT(
+            '/tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}',
+            {
+              params,
+              body: { value, acquire_group: true },
+            },
+          );
+        }
+        return toState(id, await unwrap(res as never), res.response.headers.get('etag'));
+      }),
+
+    // 201 when made, 200 when the id was already this library's (ADR 0222): both are done.
+    createEntry: (entry: NewEntry) =>
+      guarded(async () => {
+        const make = async (slug: string | null) =>
+          unwrap(
+            await client.POST('/tenants/{tenant_id}/entities', {
+              params: { path },
+              body: {
+                id: entry.id,
+                name: entry.name,
+                kinds: entry.kinds.filter(
+                  (k): k is 'item' | 'being' => k === 'item' || k === 'being',
+                ),
+                parents: entry.parents,
+                ...(slug ? { slug } : {}),
+              },
+            }),
+          );
+        try {
+          await make(entry.slug ?? null);
+        } catch (e) {
+          // A link name another entry has is a 409: the entry is made without one, since an
+          // entry without a link name is better than one that was not made. (Any other 409, such
+          // as an id that is not available, says the same again and is the answer.)
+          if (entry.slug && e instanceof LorenzoApiError && e.status === 409) await make(null);
+          else throw e;
+        }
+        return read(entry.id);
+      }),
+
+    setNoteOrder: (id, noteIds) =>
+      guarded(async () => {
+        const params = { path: { ...path, entity_id: id } };
+        const entry = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/{entity_id}', { params }),
+        );
+        // The order takes every piece of information the caller can see. The notes take the places
+        // the notes held, in the order asked; the rest stays where it is.
+        const all = entry.information.map((info) => info.id);
+        const wanted = noteIds.filter((n) => all.includes(n));
+        let next = 0;
+        const ordered = all.map((a) => (noteIds.includes(a) ? (wanted[next++] as string) : a));
+        await unwrap(
+          await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/information/order', {
+            params,
+            body: { information_ids: ordered },
+          }),
+        );
+        return read(id);
+      }),
+
+    setSlug: (id, slug) =>
+      guarded(async () => {
+        const params = { path: { ...path, entity_id: id } };
+        if (slug === null)
+          await unwrap(
+            await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}/slug', { params }),
+          );
+        else
+          await unwrap(
+            await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+              params,
+              body: { slug },
+            }),
+          );
+        return read(id);
+      }),
+
+    setName: (id, name, etag) =>
+      guarded(async () => {
+        await unwrap(
+          await client.PATCH('/tenants/{tenant_id}/items/{entity_id}', {
+            params: { path: { ...path, entity_id: id }, header: ifMatch(etag) },
+            body: { name },
+          }),
+        );
+        return read(id);
+      }),
+
+    // 201 when made, 200 when the id was already this entry's (ADR 0222): both are done.
+    createText: (entryId, text: NewText) =>
+      guarded(async () => {
+        await unwrap(
+          await client.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+            params: { path: { ...path, entity_id: entryId } },
+            body: {
+              id: text.id,
+              title: text.title,
+              type: text.type,
+              is_public: false,
+              content: text.text,
+              locale: typeof navigator === 'undefined' ? 'en-US' : navigator.language || 'en-US',
+            },
+          }),
+        );
+      }),
+
+    setText: (payloadId, text, version) =>
+      guarded(async () => {
+        await unwrap(
+          await client.PATCH('/tenants/{tenant_id}/payloads/{payload_id}', {
+            params: { path: { ...path, payload_id: payloadId }, header: ifMatch(version) },
+            body: { content: text },
+          }),
+        );
+      }),
+
+    setParents: (id, parentIds, etag) =>
+      guarded(async () => {
+        await unwrap(
+          await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/parents', {
+            params: { path: { ...path, entity_id: id }, header: ifMatch(etag) },
+            body: { parent_ids: parentIds },
+          }),
+        );
+        return read(id);
+      }),
+  };
+}

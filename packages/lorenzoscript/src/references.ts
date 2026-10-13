@@ -30,3 +30,20 @@ const inlineContent = (b: Block): Inline[][] =>
     : b.type === 'table'
       ? [...b.head, ...b.rows.flat()]
       : [];
+
+/**
+ * The stats a text names with `{weight}`, once each, in order of first use, lowercased. They are
+ * not references (nothing is stored for them): a caller reads them to fetch the values to render.
+ */
+export function statNames(doc: Document): string[] {
+  const found = new Set<string>();
+  const visit = (nodes: Inline[]): void => {
+    for (const n of nodes) {
+      if (n.type === 'stat') found.add(n.name.toLowerCase());
+      if ('children' in n) visit(n.children);
+    }
+  };
+  for (const block of allBlocks(doc, true))
+    for (const content of inlineContent(block)) visit(content);
+  return [...found];
+}

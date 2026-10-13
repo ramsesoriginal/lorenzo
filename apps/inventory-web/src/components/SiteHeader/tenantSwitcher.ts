@@ -28,7 +28,7 @@ export async function renderTenantSwitcher(root: HTMLElement): Promise<void> {
 
     rememberTenant(switcher.value);
 
-    const path = ['/board/', '/items/'].includes(window.location.pathname)
+    const path = ['/board/', '/items/', '/unsorted/'].includes(window.location.pathname)
       ? window.location.pathname
       : '/board/';
 

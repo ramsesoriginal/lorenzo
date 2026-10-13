@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import enum
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, text
+from sqlalchemy import BigInteger, Enum, ForeignKeyConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy, UuidPk
@@ -38,6 +39,17 @@ class Tenant(Base):
     """
 
     __tablename__ = "tenant"
+    __table_args__ = (
+        # ADR 0281: the weapon group is one of the tenant's own stat groups. The database's key is
+        # ON DELETE SET NULL (weapon_stat_group_id) (see the migration); migrations own the DDL.
+        ForeignKeyConstraint(
+            ["weapon_stat_group_id", "id"],
+            ["stat_group.id", "stat_group.tenant_id"],
+            name="tenant_weapon_stat_group_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
+    )
 
     id: Mapped[UuidPk]
     # Server-side default (not a hardcoded Python one) so the many existing
@@ -73,6 +85,13 @@ class Tenant(Base):
     # GMs who share a campaign with its author. Meaningless for a repository,
     # which holds no campaigns and so has no GMs.
     npcs_shared_with_gms: Mapped[bool] = mapped_column(server_default=text("true"))
+    # ADR 0262: bumped once per transaction that writes anything the entity export shows, by
+    # deferred triggers on those tables (migration c4e7a19b5d28). The export's ETag.
+    export_revision: Mapped[int] = mapped_column(BigInteger, server_default=text("0"))
+    # ADR 0281: the being sheet's datasheet reads weapons from this stat group of the tenant and
+    # abilities from information of this type. Unset until a library says.
+    weapon_stat_group_id: Mapped[uuid.UUID | None]
+    ability_information_type: Mapped[str | None]
     # ADR 0029's attribution pair, landing here alongside created_at/
     # updated_at themselves (ADR 0033/RFC 0012) - unlike every other table
     # ADR 0018 covers, `tenant`'s original bootstrap (ADR 0013) predates
@@ -92,6 +111,7 @@ class Tenant(Base):
         passive_deletes=True,
     )
     stat_groups: Mapped[list[StatGroup]] = relationship(
+        foreign_keys="StatGroup.tenant_id",
         lazy="raise_on_sql",
         back_populates="tenant",
         cascade="all, delete-orphan",

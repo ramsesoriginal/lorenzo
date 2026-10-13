@@ -1,0 +1,13 @@
+---
+import { LAYOUTS } from '../../lib/sheetMode';
+---
+
+<!-- A quieter control than the mode: it changes how densely the being is drawn, not what you do. -->
+<div class="segmented quiet" role="radiogroup" aria-label="Layout" data-layout-switch>
+  {LAYOUTS.map(({ layout, label }) => (
+    <label>
+      <input type="radio" name="layout" value={layout} checked={layout === 'sheet'} />
+      {label}
+    </label>
+  ))}
+</div>

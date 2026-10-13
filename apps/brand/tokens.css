@@ -249,3 +249,28 @@
   --visibility-restricted-text: var(--text-primary);
   --visibility-restricted-border: var(--border-strong);
 }
+
+@media (max-width: 720px) {
+  :root {
+    /* Spacing — 4px rhythm with a 2px half-step (§8.1) */
+    --space-1: 2px;
+    --space-2: 4px;
+    --space-3: 8px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-7: 28px;
+
+    /* The smallest size of anything pressed with a finger (§8.5): used as a
+      minimum height at phone widths and for coarse pointers, never as a
+      fixed size on a desktop. */
+    --target-min: 44px;
+
+    /* Radius — canonical values (§8.3); a different radius is a deliberate,
+      named exception, not a rounding choice */
+    --radius-control: 8px;
+    --radius-card: 10px;
+    --radius-surface: 16px;
+    --radius-pill: 999px;
+  }
+}

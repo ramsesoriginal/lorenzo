@@ -1,11 +1,12 @@
 import uuid
+from collections.abc import Sequence
 from typing import Annotated, Literal, cast
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Form, Header, Query, Request, Response, UploadFile
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import ForbiddenProblem
-from sqlalchemy import delete, exists, select
+from sqlalchemy import delete, exists, func, literal, or_, select, union_all
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -14,18 +15,34 @@ from lorenzo_api.campaign_access import (
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
 )
+from lorenzo_api.client_ids import existing_in_tenant, insert_with_client_id
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
     get_entity_or_404,
+    get_tenant_context,
     get_tenant_or_404,
     require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.description_payloads import write_description
-from lorenzo_api.entity_access import can_self_manage_entity
+from lorenzo_api.entity_access import (
+    can_self_manage_entity,
+    entity_id_among,
+    prototype_descendants_cte,
+)
+from lorenzo_api.entity_kinds import (
+    Kind,
+    add_kind,
+    create_entry,
+    remove_kind,
+    require_deletable,
+)
+from lorenzo_api.entity_parents import replace_parents
+from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    ClientIdUnavailableError,
     EntityNotFoundError,
     EntitySlugConflictError,
     EntitySlugManagementForbiddenError,
@@ -34,8 +51,12 @@ from lorenzo_api.exceptions import (
     InformationManagementForbiddenError,
     InformationNotFoundError,
     InformationOrderConflictError,
+    InformationOrderListError,
+    InvalidKindRequestError,
+    InventoryItemParentsError,
 )
 from lorenzo_api.information_visibility import (
+    InformationVisibility,
     resolve_information_visibility,
     visible_information_clause,
 )
@@ -45,6 +66,7 @@ from lorenzo_api.models import (
     Containment,
     ContentReference,
     Entity,
+    EntityPrototype,
     EntitySlug,
     Information,
     InformationType,
@@ -52,17 +74,31 @@ from lorenzo_api.models import (
     ItemInstance,
     Ownership,
     Payload,
+    StatDefinition,
     VEffectiveStat,
     formula_load_options,
 )
-from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.my_links import (
+    MY_HINT,
+    MY_PREFIX,
+    anchors_of,
+    item_ancestor_slugs,
+    pick_for_anchor,
+)
+from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
+from lorenzo_api.routers.item_instances import caller_reach
 from lorenzo_api.schemas.entities import (
     BacklinkOut,
+    EntityCreate,
     EntityDetailOut,
     EntityKind,
+    EntityKindPut,
+    EntityListOut,
+    EntityParentsRequest,
     EntitySlugOut,
     EntitySlugUpdate,
     InformationCreate,
+    InformationOrderRequest,
     InformationOut,
     ResolvedSlugOut,
 )
@@ -85,20 +121,327 @@ router = APIRouter(
 )
 
 
+# What an entry is: the marker rows it has (ADR 0012), in this order.
+_KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character]], ...] = (
+    ("item", Item),
+    ("item_instance", ItemInstance),
+    ("being", Being),
+    ("character", Character),
+)
+
+
+async def parents_of(
+    session: SessionDep, entity_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """The direct parents of each of entity_ids, in their order (ADR 0266, ties by id), one query
+    for all of them (ADR 0229): an entry with none has an empty list."""
+    found: dict[uuid.UUID, list[uuid.UUID]] = {entity_id: [] for entity_id in entity_ids}
+    if entity_ids:
+        edges = (
+            select(EntityPrototype.entity_id, EntityPrototype.prototype_id)
+            .where(entity_id_among(EntityPrototype.entity_id, entity_ids))
+            .order_by(
+                EntityPrototype.entity_id,
+                EntityPrototype.position,
+                EntityPrototype.prototype_id,
+            )
+        )
+        for entity_id, parent_id in (await session.execute(edges)).tuples():
+            found[entity_id].append(parent_id)
+    return found
+
+
+async def kinds_of(
+    session: SessionDep, entity_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[EntityKind]]:
+    """The kinds of each of entity_ids, in the order of `_KINDS`, one query for all of them: an
+    entry that is none of them is a bare entry and has an empty list (ADR 0215)."""
+    found: dict[uuid.UUID, set[EntityKind]] = {entity_id: set() for entity_id in entity_ids}
+    if entity_ids:
+        marked = union_all(
+            *(
+                select(model.entity_id.label("entity_id"), literal(kind).label("kind")).where(
+                    entity_id_among(model.entity_id, entity_ids)
+                )
+                for kind, model in _KINDS
+            )
+        )
+        for entity_id, kind in (await session.execute(marked)).tuples():
+            found[entity_id].add(kind)
+    return {
+        entity_id: [kind for kind, _ in _KINDS if kind in has] for entity_id, has in found.items()
+    }
+
+
 @router.get("")
 async def list_entities(
     tenant_id: uuid.UUID,
     params: ParamsDep,
     session: SessionDep,
     user: CurrentUser,
-) -> Page[EntitySummary]:
-    """A lightweight listing - EntitySummary rather than EntityDetailOut, to
-    avoid an N+1-heavy response when listing many entities.
+    q: Annotated[
+        str | None,
+        Query(description="Case-insensitive substring match against the entry's name."),
+    ] = None,
+    kind: Annotated[
+        list[EntityKind] | None,
+        Query(description="Only entries of these kinds (repeatable): any of them, not all."),
+    ] = None,
+    parent_id: Annotated[
+        uuid.UUID | None,
+        Query(description="Only entries that have this entry as a parent."),
+    ] = None,
+    recursive: Annotated[
+        bool,
+        Query(
+            description=(
+                "With parent_id, also include entries that inherit from it transitively, "
+                "not just directly."
+            )
+        ),
+    ] = False,
+) -> Page[EntityListOut]:
+    """Every entry of the tenant by name, then id, with what each is (`kinds`), narrowed by any
+    of q, kind and parent_id (ADR 0215, RFC 0041 §5). EntityListOut rather than EntityDetailOut,
+    to avoid an N+1-heavy response when listing many entities.
+
+    q is a substring of the name, case-insensitive, with `%` and `_` meaning themselves. kind is
+    repeatable and matches an entry that is any of the kinds given. parent_id lists the entries
+    that name this one as a parent, and with recursive every descendant, as `prototype_id` and
+    `recursive` do on GET /items (an unknown id, or one of another tenant, is a 404).
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     stmt = select(Entity).where(Entity.tenant_id == tenant_id).order_by(Entity.name, Entity.id)
-    page: Page[EntitySummary] = await apaginate(session, stmt, params)
+    if q is not None:
+        stmt = stmt.where(Entity.name.icontains(q, autoescape=True))
+    if kind:
+        wanted = set(kind)
+        stmt = stmt.where(
+            or_(
+                *(
+                    exists().where(model.entity_id == Entity.id)
+                    for k, model in _KINDS
+                    if k in wanted
+                )
+            )
+        )
+    if parent_id is not None:
+        await get_entity_or_404(session, parent_id, tenant_id)
+        if recursive:
+            descendants = prototype_descendants_cte(parent_id, tenant_id)
+            stmt = stmt.where(Entity.id.in_(select(descendants.c.descendant_id)))
+        else:
+            stmt = stmt.where(
+                exists().where(
+                    EntityPrototype.entity_id == Entity.id,
+                    EntityPrototype.prototype_id == parent_id,
+                    EntityPrototype.tenant_id == tenant_id,
+                )
+            )
+
+    async def _rows(entities: Sequence[Entity]) -> list[EntityListOut]:
+        ids = [entity.id for entity in entities]
+        kinds = await kinds_of(session, ids)
+        parents = await parents_of(session, ids)
+        return [
+            EntityListOut(
+                id=entity.id,
+                name=entity.name,
+                kinds=kinds[entity.id],
+                parent_ids=parents[entity.id],
+            )
+            for entity in entities
+        ]
+
+    page: Page[EntityListOut] = await apaginate(session, stmt, params, transformer=_rows)
     return page
+
+
+@router.post("", status_code=201, dependencies=[Depends(get_tenant_context)])
+async def create_entity(
+    tenant_id: uuid.UUID,
+    body: EntityCreate,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> EntityDetailOut:
+    """Makes an entry whatever it is (ADR 0217, RFC 0041 section 2): the entry, its link name, its
+    kinds (`item`, `being`, both, or none for a bare entry) and its parents, in one transaction.
+    The gate is the one `POST /items` has, a member of the library. `409` for a link name already
+    taken, `422` for a parent that is not an entry of the library. An inventory item and a
+    character are not made here: an inventory item is made from a catalog item, a being becomes a
+    character through `PUT /characters/{id}`.
+
+    A body with an `id` makes the entry under that id (ADR 0222): if the library already has an
+    entry with it, the create was already done, and that entry is returned with `200` and nothing
+    is written; an id that is taken by something the caller cannot see is a generic `409`.
+    """
+    if (
+        body.id is not None
+        and (await existing_in_tenant(session, Entity, body.id, tenant_id)) is not None
+    ):
+        out = await entity_detail_out(
+            session, request, tenant_id=tenant_id, entity_id=body.id, user=user
+        )
+        response.status_code = 200
+        response.headers["Location"] = str(
+            request.url_for("get_entity", tenant_id=tenant_id, entity_id=body.id)
+        )
+        response.headers["ETag"] = etag_for(out.updated_at)
+        return out
+    kinds = sorted(set(body.kinds))
+    entity = await create_entry(
+        session,
+        tenant_id=tenant_id,
+        user_id=user.id,
+        name=body.name,
+        slug=body.slug,
+        kinds=kinds,
+        parents=body.parents,
+        in_public_catalog=bool(body.in_public_catalog),
+        entity_id=body.id,
+    )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="entity.created",
+        target_type="entity",
+        target_id=entity.id,
+        detail=f"kinds={'+'.join(kinds) or 'none'},parents={len(set(body.parents))}",
+    )
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity.id, user=user
+    )
+    response.headers["Location"] = str(
+        request.url_for("get_entity", tenant_id=tenant_id, entity_id=entity.id)
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.put("/{entity_id}/kinds/{kind}", dependencies=[Depends(get_tenant_context)])
+async def add_entity_kind(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    kind: Kind,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    body: EntityKindPut | None = None,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Gives the entry a kind (ADR 0217): `201` the first time, `200` when it already had it, as
+    `PUT /characters/{id}` does. `item` may carry its own column, `in_public_catalog`. An
+    inventory item never takes `item` (`409`); it may take `being`. Touches the entry, so its
+    ETag moves, and is one activity entry. Both honour `If-Match`.
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    in_public_catalog = body.in_public_catalog if body is not None else None
+    if in_public_catalog is not None and kind != "item":
+        raise InvalidKindRequestError(detail=f"in_public_catalog is a column of item, not {kind}")
+    result = await add_kind(
+        session,
+        tenant_id=tenant_id,
+        entity=entity,
+        kind=kind,
+        user_id=user.id,
+        in_public_catalog=in_public_catalog,
+    )
+    if result != "unchanged":
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.kind_added",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"kind={kind}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.status_code = 201 if result == "created" else 200
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.delete("/{entity_id}/kinds/{kind}", dependencies=[Depends(get_tenant_context)])
+async def remove_entity_kind(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    kind: Kind,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Takes a kind away from the entry and answers `200` with the entry, which survives
+    (ADR 0217), whether or not it had the kind. `409` for `item` while an inventory item inherits
+    from the entry directly, and for `being` while the entry is a character: demote it first.
+    Honours `If-Match`, touches the entry and is one activity entry.
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    removed = await remove_kind(
+        session, tenant_id=tenant_id, entity=entity, kind=kind, user_id=user.id
+    )
+    if removed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.kind_removed",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"kind={kind}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.delete("/{entity_id}", status_code=204, dependencies=[Depends(get_tenant_context)])
+async def delete_entity(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> None:
+    """Deletes the entry, with the guards of every kind it has composed (ADR 0217, RFC 0041
+    section 2): `409` for an inventory item (its own route moves what it holds back out), a
+    character (demote it first), a campaign's own entry, and a catalog item an inventory item
+    inherits from. An entry that is also a being goes with its being; the kind-specific deletes
+    keep working and delete the whole entry as they do now. Nothing a library copied is touched:
+    it sees the entry as removed upstream.
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    kinds = await require_deletable(session, tenant_id=tenant_id, entity_id=entity_id)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="entity.deleted",
+        target_type="entity",
+        target_id=entity_id,
+        detail=f"kinds={'+'.join(sorted(kinds)) or 'none'}",
+    )
+    await session.delete(entity)
+    await session.commit()
 
 
 async def get_entity_detail_or_404(
@@ -123,7 +466,11 @@ async def get_entity_detail_or_404(
         .options(
             # The entity's own rows, so each stat can say whether it's own (ADR 0111).
             selectinload(Entity.stats),
-            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.stat_definition),
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.stat_group),
+            # Where an inherited value comes from (ADR 0276).
+            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             # A winning formula's parameters, for stat_evaluation (ADR 0104).
             *formula_load_options(
                 selectinload(Entity.effective_stats).selectinload(VEffectiveStat.computed_stat)
@@ -142,6 +489,8 @@ async def get_entity_detail_or_404(
             .selectinload(Information.payloads)
             .selectinload(Payload.document),
             selectinload(Entity.information).selectinload(Information.knowledge_links),
+            # Who wrote each (ADR 0277).
+            selectinload(Entity.information).selectinload(Information.author),
             selectinload(Entity.prototypes),
             selectinload(Entity.instances),
             # ADR 0041: Entity.containment/contained_links (the Containment
@@ -152,6 +501,10 @@ async def get_entity_detail_or_404(
             selectinload(Entity.containment).selectinload(Containment.parent),
             selectinload(Entity.contained_links).selectinload(Containment.child),
             selectinload(Entity.slug),
+            # What the entry is (ADR 0217).
+            selectinload(Entity.item),
+            selectinload(Entity.item_instance),
+            selectinload(Entity.being).selectinload(Being.character),
         )
     )
     entity = await session.scalar(stmt)
@@ -179,20 +532,22 @@ async def entity_detail_out(
 
 # Registered before /{entity_id}: that route's path would otherwise match
 # "resolve" and "by-slug" as an entity id (ADR 0043's routing-order note).
-_KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character]], ...] = (
-    ("item", Item),
-    ("item_instance", ItemInstance),
-    ("being", Being),
-    ("character", Character),
-)
-
-
 @router.get("/resolve")
 async def resolve_slugs(
     tenant_id: uuid.UUID,
     slug: Annotated[list[str], Query(min_length=1, max_length=100)],
     session: SessionDep,
     user: CurrentUser,
+    home: Annotated[
+        uuid.UUID | None,
+        Query(
+            alias="from",
+            description=(
+                "The entity the text belongs to. `my/SLUG` slugs resolve against the being "
+                "it belongs to (ADR 0240); without it they are absent."
+            ),
+        ),
+    ] = None,
 ) -> list[ResolvedSlugOut]:
     """Every slug a LorenzoScript text names, in one request (ADR 0107, RFC
     0027 §7). Same gate as GET /{entity_id}, so a slug resolves for exactly
@@ -200,22 +555,62 @@ async def resolve_slugs(
     simply absent: a missing entity and a hidden one look alike.
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    asked = list(dict.fromkeys(slug))
+    mine = [name for name in asked if name.startswith(MY_PREFIX)]
+    # What each asked name stands for: the entity holding the slug, or for a
+    # `my/` name, the entity it means for the being the text belongs to.
+    stands_for: dict[str, uuid.UUID] = {}
+    by_slug = {
+        name: entity_id
+        for name, entity_id in (
+            await session.execute(
+                select(EntitySlug.slug, EntitySlug.entity_id).where(
+                    EntitySlug.tenant_id == tenant_id,
+                    EntitySlug.slug.in_(
+                        [n for n in asked if n not in mine] + [n[len(MY_PREFIX) :] for n in mine]
+                    ),
+                )
+            )
+        ).tuples()
+    }
+    stands_for.update({n: by_slug[n] for n in asked if n not in mine and n in by_slug})
+    if mine and home is not None:
+        anchor = (await anchors_of(session, tenant_id=tenant_id, home_ids=[home]))[home]
+        if anchor is not None:
+            visibility = await resolve_information_visibility(
+                session, user_id=user.id, tenant_id=tenant_id
+            )
+            picks = await pick_for_anchor(
+                session,
+                tenant_id=tenant_id,
+                anchor_id=anchor,
+                targets=[
+                    by_slug[n[len(MY_PREFIX) :]] for n in mine if n[len(MY_PREFIX) :] in by_slug
+                ],
+                reach=await caller_reach(
+                    session, tenant_id=tenant_id, user=user, visibility=visibility
+                ),
+            )
+            for n in mine:
+                target = by_slug.get(n[len(MY_PREFIX) :])
+                if target is not None and target in picks:
+                    stands_for[n] = picks[target]
+    if not stands_for:
+        return []
     kinds = [exists().where(model.entity_id == Entity.id).label(kind) for kind, model in _KINDS]
-    stmt = (
-        select(EntitySlug.slug, Entity.id, Entity.name, *kinds)
-        .join(Entity, Entity.id == EntitySlug.entity_id)
-        .where(EntitySlug.tenant_id == tenant_id, EntitySlug.slug.in_(slug))
+    stmt = select(Entity.id, Entity.name, *kinds).where(
+        Entity.tenant_id == tenant_id, Entity.id.in_(set(stands_for.values()))
     )
-    found = {row["slug"]: row for row in (await session.execute(stmt)).mappings()}
+    found = {row["id"]: row for row in (await session.execute(stmt)).mappings()}
     return [
         ResolvedSlugOut(
             slug=name,
-            entity_id=row["id"],
-            name=row["name"],
-            kinds=[kind for kind, _ in _KINDS if row[kind]],
+            entity_id=entity_id,
+            name=found[entity_id]["name"],
+            kinds=[kind for kind, _ in _KINDS if found[entity_id][kind]],
         )
-        for name in dict.fromkeys(slug)
-        if (row := found.get(name)) is not None
+        for name in asked
+        if (entity_id := stands_for.get(name)) is not None
     ]
 
 
@@ -224,6 +619,7 @@ async def get_entity_by_slug(
     tenant_id: uuid.UUID,
     slug: str,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> EntityDetailOut:
@@ -236,9 +632,11 @@ async def get_entity_by_slug(
     )
     if entity_id is None:
         raise EntitySlugNotFoundError(detail=f"No entity with slug {slug!r} in tenant {tenant_id}")
-    return await entity_detail_out(
+    out = await entity_detail_out(
         session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
     )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
 
 
 @router.get("/{entity_id}")
@@ -246,14 +644,74 @@ async def get_entity(
     tenant_id: uuid.UUID,
     entity_id: uuid.UUID,
     request: Request,
+    response: Response,
     session: SessionDep,
     user: CurrentUser,
 ) -> EntityDetailOut:
     """The full detail shape, with every relationship eager-loaded up front."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    return await entity_detail_out(
+    out = await entity_detail_out(
         session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
     )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+async def _my_backlinks(
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    slug: str | None,
+    user: CurrentUser,
+    visibility: InformationVisibility,
+) -> set[uuid.UUID]:
+    """The information whose `my/` links mean this item instance (ADR 0240):
+    a `my/SLUG` where SLUG is the instance's own slug or that of an item it
+    derives from, in a text whose being picks this instance for it. Only an
+    instance can be meant, and a catalog item is not mentioned by it.
+    """
+    if not await session.scalar(select(exists().where(ItemInstance.entity_id == entity_id))):
+        return set()
+    names = await item_ancestor_slugs(session, tenant_id=tenant_id, entity_id=entity_id)
+    by_slug = {name: item_id for item_id, name in names.items()}
+    if slug is not None:
+        by_slug[slug] = entity_id
+    rows = (
+        await session.execute(
+            select(Payload.information_id, Information.entity_id, ContentReference.target)
+            .join(ContentReference, ContentReference.payload_id == Payload.id)
+            .join(Information, Information.id == Payload.information_id)
+            .where(
+                ContentReference.tenant_id == tenant_id,
+                ContentReference.kind.in_(("entity", "image")),
+                ContentReference.hint == MY_HINT,
+                ContentReference.target.in_(list(by_slug)),
+                Information.entity_id != entity_id,
+            )
+        )
+    ).tuples()
+    texts = list(rows)
+    if not texts:
+        return set()
+    anchors = await anchors_of(
+        session, tenant_id=tenant_id, home_ids={home for _, home, _ in texts}
+    )
+    reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
+    picked: dict[tuple[uuid.UUID, str], uuid.UUID | None] = {}
+    for _, home, target in texts:
+        anchor = anchors[home]
+        if anchor is None or (anchor, target) in picked:
+            continue
+        picks = await pick_for_anchor(
+            session, tenant_id=tenant_id, anchor_id=anchor, targets=[by_slug[target]], reach=reach
+        )
+        picked[(anchor, target)] = picks.get(by_slug[target])
+    return {
+        information_id
+        for information_id, home, target in texts
+        if (anchor := anchors[home]) is not None and picked[(anchor, target)] == entity_id
+    }
 
 
 @router.get("/{entity_id}/backlinks")
@@ -278,19 +736,34 @@ async def list_backlinks(
         )
     )
     backlinks: list[BacklinkOut] = []
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    linking: set[uuid.UUID] = set()
     if slug is not None:
-        visibility = await resolve_information_visibility(
-            session, user_id=user.id, tenant_id=tenant_id
+        linking.update(
+            (
+                await session.execute(
+                    select(Payload.information_id)
+                    .join(ContentReference, ContentReference.payload_id == Payload.id)
+                    .where(
+                        ContentReference.tenant_id == tenant_id,
+                        ContentReference.kind.in_(("entity", "image")),
+                        ContentReference.target == slug,
+                        ContentReference.hint != MY_HINT,
+                    )
+                )
+            ).scalars()
         )
-        linking = (
-            select(Payload.information_id)
-            .join(ContentReference, ContentReference.payload_id == Payload.id)
-            .where(
-                ContentReference.tenant_id == tenant_id,
-                ContentReference.kind.in_(("entity", "image")),
-                ContentReference.target == slug,
-            )
+    linking.update(
+        await _my_backlinks(
+            session,
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            slug=slug,
+            user=user,
+            visibility=visibility,
         )
+    )
+    if linking:
         kinds = [exists().where(model.entity_id == Entity.id).label(kind) for kind, model in _KINDS]
         stmt = (
             select(Information, Entity.name, *kinds)
@@ -313,6 +786,64 @@ async def list_backlinks(
                 )
     # paginate is typed to return Any (fastapi_pagination's own signature).
     return cast(Page[BacklinkOut], paginate(backlinks, params))
+
+
+@router.put("/{entity_id}/parents", dependencies=[Depends(get_tenant_context)])
+async def replace_entity_parents(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: EntityParentsRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Replaces the entry's own direct parents (ADR 0216, RFC 0041 §3): the list becomes the
+    complete set, an empty list clears it, as PUT /items/{id}/prototypes does for an item, whose
+    route runs the same code. Works for an item, a being, a character and a bare entry. A change
+    touches the entry (`updated_by`, so its ETag) and is one activity entry; the same set again
+    changes and logs nothing.
+
+    The gate is the one the item route has: a member of the library. 404 for an unknown entry, 412
+    for a stale If-Match, 409 for an inventory item (its one parent changes through PATCH
+    /item-instances/{id}, ADR 0192), 422 for itself, an id that is not an entry of the library, or
+    a loop. Nothing inherited is stored, so nothing else changes: stats and descriptions resolve
+    through the new parents the next time they are read (ADR 0037, 0111).
+    """
+    entity = await get_entity_or_404(session, entity_id, tenant_id)
+    check_if_match(if_match, updated_at=entity.updated_at)
+    if await session.get(ItemInstance, entity_id) is not None:
+        raise InventoryItemParentsError(
+            detail=(
+                f"Entry {entity_id} is an inventory item: change its parent with "
+                f"PATCH /tenants/{tenant_id}/item-instances/{entity_id}"
+            )
+        )
+    changed = await replace_parents(
+        session,
+        tenant_id=tenant_id,
+        entity=entity,
+        parent_ids=body.parent_ids,
+        user_id=user.id,
+    )
+    if changed:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.parents_replaced",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"parents={len(set(body.parent_ids))}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
 
 
 @router.put("/{entity_id}/slug")
@@ -386,6 +917,8 @@ _INFORMATION_LOAD_OPTIONS = (
     selectinload(Information.payloads).selectinload(Payload.picture),
     selectinload(Information.payloads).selectinload(Payload.document),
     selectinload(Information.knowledge_links),
+    # Who wrote it (ADR 0277).
+    selectinload(Information.author),
 )
 
 
@@ -591,6 +1124,21 @@ async def create_information(
 
     await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
+    if body.id is not None:
+        # An id the client chose (ADR 0222): already made on this entry means the create was
+        # done; the same id on another entry, or one the caller cannot see, is a generic 409.
+        known = await existing_in_tenant(session, Information, body.id, tenant_id)
+        if known is not None:
+            if known.entity_id != entity_id:
+                raise ClientIdUnavailableError(detail="That id is not available.")
+            response.status_code = 200
+            response.headers["Location"] = str(
+                request.url_for("get_information", tenant_id=tenant_id, information_id=body.id)
+            )
+            return await information_out_or_404(
+                tenant_id, body.id, request, session, user=user, require_visible=False
+            )
+
     await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
     await require_singleton_type_free(
         session, entity_id=entity_id, tenant_id=tenant_id, type_=body.type
@@ -614,8 +1162,12 @@ async def create_information(
     # read back from the INSERT's RETURNING.
     if body.order is not None:
         information.order = body.order
-    session.add(information)
-    await session.flush()
+    if body.id is None:
+        session.add(information)
+        await session.flush()
+    else:
+        information.id = body.id
+        await insert_with_client_id(session, information)
     payload = Payload(tenant_id=tenant_id, information_id=information.id)
     await write_description(session, payload=payload, content=body.content, locale=body.locale)
     # Entity and visibility tier only - never the title, type, or content,
@@ -639,6 +1191,209 @@ async def create_information(
     return await information_out_or_404(
         tenant_id, information.id, request, session, user=user, require_visible=False
     )
+
+
+@router.put("/{entity_id}/information/order")
+async def reorder_entity_information(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: InformationOrderRequest,
+    request: Request,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[InformationOut]:
+    """Puts the entry's information in a new order in one request (ADR 0237, K8 of RFC 0041; the
+    reorder ADR 0101 and RFC 0015 left open). The body lists every piece of information the
+    caller can see on the entry, each once, in the order wanted; anything else is a 409 (a note
+    added meanwhile, one removed, one named twice), and the caller reads the entry again. There
+    is no `If-Match`: naming every row is the check. Information the caller cannot see keeps its
+    own position, so a player reorders only their view and a GM everything.
+
+    The positions the visible rows held are handed out again in the new order, in two steps
+    under the entry's lock, since `order` is unique and each row is checked as it is written.
+    Same gate as creating information (404 for an unknown entry, 403). Not logged: order is
+    descriptive (ADR 0084).
+    """
+    entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+    if (await session.execute(entity_stmt)).first() is None:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+
+    await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    stmt = (
+        select(Information)
+        .where(
+            Information.entity_id == entity_id,
+            Information.tenant_id == tenant_id,
+            visible_information_clause(visibility),
+        )
+        .options(*_INFORMATION_LOAD_OPTIONS)
+        .order_by(Information.order, Information.id)
+        .execution_options(populate_existing=True)
+    )
+    rows = list((await session.execute(stmt)).scalars())
+    wanted = body.information_ids
+    if len(set(wanted)) != len(wanted) or set(wanted) != {row.id for row in rows}:
+        raise InformationOrderListError(
+            detail=(
+                "The list must name each piece of information you can see on the entry, once: "
+                f"expected {len(rows)}, got {len(wanted)}"
+            )
+        )
+
+    slots = [row.order for row in rows]
+    if [row.id for row in rows] != wanted:
+        by_id = {row.id: row for row in rows}
+        highest = (
+            await session.scalar(
+                select(func.max(Information.order)).where(
+                    Information.entity_id == entity_id, Information.tenant_id == tenant_id
+                )
+            )
+        ) or 0
+        # Out of the way first (past every position there is), then into the slots.
+        offset = highest + len(rows) + 1
+        for row in rows:
+            row.order += offset
+        await session.flush()
+        for slot, information_id in zip(slots, wanted, strict=True):
+            by_id[information_id].order = slot
+        await session.flush()
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+        rows = list((await session.execute(stmt)).scalars())
+    return [InformationOut.from_information(row, request) for row in rows]
+
+
+@router.put("/{entity_id}/picture")
+async def set_entity_picture(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    file: UploadFile,
+    is_public: Annotated[bool | None, Form()] = None,
+) -> InformationOut:
+    """Sets the entry's one main picture (ADR 0237, K8 of RFC 0041): writes the singleton
+    `main_picture` information and its one picture payload, and answers with the information:
+    `201` the first time, `200` when it replaces the picture it had. A multipart upload (PNG,
+    JPEG, WebP or GIF, at most `picture_max_bytes`, 422 otherwise). `is_public` is a form field;
+    left out, a new picture is not public (as every new information is) and a replaced one keeps
+    what it was. Same gate as creating information (404, 403). Logged with the entry's id only
+    (ADR 0084).
+    """
+    entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+    if (await session.execute(entity_stmt)).first() is None:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    data, file_type = await read_picture_upload(file)
+
+    await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
+    information = (
+        await session.execute(
+            select(Information)
+            .where(
+                Information.entity_id == entity_id,
+                Information.tenant_id == tenant_id,
+                Information.type == "main_picture",
+            )
+            .options(selectinload(Information.payloads).selectinload(Payload.picture))
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if information is None:
+        information = Information(
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            title="Main picture",
+            type="main_picture",
+            is_public=bool(is_public),
+            created_by=user.id,
+        )
+        session.add(information)
+        await session.flush()
+        await add_picture_payload(
+            session,
+            tenant_id=tenant_id,
+            information_id=information.id,
+            data=data,
+            file_type=file_type,
+        )
+        response.status_code = 201
+    else:
+        held = next((p for p in information.payloads if p.picture is not None), None)
+        if held is None or held.picture is None:
+            await add_picture_payload(
+                session,
+                tenant_id=tenant_id,
+                information_id=information.id,
+                data=data,
+                file_type=file_type,
+            )
+        else:
+            held.picture.data, held.picture.file_type = data, file_type
+            held.updated_at = func.now()
+        if is_public is not None:
+            information.is_public = is_public
+        information.updated_at = func.now()
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="information.picture_set",
+        target_type="information",
+        target_id=information.id,
+        detail=f"entity={entity_id}",
+    )
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return await information_out_or_404(
+        tenant_id, information.id, request, session, user=user, require_visible=False
+    )
+
+
+@router.delete("/{entity_id}/picture", status_code=204)
+async def clear_entity_picture(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    """Removes the entry's main picture, with its information (ADR 0237, K8 of RFC 0041): `204`
+    whether or not it had one. Same gate as setting it. Logged when something was removed.
+    """
+    entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+    if (await session.execute(entity_stmt)).first() is None:
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
+    await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+
+    await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
+    information = (
+        await session.execute(
+            select(Information).where(
+                Information.entity_id == entity_id,
+                Information.tenant_id == tenant_id,
+                Information.type == "main_picture",
+            )
+        )
+    ).scalar_one_or_none()
+    if information is None:
+        return
+    information_id = information.id
+    await session.delete(information)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="information.picture_removed",
+        target_type="information",
+        target_id=information_id,
+        detail=f"entity={entity_id}",
+    )
+    await session.commit()
 
 
 async def get_information_or_404(

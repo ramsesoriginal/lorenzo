@@ -1,0 +1,23 @@
+[tasks.dev]
+description = "Run lorenzo-convert (pass arguments after --, e.g. mise run dev -- sheet --help)"
+run = "uv run lorenzo-convert"
+
+[tasks.lint]
+description = "Lockfile freshness + ruff check + format check + mypy"
+run = ["uv lock --check", "uv run ruff check .", "uv run ruff format --check .", "uv run mypy src"]
+
+[tasks.format]
+description = "Ruff autoformat"
+run = "uv run ruff format ."
+
+[tasks.test]
+description = "Run the tests with coverage"
+run = "uv run pytest --cov"
+
+[tasks.build]
+description = "Build the wheel and sdist"
+run = "uv build"
+
+[tasks.lock]
+description = "Regenerate uv.lock"
+run = "uv lock"

@@ -22,6 +22,7 @@ from lorenzo_cli.client.models import (
     CopyPlanOut,
     CopyRequest,
     EntityDetailOut,
+    EntityStatWriteOut,
     GivePackRequest,
     InformationCreate,
     InformationOut,
@@ -35,8 +36,10 @@ from lorenzo_cli.client.models import (
     OwnedByResponse,
     PackGivenOut,
     PageAttachmentRefOut,
+    PageBeingSummaryOut,
     PageCharacterSummaryOut,
     PageInformationOut,
+    PageItemInstanceOut,
     PageItemOut,
     PageStatDefinitionOut,
     PageStatGroupOut,
@@ -51,6 +54,7 @@ from lorenzo_cli.client.models import (
     SetPrototypesRequest,
     StatDefinitionCreate,
     StatDefinitionOut,
+    StatDefinitionUpdate,
     StatGroupCreate,
     StatGroupOut,
     SubscriberOut,
@@ -105,6 +109,13 @@ CREATE_STAT_GROUP: Op[StatGroupOut] = Op(
     request_type=StatGroupCreate,
     response_type=StatGroupOut,
 )
+PATCH_STAT_DEFINITION: Op[StatDefinitionOut] = Op(
+    "patch_stat_definition",
+    "PATCH",
+    f"{_TENANT}/stat-definitions/{{stat_definition_id}}",
+    request_type=StatDefinitionUpdate,
+    response_type=StatDefinitionOut,
+)
 LIST_STAT_DEFINITIONS: Op[PageStatDefinitionOut] = Op(
     "list_stat_definitions",
     "GET",
@@ -125,6 +136,9 @@ RESOLVE_SLUGS: Op[list[ResolvedSlugOut]] = Op(
 LIST_CHARACTERS: Op[PageCharacterSummaryOut] = Op(
     "list_characters", "GET", f"{_TENANT}/characters", response_type=PageCharacterSummaryOut
 )
+LIST_BEINGS: Op[PageBeingSummaryOut] = Op(
+    "list_beings", "GET", f"{_TENANT}/beings", response_type=PageBeingSummaryOut
+)
 LIST_ITEMS: Op[PageItemOut] = Op("list_items", "GET", f"{_TENANT}/items", response_type=PageItemOut)
 GET_ITEM: Op[ItemOut] = Op(
     "get_item", "GET", f"{_TENANT}/items/{{entity_id}}", response_type=ItemOut
@@ -139,11 +153,11 @@ DELETE_STAT_GROUP: Op[None] = Op(
 CREATE_ITEM: Op[ItemOut] = Op(
     "create_item", "POST", f"{_TENANT}/items", request_type=ItemCreate, response_type=ItemOut
 )
-SET_ENTITY_TAG: Op[EntityDetailOut] = Op(
+SET_ENTITY_TAG: Op[EntityStatWriteOut] = Op(
     "set_entity_tag",
     "PUT",
     f"{_TENANT}/entities/{{entity_id}}/tags/{{stat_definition_id}}",
-    response_type=EntityDetailOut,
+    response_type=EntityStatWriteOut,
 )
 LIST_ENTITY_COMPUTED_STATS: Op[list[ComputedStatOut]] = Op(
     "list_entity_computed_stats",
@@ -162,12 +176,12 @@ SET_COMPUTED_STAT: Op[ComputedStatOut] = Op(
 GET_ENTITY: Op[EntityDetailOut] = Op(
     "get_entity", "GET", f"{_TENANT}/entities/{{entity_id}}", response_type=EntityDetailOut
 )
-SET_ENTITY_STAT: Op[EntityDetailOut] = Op(
+SET_ENTITY_STAT: Op[EntityStatWriteOut] = Op(
     "set_entity_stat",
     "PUT",
     f"{_TENANT}/entities/{{entity_id}}/stats/{{stat_definition_id}}",
     request_type=SetEntityStatRequest,
-    response_type=EntityDetailOut,
+    response_type=EntityStatWriteOut,
 )
 CREATE_INFORMATION: Op[InformationOut] = Op(
     "create_information",
@@ -208,11 +222,17 @@ ADD_INFORMATION_KNOWER: Op[InformationOut] = Op(
     f"{_TENANT}/information/{{information_id}}/knowers/{{knower_entity_id}}",
     response_type=InformationOut,
 )
+LIST_ITEM_INSTANCES: Op[PageItemInstanceOut] = Op(
+    "list_item_instances", "GET", f"{_TENANT}/item-instances", response_type=PageItemInstanceOut
+)
 LIST_ITEM_INSTANCES_OWNED_BY: Op[OwnedByResponse] = Op(
     "list_item_instances_owned_by",
     "GET",
     f"{_TENANT}/item-instances/owned-by/{{owner_entity_id}}",
     response_type=OwnedByResponse,
+)
+DELETE_ITEM_INSTANCE: Op[None] = Op(
+    "delete_item_instance", "DELETE", f"{_TENANT}/item-instances/{{entity_id}}"
 )
 SET_ITEM_INSTANCE_CONTAINER: Op[ItemInstanceOut] = Op(
     "set_item_instance_container",
@@ -306,6 +326,7 @@ ALL_OPS: tuple[Op[Any], ...] = (
     CREATE_STAT_DEFINITION,
     RESOLVE_SLUGS,
     LIST_CHARACTERS,
+    LIST_BEINGS,
     LIST_ITEMS,
     GET_ITEM,
     DELETE_ITEM,
@@ -324,7 +345,9 @@ ALL_OPS: tuple[Op[Any], ...] = (
     CREATE_ITEM_INSTANCE,
     LIST_ENTITY_INFORMATION,
     ADD_INFORMATION_KNOWER,
+    LIST_ITEM_INSTANCES,
     LIST_ITEM_INSTANCES_OWNED_BY,
+    DELETE_ITEM_INSTANCE,
     SET_ITEM_INSTANCE_CONTAINER,
     CLEAR_ITEM_INSTANCE_CONTAINER,
     CREATE_ITEM_INSTANCES_FROM_PACK,

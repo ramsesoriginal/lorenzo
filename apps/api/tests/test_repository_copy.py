@@ -537,3 +537,47 @@ async def test_a_merge_that_would_loop_formulas_copies_nothing(
         assert await _count(RepositoryCopy, table) == 0
     finally:
         await cleanup([table, faerun], [author, gm])
+
+
+async def test_a_copy_keeps_the_order_of_an_entrys_parents(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """ADR 0266: the parents of an entry are in an order that decides a stat tie, and a copy
+    gives them the same places, whichever order their ids sort in."""
+    author = await make_actor(raw_client, fake_jwks_server, "author")
+    gm = await make_actor(raw_client, fake_jwks_server, "gm")
+    repository = await author.create_tenant("Order", kind="repository")
+    table = await gm.create_tenant("My Table")
+    async with admin_session_factory() as session:
+        child, first, second = (
+            Entity(tenant_id=repository, name=name) for name in ("Child", "First", "Second")
+        )
+        session.add_all([child, first, second])
+        await session.flush()
+        # The id order and the parent order disagree for one of the two ways round, so a copy that
+        # fell back to ids would be caught on one of them.
+        low, high = sorted([first.id, second.id], key=str)
+        wanted = [high, low]
+        for position, parent_id in enumerate(wanted):
+            session.add(
+                EntityPrototype(
+                    entity_id=child.id,
+                    prototype_id=parent_id,
+                    tenant_id=repository,
+                    position=position,
+                )
+            )
+        await session.commit()
+        names = {first.id: "First", second.id: "Second"}
+    try:
+        await _share(author, repository, table)
+        copied = await gm.post(f"/tenants/{table}/repositories/{repository}/copy")
+        assert copied.status_code == 201, copied.text
+
+        mine = await _entity_ids(table)
+        listed = await gm.get(f"/tenants/{table}/entities", params={"q": "Child"})
+        assert listed.status_code == 200
+        parent_ids = listed.json()["items"][0]["parent_ids"]
+        assert parent_ids == [str(mine[names[parent]]) for parent in wanted]
+    finally:
+        await cleanup([table, repository], [author, gm])

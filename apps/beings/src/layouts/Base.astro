@@ -1,0 +1,26 @@
+---
+import SiteFooter from '../components/SiteFooter/SiteFooter.astro';
+import SiteHead from '../components/SiteHead/SiteHead.astro';
+import SiteHeader from '../components/SiteHeader/SiteHeader.astro';
+
+interface Props {
+  title?: string;
+}
+
+const { title = 'Lorenzo Beings' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <SiteHead title={title} />
+  <body>
+    <SiteHeader />
+    <main>
+      <div class="wrap">
+        <slot />
+      </div>
+    </main>
+
+    <SiteFooter />
+  </body>
+</html>

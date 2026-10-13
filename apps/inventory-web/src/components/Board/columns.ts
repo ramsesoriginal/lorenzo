@@ -2,6 +2,7 @@ import { type BoardColumn, ownerMark } from '../../lib/boardColumns';
 import { onIntent } from '../../lib/hoverIntent';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ItemInstance } from '../../lib/types';
+import { isUnsorted } from '../../lib/unsorted';
 import type { DropZones } from './dragDrop';
 import { ensurePlaceholder } from './placeholder';
 import type { Selection } from './selection';
@@ -38,6 +39,7 @@ export function createColumns(options: ColumnsOptions) {
     const count = required<HTMLElement>(fragment, '[data-count]');
     const ownerMarkField = required<HTMLElement>(fragment, '[data-owner-mark]');
     const bound = required<HTMLElement>(fragment, '[data-bound]');
+    const unsorted = required<HTMLElement>(fragment, '[data-unsorted]');
 
     card.draggable = !readOnly;
     card.dataset.entityId = item.entity_id;
@@ -91,6 +93,9 @@ export function createColumns(options: ColumnsOptions) {
 
     // Bound to its owner (ADR 0129).
     bound.hidden = !item.bound;
+
+    // A placeholder the player made for something the catalog doesn't know (ADR 0238).
+    unsorted.hidden = !isUnsorted(item, state.unsortedId);
 
     return card;
   }

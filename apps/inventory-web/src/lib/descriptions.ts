@@ -1,7 +1,15 @@
 // Descriptions as LorenzoScript (RFC 0027, ADR 0108): rendering them with
 // this tenant's entities resolved, and what links to an entity. Writing
 // them is information.ts's.
-import { parse, type Reference, type Resolver, references, render } from '@lorenzo/lorenzoscript';
+import {
+  parse,
+  type Reference,
+  type Resolver,
+  references,
+  render,
+  slugify,
+  statNames,
+} from '@lorenzo/lorenzoscript';
 import { client, type components, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
 import { type EntityReference, entityHref, linkNote, type ResolvedSlug } from './entityLinks';
 import { viewerLocales } from './me';
@@ -11,7 +19,30 @@ type Payload = Entity['information'][number]['payloads'][number];
 
 /** One text's HTML, and what an author should know about links in it that won't work. */
 export type Rendered = { html: string; notes: string[] };
-export type Renderer = (texts: string[]) => Promise<Rendered[]>;
+/**
+ * Renders texts; `homes` says which entity each text belongs to, which is what a `my/` link is
+ * held by (ADR 0240). A text with none, a new one say, has no `my/` meaning.
+ */
+export type Renderer = (
+  texts: string[],
+  homes?: readonly (string | undefined)[],
+) => Promise<Rendered[]>;
+
+/** The renderer for texts that all belong to `home`. */
+export const at =
+  (renderer: Renderer, home: string | undefined): Renderer =>
+  (texts) =>
+    renderer(
+      texts,
+      texts.map(() => home),
+    );
+
+/** The view hint that means "held by whoever the text belongs to" (ADR 0240). */
+const MY = 'my';
+/** How long a `my/` answer is believed: who holds what changes while a page is open. */
+const MY_MS = 30_000;
+/** How long the stats of an entry are believed, for the `{weight}` in its texts. */
+const STAT_MS = 30_000;
 
 // GET .../entities/resolve takes at most this many slugs (ADR 0107).
 const MAX_SLUGS = 100;
@@ -55,21 +86,94 @@ const isEntityReference = (ref: Reference): ref is EntityReference =>
  * picture, is fetched once per page, slugs nothing holds included, so
  * re-rendering a live preview only asks about new ones.
  */
-export function descriptionRenderer(tenantId: string): Renderer {
+export function descriptionRenderer(tenantId: string, now: () => number = Date.now): Renderer {
   const slugs = new Map<string, ResolvedSlug | null>();
+  // When a `my/` answer was got; plain slugs are kept for the page.
+  const asked = new Map<string, number>();
   const pictures = new Map<string, Promise<string | null>>();
+  // The stats of the entry a text belongs to, for its `{weight}`: by the slug of each stat's name.
+  // Kept a little while, since a person edits stats and the values change under an open page.
+  const statValues = new Map<
+    string,
+    { at: number; texts: Map<string, { name: string; text: string }> }
+  >();
 
-  async function resolve(wanted: string[]) {
-    const missing = [...new Set(wanted)].filter((slug) => !slugs.has(slug));
-    for (let i = 0; i < missing.length; i += MAX_SLUGS) {
-      const batch = missing.slice(i, i + MAX_SLUGS);
-      const found = await unwrap(
+  async function statTexts(home: string) {
+    const kept = statValues.get(home);
+    if (kept && now() - kept.at < STAT_MS) return kept.texts;
+    try {
+      const entity = await getEntity(tenantId, home);
+      const texts = new Map(
+        entity.stats.map((s) => [
+          slugify(s.name),
+          {
+            name: s.name,
+            text: typeof s.value === 'boolean' ? (s.value ? 'On' : 'Off') : String(s.value),
+          },
+        ]),
+      );
+      statValues.set(home, { at: now(), texts });
+      return texts;
+    } catch {
+      return null;
+    }
+  }
+
+  /** What an answer is kept under: the slug, or for `my/` the slug with the entity it was asked for. */
+  const keyOf = (ref: { hint: string; slug: string }, home: string | undefined): string =>
+    ref.hint === MY ? `${home}\u0000${MY}/${ref.slug}` : ref.slug;
+
+  const fresh = (key: string): boolean => {
+    if (!slugs.has(key)) return false;
+    const at = asked.get(key);
+    return at === undefined || now() - at < MY_MS;
+  };
+
+  async function resolve(wanted: { ref: EntityReference; home: string | undefined }[]) {
+    const plain = new Map<string, string>();
+    const mine = new Map<string, Map<string, string>>();
+    for (const { ref, home } of wanted) {
+      const key = keyOf(ref, home);
+      if (fresh(key)) continue;
+      if (ref.hint !== MY) plain.set(key, ref.slug);
+      else if (home !== undefined) {
+        if (!mine.has(home)) mine.set(home, new Map());
+        mine.get(home)?.set(key, ref.slug);
+      }
+    }
+    const ask = async (names: string[], from?: string) =>
+      unwrap(
         await client.GET('/tenants/{tenant_id}/entities/resolve', {
-          params: { path: { tenant_id: tenantId }, query: { slug: batch } },
+          params: {
+            path: { tenant_id: tenantId },
+            query: { slug: names, ...(from ? { from } : {}) },
+          },
         }),
       );
-      for (const slug of batch) slugs.set(slug, null);
+    const keys = [...plain.keys()];
+    for (let i = 0; i < keys.length; i += MAX_SLUGS) {
+      const batch = keys.slice(i, i + MAX_SLUGS);
+      const found = await ask(batch.map((key) => plain.get(key) as string));
+      for (const key of batch) slugs.set(key, null);
       for (const entity of found) slugs.set(entity.slug, entity);
+    }
+    for (const [home, wantedHere] of mine) {
+      const here = [...wantedHere];
+      for (let i = 0; i < here.length; i += MAX_SLUGS) {
+        const batch = here.slice(i, i + MAX_SLUGS);
+        const found = new Map(
+          (
+            await ask(
+              batch.map(([, slug]) => `${MY}/${slug}`),
+              home,
+            )
+          ).map((e) => [e.slug, e]),
+        );
+        for (const [key, slug] of batch) {
+          slugs.set(key, found.get(`${MY}/${slug}`) ?? null);
+          asked.set(key, now());
+        }
+      }
     }
   }
 
@@ -79,39 +183,53 @@ export function descriptionRenderer(tenantId: string): Renderer {
     return url;
   }
 
-  return async (texts) => {
+  return async (texts, homes = []) => {
     const docs = texts.map(parse);
     const refs = docs.map((doc) => references(doc).filter(isEntityReference));
     // A failed lookup is simply tried again next time; until then, its links
     // render as plain text and get no notes.
-    await resolve(refs.flat().map((ref) => ref.slug)).catch(() => {});
-    const imageIds = refs
-      .flat()
-      .flatMap((ref) => (ref.kind === 'image' ? (slugs.get(ref.slug)?.entity_id ?? []) : []));
+    await resolve(refs.flatMap((list, i) => list.map((ref) => ({ ref, home: homes[i] })))).catch(
+      () => {},
+    );
+    const imageIds = refs.flatMap((list, i) =>
+      list.flatMap((ref) =>
+        ref.kind === 'image' ? (slugs.get(keyOf(ref, homes[i]))?.entity_id ?? []) : [],
+      ),
+    );
     const shown = new Map(
       await Promise.all([...new Set(imageIds)].map(async (id) => [id, await picture(id)] as const)),
     );
     const pictureOf = (entity: ResolvedSlug | null | undefined) =>
       entity ? shown.get(entity.entity_id) : undefined;
 
-    const resolver: Resolver = {
-      entity: ({ hint, slug }) => {
-        const entity = slugs.get(slug);
-        const href = entity ? entityHref(tenantId, entity, hint) : null;
+    const stats = new Map<string, Map<string, { name: string; text: string }> | null>();
+    for (const [i, doc] of docs.entries()) {
+      const home = homes[i];
+      if (home && !stats.has(home) && statNames(doc).length) stats.set(home, await statTexts(home));
+    }
+    const resolverFor = (home: string | undefined): Resolver => ({
+      stat: (name) => {
+        const found = home ? stats.get(home)?.get(name.toLowerCase()) : undefined;
+        return found ? { text: found.text, title: found.name } : null;
+      },
+      entity: (ref) => {
+        const entity = slugs.get(keyOf(ref, home));
+        const href = entity ? entityHref(tenantId, entity, ref.hint) : null;
         return entity && href ? { href, title: entity.name } : null;
       },
-      image: ({ slug }) => {
-        const entity = slugs.get(slug);
+      image: (ref) => {
+        const entity = slugs.get(keyOf(ref, home));
         const src = pictureOf(entity);
         return entity && src ? { src, title: entity.name } : null;
       },
-    };
-    const options = { resolve: resolver, locale: await viewerLocales() };
+    });
+    const locale = await viewerLocales();
     return docs.map((doc, i) => ({
-      html: render(doc, options),
+      html: render(doc, { resolve: resolverFor(homes[i]), locale }),
       notes: (refs[i] ?? []).flatMap((ref) => {
-        if (!slugs.has(ref.slug)) return [];
-        const entity = slugs.get(ref.slug) ?? null;
+        const key = keyOf(ref, homes[i]);
+        if (!slugs.has(key)) return [];
+        const entity = slugs.get(key) ?? null;
         return linkNote(ref, entity, Boolean(pictureOf(entity))) ?? [];
       }),
     }));
@@ -122,7 +240,7 @@ export function descriptionRenderer(tenantId: string): Renderer {
 const pending = new WeakMap<HTMLElement, object>();
 
 /** A text to show, with what's said about it above, such as where it's inherited from. */
-export type Shown = { text: string; label?: Node | null };
+export type Shown = { text: string; label?: Node | null; home?: string };
 
 /** Shows each text as its own `.ls-content` block in `container`, its label first. */
 export async function showDescriptions(
@@ -133,7 +251,10 @@ export async function showDescriptions(
   const turn = {};
   pending.set(container, turn);
   container.replaceChildren();
-  const rendered = await renderer(shown.map(({ text }) => text));
+  const rendered = await renderer(
+    shown.map(({ text }) => text),
+    shown.map(({ home }) => home),
+  );
   if (pending.get(container) !== turn) return;
   container.replaceChildren(
     ...rendered.flatMap(({ html }, i) => {

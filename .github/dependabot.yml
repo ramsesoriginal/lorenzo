@@ -50,6 +50,20 @@ updates:
         update-types: ["major"]
         patterns: ["*"]
 
+  - package-ecosystem: "uv"
+    directory: "/packages/converters"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      uv-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      uv-major:
+        update-types: ["major"]
+        patterns: ["*"]
+
   - package-ecosystem: "docker"
     directory: "/apps/api"
     schedule:
@@ -89,12 +103,16 @@ updates:
     directories:
       - "/"
       - "/apps/account-hub"
+      - "/apps/beings"
+      - "/apps/bench"
       - "/apps/inventory-web"
       - "/apps/loot-bot"
       - "/packages/api-client"
       - "/packages/brand"
+      - "/packages/inventory-names"
       - "/packages/lorenzoscript"
       - "/packages/lorenzoscript-editor"
+      - "/packages/stat-values"
     schedule:
       interval: "weekly"
     commit-message:

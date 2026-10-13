@@ -1,0 +1,24 @@
+{
+  "name": "@lorenzo/stat-values",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Reading and writing an entry's stat values through apps/api, and parsing what a person types for one. Shared by inventory-web and beings. See ADR 0272.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "biome check . && tsc --noEmit",
+    "format": "biome check --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lorenzo/api-client": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}
