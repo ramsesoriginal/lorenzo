@@ -195,4 +195,3 @@ Playwright's own `--shard` (1.63) splits by the number of tests, and what a spec
 - **apps/api: two legs again** (`shards = 2` in `.github/ci-graph.toml`), each on four parallel workers, since one leg's 116 s of tests would be the longest job once the end-to-end ones are shorter.
 
 This is three more runners for a full run. What it should bring, to be confirmed by the run of the change that made it: two workers on 137-144 worker-seconds are about 70 s, with about 25 s to set a job up, so about 100 s for each inventory-web shard, and about 90 s and 95 s for the hub's and the API's, against 162 s for the longest job before.
-
