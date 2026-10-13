@@ -732,6 +732,15 @@ textarea.text-input {
     padding: var(--space-3);
     gap: var(--space-3);
   }
+
+  [data-mode="edit"] .sheet-head {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+
+
   .portrait {
     width: 80px;
     height: 80px;
@@ -838,7 +847,8 @@ textarea.text-input {
 }
 @media (max-width: 720px) {
   .sheet-rail {
-    position: static;
+    position: relative;
+    display: block;;
   }
   .sticky-nav {
     display: none;

@@ -323,5 +323,6 @@ body:has(.full-width) {
 
   .row.v-mobile {
     flex-direction: column;
+    align-items: stretch;
   }
 }

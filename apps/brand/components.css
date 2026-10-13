@@ -1223,4 +1223,12 @@ fieldset:disabled {
     position: absolute;
     inset: calc((var(--target-min) - 16px) / -2);
   }
+
+  .card-body .card-body {
+    padding: var(--space-3);
+  }
+
+  .card-body .card-body .card-body {
+    padding: var(--space-2);
+  }
 }

@@ -17,46 +17,48 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       </a>
     </nav>
   </div>
-  <div class="row">
+  <div class="row v-mobile">
     <div class="row-tight" data-tenant-switcher-group hidden>
       <svg class="icon" aria-hidden="true">
         <use href={`${BRANDING_CSS_URL}/icons.svg#icon-library`}></use>
       </svg>
       <select
         aria-label="Library"
-        class="text-input"
+        class="text-input grow"
         style="width: auto;"
         data-tenant-switcher
       ></select>
     </div>
+    <div class="row-tight">
 
     <div class="row-tight">
-      <p data-account-loading>Checking your session&hellip;</p>
-      <p class="error-text" data-account-error hidden></p>
-      <div class="row" data-account-signed-out hidden>
-        <button type="button" class="btn row-tight" data-login>
-          <svg class="icon" aria-hidden="true">
-            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-login`}></use>
-          </svg>
-          Log in
-        </button>
-      </div>
-      <div class="row" data-account-signed-in hidden>
-        <span>
-          Signed in as <strong data-account-email></strong>.
-        </span>
-        <button type="button" class="btn btn-secondary row-tight" data-logout>
-          <svg class="icon" aria-hidden="true">
-            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-logout`}></use>
-          </svg>
-          Log out
+        <p data-account-loading>Checking your session&hellip;</p>
+        <p class="error-text" data-account-error hidden></p>
+        <div class="row" data-account-signed-out hidden>
+          <button type="button" class="btn row-tight" data-login>
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-login`}></use>
+            </svg>
+            Log in
+          </button>
+        </div>
+        <div class="row" data-account-signed-in hidden>
+          <span>
+            Signed in as <strong data-account-email></strong>.
+          </span>
+          <button type="button" class="btn btn-secondary row-tight" data-logout>
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-logout`}></use>
+            </svg>
+            Log out
+          </button>
+        </div>
+        <button type="button" class="btn btn-secondary" aria-pressed="false" data-theme-toggle>
+          ☾ dark
         </button>
       </div>
     </div>
 
-    <button type="button" class="btn btn-secondary" aria-pressed="false" data-theme-toggle>
-      ☾ dark
-    </button>
   </div>
 </header>
 
