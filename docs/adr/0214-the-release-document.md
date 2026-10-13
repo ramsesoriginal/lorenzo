@@ -54,7 +54,7 @@ Both tables are tenant tables of the repository: `tenant_isolation` and `FORCE R
 ## Not in scope
 
 - **The read switch.** `load_upstream` and the two engines, the manifest and the browse endpoints reading a document: R6. This slice swaps `load_content` in the tests only.
-- **Writing a document at a publish**, and which repositories get one: the visibility column is [RFC 0038](0038-public-repositories-and-discovery.md)'s D1, and the first release of a public repository is R8's flip.
+- **Writing a document at a publish**, and which repositories get one: the visibility column is [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md)'s D1, and the first release of a public repository is R8's flip.
 - **Retention, `current_release_id` and "make release current"**: R7. The tables allow deleting a document and a blob; nothing here does it.
 - **Scale.** The size and time of a document at 1,000 to 20,000 entries is R2's; R1 measured four small repositories.
 - **A cap on a document's size**, until R2 says what one should be.
