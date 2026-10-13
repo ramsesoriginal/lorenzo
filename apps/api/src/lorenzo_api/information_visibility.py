@@ -40,7 +40,9 @@ ids are needed here.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Protocol
 
 from sqlalchemy import ColumnElement, exists, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -126,6 +128,27 @@ class InformationVisibility:
         )
 
 
+class InformationReader(Protocol):
+    """What a read needs of the caller's sight: whether they may read one Information row.
+    InformationVisibility is one; SeesEverything is the cheap one for a read whose rows are
+    public or whose caller is an admin (resolve_information_reader, ADR 0285)."""
+
+    def can_see(self, info: Information) -> bool: ...
+
+
+@dataclass(frozen=True, slots=True)
+class SeesEverything:
+    """A reader of rows that nothing hides from them: an admin's, or any caller's of rows that
+    are all public. It is not InformationVisibility's `is_admin=True`: it carries none of the sets
+    (the GM's reach, the knowers) that a read of the inventory tier or an export uses."""
+
+    def can_see(self, info: Information) -> bool:
+        return True
+
+
+SEES_EVERYTHING = SeesEverything()
+
+
 def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool]:
     """The SQL form of InformationVisibility.can_see, for a WHERE over
     `information` - see ADR 0109. A paginated list has to filter before
@@ -155,8 +178,63 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
     return or_(false(), *clauses)
 
 
-async def resolve_information_visibility(
+async def _administrative_tier(
     session: AsyncSession, *, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> tuple[bool, bool]:
+    """`(is_orga, is_admin)`: the tenant-wide Membership tiers (ADR 0096, ADR 0040), both
+    suppressed by any active TenantAdminCampaignOptOut row in the tenant."""
+    is_orga = await is_tenant_orga(session, tenant_id=tenant_id, user_id=user_id)
+    is_admin = await is_tenant_admin(session, tenant_id=tenant_id, user_id=user_id)
+    if is_orga or is_admin:
+        has_opt_out = (
+            await session.execute(
+                select(TenantAdminCampaignOptOut.campaign_id)
+                .where(
+                    TenantAdminCampaignOptOut.tenant_id == tenant_id,
+                    TenantAdminCampaignOptOut.user_id == user_id,
+                )
+                .limit(1)
+            )
+        ).first() is not None
+        is_orga = is_orga and not has_opt_out
+        is_admin = is_admin and not has_opt_out
+    return is_orga, is_admin
+
+
+async def resolve_information_reader(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    information: Iterable[Information],
+) -> InformationReader:
+    """Who may read these Information rows, resolved with as little as `can_see` needs (ADR
+    0285): for a read that asks nothing of the caller but `can_see` over the rows it has loaded.
+
+    Nothing is resolved when every row is public (`can_see` is true of a public row for anyone),
+    and for a caller who is an admin (`can_see` is true of every row for them) only their tier is.
+    Anyone else, with a row that is not public among them, gets the full
+    resolve_information_visibility. A read that also uses the sets it resolves (the GM's reach,
+    for the inventory tier of item instances, ADR 0040) asks for that one instead.
+
+    The rows are those whose `can_see` the caller will ask: an item's own and its ancestors'.
+    """
+    if all(row.is_public for row in information):
+        return SEES_EVERYTHING
+    tier = await _administrative_tier(session, user_id=user_id, tenant_id=tenant_id)
+    if tier[1]:
+        return SEES_EVERYTHING
+    return await resolve_information_visibility(
+        session, user_id=user_id, tenant_id=tenant_id, tier=tier
+    )
+
+
+async def resolve_information_visibility(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    tier: tuple[bool, bool] | None = None,
 ) -> InformationVisibility:
     """Three short-circuiting queries: every Player row this user holds in
     this tenant (Player.tenant_id is denormalized - ADR 0024 - so this
@@ -240,21 +318,11 @@ async def resolve_information_visibility(
             .all()
         )
 
-    is_orga = await is_tenant_orga(session, tenant_id=tenant_id, user_id=user_id)
-    is_admin = await is_tenant_admin(session, tenant_id=tenant_id, user_id=user_id)
-    if is_orga or is_admin:
-        has_opt_out = (
-            await session.execute(
-                select(TenantAdminCampaignOptOut.campaign_id)
-                .where(
-                    TenantAdminCampaignOptOut.tenant_id == tenant_id,
-                    TenantAdminCampaignOptOut.user_id == user_id,
-                )
-                .limit(1)
-            )
-        ).first() is not None
-        is_orga = is_orga and not has_opt_out
-        is_admin = is_admin and not has_opt_out
+    is_orga, is_admin = (
+        tier
+        if tier is not None
+        else await _administrative_tier(session, user_id=user_id, tenant_id=tenant_id)
+    )
 
     gm_campaign_ids: set[uuid.UUID] = set(
         (

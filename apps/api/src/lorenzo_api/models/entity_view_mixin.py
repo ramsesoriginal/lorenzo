@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import uuid
 
-    from lorenzo_api.information_visibility import InformationVisibility
+    from lorenzo_api.information_visibility import InformationReader
     from lorenzo_api.models.entity import Entity
     from lorenzo_api.models.v_effective_stat import VEffectiveStat
     from lorenzo_api.stat_evaluation import Value
@@ -129,7 +129,7 @@ def _by_position(stat: VEffectiveStat) -> tuple[int, str]:
     return (stat.stat_definition.position, stat.stat_definition.name)
 
 
-def description_pairs(entity: Entity, visibility: InformationVisibility) -> list[tuple[str, str]]:
+def description_pairs(entity: Entity, visibility: InformationReader) -> list[tuple[str, str]]:
     """`entity`'s visible description texts as (content, locale): what
     EntityViewMixin.descriptions returns for the view's own entity, and what
     an item inherits from each ancestor (ADR 0111). Needs entity ->
