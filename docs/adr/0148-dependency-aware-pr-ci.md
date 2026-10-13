@@ -173,3 +173,26 @@ What changed, in `apps/inventory-web`:
 - **The API's environment is built while pnpm installs.** Playwright starts the API with `uv run`, which first fetched Python, made the virtual environment and installed the dev tools, about 5 s of a shard's start, inside its sequential web-server start. The `e2e` and `account-hub real-api` jobs now run `uv sync --frozen --no-dev` in the background after mise, wait for it with Postgres, and set `UV_NO_DEV` for the run, so `uv run` finds it ready (0.8 s).
 
 Still open for these tests: shards balanced by recorded duration (shard 2 of 3, with the board and hand-over specs, takes 133 s and the others 109 and 104 s: Playwright splits by test count), and the API's per-request cost that every seeding call and every page pays (the decision on ADR 0023 above, and ADR 0285 for the reads).
+
+## Addendum (2026-10-14): shards by recorded duration
+
+The full run after ADR 0285's first change merged (2026-10-13), the jobs that took longest:
+
+| Job | Time | Of which tests |
+| --- | --- | --- |
+| `e2e (inventory-web 1/3)` / `2/3` / `3/3` | 162 / 143 / 98 s | 45 / 45 / 44 tests, 239 / 211 / 108 worker-seconds, two workers |
+| `account-hub real-api` | 152 s | 126 s, two workers |
+| `test (apps/api)` | 143 s | 116 s: 1,635 tests on four workers, and 11 s of lint |
+| `cli-e2e` (three shards) | 72-103 s | |
+| `e2e (bench)`, `e2e (beings)` | 80 s, 59-69 s | |
+
+Setting a job up (checkout, mise, install) is about 15 s now, so what is left is the tests themselves, and the suites have grown since the first measurement (a shard of inventory-web from 36 to 45 tests, the hub's job from 86 to 152 s, the API's tests from 1,310 to 1,635).
+
+Playwright's own `--shard` (1.63) splits by the number of tests, and what a spec file takes ranges from 4 s (`login`) to 106 s (`board`): three shards of 45, 45 and 44 tests took 239, 211 and 108 worker-seconds. The changes:
+
+- **inventory-web: four shards, split by recorded duration** (`apps/inventory-web/scripts/e2e-shard.mjs`, weights in `tests/e2e/shard-weights.json`, in seconds of worker time per spec file as the CI run measured them). The spec files go heaviest first, each to the shard with the least so far, the same on every runner; a new spec file with no weight counts as the median until it is recorded, and runs in exactly one shard; a test checks that every spec file is in one shard and that the shards are balanced. The four shards come to 137, 140, 144 and 138 worker-seconds (32, 39, 32 and 31 tests, 134 in all). New weights come from a run with `--reporter=json`: `node scripts/e2e-shard.mjs --weights report.json`.
+- **account-hub real-api: two shards,** by Playwright's own `--shard` (the job's log has no durations per test to weigh by): 63 and 63 of its 126 tests.
+- **apps/api: two legs again** (`shards = 2` in `.github/ci-graph.toml`), each on four parallel workers, since one leg's 116 s of tests would be the longest job once the end-to-end ones are shorter.
+
+This is three more runners for a full run. What it should bring, to be confirmed by the run of the change that made it: two workers on 137-144 worker-seconds are about 70 s, with about 25 s to set a job up, so about 100 s for each inventory-web shard, and about 90 s and 95 s for the hub's and the API's, against 162 s for the longest job before.
+
