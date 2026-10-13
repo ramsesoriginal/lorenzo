@@ -25,22 +25,25 @@
   </head>
   <body>
     <header class="site-header">
-      <div class="row">
+      <div class="row h-mobile">
         <span class="display">✧ Lorenzo</span>
-        <nav class="row" aria-label="Preview pages">
-          <a href="index.html" aria-current="page">Tokens</a>
-          <a href="motion.html">Motion</a>
-          <a href="dialogs.html">Dialogs</a>
-          <a href="forms.html">Forms</a>
-          <a href="trees.html">Trees</a>
-          <a href="outline.html">Outline</a>
-          <a href="editors.html">Editor</a>
-          <a href="full-width.html">Full width</a>
-          <a href="scrolling.html">Scrolling</a>
-          <a href="item.html">Item</a>
-          <a href="icons.html">Icons</a>
-          <a href="content/">Content</a>
-        </nav>
+        <details class="site-navigation">
+          <summary>Navigation</summary>
+          <nav class="row" aria-label="Preview pages">
+            <a href="index.html" aria-current="page">Tokens</a>
+            <a href="motion.html">Motion</a>
+            <a href="dialogs.html">Dialogs</a>
+            <a href="forms.html">Forms</a>
+            <a href="trees.html">Trees</a>
+            <a href="outline.html">Outline</a>
+            <a href="editors.html">Editor</a>
+            <a href="full-width.html">Full width</a>
+            <a href="scrolling.html">Scrolling</a>
+            <a href="item.html">Item</a>
+            <a href="icons.html">Icons</a>
+            <a href="content/">Content</a>
+          </nav>
+        </details>
       </div>
       <button
         class="btn btn-secondary"
@@ -260,10 +263,30 @@
             Visibility — one neutral treatment, differentiated by icon only
           </h2>
           <div class="row">
-            <span class="badge-visibility">🔒 Private</span>
-            <span class="badge-visibility">◉ GM only</span>
-            <span class="badge-visibility">👥 Selected characters</span>
-            <span class="status-text">Public</span>
+            <span class="badge-visibility">
+              <svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-kind-being"></use>
+              </svg>
+              Private
+            </span>
+            <span class="badge-visibility">
+              <svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-private"></use>
+              </svg>
+              GM only
+            </span>
+            <span class="badge-visibility">
+              <svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-kind-beings"></use>
+              </svg>
+              Selected characters
+            </span>
+            <span class="status-text">
+              <svg class="icon" aria-hidden="true">
+                <use href="../icons.svg#icon-eye"></use>
+              </svg>
+              Public
+            </span>
           </div>
         </section>
 

@@ -12,6 +12,13 @@
  * never a --brand- or --utility- primitive directly.
  */
 
+a .brand,
+a.brand,
+.brand a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
 /* Sized relative to the surrounding text so an icon sits correctly next to
    a label at any font-size, and nudged to align with the text baseline
    (identity.md §17.3/§15.6 - see icons.svg/icons.manifest.yaml). */
@@ -20,6 +27,12 @@
   height: 1em;
   display: inline-block;
   vertical-align: -0.125em;
+}
+
+.icon.big {
+  flex: none;
+  width: 2em;
+  height: 2em;
 }
 
 /* A generic bordered, rounded surface - the base every more specific card
@@ -360,6 +373,15 @@ h3.canonical-marker,
 h4.canonical-marker,
 h5.canonical-marker {
   color: var(--canonical);
+}
+
+h1 a,
+h2 a,
+h3 a,
+h4 a,
+h5 a {
+  color: inherit;
+  text-decoration: inherit;
 }
 
 /* A bordered list of records with inline actions (characters, beings,
@@ -1178,8 +1200,13 @@ fieldset:disabled {
 
   /* An inline link in a header is not a block, so min-height would be
      ignored; make it one that centres its text. */
+
+  .site-header nav {
+    align-items: stretch;
+  }
+
   .site-header nav a {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     min-height: var(--target-min);
   }

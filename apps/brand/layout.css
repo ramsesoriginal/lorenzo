@@ -42,6 +42,21 @@ body {
    default underlined link-blue text crammed against the wordmark, with no
    visual weight or way to show which page is current. Same treatment as
    .sidebar below, so the two page shells read as one system. */
+/* Desktop: restore original navigation appearance */
+@media (min-width: 721px) {
+  .site-navigation {
+    display: contents;
+  }
+
+  .site-navigation > summary {
+    display: none;
+  }
+
+  .site-navigation::details-content {
+    content-visibility: visible;
+  }
+}
+
 .site-header nav {
   display: flex;
   align-items: center;
@@ -134,7 +149,7 @@ footer {
 /* A centered, reading-width content wrapper - the default outermost
    container for any page's content. */
 .wrap {
-  max-width: 880px;
+  max-width: 1120px;
   margin-inline: auto;
   padding-inline: var(--space-4);
 }
@@ -290,14 +305,23 @@ body:has(.full-width) {
     padding: var(--space-2) var(--space-3);
   }
 
-  .site-header nav {
-    flex-wrap: wrap;
-  }
-
   /* Wider than the viewport minus the gutters at 320px, so it gives way
      rather than overflowing; §4.7's 220px minimum is for the lockup at
      rest, and the spark alone is the compact form (§12.2). */
   .brand-mark {
     max-width: 100%;
+  }
+
+  .site-navigation {
+    position: relative;
+  }
+
+  .site-navigation nav {
+    flex-direction: column;
+    width: 100vw;
+  }
+
+  .row.v-mobile {
+    flex-direction: column;
   }
 }
