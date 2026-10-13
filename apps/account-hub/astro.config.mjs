@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import { lorenzoBrandDev } from '../../tools/brand/vite-plugin.mjs';
 
 // Static output only, per ADR 0004 — no server-side rendering at request
 // time, ever.
@@ -17,9 +18,14 @@ export default defineConfig({
   // default 4321, and both apps need to run concurrently in local dev.
   server: { port: 4322 },
   vite: {
+    plugins: [
+      lorenzoBrandDev(),
+    ],
     server: {
       // WSL2 on a /mnt/ drive doesn't deliver file-change events - poll instead.
-      watch: process.cwd().startsWith('/mnt/') ? { usePolling: true, interval: 300 } : undefined,
+      watch: process.cwd().startsWith('/mnt/')
+        ? { usePolling: true, interval: 300 }
+        : undefined,
     },
   },
 });
