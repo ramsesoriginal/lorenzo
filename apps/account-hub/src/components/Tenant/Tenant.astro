@@ -11,6 +11,7 @@ import GmManagement from '../GmManagement/GmManagement.astro';
 import InviteLinks from '../InviteLinks/InviteLinks.astro';
 import InvitePlayer from '../InvitePlayer/InvitePlayer.astro';
 import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
+import TenantInviteLinks from '../TenantInviteLinks/TenantInviteLinks.astro';
 import NotificationComposer from '../NotificationComposer/NotificationComposer.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
 import TenantDelete from '../TenantDelete/TenantDelete.astro';
@@ -62,7 +63,7 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           New campaign
         </button>
         <button type="button" class="tab" role="tab">
-          Admins
+          People
         </button>
         <button type="button" class="tab" role="tab">
           Activity
@@ -87,6 +88,7 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
 
       <div class="stack" role="tabpanel">
         <div data-slot data-memberships-slot hidden></div>
+        <div data-slot data-links-slot hidden></div>
 
         <div data-leave hidden>
           <button type="button" class="btn-danger" data-leave-button>
@@ -117,6 +119,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
   </template>
   <template data-membership-admin-template>
     <MembershipAdmin />
+  </template>
+  <template data-tenant-invite-links-template>
+    <TenantInviteLinks />
   </template>
   <template data-activity-log-template>
     <ActivityLog />

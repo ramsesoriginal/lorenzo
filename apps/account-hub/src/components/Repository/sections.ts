@@ -45,6 +45,7 @@ import {
   usingSummary,
 } from '../../lib/using';
 import { renderActivityLog } from '../ActivityLog/renderer';
+import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 
 const required = requiredIn('Repository');
 
@@ -72,6 +73,7 @@ export function createUsing(root: HTMLElement, onChanged: () => void): Section {
   const form = required<HTMLFormElement>(root, '[data-invite]');
   const input = required<HTMLInputElement>(root, '[data-invite-id]');
   const status = required<HTMLElement>(root, '[data-invite-status]');
+  const linksSlot = required<HTMLElement>(root, '[data-library-links-slot]');
 
   required<HTMLElement>(root, '[data-invite-help]').textContent = INVITE_HELP;
 
@@ -154,11 +156,22 @@ export function createUsing(root: HTMLElement, onChanged: () => void): Section {
       error.hidden = true;
       form.hidden = true;
       say(status, '');
+      linksSlot.replaceChildren();
+      linksSlot.hidden = true;
     },
 
     async load(repository, isCurrent) {
       shown = repository;
       form.hidden = !canChangePeople(repository.role);
+
+      // An Owner can send a link as well as name a library by its id (ADR 0212).
+      if (canChangePeople(repository.role)) {
+        const links = cloneRoot(root, '[data-tenant-invite-links-template]');
+
+        renderTenantInviteLinks(links, repository, 'library');
+        linksSlot.replaceChildren(links);
+        linksSlot.hidden = false;
+      }
 
       try {
         await repaint(repository, isCurrent);

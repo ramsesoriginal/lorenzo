@@ -21,11 +21,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
-from lorenzo_api.campaign_access import is_tenant_owner
+from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_owner
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
+    get_tenant_admin_context,
     get_tenant_context,
     set_tenant_rls_context,
 )
@@ -40,6 +41,7 @@ from lorenzo_api.exceptions import (
     RepositoryNotCopiedError,
     RepositoryNotFoundError,
     SubscriptionNotFoundError,
+    TenantAdminRequiredError,
     TenantNotFoundError,
 )
 from lorenzo_api.models import (
@@ -61,7 +63,6 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
 )
-from lorenzo_api.notifications import create_tenant_members_notification
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
@@ -74,6 +75,7 @@ from lorenzo_api.repository_copying import (
     plan_copy,
 )
 from lorenzo_api.repository_digest import BreakingNote, Row, assess, replace_stored_rows
+from lorenzo_api.repository_grants import grant_repository_access, notify_tenant_admins
 from lorenzo_api.repository_releases import (
     ReleaseRef,
     latest_release,
@@ -146,35 +148,23 @@ async def _require_owner(session: SessionDep, *, tenant_id: uuid.UUID, user: Cur
         )
 
 
+async def _require_admin_unless_dry_run(
+    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, dry_run: bool
+) -> None:
+    """Copying a repository and applying its updates bring stat groups and entries in, so they are
+    for an Owner or an Organizer; an Author may run either as a dry run, to check what it would
+    do (RFC 0040, ADR 0219)."""
+    if not dry_run and not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
+        raise TenantAdminRequiredError(
+            detail="Only an Owner or an Organizer can do this; an Author can check it as a dry run"
+        )
+
+
 async def _require_repository(session: SessionDep, tenant_id: uuid.UUID) -> Tenant:
     tenant = await session.get_one(Tenant, tenant_id)
     if tenant.kind is not TenantKind.REPOSITORY:
         raise NotARepositoryError(detail=f"Tenant {tenant_id} is for play, not a repository")
     return tenant
-
-
-async def _notify_members_of(
-    session: SessionDep,
-    *,
-    recipient_tenant_ids: Sequence[uuid.UUID],
-    current_tenant_id: uuid.UUID,
-    type: str,
-    title: str,
-    body: str,
-    user: CurrentUser,
-) -> None:
-    """Tells each tenant's members, reading each one's Membership under its
-    own RLS context, then puts the current tenant's context back. Flushes
-    first: anything still pending belongs to the current tenant, and would
-    fail RLS if autoflush wrote it under another tenant's context.
-    """
-    await session.flush()
-    for recipient in recipient_tenant_ids:
-        await set_tenant_rls_context(session, recipient)
-        await create_tenant_members_notification(
-            session, tenant_id=recipient, type=type, title=title, body=body, created_by=user.id
-        )
-    await set_tenant_rls_context(session, current_tenant_id)
 
 
 # --- The repository's own side ----------------------------------------------
@@ -259,14 +249,14 @@ async def publish_repository(
     title, notice = release_notice(
         repository_name=tenant.name, release=release, first=not was_published
     )
-    await _notify_members_of(
+    await notify_tenant_admins(
         session,
         recipient_tenant_ids=subscribers,
         current_tenant_id=tenant_id,
         type="repository_updated" if was_published else "repository_published",
         title=title,
         body=notice,
-        user=user,
+        created_by=user.id,
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -465,7 +455,7 @@ async def _releases_taken_by(
 
 @router.get("/subscribers")
 async def list_subscribers(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[SubscriberOut]:
@@ -560,33 +550,8 @@ async def grant_repository(
             subscriber, subscription, held, await _releases_taken_by(session, tenant_id, [held])
         )
 
-    session.add(
-        RepositorySubscription(
-            repository_tenant_id=tenant_id,
-            subscriber_tenant_id=subscriber_tenant_id,
-            created_by=user.id,
-        )
-    )
-    await record_activity(
-        session,
-        tenant_id=tenant_id,
-        actor_id=user.id,
-        action="repository.granted",
-        target_type="tenant",
-        target_id=subscriber_tenant_id,
-    )
-    await _notify_members_of(
-        session,
-        recipient_tenant_ids=[subscriber_tenant_id],
-        current_tenant_id=tenant_id,
-        type="repository_granted",
-        title=f"{repository.name} is available to {subscriber.name}",
-        body=(
-            "You can browse it and copy it into your tenant."
-            if repository.published_at is not None
-            else "It isn't published yet. You'll be told when it is."
-        ),
-        user=user,
+    await grant_repository_access(
+        session, repository=repository, subscriber=subscriber, granted_by=user.id
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -627,7 +592,7 @@ async def revoke_repository(
         target_type="tenant",
         target_id=subscriber_tenant_id,
     )
-    await _notify_members_of(
+    await notify_tenant_admins(
         session,
         recipient_tenant_ids=[subscriber_tenant_id],
         current_tenant_id=tenant_id,
@@ -637,7 +602,7 @@ async def revoke_repository(
             "What your library already copied from it stays yours. It will not get"
             " updates from it unless it is invited again."
         ),
-        user=user,
+        created_by=user.id,
     )
     await session.commit()
 
@@ -1112,6 +1077,7 @@ async def copy_repository(
     the tenant-admin tier, like authoring stat definitions.
     """
     dry_run = bool(body and body.dry_run)
+    await _require_admin_unless_dry_run(session, tenant_id=tenant_id, user=user, dry_run=dry_run)
     again = body.again if body else None
     previous = None
     if again and await session.get(RepositoryCopy, (tenant_id, repository_id)) is not None:
@@ -1298,6 +1264,9 @@ async def apply_repository_updates(
     (ADR 0172) are applied after the actions, so one can point at a row an
     action adds; `422` for one that has nothing to add or detach.
     `dry_run` applies everything and rolls it back."""
+    await _require_admin_unless_dry_run(
+        session, tenant_id=tenant_id, user=user, dry_run=bool(body.dry_run)
+    )
     actions = [
         UpdateAction(
             kind=a.kind,

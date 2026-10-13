@@ -27,7 +27,7 @@ from lorenzo_api.invites import (
     generate_token,
     hash_token,
 )
-from lorenzo_api.models import Campaign, CampaignInvite, InviteRole
+from lorenzo_api.models import Campaign, Invite, InviteKind, InviteRole
 from lorenzo_api.schemas.invites import InviteCreate, InviteCreatedOut, InviteOut
 
 # get_tenant_or_404, not get_tenant_context: a campaign's GM may hold no
@@ -65,26 +65,6 @@ async def _require_manageable_campaign(
         )
 
 
-def _invite_out(invite: CampaignInvite, *, now: datetime) -> InviteOut:
-    is_active = (
-        invite.revoked_at is None
-        and invite.expires_at > now
-        and (invite.max_uses is None or invite.use_count < invite.max_uses)
-    )
-    return InviteOut(
-        id=invite.id,
-        campaign_id=invite.campaign_id,
-        role=invite.role,
-        created_by=invite.created_by,
-        created_at=invite.created_at,
-        expires_at=invite.expires_at,
-        max_uses=invite.max_uses,
-        use_count=invite.use_count,
-        revoked_at=invite.revoked_at,
-        is_active=is_active,
-    )
-
-
 @router.post("", status_code=201)
 async def create_invite(
     tenant_id: uuid.UUID,
@@ -115,8 +95,9 @@ async def create_invite(
         )
 
     token = generate_token()
-    invite = CampaignInvite(
+    invite = Invite(
         tenant_id=tenant_id,
+        kind=InviteKind.CAMPAIGN,
         campaign_id=campaign_id,
         token_hash=hash_token(token),
         role=body.role,
@@ -147,12 +128,10 @@ async def create_invite(
     await set_tenant_rls_context(session, tenant_id)
     created = (
         await session.execute(
-            select(CampaignInvite).where(
-                CampaignInvite.id == invite_id, CampaignInvite.tenant_id == tenant_id
-            )
+            select(Invite).where(Invite.id == invite_id, Invite.tenant_id == tenant_id)
         )
     ).scalar_one()
-    return InviteCreatedOut(**_invite_out(created, now=now).model_dump(), token=token)
+    return InviteCreatedOut(**InviteOut.from_invite(created, now=now).model_dump(), token=token)
 
 
 @router.get("")
@@ -169,15 +148,15 @@ async def list_invites(
     )
     now = datetime.now(tz=UTC)
     stmt = (
-        select(CampaignInvite)
-        .where(CampaignInvite.campaign_id == campaign_id, CampaignInvite.tenant_id == tenant_id)
-        .order_by(CampaignInvite.created_at.desc(), CampaignInvite.id)
+        select(Invite)
+        .where(Invite.campaign_id == campaign_id, Invite.tenant_id == tenant_id)
+        .order_by(Invite.created_at.desc(), Invite.id)
     )
     page: Page[InviteOut] = await apaginate(
         session,
         stmt,
         params,
-        transformer=lambda rows: [_invite_out(row, now=now) for row in rows],
+        transformer=lambda rows: [InviteOut.from_invite(row, now=now) for row in rows],
     )
     return page
 
@@ -198,10 +177,10 @@ async def revoke_invite(
     )
     invite = (
         await session.execute(
-            select(CampaignInvite).where(
-                CampaignInvite.id == invite_id,
-                CampaignInvite.campaign_id == campaign_id,
-                CampaignInvite.tenant_id == tenant_id,
+            select(Invite).where(
+                Invite.id == invite_id,
+                Invite.campaign_id == campaign_id,
+                Invite.tenant_id == tenant_id,
             )
         )
     ).scalar_one_or_none()

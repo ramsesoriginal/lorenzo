@@ -10,10 +10,9 @@ import { sayError } from '../../lib/statusLine';
 import {
   canChangePeople,
   LIVE_NOTICE,
-  ROLE_MEANINGS,
-  ROLES_NOTE,
   repositoryState,
   roleLabel,
+  roleMeanings,
 } from '../../lib/studio';
 import { bindTabs } from '../../lib/tabs';
 import { cloneRoot, requiredIn } from '../../lib/template';
@@ -30,6 +29,7 @@ import { renderPictureUpload } from '../PictureUpload/renderer';
 import { bindLeaveTenant } from '../Tenant/leaveTenant';
 import { renderTenantDelete } from '../TenantDelete/renderer';
 import { renderTenantEdit } from '../TenantEdit/renderer';
+import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 import { createPublishControls } from './publish';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
 import { createViewAs } from './viewAs';
@@ -73,6 +73,7 @@ export function renderRepository(
   const roles = required<HTMLElement>(root, '[data-roles]');
   const membershipsSlot = required<HTMLElement>(root, '[data-memberships-slot]');
   const peopleList = required<HTMLElement>(root, '[data-people-list]');
+  const linksSlot = required<HTMLElement>(root, '[data-links-slot]');
   const deleteSlot = required<HTMLElement>(root, '[data-delete-slot]');
 
   // Only the newest `show` paints.
@@ -101,25 +102,30 @@ export function renderRepository(
   const activity = createActivity(root);
   let lastId: string | null = null;
 
-  // The meaning of each role, written once, whoever reads it.
-  roles.replaceChildren(
-    ...ROLE_MEANINGS.map(({ label, meaning }) => {
-      const item = document.createElement('li');
-      const term = document.createElement('strong');
+  // The meaning of each role, for whoever reads the people and cannot change them. An Owner's panel
+  // says it itself.
+  function showRoleMeanings(): void {
+    roles.replaceChildren(
+      ...roleMeanings('repository').map(({ label, meaning }) => {
+        const item = document.createElement('li');
+        const term = document.createElement('strong');
 
-      term.textContent = label;
-      item.append(term, ` ${meaning}`);
+        term.textContent = label;
+        item.append(term, ` ${meaning}`);
 
-      return item;
-    }),
-  );
-  required<HTMLElement>(root, '[data-roles-note]').textContent = ROLES_NOTE;
+        return item;
+      }),
+    );
+  }
 
   function empty(): void {
     pictureSlot.replaceChildren();
     pictureSlot.hidden = true;
     membershipsSlot.replaceChildren();
     membershipsSlot.hidden = true;
+    linksSlot.replaceChildren();
+    linksSlot.hidden = true;
+    showRoleMeanings();
     peopleList.replaceChildren();
     peopleList.hidden = true;
     deleteSlot.replaceChildren();
@@ -163,11 +169,27 @@ export function renderRepository(
       membershipsSlot.replaceChildren(panel);
       membershipsSlot.hidden = false;
 
+      // The panel says what each role allows, so the list of them is not shown twice.
+      roles.replaceChildren();
+
+      const links = cloneRoot(root, '[data-tenant-invite-links-template]');
+
+      renderTenantInviteLinks(links, repository, 'role');
+      linksSlot.replaceChildren(links);
+      linksSlot.hidden = false;
+
       return;
     }
 
+    // An Author reads no roster (the API gives it to the people who run the repository): they see
+    // their own role, and what each role allows is above.
+    const shown =
+      members.length > 0
+        ? members
+        : [{ display_name: 'You', nickname: null, user_id: userId, role: repository.role }];
+
     peopleList.replaceChildren(
-      ...members.map((member) => {
+      ...shown.map((member) => {
         const item = cloneRoot(root, '[data-person-template]');
 
         required<HTMLElement>(item, '[data-name]').textContent = displayNameFor(member);
@@ -250,9 +272,13 @@ export function renderRepository(
 
         await Promise.all([
           releases.load(repository, current, roster?.items ?? null),
-          using.load(repository, current, null),
+          // Who copied it and the activity are the people who run it's to read; an Author's tabs are
+          // the ones the API serves them.
+          isTenantAdmin(repository) ? using.load(repository, current, null) : undefined,
           builtOn.load(repository, current, null),
-          activity.load(repository, current, roster?.items ?? null),
+          isTenantAdmin(repository)
+            ? activity.load(repository, current, roster?.items ?? null)
+            : undefined,
         ]);
       } catch (cause) {
         if (turn !== latest) return;

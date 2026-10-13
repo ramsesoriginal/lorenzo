@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
+    can_author_entry,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
 )
@@ -87,7 +88,9 @@ async def _authorize_entity_stat_write(
     OWNER/ORGA always satisfies regardless of whether any campaign exists
     yet (campaign_access.is_tenant_admin), so authoring catalog stats stays
     reachable for the same tenant-admin-shaped callers items.py's own
-    tenant-admin tier already serves, without a second, separate check here.
+    tenant-admin tier already serves, without a second, separate check here;
+    an Author (ADR 0219) is let through for an entry in their reach
+    (campaign_access.can_author_entry): a repository's, or a library's catalog.
     """
     if await can_self_manage_entity(
         session, entity_id=entity_id, user_id=user.id, tenant_id=tenant_id
@@ -105,7 +108,9 @@ async def _authorize_entity_stat_write(
             session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
         ):
             return
-    elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
+    elif await can_manage_any_campaign_in_tenant(
+        session, user_id=user.id, tenant_id=tenant_id
+    ) or await can_author_entry(session, user_id=user.id, tenant_id=tenant_id, entity_id=entity_id):
         return
     raise EntityStatManagementForbiddenError(
         detail=f"Not authorized to manage stats on entity {entity_id}"

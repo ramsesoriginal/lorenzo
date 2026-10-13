@@ -60,7 +60,14 @@ export async function previewInvite(token: string): Promise<InvitePreviewOut> {
 }
 
 // Needs a login, not a tenant: any verified user. Idempotent for someone who is
-// already a player there (already_joined).
-export async function redeemInvite(token: string): Promise<InviteRedeemOut> {
-  return unwrap(await client.POST('/invites/{token}/redeem', { params: { path: { token } } }));
+// already a player there (already_joined). A link that shares a repository (ADR 0220) takes the
+// library to share it with.
+export async function redeemInvite(token: string, libraryId?: string): Promise<InviteRedeemOut> {
+  return unwrap(
+    await client.POST('/invites/{token}/redeem', {
+      params: { path: { token } },
+      // A link that shares a repository says which library in the body, never in the address.
+      ...(libraryId === undefined ? {} : { body: { library_id: libraryId } }),
+    }),
+  );
 }

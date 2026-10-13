@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 import structlog
 from _admin_db import admin_session_factory
+from _fake_jwks import FakeJwksServer
 from conftest import delete_tenant, make_campaign, make_tenant
 from httpx import AsyncClient
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -21,7 +22,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from lorenzo_api.invites import generate_token, hash_token
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.main import app
-from lorenzo_api.models import CampaignInvite
+from lorenzo_api.models import Invite, InviteRole
 from lorenzo_api.rate_limit import reset_invite_rate_limiter
 from lorenzo_api.redaction import (
     RedactInviteTokensFilter,
@@ -77,9 +78,10 @@ async def test_spans_never_carry_a_real_tokens_path_either(
         campaign = await make_campaign(session, tenant_id=tenant_id, name="Traced")
         token = generate_token()
         session.add(
-            CampaignInvite(
+            Invite(
                 tenant_id=tenant_id,
                 campaign_id=campaign.id,
+                role=InviteRole.PLAYER,
                 token_hash=hash_token(token),
                 expires_at=datetime.now(tz=UTC) + timedelta(days=1),
             )
@@ -164,3 +166,68 @@ def test_structlog_events_are_redacted_in_the_processor_chain() -> None:
 )
 def test_redact_invite_tokens(text: str, expected: str) -> None:
     assert redact_invite_tokens(text) == expected
+
+
+# --- Every kind of link (ADR 0220) ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "management_path",
+    [
+        "/tenants/00000000-0000-0000-0000-000000000001/invites/00000000-0000-0000-0000-000000000002",
+        "http://test/tenants/00000000-0000-0000-0000-000000000001/invites",
+    ],
+)
+def test_a_tenants_management_paths_carry_ids_and_are_left_alone(management_path: str) -> None:
+    assert redact_invite_tokens(management_path) == management_path
+
+
+async def test_no_kind_of_link_leaves_its_token_or_the_library_in_a_span_or_a_log(
+    raw_client: AsyncClient,
+    fake_jwks_server: FakeJwksServer,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from _author_world import make_world
+    from _invite_helpers import mint_library, mint_role, redeem
+
+    library = await make_world(raw_client, fake_jwks_server, name="A table")
+    repository = await make_world(raw_client, fake_jwks_server, kind="repository", name="Faerûn")
+    try:
+        exporter = InMemorySpanExporter()
+        app.state.tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+        caplog.set_level(logging.DEBUG)
+
+        role_token = await mint_role(library.owner, library.tenant_id, "author")
+        library_token = await mint_library(repository.owner, repository.tenant_id)
+        tokens = [role_token, library_token]
+        for token in tokens:
+            assert (await raw_client.get(f"/invites/{token}")).status_code == 200
+        status, _ = await redeem(library.outsider, role_token)
+        assert status == 201
+        # The library's id is in the body, never in the address.
+        response = await library.owner.post(
+            f"/invites/{library_token}/redeem", json={"library_id": str(library.tenant_id)}
+        )
+        assert response.status_code == 201
+        assert str(library.tenant_id) not in str(response.request.url)
+        # And a dead link of each kind is logged as a rejection, without it.
+        for token in tokens:
+            assert (await raw_client.get(f"/invites/{token}")).status_code == 404
+
+        recorded = _every_recorded_string(exporter)
+        assert recorded
+        for secret in (*tokens, str(library.tenant_id)):
+            assert [text for text in recorded if secret in text and "/tenants/" not in text] == []
+        for token in tokens:
+            assert [text for text in recorded if token in text] == []
+        server_text = "\n".join(
+            r.getMessage()
+            for r in caplog.records
+            if not r.name.startswith(("httpx", "httpcore", "asyncio"))
+        )
+        assert "invite_link_rejected" in server_text
+        for token in tokens:
+            assert token not in server_text
+    finally:
+        await library.clean_up()
+        await repository.clean_up()

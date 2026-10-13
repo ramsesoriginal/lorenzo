@@ -2,7 +2,6 @@ from lorenzo_api.models.audit_log import AuditLog
 from lorenzo_api.models.being import Being
 from lorenzo_api.models.campaign import Campaign
 from lorenzo_api.models.campaign_gm import CampaignGm
-from lorenzo_api.models.campaign_invite import CampaignInvite, InviteRole
 from lorenzo_api.models.campaign_profile_picture import CampaignProfilePicture
 from lorenzo_api.models.character import Character
 from lorenzo_api.models.character_player import CharacterPlayer
@@ -28,6 +27,7 @@ from lorenzo_api.models.entity_stat_group import EntityStatGroup
 from lorenzo_api.models.group_member import GroupMember
 from lorenzo_api.models.information import Information
 from lorenzo_api.models.information_type import SINGLETON_INFORMATION_TYPES, InformationType
+from lorenzo_api.models.invite import Invite, InviteKind, InviteRole
 from lorenzo_api.models.item import Item
 from lorenzo_api.models.item_instance import ItemInstance
 from lorenzo_api.models.knowledge import Knowledge
@@ -49,7 +49,10 @@ from lorenzo_api.models.repository_copy import (
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
 )
+from lorenzo_api.models.repository_profile import RepositoryProfile
 from lorenzo_api.models.repository_release import RepositoryRelease
+from lorenzo_api.models.repository_release_blob import RepositoryReleaseBlob
+from lorenzo_api.models.repository_release_document import RepositoryReleaseDocument
 from lorenzo_api.models.repository_released_row import RepositoryReleasedRow
 from lorenzo_api.models.repository_subscription import RepositorySubscription
 from lorenzo_api.models.stat_definition import StatDefinition, StatValueType
@@ -70,8 +73,6 @@ __all__ = [
     "Being",
     "Campaign",
     "CampaignGm",
-    "CampaignInvite",
-    "InviteRole",
     "CampaignProfilePicture",
     "Character",
     "CharacterPlayer",
@@ -95,6 +96,9 @@ __all__ = [
     "GroupMember",
     "Information",
     "InformationType",
+    "Invite",
+    "InviteKind",
+    "InviteRole",
     "SINGLETON_INFORMATION_TYPES",
     "Item",
     "ItemInstance",
@@ -117,7 +121,10 @@ __all__ = [
     "RepositoryCopyLinkEntity",
     "RepositoryCopyLinkStatDefinition",
     "RepositoryCopyLinkStatGroup",
+    "RepositoryProfile",
     "RepositoryRelease",
+    "RepositoryReleaseBlob",
+    "RepositoryReleaseDocument",
     "RepositoryReleasedRow",
     "RepositorySubscription",
     "StatDefinition",

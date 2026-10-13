@@ -1,4 +1,4 @@
-// Tenant-wide membership management and bulk invite - RFC 0017 (e).
+// Tenant-wide membership management and bulk invite - RFC 0017 (e), with the Author role (ADR 0212).
 // Distinct from the campaign-scoped GM/player management: this is tenant-wide owner/orga role
 // administration. Bulk invite is confirmed _require_owner-gated server-side; the single-item
 // actions here are gated identically for consistency rather than assumed looser (showing nothing
@@ -7,8 +7,9 @@
 
 import { displayNameFor } from '../../lib/format';
 import { say, sayError } from '../../lib/statusLine';
+import { roleMeanings } from '../../lib/studio';
 import { fromTemplate, requiredIn, rootElement } from '../../lib/template';
-import { kindNoun, kindNounCapitalized } from '../../lib/tenantKind';
+import { kindNoun } from '../../lib/tenantKind';
 import {
   bulkInviteMembers,
   createMembership,
@@ -23,7 +24,7 @@ import type {
 } from '../../lib/types';
 import { renderUserPicker } from '../UserPicker/renderer';
 
-type Role = 'owner' | 'orga';
+type Role = 'owner' | 'orga' | 'author';
 
 const required = requiredIn('Membership admin');
 
@@ -47,6 +48,15 @@ function fillMembers(
     const status = required<HTMLElement>(item, '[data-status]');
 
     required<HTMLElement>(item, '[data-name]').textContent = displayNameFor(membership);
+    // Who added them, where that person is in the list too.
+    const adder = memberships.find((other) => other.user_id === membership.created_by);
+
+    if (adder) {
+      const addedBy = required<HTMLElement>(item, '[data-added-by]');
+
+      addedBy.textContent = `Added by ${displayNameFor(adder)}`;
+      addedBy.hidden = false;
+    }
     roleSelect.value = membership.role;
 
     roleSelect.addEventListener('change', async () => {
@@ -84,6 +94,16 @@ function bindInvite(
   const status = required<HTMLElement>(invite, '[data-status]');
 
   required<HTMLElement>(invite, '[data-invite-label]').textContent = label;
+
+  // One line on what the chosen role allows, under the choice.
+  const meaning = required<HTMLElement>(invite, '[data-role-meaning]');
+  const showMeaning = () => {
+    meaning.textContent =
+      roleMeanings(tenant.kind).find((m) => m.role === roleSelect.value)?.meaning ?? '';
+  };
+
+  roleSelect.addEventListener('change', showMeaning);
+  showMeaning();
 
   renderUserPicker(required<HTMLElement>(invite, '[data-user-picker]'), async (user) => {
     say(status, 'Inviting…');
@@ -167,15 +187,26 @@ export function renderMembershipAdmin(
   onChanged: () => void,
   words: { heading?: string; inviteLabel?: string } = {},
 ): void {
-  required<HTMLElement>(root, '[data-heading]').textContent =
-    words.heading ?? `${kindNounCapitalized(tenant.kind)} admins`;
+  required<HTMLElement>(root, '[data-heading]').textContent = words.heading ?? 'People';
+  // What each role can do, in this library's or repository's words.
+  required<HTMLElement>(root, '[data-roles]').replaceChildren(
+    ...roleMeanings(tenant.kind).map(({ label, meaning }) => {
+      const item = document.createElement('li');
+      const term = document.createElement('strong');
+
+      term.textContent = label;
+      item.append(term, ` ${meaning}`);
+
+      return item;
+    }),
+  );
 
   fillMembers(root, tenant, memberships, onChanged);
   bindInvite(
     root,
     tenant,
     onChanged,
-    words.inviteLabel ?? `Invite a ${kindNoun(tenant.kind)} admin:`,
+    words.inviteLabel ?? `Add someone to this ${kindNoun(tenant.kind)}, as:`,
   );
   bindBulkInvite(root, tenant, onChanged);
 }

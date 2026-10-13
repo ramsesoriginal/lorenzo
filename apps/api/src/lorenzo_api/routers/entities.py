@@ -10,8 +10,10 @@ from sqlalchemy import delete, exists, func, literal, or_, select, union_all
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.author_guards import author_may_delete, author_may_touch, author_may_use_kinds
 from lorenzo_api.campaign_access import (
     campaign_ids_for_character,
+    can_author_entry,
     can_manage_any_campaign_in_tenant,
     can_manage_any_of_campaigns,
 )
@@ -291,6 +293,7 @@ async def create_entity(
         response.headers["ETag"] = etag_for(out.updated_at)
         return out
     kinds = sorted(set(body.kinds))
+    await author_may_use_kinds(session, tenant_id=tenant_id, user_id=user.id, kinds=kinds)
     entity = await create_entry(
         session,
         tenant_id=tenant_id,
@@ -341,6 +344,8 @@ async def add_entity_kind(
     ETag moves, and is one activity entry. Both honour `If-Match`.
     """
     entity = await get_entity_or_404(session, entity_id, tenant_id)
+    await author_may_touch(session, tenant_id=tenant_id, user_id=user.id, entity_id=entity_id)
+    await author_may_use_kinds(session, tenant_id=tenant_id, user_id=user.id, kinds=[kind])
     check_if_match(if_match, updated_at=entity.updated_at)
     in_public_catalog = body.in_public_catalog if body is not None else None
     if in_public_catalog is not None and kind != "item":
@@ -390,6 +395,8 @@ async def remove_entity_kind(
     Honours `If-Match`, touches the entry and is one activity entry.
     """
     entity = await get_entity_or_404(session, entity_id, tenant_id)
+    await author_may_touch(session, tenant_id=tenant_id, user_id=user.id, entity_id=entity_id)
+    await author_may_use_kinds(session, tenant_id=tenant_id, user_id=user.id, kinds=[kind])
     check_if_match(if_match, updated_at=entity.updated_at)
     removed = await remove_kind(
         session, tenant_id=tenant_id, entity=entity, kind=kind, user_id=user.id
@@ -429,6 +436,7 @@ async def delete_entity(
     it sees the entry as removed upstream.
     """
     entity = await get_entity_or_404(session, entity_id, tenant_id)
+    await author_may_delete(session, tenant_id=tenant_id, user_id=user.id, entity_id=entity_id)
     check_if_match(if_match, updated_at=entity.updated_at)
     kinds = await require_deletable(session, tenant_id=tenant_id, entity_id=entity_id)
     await record_activity(
@@ -812,6 +820,7 @@ async def replace_entity_parents(
     through the new parents the next time they are read (ADR 0037, 0111).
     """
     entity = await get_entity_or_404(session, entity_id, tenant_id)
+    await author_may_touch(session, tenant_id=tenant_id, user_id=user.id, entity_id=entity_id)
     check_if_match(if_match, updated_at=entity.updated_at)
     if await session.get(ItemInstance, entity_id) is not None:
         raise InventoryItemParentsError(
@@ -1028,7 +1037,9 @@ async def authorize_entity_write(
             session, user_id=user.id, campaign_ids=campaign_ids, tenant_id=tenant_id
         ):
             return
-    elif await can_manage_any_campaign_in_tenant(session, user_id=user.id, tenant_id=tenant_id):
+    elif await can_manage_any_campaign_in_tenant(
+        session, user_id=user.id, tenant_id=tenant_id
+    ) or await can_author_entry(session, user_id=user.id, tenant_id=tenant_id, entity_id=entity_id):
         return
     raise forbidden or InformationManagementForbiddenError(
         detail=f"Not authorized to manage information on entity {entity_id}"

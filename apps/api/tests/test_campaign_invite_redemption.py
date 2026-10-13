@@ -22,7 +22,8 @@ from lorenzo_api.models import (
     AuditLog,
     Campaign,
     CampaignGm,
-    CampaignInvite,
+    Invite,
+    InviteRole,
     Membership,
     Notification,
     Player,
@@ -77,9 +78,10 @@ async def _seed_invite(
 ) -> tuple[str, uuid.UUID]:
     token = generate_token()
     async with admin_session_factory() as session:
-        invite = CampaignInvite(
+        invite = Invite(
             tenant_id=setup.tenant_id,
             campaign_id=setup.campaign_id,
+            role=InviteRole.PLAYER,
             token_hash=hash_token(token),
             expires_at=datetime.now(tz=UTC) + expires_in,
             max_uses=max_uses,
@@ -99,7 +101,7 @@ def _auth(setup: Setup, fake_jwks_server: FakeJwksServer) -> dict[str, str]:
 
 async def _use_count(invite_id: uuid.UUID) -> int:
     async with admin_session_factory() as session:
-        return (await session.get_one(CampaignInvite, invite_id)).use_count
+        return (await session.get_one(Invite, invite_id)).use_count
 
 
 async def _player_count(setup: Setup) -> int:
@@ -122,7 +124,10 @@ async def test_preview_is_unauthenticated_and_shows_only_the_campaign(
 
     assert response.status_code == 200, response.text
     assert response.json() == {
+        "kind": "campaign",
+        "name": "The Open Table",
         "campaign_name": "The Open Table",
+        "tenant_kind": None,
         "picture_url": None,
         "role": "player",
     }
@@ -349,4 +354,4 @@ async def test_a_deleted_campaign_takes_its_invites_with_it(
 
     assert (await raw_client.get(f"/invites/{token}")).status_code == 404
     async with admin_session_factory() as session:
-        assert await session.get(CampaignInvite, invite_id) is None
+        assert await session.get(Invite, invite_id) is None

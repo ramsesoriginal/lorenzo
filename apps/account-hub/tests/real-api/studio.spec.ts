@@ -19,7 +19,10 @@ async function studioWorld() {
 }
 
 function row(page: import('@playwright/test').Page, userId: string) {
-  return page.locator('[data-members] > li').filter({ hasText: userId });
+  // By the name, which an id stands in for: a row also says who added the person.
+  return page
+    .locator('[data-members] > li')
+    .filter({ has: page.locator('[data-name]', { hasText: userId }) });
 }
 
 test('an account that may create makes a repository, which opens on its Overview', async ({
@@ -92,12 +95,11 @@ test('People: every role with what it means, and an Owner changes who works on i
   const people = page.locator('[data-people]');
 
   await expect(people.getByRole('heading', { name: 'Who works on it' })).toBeVisible();
-  await expect(people.locator('[data-roles] strong')).toHaveText(['Owner', 'Organizer']);
+  await expect(people.locator('[data-roles] strong')).toHaveText(['Owner', 'Organizer', 'Author']);
   await expect(people).toContainText('publishes the repository, invites libraries to it');
   await expect(people).toContainText(
     'Cannot publish it, invite libraries or change who works on it',
   );
-  await expect(people).toContainText('an Organizer is the one who edits');
   await expect(people.getByRole('option', { name: 'Organizer' }).first()).toBeAttached();
   await expect(people).not.toContainText(/\borga\b/);
 
