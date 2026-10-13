@@ -1,9 +1,18 @@
+---
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
 <!-- Your personal access tokens (ADR 0269), on /profile. Rendered by renderPersonalTokens. -->
 <section class="section stack" id="personal-access-tokens" data-personal-tokens hidden>
-  <h2>Personal access tokens</h2>
+  <h2 class="row-tight">
+    <svg class="icon tree-toggle" aria-hidden="true" data-chevron>
+      <use href={`${BRANDING_CSS_URL}/icons.svg#icon-token`}></use>
+    </svg>
+    Personal access tokens
+  </h2>
   <p>
     A token lets a program such as the <code>lorenzo</code> command line act as you. You make one by
-    <a href="/device/">connecting a device</a>; revoke it here when you no longer need it.
+    <a href="/device/"> connecting a device</a>; revoke it here when you no longer need it.
   </p>
   <span class="status-text" role="status" data-list-status hidden></span>
   <ul class="list" data-list></ul>

@@ -3,61 +3,100 @@ import { BRANDING_CSS_URL } from '../../lib/config';
 ---
 
 <header class="site-header" data-site-header>
-  <div class="row">
+  <div class="row h-mobile">
     <a class="brand display" href="/" aria-label="Lorenzo">
-      <img
-        class="brand-mark brand-mark--light"
-        src="/brand/lorenzo_horizontal_lockup_light_bg.svg"
-        alt="Lorenzo"
-      />
-      <img
-        class="brand-mark brand-mark--dark"
-        src="/brand/lorenzo_horizontal_lockup_dark_bg.svg"
-        alt="Lorenzo"
-      />
+      <span class="display">✧ Lorenzo</span>
     </a>
-    <nav class="row" aria-label="Subpages">
-      <a href="/" data-path="/">
-        Home
-      </a>
-      <a href="/profile/" data-path="/profile/" data-requires="signed-in" hidden>
-        Profile
-      </a>
-      <a href="/tenants/" data-path="/tenants/" data-requires="signed-in" hidden>
-        Libraries
-      </a>
-      <a href="/repositories/" data-path="/repositories/" data-requires="library-admin" hidden>
-        Repositories
-      </a>
-      <a href="/studio/" data-path="/studio/" data-requires="repository-work" hidden>
-        My repositories
-      </a>
-      <a href="/campaigns/" data-path="/campaigns/" data-requires="signed-in" hidden>
-        Campaigns
-      </a>
-      <a href="/setup/" data-path="/setup/" data-requires="create-tenant" hidden>
-        Set Up a table
-      </a>
-      <a href="/beings/" data-path="/beings/" data-requires="beings" hidden>
-        Beings
-      </a>
-      <a
-        href="/notifications/"
-        data-path="/notifications/"
-        data-requires="signed-in"
-        class="row-tight"
-        hidden
-      >
-        <svg class="icon" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-notifications`}></use>
-        </svg>
-        Notifications
-        <span class="canonical-marker" data-unread hidden></span>
-      </a>
-    </nav>
+    <details class="site-navigation">
+      <summary>Navigation</summary>
+      <nav class="row" aria-label="Subpages">
+        <a href="/" data-path="/" class="row-tight">
+          Home
+        </a>
+        <a
+          href="/profile/"
+          data-path="/profile/"
+          data-requires="signed-in"
+          class="row-tight"
+          hidden
+        >
+          Profile
+        </a>
+        <a
+          href="/tenants/"
+          data-path="/tenants/"
+          data-requires="signed-in"
+          class="row-tight"
+          hidden
+        >
+          <svg class="icon" width="28" height="28" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-library`}></use>
+          </svg>
+          Libraries
+        </a>
+        <a
+          href="/repositories/"
+          data-path="/repositories/"
+          data-requires="library-admin"
+          class="row-tight"
+          hidden
+        >
+          Repositories
+        </a>
+        <a
+          href="/studio/"
+          data-path="/studio/"
+          data-requires="repository-work"
+          class="row-tight"
+          hidden
+        >
+          My repositories
+        </a>
+        <a
+          href="/campaigns/"
+          data-path="/campaigns/"
+          data-requires="signed-in"
+          class="row-tight"
+          hidden
+        >
+          <svg class="icon" width="28" height="28" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-campaign`}></use>
+          </svg>
+          Campaigns
+        </a>
+        <a
+          href="/setup/"
+          data-path="/setup/"
+          data-requires="create-tenant"
+          class="row-tight"
+          hidden
+        >
+          Set Up a table
+        </a>
+        <a href="/beings/" data-path="/beings/" data-requires="beings" class="row-tight" hidden>
+          <svg class="icon" width="28" height="28" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-kind-beings`}></use>
+          </svg>
+          Beings
+        </a>
+        <a
+          href="/notifications/"
+          data-path="/notifications/"
+          data-requires="signed-in"
+          class="row-tight"
+          hidden
+        >
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-notifications`}></use>
+          </svg>
+          Notifications
+          <span class="canonical-marker" data-unread hidden></span>
+        </a>
+      </nav>
+    </details>
   </div>
 
-  <div class="row">
+  <div class="row-tight">
     <div class="row-tight">
       <span data-account-loading>Checking your session&hellip;</span>
       <span class="error-text" data-account-error hidden></span>
@@ -79,7 +118,14 @@ import { BRANDING_CSS_URL } from '../../lib/config';
           </svg>
           Log out
         </button>
-        <a href="/debug/me">
+        <a
+          href="/debug/me"
+          style="display: inline-block; width: 0.5em;
+                                   color: transparent;
+                                   background-color: transparent;
+                                   overflow: hidden;
+                                   height: 1em;"
+        >
           Debug: <code>GET /me</code>
         </a>
       </div>
