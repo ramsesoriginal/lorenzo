@@ -22,6 +22,7 @@ from httpx import AsyncClient
 
 from lorenzo_api.dependencies import get_tenant_admin_context, get_tenant_context
 from lorenzo_api.main import app
+from lorenzo_api.routers.stats import _vocabulary_gate
 
 T = "/tenants/{tenant_id}"
 STAT_DEFINITION = T + "/stat-definitions/{stat_definition_id}"
@@ -42,6 +43,15 @@ AUTHORING = {
     ("DELETE", T + "/items/{entity_id}"),
     ("PATCH", T + "/items/{entity_id}"),
     ("PUT", T + "/items/{entity_id}/prototypes"),
+    ("POST", T + "/entities"),
+    ("DELETE", T + "/entities/{entity_id}"),
+    ("PUT", T + "/entities/{entity_id}/kinds/{kind}"),
+    ("DELETE", T + "/entities/{entity_id}/kinds/{kind}"),
+    ("PUT", T + "/entities/{entity_id}/parents"),
+    ("GET", T + "/profile"),
+    ("GET", T + "/profile/cover"),
+    ("GET", REPOSITORY + "/profile"),
+    ("GET", REPOSITORY + "/profile/cover"),
     ("GET", T + "/payloads/{payload_id}/content"),
     ("GET", T + "/release-preview"),
     ("GET", T + "/releases"),
@@ -54,14 +64,14 @@ AUTHORING = {
     ("GET", REPOSITORY + "/releases"),
     ("GET", REPOSITORY + "/stat-groups"),
     ("GET", REPOSITORY + "/updates"),
-    ("GET", T + "/stat-definitions"),
     ("POST", T + "/stat-definitions"),
-    ("GET", STAT_DEFINITION),
     ("GET", STAT_DEFINITION + "/dependents"),
     ("POST", STAT_DEFINITION + "/enum-values"),
-    ("GET", T + "/stat-groups"),
     ("POST", T + "/stat-groups"),
-    ("GET", STAT_GROUP),
+    ("PATCH", STAT_GROUP),
+    ("PUT", T + "/stat-groups/order"),
+    ("PUT", STAT_GROUP + "/order"),
+    ("PATCH", STAT_DEFINITION),
 }
 
 # A copy and applying updates ask for an admin, except as a dry run, which an Author may do to
@@ -108,6 +118,9 @@ OWNER = {
     ("POST", T + "/invites"),
     ("GET", T + "/invites"),
     ("DELETE", T + "/invites/{invite_id}"),
+    ("PATCH", T + "/profile"),
+    ("PUT", T + "/profile/cover"),
+    ("DELETE", T + "/profile/cover"),
 }
 
 
@@ -130,10 +143,11 @@ def _membership_routes() -> dict[tuple[str, str], bool]:
     found: dict[tuple[str, str], bool] = {}
     for route in _routes(app.router):
         calls = list(_calls(route.dependant))
-        if get_tenant_context not in calls:
-            continue
         for method in route.methods:
-            found[(method, route.path)] = get_tenant_admin_context in calls
+            # The stat vocabulary asks for a membership to write and only for a participant to read.
+            asks = get_tenant_context in calls or (_vocabulary_gate in calls and method != "GET")
+            if asks:
+                found[(method, route.path)] = get_tenant_admin_context in calls
     return found
 
 
@@ -164,12 +178,17 @@ def test_the_admin_routes_carry_the_admin_gate_and_the_others_do_not() -> None:
 
 
 # What the owner-tier routes need to get past their own validation to the check.
+_FILES: dict[tuple[str, str], object] = {
+    ("PUT", T + "/profile/cover"): {"file": ("cover.png", b"x", "image/png")},
+}
+
 _BODIES: dict[tuple[str, str], object] = {
     ("POST", T + "/memberships"): {"user_id": str(uuid.uuid4()), "role": "author"},
     ("POST", T + "/memberships/bulk"): [{"user_id": str(uuid.uuid4()), "role": "author"}],
     ("PATCH", T + "/memberships/{user_id}"): {"role": "author"},
     ("PATCH", T + "/releases/{release_id}"): {"notes": "x"},
     ("POST", T + "/invites"): {"kind": "tenant_role", "role": "author"},
+    ("PATCH", T + "/profile"): {"summary": "x"},
 }
 
 
@@ -192,7 +211,7 @@ def _url(path: str, world: World) -> str:
         "{enum_value_id}",
     ):
         path = path.replace(placeholder, str(uuid.uuid4()))
-    return path
+    return path.replace("{kind}", "item")
 
 
 async def _call(world: World, who: str, method: str, path: str, **kwargs: object) -> int:
@@ -200,6 +219,8 @@ async def _call(world: World, who: str, method: str, path: str, **kwargs: object
     key = (method, path)
     if key in _BODIES:
         kwargs["json"] = _BODIES[key]
+    if key in _FILES:
+        kwargs["files"] = _FILES[key]
     response = await actor.client.request(
         method, _url(path, world), headers=actor.headers, **kwargs
     )

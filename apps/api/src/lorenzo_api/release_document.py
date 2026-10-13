@@ -341,7 +341,24 @@ _CONTENT = _dataclass(
         ),
         "definitions": _id_map(
             _record(
-                {"name": _PLAIN, "value_type": _VALUE_TYPE, "group": _ID},
+                {
+                    "name": _PLAIN,
+                    "value_type": _VALUE_TYPE,
+                    "group": _ID,
+                    "unit": _PLAIN,
+                    "adjustable_in_play": _PLAIN,
+                    "pin": _PLAIN,
+                    "signed": _PLAIN,
+                    "position": _PLAIN,
+                    "hints": _record(
+                        {
+                            "max_hint": _optional(_ID),
+                            "min_hint": _optional(_ID),
+                            "resolved_hint": _optional(_ID),
+                        },
+                        name="Content.definitions.hints",
+                    ),
+                },
                 name="Content.definitions",
             )
         ),

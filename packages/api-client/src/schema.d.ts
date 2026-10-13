@@ -176,7 +176,7 @@ export interface paths {
          *     in its own docstring why it doesn't.
          *
          *     Gated by `get_tenant_admin_context`: an OWNER or an ORGA. An AUTHOR (RFC 0040,
-         *     ADR 0210) is a member and gets a 403; GMs and players without a Membership row
+         *     ADR 0219) is a member and gets a 403; GMs and players without a Membership row
          *     get a 404.
          */
         get: operations["list_activity_log"];
@@ -276,7 +276,7 @@ export interface paths {
          * Get My Managed Scope
          * @description What the caller runs, across every tenant - see ADR 0086. Tenants
          *     where they hold a tenant-wide Membership (with every campaign in them for an
-         *     OWNER or ORGA, with just the campaigns they GM for an AUTHOR, ADR 0210), plus
+         *     OWNER or ORGA, with just the campaigns they GM for an AUTHOR, ADR 0219), plus
          *     tenants where they only GM (with just the campaigns they GM). Not
          *     paginated, like `GET /me`: bounded by the caller's own memberships and GM
          *     rows. Authenticated but not
@@ -1538,7 +1538,7 @@ export interface paths {
          *
          *     The is_tenant_admin check below is consequently unreachable via any
          *     real caller: get_tenant_admin_context already refuses everyone but an
-         *     OWNER or an ORGA (an AUTHOR gets the 403 there, ADR 0210). Kept anyway as
+         *     OWNER or an ORGA (an AUTHOR gets the 403 there, ADR 0219). Kept anyway as
          *     the explicit statement of the actual business rule - the same
          *     dead-but-documented-intent shape tenants.py's own get_tenant uses for its
          *     post-dependency re-fetch.
@@ -3154,7 +3154,7 @@ export interface paths {
          *     missing stats it used to resolve through. No ?force= escape hatch -
          *     the caller's real fix is to delete or re-parent the instances first.
          *
-         *     An Author (ADR 0210) deletes an item nobody inherits from: while another entry has this
+         *     An Author (ADR 0219) deletes an item nobody inherits from: while another entry has this
          *     one as a prototype it is 403, and an Owner or an Organizer decides.
          */
         delete: operations["delete_item"];

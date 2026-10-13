@@ -53,6 +53,7 @@ __all__ = [
     "InvalidStatGroupError",
     "InvalidProfilePictureError",
     "InvalidStatValueTypeError",
+    "AuthorEntryForbiddenError",
     "InheritedEntryDeletionForbiddenError",
     "InvalidTokenError",
     "InvalidUserError",
@@ -640,6 +641,13 @@ class TenantAdminRequiredError(ForbiddenProblem):
     """
 
     title = "Only an Owner or an Organizer can do this"
+
+
+class AuthorEntryForbiddenError(ForbiddenProblem):
+    """An Author making or changing an entry that is not in their reach (RFC 0040, ADR 0219): in a
+    library, anything but a catalog item. An Owner or an Organizer does it."""
+
+    title = "An Author does not change this entry"
 
 
 class InheritedEntryDeletionForbiddenError(ForbiddenProblem):

@@ -58,42 +58,122 @@
   "00000000-0000-0000-0000-00000000001e": {
    "name": "Strength",
    "value_type": "int",
-   "group": "00000000-0000-0000-0000-000000000014"
+   "group": "00000000-0000-0000-0000-000000000014",
+   "unit": null,
+   "adjustable_in_play": false,
+   "pin": false,
+   "signed": false,
+   "position": 0,
+   "hints": {
+    "max_hint": "00000000-0000-0000-0000-00000000001f",
+    "min_hint": "00000000-0000-0000-0000-000000000021",
+    "resolved_hint": null
+   }
   },
   "00000000-0000-0000-0000-00000000001f": {
    "name": "Speed",
    "value_type": "float",
-   "group": "00000000-0000-0000-0000-000000000014"
+   "group": "00000000-0000-0000-0000-000000000014",
+   "unit": "kg",
+   "adjustable_in_play": true,
+   "pin": true,
+   "signed": true,
+   "position": 1,
+   "hints": {
+    "max_hint": null,
+    "min_hint": null,
+    "resolved_hint": null
+   }
   },
   "00000000-0000-0000-0000-000000000020": {
    "name": "Mood",
    "value_type": "enum",
-   "group": "00000000-0000-0000-0000-000000000014"
+   "group": "00000000-0000-0000-0000-000000000014",
+   "unit": null,
+   "adjustable_in_play": false,
+   "pin": true,
+   "signed": false,
+   "position": 2,
+   "hints": {
+    "max_hint": null,
+    "min_hint": null,
+    "resolved_hint": null
+   }
   },
   "00000000-0000-0000-0000-000000000021": {
    "name": "Damage",
    "value_type": "int",
-   "group": "00000000-0000-0000-0000-000000000014"
+   "group": "00000000-0000-0000-0000-000000000014",
+   "unit": "kg",
+   "adjustable_in_play": true,
+   "pin": false,
+   "signed": true,
+   "position": 3,
+   "hints": {
+    "max_hint": null,
+    "min_hint": null,
+    "resolved_hint": null
+   }
   },
   "00000000-0000-0000-0000-000000000022": {
    "name": "Reach",
    "value_type": "bool",
-   "group": "00000000-0000-0000-0000-000000000015"
+   "group": "00000000-0000-0000-0000-000000000015",
+   "unit": null,
+   "adjustable_in_play": false,
+   "pin": true,
+   "signed": false,
+   "position": 4,
+   "hints": {
+    "max_hint": null,
+    "min_hint": null,
+    "resolved_hint": null
+   }
   },
   "00000000-0000-0000-0000-000000000023": {
    "name": "Load",
    "value_type": "int",
-   "group": "00000000-0000-0000-0000-000000000015"
+   "group": "00000000-0000-0000-0000-000000000015",
+   "unit": "kg",
+   "adjustable_in_play": true,
+   "pin": true,
+   "signed": true,
+   "position": 5,
+   "hints": {
+    "max_hint": null,
+    "min_hint": null,
+    "resolved_hint": null
+   }
   },
   "00000000-0000-0000-0000-000000000024": {
    "name": "Might",
    "value_type": "int",
-   "group": "00000000-0000-0000-0000-000000000015"
+   "group": "00000000-0000-0000-0000-000000000015",
+   "unit": null,
+   "adjustable_in_play": false,
+   "pin": false,
+   "signed": false,
+   "position": 6,
+   "hints": {
+    "max_hint": null,
+    "min_hint": null,
+    "resolved_hint": null
+   }
   },
   "00000000-0000-0000-0000-000000000025": {
    "name": "Title",
    "value_type": "text",
-   "group": "00000000-0000-0000-0000-000000000015"
+   "group": "00000000-0000-0000-0000-000000000015",
+   "unit": "kg",
+   "adjustable_in_play": true,
+   "pin": true,
+   "signed": true,
+   "position": 7,
+   "hints": {
+    "max_hint": null,
+    "min_hint": null,
+    "resolved_hint": null
+   }
   }
  },
  "enum_values": {
