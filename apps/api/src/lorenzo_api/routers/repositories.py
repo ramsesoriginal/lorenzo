@@ -150,7 +150,7 @@ async def _require_admin_unless_dry_run(
 ) -> None:
     """Copying a repository and applying its updates bring stat groups and entries in, so they are
     for an Owner or an Organizer; an Author may run either as a dry run, to check what it would
-    do (RFC 0040, ADR 0210)."""
+    do (RFC 0040, ADR 0219)."""
     if not dry_run and not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
         raise TenantAdminRequiredError(
             detail="Only an Owner or an Organizer can do this; an Author can check it as a dry run"

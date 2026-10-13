@@ -124,7 +124,7 @@ async def create_tenant_admins_notification(
 ) -> list[Notification]:
     """scope="tenant", to the tenant's administrators (OWNER and ORGA memberships) only, not
     its whole roster: ADR 0118's repository notices are for the people who run a library, not
-    its players and not its Authors, who are told only about their own role (ADR 0210).
+    its players and not its Authors, who are told only about their own role (ADR 0219).
     Membership is read under RLS, so `app.tenant_id` must be `tenant_id` when this runs.
     """
     member_ids = (

@@ -27,7 +27,7 @@ async def list_activity_log(
     in its own docstring why it doesn't.
 
     Gated by `get_tenant_admin_context`: an OWNER or an ORGA. An AUTHOR (RFC 0040,
-    ADR 0210) is a member and gets a 403; GMs and players without a Membership row
+    ADR 0219) is a member and gets a 403; GMs and players without a Membership row
     get a 404.
     """
     stmt = (

@@ -602,7 +602,7 @@ async def delete_item(
     missing stats it used to resolve through. No ?force= escape hatch -
     the caller's real fix is to delete or re-parent the instances first.
 
-    An Author (ADR 0210) deletes an item nobody inherits from: while another entry has this
+    An Author (ADR 0219) deletes an item nobody inherits from: while another entry has this
     one as a prototype it is 403, and an Owner or an Organizer decides.
     """
     entity = await _get_item_entity_or_404(tenant_id, entity_id, session)

@@ -143,7 +143,7 @@ async def get_me(user: CurrentUser, request: Request, session: SessionDep) -> Me
 async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> ManagedScopeOut:
     """What the caller runs, across every tenant - see ADR 0086. Tenants
     where they hold a tenant-wide Membership (with every campaign in them for an
-    OWNER or ORGA, with just the campaigns they GM for an AUTHOR, ADR 0210), plus
+    OWNER or ORGA, with just the campaigns they GM for an AUTHOR, ADR 0219), plus
     tenants where they only GM (with just the campaigns they GM). Not
     paginated, like `GET /me`: bounded by the caller's own memberships and GM
     rows. Authenticated but not
@@ -165,7 +165,7 @@ async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> Manage
             )
         ).all()
     }
-    # An Author (ADR 0210) is listed with the role, but runs no campaign: only an
+    # An Author (ADR 0219) is listed with the role, but runs no campaign: only an
     # administrator sees every campaign of the tenant.
     admin_role_by_tenant = {
         tenant_id: role

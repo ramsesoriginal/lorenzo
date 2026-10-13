@@ -1,4 +1,4 @@
-# 0210 - The Author role
+# 0219 - The Author role
 
 Status: accepted, decided with the maintainer on 2026-10-08. Slice U1 of [RFC 0040](../rfcs/0040-authors-and-invites.md), tracked in #545. Builds on [ADR 0010](0010-user-tenant-membership-model.md) and [ADR 0022](0022-user-tenant-membership.md) (the membership and its roles), [ADR 0036](0036-user-player-character-crud-api.md) (who manages memberships), [ADR 0118](0118-repository-tenants-subscriptions-and-a-gated-read.md) (the repository's own routes) and [ADR 0194](0194-user-facing-terminology.md) (the words).
 

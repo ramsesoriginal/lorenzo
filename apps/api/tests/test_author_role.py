@@ -1,4 +1,4 @@
-"""The Author role of RFC 0040 / ADR 0210, through the real HTTP API: an Author edits the content of
+"""The Author role of RFC 0040 / ADR 0219, through the real HTTP API: an Author edits the content of
 a library's catalog or a repository and can do nothing that changes who has access, what is
 published or what the structure is. Each row of the capability matrix is a test, in a repository
 and in a library alike; the route-by-route audit is test_author_route_audit.py.

@@ -9,7 +9,7 @@ import type { BeingSummary, Page } from './types';
 // Character. Supports search (`q`), unlike the old characters roster.
 //
 // It needs an Owner or Organizer membership, which a player doesn't have, nor an Author
-// (ADR 0210). They search the tenant's characters instead, which any participant may
+// (ADR 0219). They search the tenant's characters instead, which any participant may
 // list, so they can still give something to the rest of the party.
 export async function listBeings(tenantId: string, query = ''): Promise<Page<BeingSummary>> {
   if (!(await isTenantAdmin(tenantId))) return searchCharacters(tenantId, query);

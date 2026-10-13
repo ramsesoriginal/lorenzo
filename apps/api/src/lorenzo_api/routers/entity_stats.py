@@ -74,7 +74,7 @@ async def _authorize_entity_stat_write(
     yet (campaign_access.is_tenant_admin), so authoring catalog stats stays
     reachable for the same tenant-admin-shaped callers items.py's own
     tenant-admin tier already serves, without a second, separate check here;
-    an Author (ADR 0210) is let through for an entry in their reach
+    an Author (ADR 0219) is let through for an entry in their reach
     (campaign_access.can_author_entry): a repository's, or a library's catalog.
     """
     if await can_self_manage_entity(

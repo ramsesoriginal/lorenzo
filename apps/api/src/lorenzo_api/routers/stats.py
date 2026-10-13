@@ -55,7 +55,7 @@ from lorenzo_api.schemas.stats import (
 # are the shared stat vocabulary ("physical," "weight," ...), the same kind
 # of authored catalog concern as item's own prototypes (ADR 0032/ADR 0037, RFC
 # 0008): any member, an Author too, adds to it; deleting from it is an
-# administrator's (get_tenant_admin_context, ADR 0210) since subscribers use it.
+# administrator's (get_tenant_admin_context, ADR 0219) since subscribers use it.
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
     tags=["stats"],

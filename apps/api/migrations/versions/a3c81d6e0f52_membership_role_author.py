@@ -1,4 +1,4 @@
-"""the author role (ADR 0210)
+"""the author role (ADR 0219)
 
 One enum value and nothing that uses it: a value added to a native enum cannot be used in
 the transaction that adds it, and no check, policy or backfill names it. Postgres cannot
