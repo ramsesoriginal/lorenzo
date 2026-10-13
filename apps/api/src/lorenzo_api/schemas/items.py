@@ -8,7 +8,7 @@ from typing import Any, Literal, Self
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from lorenzo_api.information_visibility import InformationVisibility
+from lorenzo_api.information_visibility import InformationReader
 from lorenzo_api.models import Entity, VItem, VItemInstance
 from lorenzo_api.models.entity_view_mixin import description_pairs
 from lorenzo_api.schemas.common import EntitySummary, ProblemOut, Slug
@@ -91,7 +91,7 @@ class PictureRefOut(BaseModel):
 def _picture_refs(
     entity: Entity,
     request: Request,
-    visibility: InformationVisibility,
+    visibility: InformationReader,
     from_entity: EntitySummary | None,
 ) -> list[PictureRefOut]:
     return [
@@ -133,7 +133,7 @@ class TagValueOut(BaseModel):
 def _described_out(
     view: VItem | VItemInstance,
     request: Request,
-    visibility: InformationVisibility,
+    visibility: InformationReader,
     ancestors: Sequence[Entity],
 ) -> dict[str, Any]:
     """`descriptions` and `pictures`: the item's own, then each ancestor's,
@@ -252,7 +252,7 @@ def _common_item_fields(
     view: VItem | VItemInstance,
     request: Request,
     *,
-    visibility: InformationVisibility,
+    visibility: InformationReader,
     ancestors: Sequence[Entity],
 ) -> dict[str, Any]:
     """Every field ItemOut and ItemInstanceOut share - both views expose the
@@ -351,7 +351,7 @@ class ItemOut(_ItemFields):
         view: VItem,
         request: Request,
         *,
-        visibility: InformationVisibility,
+        visibility: InformationReader,
         ancestors: Sequence[Entity],
     ) -> Self:
         item = view.entity.item
@@ -517,7 +517,7 @@ class ItemInstanceOut(_ItemFields):
         view: VItemInstance,
         request: Request,
         *,
-        visibility: InformationVisibility,
+        visibility: InformationReader,
         ancestors: Sequence[Entity],
     ) -> Self:
         """Requires binding.attach_bound run on `view` first."""
