@@ -71,8 +71,9 @@ async def _vocabulary_gate(
 ) -> None:
     """Writing the stat vocabulary is for the tenant's Owners, Organizers and Authors (ADR
     0219), and deleting from it for its administrators, on the route; reading it is for any
-    participant of the tenant (ADR 0281). A sheet needs the groups and definitions - which numbers a table may change, units, order, pins - to draw a being for
-    the player of it, who has no membership. Not a participant is the same 404 as ever."""
+    participant of the tenant (ADR 0281). A sheet needs the groups and definitions - which
+    numbers a table may change, units, order, pins - to draw a being for the player of it, who
+    has no membership. Not a participant is the same 404 as ever."""
     if request.method == "GET":
         await get_tenant_or_404(tenant_id, session, user)
         await require_tenant_participant(session, tenant_id=tenant_id, user=user)
