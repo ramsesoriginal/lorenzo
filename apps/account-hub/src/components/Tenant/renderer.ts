@@ -4,6 +4,7 @@
 
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { sayError } from '../../lib/statusLine';
+import { roleLabel } from '../../lib/studio';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
@@ -87,7 +88,7 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
       root.hidden = false;
       name.textContent = tenant.name;
       slug.textContent = tenant.slug;
-      role.textContent = tenant.role;
+      role.textContent = roleLabel(tenant.role);
       tenantEdit.show(tenant);
       leaveTenant.show(tenant);
       error.hidden = true;

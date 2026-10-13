@@ -6,6 +6,7 @@
 import { BRANDING_CSS_URL } from '../../lib/config';
 import ActivityLog from '../ActivityLog/ActivityLog.astro';
 import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
+import TenantInviteLinks from '../TenantInviteLinks/TenantInviteLinks.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
 import TenantDelete from '../TenantDelete/TenantDelete.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
@@ -118,10 +119,11 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       <section class="stack" data-people hidden>
         <h3>Who works on it</h3>
         <ul class="stack-tight" data-roles></ul>
-        <p class="caption" data-roles-note></p>
 
         <!-- An Owner changes people: the membership panel. Everyone else reads the list. -->
         <div data-memberships-slot hidden></div>
+        <!-- An Owner adds people by a link too. -->
+        <div data-links-slot hidden></div>
         <ul class="list" data-people-list hidden></ul>
 
         <div data-leave hidden>
@@ -174,6 +176,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           </div>
           <p class="status-text" role="status" data-invite-status hidden></p>
         </form>
+
+        <!-- Or sends a link, by which the Owner of a library shares it back (ADR 0212). -->
+        <div data-library-links-slot hidden></div>
       </section>
     </div>
 
@@ -351,6 +356,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
   </template>
   <template data-membership-admin-template>
     <MembershipAdmin />
+  </template>
+  <template data-tenant-invite-links-template>
+    <TenantInviteLinks />
   </template>
   <template data-person-template>
     <li class="row">

@@ -22,7 +22,7 @@ test('an organizer leaves a library; the only owner is told to hand it over firs
   const orgaView = await openLibrary(leaver.page, library);
   await expect(leaver.page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
   // Leaving is on the administrators' tab.
-  await orgaView.getByRole('tab', { name: 'Admins' }).click();
+  await orgaView.getByRole('tab', { name: 'People' }).click();
   await orgaView.getByRole('button', { name: 'Leave this library' }).click();
   // With no library left, the page has nothing open.
   await expect(leaver.page.getByText("You don't belong to any library yet.")).toBeVisible();
@@ -35,7 +35,7 @@ test('an organizer leaves a library; the only owner is told to hand it over firs
   // The owner is now the only one: leaving is refused, in words, naming the library.
   const stayer = await signedInPage(browser, ownerSubject);
   const row = await openLibrary(stayer.page, library);
-  await row.getByRole('tab', { name: 'Admins' }).click();
+  await row.getByRole('tab', { name: 'People' }).click();
   await row.getByRole('button', { name: 'Leave this library' }).click();
   const leave = row.locator('[data-leave]');
   await expect(leave).toContainText(`You're the only owner of "${library.name}"`);

@@ -42,6 +42,7 @@ export type InviteCreate = Schema<'InviteCreate'>;
 export type InviteCreatedOut = Schema<'InviteCreatedOut'>;
 export type InviteOut = Schema<'InviteOut'>;
 export type InvitePreviewOut = Schema<'InvitePreviewOut'>;
+export type TenantInviteCreate = Schema<'TenantInviteCreate'>;
 export type InviteRedeemOut = Schema<'InviteRedeemOut'>;
 
 // A library's repositories (RFC 0036, Shelf).

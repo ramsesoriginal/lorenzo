@@ -6,6 +6,7 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 
 <div class="stack" data-membership-admin>
   <h3 data-heading></h3>
+  <ul class="stack-tight" data-roles></ul>
 
   <ul class="list" data-members></ul>
 
@@ -14,11 +15,13 @@ import UserPicker from '../UserPicker/UserPicker.astro';
       <span class="field-label" data-invite-label></span>
       <select class="text-input" aria-label="Role" data-invite-role>
         <option value="owner">Owner</option>
-        <option value="orga" selected>
-          Organizer
+        <option value="orga">Organizer</option>
+        <option value="author" selected>
+          Author
         </option>
       </select>
     </label>
+    <span class="caption grow" data-role-meaning></span>
     <span class="status-text" role="status" data-status hidden></span>
     <UserPicker />
   </div>
@@ -40,11 +43,15 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 
   <template data-member-template>
     <li class="row">
-      <span class="grow" data-name></span>
+      <span class="grow stack-tight">
+        <span data-name></span>
+        <span class="caption" data-added-by hidden></span>
+      </span>
       <span class="row-tight">
         <select class="text-input" aria-label="Role" data-role>
           <option value="owner">Owner</option>
           <option value="orga">Organizer</option>
+          <option value="author">Author</option>
         </select>
       </span>
       <button type="button" data-remove>
@@ -59,8 +66,9 @@ import UserPicker from '../UserPicker/UserPicker.astro';
       <div class="row">
         <select class="text-input" aria-label="Role" data-role>
           <option value="owner">Owner</option>
-          <option value="orga" selected>
-            Organizer
+          <option value="orga">Organizer</option>
+          <option value="author" selected>
+            Author
           </option>
         </select>
       </div>

@@ -13,15 +13,21 @@ import {
   inviteUrl,
   joinedMessage,
   joinedMessageFor,
+  LIBRARY_LINK_NOTICE,
+  LINK_ROLES,
   LINK_SHOWN_ONCE_NOTICE,
+  libraryLinkWho,
   linkKindLabel,
+  MAX_TEAM,
   NO_SHARE_TARGET_MESSAGE,
   offerFor,
   PASTE_ERROR,
   parseMaxUses,
+  parseTeamSize,
   pastedInvite,
   readInviteToken,
   rememberInviteToken,
+  roleLinkNotice,
   STATUS_LABELS,
   shareTargets,
   storedInviteToken,
@@ -389,5 +395,40 @@ describe('the other kinds of link (ADR 0220)', () => {
     });
     expect(pastedInvite('hello', 'https://hub.example')).toEqual({ error: PASTE_ERROR });
     expect(PASTE_ERROR).not.toMatch(/GM/);
+  });
+});
+
+describe('the links of a library or repository (ADR 0212)', () => {
+  it('takes one person by default and a small team up to the ceiling', () => {
+    expect(parseTeamSize('')).toEqual({ size: 1 });
+    expect(parseTeamSize(' 4 ')).toEqual({ size: 4 });
+    expect(parseTeamSize(String(MAX_TEAM))).toEqual({ size: MAX_TEAM });
+    for (const refused of ['0', '-1', String(MAX_TEAM + 1), 'lots', '2.5']) {
+      expect(parseTeamSize(refused)).toBeNull();
+    }
+  });
+
+  it('offers Author and Organizer and never Owner', () => {
+    expect(LINK_ROLES.map((r) => r.label)).toEqual(['Author', 'Organizer']);
+    expect(JSON.stringify(LINK_ROLES)).not.toMatch(/owner/i);
+  });
+
+  it('says once what a link does, in the three names and without a word of tenant', () => {
+    const author = roleLinkNotice('author', 'library', 1);
+    const team = roleLinkNotice('author', 'repository', 5);
+    const organizer = roleLinkNotice('orga', 'library', 1);
+
+    expect(author).toContain("won't be shown again");
+    expect(author).toContain('becomes an Author of this library');
+    expect(team).toContain('The first 5 people');
+    expect(team).toContain('Authors of this repository');
+    expect(organizer).toContain('becomes an Organizer');
+    for (const notice of [author, team, organizer, LIBRARY_LINK_NOTICE]) {
+      expect(notice).not.toMatch(/tenant|grant|subscri|\borga\b/i);
+    }
+    expect(author).toContain('never makes an Owner');
+    expect(LIBRARY_LINK_NOTICE).toContain('private repository is open to whoever uses it first');
+    expect(libraryLinkWho(1)).toBe('one library');
+    expect(libraryLinkWho(3)).toBe('up to 3 libraries');
   });
 });

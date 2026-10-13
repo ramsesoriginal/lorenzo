@@ -50,7 +50,7 @@ test('an Owner deletes a library only after typing its name, and lands on the li
   const { page, context } = await signedInPage(browser, owner.subject);
   const article = await openLibrary(page, library);
 
-  await article.getByRole('tab', { name: 'Admins' }).click();
+  await article.locator('[data-tenant-tabs] > .tabs').getByRole('tab', { name: 'People' }).click();
 
   const dialog = await openDeleteDialog(page, article);
   const confirm = dialog.getByRole('button', { name: 'Delete this library', exact: true });
@@ -99,7 +99,7 @@ test('Escape closes the dialog without deleting, and the focus goes back to the 
   const { page, context } = await signedInPage(browser, owner.subject);
   const article = await openLibrary(page, library);
 
-  await article.getByRole('tab', { name: 'Admins' }).click();
+  await article.locator('[data-tenant-tabs] > .tabs').getByRole('tab', { name: 'People' }).click();
 
   const open = article.getByRole('button', { name: 'Delete this library…' });
   const dialog = await openDeleteDialog(page, article);
@@ -131,7 +131,7 @@ test('an Organizer is told only an Owner can delete it, and has no button', asyn
   const { page, context } = await signedInPage(browser, orga.subject);
   const article = await openLibrary(page, library);
 
-  await article.getByRole('tab', { name: 'Admins' }).click();
+  await article.locator('[data-tenant-tabs] > .tabs').getByRole('tab', { name: 'People' }).click();
   await expect(article.locator('[data-tenant-delete]')).toContainText(
     'Only an Owner can delete this library.',
   );
@@ -149,7 +149,7 @@ test('an Owner whose account may not create libraries is told why there is no bu
   const { page, context } = await signedInPage(browser, second.subject);
   const article = await openLibrary(page, library);
 
-  await article.getByRole('tab', { name: 'Admins' }).click();
+  await article.locator('[data-tenant-tabs] > .tabs').getByRole('tab', { name: 'People' }).click();
   await expect(article.locator('[data-tenant-delete]')).toContainText(
     'deleting one also needs the permission to create libraries',
   );

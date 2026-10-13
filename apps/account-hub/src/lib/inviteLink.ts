@@ -329,3 +329,50 @@ export function pastedInvite(pasted: string, origin: string): { href: string } |
 export function revokeConfirmation(): string {
   return 'Revoke this link? Nobody will be able to join with it any more. People who already joined stay.';
 }
+
+// --- The links of a library or repository (ADR 0220, 0212) ---------------------------------------
+
+// What the API allows an Author or library link to be raised to: a small team, never unlimited.
+export const MAX_TEAM = 10;
+
+// The box for how many people may use a link: empty is one person. A whole number from 1 to the
+// ceiling, or null for "not a number I can use".
+export function parseTeamSize(text: string): { size: number } | null {
+  const trimmed = text.trim();
+  if (trimmed === '') return { size: 1 };
+  if (!/^\d+$/.test(trimmed)) return null;
+  const value = Number(trimmed);
+  return Number.isSafeInteger(value) && value >= 1 && value <= MAX_TEAM ? { size: value } : null;
+}
+
+// The roles a link can make. Never an Owner: that stays a change in People.
+export const LINK_ROLES = [
+  { role: 'author', label: 'Author' },
+  { role: 'orga', label: 'Organizer' },
+] as const;
+
+export type LinkRole = (typeof LINK_ROLES)[number]['role'];
+
+// Said when a role link is made, once, next to the link (RFC 0040 §2): what it does and to whom.
+export function roleLinkNotice(
+  role: LinkRole,
+  noun: 'library' | 'repository',
+  size: number,
+): string {
+  const who =
+    role === 'orga'
+      ? `Whoever opens it first becomes an Organizer of this ${noun}, and it works once. Send it only to the person who should run it.`
+      : size === 1
+        ? `Whoever opens it first becomes an Author of this ${noun}, and it works once.`
+        : `The first ${size} people to open it become Authors of this ${noun}.`;
+
+  return `This link won't be shown again. ${who} It never makes an Owner, and never changes a role someone already has. Revoke it if it goes astray.`;
+}
+
+// Said when a link that shares a repository is made: the cost, as RFC 0040 asks.
+export const LIBRARY_LINK_NOTICE =
+  "This link won't be shown again. Whoever opens it first and owns a library can share this repository with it, so a private repository is open to whoever uses it first. Send it only to the person it is for, or revoke it.";
+
+export function libraryLinkWho(size: number): string {
+  return size === 1 ? 'one library' : `up to ${size} libraries`;
+}
