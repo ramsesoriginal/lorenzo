@@ -2,7 +2,7 @@
 // deleting (ADR 0101, 0109). The item page's Information section for GMs is the whole list;
 // Notes (ADR 0113) are the same list narrowed to one type, with their own words.
 
-import { type Renderer, showDescriptions } from '../../lib/descriptions';
+import { at, type Renderer, showDescriptions } from '../../lib/descriptions';
 import {
   createInformation,
   deleteInformation,
@@ -121,8 +121,8 @@ export function renderInformation(
 
   const fail = (error: unknown) => say(status, saveError(error), true);
 
-  const formOptions = (kind: InformationKind) => ({
-    renderer,
+  const formOptions = (kind: InformationKind, entityId: string) => ({
+    renderer: at(renderer, entityId),
     showType: kind.showType,
     showVisibility: true,
     visibilityLabel: kind.visibilityLabel,
@@ -169,7 +169,7 @@ export function renderInformation(
 
     if (content) {
       void showDescriptions(required<HTMLElement>(row, '[data-text]'), renderer, [
-        { text: content },
+        { text: content, home: shown.entityId },
       ]);
     }
 
@@ -187,7 +187,7 @@ export function renderInformation(
 
       row.replaceChildren(
         renderInfoForm(root, {
-          ...formOptions(kind),
+          ...formOptions(kind, shown.entityId),
           initial: draftOf(info),
           onSubmit: async (draft) => {
             needsTitle(draft);
@@ -234,7 +234,7 @@ export function renderInformation(
     add.hidden = true;
     setMount(
       renderInfoForm(root, {
-        ...formOptions(kind),
+        ...formOptions(kind, entityId),
         initial: kind.initial,
         onSubmit: async (draft) => {
           needsTitle(draft);

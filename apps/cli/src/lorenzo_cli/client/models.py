@@ -40,6 +40,17 @@ class AdminUserOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class AppOut(BaseModel):
+    url: str = Field(..., title="Url")
+
+
+class AppsOut(BaseModel):
+    account_hub: AppOut
+    inventory_web: AppOut
+    beings: AppOut
+    bench: AppOut
+
+
 class AttachmentActionName(StrEnum):
     add = "add"
     detach = "detach"
@@ -89,6 +100,19 @@ class BeingSummaryOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
     is_pc: bool | None = Field(..., title="Is Pc")
+
+
+class BodyAddInformationPicture(BaseModel):
+    file: str = Field(
+        ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
+    )
+
+
+class BodySetEntityPicture(BaseModel):
+    file: str = Field(
+        ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
+    )
+    is_public: bool | None = Field(None, title="Is Public")
 
 
 class BodyUploadCampaignPicture(BaseModel):
@@ -313,6 +337,12 @@ class Source(StrEnum):
     unset = "unset"
 
 
+class ContentsExplanationOut(BaseModel):
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    source_name: str = Field(..., title="Source Name")
+    things: int = Field(..., title="Things")
+
+
 class ContentsFormulaBody(BaseModel):
     kind: Literal["contents"] = Field("contents", title="Kind")
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
@@ -369,6 +399,34 @@ class Again(StrEnum):
     purge = "purge"
 
 
+class DeviceApproval(BaseModel):
+    name: constr(min_length=1, max_length=80) = Field(..., title="Name")
+    expires_at: AwareDatetime | None = Field(None, title="Expires At")
+
+
+class DeviceCodeCreate(BaseModel):
+    client_name: constr(min_length=1, max_length=80) | None = Field(None, title="Client Name")
+
+
+class DeviceCodeOut(BaseModel):
+    device_code: str = Field(..., title="Device Code")
+    user_code: str = Field(..., title="User Code")
+    verification_uri: str = Field(..., title="Verification Uri")
+    verification_uri_complete: str = Field(..., title="Verification Uri Complete")
+    interval: int = Field(..., title="Interval")
+    expires_in: int = Field(..., title="Expires In")
+
+
+class DeviceCodePreviewOut(BaseModel):
+    user_code: str = Field(..., title="User Code")
+    client_name: str | None = Field(..., title="Client Name")
+    expires_at: AwareDatetime = Field(..., title="Expires At")
+
+
+class DeviceTokenRequest(BaseModel):
+    device_code: constr(min_length=1, max_length=200) = Field(..., title="Device Code")
+
+
 class DroppedOut(BaseModel):
     kind: str = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
@@ -391,6 +449,51 @@ class EntityChangeOut(BaseModel):
     occurred_at: AwareDatetime = Field(..., title="Occurred At")
 
 
+class Kind7(StrEnum):
+    item = "item"
+    being = "being"
+
+
+class EntityCreate(BaseModel):
+    id: UUID | None = Field(None, title="Id")
+    name: str = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    kinds: list[Kind7] | None = Field([], title="Kinds")
+    parents: list[UUID] | None = Field([], title="Parents")
+    in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+
+
+class Kind8(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+
+
+class EntityExportStatOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool = Field(..., title="Value")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class EntityKindPut(BaseModel):
+    in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+
+
+class EntityListOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    quantity: int | None = Field(None, title="Quantity")
+    kinds: list[Kind8] = Field(..., title="Kinds")
+    parent_ids: list[UUID] = Field(..., title="Parent Ids")
+
+
+class EntityParentsRequest(BaseModel):
+    parent_ids: list[UUID] | None = Field([], title="Parent Ids")
+
+
 class EntitySlugOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     slug: str = Field(..., title="Slug")
@@ -398,12 +501,6 @@ class EntitySlugOut(BaseModel):
 
 class EntitySlugUpdate(BaseModel):
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) = Field(..., title="Slug")
-
-
-class EntityStatValueOut(BaseModel):
-    name: str = Field(..., title="Name")
-    value: int | str | float | bool = Field(..., title="Value")
-    own: bool = Field(..., title="Own")
 
 
 class EntitySummary(BaseModel):
@@ -471,12 +568,17 @@ class GroupUpdate(BaseModel):
 
 
 class InformationCreate(BaseModel):
+    id: UUID | None = Field(None, title="Id")
     title: str = Field(..., title="Title")
     type: str = Field(..., title="Type")
     is_public: bool | None = Field(False, title="Is Public")
     content: str = Field(..., title="Content")
     locale: str | None = Field("en-US", title="Locale")
     order: int | None = Field(None, title="Order")
+
+
+class InformationOrderRequest(BaseModel):
+    information_ids: list[UUID] = Field(..., title="Information Ids")
 
 
 class InformationUpdate(BaseModel):
@@ -492,6 +594,7 @@ class InviteRole(StrEnum):
 
 
 class ItemCreate(BaseModel):
+    id: UUID | None = Field(None, title="Id")
     name: str = Field(..., title="Name")
     prototype_ids: list[UUID] | None = Field([], title="Prototype Ids")
     in_public_catalog: bool | None = Field(False, title="In Public Catalog")
@@ -528,13 +631,13 @@ class KindCountsOut(BaseModel):
     removed: int = Field(..., title="Removed")
 
 
-class Kind7(StrEnum):
+class Kind12(StrEnum):
     entity = "entity"
     player = "player"
 
 
 class KnowerOut(BaseModel):
-    kind: Kind7 = Field(..., title="Kind")
+    kind: Kind12 = Field(..., title="Kind")
     knower_entity_id: UUID | None = Field(None, title="Knower Entity Id")
     player_id: UUID | None = Field(None, title="Player Id")
     name: str | None = Field(..., title="Name")
@@ -548,6 +651,18 @@ class KnowledgeEntryOut(BaseModel):
     knower_entity_id: UUID | None = Field(..., title="Knower Entity Id")
     knower_player_id: UUID | None = Field(..., title="Knower Player Id")
     created_at: AwareDatetime = Field(..., title="Created At")
+
+
+class Kind13(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+
+
+class LinkPreviewStatOut(BaseModel):
+    name: str = Field(..., title="Name")
+    value: int | str | float = Field(..., title="Value")
 
 
 class ManagedCampaignOut(BaseModel):
@@ -704,6 +819,14 @@ class PageEntityChangeOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageEntityListOut(BaseModel):
+    items: list[EntityListOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageEntitySummary(BaseModel):
     items: list[EntitySummary] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -770,6 +893,24 @@ class PayloadPictureOut(BaseModel):
     kind: Literal["picture"] = Field("picture", title="Kind")
     url: str = Field(..., title="Url")
     file_type: str = Field(..., title="File Type")
+
+
+class PersonalTokenIssuedOut(BaseModel):
+    access_token: str = Field(..., title="Access Token")
+    token_type: str | None = Field("Bearer", title="Token Type")
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    expires_at: AwareDatetime | None = Field(..., title="Expires At")
+
+
+class PersonalTokenOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    hint: str = Field(..., title="Hint")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    last_used_at: AwareDatetime | None = Field(..., title="Last Used At")
+    expires_at: AwareDatetime | None = Field(..., title="Expires At")
+    is_expired: bool = Field(..., title="Is Expired")
 
 
 class PictureRefOut(BaseModel):
@@ -852,6 +993,11 @@ class PreviousCopyOut(BaseModel):
     also_removed: dict[str, int] = Field(..., title="Also Removed")
 
 
+class PreviousOwnStat(BaseModel):
+    had_own_value: bool = Field(..., title="Had Own Value")
+    value: int | str | float | bool | None = Field(None, title="Value")
+
+
 class ProblemOut(BaseModel):
     type: str = Field(..., title="Type")
     title: str = Field(..., title="Title")
@@ -925,17 +1071,10 @@ class RepositoryDependencyOut(BaseModel):
     published: bool = Field(..., title="Published")
 
 
-class Kind8(StrEnum):
-    item = "item"
-    item_instance = "item_instance"
-    being = "being"
-    character = "character"
-
-
 class RepositoryEntityOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind8] = Field(..., title="Kinds")
+    kinds: list[Kind13] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
@@ -947,7 +1086,7 @@ class RepositorySummaryOut(BaseModel):
     published_at: AwareDatetime | None = Field(..., title="Published At")
 
 
-class Kind9(StrEnum):
+class Kind15(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -960,13 +1099,13 @@ class Action(StrEnum):
 
 
 class ResolutionIn(BaseModel):
-    kind: Kind9 = Field(..., title="Kind")
+    kind: Kind15 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
-class Kind10(StrEnum):
+class Kind16(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -977,7 +1116,7 @@ class ResolvedSlugOut(BaseModel):
     slug: str = Field(..., title="Slug")
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind10] = Field(..., title="Kinds")
+    kinds: list[Kind16] = Field(..., title="Kinds")
 
 
 class RoundMode(StrEnum):
@@ -988,7 +1127,7 @@ class RoundMode(StrEnum):
     truncate = "truncate"
 
 
-class Kind11(StrEnum):
+class Kind17(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -999,7 +1138,7 @@ class State4(StrEnum):
     edited = "edited"
 
 
-class Kind12(StrEnum):
+class Kind18(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1007,14 +1146,14 @@ class Kind12(StrEnum):
 
 
 class RowNameOut(BaseModel):
-    kind: Kind12 = Field(..., title="Kind")
+    kind: Kind18 = Field(..., title="Kind")
     row_id: UUID = Field(..., title="Row Id")
     parent_id: UUID | None = Field(..., title="Parent Id")
     name: str = Field(..., title="Name")
     parent_name: str | None = Field(..., title="Parent Name")
 
 
-class Kind13(StrEnum):
+class Kind19(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1048,6 +1187,21 @@ class SplitItemInstanceRequest(BaseModel):
     owner_character_id: UUID | None = Field(None, title="Owner Character Id")
 
 
+class StatDefinitionOrder(BaseModel):
+    stat_definition_ids: list[UUID] = Field(..., title="Stat Definition Ids")
+
+
+class StatDefinitionUpdate(BaseModel):
+    unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
+    adjustable_in_play: bool | None = Field(None, title="Adjustable In Play")
+    pin: bool | None = Field(None, title="Pin")
+    signed: bool | None = Field(None, title="Signed")
+    position: int | None = Field(None, title="Position")
+    max_hint_id: UUID | None = Field(None, title="Max Hint Id")
+    min_hint_id: UUID | None = Field(None, title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
+
+
 class StatEnumValueCreate(BaseModel):
     value: str = Field(..., title="Value")
     sort_order: int | None = Field(None, title="Sort Order")
@@ -1057,6 +1211,11 @@ class StatGroupCreate(BaseModel):
     name: str = Field(..., title="Name")
     priority: int | None = Field(0, title="Priority")
     mandatory: bool | None = Field(False, title="Mandatory")
+    position: int | None = Field(None, title="Position")
+
+
+class StatGroupOrder(BaseModel):
+    stat_group_ids: list[UUID] = Field(..., title="Stat Group Ids")
 
 
 class StatGroupOut(BaseModel):
@@ -1064,8 +1223,16 @@ class StatGroupOut(BaseModel):
     name: str = Field(..., title="Name")
     priority: int = Field(..., title="Priority")
     mandatory: bool = Field(..., title="Mandatory")
+    position: int = Field(..., title="Position")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class StatGroupUpdate(BaseModel):
+    name: str | None = Field(None, title="Name")
+    priority: int | None = Field(None, title="Priority")
+    mandatory: bool | None = Field(None, title="Mandatory")
+    position: int | None = Field(None, title="Position")
 
 
 class StatValueOut(BaseModel):
@@ -1148,6 +1315,8 @@ class TenantOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
+    ability_information_type: str | None = Field(..., title="Ability Information Type")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
 
@@ -1175,6 +1344,16 @@ class TenantUpdate(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    weapon_stat_group_id: UUID | None = Field(None, title="Weapon Stat Group Id")
+    ability_information_type: constr(min_length=1, max_length=100) | None = Field(
+        None, title="Ability Information Type"
+    )
+
+
+class UnprovenKindOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    kinds: list[str] = Field(..., title="Kinds")
 
 
 class Action1(StrEnum):
@@ -1213,6 +1392,11 @@ class Problem(BaseModel):
     type: str = Field(..., title="Problem type")
     status: int = Field(..., title="Status code")
     detail: str | None = Field(None, title="Problem detail")
+
+
+class AppLinksOut(BaseModel):
+    apps: AppsOut
+    links: dict[str, str] = Field(..., title="Links")
 
 
 class ApplyUpdatesOut(BaseModel):
@@ -1304,6 +1488,14 @@ class DescriptionOut(BaseModel):
     from_entity: EntitySummary | None
 
 
+class EntityStatValueOut(BaseModel):
+    name: str = Field(..., title="Name")
+    value: int | str | float | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    from_entity: EntitySummary | None = None
+    computed: bool | None = Field(False, title="Computed")
+
+
 class GroupMemberResultItem(BaseModel):
     character_entity_id: UUID = Field(..., title="Character Entity Id")
     status: Status7 = Field(..., title="Status")
@@ -1333,6 +1525,8 @@ class InformationOut(BaseModel):
     order: int = Field(..., title="Order")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     payloads: list[Payloads] = Field(..., title="Payloads")
+    created_by: UUID | None = Field(None, title="Created By")
+    created_by_name: str | None = Field(None, title="Created By Name")
 
 
 class InviteCreate(BaseModel):
@@ -1460,6 +1654,17 @@ class LinearFormulaBodyOutput(BaseModel):
     multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") = Field(..., title="Multiplier")
     offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
     round_mode: RoundMode | None = "none"
+
+
+class LinkPreviewOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(..., title="Slug")
+    kinds: list[Kind13] = Field(..., title="Kinds")
+    template: str = Field(..., title="Template")
+    picture_url: str | None = Field(..., title="Picture Url")
+    stats: list[LinkPreviewStatOut] = Field(..., title="Stats")
+    excerpt: str = Field(..., title="Excerpt")
 
 
 class ManagedTenantOut(BaseModel):
@@ -1636,6 +1841,7 @@ class ReleasePreviewOut(BaseModel):
     removed: list[RowNameOut] = Field(..., title="Removed")
     breaking: list[BreakingRowOut] = Field(..., title="Breaking")
     warnings: list[BreakingRowOut] = Field(..., title="Warnings")
+    unproven_kinds: list[UnprovenKindOut] = Field(..., title="Unproven Kinds")
     descriptions_edited: int | None = Field(..., title="Descriptions Edited")
     libraries_told: int = Field(..., title="Libraries Told")
 
@@ -1656,7 +1862,7 @@ class RepositoryStatGroupOut(BaseModel):
 
 
 class RowChangeOut(BaseModel):
-    kind: Kind11 = Field(..., title="Kind")
+    kind: Kind17 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -1666,7 +1872,7 @@ class RowChangeOut(BaseModel):
 
 
 class RowRefOut(BaseModel):
-    kind: Kind13 = Field(..., title="Kind")
+    kind: Kind19 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -1674,11 +1880,26 @@ class RowRefOut(BaseModel):
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
+class SheetWeaponOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    quantity: int | None = Field(..., title="Quantity")
+    stats: list[EntityStatValueOut] = Field(..., title="Stats")
+
+
 class StatDefinitionCreate(BaseModel):
     name: str = Field(..., title="Name")
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
     enum_values: list[str] | None = Field(None, title="Enum Values")
+    unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
+    adjustable_in_play: bool | None = Field(False, title="Adjustable In Play")
+    pin: bool | None = Field(False, title="Pin")
+    signed: bool | None = Field(False, title="Signed")
+    position: int | None = Field(None, title="Position")
+    max_hint_id: UUID | None = Field(None, title="Max Hint Id")
+    min_hint_id: UUID | None = Field(None, title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
 
 
 class StatDefinitionOut(BaseModel):
@@ -1687,6 +1908,14 @@ class StatDefinitionOut(BaseModel):
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
     enum_values: list[str] = Field(..., title="Enum Values")
+    unit: str | None = Field(..., title="Unit")
+    adjustable_in_play: bool = Field(..., title="Adjustable In Play")
+    pin: bool = Field(..., title="Pin")
+    signed: bool = Field(..., title="Signed")
+    position: int = Field(..., title="Position")
+    max_hint_id: UUID | None = Field(..., title="Max Hint Id")
+    min_hint_id: UUID | None = Field(..., title="Min Hint Id")
+    resolved_hint_id: UUID | None = Field(..., title="Resolved Hint Id")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -1721,7 +1950,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind13 = Field(..., title="Kind")
+    kind: Kind19 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
@@ -1878,11 +2107,49 @@ class EntityDetailOut(BaseModel):
     stats: list[EntityStatValueOut] = Field(..., title="Stats")
     stat_groups: list[EntitySummary] = Field(..., title="Stat Groups")
     information: list[InformationOut] = Field(..., title="Information")
+    kinds: list[Kind8] = Field(..., title="Kinds")
     prototypes: list[EntitySummary] = Field(..., title="Prototypes")
     instances: list[EntitySummary] = Field(..., title="Instances")
     parent: EntitySummary | None
     quantity: int | None = Field(..., title="Quantity")
     children: list[EntitySummary] = Field(..., title="Children")
+
+
+class EntityExportOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(..., title="Slug")
+    kinds: list[Kind8] = Field(..., title="Kinds")
+    parent_ids: list[UUID] = Field(..., title="Parent Ids")
+    stat_group_ids: list[UUID] = Field(..., title="Stat Group Ids")
+    stats: list[EntityExportStatOut] = Field(..., title="Stats")
+    information: list[InformationOut] = Field(..., title="Information")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class EntityExportPage(BaseModel):
+    revision: str = Field(..., title="Revision")
+    items: list[EntityExportOut] = Field(..., title="Items")
+    next_cursor: str | None = Field(..., title="Next Cursor")
+
+
+class EntityStatWriteOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(..., title="Slug")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    stats: list[EntityStatValueOut] = Field(..., title="Stats")
+    stat_groups: list[EntitySummary] = Field(..., title="Stat Groups")
+    information: list[InformationOut] = Field(..., title="Information")
+    kinds: list[Kind8] = Field(..., title="Kinds")
+    prototypes: list[EntitySummary] = Field(..., title="Prototypes")
+    instances: list[EntitySummary] = Field(..., title="Instances")
+    parent: EntitySummary | None
+    quantity: int | None = Field(..., title="Quantity")
+    children: list[EntitySummary] = Field(..., title="Children")
+    previous: PreviousOwnStat
 
 
 class HeldGroupOut(BaseModel):
@@ -1936,9 +2203,36 @@ class PublishedOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
+    ability_information_type: str | None = Field(..., title="Ability Information Type")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
     release: ReleaseAuthoredOut
+
+
+class SheetOut(BaseModel):
+    weapons_configured: bool = Field(..., title="Weapons Configured")
+    abilities_configured: bool = Field(..., title="Abilities Configured")
+    weapons: list[SheetWeaponOut] = Field(..., title="Weapons")
+    abilities: list[InformationOut] = Field(..., title="Abilities")
+
+
+class StatExplanationOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    name: str = Field(..., title="Name")
+    value: int | float | str | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    computed: bool = Field(..., title="Computed")
+    from_entity: EntitySummary | None
+    formula: (
+        LinearFormulaBodyOutput
+        | ComparisonFormulaBodyOutput
+        | SumFormulaBodyOutput
+        | ContentsFormulaBody
+        | None
+    ) = Field(..., title="Formula")
+    inputs: list[PreviewInputOut] = Field(..., title="Inputs")
+    contents: ContentsExplanationOut | None
 
 
 class UpdatesOut(BaseModel):

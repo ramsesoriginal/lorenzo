@@ -18,7 +18,14 @@ from sqlalchemy.dialects.postgresql import array as pg_array
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
-from lorenzo_api.models import CharacterPlayer, Containment, GroupMember, Ownership, Player
+from lorenzo_api.models import (
+    CharacterPlayer,
+    Containment,
+    EntityPrototype,
+    GroupMember,
+    Ownership,
+    Player,
+)
 
 # Bounds the cost of a recursive container traversal on a legitimately deep
 # (but acyclic) containment tree - see routers/item_instances.py's original
@@ -149,6 +156,33 @@ def recursive_descendants_cte(root_entity_ids: frozenset[uuid.UUID], tenant_id: 
         )
     )
     return cte.union_all(recursive_term)
+
+
+def prototype_descendants_cte(prototype_id: uuid.UUID, tenant_id: uuid.UUID) -> CTE:
+    """Every entity that transitively depends on prototype_id (has it as a
+    direct or indirect prototype) - see ADR 0073. Plain UNION, not UNION
+    ALL: entity_prototype allows multiple inheritance, so the same
+    descendant can be reached via more than one path, and UNION's own
+    de-duplication is what makes "keep walking until nothing new appears"
+    correct here - the exact technique entity_prototype's own BEFORE INSERT
+    cycle-check trigger (ADR 0015, migration 8fd1b287598a) already uses for
+    its ancestor walk, mirrored in the opposite direction. No path-array
+    cycle guard the way the containment walk above needs one - that graph
+    can legitimately cycle (ADR 0016), this one cannot (the trigger already
+    guarantees it), so plain UNION alone is sufficient and always
+    terminates. Moved here from routers/items.py (ADR 0215) when
+    GET /entities took the same filter.
+    """
+    base = select(EntityPrototype.entity_id.label("descendant_id")).where(
+        EntityPrototype.prototype_id == prototype_id, EntityPrototype.tenant_id == tenant_id
+    )
+    cte = base.cte("item_prototype_descendants", recursive=True)
+    recursive_term = (
+        select(EntityPrototype.entity_id.label("descendant_id"))
+        .select_from(cte.join(EntityPrototype, EntityPrototype.prototype_id == cte.c.descendant_id))
+        .where(EntityPrototype.tenant_id == tenant_id)
+    )
+    return cte.union(recursive_term)
 
 
 def _containing_ancestors_cte(entity_ids: frozenset[uuid.UUID], tenant_id: uuid.UUID) -> CTE:

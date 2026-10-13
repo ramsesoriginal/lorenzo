@@ -1,0 +1,22 @@
+<section class="stack-tight" aria-labelledby="being-handover-heading" data-hand-over hidden>
+  <h2 id="being-handover-heading">Hand over to a player</h2>
+  <p class="status-text">
+    The player gets this being as their character, in the campaign you choose. Anyone who already
+    plays it keeps playing it.
+  </p>
+  <label class="field">
+    <span class="field-label">Campaign</span>
+    <select class="text-input" data-campaign></select>
+  </label>
+  <p class="status-text" role="status" data-status hidden></p>
+  <ul class="list" data-players hidden></ul>
+
+  <template data-player-template>
+    <li class="row">
+      <span class="grow" data-name></span>
+      <button type="button" data-use>
+        Hand over
+      </button>
+    </li>
+  </template>
+</section>

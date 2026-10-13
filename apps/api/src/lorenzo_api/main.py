@@ -8,20 +8,24 @@ from fastapi_pagination import add_pagination
 from fastapi_pagination.utils import disable_installed_extensions_check
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from lorenzo_api.compression import GzipForPathsMiddleware
 from lorenzo_api.config import get_settings
 from lorenzo_api.db import engine
 from lorenzo_api.errors import register_error_handlers
+from lorenzo_api.forwarded_scheme import ForwardedSchemeMiddleware
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
 from lorenzo_api.observability.tracing import configure_tracing
 from lorenzo_api.routers.activity_log import router as activity_log_router
 from lorenzo_api.routers.admin import router as admin_router
+from lorenzo_api.routers.app_links import router as app_links_router
 from lorenzo_api.routers.beings import router as beings_router
 from lorenzo_api.routers.campaign_invites import router as campaign_invites_router
 from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.computed_stats import router as computed_stats_router
 from lorenzo_api.routers.entities import router as entities_router
+from lorenzo_api.routers.entity_export import router as entity_export_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.groups import router as groups_router
 from lorenzo_api.routers.information import router as information_router
@@ -29,7 +33,9 @@ from lorenzo_api.routers.invites import router as invites_router
 from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.knowledge import router as knowledge_router
+from lorenzo_api.routers.link_previews import router as link_previews_router
 from lorenzo_api.routers.payloads import router as payloads_router
+from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
 from lorenzo_api.routers.pictures import router as pictures_router
 from lorenzo_api.routers.players import router as players_router
 from lorenzo_api.routers.repositories import router as repositories_router
@@ -76,11 +82,19 @@ def create_app() -> FastAPI:
         expose_headers=["ETag", "Location"],
     )
 
+    # ADR 0262: gzip, for the one response big enough to need it.
+    app.add_middleware(GzipForPathsMiddleware, path_suffixes=("/entities/export",))
+
+    # The scheme the client used, for the URLs the API writes; Cloud Run speaks plain HTTP to it.
+    app.add_middleware(ForwardedSchemeMiddleware)
+
     register_error_handlers(app)
     app.include_router(health_router)
+    app.include_router(app_links_router)
     app.include_router(admin_router)
     app.include_router(activity_log_router)
     app.include_router(users_router)
+    app.include_router(personal_tokens_router)
     app.include_router(tenants_router)
     app.include_router(repositories_router)
     app.include_router(campaigns_router)
@@ -91,7 +105,10 @@ def create_app() -> FastAPI:
     app.include_router(beings_router)
     app.include_router(payloads_router)
     app.include_router(pictures_router)
+    # Before entities_router: its /{entity_id} would take "export" (ADR 0262).
+    app.include_router(entity_export_router)
     app.include_router(entities_router)
+    app.include_router(link_previews_router)
     app.include_router(entity_stats_router)
     app.include_router(computed_stats_router)
     app.include_router(groups_router)

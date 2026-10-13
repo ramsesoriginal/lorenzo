@@ -31,7 +31,7 @@ async def _make_definition(
     return str(response.json()["id"])
 
 
-async def test_list_stat_groups_is_name_ordered_paginated_and_tenant_isolated(
+async def test_list_stat_groups_is_in_display_order_paginated_and_tenant_isolated(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     tenant_a = await make_tenant(test_user_id)
@@ -44,10 +44,11 @@ async def test_list_stat_groups_is_name_ordered_paginated_and_tenant_isolated(
     assert response.status_code == 200
     body = response.json()
     assert body["total"] == 2
-    assert [group["name"] for group in body["items"]] == ["Combat", "Physical"]
+    # Display order (ADR 0278): a new group goes last, so this is the order they were made in.
+    assert [group["name"] for group in body["items"]] == ["Physical", "Combat"]
 
     first_page = await client.get(f"/tenants/{tenant_a}/stat-groups", params={"size": 1})
-    assert [g["name"] for g in first_page.json()["items"]] == ["Combat"]
+    assert [g["name"] for g in first_page.json()["items"]] == ["Physical"]
     assert first_page.json()["pages"] == 2
 
     await delete_tenant(tenant_a)

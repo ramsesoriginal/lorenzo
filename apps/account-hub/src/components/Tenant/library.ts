@@ -7,12 +7,14 @@
 // component, cloned from its <template> and bound by its own renderer.
 
 import { knownNames } from '../../lib/activityNames';
+import { distinctPeople } from '../../lib/deleting';
 import { type CampaignRole, campaignRoleFor, isTenantAdmin } from '../../lib/format';
 import { type LibraryReads, readLibrary } from '../../lib/libraryData';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { rosterFromPlayers } from '../../lib/roster';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
+import { canCreateTenants } from '../../lib/tenantKind';
 import {
   campaignPictureUrl,
   createCampaignNotification,
@@ -39,6 +41,7 @@ import { renderInvitePlayer } from '../InvitePlayer/renderer';
 import { renderMembershipAdmin } from '../MembershipAdmin/renderer';
 import { renderNotificationComposer } from '../NotificationComposer/renderer';
 import { renderPictureUpload } from '../PictureUpload/renderer';
+import { renderTenantDelete } from '../TenantDelete/renderer';
 import type { TenantHooks } from './hooks';
 import { cloneComponent, fillSlot } from './slots';
 import { bindStepDownAsGm } from './stepDownAsGm';
@@ -250,6 +253,21 @@ export function fillLibrary(
       onChanged,
     );
     fillSlot(root, '[data-memberships-slot]', memberships);
+  }
+
+  // Deleting the library (ADR 0267): an Owner's button, or for an Organizer the reason there is
+  // none. The counts are what the tab already read; the entries are asked for when it opens.
+  if (admin) {
+    const removal = cloneComponent(root, '[data-tenant-delete-template]');
+
+    renderTenantDelete(removal, hooks.onDeleted).show(tenant, {
+      accountMayDelete: canCreateTenants(me),
+      known: {
+        campaigns: data.campaigns.length,
+        people: data.roster ? distinctPeople(data.roster) : null,
+      },
+    });
+    fillSlot(root, '[data-delete-slot]', removal);
   }
 
   // RFC 0017 (f)/(g) - gated the same as list_tenant_roster/

@@ -9,6 +9,7 @@ from lorenzo_api.db import Base
 
 if TYPE_CHECKING:
     from lorenzo_api.models.computed_stat import ComputedStat
+    from lorenzo_api.models.entity import Entity
     from lorenzo_api.models.stat_definition import StatDefinition
 
 
@@ -40,6 +41,9 @@ class VEffectiveStat(Base):
     # computed_stat row. Every value_* column is then null - the value is
     # computed in Python (stat_evaluation.evaluate), never read from here.
     computed_entity_id: Mapped[uuid.UUID | None] = mapped_column()
+    # The entity holding the row that won, stored or computed (ADR 0276): the entity itself when it
+    # has the value of its own, else the prototype it comes from.
+    source_entity_id: Mapped[uuid.UUID] = mapped_column()
 
     # No real ForeignKey (views have none) - primaryjoin/foreign_keys= spell
     # out the join explicitly instead of relying on a constraint to infer
@@ -47,6 +51,12 @@ class VEffectiveStat(Base):
     stat_definition: Mapped[StatDefinition] = relationship(
         primaryjoin="VEffectiveStat.stat_definition_id == StatDefinition.id",
         foreign_keys=[stat_definition_id],
+        viewonly=True,
+        lazy="raise_on_sql",
+    )
+    source_entity: Mapped[Entity] = relationship(
+        primaryjoin="VEffectiveStat.source_entity_id == Entity.id",
+        foreign_keys=[source_entity_id],
         viewonly=True,
         lazy="raise_on_sql",
     )

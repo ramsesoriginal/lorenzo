@@ -15,6 +15,8 @@ import Repository from '../Repository/Repository.astro';
 
   <div class="stack" data-main>
     <p class="error-text" role="alert" data-error hidden></p>
+    <!-- What happened to the repository that was just deleted (ADR 0267). -->
+    <p class="status-text" role="status" data-notice hidden></p>
 
     <Repository />
 

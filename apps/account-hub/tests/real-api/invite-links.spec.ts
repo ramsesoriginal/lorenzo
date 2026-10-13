@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { ok } from '../../../inventory-web/tests/e2e/support/api';
 import {
   API_URL,
@@ -6,13 +6,29 @@ import {
   SITE_URL,
   SUBJECT_COOKIE,
 } from '../../../inventory-web/tests/e2e/support/env';
-import { libraryCard, newCampaign, newLibrary, newUser, signedInPage } from './support';
+import {
+  campaignCard,
+  newCampaign,
+  newLibrary,
+  newUser,
+  openLibrary,
+  signedInPage,
+} from './support';
 
 async function setup() {
   const owner = await newUser('owner', ['tenant_creator']);
   const library = await newLibrary(owner.api);
   const campaign = await newCampaign(owner.api, library.id, 'Zorro');
   return { owner, library, campaign };
+}
+
+// A campaign's invite links, on the tab that holds them.
+async function inviteLinksOf(page: Page, library: { slug: string; name: string }) {
+  const campaign = campaignCard(await openLibrary(page, library), 'Zorro');
+
+  await campaign.getByRole('tab', { name: 'Invite links' }).click();
+
+  return campaign.locator('[data-invite-links]');
 }
 
 const inviteIn = (
@@ -34,13 +50,11 @@ test('a manager makes a link, sees it once, lists it without a token, and revoke
     permissions: ['clipboard-read', 'clipboard-write'],
   });
   const { page } = session;
-  await page.goto('/tenants');
-  const panel = libraryCard(page, library.name)
-    .locator('.panel')
-    .filter({ hasText: 'Invite links:' });
+  const panel = await inviteLinksOf(page, library);
 
-  // A limit that isn't a number is said, not sent.
-  await panel.getByPlaceholder('No limit').fill('lots');
+  // A limit that isn't a whole number of 1 or more is said, not sent. (The box is a number input
+  // now, so the browser keeps letters out; zero is what is left to refuse.)
+  await panel.getByPlaceholder('No limit').fill('0');
   await panel.getByRole('button', { name: 'Create link' }).click();
   await expect(panel).toContainText('Use a whole number of 1 or more');
   expect((await inviteIn(owner, library.id, campaign.id)).items).toEqual([]);
@@ -64,18 +78,16 @@ test('a manager makes a link, sees it once, lists it without a token, and revoke
 
   // The list shows it with its counts and never the token.
   const token = url.split('#')[1] ?? '';
-  const row = panel.locator('li').first();
+  const row = panel.locator('[data-list] > li').first();
   await expect(row).toContainText('Active');
   await expect(row).toContainText('Used 0 of 2');
-  await expect(panel.locator('li')).not.toContainText(token);
+  await expect(panel.locator('[data-list] > li')).not.toContainText(token);
 
   // Done removes the link from the page; so does coming back to it.
   await panel.getByRole('button', { name: 'Done' }).click();
   await expect(panel.getByLabel('Invite link')).toHaveCount(0);
   await page.reload();
-  const again = libraryCard(page, library.name)
-    .locator('.panel')
-    .filter({ hasText: 'Invite links:' });
+  const again = await inviteLinksOf(page, library);
   await expect(again.locator('li').first()).toContainText('Active');
   expect(await page.content()).not.toContain(token);
 
@@ -112,7 +124,7 @@ test('a visitor follows a link, logs in, joins, and every dead link reads the sa
 
   // Not logged in: the campaign is previewed, and the token is out of the address bar.
   await page.goto(`/join/#${created.token}`);
-  await expect(page.locator('#invite-campaign')).toHaveText('Zorro');
+  await expect(page.locator('[data-campaign]')).toHaveText('Zorro');
   expect(page.url()).toBe(`${SITE_URL}/join/`);
   expect(await page.evaluate(() => sessionStorage.getItem('lorenzo.invite'))).toBe(created.token);
 
@@ -120,9 +132,9 @@ test('a visitor follows a link, logs in, joins, and every dead link reads the sa
   await context.addCookies([{ name: SUBJECT_COOKIE, value: visitor.subject, url: AUTHGEAR_URL }]);
   await page.getByRole('button', { name: 'Log in to join' }).click();
   await expect(page).toHaveURL(`${SITE_URL}/join/`);
-  await expect(page.locator('#invite-campaign')).toHaveText('Zorro');
-  await page.getByRole('button', { name: 'Join' }).click();
-  await expect(page.locator('#invite-status')).toHaveText(
+  await expect(page.locator('[data-campaign]')).toHaveText('Zorro');
+  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await expect(page.locator('[data-join] [data-status]')).toHaveText(
     "You're in. Zorro lists you as a player.",
   );
   expect(await page.evaluate(() => sessionStorage.getItem('lorenzo.invite'))).toBeNull();
@@ -135,8 +147,10 @@ test('a visitor follows a link, logs in, joins, and every dead link reads the sa
 
   // Opening it again is not a second seat, and uses nothing.
   await page.goto(`/join/#${created.token}`);
-  await page.getByRole('button', { name: 'Join' }).click();
-  await expect(page.locator('#invite-status')).toHaveText("You're already a player in Zorro.");
+  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await expect(page.locator('[data-join] [data-status]')).toHaveText(
+    "You're already a player in Zorro.",
+  );
   expect((await inviteIn(owner, library.id, campaign.id)).items[0]?.use_count).toBe(1);
 
   // Nothing the page asked of the API carried a Referer.
@@ -152,10 +166,10 @@ test('a visitor follows a link, logs in, joins, and every dead link reads the sa
   );
   const dead = "This link doesn't work any more. Ask whoever sent it for a new one.";
   await page.goto(`/join/#${created.token}`);
-  await expect(page.locator('#dead-link')).toHaveText(dead);
+  await expect(page.locator('[data-dead]')).toHaveText(dead);
   await page.goto(`/join/#${'x'.repeat(43)}`);
-  await expect(page.locator('#dead-link')).toHaveText(dead);
-  await expect(page.locator('#invite')).toBeHidden();
+  await expect(page.locator('[data-dead]')).toHaveText(dead);
+  await expect(page.locator('[data-invite]')).toBeHidden();
   await context.close();
 });
 

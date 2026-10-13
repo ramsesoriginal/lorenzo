@@ -23,8 +23,10 @@
     "@authgear/web": "^6.0.0",
     "@lorenzo/api-client": "workspace:*",
     "@lorenzo/brand": "workspace:*",
+    "@lorenzo/inventory-names": "workspace:*",
     "@lorenzo/lorenzoscript": "workspace:*",
     "@lorenzo/lorenzoscript-editor": "workspace:*",
+    "@lorenzo/stat-values": "workspace:*",
     "astro": "^7.3.5"
   },
   "devDependencies": {

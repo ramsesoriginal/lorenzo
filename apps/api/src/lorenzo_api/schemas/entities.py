@@ -3,10 +3,10 @@ from datetime import datetime
 from typing import Literal
 
 from fastapi import Request
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, Information
+from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 from lorenzo_api.stat_evaluation import evaluate
@@ -36,6 +36,60 @@ class ResolvedSlugOut(BaseModel):
     entity_id: uuid.UUID
     name: str
     kinds: list[EntityKind]
+
+
+class EntityCreate(BaseModel):
+    """POST /tenants/{tenant_id}/entities - see ADR 0217. The entry, its link name, its kinds
+    and its parents, in one transaction. `kinds` is `item` and/or `being`; empty makes a bare
+    entry, which is what a group is. `in_public_catalog` is only for an `item`.
+    """
+
+    id: uuid.UUID | None = None
+    name: str
+    slug: Slug | None = None
+    kinds: list[Literal["item", "being"]] = []
+    parents: list[uuid.UUID] = []
+    in_public_catalog: bool | None = None
+
+    @model_validator(mode="after")
+    def _catalog_needs_item(self) -> EntityCreate:
+        if self.in_public_catalog is not None and "item" not in self.kinds:
+            raise ValueError("in_public_catalog is only for an entry of the kind item")
+        return self
+
+
+class EntityKindPut(BaseModel):
+    """PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} - the kind's own columns. Only
+    `item` has one, `in_public_catalog`; the body may be left out."""
+
+    in_public_catalog: bool | None = None
+
+
+class EntityParentsRequest(BaseModel):
+    """PUT /tenants/{tenant_id}/entities/{entity_id}/parents - see ADR 0216. The complete new set
+    of the entry's direct parents; empty clears it. Same shape as SetPrototypesRequest, which
+    names the same thing as the item route does."""
+
+    parent_ids: list[uuid.UUID] = []
+
+
+class InformationOrderRequest(BaseModel):
+    """PUT /tenants/{tenant_id}/entities/{entity_id}/information/order - see ADR 0237. Every
+    piece of information the caller can see on the entry, each once, in the order it should
+    have. Information the caller cannot see keeps its own position."""
+
+    information_ids: list[uuid.UUID]
+
+
+class EntityListOut(EntitySummary):
+    """One row of GET .../entities - an EntitySummary and what the entry is (ADR 0215):
+    `kinds`, in the order of `EntityKind`, empty for a bare entry (a group, or a category node).
+    `parent_ids` (ADR 0229) are the entry's direct parents, in their order (ADR 0266), so a client
+    can draw the whole tree from the list without reading every entry.
+    """
+
+    kinds: list[EntityKind]
+    parent_ids: list[uuid.UUID]
 
 
 class BacklinkOut(BaseModel):
@@ -71,6 +125,7 @@ class InformationCreate(BaseModel):
     information; omitted, the server appends it after the last one.
     """
 
+    id: uuid.UUID | None = None
     title: str
     type: str
     is_public: bool = False
@@ -106,6 +161,11 @@ class EntityStatValueOut(BaseModel):
     # ADR 0111: the entity holds the winning value itself, stored or
     # computed; false when it's inherited.
     own: bool
+    # ADR 0276: where the winning row is held, when it is not this entity: the
+    # prototype the value (or its formula) comes from. Null when `own`.
+    from_entity: EntitySummary | None = None
+    # ADR 0276: a formula produced the value, held by this entity or inherited.
+    computed: bool = False
 
 
 class InformationOut(BaseModel):
@@ -113,7 +173,7 @@ class InformationOut(BaseModel):
     payloads already resolved to their concrete kind - see ADR 0020. A
     single Information row's payloads can be of heterogeneous kinds, so
     each is resolved independently via payload_to_schema rather than
-    assuming one kind per row.
+    assuming one kind per row. Needs `author` loaded (ADR 0277).
     """
 
     id: uuid.UUID
@@ -125,9 +185,15 @@ class InformationOut(BaseModel):
     # 0042/0101). Each payload carries its own, separately.
     updated_at: datetime
     payloads: list[PayloadOut]
+    # ADR 0277: who wrote it, shown wherever the row is. Null for a row written
+    # before attribution existed or by an account since deleted; the name is
+    # the author's display name, else their nickname, else null.
+    created_by: uuid.UUID | None = None
+    created_by_name: str | None = None
 
     @classmethod
     def from_information(cls, information: Information, request: Request) -> InformationOut:
+        author = information.author
         return cls(
             id=information.id,
             title=information.title,
@@ -136,26 +202,45 @@ class InformationOut(BaseModel):
             order=information.order,
             updated_at=information.updated_at,
             payloads=[payload_to_schema(payload, request) for payload in information.payloads],
+            created_by=information.created_by,
+            created_by_name=(author.display_name or author.nickname) if author else None,
         )
+
+
+def stat_display_key(stat: VEffectiveStat) -> tuple[int, str, int, str]:
+    """Where a stat comes in an entity's list (ADR 0278): its group's
+    position and name, then its own position and name. Needs the stat's
+    definition and its group loaded."""
+    definition = stat.stat_definition
+    return (
+        definition.stat_group.position,
+        definition.stat_group.name,
+        definition.position,
+        definition.name,
+    )
 
 
 def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
     """Every effective stat with a value, computed ones evaluated (ADR
     0104). A computed stat whose inputs don't resolve is left out, like an
-    unset stat. Needs entity.stats (the entity's own rows) loaded too: an
-    own row always wins at hop 0, and an entity never holds both a value
-    and a formula for one stat (ADR 0104), so `own` is either of those.
-    A contents formula needs stat_contents.attach_contents first (ADR
-    0127)."""
+    unset stat. Needs each stat's `source_entity` loaded: the view names the
+    holder of every winner (ADR 0276), so `own` is "the holder is this entity"
+    and an inherited value says which prototype it comes from. A contents
+    formula needs stat_contents.attach_contents first (ADR 0127)."""
     values = evaluate(entity.effective_stats, entity_id=entity.id, contents=entity.stat_contents)
-    stored = {stat.stat_definition_id for stat in entity.stats}
     return [
         EntityStatValueOut(
             name=stat.stat_definition.name,
             value=values[stat.stat_definition_id],
-            own=stat.stat_definition_id in stored or stat.computed_entity_id == entity.id,
+            own=stat.source_entity_id == entity.id,
+            from_entity=(
+                None
+                if stat.source_entity_id == entity.id
+                else EntitySummary.from_entity(stat.source_entity)
+            ),
+            computed=stat.computed_entity_id is not None,
         )
-        for stat in entity.effective_stats
+        for stat in sorted(entity.effective_stats, key=stat_display_key)
         if stat.stat_definition_id in values
     ]
 
@@ -176,6 +261,20 @@ class KnowerOut(BaseModel):
     granted_at: datetime
 
 
+def _kinds_out(entity: Entity) -> list[EntityKind]:
+    """Needs entity.item, item_instance and being loaded, and being.character."""
+    kinds: list[EntityKind] = []
+    if entity.item is not None:
+        kinds.append("item")
+    if entity.item_instance is not None:
+        kinds.append("item_instance")
+    if entity.being is not None:
+        kinds.append("being")
+        if entity.being.character is not None:
+            kinds.append("character")
+    return kinds
+
+
 class EntityDetailOut(BaseModel):
     """The full shape of a single entity - every relationship resolved and
     inlined. See ADR 0020. Deliberately not reused for the list endpoint,
@@ -192,6 +291,8 @@ class EntityDetailOut(BaseModel):
     stats: list[EntityStatValueOut]
     stat_groups: list[EntitySummary]
     information: list[InformationOut]
+    # What the entry is (ADR 0217): the marker rows it has, in the order of EntityKind.
+    kinds: list[EntityKind]
     prototypes: list[EntitySummary]
     instances: list[EntitySummary]
     parent: EntitySummary | None
@@ -208,6 +309,7 @@ class EntityDetailOut(BaseModel):
             slug=entity.slug.slug if entity.slug is not None else None,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
+            kinds=_kinds_out(entity),
             stats=_stats_out(entity),
             # entity.stat_groups is list[StatGroup], not list[Entity] - built
             # directly rather than through EntitySummary.from_entity (which
@@ -258,3 +360,20 @@ class EntityDetailOut(BaseModel):
                 for link in entity.contained_links
             ],
         )
+
+
+class PreviousOwnStat(BaseModel):
+    """What an entry's own direct value for a stat was before a write (ADR 0225, RFC 0039 W1).
+    `had_own_value` false means the entry had none and inherited, so `value` is null and
+    undoing the write is clearing the value; true means `value` is what to put back."""
+
+    had_own_value: bool
+    value: int | str | float | bool | None = None
+
+
+class EntityStatWriteOut(EntityDetailOut):
+    """The entry as the routes that write one of its stats return it, plus `previous`: what the
+    write replaced. Everything an `EntityDetailOut` has, so a caller of these routes before
+    `previous` existed is unaffected (ADR 0225)."""
+
+    previous: PreviousOwnStat

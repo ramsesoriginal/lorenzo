@@ -128,3 +128,53 @@ async def enforce_invite_rate_limit(request: Request) -> None:
             detail="Too many requests. Please wait a moment and try again.",
             headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
         )
+
+
+_device_limiter: TokenBucketLimiter | None = None
+_device_lookup_limiter: TokenBucketLimiter | None = None
+
+
+def reset_device_rate_limiters() -> None:
+    """For tests: forget every bucket and re-read the settings."""
+    global _device_limiter, _device_lookup_limiter
+    _device_limiter = None
+    _device_lookup_limiter = None
+
+
+def _reject_rate_limited(key: str, retry_after: float, event: str) -> TooManyRequestsError:
+    structlog.get_logger().warning(event, source=key)
+    return TooManyRequestsError(
+        detail="Too many requests. Please wait a moment and try again.",
+        headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+    )
+
+
+async def enforce_device_rate_limit(request: Request) -> None:
+    """FastAPI dependency for the two unauthenticated device-code routes (ADR 0268), the same
+    backstop as the invite links: per client address, per instance; 0 disables it.
+    """
+    global _device_limiter
+    settings = get_settings()
+    if settings.device_rate_limit_per_minute <= 0:
+        return
+    if _device_limiter is None:
+        _device_limiter = TokenBucketLimiter(settings.device_rate_limit_per_minute)
+    key = request_source(request)
+    retry_after = _device_limiter.check(key)
+    if retry_after is not None:
+        raise _reject_rate_limited(key, retry_after, "device_code_rate_limited")
+
+
+def enforce_device_lookup_rate_limit(user_key: str) -> None:
+    """Called by the signed-in routes that look a user code up (ADR 0268), keyed by the user: a
+    code is 20^8 and lives ten minutes, and this keeps a signed-in account from walking it.
+    """
+    global _device_lookup_limiter
+    settings = get_settings()
+    if settings.device_lookup_rate_limit_per_minute <= 0:
+        return
+    if _device_lookup_limiter is None:
+        _device_lookup_limiter = TokenBucketLimiter(settings.device_lookup_rate_limit_per_minute)
+    retry_after = _device_lookup_limiter.check(user_key)
+    if retry_after is not None:
+        raise _reject_rate_limited(user_key, retry_after, "device_lookup_rate_limited")

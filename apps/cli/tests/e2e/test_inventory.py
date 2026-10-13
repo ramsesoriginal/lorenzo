@@ -13,7 +13,7 @@ from e2e.test_self_service import _table
 from lorenzo_cli.inventory.format import parse
 
 FILE = """\
-format: lorenzo-inventory/1
+format: lorenzo-ledger/1
 owner: Ashfang
 
 ## Equipped
@@ -158,7 +158,7 @@ def test_a_line_that_cannot_be_made_stops_everything(stack: Stack, tmp_path: Pat
     _library(stack, table)
     path = _write(
         tmp_path,
-        "format: lorenzo-inventory/1\nowner: Ashfang\n\n## Equipped\n- Dagger\n- 9 x Rope\n",
+        "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Equipped\n- Dagger\n- 9 x Rope\n",
     )
 
     done = run_cli(
@@ -278,7 +278,7 @@ def test_the_json_form_goes_both_ways(stack: Stack, tmp_path: Path) -> None:
     _library(stack, table)
     player, slug = table["player"], table["slug"]
     document = {
-        "format": "lorenzo-inventory/1",
+        "format": "lorenzo-ledger/1",
         "owner": "Ashfang",
         "equipped": [{"name": "Backpack", "contents": [{"name": "Rope", "quantity": 3}]}],
         "not_carried": [{"name": "Trophy", "note": "a skull", "weight": 1}],
@@ -303,7 +303,7 @@ def test_a_file_for_another_library_is_refused(stack: Stack, tmp_path: Path) -> 
     _library(stack, table)
     path = _write(
         tmp_path,
-        "format: lorenzo-inventory/1\nowner: Ashfang\nlibrary: somewhere-else-" + uuid.uuid4().hex[:6]
+        "format: lorenzo-ledger/1\nowner: Ashfang\nlibrary: somewhere-else-" + uuid.uuid4().hex[:6]
         + "\n\n## Equipped\n- Dagger\n",
     )  # fmt: skip
 
@@ -322,3 +322,151 @@ def test_a_file_for_another_library_is_refused(stack: Stack, tmp_path: Path) -> 
     assert done.exit_code == 1
     assert "was written for" in " ".join(done.output.split())
     assert _instances(stack, table) == {}
+
+
+def test_a_description_is_a_note_the_player_reads_and_an_export_writes_back(
+    stack: Stack, tmp_path: Path
+) -> None:
+    table = _table(stack)
+    _library(stack, table)
+    player, slug = table["player"], table["slug"]
+    text = (
+        "format: lorenzo-inventory/1\nowner: Ashfang\n\n## Equipped\n"
+        "- Hydra Zahn | note: from the cave\n"
+        "  > A **curved** tooth.\n  >\n  > Warm to the touch.\n"
+    )  # the format's old name is still read (ADR 0226)
+
+    done = run_cli(
+        stack, player, tmp_path, "inventory", "import", str(_write(tmp_path, text)), "-t", slug,
+        "--yes",
+    )  # fmt: skip
+
+    assert done.exit_code == 0, done.output
+    made = _instances(stack, table)
+    assert _notes(stack, table, made["Hydra Zahn"]["entity_id"]) == {
+        "Note": "from the cave",
+        "Description": "A **curved** tooth.\n\nWarm to the touch.",
+    }
+    exported = run_cli(stack, player, tmp_path, "inventory", "export", "-t", slug)
+    assert exported.exit_code == 0, exported.output
+    assert exported.stdout.startswith("format: lorenzo-ledger/1\n")
+    inventory = parse(exported.stdout)
+    assert inventory.problems == []
+    tooth = inventory.equipped[0]
+    assert tooth.name == "Hydra Zahn"
+    assert tooth.description == "A **curved** tooth.\n\nWarm to the touch."
+
+
+def test_a_gm_imports_into_a_players_character_by_name_and_can_replace_what_is_there(
+    stack: Stack, tmp_path: Path
+) -> None:
+    table = _table(stack)
+    _library(stack, table)
+    gm, slug = table["gm"], table["slug"]
+    # What a caller sees of someone's belongings is what they reach (ADR 0040): the library's
+    # owner who runs the table must also GM its campaign, or `owned-by` shows them nothing.
+    with stack.api(gm) as api:
+        me = api.get("/me").json()["id"]
+        made = api.put(f"/tenants/{table['tenant_id']}/campaigns/{table['campaign_id']}/gms/{me}")
+        assert made.status_code in (200, 201), made.text
+    first = _write(
+        tmp_path,
+        "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Not carried\n"
+        "- Dagger\n- Chest\n  - Spare cloak\n",
+        "first.md",
+    )
+
+    # The GM does not play Ashfang and names it, as the file does (ADR 0232).
+    done = run_cli(stack, gm, tmp_path, "inventory", "import", str(first), "-t", slug, "--yes")
+
+    assert done.exit_code == 0, done.output
+    before = _instances(stack, table)
+    assert set(before) == {"Dagger", "Chest", "Spare cloak"}
+
+    second = _write(
+        tmp_path,
+        "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Not carried\n"
+        "- Rope\n- Backpack\n  - Dagger\n",
+        "second.md",
+    )
+    refused = run_cli(stack, gm, tmp_path, "inventory", "import", str(second), "-t", slug, "--yes")
+    assert refused.exit_code == 1 and "--replace" in " ".join(refused.output.split())
+    assert set(_instances(stack, table)) == {"Dagger", "Chest", "Spare cloak"}
+
+    backup = tmp_path / "before.ledger.md"
+    replaced = run_cli(
+        stack, gm, tmp_path, "inventory", "import", str(second), "-t", slug, "--replace",
+        "--backup", str(backup), "--yes",
+    )  # fmt: skip
+
+    assert replaced.exit_code == 0, replaced.output
+    assert "Deleted 3, made 3" in " ".join(replaced.output.split())
+    after = _instances(stack, table)
+    assert set(after) == {"Rope", "Backpack", "Dagger"}
+    assert after["Dagger"]["entity_id"] != before["Dagger"]["entity_id"]  # made again, not moved
+    saved = backup.read_text(encoding="utf-8")
+    assert "Chest" in saved and "Spare cloak" in saved  # what was there, to put back
+    assert after["Dagger"]["container_entity_id"] == after["Backpack"]["entity_id"]
+
+
+def test_replace_leaves_alone_what_holds_or_sits_in_someone_elses(
+    stack: Stack, tmp_path: Path
+) -> None:
+    table = _table(stack)
+    _library(stack, table)
+    gm, slug, t = table["gm"], table["slug"], f"/tenants/{table['tenant_id']}"
+    with stack.api(gm) as api:
+        me = api.get("/me").json()["id"]
+        api.put(f"{t}/campaigns/{table['campaign_id']}/gms/{me}")
+        brisk = api.post(
+            f"{t}/characters",
+            json={
+                "name": "Brisk",
+                "owner_player_id": table["seat_id"],
+                "player_ids": [table["seat_id"]],
+            },
+        ).json()
+        rope = api.get(f"{t}/items", params={"q": "Rope"}).json()["items"][0]["entity_id"]
+    first = _write(
+        tmp_path,
+        "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Not carried\n- Backpack\n  - Rope\n- Dagger\n",
+        "first.md",
+    )
+    assert (
+        run_cli(
+            stack, gm, tmp_path, "inventory", "import", str(first), "-t", slug, "--yes"
+        ).exit_code
+        == 0
+    )
+    before = _instances(stack, table)
+    backpack = before["Backpack"]["entity_id"]
+    # Brisk's rope, put in Ashfang's backpack.
+    with stack.api(gm) as api:
+        stranger = api.post(
+            f"{t}/item-instances",
+            json={
+                "prototype_id": rope,
+                "owner_character_id": brisk["entity_id"],
+                "container_entity_id": backpack,
+            },
+        )
+        assert stranger.status_code == 201, stranger.text
+
+    second = _write(
+        tmp_path,
+        "format: lorenzo-ledger/1\nowner: Ashfang\n\n## Not carried\n- Rope\n",
+        "second.md",
+    )
+    done = run_cli(
+        stack, gm, tmp_path, "inventory", "import", str(second), "-t", slug, "--replace", "--yes"
+    )
+
+    text = " ".join(done.output.split())
+    assert done.exit_code == 0, done.output
+    assert "1 left alone" in text and "Backpack: holds" in text
+    after = _instances(stack, table)
+    assert after["Backpack"]["entity_id"] == backpack  # still there, still Ashfang's
+    assert "Dagger" not in after  # the rest of what Ashfang owned went
+    with stack.api(gm) as api:
+        inside = api.get(f"{t}/item-instances", params={"container_id": backpack}).json()["items"]
+    assert [(i["owner_entity_id"]) for i in inside] == [brisk["entity_id"]]  # Brisk's rope stays

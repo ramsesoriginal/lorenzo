@@ -1,3 +1,6 @@
+# EDIT THIS FILE IN packages/inventory-names, then `mise run //apps/cli:sync-names` (ADR 0242): the
+# copy in apps/cli is what the installed tool ships, and a test fails when it is stale.
+#
 # What the importer tries when a name matches no item (ADR 0193): the same name written another way.
 # It is data, and it grows as GMs find gaps; `lorenzo inventory import --preprocess FILE` adds a
 # table of one's own, in this shape, on top of it.

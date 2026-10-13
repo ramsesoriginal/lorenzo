@@ -25,6 +25,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    InvalidSheetSettingError,
     InvalidUserError,
     LastOwnerError,
     MembershipAlreadyExistsError,
@@ -45,6 +46,7 @@ from lorenzo_api.models import (
     MembershipRole,
     Player,
     RepositorySubscription,
+    StatGroup,
     Tenant,
     TenantKind,
     User,
@@ -304,6 +306,22 @@ async def update_tenant(
         if update.get(field) is not None:
             setattr(tenant, field, update[field])
             changed_fields.append(field)
+    # ADR 0281: these two can be cleared, so an explicit null counts.
+    for field in ("weapon_stat_group_id", "ability_information_type"):
+        if field not in update or update[field] == getattr(tenant, field):
+            continue
+        if field == "weapon_stat_group_id" and update[field] is not None:
+            found = await session.scalar(
+                select(StatGroup.id).where(
+                    StatGroup.id == update[field], StatGroup.tenant_id == tenant_id
+                )
+            )
+            if found is None:
+                raise InvalidSheetSettingError(
+                    detail=f"No stat group with id {update[field]} in this tenant"
+                )
+        setattr(tenant, field, update[field])
+        changed_fields.append(field)
     if changed_fields:
         tenant.updated_by = user.id
         await record_activity(

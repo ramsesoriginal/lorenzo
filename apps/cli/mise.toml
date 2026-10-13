@@ -26,6 +26,10 @@ run = "uv run pytest --cov --ignore=tests/e2e"
 description = "Run the end-to-end tests against the real API (ADR 0137)"
 run = "uv run pytest tests/e2e --no-cov -n ${E2E_WORKERS:-4} --dist loadfile"
 
+[tasks.sync-names]
+description = "Copy packages/inventory-names' table of other spellings in (ADR 0242); a test fails when the copy is stale"
+run = "cp ../../packages/inventory-names/preprocess.toml src/lorenzo_cli/inventory/preprocess.toml"
+
 [tasks.build]
 description = "Build the wheel and sdist"
 run = "uv build"

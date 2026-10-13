@@ -1,7 +1,7 @@
 monorepo_root = true
 
 [monorepo]
-config_roots = ["apps/account-hub", "apps/api", "apps/cli", "apps/inventory-web", "apps/loot-bot", "apps/brand", "packages/api-client", "packages/brand", "packages/lorenzoscript", "packages/lorenzoscript-editor"]
+config_roots = ["apps/account-hub", "apps/api", "apps/beings", "apps/bench", "apps/cli", "apps/inventory-web", "apps/loot-bot", "apps/brand", "packages/api-client", "packages/brand", "packages/converters", "packages/inventory-names", "packages/lorenzoscript", "packages/lorenzoscript-editor", "packages/stat-values"]
 
 [tools]
 node = "26"
@@ -19,6 +19,17 @@ uv = "0.12.3"
 # own `//:x` task, since the root project is part of "everything" - so it
 # recursed into itself infinitely instead of fanning out. `//apps/...:x`/
 # `//packages/...:x` scope the glob to actual sub-projects instead.
+
+[env]
+PUBLIC_AUTHGEAR_CLIENT_ID = "1923bf4e48a6c7ab" # public, no problem to be committed
+PUBLIC_AUTHGEAR_ENDPOINT = "https://lorenzo.authgear.cloud"
+AUTHGEAR_DEV_CLIENT_ID = "1923bf4e48a6c7ab"    # public, no problem to be committed
+AUTHGEAR_ISSUER = "https://lorenzo.authgear.cloud"
+AUTHGEAR_JWKS_URL = "https://lorenzo.authgear.cloud/oauth2/jwks"
+AUTHGEAR_AUDIENCE = "https://lorenzo.authgear.cloud"
+REGION = "europe-west1"
+LOOT_BOT_URL = "https://lorenzo-loot-bot-inkhankc2a-ew.a.run.app"
+
 [tasks.dev]
 description = "Run every app's dev task"
 run = ["mise run '//apps/...:dev'", "mise run '//packages/...:dev'"]

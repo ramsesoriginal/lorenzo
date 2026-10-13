@@ -60,12 +60,16 @@ export function linkNote(
   hasPicture: boolean,
 ): string | null {
   const fallback = ref.kind === 'image' ? 'the alt text' : 'plain text';
-  if (!entity) return `No entity has the slug “${ref.slug}” yet, so readers see ${fallback}.`;
+  if (!entity) {
+    return ref.hint === 'my'
+      ? `Nothing called “${ref.slug}” is held by whoever this belongs to, so readers see ${fallback}.`
+      : `No entity has the slug “${ref.slug}” yet, so readers see ${fallback}.`;
+  }
   if (ref.kind === 'image') {
     return hasPicture ? null : `${entity.name} has no picture, so readers see the alt text.`;
   }
   const view = viewFor(entity, ref.hint);
-  const mismatch = ref.hint !== '' && !entity.kinds.includes(ref.hint as Kind);
+  const mismatch = ref.hint !== '' && ref.hint !== 'my' && !entity.kinds.includes(ref.hint as Kind);
   const hint = ref.hint.replace(/_/g, ' ');
   const what = `${entity.name} isn't ${/^[aeiou]/.test(hint) ? 'an' : 'a'} ${hint}`;
   if (!view) {

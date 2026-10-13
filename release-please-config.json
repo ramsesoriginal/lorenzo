@@ -9,6 +9,10 @@
       "release-type": "python",
       "component": "api"
     },
+    "apps/bench": {
+      "release-type": "node",
+      "component": "bench"
+    },
     "apps/cli": {
       "release-type": "python",
       "component": "cli"
@@ -29,6 +33,14 @@
       "release-type": "node",
       "component": "api-client"
     },
+    "packages/converters": {
+      "release-type": "python",
+      "component": "converters"
+    },
+    "packages/inventory-names": {
+      "release-type": "node",
+      "component": "inventory-names"
+    },
     "packages/brand": {
       "release-type": "node",
       "component": "brand-package"
@@ -40,6 +52,14 @@
     "packages/lorenzoscript-editor": {
       "release-type": "node",
       "component": "lorenzoscript-editor"
+    },
+    "apps/beings": {
+      "release-type": "node",
+      "component": "beings"
+    },
+    "packages/stat-values": {
+      "release-type": "node",
+      "component": "stat-values"
     }
   }
 }

@@ -1,0 +1,29 @@
+{
+  "name": "@lorenzo/inventory-names",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "The table of other spellings the inventory importer tries (ADR 0193), as data with shared test vectors, and its TypeScript reader. See ADR 0242.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "preprocess.toml",
+    "vectors.json",
+    "src"
+  ],
+  "scripts": {
+    "lint": "biome check . && tsc --noEmit",
+    "format": "biome check --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "smol-toml": "^1.9.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

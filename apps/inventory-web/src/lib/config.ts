@@ -23,3 +23,10 @@ export const AUTHGEAR_CLIENT_ID: string | undefined = import.meta.env.PUBLIC_AUT
 export const BRANDING_CSS_URL: string = (
   import.meta.env.PUBLIC_BRANDING_CSS_URL || '/branding'
 ).replace(/\/$/, '');
+
+// Where "See all" in the notification bell goes when the API's registry of app links cannot say
+// (ADR 0273): the account hub, which lists every notification (ADR 0265). A public address, so a
+// working default ships.
+export const ACCOUNT_HUB_URL: string = (
+  import.meta.env.PUBLIC_ACCOUNT_HUB_URL || 'https://lorenzo-account-hub.pages.dev'
+).replace(/\/$/, '');

@@ -1,0 +1,129 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Workbench (clickable)",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-09T09:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "try": {
+      "fill": "blue",
+      "maxH": 270,
+      "size": 24,
+      "text": "Try, in the clickable workbench:\n1. Click a paragraph: its source appears; Esc finishes.\n2. Hover the 1.5 kg in Ashfang's text: − and + appear. Weight is inherited from Sword.\n3. Edit Sword's weight in the table, or type weight 2 in Command: watch every view follow. Inherited values read Out of date for a moment, then catch up.\n4. Float the Properties or Graph pane, and dock it back.\n5. Turn Online off, change Ashfang's price, turn Online on: someone else changed it too, so you get a conflict to review.",
+      "w": 620,
+      "x": 0,
+      "y": -330
+    },
+    "grid": {
+      "fill": "teal",
+      "maxH": 330,
+      "size": 24,
+      "w": 620,
+      "x": 680,
+      "y": -420,
+      "text": "Try, in the Compare tab (Command: open the compare grid, or Open as grid in the Table pane):\n1. Click a cell: the bar below shows where its value comes from. Go to the source, or set it on this entry.\n2. Arrow keys move, Enter edits, typing replaces, Delete makes a cell inherit, Esc clears.\n3. Drag across cells, then Set, − or +, Fill down, Make inherit. A bulk change is one row in the sync list, with one Undo.\n4. Paste values: copy cells from a spreadsheet and paste them in.\n5. Columns, group by inheritance or A to Z, filter. ƒ Weight (lb) is worked out by Lorenzo, so it stays Out of date until the change syncs."
+    },
+    "dock": {
+      "fill": "yellow",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 0,
+      "y": -700,
+      "text": "Try, docking (Zed style):\n1. Drag a tab onto another group's tab bar: it joins as a tab, at the marker.\n2. Drag a tab onto the edge of a pane body: the highlight shows the split. Drop on the middle to add it as a tab.\n3. Drop a tab on nothing (outside the panes): it floats. Drag a floating window by its title bar onto a tab bar or a pane edge to dock it.\n4. Drag the thin lines between panes to resize. Layout: Write / Inspect / Compare reset the arrangement.\n5. No mouse? Command: Float / Dock / Split / Close the … pane."
+    },
+    "formula": {
+      "fill": "purple",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 680,
+      "y": -780,
+      "text": "Try, formulas (Command: Edit the Total weight formula, or Edit formula in Properties):\n1. Pick Backpack, open Total weight. It adds Weight and Contents weight; the card shows what Lorenzo works out, with its inputs.\n2. Change a number or pick another stat: a dashed preview appears. Nothing is written until Save.\n3. Make a loop (Contents weight scaling Total weight) or give a whole-number stat no rounding: the problem is said in words and Save stays off.\n4. Turn Online off: you can save, but there is no preview, because Lorenzo works formulas out. Back online, it catches up.\n5. Open the Stats pane: rename, add or delete a stat. One in use can't be deleted, and the list says why."
+    },
+    "pictures": {
+      "fill": "orange",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 0,
+      "y": -1060,
+      "text": "Try, pictures (Command: Add a picture to …, or Open the Pictures pane):\n1. Open Longsword. It shows Sword's picture and says so. Use its own picture takes a real file from your computer: you see the large view and the thumbnail crop before anything is uploaded.\n2. Drop a picture on the picture slot, or on a paragraph to put it in the text. Paste works in the slot and while editing a paragraph.\n3. Try a PDF or a file over 2 MB: the reason is said in plain words, and nothing is added.\n4. Replace and Remove each give an Undo in the status bar.\n5. Turn Online off: you can still see pictures, but adding, replacing and removing need a connection.\n6. Pictures pane: every picture, who owns it, and the entries that still have none."
+    },
+    "pack": {
+      "fill": "green",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 680,
+      "y": -1140,
+      "text": "Try, the pack editor (open Explorer's Pack in the Entries list; Command: Add a pack list to …):\n1. The list in its description is a table of rows: count, item, weight. Containers carry what is inside them, and the total is added up under it.\n2. Change a count, or hover a row for move up/down, put inside the row above (Tab), take out (Shift+Tab) and remove. Enter adds a row and opens the picker.\n3. Alms box is plain text: Make this an item creates it in Gear and links the row. Put a Torch inside a Torch, or a missing link name, and the row says what is wrong in plain words.\n4. Show as text opens the exact lines that are saved. Everything stays one text change in the sync list, with Undo.\n5. Weights are as Lorenzo last gave them, so a changed weight reads Out of date until it syncs."
+    },
+    "repos": {
+      "fill": "red",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 0,
+      "y": -1420,
+      "text": "Try, repositories and first run (click the repository name in the top bar; Command: Prototype: show the first run):\n1. The menu lists every repository you author, with your role, what is on this device, and changes waiting in the others. Libraries sit below, online only. All repositories… opens the start screen.\n2. Start screen: Open, Free room (not while changes are waiting), Keep on this device when there is room. The bar shows what is kept against the 20 MB ceiling.\n3. Sign out… with changes waiting offers Sync now, Discard, or Cancel; offline it can't sync and says discarding loses them. Try it online first, then offline.\n4. Prototype: show the first run: Sign in, then each repository downloads in turn. Go offline mid-way: it pauses and resumes. Multiverse crossover has no room, so it stays online only.\n5. Prototype: end the session shows the expired banner: not a sign-out, changes stay."
+    },
+    "world": {
+      "fill": "blue",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 680,
+      "y": -1500,
+      "text": "Try, a second world (round 1 of the world-building sketches; click the repository name, then Hollowmere):\n1. The list on the left shows Mara Quill twice: under Innkeeper and under Residents. The little branch mark says so, and selecting her highlights both. Group the list by Inherits, Kind or A to Z.\n2. New makes a Bare entry (just a name and text) or any kind. + Kind on an entry adds or removes kinds. Location, Fact, Clock and Calendar are marked Sketch: they come from proposals that are still open.\n3. Properties shows Also parents, and kind details: a clock's segments, a fact's status (known, rumour, disproved), a place's places inside, a group's members.\n4. Hover any entry name (text, list, Links, Also, places inside): a card shows picture, kinds, what it inherits from and a line of text.\n5. In the text, ![caption](link-name) shows that entry's picture. An entry without a picture, or one you can't see, shows only the caption. Edit a paragraph: Picture of an entry picks one; Picture from the web warns who can see who opens it."
+    },
+    "mapgraph": {
+      "fill": "teal",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 0,
+      "y": -1820,
+      "text": "Try, the map and the relations graph (open Hollowmere; Command: Open the Map pane, Open the Relations pane):\n1. Map: drag to pan, + and − to zoom. Zoomed out you see the town, the wood and the mill, with a count of who is inside. Zoom in and the places inside the town and the people appear. Hover any pin for the same preview card.\n2. Open Old Mill, Properties, Move it on the map, then click the map. Open Mara Quill, Move to… a place: her marker follows.\n3. Draw a road: click two places. A road is a Connection entry under the Road kind.\n4. Relations: people and groups, joined by typed connections. Lines are told apart by pattern and name, not colour. Drag nodes; 1 or 2 steps shows the neighbourhood of the open entry; also links in the text, also what they inherit from.\n5. Connect two entries: click one, click another, choose how they are connected. Connections are hidden in the list unless you ask (Connections (16)).\nBoth are sketches: frames, coordinates and connections come from proposals that are still open."
+    },
+    "time": {
+      "fill": "purple",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 680,
+      "y": -2160,
+      "text": "Try, time (open Hollowmere; Command: Show the timeline):\n1. In order: six events in story order, not played order. 'Tamsin swears her oath' is undated, with a GM ruling: same day as the fire, hour unknown. It is never given a made-up hour. Earlier / Later reorder; Date it… opens the calendar so you can click a day.\n2. On the calendar: Hollowmere reckoning, 12 months of 30 days in six-day weeks. Lantern Night and Leap Fair (every 4th year) sit outside the weeks. A month-only reading sits under its month. Now is marked in year 3.\n3. What led to what: solid lines are established, dashed ones are only said. Connect cause and effect: only events can be joined.\n4. Open any event for order, date, came from and led to."
+    },
+    "sheet": {
+      "fill": "green",
+      "size": 24,
+      "w": 620,
+      "maxH": 330,
+      "x": 0,
+      "y": -2160,
+      "text": "Try, sheets and the manuscript:\n1. Open Mara Quill, then Command: Show Mara Quill as a sheet. The NPC block was chosen because she is a being. Switch to another template for this entry, or Choose by itself.\n2. Edit this template: move, remove and add parts (where they are, relationships, what is known, appears in, notes…), rename it, change what it fits. One template, many entries.\n3. Command: Open the manuscript. Two books, chapters in reading order, status you can click through (Outline, Draft, Revised, Final), who and what each chapter mentions, and when it happens in the story. Chapter 3 goes back in time: reading order and story order are kept apart.\n4. Read it through shows the book as text, with the same hover previews. Open Old Mill: the Links pane lists the chapters that mention it."
+    }
+  },
+  "order": [
+    "Main.dc.html"
+  ],
+  "pages": [],
+  "title": "Lorenzo Bench: workbench design"
+}

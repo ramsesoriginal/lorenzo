@@ -4,6 +4,7 @@ import { errorMessage } from '../../lib/errorMessage';
 import { getControlledItemInstances, getUnownedItemInstances } from '../../lib/items';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ControlledByResponse, ItemInstance } from '../../lib/types';
+import { findUnsortedItem } from '../../lib/unsorted';
 import { renderAddItem } from '../AddItem/renderer';
 import type { RenderedUndoBanner } from '../UndoBanner/renderer';
 import { createColumns, matchesSearch } from './columns';
@@ -151,6 +152,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     try {
       const shown = await fetchBoard();
 
+      state.unsortedId = await unsortedLookup;
       state.current = shown;
       columns.replaceChildren();
       columns.removeAttribute('aria-busy');
@@ -170,6 +172,10 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
       error.textContent = errorMessage(cause);
     }
   }
+
+  // The library's `unsorted` item, looked up once: it marks the placeholders (ADR 0238). Not
+  // finding it only means no card is marked.
+  const unsortedLookup = findUnsortedItem(tenantId).catch(() => null);
 
   // Requests fired on hover or focus of a being's link, before the click. Taking one out
   // is one-shot: a later reload of the same being should ask again, not replay a stale answer.

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ARRAY, ForeignKey, Text
+from sqlalchemy import ARRAY, ForeignKey, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
@@ -12,6 +12,7 @@ from lorenzo_api.db import Base, CreatedAt, UpdatedAt, UuidPk
 if TYPE_CHECKING:
     from lorenzo_api.models.campaign_gm import CampaignGm
     from lorenzo_api.models.membership import Membership
+    from lorenzo_api.models.personal_access_token import PersonalAccessToken
     from lorenzo_api.models.player import Player
     from lorenzo_api.models.tenant_admin_campaign_opt_out import TenantAdminCampaignOptOut
 
@@ -74,6 +75,11 @@ class User(Base):
     bio: Mapped[str | None]
     locales: Mapped[list[str]] = mapped_column(ARRAY(Text), default=list)
     user_color: Mapped[str | None]
+    # ADR 0268 - the Authgear roles on the latest interactive token, kept so a personal access
+    # token (which Authgear never sees) can carry the tenant-creator capability.
+    last_seen_roles: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), default=list, server_default=text("'{}'::text[]")
+    )
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
@@ -90,6 +96,9 @@ class User(Base):
     # source of truth for who holds this role (ADR 0009's own boundary, the
     # other direction).
     authgear_roles: frozenset[str]
+    # ADR 0268 - set (non-persisted, like authgear_roles) when the request authenticated with a
+    # personal access token; None for an interactive Authgear session.
+    via_personal_token: PersonalAccessToken | None = None
 
     # foreign_keys explicit on every one of these: membership/player each
     # gained a second and third FK to app_user (created_by/updated_by, ADR
