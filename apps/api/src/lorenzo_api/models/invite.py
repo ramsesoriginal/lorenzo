@@ -11,9 +11,9 @@ from lorenzo_api.db import Base, CreatedAt, TenantFk, UuidPk, same_tenant_fk
 
 
 class InviteKind(enum.Enum):
-    """What redeeming an invite does (ADR 0211). `campaign` is every link ADR 0092 and 0177
+    """What redeeming an invite does (ADR 0220). `campaign` is every link ADR 0092 and 0177
     defined; `tenant_role` makes a membership of its tenant, a library or a repository (ADR
-    0210's Author, or an Organizer); `library_access` grants its repository to a library the
+    0219's Author, or an Organizer); `library_access` grants its repository to a library the
     redeemer owns. Never an Owner, by any kind.
     """
 
@@ -25,7 +25,7 @@ class InviteKind(enum.Enum):
 class InviteRole(enum.Enum):
     """What redeeming an invite makes someone. `player` is every link ADR 0092 defined and
     `gm` the one narrow exception in a campaign (ADR 0177); `author` and `orga` are what a
-    `tenant_role` link makes in its tenant (ADR 0211). A `library_access` link has no role.
+    `tenant_role` link makes in its tenant (ADR 0220). A `library_access` link has no role.
     """
 
     PLAYER = "player"
@@ -35,7 +35,7 @@ class InviteRole(enum.Enum):
 
 
 class Invite(Base):
-    """A shareable link, one table for every kind (ADR 0211, which renamed `campaign_invite`).
+    """A shareable link, one table for every kind (ADR 0220, which renamed `campaign_invite`).
 
     A `campaign` link lets people join one campaign as players themselves - see ADR
     0092/RFC 0023 - or, for `role = gm`, one person as a GM (ADR 0177: single use, at most 7

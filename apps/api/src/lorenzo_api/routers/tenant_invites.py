@@ -1,4 +1,4 @@
-"""An Owner's invite links for their library or repository (ADR 0211): a role link, which makes
+"""An Owner's invite links for their library or repository (ADR 0220): a role link, which makes
 an Author or an Organizer, and a library-access link, which shares a repository with a library.
 
 The campaign links are `routers/campaign_invites.py`; redeeming any of them is
@@ -73,7 +73,7 @@ async def create_tenant_invite(
     (`409` for a library), grants it to a library its redeemer owns. Always ends and is always
     capped: single use unless an Author or library link says more, up to a ceiling; the
     expiry defaults to 3 days for a role link and 7 for a library link, and may not be longer
-    than 7 and 30 (ADR 0211).
+    than 7 and 30 (ADR 0220).
     """
     await _require_owner(session, tenant_id=tenant_id, user=user)
     tenant = await session.get_one(Tenant, tenant_id)

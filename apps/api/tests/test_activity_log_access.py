@@ -1,7 +1,7 @@
 """Who can read GET /tenants/{id}/activity-log - see ADR 0084.
 
 The log is for tenant administrators (OWNER or ORGA). It is enforced by
-`get_tenant_admin_context`, so an AUTHOR (RFC 0040, ADR 0210), who is a
+`get_tenant_admin_context`, so an AUTHOR (RFC 0040, ADR 0219), who is a
 member but not an administrator, is refused with a 403, and GMs and players
 without a Membership never reach it at all (404). These tests pin that down;
 tests/test_author_route_audit.py is the table that replaced the tripwire

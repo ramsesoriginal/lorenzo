@@ -290,7 +290,7 @@ describe('GM links (ADR 0177)', () => {
   });
 });
 
-describe('the other kinds of link (ADR 0211)', () => {
+describe('the other kinds of link (ADR 0220)', () => {
   const library = {
     kind: 'tenant_role',
     name: 'A table',

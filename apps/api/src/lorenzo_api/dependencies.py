@@ -356,7 +356,7 @@ async def get_tenant_context(
     tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> uuid.UUID:
     """Validates tenant_id is real *and* the caller actually has a
-    Membership in it, of any role: an Owner, an Organizer or an Author (ADR 0210;
+    Membership in it, of any role: an Owner, an Organizer or an Author (ADR 0219;
     `get_tenant_admin_context` is the one for the first two), then sets
     app.tenant_id on this same request-scoped session, which RLS policies now
     actually filter on, since the app connects as a restricted, non-superuser role
@@ -382,7 +382,7 @@ async def get_tenant_admin_context(
     user: CurrentUser,
 ) -> uuid.UUID:
     """A membership, as `get_tenant_context` asks for, and a role that runs the tenant: an Owner
-    or an Organizer (ADR 0210). An Author is a member who is refused with a 403. Every route
+    or an Organizer (ADR 0219). An Author is a member who is refused with a 403. Every route
     behind a bare `get_tenant_context` is open to an Author, which tests/test_author_route_audit.py
     makes each route choose.
     """

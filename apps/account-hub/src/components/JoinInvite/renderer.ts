@@ -1,4 +1,4 @@
-// /join (ADR 0171, 0211): read the invite token from the address, say what the link offers, and let a
+// /join (ADR 0171, 0220): read the invite token from the address, say what the link offers, and let a
 // logged-in person take it. The token is never logged, put in a link, or kept anywhere but this
 // tab's sessionStorage, until it is used. A link is for a campaign, for a role in a library or
 // repository, or to share a repository with a library of the visitor's; the page branches on the
@@ -210,7 +210,7 @@ export async function renderJoinInvite(root: HTMLElement): Promise<void> {
     const preview = await previewInvite(token);
 
     name.textContent = preview.name;
-    // Every kind says what it offers before anyone is asked to log in (ADR 0177, 0211).
+    // Every kind says what it offers before anyone is asked to log in (ADR 0177, 0220).
     offer.textContent = offerFor(preview).sentence;
 
     if (preview.picture_url) {

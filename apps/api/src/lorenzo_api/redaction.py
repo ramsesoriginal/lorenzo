@@ -1,4 +1,4 @@
-"""Keeps invite tokens, of every kind, out of logs and traces - ADR 0092, ADR 0211.
+"""Keeps invite tokens, of every kind, out of logs and traces - ADR 0092, ADR 0220.
 
 A token is a bearer credential and it lives in a URL *path*
 (`GET /invites/{token}`, `POST /invites/{token}/redeem`), which is exactly
@@ -16,7 +16,7 @@ from opentelemetry.trace import Span
 from structlog.types import EventDict, WrappedLogger
 
 # The segment after a root-level `/invites/`. The lookbehinds exempt the management paths
-# `.../campaigns/{campaign_id}/invites/{invite_id}` and (ADR 0211)
+# `.../campaigns/{campaign_id}/invites/{invite_id}` and (ADR 0220)
 # `.../tenants/{tenant_id}/invites/{invite_id}`, whose last segment is an id, not a secret -
 # scrubbing it would make an audit log useless. (Every lookbehind piece is fixed-width, which
 # `re` requires.)

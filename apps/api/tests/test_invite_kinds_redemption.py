@@ -1,4 +1,4 @@
-"""Redeeming the invite links of a library or repository (ADR 0211), through the public routes with
+"""Redeeming the invite links of a library or repository (ADR 0220), through the public routes with
 real verified tokens: what a visitor sees before they accept, a role link, a library-access link,
 and that a dead link is the same answer in every kind.
 """

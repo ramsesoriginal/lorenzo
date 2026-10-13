@@ -26,7 +26,7 @@ class InviteCreate(BaseModel):
     `role` (ADR 0177) is `player` unless said otherwise. A `gm` link is
     single use - `max_uses` omitted or 1 - and its `expires_at` is at most 7
     days out, which the route checks. A campaign's links make a player or a GM, and
-    nothing else (ADR 0211).
+    nothing else (ADR 0220).
     """
 
     expires_at: AwareDatetime
@@ -47,7 +47,7 @@ class InviteCreate(BaseModel):
 
 
 class TenantInviteCreate(BaseModel):
-    """POST /tenants/{id}/invites - an Owner's link for their library or repository (ADR 0211).
+    """POST /tenants/{id}/invites - an Owner's link for their library or repository (ADR 0220).
 
     `kind` is `tenant_role`, which makes an Author or an Organizer of the tenant and takes a
     `role`, or `library_access`, which grants a repository to a library the redeemer owns and
@@ -82,7 +82,7 @@ class TenantInviteCreate(BaseModel):
 class InviteOut(BaseModel):
     """An invite's metadata - never its token. `is_active` folds revocation,
     expiry and exhaustion into one flag for a management UI. `campaign_id` is null for a
-    role or a library link, and `role` for a library link (ADR 0211).
+    role or a library link, and `role` for a library link (ADR 0220).
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -137,7 +137,7 @@ class InvitePreviewOut(BaseModel):
     name for a campaign link, as before, and null for the other kinds. `tenant_kind` says
     whether `name` is a library (`play`) or a repository, null for a campaign. No tenant name
     of a campaign, no roster, nothing a holder of a leaked link couldn't already learn (ADR
-    0092, 0211).
+    0092, 0220).
     """
 
     kind: InviteKind
@@ -151,7 +151,7 @@ class InvitePreviewOut(BaseModel):
 class InviteRedeemIn(BaseModel):
     """POST /invites/{token}/redeem. The body is for a library-access link only: the library
     (or, for a bridge, the repository) to share with, which the caller must own. It travels
-    here and never in the path, with the token (ADR 0211)."""
+    here and never in the path, with the token (ADR 0220)."""
 
     library_id: uuid.UUID | None = None
 
@@ -162,7 +162,7 @@ class InviteRedeemOut(BaseModel):
     in the campaign, any role in the tenant, the grant - no second seat, no use consumed.
     `player_id` is null for every kind but a player link. `campaign_id` is null for a role or
     a library link, and `role` for a library link. `library_id` is the library a library link
-    shared its repository with (ADR 0211).
+    shared its repository with (ADR 0220).
     """
 
     kind: InviteKind

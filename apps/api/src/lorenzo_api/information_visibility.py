@@ -85,7 +85,7 @@ class InformationVisibility:
     player_ids: frozenset[uuid.UUID]
     knower_entity_ids: frozenset[uuid.UUID]
     gm_reachable_entity_ids: frozenset[uuid.UUID]
-    # An Author (RFC 0040, ADR 0210) reads every note on the entries in their reach: all of a
+    # An Author (RFC 0040, ADR 0219) reads every note on the entries in their reach: all of a
     # repository (`author_sees_all`), the catalog items of a library (`author_entry_ids`).
     # Neither is an administrator's bypass, so what an Author reads never widens past it.
     author_sees_all: bool = False

@@ -1,4 +1,4 @@
-"""The invite links of a library or repository (ADR 0211): an Owner's role links (Author,
+"""The invite links of a library or repository (ADR 0220): an Owner's role links (Author,
 Organizer) and library-access links, through the real HTTP API. Redeeming them is
 test_invite_kinds_redemption.py; the table's own rules are at the end.
 """

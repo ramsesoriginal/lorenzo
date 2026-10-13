@@ -1,6 +1,6 @@
-# 0211 - One invite table, with kinds
+# 0220 - One invite table, with kinds
 
-Status: accepted, decided with the maintainer on 2026-10-08. Slice U2 of [RFC 0040](../rfcs/0040-authors-and-invites.md), tracked in #546. Builds on [ADR 0092](0092-campaign-invite-links.md) (campaign invite links), [ADR 0177](0177-gm-invite-links.md) (the GM link), [ADR 0171](0171-account-hub-campaign-invite-links.md) (the hub's side) and [ADR 0210](0210-the-author-role.md) (the Author role, which a link can make). The `source` of a grant, which [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) adds, is another slice's; a grant made by a link is what every grant is today, an invited one, and nothing here leaves it out of reach.
+Status: accepted, decided with the maintainer on 2026-10-08. Slice U2 of [RFC 0040](../rfcs/0040-authors-and-invites.md), tracked in #546. Builds on [ADR 0092](0092-campaign-invite-links.md) (campaign invite links), [ADR 0177](0177-gm-invite-links.md) (the GM link), [ADR 0171](0171-account-hub-campaign-invite-links.md) (the hub's side) and [ADR 0219](0219-the-author-role.md) (the Author role, which a link can make). The `source` of a grant, which [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) adds, is another slice's; a grant made by a link is what every grant is today, an invited one, and nothing here leaves it out of reach.
 
 ## Context
 

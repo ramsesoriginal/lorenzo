@@ -163,7 +163,7 @@ export const LINK_SHOWN_ONCE_NOTICE =
 export const GM_LINK_SHOWN_ONCE_NOTICE =
   "This link won't be shown again, and it works once: whoever opens it first becomes a GM of this campaign. Send it only to the person who should run it, or revoke it.";
 
-// What a link makes someone: `player` for every link before ADR 0177, `gm`, and (ADR 0211) an
+// What a link makes someone: `player` for every link before ADR 0177, `gm`, and (ADR 0220) an
 // `author` or an `orga` of a library or repository. A library-access link makes no one anything.
 export type InviteRole = 'player' | 'gm' | 'author' | 'orga';
 
@@ -225,7 +225,7 @@ function placeWord(tenantKind: InvitePreview['tenant_kind']): 'library' | 'repos
 
 // The sentence under the name, and the button: a campaign link as ever, a role link as an offer of
 // a role in a library or repository, a library link as a repository being shared with a library
-// of the visitor's (ADR 0211).
+// of the visitor's (ADR 0220).
 export function offerFor(preview: InvitePreview): { sentence: string; actionLabel: string } {
   if (preview.kind === 'library_access') {
     return {
@@ -293,7 +293,7 @@ export interface ShareTarget {
 }
 
 // What a person may share a repository with: the libraries they are an Owner of, and the
-// repositories too, since a bridge is built on another (ADR 0211). Any other role is not enough.
+// repositories too, since a bridge is built on another (ADR 0220). Any other role is not enough.
 export function shareTargets(managed: {
   tenants: readonly {
     tenant_id: string;

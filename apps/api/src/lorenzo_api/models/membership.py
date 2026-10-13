@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 class MembershipRole(enum.Enum):
     """What a person is in a tenant, library or repository - see ADR 0010/0022 and, for
-    AUTHOR, ADR 0210. OWNER and ORGA are the administrators (`campaign_access.
+    AUTHOR, ADR 0219. OWNER and ORGA are the administrators (`campaign_access.
     is_tenant_admin`); AUTHOR edits content and is not one. Campaign-scoped GM/player
     access is a separate, campaign-level concept (RFC 0002), not a value here - a user
     can validly have no Membership row at all and still access campaigns as an

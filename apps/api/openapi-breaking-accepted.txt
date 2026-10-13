@@ -336,11 +336,11 @@ POST /invites/{token}/redeem response property `player_id` list-of-types was wid
 GET /tenants/{tenant_id}/subscribers response property `items/items/granted_at` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
 PUT /tenants/{tenant_id}/subscribers/{subscriber_tenant_id} response property `granted_at` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
 
-# ADR 0210: a membership role can be `author`, which the two lists that report it can now return.
+# ADR 0219: a membership role can be `author`, which the two lists that report it can now return.
 GET /me/managed added the new `author` enum value to the `tenants/items/role/anyOf[subschema #1]/` response property for the response status `200`
 GET /tenants added the new `author` enum value to the `items/items/role` response property for the response status `200`
 
-# ADR 0211: one invite table with kinds. A link not made for a campaign has no campaign, and a
+# ADR 0220: one invite table with kinds. A link not made for a campaign has no campaign, and a
 # library-access link has no role, so the two become nullable in what a link reports.
 GET /invites/{token} response property `campaign_name` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
 GET /invites/{token} response property `role` list-of-types was widened by adding types `null` to media type `application/json` of response `200`

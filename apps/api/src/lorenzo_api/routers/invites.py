@@ -59,7 +59,7 @@ def _reject(request: Request, *, endpoint: str) -> InviteNotFoundError:
 @router.get("/invites/{token}")
 async def preview_invite(token: str, request: Request, session: SessionDep) -> InvitePreviewOut:
     """Unauthenticated - what the visitor is about to be asked, so a landing page can say so
-    before they log in (ADR 0092, 0211): for a campaign link the campaign's name and picture
+    before they log in (ADR 0092, 0220): for a campaign link the campaign's name and picture
     URL, as a player or as a GM (ADR 0177); for a role link the library's or repository's name
     and picture and the role, Author or Organizer; for a library link the repository's name and
     picture. Nothing else: no ids but those in a picture's address, no roster, no members. Does
@@ -219,7 +219,7 @@ async def _redeem_role_link(
     *,
     invite: Invite,
 ) -> InviteRedeemOut:
-    """A role link's redemption (ADR 0211): a membership of the invite's tenant with the
+    """A role link's redemption (ADR 0220): a membership of the invite's tenant with the
     link's role, Author or Organizer, attributed to whoever made the link. **It never changes
     an existing membership**: someone who already holds any role there gets `200`,
     `already_joined`, no use is spent and nothing changes, so a link can raise or lower no
@@ -292,7 +292,7 @@ async def _redeem_library_link(
     invite: Invite,
     library_id: uuid.UUID | None,
 ) -> InviteRedeemOut:
-    """A library-access link's redemption (ADR 0211): the repository the link was made for is
+    """A library-access link's redemption (ADR 0220): the repository the link was made for is
     granted to a library the caller owns, named in the request body (`library_id`), with the
     same writes, log and notice as an Owner granting it by id. The library is any tenant the
     caller is an Owner of other than the repository itself, a repository too, for a bridge;
@@ -391,7 +391,7 @@ async def redeem_invite(
     row. Idempotent: someone who already holds the role gets `200` and no
     second seat, no use consumed. `201` the first time.
 
-    The other kinds (ADR 0211): a role link makes the caller an Author or an Organizer of its
+    The other kinds (ADR 0220): a role link makes the caller an Author or an Organizer of its
     library or repository, and never changes a role they already hold; a library-access link
     grants its repository to the library named in the body.
     """

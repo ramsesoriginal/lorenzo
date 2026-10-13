@@ -451,7 +451,7 @@ async def opt_out_of_campaign_admin_visibility(
 
     The is_tenant_admin check below is consequently unreachable via any
     real caller: get_tenant_admin_context already refuses everyone but an
-    OWNER or an ORGA (an AUTHOR gets the 403 there, ADR 0210). Kept anyway as
+    OWNER or an ORGA (an AUTHOR gets the 403 there, ADR 0219). Kept anyway as
     the explicit statement of the actual business rule - the same
     dead-but-documented-intent shape tenants.py's own get_tenant uses for its
     post-dependency re-fetch.

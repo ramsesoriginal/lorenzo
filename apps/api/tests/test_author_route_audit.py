@@ -1,4 +1,4 @@
-"""The route audit of RFC 0040 / ADR 0210: every route that asks for "a membership"
+"""The route audit of RFC 0040 / ADR 0219: every route that asks for "a membership"
 (`get_tenant_context`) is on exactly one of three lists, and an Author is refused where the list
 says so.
 
@@ -104,7 +104,7 @@ OWNER = {
     ("PUT", T + "/subscribers/{subscriber_tenant_id}"),
     ("DELETE", T + "/subscribers/{subscriber_tenant_id}"),
     ("DELETE", REPOSITORY),
-    # An Owner's invite links (ADR 0211): made, listed and revoked.
+    # An Owner's invite links (ADR 0220): made, listed and revoked.
     ("POST", T + "/invites"),
     ("GET", T + "/invites"),
     ("DELETE", T + "/invites/{invite_id}"),

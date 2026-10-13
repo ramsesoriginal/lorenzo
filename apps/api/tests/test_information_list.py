@@ -87,7 +87,7 @@ async def test_visible_information_clause_matches_can_see() -> None:
     callers = {
         "admin": InformationVisibility(True, True, frozenset(), frozenset(), frozenset()),
         "nobody": InformationVisibility(False, False, frozenset(), frozenset(), frozenset()),
-        # An Author (ADR 0210): all of a repository, or the catalog items of a library.
+        # An Author (ADR 0219): all of a repository, or the catalog items of a library.
         "author-of-a-repository": InformationVisibility(
             False, False, frozenset(), frozenset(), frozenset(), author_sees_all=True
         ),

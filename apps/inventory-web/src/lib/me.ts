@@ -42,7 +42,7 @@ export async function isTenantMember(tenantId: string): Promise<boolean> {
 
 /**
  * Whether the viewer is an Owner or an Organizer of the tenant: the being search needs that (ADR
- * 0078, 0173). An Author edits the catalog and reaches no being (ADR 0210).
+ * 0078, 0173). An Author edits the catalog and reaches no being (ADR 0219).
  */
 export async function isTenantAdmin(tenantId: string): Promise<boolean> {
   return (await getMe()).memberships.some(

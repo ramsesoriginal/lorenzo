@@ -1,4 +1,4 @@
-"""Making and reading invite links of every kind through the real API, for the tests of ADR 0211."""
+"""Making and reading invite links of every kind through the real API, for the tests of ADR 0220."""
 
 from __future__ import annotations
 

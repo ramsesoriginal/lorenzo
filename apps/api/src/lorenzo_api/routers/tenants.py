@@ -788,7 +788,7 @@ async def delete_membership(
     # CampaignGm rows reference app_user, not membership, so any campaign
     # seats they hold are untouched, and the text says exactly that rather
     # than implying anything they made was lost. In a library's words, never a
-    # tenant's (ADR 0194, 0210).
+    # tenant's (ADR 0194, 0219).
     await create_tenant_notification(
         session,
         tenant_id=tenant_id,

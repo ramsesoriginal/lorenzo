@@ -1,4 +1,4 @@
-"""Invite links of every kind, core mechanics only - see ADR 0092/RFC 0023, ADR 0211.
+"""Invite links of every kind, core mechanics only - see ADR 0092/RFC 0023, ADR 0220.
 
 No auth and no commit (matching `notifications`/`activity_log`): the routes
 in `routers/invites.py` (public preview/redeem), `routers/campaign_invites.py` (a
@@ -28,7 +28,7 @@ MAX_INVITE_LIFETIME = timedelta(days=30)
 # an unredeemed one is the exposure, so it ends within a week.
 MAX_GM_INVITE_LIFETIME = timedelta(days=7)
 
-# The links of ADR 0211, which are not for a campaign and so are always capped. An Author or
+# The links of ADR 0220, which are not for a campaign and so are always capped. An Author or
 # Organizer link ends within a week, as a GM link does: it hands over a role. A library-access
 # link may live as long as a player link. A link made without an expiry gets the default, which
 # is shorter than the longest. Only Author and library links may be raised above a single use,

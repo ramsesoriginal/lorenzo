@@ -1,6 +1,6 @@
 """A repository's grant to a library, and telling the people who run the libraries concerned.
 
-Two doors lead to the same grant (ADR 0118, ADR 0211): the Owner of a repository naming a
+Two doors lead to the same grant (ADR 0118, ADR 0220): the Owner of a repository naming a
 library by its id (`PUT /tenants/{id}/subscribers/{library}`), and a library-access invite link
 redeemed by the Owner of a library. Both call `grant_repository_access`, so what a grant
 writes, logs and says is one thing. No commit here: the routes commit.

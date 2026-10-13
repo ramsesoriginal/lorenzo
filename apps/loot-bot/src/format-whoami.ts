@@ -2,7 +2,7 @@ import { EmbedBuilder, type HexColorString } from "discord.js";
 import type { MyProfile } from "./lorenzo-client.js";
 
 // Matches MembershipRole's own three values (apps/api/src/lorenzo_api/models/
-// membership.py), in the words a person reads (ADR 0194, 0210): there's no "member"
+// membership.py), in the words a person reads (ADR 0194, 0219): there's no "member"
 // role at all - an ordinary player who isn't an Owner, Organizer or Author simply has
 // no Membership row, which is the normal, expected case, not a gap to flag.
 const ROLE_LABELS: Readonly<Record<string, string>> = {

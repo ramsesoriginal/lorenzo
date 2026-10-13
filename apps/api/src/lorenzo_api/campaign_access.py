@@ -86,7 +86,7 @@ async def is_tenant_author(
     session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID
 ) -> bool:
     """Whether a user may edit the content of a tenant: an OWNER, an ORGA or an AUTHOR
-    (RFC 0040, ADR 0210). `is_tenant_admin` is the narrower predicate, and still the one
+    (RFC 0040, ADR 0219). `is_tenant_admin` is the narrower predicate, and still the one
     that decides who runs a tenant: an AUTHOR is not an administrator anywhere it is used.
     """
     role = await membership_role_of(session, tenant_id=tenant_id, user_id=user_id)
@@ -96,7 +96,7 @@ async def is_tenant_author(
 async def entry_in_author_reach(
     session: AsyncSession, *, tenant_id: uuid.UUID, entity_id: uuid.UUID
 ) -> bool:
-    """Whether an Author's role reaches this entry (ADR 0210): every entry of a repository,
+    """Whether an Author's role reaches this entry (ADR 0219): every entry of a repository,
     which has no campaigns, players or owners of entries; in a library, the catalog, the
     entries that are items. Beings, item instances and what a campaign owns stay with the
     library's administrators and GMs.

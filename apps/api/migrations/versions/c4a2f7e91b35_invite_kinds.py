@@ -1,4 +1,4 @@
-"""one invite table, with kinds (ADR 0211)
+"""one invite table, with kinds (ADR 0220)
 
 campaign_invite becomes `invite`. A `kind` says what redeeming one does: `campaign` (every
 row there is, so the default and the backfill), `tenant_role` (an Author or an Organizer

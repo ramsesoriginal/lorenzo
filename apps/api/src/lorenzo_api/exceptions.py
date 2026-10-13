@@ -528,7 +528,7 @@ class TenantCreationForbiddenError(ForbiddenProblem):
 
 class TenantAdminRequiredError(ForbiddenProblem):
     """A route for the people who run a library or a repository, an Owner or an Organizer,
-    and the caller is a member who is neither: an Author (RFC 0040, ADR 0210). 403, not 404:
+    and the caller is a member who is neither: an Author (RFC 0040, ADR 0219). 403, not 404:
     they are a member, so they can already see the library exists, and they lack one nameable
     standing. A non-member never gets here, the membership check before it gives the usual 404.
     """
@@ -537,7 +537,7 @@ class TenantAdminRequiredError(ForbiddenProblem):
 
 
 class InheritedEntryDeletionForbiddenError(ForbiddenProblem):
-    """An Author deleting an entry that other entries inherit from (RFC 0040, ADR 0210): what
+    """An Author deleting an entry that other entries inherit from (RFC 0040, ADR 0219): what
     they would lose is not theirs to lose, so an Owner or an Organizer deletes it. Nothing is
     deleted; the entry nobody inherits from is the Author's to delete.
     """
@@ -786,7 +786,7 @@ class InvalidInviteExpiryError(UnprocessableProblem):
 
 
 class InviteManagementForbiddenError(ForbiddenProblem):
-    """Making, listing or revoking the invite links of a library or repository (ADR 0211) is an
+    """Making, listing or revoking the invite links of a library or repository (ADR 0220) is an
     Owner's alone: adding a person or a grant already is. 403, not 404: the caller is a member.
     """
 
@@ -795,14 +795,14 @@ class InviteManagementForbiddenError(ForbiddenProblem):
 
 class InviteLibraryRequiredError(UnprocessableProblem):
     """Redeeming a library-access link needs the library to share the repository with, in the
-    request body (ADR 0211) - never in the path with the token."""
+    request body (ADR 0220) - never in the path with the token."""
 
     title = "Say which library to share with"
 
 
 class InvalidInviteLibraryError(UnprocessableProblem):
     """The library given for a library-access link is not one the caller owns. The same answer
-    for one that does not exist, so it tells no one which libraries are there (ADR 0211)."""
+    for one that does not exist, so it tells no one which libraries are there (ADR 0220)."""
 
     title = "Not a library you own"
 

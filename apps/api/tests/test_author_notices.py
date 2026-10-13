@@ -1,5 +1,5 @@
 """What a person is told about their role, and who is told of a repository's doings (RFC 0040 /
-ADR 0210): the three names Owner, Organizer and Author, never the raw value, and the notices that
+ADR 0219): the three names Owner, Organizer and Author, never the raw value, and the notices that
 are for the people who run a library go to its Owners and Organizers, not to its Authors.
 """
 

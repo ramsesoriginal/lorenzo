@@ -168,7 +168,7 @@ def test_redact_invite_tokens(text: str, expected: str) -> None:
     assert redact_invite_tokens(text) == expected
 
 
-# --- Every kind of link (ADR 0211) ----------------------------------------------------------
+# --- Every kind of link (ADR 0220) ----------------------------------------------------------
 
 
 @pytest.mark.parametrize(

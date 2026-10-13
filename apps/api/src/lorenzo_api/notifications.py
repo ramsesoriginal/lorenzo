@@ -162,7 +162,7 @@ async def create_tenant_admins_notification(
 ) -> list[Notification]:
     """To the tenant's administrators (OWNER and ORGA memberships) only, not its whole roster:
     ADR 0118's repository notices are for the people who run a library, not its players and not
-    its Authors, who are told only about their own role (ADR 0210)."""
+    its Authors, who are told only about their own role (ADR 0219)."""
     return await _create_tenant_role_notification(
         session,
         roles=(MembershipRole.OWNER, MembershipRole.ORGA),
@@ -184,7 +184,7 @@ async def create_tenant_owners_notification(
     created_by: uuid.UUID | None,
 ) -> list[Notification]:
     """To the tenant's Owners only: who joined by an invite link, which only an Owner makes
-    (ADR 0211)."""
+    (ADR 0220)."""
     return await _create_tenant_role_notification(
         session,
         roles=(MembershipRole.OWNER,),

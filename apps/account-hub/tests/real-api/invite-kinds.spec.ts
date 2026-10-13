@@ -7,7 +7,7 @@ import {
 } from '../../../inventory-web/tests/e2e/support/env';
 import { newLibrary, newRepository, newUser } from './support';
 
-// The invite links of a library or repository (ADR 0211), end to end: an Owner's role link and
+// The invite links of a library or repository (ADR 0220), end to end: an Owner's role link and
 // library link made through the API, a visitor opening them in the built site, logging in through
 // the fake Authgear and accepting, and the join page's box for a pasted code.
 

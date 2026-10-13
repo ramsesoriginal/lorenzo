@@ -60,7 +60,7 @@ export async function previewInvite(token: string): Promise<InvitePreviewOut> {
 }
 
 // Needs a login, not a tenant: any verified user. Idempotent for someone who is
-// already a player there (already_joined). A link that shares a repository (ADR 0211) takes the
+// already a player there (already_joined). A link that shares a repository (ADR 0220) takes the
 // library to share it with.
 export async function redeemInvite(token: string, libraryId?: string): Promise<InviteRedeemOut> {
   return unwrap(
