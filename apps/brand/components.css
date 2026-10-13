@@ -1194,8 +1194,17 @@ fieldset:disabled {
   .sidebar a,
   .tree summary,
   .tree li:not(:has(summary)),
-  .outline-node {
+  .outline-node,
+  .site-navigation > summary {
     min-height: var(--target-min);
+  }
+
+  /* The mobile navigation's toggle is a summary, not a block of its own;
+     centre its label the way a header link's is. */
+  .site-navigation > summary {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
   }
 
   /* An inline link in a header is not a block, so min-height would be

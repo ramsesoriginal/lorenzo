@@ -16,9 +16,10 @@ export default defineConfig({
   webServer: [
     {
       // Sign-in not configured: the plain page. Builds both copies, one after the other (two
-      // builds at once trip over each other's cache), then serves this one.
+      // builds at once trip over each other's cache), then serves this one. The root mise.toml
+      // sets the dev Authgear for every task, so this build blanks it to stay "not configured".
       command: [
-        'BENCH_OUT_DIR=./dist pnpm run build',
+        'BENCH_OUT_DIR=./dist PUBLIC_AUTHGEAR_ENDPOINT= PUBLIC_AUTHGEAR_CLIENT_ID= pnpm run build',
         'BENCH_OUT_DIR=./dist-auth PUBLIC_AUTHGEAR_ENDPOINT=http://authgear.test PUBLIC_AUTHGEAR_CLIENT_ID=bench-test-client pnpm exec astro build',
         'touch dist-auth/.ready',
         'BENCH_OUT_DIR=./dist pnpm exec astro preview --ignore-lock --port 4331',
