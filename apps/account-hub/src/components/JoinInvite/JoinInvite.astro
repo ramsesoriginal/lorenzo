@@ -1,6 +1,7 @@
-<!-- What /join shows for an invite link (ADR 0171): the campaign it is for and what joining makes you,
-     or, for a link that doesn't work, one sentence that doesn't say why (ADR 0092). Rendered by
-     renderJoinInvite. -->
+<!-- What /join shows for an invite link (ADR 0171, 0220): what it is for (a campaign, a library or
+     a repository) and what joining makes you, or, for a link that doesn't work, one sentence that
+     doesn't say why (ADR 0092). A link to share a repository asks which of your libraries should
+     receive it. Without a link, a box to paste one or its code. Rendered by renderJoinInvite. -->
 <div class="stack" data-join hidden>
   <p data-dead hidden></p>
 
@@ -8,6 +9,17 @@
     <img alt="" width="192" height="192" hidden data-picture />
     <h2 data-campaign></h2>
     <p data-offer>You've been invited to join this campaign as a player.</p>
+
+    <div class="stack-tight" data-share hidden>
+      <label class="field">
+        <span class="field-label">Share it with</span>
+        <select class="text-input" data-library></select>
+      </label>
+      <p class="status-text" data-no-library hidden></p>
+      <p data-make-library hidden>
+        <a href="/tenants/">Make a library</a>, then open this link again.
+      </p>
+    </div>
 
     <div class="row">
       <button type="button" data-login hidden>
@@ -26,5 +38,26 @@
       Your browser won't keep this link while you log in. Log in first, then open the link again.
     </p>
     <p class="status-text" role="status" data-status hidden></p>
+  </section>
+
+  <section class="card card-body stack-tight" data-paste hidden>
+    <h2>Have a link or a code?</h2>
+    <p>Paste the invite link you were sent, or just the code at the end of it.</p>
+    <form class="stack-tight" data-paste-form>
+      <label class="field">
+        <span class="field-label">Invite link or code</span>
+        <input
+          type="text"
+          class="text-input"
+          autocomplete="off"
+          spellcheck="false"
+          data-paste-input
+        />
+      </label>
+      <div>
+        <button type="submit">Open invite</button>
+      </div>
+      <p class="status-text error-text" role="alert" data-paste-error hidden></p>
+    </form>
   </section>
 </div>

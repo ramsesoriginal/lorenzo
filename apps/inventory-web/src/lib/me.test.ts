@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const api = vi.hoisted(() => ({
   me: {
     campaign_gm_grants: [] as { id: string }[],
-    memberships: [] as { tenant_id: string }[],
+    memberships: [] as { tenant_id: string; role: string }[],
     players: [] as { tenant_id: string; self_service_effective: boolean }[],
   },
   campaigns: {} as Record<string, { id: string }[]>,
@@ -78,12 +78,38 @@ describe('listBeings', () => {
     expect(api.GET).not.toHaveBeenCalledWith('/tenants/{tenant_id}/beings', expect.anything());
   });
 
-  it('searches every being for a member', async () => {
+  it("searches the tenant's characters for an Author, who reaches no being", async () => {
     const { listBeings } = await import('./beings');
-    api.me.memberships = [{ tenant_id: 'here' }];
+    api.me.memberships = [{ tenant_id: 'here', role: 'author' }];
+    api.characters = [{ entity_id: 'a', name: 'Ashfang', is_pc: true }];
+    const found = await listBeings('here', 'ash');
+    expect(found.items.map((being) => being.name)).toEqual(['Ashfang']);
+    expect(api.GET).not.toHaveBeenCalledWith('/tenants/{tenant_id}/beings', expect.anything());
+  });
+
+  it('searches every being for an Organizer', async () => {
+    const { listBeings } = await import('./beings');
+    api.me.memberships = [{ tenant_id: 'here', role: 'orga' }];
     await listBeings('here', 'bri');
     expect(api.GET).toHaveBeenCalledWith('/tenants/{tenant_id}/beings', {
       params: { path: { tenant_id: 'here' }, query: { q: 'bri' } },
     });
+  });
+});
+
+describe('isTenantMember and isTenantAdmin', () => {
+  it('count an Author as a member, who reads the catalog, and not as an administrator', async () => {
+    const { isTenantAdmin, isTenantMember } = await import('./me');
+    api.me.memberships = [
+      { tenant_id: 'wrote', role: 'author' },
+      { tenant_id: 'ran', role: 'orga' },
+      { tenant_id: 'owned', role: 'owner' },
+    ];
+    expect(await isTenantMember('wrote')).toBe(true);
+    expect(await isTenantAdmin('wrote')).toBe(false);
+    expect(await isTenantAdmin('ran')).toBe(true);
+    expect(await isTenantAdmin('owned')).toBe(true);
+    expect(await isTenantMember('elsewhere')).toBe(false);
+    expect(await isTenantAdmin('elsewhere')).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { client, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
-import { isTenantMember } from './me';
+import { isTenantAdmin } from './me';
 import type { BeingSummary, Page } from './types';
 
 // GET /tenants/{t}/beings (ADR 0078) - every Being in the tenant: PCs,
@@ -8,11 +8,11 @@ import type { BeingSummary, Page } from './types';
 // assigning loot to an NPC that was never promoted into a tracked
 // Character. Supports search (`q`), unlike the old characters roster.
 //
-// It needs a tenant membership, which a player doesn't have. A player
-// searches the tenant's characters instead, which any participant may
+// It needs an Owner or Organizer membership, which a player doesn't have, nor an Author
+// (ADR 0219). They search the tenant's characters instead, which any participant may
 // list, so they can still give something to the rest of the party.
 export async function listBeings(tenantId: string, query = ''): Promise<Page<BeingSummary>> {
-  if (!(await isTenantMember(tenantId))) return searchCharacters(tenantId, query);
+  if (!(await isTenantAdmin(tenantId))) return searchCharacters(tenantId, query);
   return unwrap(
     await client.GET('/tenants/{tenant_id}/beings', {
       params: { path: { tenant_id: tenantId }, query: { q: query || undefined } },

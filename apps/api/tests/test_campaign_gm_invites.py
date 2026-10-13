@@ -22,7 +22,7 @@ from lorenzo_api.invites import generate_token, hash_token
 from lorenzo_api.models import (
     AuditLog,
     CampaignGm,
-    CampaignInvite,
+    Invite,
     InviteRole,
     Membership,
     Notification,
@@ -233,7 +233,7 @@ async def _seed_gm_link(
 ) -> tuple[str, uuid.UUID]:
     token = generate_token()
     async with admin_session_factory() as session:
-        invite = CampaignInvite(
+        invite = Invite(
             tenant_id=table.tenant_id,
             campaign_id=table.campaign_id,
             token_hash=hash_token(token),
@@ -278,7 +278,7 @@ async def _gm_user_ids(table: Table) -> set[uuid.UUID]:
 
 async def _use_count(invite_id: uuid.UUID) -> int:
     async with admin_session_factory() as session:
-        return (await session.get_one(CampaignInvite, invite_id)).use_count
+        return (await session.get_one(Invite, invite_id)).use_count
 
 
 async def test_the_preview_says_a_gm_link_is_one(raw_client: AsyncClient, table: Table) -> None:
@@ -288,7 +288,10 @@ async def test_the_preview_says_a_gm_link_is_one(raw_client: AsyncClient, table:
 
     assert response.status_code == 200, response.text
     assert response.json() == {
+        "kind": "campaign",
+        "name": "The Hand-over",
         "campaign_name": "The Hand-over",
+        "tenant_kind": None,
         "picture_url": None,
         "role": "gm",
     }

@@ -17,6 +17,7 @@ from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
+    get_tenant_admin_context,
     get_tenant_context,
     get_tenant_or_404,
     require_tenant_creator_role,
@@ -45,6 +46,7 @@ from lorenzo_api.models import (
     Membership,
     MembershipRole,
     Player,
+    RepositoryProfile,
     RepositorySubscription,
     StatGroup,
     Tenant,
@@ -60,6 +62,8 @@ from lorenzo_api.profile_pictures import (
     read_and_validate_upload,
     upsert_tenant_profile_picture,
 )
+from lorenzo_api.repository_profiles import delete_repository_cover
+from lorenzo_api.role_names import role_label, role_phrase, tenant_word
 from lorenzo_api.schemas.common import ProblemOut
 from lorenzo_api.schemas.notifications import NotificationCreate, NotificationOut
 from lorenzo_api.schemas.tenants import (
@@ -266,6 +270,11 @@ async def create_tenant(
     session.add(tenant)
     await session.flush()
     session.add(Membership(tenant_id=tenant.id, user_id=user.id, role=MembershipRole.OWNER))
+    if tenant.kind is TenantKind.REPOSITORY:
+        # A repository says what it is about from the start: private, and nothing else (ADR 0213).
+        await session.flush()
+        await set_tenant_rls_context(session, tenant.id)
+        session.add(RepositoryProfile(tenant_id=tenant.id, updated_by=user.id))
     await session.commit()
     # tenant itself carries no RLS policy (it *is* the RLS boundary, ADR
     # 0002/0022) - re-reading it below needs no scoping. Still follows ADR
@@ -279,7 +288,7 @@ async def create_tenant(
 
 @router.patch("/{tenant_id}")
 async def update_tenant(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     body: TenantUpdate,
     session: SessionDep,
     user: CurrentUser,
@@ -376,6 +385,9 @@ async def delete_tenant(
             detail=f"Tenant {tenant_id} is still granted to {grants} tenant(s)"
         )
 
+    # A repository's cover is a row of the blob table, which the tenant's deletion does not reach.
+    await delete_repository_cover(session, tenant_id=tenant_id)
+
     name, slug = tenant.name, tenant.slug
     await create_tenant_deleted_notifications(
         session, tenant_id=tenant_id, tenant_name=name, deleted_by=user.id
@@ -388,7 +400,7 @@ async def delete_tenant(
 
 @router.put("/{tenant_id}/picture", status_code=204)
 async def upload_tenant_picture(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     session: SessionDep,
     file: UploadFile,
 ) -> None:
@@ -405,7 +417,7 @@ async def upload_tenant_picture(
 
 @router.delete("/{tenant_id}/picture", status_code=204)
 async def delete_tenant_picture(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)], session: SessionDep
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)], session: SessionDep
 ) -> None:
     await delete_tenant_profile_picture(session, tenant_id=tenant_id)
     await session.commit()
@@ -413,7 +425,7 @@ async def delete_tenant_picture(
 
 @router.get("/{tenant_id}/memberships")
 async def list_tenant_roster(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[TenantRosterEntryOut]:
@@ -592,11 +604,12 @@ async def _create_membership_core(
             detail=f"User {body.user_id} already has a membership in tenant {tenant_id}"
         )
 
+    role = MembershipRole(body.role)
     session.add(
         Membership(
             tenant_id=tenant_id,
             user_id=body.user_id,
-            role=MembershipRole(body.role),
+            role=role,
             created_by=user.id,
             updated_by=user.id,
         )
@@ -606,8 +619,8 @@ async def _create_membership_core(
         tenant_id=tenant_id,
         recipient_user_id=body.user_id,
         type="tenant_invite",
-        title=f"You were added to {tenant.name}",
-        body=f"You now have {body.role} access to {tenant.name}.",
+        title=f"You were added to {tenant.name} as {role_phrase(role)}",
+        body=f"You are now {role_phrase(role)} of the {tenant_word(tenant.kind)} {tenant.name}.",
         created_by=user.id,
     )
     await record_activity(
@@ -737,6 +750,20 @@ async def update_membership(
             target_id=user_id,
             detail=f"role={new_role.value}",
         )
+        tenant = await session.get(Tenant, tenant_id)
+        if tenant is not None and user_id != user.id:
+            await create_tenant_notification(
+                session,
+                tenant_id=tenant_id,
+                recipient_user_id=user_id,
+                type="tenant_role_changed",
+                title=f"Your role in {tenant.name} is now {role_label(new_role)}",
+                body=(
+                    f"You are now {role_phrase(new_role)} of the"
+                    f" {tenant_word(tenant.kind)} {tenant.name}."
+                ),
+                created_by=user.id,
+            )
 
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -788,7 +815,8 @@ async def delete_membership(
     # leave. Removal ends only the tenant-wide Membership row - Player/
     # CampaignGm rows reference app_user, not membership, so any campaign
     # seats they hold are untouched, and the text says exactly that rather
-    # than implying anything they made was lost.
+    # than implying anything they made was lost. In a library's words, never a
+    # tenant's (ADR 0194, 0219).
     await create_tenant_notification(
         session,
         tenant_id=tenant_id,
@@ -796,9 +824,12 @@ async def delete_membership(
         type="tenant_membership_removed",
         title=f"You left {tenant.name}" if left else f"Your access to {tenant.name} has ended",
         body=(
-            f"Your tenant-wide membership in {tenant.name} has ended."
-            " Nothing you created there was deleted, and any campaign seats you hold"
-            " there - as a player or a GM - are unchanged."
+            f"Your access to {tenant.name} has ended. Nothing you created there was deleted"
+            + (
+                ", and any campaign seats you hold there, as a player or a GM, are unchanged."
+                if tenant.kind is TenantKind.PLAY
+                else "."
+            )
         ),
         created_by=user.id,
     )
@@ -808,7 +839,7 @@ async def delete_membership(
 
 @router.post("/{tenant_id}/notifications", status_code=201)
 async def create_tenant_notification_route(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     body: NotificationCreate,
     session: SessionDep,
     user: CurrentUser,

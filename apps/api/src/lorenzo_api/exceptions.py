@@ -26,6 +26,9 @@ __all__ = [
     "CampaignNotEmptyError",
     "CampaignNotFoundError",
     "InvalidInviteExpiryError",
+    "InvalidInviteLibraryError",
+    "InviteLibraryRequiredError",
+    "InviteManagementForbiddenError",
     "InviteNotFoundError",
     "CharacterManagementForbiddenError",
     "CharacterNotFoundError",
@@ -50,6 +53,8 @@ __all__ = [
     "InvalidStatGroupError",
     "InvalidProfilePictureError",
     "InvalidStatValueTypeError",
+    "AuthorEntryForbiddenError",
+    "InheritedEntryDeletionForbiddenError",
     "InvalidTokenError",
     "InvalidUserError",
     "InventoryItemParentsError",
@@ -91,6 +96,7 @@ __all__ = [
     "InvalidPackOwnerError",
     "StatDefinitionNotFoundError",
     "StatGroupNotFoundError",
+    "TenantAdminRequiredError",
     "TenantCreationForbiddenError",
     "TenantDeletionForbiddenError",
     "TooManyRequestsError",
@@ -104,6 +110,7 @@ __all__ = [
     "InvalidRepositoryUpdateError",
     "RepositoryNotCopiedError",
     "RepositoryUpdateNeedsChoicesError",
+    "PublicRepositoriesNotAvailableError",
     "ReleaseLabelTakenError",
     "ReleaseHasBreakingChangesError",
     "EntityKindInUseError",
@@ -626,6 +633,32 @@ class TenantCreationForbiddenError(ForbiddenProblem):
     title = "Missing the tenant-creator role"
 
 
+class TenantAdminRequiredError(ForbiddenProblem):
+    """A route for the people who run a library or a repository, an Owner or an Organizer,
+    and the caller is a member who is neither: an Author (RFC 0040, ADR 0219). 403, not 404:
+    they are a member, so they can already see the library exists, and they lack one nameable
+    standing. A non-member never gets here, the membership check before it gives the usual 404.
+    """
+
+    title = "Only an Owner or an Organizer can do this"
+
+
+class AuthorEntryForbiddenError(ForbiddenProblem):
+    """An Author making or changing an entry that is not in their reach (RFC 0040, ADR 0219): in a
+    library, anything but a catalog item. An Owner or an Organizer does it."""
+
+    title = "An Author does not change this entry"
+
+
+class InheritedEntryDeletionForbiddenError(ForbiddenProblem):
+    """An Author deleting an entry that other entries inherit from (RFC 0040, ADR 0219): what
+    they would lose is not theirs to lose, so an Owner or an Organizer deletes it. Nothing is
+    deleted; the entry nobody inherits from is the Author's to delete.
+    """
+
+    title = "Only an Owner or an Organizer can delete an entry others inherit from"
+
+
 class TenantDeletionForbiddenError(ForbiddenProblem):
     """DELETE /tenants/{id} - the caller is a member of the tenant but not
     one of its OWNERs (ADR 0184). Narrower than update_tenant's ORGA gate,
@@ -866,6 +899,28 @@ class InvalidInviteExpiryError(UnprocessableProblem):
     title = "Invalid invite expiry"
 
 
+class InviteManagementForbiddenError(ForbiddenProblem):
+    """Making, listing or revoking the invite links of a library or repository (ADR 0220) is an
+    Owner's alone: adding a person or a grant already is. 403, not 404: the caller is a member.
+    """
+
+    title = "Only an Owner can make invite links"
+
+
+class InviteLibraryRequiredError(UnprocessableProblem):
+    """Redeeming a library-access link needs the library to share the repository with, in the
+    request body (ADR 0220) - never in the path with the token."""
+
+    title = "Say which library to share with"
+
+
+class InvalidInviteLibraryError(UnprocessableProblem):
+    """The library given for a library-access link is not one the caller owns. The same answer
+    for one that does not exist, so it tells no one which libraries are there (ADR 0220)."""
+
+    title = "Not a library you own"
+
+
 class TooManyRequestsError(StatusProblem):
     """The in-process rate-limit backstop on the public invite-link routes
     (ADR 0092). Carries `Retry-After`. fastapi_problem has no named 429
@@ -1079,6 +1134,14 @@ class BindingNotLiftableError(UnprocessableProblem):
     for it - ADR 0129."""
 
     title = "That binding can't be lifted"
+
+
+class PublicRepositoriesNotAvailableError(UnprocessableProblem):
+    """Setting a repository's visibility to `public` - ADR 0213, RFC 0038 section 1. Refused until
+    the gates that come before it (the read, copying, delisting, quotas) are built, so that nothing
+    can be made public before they exist."""
+
+    title = "Public repositories are not available yet"
 
 
 class EntityKindInUseError(ConflictProblem):

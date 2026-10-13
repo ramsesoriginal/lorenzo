@@ -175,11 +175,9 @@ export interface paths {
          *     a mutation route either calls `activity_log.record_activity` or says
          *     in its own docstring why it doesn't.
          *
-         *     Gated by `get_tenant_context`. That means "OWNER or ORGA" only because
-         *     every `MembershipRole` is administrative - GMs and players without a
-         *     Membership row get a 404. `tests/test_activity_log_access.py` fails if
-         *     a non-administrative role is ever added, at which point this gate must
-         *     become an explicit `is_tenant_admin` check in the same change.
+         *     Gated by `get_tenant_admin_context`: an OWNER or an ORGA. An AUTHOR (RFC 0040,
+         *     ADR 0219) is a member and gets a 403; GMs and players without a Membership row
+         *     get a 404.
          */
         get: operations["list_activity_log"];
         put?: never;
@@ -277,10 +275,11 @@ export interface paths {
         /**
          * Get My Managed Scope
          * @description What the caller runs, across every tenant - see ADR 0086. Tenants
-         *     where they hold a tenant-wide OWNER/ORGA Membership (with every
-         *     campaign in them), plus tenants where they only GM (with just the
-         *     campaigns they GM). Not paginated, like `GET /me`: bounded by the
-         *     caller's own memberships and GM rows. Authenticated but not
+         *     where they hold a tenant-wide Membership (with every campaign in them for an
+         *     OWNER or ORGA, with just the campaigns they GM for an AUTHOR, ADR 0219), plus
+         *     tenants where they only GM (with just the campaigns they GM). Not
+         *     paginated, like `GET /me`: bounded by the caller's own memberships and GM
+         *     rows. Authenticated but not
          *     tenant-scoped.
          *
          *     Resolved tenant by tenant for the same reason `_me_out` is: `membership`
@@ -1267,6 +1266,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Profile
+         * @description What the repository says about itself, for any of its members: private, with the preview at
+         *     `showcase` and nothing else said, until its Owner says more.
+         */
+        get: operations["get_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Profile
+         * @description An Owner changes what the profile says; only the fields named are touched. `visibility:
+         *     "public"` is refused, in the same request as everything else in it (so nothing is kept),
+         *     until the gates that come before a public repository are built (RFC 0038 §1).
+         */
+        patch: operations["update_profile"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/profile/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cover
+         * @description The cover picture, for any member. `404` if there is none.
+         */
+        get: operations["get_cover"];
+        /**
+         * Set Cover
+         * @description An Owner sets or replaces the cover: the types and the size cap of every profile picture
+         *     (ADR 0056), and one picture is kept for each repository.
+         */
+        put: operations["set_cover"];
+        post?: never;
+        /**
+         * Remove Cover
+         * @description An Owner removes the cover. Removing what is not there is not an error.
+         */
+        delete: operations["remove_cover"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Repository Profile
+         * @description The profile of a repository granted to this library and published, through the gated read
+         *     (ADR 0118): what its Owner says of it, so the library can tell what it holds. `404` for any
+         *     other.
+         */
+        get: operations["get_repository_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/profile/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Repository Cover
+         * @description The cover of a repository granted to this library and published, as above.
+         */
+        get: operations["get_repository_cover"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/campaigns": {
         parameters: {
             query?: never;
@@ -1432,7 +1529,7 @@ export interface paths {
          *     don't hold in the first place is meaningless. Idempotent, matching the
          *     GM grant above.
          *
-         *     Gated by get_tenant_context, not get_campaign_context - the identical
+         *     Gated by get_tenant_admin_context, not get_campaign_context - the identical
          *     reasoning DELETE /campaigns/{id} above already applies to itself:
          *     can_access_campaign's own opt-out-suppression must not be able to lock
          *     its holder out of the very route that would undo it. Still loads the
@@ -1440,12 +1537,11 @@ export interface paths {
          *     404 shape - it just doesn't run can_access_campaign against it.
          *
          *     The is_tenant_admin check below is consequently unreachable via any
-         *     real caller today: get_tenant_context already requires a Membership
-         *     row, and MembershipRole has exactly OWNER/ORGA (ADR 0022) - nothing
-         *     else a Membership row could hold. Kept anyway as the explicit
-         *     statement of the actual business rule, not merely an artifact of
-         *     get_tenant_context's own check - the same dead-but-documented-intent
-         *     shape tenants.py's own get_tenant uses for its post-dependency re-fetch.
+         *     real caller: get_tenant_admin_context already refuses everyone but an
+         *     OWNER or an ORGA (an AUTHOR gets the 403 there, ADR 0219). Kept anyway as
+         *     the explicit statement of the actual business rule - the same
+         *     dead-but-documented-intent shape tenants.py's own get_tenant uses for its
+         *     post-dependency re-fetch.
          */
         put: operations["opt_out_of_campaign_admin_visibility"];
         post?: never;
@@ -1545,9 +1641,12 @@ export interface paths {
         };
         /**
          * Preview Invite
-         * @description Unauthenticated - the campaign's name and picture URL, so a landing
-         *     page can say what the visitor is being invited to (ADR 0092) - as a
-         *     player, or as a GM (ADR 0177). Does an indexed read and never writes.
+         * @description Unauthenticated - what the visitor is about to be asked, so a landing page can say so
+         *     before they log in (ADR 0092, 0220): for a campaign link the campaign's name and picture
+         *     URL, as a player or as a GM (ADR 0177); for a role link the library's or repository's name
+         *     and picture and the role, Author or Organizer; for a library link the repository's name and
+         *     picture. Nothing else: no ids but those in a picture's address, no roster, no members. Does
+         *     an indexed read and never writes, and a dead link is the same 404 whatever the kind.
          */
         get: operations["preview_invite"];
         put?: never;
@@ -1575,9 +1674,65 @@ export interface paths {
          *     membership. A GM link (ADR 0177) gives a GM row instead, and no player
          *     row. Idempotent: someone who already holds the role gets `200` and no
          *     second seat, no use consumed. `201` the first time.
+         *
+         *     The other kinds (ADR 0220): a role link makes the caller an Author or an Organizer of its
+         *     library or repository, and never changes a role they already hold; a library-access link
+         *     grants its repository to the library named in the body.
          */
         post: operations["redeem_invite"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tenant Invites
+         * @description This library's or repository's role and library links, newest first, with their use
+         *     counts and never a token. An Owner's, like making them. A campaign's links are listed
+         *     with the campaign.
+         */
+        get: operations["list_tenant_invites"];
+        put?: never;
+        /**
+         * Create Tenant Invite
+         * @description The only response that ever contains the token, shown once. An Owner's alone. A role
+         *     link makes an Author or an Organizer, never an Owner; a library link, for a repository
+         *     (`409` for a library), grants it to a library its redeemer owns. Always ends and is always
+         *     capped: single use unless an Author or library link says more, up to a ceiling; the
+         *     expiry defaults to 3 days for a role link and 7 for a library link, and may not be longer
+         *     than 7 and 30 (ADR 0220).
+         */
+        post: operations["create_tenant_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/invites/{invite_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Tenant Invite
+         * @description Instant, and idempotent: revoking an already-revoked link is a no-op (and writes no
+         *     second activity entry). People who already used it keep what it gave them.
+         */
+        delete: operations["revoke_tenant_invite"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2998,6 +3153,9 @@ export interface paths {
          *     is deleted, leaving every instance that inherited from it quietly
          *     missing stats it used to resolve through. No ?force= escape hatch -
          *     the caller's real fix is to delete or re-parent the instances first.
+         *
+         *     An Author (ADR 0219) deletes an item nobody inherits from: while another entry has this
+         *     one as a prototype it is 403, and an Owner or an Organizer decides.
          */
         delete: operations["delete_item"];
         options?: never;
@@ -4242,6 +4400,11 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_set_cover */
+        Body_set_cover: {
+            /** File */
+            file: string;
+        };
         /** Body_set_entity_picture */
         Body_set_entity_picture: {
             /** File */
@@ -5260,6 +5423,28 @@ export interface components {
             dropped: components["schemas"]["DroppedOut"][];
         };
         /**
+         * CreditIn
+         * @description Who made some of it: a name, what they did, and optionally a link. Not the publisher,
+         *     which is the Owners' account names (RFC 0038 §6).
+         */
+        CreditIn: {
+            /** Name */
+            name: string;
+            /** Role */
+            role?: string | null;
+            /** Url */
+            url?: string | null;
+        };
+        /** CreditOut */
+        CreditOut: {
+            /** Name */
+            name: string;
+            /** Role */
+            role: string | null;
+            /** Url */
+            url: string | null;
+        };
+        /**
          * DescriptionOut
          * @description Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
          *     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
@@ -6039,7 +6224,8 @@ export interface components {
          *
          *     `role` (ADR 0177) is `player` unless said otherwise. A `gm` link is
          *     single use - `max_uses` omitted or 1 - and its `expires_at` is at most 7
-         *     days out, which the route checks.
+         *     days out, which the route checks. A campaign's links make a player or a GM, and
+         *     nothing else (ADR 0220).
          */
         InviteCreate: {
             /**
@@ -6063,12 +6249,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /**
-             * Campaign Id
-             * Format: uuid
-             */
-            campaign_id: string;
-            role: components["schemas"]["InviteRole"];
+            kind: components["schemas"]["InviteKind"];
+            /** Campaign Id */
+            campaign_id: string | null;
+            role: components["schemas"]["InviteRole"] | null;
             /** Created By */
             created_by: string | null;
             /**
@@ -6093,9 +6277,19 @@ export interface components {
             token: string;
         };
         /**
+         * InviteKind
+         * @description What redeeming an invite does (ADR 0220). `campaign` is every link ADR 0092 and 0177
+         *     defined; `tenant_role` makes a membership of its tenant, a library or a repository (ADR
+         *     0219's Author, or an Organizer); `library_access` grants its repository to a library the
+         *     redeemer owns. Never an Owner, by any kind.
+         * @enum {string}
+         */
+        InviteKind: "campaign" | "tenant_role" | "library_access";
+        /**
          * InviteOut
          * @description An invite's metadata - never its token. `is_active` folds revocation,
-         *     expiry and exhaustion into one flag for a management UI.
+         *     expiry and exhaustion into one flag for a management UI. `campaign_id` is null for a
+         *     role or a library link, and `role` for a library link (ADR 0220).
          */
         InviteOut: {
             /**
@@ -6103,12 +6297,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /**
-             * Campaign Id
-             * Format: uuid
-             */
-            campaign_id: string;
-            role: components["schemas"]["InviteRole"];
+            kind: components["schemas"]["InviteKind"];
+            /** Campaign Id */
+            campaign_id: string | null;
+            role: components["schemas"]["InviteRole"] | null;
             /** Created By */
             created_by: string | null;
             /**
@@ -6132,51 +6324,70 @@ export interface components {
         };
         /**
          * InvitePreviewOut
-         * @description GET /invites/{token} - unauthenticated. The campaign's name and, if
-         *     it has one, its picture URL. Nothing a holder of a leaked link couldn't
-         *     already learn: no tenant name, no roster. `role` (ADR 0177) says what
-         *     redeeming it makes them, so the page can ask before they log in: it is
-         *     not a secret from someone holding the link.
+         * @description GET /invites/{token} - unauthenticated. What the visitor is about to be asked and
+         *     nothing more: the `kind`, the `name` of what it is for (a campaign, a library or a
+         *     repository, the one a library link shares), its picture URL if it has one, and what
+         *     redeeming makes them (`role`, null for a library link). `campaign_name` is the campaign's
+         *     name for a campaign link, as before, and null for the other kinds. `tenant_kind` says
+         *     whether `name` is a library (`play`) or a repository, null for a campaign. No tenant name
+         *     of a campaign, no roster, nothing a holder of a leaked link couldn't already learn (ADR
+         *     0092, 0220).
          */
         InvitePreviewOut: {
+            kind: components["schemas"]["InviteKind"];
+            /** Name */
+            name: string;
             /** Campaign Name */
-            campaign_name: string;
+            campaign_name: string | null;
+            tenant_kind: components["schemas"]["TenantKind"] | null;
             /** Picture Url */
             picture_url: string | null;
-            role: components["schemas"]["InviteRole"];
+            role: components["schemas"]["InviteRole"] | null;
+        };
+        /**
+         * InviteRedeemIn
+         * @description POST /invites/{token}/redeem. The body is for a library-access link only: the library
+         *     (or, for a bridge, the repository) to share with, which the caller must own. It travels
+         *     here and never in the path, with the token (ADR 0220).
+         */
+        InviteRedeemIn: {
+            /** Library Id */
+            library_id?: string | null;
         };
         /**
          * InviteRedeemOut
          * @description POST /invites/{token}/redeem. `already_joined` is true (and the
-         *     response `200`, not `201`) when the caller already held this role in this
-         *     campaign - no second seat, no use consumed. `player_id` is null for a GM
-         *     link (ADR 0177): redeeming it makes a GM, not a player.
+         *     response `200`, not `201`) when the caller already held what the link gives - the role
+         *     in the campaign, any role in the tenant, the grant - no second seat, no use consumed.
+         *     `player_id` is null for every kind but a player link. `campaign_id` is null for a role or
+         *     a library link, and `role` for a library link. `library_id` is the library a library link
+         *     shared its repository with (ADR 0220).
          */
         InviteRedeemOut: {
+            kind: components["schemas"]["InviteKind"];
             /**
              * Tenant Id
              * Format: uuid
              */
             tenant_id: string;
-            /**
-             * Campaign Id
-             * Format: uuid
-             */
-            campaign_id: string;
-            role: components["schemas"]["InviteRole"];
+            /** Campaign Id */
+            campaign_id: string | null;
+            role: components["schemas"]["InviteRole"] | null;
             /** Player Id */
             player_id: string | null;
+            /** Library Id */
+            library_id?: string | null;
             /** Already Joined */
             already_joined: boolean;
         };
         /**
          * InviteRole
-         * @description What redeeming an invite makes someone in its campaign (ADR 0177).
-         *     `player` is every link ADR 0092 defined; `gm` is the one narrow
-         *     exception, single-use and short-lived.
+         * @description What redeeming an invite makes someone. `player` is every link ADR 0092 defined and
+         *     `gm` the one narrow exception in a campaign (ADR 0177); `author` and `orga` are what a
+         *     `tenant_role` link makes in its tenant (ADR 0220). A `library_access` link has no role.
          * @enum {string}
          */
-        InviteRole: "player" | "gm";
+        InviteRole: "player" | "gm" | "author" | "orga";
         /**
          * ItemCreate
          * @description POST /items - see ADR 0032/RFC 0005. Creates Entity + Item + one
@@ -6465,6 +6676,24 @@ export interface components {
             created_at: string;
         };
         /**
+         * LicenceIn
+         * @description A licence: the label (a name from a short list, or the author's words) and, optionally,
+         *     a link to its text. Having none is `licence: null`, which says "no licence stated".
+         */
+        LicenceIn: {
+            /** Label */
+            label: string;
+            /** Url */
+            url?: string | null;
+        };
+        /** LicenceOut */
+        LicenceOut: {
+            /** Label */
+            label: string;
+            /** Url */
+            url: string | null;
+        };
+        /**
          * LinearFormulaBody
          * @description `round(source × multiplier + offset)` - ADR 0104. A D&D ability
          *     modifier is multiplier 0.5, offset -5, round_mode `floor`.
@@ -6599,7 +6828,7 @@ export interface components {
             /** Slug */
             slug: string;
             /** Role */
-            role: ("owner" | "orga") | null;
+            role: ("owner" | "orga" | "author") | null;
             kind: components["schemas"]["TenantKind"];
             /** Campaigns */
             campaigns: components["schemas"]["ManagedCampaignOut"][];
@@ -6704,7 +6933,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "owner" | "orga";
+            role: "owner" | "orga" | "author";
         };
         /**
          * MembershipOut
@@ -6766,7 +6995,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "owner" | "orga";
+            role: "owner" | "orga" | "author";
         };
         /**
          * MergeItemInstanceRequest
@@ -8027,6 +8256,65 @@ export interface components {
             /** Prototype Ids */
             prototype_ids: string[];
         };
+        /**
+         * RepositoryProfileOut
+         * @description A repository's profile: what the Owner says of it, and whether it has a cover (the
+         *     picture is `GET .../profile/cover`).
+         */
+        RepositoryProfileOut: {
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "public";
+            /**
+             * Preview
+             * @enum {string}
+             */
+            preview: "off" | "showcase" | "public";
+            /** Summary */
+            summary: string;
+            licence: components["schemas"]["LicenceOut"] | null;
+            /** Credits */
+            credits: components["schemas"]["CreditOut"][];
+            /** Tags */
+            tags: string[];
+            /** System */
+            system: string | null;
+            /** Languages */
+            languages: string[];
+            /** Has Cover */
+            has_cover: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * RepositoryProfileUpdate
+         * @description `PATCH .../profile`. Every field is optional and a field left out is unchanged; `null`
+         *     clears the licence and the system, `[]` clears a list. An unknown field is refused. What
+         *     is kept: tags in lower case without repeats, a system and a summary on one line,
+         *     languages as lower-case codes.
+         */
+        RepositoryProfileUpdate: {
+            /** Visibility */
+            visibility?: ("private" | "public") | null;
+            /** Preview */
+            preview?: ("off" | "showcase" | "public") | null;
+            /** Summary */
+            summary?: string | null;
+            licence?: components["schemas"]["LicenceIn"] | null;
+            /** Credits */
+            credits?: components["schemas"]["CreditIn"][] | null;
+            /** Tags */
+            tags?: string[] | null;
+            /** System */
+            system?: string | null;
+            /** Languages */
+            languages?: string[] | null;
+        };
         /** RepositoryStatDefinitionOut */
         RepositoryStatDefinitionOut: {
             /**
@@ -8765,6 +9053,25 @@ export interface components {
             kind?: components["schemas"]["TenantKind"] | null;
         };
         /**
+         * TenantInviteCreate
+         * @description POST /tenants/{id}/invites - an Owner's link for their library or repository (ADR 0220).
+         *
+         *     `kind` is `tenant_role`, which makes an Author or an Organizer of the tenant and takes a
+         *     `role`, or `library_access`, which grants a repository to a library the redeemer owns and
+         *     takes none. Never an Owner. Every one ends and is capped: `expires_at` left out is the
+         *     default (3 days for a role link, 7 for a library link) and at most 7 days out for a role
+         *     link, 30 for a library link; `max_uses` left out is 1, an Author link or a library link
+         *     may be raised to a small ceiling, and an Organizer link is single use.
+         */
+        TenantInviteCreate: {
+            kind: components["schemas"]["InviteKind"];
+            role?: components["schemas"]["InviteRole"] | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Max Uses */
+            max_uses?: number | null;
+        };
+        /**
          * TenantKind
          * @description What a tenant is for - see ADR 0118/RFC 0024. Never changes once
          *     the tenant exists (a trigger enforces it).
@@ -8833,7 +9140,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "owner" | "orga" | "participant";
+            role: "owner" | "orga" | "author" | "participant";
             kind: components["schemas"]["TenantKind"];
         };
         /**
@@ -13058,6 +13365,467 @@ export interface operations {
             };
         };
     };
+    get_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepositoryProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_cover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_cover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_set_cover"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_cover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_repository_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_repository_cover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_campaigns: {
         parameters: {
             query?: {
@@ -14214,7 +14982,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["InviteRedeemIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -14224,6 +14996,207 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["InviteRedeemOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_tenant_invites: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_InviteOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_tenant_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantInviteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteCreatedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    revoke_tenant_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

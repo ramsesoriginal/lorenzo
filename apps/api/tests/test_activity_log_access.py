@@ -1,11 +1,11 @@
 """Who can read GET /tenants/{id}/activity-log - see ADR 0084.
 
-The log is for tenant administrators. That is enforced today by
-`get_tenant_context` requiring a `Membership` row, combined with
-`MembershipRole` having only administrative values (OWNER, ORGA) - so
-"any tenant-wide member" and "OWNER/ORGA" are the same set. GMs and
-players without a Membership never reach it at all. These tests pin that
-down, including a tripwire for the day a non-administrative role is added.
+The log is for tenant administrators (OWNER or ORGA). It is enforced by
+`get_tenant_admin_context`, so an AUTHOR (RFC 0040, ADR 0219), who is a
+member but not an administrator, is refused with a 403, and GMs and players
+without a Membership never reach it at all (404). These tests pin that down;
+tests/test_author_route_audit.py is the table that replaced the tripwire
+which used to fail the day a non-administrative role was added.
 """
 
 import uuid
@@ -17,16 +17,23 @@ from httpx import AsyncClient
 from lorenzo_api.models import CampaignGm, Membership, MembershipRole, Player, Tenant
 
 
-async def test_membership_roles_are_all_administrative() -> None:
-    """Tripwire. The activity log's read gate is `get_tenant_context`, i.e.
-    "has any Membership row". That is only "OWNER/ORGA-only" (ADR 0084)
-    while every `MembershipRole` is an administrative role. If this fails
-    because a new role was added, the log's gate must become an explicit
-    `campaign_access.is_tenant_admin` check *in the same change* - otherwise
-    the new role silently gains read access to every GM's and player's
-    attributed actions.
-    """
-    assert set(MembershipRole) == {MembershipRole.OWNER, MembershipRole.ORGA}
+async def test_an_author_cannot_read_the_activity_log(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    async with admin_session_factory() as session:
+        tenant = Tenant()
+        session.add(tenant)
+        await session.flush()
+        session.add(
+            Membership(tenant_id=tenant.id, user_id=test_user_id, role=MembershipRole.AUTHOR)
+        )
+        await session.commit()
+        tenant_id = tenant.id
+
+    response = await client.get(f"/tenants/{tenant_id}/activity-log")
+    assert response.status_code == 403
+
+    await delete_tenant(tenant_id)
 
 
 async def test_orga_can_read_the_activity_log(client: AsyncClient, test_user_id: uuid.UUID) -> None:

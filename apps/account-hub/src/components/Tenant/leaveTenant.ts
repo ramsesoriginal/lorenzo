@@ -15,7 +15,7 @@ export type BoundLeaveTenant = {
   show(tenant: TenantSummaryOut): void;
 };
 
-// Shown on every library or repository where the caller has a Membership (owner or orga):
+// Shown on every library or repository where the caller has a Membership (Owner, Organizer or Author):
 // DELETE .../memberships/{me} is open to the member themselves, whatever their role. A person
 // who only plays or GMs there has nothing to leave here; their way out is "Leave this campaign"
 // on /campaigns. A repository says so in its own word (ADR 0178).
@@ -73,7 +73,7 @@ export function bindLeaveTenant(
       noun.textContent = kindNoun(next.kind);
       button.disabled = false;
       say(status, '');
-      root.hidden = next.role !== 'owner' && next.role !== 'orga';
+      root.hidden = next.role === 'participant';
     },
   };
 }

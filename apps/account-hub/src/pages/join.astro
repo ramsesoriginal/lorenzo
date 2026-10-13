@@ -3,12 +3,12 @@ import JoinInvite from '../components/JoinInvite/JoinInvite.astro';
 import Base from '../layouts/Base.astro';
 ---
 
-<Base title="Join a campaign — Lorenzo">
+<Base title="Accept an invitation — Lorenzo">
   <!-- The address of this page carries an invite token for a moment (ADR 0171):
        never send it on to another site. public/_headers says the same. -->
   <meta slot="head" name="referrer" content="no-referrer" />
 
-  <h1 class="display">Join a campaign</h1>
+  <h1 class="display">Accept an invitation</h1>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>

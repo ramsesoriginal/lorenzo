@@ -91,9 +91,14 @@ describe("formatWhoamiEmbed", () => {
     expect(embed.fields?.find((f) => f.name === "Tenant role")?.value).toBe("Owner");
   });
 
-  it("labels an orga membership", () => {
+  it("labels an orga membership as Organizer", () => {
     const embed = formatWhoamiEmbed(profile({ membershipRole: "orga" })).toJSON();
-    expect(embed.fields?.find((f) => f.name === "Tenant role")?.value).toBe("Orga");
+    expect(embed.fields?.find((f) => f.name === "Tenant role")?.value).toBe("Organizer");
+  });
+
+  it("labels an author membership", () => {
+    const embed = formatWhoamiEmbed(profile({ membershipRole: "author" })).toJSON();
+    expect(embed.fields?.find((f) => f.name === "Tenant role")?.value).toBe("Author");
   });
 
   it("explains a null membershipRole as the normal player case, not an error", () => {

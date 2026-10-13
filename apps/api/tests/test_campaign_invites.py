@@ -12,7 +12,7 @@ from sqlalchemy import select, text, update
 
 from lorenzo_api.db import async_session_factory
 from lorenzo_api.invites import generate_token, hash_token
-from lorenzo_api.models import AuditLog, CampaignInvite, Player, Tenant
+from lorenzo_api.models import AuditLog, Invite, InviteRole, Player, Tenant
 
 
 def _in(**delta: int) -> str:
@@ -64,7 +64,7 @@ async def test_create_returns_the_token_once_and_stores_only_its_hash(
     assert body["use_count"] == 0 and body["max_uses"] == 5
 
     async with admin_session_factory() as session:
-        row = await session.get_one(CampaignInvite, uuid.UUID(body["id"]))
+        row = await session.get_one(Invite, uuid.UUID(body["id"]))
         assert row.token_hash == hash_token(token)
         assert row.token_hash != token  # only the hash is stored
 
@@ -174,9 +174,10 @@ async def test_only_a_campaign_manager_can_manage_invites(
 async def _seed(tenant_id: uuid.UUID, campaign_id: uuid.UUID) -> tuple[str, uuid.UUID]:
     token = generate_token()
     async with admin_session_factory() as session:
-        invite = CampaignInvite(
+        invite = Invite(
             tenant_id=tenant_id,
             campaign_id=campaign_id,
+            role=InviteRole.PLAYER,
             token_hash=hash_token(token),
             expires_at=datetime.now(tz=UTC) + timedelta(days=1),
         )
@@ -205,7 +206,7 @@ async def test_rls_a_token_reads_exactly_its_own_invite_and_writes_nothing(
                     text("SELECT set_config(:n, :v, true)"),
                     {"n": name.replace("__", "."), "v": value},
                 )
-            rows = (await session.execute(select(CampaignInvite.id))).scalars().all()
+            rows = (await session.execute(select(Invite.id))).scalars().all()
             return set(rows)
 
     # No context at all: nothing visible (and no error - an unset setting is NULL).
@@ -224,11 +225,11 @@ async def test_rls_a_token_reads_exactly_its_own_invite_and_writes_nothing(
             text("SELECT set_config('app.invite_token_hash', :h, true)"),
             {"h": hash_token(token_a)},
         )
-        result = await session.execute(update(CampaignInvite).values(use_count=99))
+        result = await session.execute(update(Invite).values(use_count=99))
         assert result.rowcount == 0  # type: ignore[attr-defined]
         await session.rollback()
     async with admin_session_factory() as session:
-        assert (await session.get_one(CampaignInvite, invite_a)).use_count == 0
+        assert (await session.get_one(Invite, invite_a)).use_count == 0
 
     await delete_tenant(tenant_a)
     await delete_tenant(tenant_b)

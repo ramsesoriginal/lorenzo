@@ -42,6 +42,7 @@ import { renderMembershipAdmin } from '../MembershipAdmin/renderer';
 import { renderNotificationComposer } from '../NotificationComposer/renderer';
 import { renderPictureUpload } from '../PictureUpload/renderer';
 import { renderTenantDelete } from '../TenantDelete/renderer';
+import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 import type { TenantHooks } from './hooks';
 import { cloneComponent, fillSlot } from './slots';
 import { bindStepDownAsGm } from './stepDownAsGm';
@@ -253,6 +254,12 @@ export function fillLibrary(
       onChanged,
     );
     fillSlot(root, '[data-memberships-slot]', memberships);
+
+    // And by a link, for an Author or an Organizer (ADR 0212).
+    const links = cloneComponent(root, '[data-tenant-invite-links-template]');
+
+    renderTenantInviteLinks(links, tenant, 'role');
+    fillSlot(root, '[data-links-slot]', links);
   }
 
   // Deleting the library (ADR 0267): an Owner's button, or for an Organizer the reason there is

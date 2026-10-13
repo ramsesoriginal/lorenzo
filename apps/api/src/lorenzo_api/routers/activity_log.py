@@ -6,7 +6,7 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
-from lorenzo_api.dependencies import ParamsDep, SessionDep, get_tenant_context
+from lorenzo_api.dependencies import ParamsDep, SessionDep, get_tenant_admin_context
 from lorenzo_api.models import AuditLog
 from lorenzo_api.schemas.activity_log import AuditLogEntryOut
 
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/tenants/{tenant_id}/activity-log", tags=["activity-l
 
 @router.get("")
 async def list_activity_log(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     session: SessionDep,
     params: ParamsDep,
 ) -> Page[AuditLogEntryOut]:
@@ -26,11 +26,9 @@ async def list_activity_log(
     a mutation route either calls `activity_log.record_activity` or says
     in its own docstring why it doesn't.
 
-    Gated by `get_tenant_context`. That means "OWNER or ORGA" only because
-    every `MembershipRole` is administrative - GMs and players without a
-    Membership row get a 404. `tests/test_activity_log_access.py` fails if
-    a non-administrative role is ever added, at which point this gate must
-    become an explicit `is_tenant_admin` check in the same change.
+    Gated by `get_tenant_admin_context`: an OWNER or an ORGA. An AUTHOR (RFC 0040,
+    ADR 0219) is a member and gets a 403; GMs and players without a Membership row
+    get a 404.
     """
     stmt = (
         select(AuditLog)

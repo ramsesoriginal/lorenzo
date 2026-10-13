@@ -2,7 +2,7 @@
 // or join one by an invite link or just its code, which goes on to /join as a link someone
 // opened would.
 
-import { inviteTokenFrom, inviteUrl } from '../../lib/inviteLink';
+import { pastedInvite } from '../../lib/inviteLink';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants } from '../../lib/tenantKind';
 import type { MeOut } from '../../lib/types';
@@ -23,11 +23,10 @@ export function renderNewUser(root: HTMLElement, me: MeOut): void {
   form.addEventListener('submit', (event) => {
     event.preventDefault();
 
-    const token = inviteTokenFrom(input.value);
+    const result = pastedInvite(input.value, window.location.origin);
 
-    if (token === null) {
-      error.textContent =
-        "That doesn't look like an invite link or code. Check it against what your GM sent you.";
+    if ('error' in result) {
+      error.textContent = result.error;
       error.hidden = false;
       input.focus();
 
@@ -36,7 +35,7 @@ export function renderNewUser(root: HTMLElement, me: MeOut): void {
 
     error.hidden = true;
     input.value = '';
-    window.location.assign(inviteUrl(window.location.origin, token));
+    window.location.assign(result.href);
   });
 
   root.hidden = false;

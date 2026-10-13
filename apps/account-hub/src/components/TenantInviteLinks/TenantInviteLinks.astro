@@ -1,0 +1,64 @@
+---
+// An Owner's invite links for a library or repository (ADR 0212): for a role (Author or
+// Organizer, never Owner) in People, and, for a repository, to share it with a library. Make one,
+// see them all, revoke one. A token exists exactly once, in the response to creating a link; the
+// panel shows the whole link then, in a <LinkOnce />, and nowhere else. Rendered by
+// renderTenantInviteLinks.
+import LinkOnce from '../LinkOnce/LinkOnce.astro';
+---
+
+<div class="stack" data-tenant-invite-links>
+  <strong data-heading></strong>
+  <p class="caption" data-help></p>
+
+  <form class="stack card card-body" data-form>
+    <div class="row">
+      <label class="field" data-role-field>
+        <span class="field-label">Makes</span>
+        <select class="text-input" data-role></select>
+      </label>
+      <label class="field">
+        <span class="field-label">Expires in</span>
+        <select class="text-input" data-expiry></select>
+      </label>
+      <label class="field" data-team-field>
+        <span class="field-label" data-team-label></span>
+        <input
+          class="text-input"
+          type="number"
+          inputmode="numeric"
+          min="1"
+          placeholder="1"
+          data-team
+        />
+      </label>
+    </div>
+    <div class="row">
+      <button type="submit" data-create>
+        Make a link
+      </button>
+      <span class="status-text" role="status" data-links-status hidden></span>
+    </div>
+  </form>
+
+  <div data-created></div>
+  <span class="status-text" role="status" data-list-status hidden></span>
+  <ul class="list" data-list></ul>
+
+  <template data-link-once-template>
+    <LinkOnce />
+  </template>
+
+  <template data-invite-template>
+    <li class="stack-tight">
+      <div class="row">
+        <span class="badge" data-state></span>
+        <span class="campaign-meta grow" data-meta></span>
+        <button type="button" data-revoke>
+          Revoke
+        </button>
+      </div>
+      <span class="status-text" role="status" data-status hidden></span>
+    </li>
+  </template>
+</div>

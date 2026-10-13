@@ -27,7 +27,6 @@ from lorenzo_api.models import (
     Being,
     Campaign,
     CampaignGm,
-    CampaignInvite,
     CampaignProfilePicture,
     Character,
     CharacterPlayer,
@@ -47,6 +46,7 @@ from lorenzo_api.models import (
     EntityStatGroup,
     GroupMember,
     Information,
+    Invite,
     Item,
     ItemInstance,
     Knowledge,
@@ -64,7 +64,10 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryProfile,
     RepositoryRelease,
+    RepositoryReleaseBlob,
+    RepositoryReleaseDocument,
     RepositoryReleasedRow,
     StatDefinition,
     StatDefinitionEnumValue,
@@ -160,6 +163,13 @@ REGISTRY: tuple[CopyableTable, ...] = (
     # libraries it is granted to, never copied.
     CopyableTable("repository_release", RepositoryRelease, True, "none"),
     CopyableTable("repository_released_row", RepositoryReleasedRow, True, "none"),
+    # What the repository says about itself (ADR 0213): a copy never carries it, but the libraries
+    # it is granted to read it.
+    CopyableTable("repository_profile", RepositoryProfile, True, "none"),
+    # The release document of a repository and the files it points at (ADR 0214): written once
+    # for a release, read by the libraries the repository is granted to, never copied.
+    CopyableTable("repository_release_document", RepositoryReleaseDocument, True, "none"),
+    CopyableTable("repository_release_blob", RepositoryReleaseBlob, True, "none"),
     # Copy bookkeeping of the tenant that copied (ADR 0172), not content a repository holds: what
     # a bridge attached is read from its entities.
     CopyableTable(
@@ -170,7 +180,7 @@ REGISTRY: tuple[CopyableTable, ...] = (
     CopyableTable("audit_log", AuditLog, False, "none"),
     CopyableTable("campaign", Campaign, False, "none"),
     CopyableTable("campaign_gm", CampaignGm, False, "none"),
-    CopyableTable("campaign_invite", CampaignInvite, False, "none"),
+    CopyableTable("invite", Invite, False, "none"),
     CopyableTable("campaign_profile_picture", CampaignProfilePicture, False, "none"),
     CopyableTable("character_player", CharacterPlayer, False, "none"),
     CopyableTable("entity_change", EntityChange, False, "none"),

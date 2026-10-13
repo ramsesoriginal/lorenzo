@@ -108,6 +108,12 @@ class BodyAddInformationPicture(BaseModel):
     )
 
 
+class BodySetCover(BaseModel):
+    file: str = Field(
+        ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
+    )
+
+
 class BodySetEntityPicture(BaseModel):
     file: str = Field(
         ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
@@ -399,6 +405,21 @@ class Again(StrEnum):
     purge = "purge"
 
 
+class CreditIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: str = Field(..., title="Name")
+    role: str | None = Field(None, title="Role")
+    url: str | None = Field(None, title="Url")
+
+
+class CreditOut(BaseModel):
+    name: str = Field(..., title="Name")
+    role: str | None = Field(..., title="Role")
+    url: str | None = Field(..., title="Url")
+
+
 class DeviceApproval(BaseModel):
     name: constr(min_length=1, max_length=80) = Field(..., title="Name")
     expires_at: AwareDatetime | None = Field(None, title="Expires At")
@@ -588,9 +609,21 @@ class InformationUpdate(BaseModel):
     order: int | None = Field(None, title="Order")
 
 
+class InviteKind(StrEnum):
+    campaign = "campaign"
+    tenant_role = "tenant_role"
+    library_access = "library_access"
+
+
+class InviteRedeemIn(BaseModel):
+    library_id: UUID | None = Field(None, title="Library Id")
+
+
 class InviteRole(StrEnum):
     player = "player"
     gm = "gm"
+    author = "author"
+    orga = "orga"
 
 
 class ItemCreate(BaseModel):
@@ -653,6 +686,19 @@ class KnowledgeEntryOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class LicenceIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    label: str = Field(..., title="Label")
+    url: str | None = Field(None, title="Url")
+
+
+class LicenceOut(BaseModel):
+    label: str = Field(..., title="Label")
+    url: str | None = Field(..., title="Url")
+
+
 class Kind13(StrEnum):
     item = "item"
     item_instance = "item_instance"
@@ -674,6 +720,7 @@ class ManagedCampaignOut(BaseModel):
 class Role(StrEnum):
     owner = "owner"
     orga = "orga"
+    author = "author"
 
 
 class MeCapabilitiesOut(BaseModel):
@@ -1078,6 +1125,44 @@ class RepositoryEntityOut(BaseModel):
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
+class Visibility(StrEnum):
+    private = "private"
+    public = "public"
+
+
+class Preview(StrEnum):
+    off = "off"
+    showcase = "showcase"
+    public = "public"
+
+
+class RepositoryProfileOut(BaseModel):
+    visibility: Visibility = Field(..., title="Visibility")
+    preview: Preview = Field(..., title="Preview")
+    summary: str = Field(..., title="Summary")
+    licence: LicenceOut | None
+    credits: list[CreditOut] = Field(..., title="Credits")
+    tags: list[str] = Field(..., title="Tags")
+    system: str | None = Field(..., title="System")
+    languages: list[str] = Field(..., title="Languages")
+    has_cover: bool = Field(..., title="Has Cover")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class RepositoryProfileUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    visibility: Visibility | None = Field(None, title="Visibility")
+    preview: Preview | None = Field(None, title="Preview")
+    summary: constr(max_length=2000) | None = Field(None, title="Summary")
+    licence: LicenceIn | None = None
+    credits: list[CreditIn] | None = Field(None, title="Credits")
+    tags: list[str] | None = Field(None, title="Tags")
+    system: constr(max_length=2000) | None = Field(None, title="System")
+    languages: list[str] | None = Field(None, title="Languages")
+
+
 class RepositorySummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -1298,6 +1383,13 @@ class TagValueOut(BaseModel):
     value: bool | None = Field(..., title="Value")
 
 
+class TenantInviteCreate(BaseModel):
+    kind: InviteKind
+    role: InviteRole | None = None
+    expires_at: AwareDatetime | None = Field(None, title="Expires At")
+    max_uses: conint(ge=1, le=10) | None = Field(None, title="Max Uses")
+
+
 class TenantKind(StrEnum):
     play = "play"
     repository = "repository"
@@ -1324,6 +1416,7 @@ class TenantOut(BaseModel):
 class Role3(StrEnum):
     owner = "owner"
     orga = "orga"
+    author = "author"
     participant = "participant"
 
 
@@ -1537,8 +1630,9 @@ class InviteCreate(BaseModel):
 
 class InviteCreatedOut(BaseModel):
     id: UUID = Field(..., title="Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    role: InviteRole
+    kind: InviteKind
+    campaign_id: UUID | None = Field(..., title="Campaign Id")
+    role: InviteRole | None
     created_by: UUID | None = Field(..., title="Created By")
     created_at: AwareDatetime = Field(..., title="Created At")
     expires_at: AwareDatetime = Field(..., title="Expires At")
@@ -1551,8 +1645,9 @@ class InviteCreatedOut(BaseModel):
 
 class InviteOut(BaseModel):
     id: UUID = Field(..., title="Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    role: InviteRole
+    kind: InviteKind
+    campaign_id: UUID | None = Field(..., title="Campaign Id")
+    role: InviteRole | None
     created_by: UUID | None = Field(..., title="Created By")
     created_at: AwareDatetime = Field(..., title="Created At")
     expires_at: AwareDatetime = Field(..., title="Expires At")
@@ -1563,16 +1658,21 @@ class InviteOut(BaseModel):
 
 
 class InvitePreviewOut(BaseModel):
-    campaign_name: str = Field(..., title="Campaign Name")
+    kind: InviteKind
+    name: str = Field(..., title="Name")
+    campaign_name: str | None = Field(..., title="Campaign Name")
+    tenant_kind: TenantKind | None
     picture_url: str | None = Field(..., title="Picture Url")
-    role: InviteRole
+    role: InviteRole | None
 
 
 class InviteRedeemOut(BaseModel):
+    kind: InviteKind
     tenant_id: UUID = Field(..., title="Tenant Id")
-    campaign_id: UUID = Field(..., title="Campaign Id")
-    role: InviteRole
+    campaign_id: UUID | None = Field(..., title="Campaign Id")
+    role: InviteRole | None
     player_id: UUID | None = Field(..., title="Player Id")
+    library_id: UUID | None = Field(None, title="Library Id")
     already_joined: bool = Field(..., title="Already Joined")
 
 

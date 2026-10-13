@@ -14,6 +14,7 @@ from sqlalchemy.orm import InstrumentedAttribute, joinedload, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.campaign_access import is_tenant_admin
 from lorenzo_api.client_ids import existing_in_tenant, insert_with_client_id
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -32,6 +33,7 @@ from lorenzo_api.exceptions import (
     ClientIdUnavailableError,
     EntityPrototypeCycleError,
     EntitySlugConflictError,
+    InheritedEntryDeletionForbiddenError,
     InvalidPrototypeError,
     ItemNotFoundError,
     ItemPrototypeInUseError,
@@ -593,8 +595,24 @@ async def delete_item(
     is deleted, leaving every instance that inherited from it quietly
     missing stats it used to resolve through. No ?force= escape hatch -
     the caller's real fix is to delete or re-parent the instances first.
+
+    An Author (ADR 0219) deletes an item nobody inherits from: while another entry has this
+    one as a prototype it is 403, and an Owner or an Organizer decides.
     """
     entity = await _get_item_entity_or_404(tenant_id, entity_id, session)
+    if not await is_tenant_admin(session, tenant_id=tenant_id, user_id=user.id):
+        inherited_stmt = (
+            select(EntityPrototype.entity_id)
+            .where(
+                EntityPrototype.prototype_id == entity_id, EntityPrototype.tenant_id == tenant_id
+            )
+            .limit(1)
+        )
+        if (await session.execute(inherited_stmt)).first() is not None:
+            raise InheritedEntryDeletionForbiddenError(
+                detail=f"Other entries inherit from item {entity_id}; an Owner or an Organizer can"
+                " delete it"
+            )
     check_if_match(if_match, updated_at=entity.updated_at)
 
     in_use_stmt = (

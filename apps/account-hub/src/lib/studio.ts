@@ -24,43 +24,71 @@ export function readStudioLocation(search: string): {
   return { repository: query.get('repository'), create: query.get('new') === '1' };
 }
 
-// A role as a person reads it. Only an Owner or an Organizer works on a repository today; the
-// Author role (RFC 0040) adds a third.
+// A role as a person reads it (RFC 0040, ADR 0194).
 export function roleLabel(role: string): string {
   switch (role) {
     case 'owner':
       return 'Owner';
     case 'orga':
       return 'Organizer';
+    case 'author':
+      return 'Author';
     default:
       return role;
   }
 }
 
-export type RoleMeaning = { role: 'owner' | 'orga'; label: string; meaning: string };
+export type RoleMeaning = { role: 'owner' | 'orga' | 'author'; label: string; meaning: string };
 
-// What each role can do on a repository, written next to the people who have it. Each is what the
-// API enforces: publishing, unpublishing, inviting and revoking a library, and changing people are
-// an Owner's alone; editing the repository and its content is an Owner's or an Organizer's.
-export const ROLE_MEANINGS: readonly RoleMeaning[] = [
-  {
-    role: 'owner',
-    label: 'Owner',
-    meaning:
-      'Full control: publishes the repository, invites libraries to it, adds and removes people, and edits its content.',
-  },
-  {
-    role: 'orga',
-    label: 'Organizer',
-    meaning:
-      'Edits the repository and its content. Cannot publish it, invite libraries or change who works on it.',
-  },
-];
+// What each role can do, written next to the people who have it, in the order of how much they can.
+// Each is what the API enforces (ADR 0219): of a repository, publishing, unpublishing, inviting and
+// revoking a library and changing people are an Owner's alone; an Organizer edits it and everything
+// in it; an Author edits what is in it and deletes no structure.
+export function roleMeanings(kind: 'play' | 'repository'): readonly RoleMeaning[] {
+  if (kind === 'repository') {
+    return [
+      {
+        role: 'owner',
+        label: 'Owner',
+        meaning:
+          'Full control: publishes the repository, invites libraries to it, adds and removes people, and edits everything in it.',
+      },
+      {
+        role: 'orga',
+        label: 'Organizer',
+        meaning:
+          'Edits the repository and everything in it. Cannot publish it, invite libraries or change who works on it.',
+      },
+      {
+        role: 'author',
+        label: 'Author',
+        meaning:
+          'Edits what is in it: entries, stats and notes. Cannot publish it, invite libraries, delete stat groups or other structure, or change who works on it.',
+      },
+    ];
+  }
 
-// Said once under the roles: the one who edits is an Organizer, until the role for someone who
-// only writes exists (RFC 0040).
-export const ROLES_NOTE =
-  'Until there is a role for people who only write content, an Organizer is the one who edits.';
+  return [
+    {
+      role: 'owner',
+      label: 'Owner',
+      meaning:
+        'Full control: adds and removes people, runs its campaigns and edits its catalog and settings.',
+    },
+    {
+      role: 'orga',
+      label: 'Organizer',
+      meaning:
+        'Runs the library day to day: its campaigns, its catalog and its settings. Cannot change who has a role.',
+    },
+    {
+      role: 'author',
+      label: 'Author',
+      meaning:
+        'Edits the catalog: items and stats. Reaches no campaign, character or player, and cannot change who has a role.',
+    },
+  ];
+}
 
 export type RepositoryState = {
   published: boolean;

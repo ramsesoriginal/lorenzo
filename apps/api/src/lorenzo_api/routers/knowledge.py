@@ -7,20 +7,18 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
-from lorenzo_api.dependencies import ParamsDep, SessionDep, get_tenant_context
+from lorenzo_api.dependencies import ParamsDep, SessionDep, get_tenant_admin_context
 from lorenzo_api.models import Information, Knowledge
 from lorenzo_api.schemas.knowledge import KnowledgeEntryOut
 
-# get_tenant_context: a tenant-wide Membership row is required, and every
-# MembershipRole is administrative (OWNER/ORGA) - tests/
-# test_activity_log_access.py's tripwire fails if a non-administrative role
-# is ever added, at which point this must become an explicit
-# is_tenant_admin check (ADR 0084/0085). GMs and players without a
-# Membership get a 404, so this never widens who can learn who knows what.
+# get_tenant_admin_context: a tenant-wide Membership row is required, and an
+# administrator's one (OWNER/ORGA), not an AUTHOR's (ADR 0084/0085, ADR 0219). GMs and
+# players without a Membership get a 404, so this never widens who can learn who
+# knows what.
 router = APIRouter(
     prefix="/tenants/{tenant_id}/knowledge",
     tags=["knowledge"],
-    dependencies=[Depends(get_tenant_context)],
+    dependencies=[Depends(get_tenant_admin_context)],
 )
 
 
