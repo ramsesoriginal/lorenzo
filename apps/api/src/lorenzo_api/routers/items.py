@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -10,7 +10,7 @@ from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
 from sqlalchemy import CTE, func, select
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.orm import InstrumentedAttribute, selectinload
+from sqlalchemy.orm import InstrumentedAttribute, joinedload, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
 from lorenzo_api.activity_log import record_activity
@@ -36,7 +36,7 @@ from lorenzo_api.exceptions import (
     ItemNotFoundError,
     ItemPrototypeInUseError,
 )
-from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.information_visibility import resolve_information_reader
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
     Entity,
@@ -86,6 +86,12 @@ async def _is_member(session: SessionDep, *, tenant_id: uuid.UUID, user: Current
     return await session.get(Membership, (tenant_id, user.id)) is not None
 
 
+def _information_read(entities: Iterable[Entity]) -> list[Information]:
+    """Every Information row of these entities: what a read of items may show, own and inherited,
+    and so what its reader's `can_see` is asked of (ADR 0285)."""
+    return [information for entity in entities for information in entity.information]
+
+
 def eager_load_options(
     view_entity_attr: InstrumentedAttribute[Entity],
 ) -> tuple[ORMOption, ...]:
@@ -112,36 +118,36 @@ def eager_load_options(
     relationship here already has to be eager-loaded around.
     """
     return (
-        selectinload(view_entity_attr)
+        joinedload(view_entity_attr)
         .selectinload(Entity.information)
         .selectinload(Information.payloads)
-        .selectinload(Payload.description),
-        selectinload(view_entity_attr)
+        .joinedload(Payload.description),
+        joinedload(view_entity_attr)
         .selectinload(Entity.information)
         .selectinload(Information.payloads)
-        .selectinload(Payload.picture),
-        selectinload(view_entity_attr)
+        .joinedload(Payload.picture),
+        joinedload(view_entity_attr)
         .selectinload(Entity.information)
         .selectinload(Information.knowledge_links),
-        selectinload(view_entity_attr)
+        joinedload(view_entity_attr)
         .selectinload(Entity.effective_stats)
-        .selectinload(VEffectiveStat.stat_definition)
-        .selectinload(StatDefinition.stat_group),
+        .joinedload(VEffectiveStat.stat_definition)
+        .joinedload(StatDefinition.stat_group),
         # A winning formula's parameters, for stat_evaluation (ADR 0104).
         *formula_load_options(
-            selectinload(view_entity_attr)
+            joinedload(view_entity_attr)
             .selectinload(Entity.effective_stats)
             .selectinload(VEffectiveStat.computed_stat)
         ),
-        selectinload(view_entity_attr).selectinload(Entity.contained_links),
-        selectinload(view_entity_attr).selectinload(Entity.prototype_links),
+        joinedload(view_entity_attr).selectinload(Entity.contained_links),
+        joinedload(view_entity_attr).selectinload(Entity.prototype_links),
     )
 
 
 # ItemOut's own too: the item row, for in_public_catalog (ADR 0116).
 _ITEM_OPTIONS = (
     *eager_load_options(VItem.entity),
-    selectinload(VItem.entity).selectinload(Entity.item),
+    joinedload(VItem.entity).joinedload(Entity.item),
 )
 
 
@@ -233,9 +239,6 @@ async def list_items(
                 EntityPrototype.prototype_id == prototype_id,
                 EntityPrototype.tenant_id == tenant_id,
             )
-    # Resolved once per request, not once per row - reused by every item on
-    # the page (ADR 0028's addendum).
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
 
     async def _items_out(items: Sequence[VItem]) -> list[ItemOut]:
         # One ancestor walk for the whole page (ADR 0111), and one load of
@@ -244,9 +247,22 @@ async def list_items(
             session, tenant_id=tenant_id, entity_ids=[item.entity_id for item in items]
         )
         await attach_contents(session, [item.entity for item in items], tenant_id=tenant_id)
+        # Resolved once per page, not once per row (ADR 0028's addendum), and from what the page
+        # reads: nothing is resolved for rows that are all public (ADR 0285).
+        reader = await resolve_information_reader(
+            session,
+            user_id=user.id,
+            tenant_id=tenant_id,
+            information=_information_read(
+                [
+                    *(item.entity for item in items),
+                    *(ancestor for found in ancestry.values() for ancestor in found),
+                ]
+            ),
+        )
         return [
             ItemOut.from_v_item(
-                item, request, visibility=visibility, ancestors=ancestry[item.entity_id]
+                item, request, visibility=reader, ancestors=ancestry[item.entity_id]
             )
             for item in items
         ]
@@ -270,14 +286,29 @@ async def get_item(
     0116); its information stays filtered to what they may see."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    response.headers["ETag"] = etag_for(view.entity.updated_at)
-    return ItemOut.from_v_item(
-        view,
-        request,
-        visibility=visibility,
-        ancestors=await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id),
+    return await _item_read(view, request, response, session, user)
+
+
+async def _item_read(
+    view: VItem,
+    request: Request,
+    response: Response | None,
+    session: SessionDep,
+    user: CurrentUser,
+) -> ItemOut:
+    """The answer for an item already loaded: its ancestors, then who may read the information of
+    both (ADR 0285: nothing is resolved for a caller of rows that are all public, and for an admin
+    only their tier), and the ETag when there is a response to carry it."""
+    ancestors = await ancestors_of(session, tenant_id=view.tenant_id, entity_id=view.entity_id)
+    reader = await resolve_information_reader(
+        session,
+        user_id=user.id,
+        tenant_id=view.tenant_id,
+        information=_information_read([view.entity, *ancestors]),
     )
+    if response is not None:
+        response.headers["ETag"] = etag_for(view.entity.updated_at)
+    return ItemOut.from_v_item(view, request, visibility=reader, ancestors=ancestors)
 
 
 async def _get_v_item_or_404(
@@ -328,15 +359,7 @@ async def _item_out(
     _item_instance_out parameter.
     """
     view = await _get_v_item_or_404(tenant_id, entity_id, session)
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    if response is not None:
-        response.headers["ETag"] = etag_for(view.entity.updated_at)
-    return ItemOut.from_v_item(
-        view,
-        request,
-        visibility=visibility,
-        ancestors=await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id),
-    )
+    return await _item_read(view, request, response, session, user)
 
 
 @router.post("", status_code=201, dependencies=MEMBERS)
