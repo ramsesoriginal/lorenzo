@@ -9,6 +9,7 @@ import {
 } from '../../../inventory-web/tests/e2e/support/env';
 import {
   addItem,
+  addPlayer,
   campaignCard,
   makeGm,
   newCampaign,
@@ -249,4 +250,43 @@ test('the settings field works on a phone: boxes the size of a thumb, nothing wi
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await session.context.close();
+});
+
+test("a campaign's GM with no library membership edits it and names their game master; a player cannot", async ({
+  browser,
+}) => {
+  const owner = await newUser('owner', ['tenant_creator']);
+  const library = await newLibrary(owner.api);
+  const campaign = await newCampaign(owner.api, library.id, 'Zorro');
+  const gm = await newUser('gm');
+  const player = await newUser('player');
+  await makeGm(owner.api, library.id, campaign.id, gm.me.id);
+  await addPlayer(owner.api, library.id, campaign.id, player.me.id);
+  const path = { tenant_id: library.id, campaign_id: campaign.id };
+
+  const asGm = await signedInPage(browser, gm.subject);
+  const card = campaignCard(await openLibrary(asGm.page, library), 'Zorro');
+
+  // Editing is theirs; managing the other GMs, which needs the library's roster, is not.
+  await expect(card.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+  await expect(card.locator('[data-gm-management]')).toHaveCount(0);
+  await card.getByRole('button', { name: 'Edit', exact: true }).click();
+  const form = card.locator('[data-campaign-form]');
+  await form.getByLabel('Title', { exact: true }).fill('Storyteller');
+  await form.getByLabel('Plural', { exact: true }).fill('Storytellers');
+  await card.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(card.locator('[data-campaign-meta]')).toContainText('test · Storyteller');
+  await expect(card.getByRole('button', { name: 'Step down as Storyteller' })).toBeVisible();
+  const saved = await ok(
+    owner.api.GET('/tenants/{tenant_id}/campaigns/{campaign_id}', { params: { path } }),
+  );
+  expect([saved.gm_title, saved.gm_title_plural]).toEqual(['Storyteller', 'Storytellers']);
+  await asGm.context.close();
+
+  // A player of the same campaign has no Edit.
+  const asPlayer = await signedInPage(browser, player.subject);
+  const seen = campaignCard(await openLibrary(asPlayer.page, library), 'Zorro');
+  await expect(seen.locator('[data-campaign-meta]')).toBeVisible();
+  await expect(seen.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
+  await asPlayer.context.close();
 });

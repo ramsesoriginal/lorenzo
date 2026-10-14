@@ -140,11 +140,20 @@ function renderCampaign(
     fillSlot(item, '[data-campaign-roster-slot]', roster);
   }
 
-  if (admin) {
+  // Editing the campaign (its name, description, switches and what it calls its game master) is
+  // update_campaign's gate, the same as everything else a manager does here: a library
+  // administrator or the campaign's own GM. Nothing in it is administrator-only.
+  if (canManage) {
     const edit = cloneComponent(root, '[data-campaign-edit-template]');
-    const gms = cloneComponent(root, '[data-gm-management-template]');
 
     renderCampaignEdit(edit, tenant, campaign, onChanged);
+    fillSlot(item, '[data-campaign-edit-slot]', edit);
+  }
+
+  // GM management needs the library's roster to name people, which only an administrator reads.
+  if (admin) {
+    const gms = cloneComponent(root, '[data-gm-management-template]');
+
     renderGmManagement(
       gms,
       tenant,
@@ -153,7 +162,6 @@ function renderCampaign(
       data.roster ?? [],
       onChanged,
     );
-    fillSlot(item, '[data-campaign-edit-slot]', edit);
     fillSlot(item, '[data-campaign-gms-slot]', gms);
   }
 
