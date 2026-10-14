@@ -360,6 +360,8 @@ export type MissingRepository = {
   name: string;
   granted: boolean;
   published: boolean;
+  // Whether the API says anyone may read it: a library with no invitation can copy it then.
+  public: boolean;
 };
 
 // What a copy the API refused was refused for, in the terms the wizard acts on. A refusal that is
@@ -414,6 +416,7 @@ function missingOf(value: unknown): MissingRepository[] {
       name: value.name,
       granted: value.granted === true,
       published: value.published === true,
+      public: value.public === true,
     },
   ];
 }
@@ -450,6 +453,14 @@ export function missingSentence(missing: MissingRepository): string {
   return missing.granted
     ? `${missing.name} is not published; ask its owner to publish it.`
     : `Ask the owner of ${missing.name} to invite your library.`;
+}
+
+// The same for a copy of a public repository: what stands in the way is that a repository it is built
+// on is neither public nor offered to the library.
+export function publicMissingSentence(missing: MissingRepository): string {
+  if (missing.granted) return missingSentence(missing);
+
+  return `${missing.name} is not public, and your library is not invited to it. Ask its Owner to make it public, or to invite your library.`;
 }
 
 export type WizardStep = 'check' | 'clashes' | 'review' | 'done';

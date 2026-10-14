@@ -1,0 +1,23 @@
+---
+import Discover from '../components/Discover/Discover.astro';
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Discover — Lorenzo">
+  <h1 class="display">Discover</h1>
+  <p class="lede">Public repositories, found by a word or a filter, and copied into a library.</p>
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+
+  <Discover />
+
+  <script>
+    import { renderDiscover } from '../components/Discover/renderer';
+    import { runPage } from '../lib/pageLoad';
+    import { requiredIn } from '../lib/template';
+
+    const panel = requiredIn('Discover')<HTMLElement>(document, '[data-discover]');
+
+    await runPage(() => renderDiscover(panel));
+  </script>
+</Base>

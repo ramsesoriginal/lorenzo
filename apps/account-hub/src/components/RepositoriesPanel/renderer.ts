@@ -7,8 +7,10 @@
 // plain links, so they can be opened, shared and gone back to.
 
 import { onCacheRefreshed } from '../../lib/cache';
+import { copyTargets } from '../../lib/discover';
+import { getStorefront } from '../../lib/discoverApi';
 import { isEditingIn } from '../../lib/editing';
-import { avatarInitial, byName, isTenantAdmin } from '../../lib/format';
+import { avatarInitial } from '../../lib/format';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { releasePlace } from '../../lib/releases';
 import {
@@ -20,6 +22,7 @@ import {
 import {
   attachmentsSentence,
   broughtSentence,
+  type CopySubject,
   countsKnown,
   dayOf,
   insideCounts,
@@ -35,6 +38,8 @@ import {
   shelfHref,
   shelfState,
   sortSubscriptions,
+  subjectOfPublic,
+  subjectOfSubscription,
   updatesHref,
 } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
@@ -81,6 +86,14 @@ function pair(list: HTMLElement, term: string, value: string): void {
   dt.textContent = term;
   dd.textContent = value;
   list.append(dt, dd);
+}
+
+// A public repository to copy into a library that holds nothing of it, from its page on Discover, or
+// null for one that is not listed.
+async function publicSubject(repositoryId: string): Promise<CopySubject | null> {
+  const storefront = await getStorefront(repositoryId);
+
+  return storefront ? subjectOfPublic(storefront.item) : null;
 }
 
 function stateElement(element: HTMLElement, state: ShelfState): void {
@@ -154,11 +167,9 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     statGroupsError: required<HTMLElement>(detailView, '[data-stat-groups-error]'),
   };
 
-  // A library, or a repository that copies from another (ADR 0205), that the person runs.
-  const libraries = (await listMyTenants()).items
-    .filter(isTenantAdmin)
-    // Libraries first, so that is what opens when the address names none.
-    .sort((a, b) => Number(isRepository(a)) - Number(isRepository(b)) || byName(a.name, b.name));
+  // A library, or a repository that copies from another (ADR 0205), that the person runs. Libraries
+  // first, so that is what opens when the address names none.
+  const libraries = copyTargets((await listMyTenants()).items);
 
   if (libraries.length === 0) {
     noLibrary.hidden = false;
@@ -472,9 +483,19 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     error.hidden = true;
 
     // The copy wizard, where the address asks for it and the repository can be copied from where
-    // it stands; otherwise the repository's own page.
-    if (wanted && location.copy) {
-      const opened = await wizard.open(library, wanted, location.copy, () => turn === latest);
+    // it stands; otherwise the repository's own page. A repository the library holds nothing of
+    // is copied only if it is public (ADR 0292): Discover sends a library here for it.
+    const subject =
+      location.copy && wanted
+        ? subjectOfSubscription(wanted, library)
+        : location.copy === 'new' && location.repository
+          ? await publicSubject(location.repository)
+          : null;
+
+    if (turn !== latest) return;
+
+    if (subject && location.copy) {
+      const opened = await wizard.open(library, subject, location.copy, () => turn === latest);
 
       if (turn !== latest) return;
 

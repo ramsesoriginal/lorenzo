@@ -59,7 +59,8 @@ export async function getCopyPlan(
     `copy-plan:${libraryId}:${repositoryId}`,
     async () => {
       try {
-        return unwrap(
+        // `return await`: a refusal is caught here, as the answer below says, and not after it has left.
+        return await unwrap(
           await client.GET('/tenants/{tenant_id}/repositories/{repository_id}/copy-plan', {
             params: { path: { tenant_id: libraryId, repository_id: repositoryId } },
           }),

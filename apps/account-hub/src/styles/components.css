@@ -172,3 +172,64 @@
   max-height: 90vh;
   overflow-y: auto;
 }
+
+/* Discover (ADR 0292): the filters beside the search box, a result and a repository's page. The
+   filters share the width, a column each on a desk and one under another on a phone. */
+.discover-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-3);
+}
+
+.list > .discover-card {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+
+.discover-card-body p {
+  margin: 0;
+}
+
+.discover-card-body {
+  min-width: 0;
+}
+
+.discover-card-body h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Tags are a row of pills that wraps, not a list with bullets. */
+.discover-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discover-tags[hidden] {
+  display: none;
+}
+
+/* A repository's cover is a wide picture: the width of the page, cropped to a third of it. */
+.discover-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.discover-cover[hidden] {
+  display: none;
+}
+
+/* A release's notes are plain text with its line breaks kept. */
+.discover-notes {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}

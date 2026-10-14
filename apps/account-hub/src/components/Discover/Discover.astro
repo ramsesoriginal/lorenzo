@@ -1,0 +1,236 @@
+---
+// Everything on /discover (ADR 0292, RFC 0038 §4): the public repositories, found by a word or a
+// filter, and one repository's page, its storefront. Both are in the one page, the address saying
+// which: the list for `?q=…&tag=…`, a repository for `?repository=<id>`. Rendered by renderDiscover.
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
+
+<div class="stack" data-discover hidden>
+  <p class="error-text" role="alert" data-error hidden></p>
+
+  <!-- A deployment that accepts no public repository, and a listing that has none. -->
+  <section class="stack" data-nothing hidden>
+    <p data-nothing-text></p>
+    <p class="caption" data-nothing-hint></p>
+  </section>
+
+  <section class="stack" data-list-view hidden>
+    <form class="stack" role="search" data-search novalidate>
+      <div class="field">
+        <label class="field-label" for="discover-word">
+          Search
+        </label>
+        <div class="row">
+          <input
+            id="discover-word"
+            class="text-input grow"
+            type="search"
+            name="q"
+            maxlength="100"
+            autocomplete="off"
+            placeholder="A name, a word of the summary or a tag"
+            data-word
+          />
+          <button type="submit" class="btn btn-primary">
+            Search
+          </button>
+        </div>
+      </div>
+
+      <div class="discover-filters">
+        <label class="field">
+          <span class="field-label">Tag</span>
+          <select class="text-input" name="tag" data-tag></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Game system</span>
+          <select class="text-input" name="system" data-system></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Language</span>
+          <select class="text-input" name="language" data-language></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Sort by</span>
+          <select class="text-input" name="sort" data-sort></select>
+        </label>
+      </div>
+    </form>
+
+    <p class="error-text" role="alert" data-list-error hidden></p>
+
+    <div class="stack" data-too-deep hidden>
+      <p data-too-deep-text></p>
+      <p>
+        <a class="btn btn-secondary" href="/discover/" data-link data-first-page>
+          Go to the first page
+        </a>
+      </p>
+    </div>
+
+    <p class="caption" role="status" data-count></p>
+    <p data-empty hidden></p>
+    <p data-clear-line hidden>
+      <a class="shelf-link" href="/discover/" data-link data-clear>
+        Clear the search
+      </a>
+    </p>
+
+    <ul class="list" data-results></ul>
+
+    <nav class="row" aria-label="Pages" data-pager hidden>
+      <a class="btn btn-secondary" href="/discover/" data-link data-previous>
+        Previous
+      </a>
+      <span class="grow" role="status" data-page-of></span>
+      <a class="btn btn-secondary" href="/discover/" data-link data-next>
+        Next
+      </a>
+    </nav>
+  </section>
+
+  <article class="stack" data-storefront hidden>
+    <p>
+      <a class="shelf-link" href="/discover/" data-link data-back>
+        All public repositories
+      </a>
+    </p>
+
+    <img class="discover-cover" alt="" data-cover hidden />
+
+    <header class="stack-tight">
+      <h2 data-name></h2>
+      <p class="lede" data-summary></p>
+    </header>
+
+    <ul class="discover-tags" aria-label="Tags" data-tags></ul>
+
+    <div class="stack-tight">
+      <p>
+        <button
+          type="button"
+          class="btn btn-primary"
+          aria-expanded="false"
+          aria-controls="discover-copy"
+          data-copy-open
+        >
+          Copy to a library&hellip;
+        </button>
+      </p>
+      <div class="card card-body stack" id="discover-copy" data-copy hidden>
+        <p class="error-text" role="alert" data-copy-error hidden></p>
+        <p data-copy-none hidden>
+          Repositories are copied into a library, and you are not an Owner or an Organizer of one.
+          <a href="/tenants/">Your libraries</a>
+        </p>
+        <div class="stack" data-copy-choose hidden>
+          <label class="field">
+            <span class="field-label">Copy into</span>
+            <select class="text-input" data-copy-library></select>
+          </label>
+          <p class="caption">
+            You see what it brings, and what it would clash with, before anything is copied.
+          </p>
+          <p>
+            <a class="btn btn-primary" href="/repositories/" data-copy-go>
+              Continue
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <dl class="key-values" data-facts></dl>
+
+    <div class="ls-content" data-description hidden></div>
+
+    <section class="stack" data-licence-section>
+      <h3>Licence</h3>
+      <p data-licence></p>
+    </section>
+
+    <section class="stack" data-credits-section hidden>
+      <h3>Credits</h3>
+      <ul class="stack-tight" data-credits></ul>
+    </section>
+
+    <p class="error-text" role="alert" data-part-error hidden></p>
+
+    <section class="stack" data-release-section hidden>
+      <h3>Latest release</h3>
+      <p data-release></p>
+      <p class="discover-notes" data-release-notes hidden></p>
+      <details class="stack shelf-section" data-others-section hidden>
+        <summary>
+          <svg class="icon tree-toggle" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+          </svg>
+          <span data-others-title></span>
+        </summary>
+        <ul class="stack" data-others></ul>
+      </details>
+    </section>
+
+    <section class="stack" data-built-on-section hidden>
+      <h3>Built on</h3>
+      <ul class="stack-tight" data-built-on></ul>
+      <p data-built-on-none hidden>
+        It is not built on other repositories.
+      </p>
+      <p class="caption" data-built-on-note hidden></p>
+    </section>
+
+    <!-- D4 (RFC 0038 §5): what a visitor may look at before copying goes here, after "Built on".
+         Not on screen yet, and neither are the publisher, the Report link and the terms (D6). -->
+  </article>
+
+  <p data-not-listed hidden></p>
+
+  <template data-card-template>
+    <li class="row discover-card">
+      <img class="repository-picture" alt="" width="64" height="64" data-picture hidden />
+      <span class="avatar-placeholder repository-initial" aria-hidden="true" data-initial></span>
+      <div class="grow stack-tight discover-card-body">
+        <h3>
+          <a class="shelf-link" href="/discover/" data-link data-name></a>
+        </h3>
+        <p data-summary></p>
+        <ul class="discover-tags" aria-label="Tags" data-tags></ul>
+        <p class="campaign-meta" data-meta></p>
+      </div>
+    </li>
+  </template>
+
+  <template data-tag-template>
+    <li>
+      <span class="pill" data-text></span>
+    </li>
+  </template>
+
+  <template data-tag-link-template>
+    <li>
+      <a class="pill shelf-link" href="/discover/" data-link data-text></a>
+    </li>
+  </template>
+
+  <template data-other-release-template>
+    <li class="stack-tight">
+      <strong data-heading></strong>
+      <p class="discover-notes" data-notes hidden></p>
+    </li>
+  </template>
+
+  <template data-credit-template>
+    <li>
+      <span data-name></span>
+      <span class="campaign-meta" data-role></span>
+    </li>
+  </template>
+
+  <template data-built-on-template>
+    <li class="row-tight">
+      <a class="shelf-link" href="/discover/" data-link data-name></a>
+      <span class="pill" data-note hidden></span>
+    </li>
+  </template>
+</div>
