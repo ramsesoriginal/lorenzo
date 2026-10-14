@@ -544,13 +544,18 @@ async def _plan(
         await in_tenant(session, library)
         async with read_as_public(documents):
             with deterministic_ids():
-                return await copying.plan_copy(
+                plan = await copying.plan_copy(
                     session,
                     tenant_id=library,
                     repository_id=repository,
                     user_id=uuid.UUID(int=7),
                     resolutions=[],
                 )
+        # What differs by design: a step of a public repository says it can be read without a
+        # grant, and the library here holds one, which is the same plan.
+        for step in plan.steps:
+            step.public = False
+        return plan
 
 
 async def _updates(

@@ -194,7 +194,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
     }
 
     const missing = plan.steps.filter(
-      (step) => !step.already_copied && (!step.granted || !step.published),
+      (step) => !step.already_copied && !(step.published && (step.granted || step.public)),
     );
 
     if (missing.length > 0) {

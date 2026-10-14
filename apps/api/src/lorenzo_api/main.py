@@ -38,6 +38,7 @@ from lorenzo_api.routers.payloads import router as payloads_router
 from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
 from lorenzo_api.routers.pictures import router as pictures_router
 from lorenzo_api.routers.players import router as players_router
+from lorenzo_api.routers.public_repositories import router as public_repositories_router
 from lorenzo_api.routers.repositories import router as repositories_router
 from lorenzo_api.routers.repository_profiles import router as repository_profiles_router
 from lorenzo_api.routers.stats import router as stats_router
@@ -100,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(tenants_router)
     app.include_router(repositories_router)
     app.include_router(repository_profiles_router)
+    app.include_router(public_repositories_router)
     app.include_router(campaigns_router)
     app.include_router(campaign_invites_router)
     app.include_router(invites_router)

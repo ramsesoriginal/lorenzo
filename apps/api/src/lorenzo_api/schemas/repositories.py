@@ -336,6 +336,18 @@ class RepositoryDependencyOut(BaseModel):
     invited: bool
     copied: bool
     published: bool
+    # It is public, so the library can copy it with no invitation (ADR 0287).
+    public: bool
+
+
+class PublicDependencyOut(BaseModel):
+    """A repository a public one is built on, as a user with no library sees it (ADR 0287): who
+    it is, and whether it is public too, which is whether the stack can be copied in one action."""
+
+    id: uuid.UUID
+    name: str
+    slug: str
+    public: bool
 
 
 class RepositoryEntityOut(BaseModel):
@@ -420,6 +432,8 @@ class CopyStepOut(BaseModel):
     name: str
     granted: bool
     published: bool
+    # Readable with no invitation, because the repository is public (ADR 0287).
+    public: bool
     already_copied: bool
     entities: int
     stat_groups: int

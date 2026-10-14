@@ -17,7 +17,7 @@ from lorenzo_api.models import Entity, Tenant
 
 SECRET_ENTRY = "The Hidden Vault Of Mazes"
 
-_KEYS = {"id", "name", "slug", "invited", "copied", "published"}
+_KEYS = {"id", "name", "slug", "invited", "copied", "published", "public"}
 
 
 async def _author(tenant_id: uuid.UUID, *names: str) -> None:
@@ -113,6 +113,7 @@ async def test_a_library_invited_only_to_the_bridge_learns_whom_to_ask(
             "invited": False,
             "copied": False,
             "published": True,
+            "public": False,
         }
         assert by_name["Alpha setting"]["slug"] == await _slug(world.alpha)
         assert all(set(item) == _KEYS for item in items)
