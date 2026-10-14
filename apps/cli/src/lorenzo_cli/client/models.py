@@ -1111,6 +1111,7 @@ class PublicDependencyOut(BaseModel):
 class PublicDependentOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
+    owned: bool = Field(..., title="Owned")
 
 
 class PublishRequest(BaseModel):

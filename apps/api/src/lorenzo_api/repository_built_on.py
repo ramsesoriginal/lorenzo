@@ -120,11 +120,12 @@ async def built_on_not_public(
 
 
 async def public_dependents(
-    session: AsyncSession, repository_id: uuid.UUID
+    session: AsyncSession, repository_id: uuid.UUID, user_id: uuid.UUID | None = None
 ) -> list[dict[str, Any]]:
     """The public, published repositories built on this one, which making it private would leave
     without a dependency a library can copy. Read through the repository's own side of the copy
-    records (ADR 0204: the owner reads who copied it)."""
+    records (ADR 0204: the owner reads who copied it). `owned` says whether
+    `user_id` owns the dependent, so a dialog can link to it."""
     rows = await session.execute(
         select(RepositoryCopy.tenant_id, Tenant.name)
         .join(Tenant, Tenant.id == RepositoryCopy.tenant_id)
@@ -139,5 +140,8 @@ async def public_dependents(
         async with reading_repository(session, dependent) as readable:
             public = readable and await is_public(session, dependent)
         if public:
-            found.append({"id": str(dependent), "name": name})
+            owned = user_id is not None and await is_tenant_owner(
+                session, tenant_id=dependent, user_id=user_id
+            )
+            found.append({"id": str(dependent), "name": name, "owned": owned})
     return found

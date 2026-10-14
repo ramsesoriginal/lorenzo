@@ -8352,7 +8352,7 @@ export interface components {
         };
         /**
          * PublicDependentOut
-         * @description A public repository built on this one.
+         * @description A public repository built on this one, and whether the caller owns it.
          */
         PublicDependentOut: {
             /**
@@ -8362,6 +8362,8 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Owned */
+            owned: boolean;
         };
         /**
          * PublishRequest

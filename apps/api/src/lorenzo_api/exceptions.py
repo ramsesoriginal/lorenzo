@@ -1318,3 +1318,11 @@ class VisibilityHasItsOwnRouteError(UnprocessableProblem):
     `.../public` - ADR 0290."""
 
     title = "Visibility is changed through its own route"
+
+
+class PublicRepositoryCannotBeUnpublishedError(ConflictProblem):
+    """Taking a public repository back to a draft: that would cut off every library reading it
+    without the warning, the count and the revoke that going private has (ADR 0290). Make it
+    private first."""
+
+    title = "A public repository is made private, not unpublished"

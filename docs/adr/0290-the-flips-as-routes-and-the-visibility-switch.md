@@ -14,7 +14,7 @@ Status: accepted, decided with the maintainer on 2026-10-14. Slice D5 of [RFC 00
 
 ### `GET .../flip-check`
 
-What a flip would run into, before it is asked, for the dialog: `available`, the `visibility`, whether there is a summary, the repositories it is built on that are not public (each with whether the caller owns it, so the dialog can offer to make it public) or are behind, the public repositories built on it, how many libraries hold a grant they gave themselves by copying it (`public_libraries`) and how many it invited (`invited_libraries`, whom it keeps). Owner only, and it writes nothing.
+What a flip would run into, before it is asked, for the dialog: `available`, the `visibility`, whether there is a summary, the repositories it is built on that are not public (each with whether the caller owns it, so the dialog can offer to make it public) or are behind, the public repositories built on it (each with whether the caller owns it, so that the dialog can link to it), how many libraries hold a grant they gave themselves by copying it (`public_libraries`) and how many it invited (`invited_libraries`, whom it keeps). Owner only, and it writes nothing.
 
 ### `PUT .../public`
 
@@ -31,6 +31,10 @@ Takes what `PUT .../published` takes (`label`, `notes`, `breaking`, `acknowledge
 ### The profile no longer changes the visibility
 
 `PATCH .../profile` with a `visibility` other than the repository's own is `422 visibility-has-its-own-route`, in the same request as everything else in it, so nothing is kept. Before this slice the refusal was `public` alone, because `private` could only be a no-op; with a public repository it would have made it private without a release, a notice or a revoke. Saying what it already is stays allowed.
+
+### A public repository is not unpublished
+
+`DELETE .../published` on a public repository is `409 public-repository-cannot-be-unpublished`: the gate lets a library read only a published repository, so unpublishing it would cut off every library that reads it with none of the warning, the count or the revoke that making it private has. It is made private first, and then it may be unpublished.
 
 ### Deleting a public repository
 

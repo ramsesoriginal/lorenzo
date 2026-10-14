@@ -48,10 +48,11 @@ class BuiltOnPublicOut(BaseModel):
 
 
 class PublicDependentOut(BaseModel):
-    """A public repository built on this one."""
+    """A public repository built on this one, and whether the caller owns it."""
 
     id: uuid.UUID
     name: str
+    owned: bool
 
 
 class FlipCheckOut(BaseModel):
