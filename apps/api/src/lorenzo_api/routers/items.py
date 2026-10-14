@@ -14,7 +14,7 @@ from sqlalchemy.orm import InstrumentedAttribute, joinedload, selectinload
 from sqlalchemy.orm.interfaces import ORMOption
 
 from lorenzo_api.activity_log import record_activity
-from lorenzo_api.campaign_access import is_tenant_admin
+from lorenzo_api.campaign_access import is_tenant_admin, membership_of
 from lorenzo_api.client_ids import existing_in_tenant, insert_with_client_id
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -47,7 +47,6 @@ from lorenzo_api.models import (
     Information,
     Item,
     ItemInstance,
-    Membership,
     Payload,
     StatDefinition,
     VEffectiveStat,
@@ -85,7 +84,7 @@ MEMBERS = [Depends(get_tenant_context)]
 async def _is_member(session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser) -> bool:
     """A tenant-wide Membership (an owner or orga), who sees the whole
     catalog; anyone else sees its public part (ADR 0116)."""
-    return await session.get(Membership, (tenant_id, user.id)) is not None
+    return await membership_of(session, tenant_id=tenant_id, user_id=user.id) is not None
 
 
 def _information_read(entities: Iterable[Entity]) -> list[Information]:
