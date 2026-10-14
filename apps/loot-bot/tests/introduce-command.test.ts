@@ -36,7 +36,7 @@ function baseProfile() {
     pictureUrl: "https://lorenzo-api.test/users/user-1/picture",
     membershipRole: null,
     characters: [],
-    gmCampaignCount: 0,
+    gmCampaigns: [],
   };
 }
 
