@@ -23,6 +23,11 @@ export interface TextDoc {
   text: string;
   /** What `If-Match` wants on an edit of the text. */
   version: string | null;
+  /**
+   * Whether the text is Everyone's: a library that copies the repository gets it, and a person
+   * looking inside it before copying may read it (RFC 0038 section 5). Otherwise it is GM only.
+   */
+  isPublic: boolean;
 }
 
 import type { Formula } from './formulas';
@@ -202,6 +207,11 @@ export interface Transport {
    * a note this list does not know of stays where it was. Answers with the entry as it is after.
    */
   setNoteOrder(id: string, noteIds: string[]): Promise<EntryState>;
+  /**
+   * Makes one of the entry's notes Everyone's (`true`) or GM only (`false`). Answers with the entry as
+   * it is after.
+   */
+  setNotePublic(id: string, noteId: string, isPublic: boolean): Promise<EntryState>;
   /** Gives the entry a link name, or with `null` takes it away. A name another entry has is refused. */
   setSlug(id: string, slug: string | null): Promise<EntryState>;
   /**

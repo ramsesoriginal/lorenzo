@@ -34,7 +34,8 @@ export interface SampleEntry {
   kinds: string[];
   parents: string[];
   description?: string;
-  notes?: { id: string; title?: string; text: string }[];
+  /** `public`: Everyone's, where it is left out the note is GM only. */
+  notes?: { id: string; title?: string; text: string; public?: boolean }[];
   /** Its own stat values, by the stat's id. */
   stats?: Record<string, StatScalar>;
   /** Its link name; the slug of its name when left out, `null` for none. */
@@ -50,6 +51,7 @@ interface Text {
   title: string;
   text: string;
   version: number;
+  isPublic: boolean;
 }
 
 export type SampleWrite =
@@ -58,7 +60,8 @@ export type SampleWrite =
   | { id: string; field: 'create'; value: string }
   | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string }
   | { id: string; field: `stat:${string}`; value: StatScalar | null }
-  | { id: string; field: 'note.order'; value: string[] };
+  | { id: string; field: 'note.order'; value: string[] }
+  | { id: string; field: 'note.public'; value: boolean };
 
 const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
 
@@ -68,6 +71,7 @@ const doc = (t: Text): TextDoc => ({
   title: t.title,
   text: t.text,
   version: `"t${t.version}"`,
+  isPublic: t.isPublic,
 });
 
 export class SampleTransport implements Transport {
@@ -108,12 +112,19 @@ export class SampleTransport implements Transport {
         description:
           e.description === undefined
             ? null
-            : { id: `${e.id}-description`, title: 'Description', text: e.description, version: 1 },
+            : {
+                id: `${e.id}-description`,
+                title: 'Description',
+                text: e.description,
+                version: 1,
+                isPublic: false,
+              },
         notes: (e.notes ?? []).map((n) => ({
           id: n.id,
           title: n.title ?? 'Note',
           text: n.text,
           version: 1,
+          isPublic: n.public ?? false,
         })),
       });
   }
@@ -309,6 +320,18 @@ export class SampleTransport implements Transport {
     }
     return this.state(id);
   }
+  async setNotePublic(id: string, noteId: string, isPublic: boolean) {
+    this.need();
+    const row = this.row(id);
+    const note = row.notes.find((n) => n.id === noteId);
+    if (!note) throw new RefusedError('That note is no longer there.');
+    if (note.isPublic !== isPublic) {
+      note.isPublic = isPublic;
+      note.version++;
+      this.writes.push({ id: noteId, field: 'note.public', value: isPublic });
+    }
+    return this.state(id);
+  }
   async setSlug(id: string, slug: string | null) {
     this.need();
     const row = this.row(id);
@@ -404,7 +427,7 @@ export class SampleTransport implements Transport {
     const known = [...this.rows.values()].flatMap((r) => [r.description, ...r.notes]);
     if (known.some((t) => t?.id === text.id)) return; // a replay
     if (this.heldElsewhere.has(text.id)) throw new RefusedError('That id is not available.');
-    const made = { id: text.id, title: text.title, text: text.text, version: 1 };
+    const made = { id: text.id, title: text.title, text: text.text, version: 1, isPublic: false };
     if (text.type === 'description') {
       if (row.description) throw new RefusedError('The entry already has a description.');
       row.description = made;
@@ -432,6 +455,14 @@ export class SampleTransport implements Transport {
     if (!target) throw new Error(`No ${which} on ${entryId}.`);
     target.text = text;
     target.version++;
+  }
+
+  /** Someone else makes a note Everyone's, or GM only, behind the person's back. */
+  setNotePublicElsewhere(entryId: string, noteId: string, isPublic: boolean) {
+    const note = this.row(entryId).notes.find((n) => n.id === noteId);
+    if (!note) throw new Error(`No note ${noteId} on ${entryId}.`);
+    note.isPublic = isPublic;
+    note.version++;
   }
 
   /** Someone else sets (or with null clears) an entry's own value for a stat, behind its back. */

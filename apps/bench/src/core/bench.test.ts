@@ -981,3 +981,122 @@ describe('stats in texts', () => {
     expect(bench.links.renderNow('{weight}', 'b').html).toContain('>1.6<');
   });
 });
+
+describe('who reads a note (RFC 0038 section 5)', () => {
+  const make = () => {
+    const server = new SampleTransport([
+      {
+        id: 'a',
+        name: 'Wolf',
+        kinds: ['item'],
+        parents: [],
+        notes: [
+          { id: 'open', title: 'Habits', text: 'Hunts at night.', public: true },
+          { id: 'closed', title: 'Secret', text: 'The pommel hides a gem.' },
+        ],
+      },
+    ]);
+    return { server, bench: new Bench(server) };
+  };
+  const isPublic = (bench: Bench, id: string) =>
+    bench.view('a')?.notes.find((n) => n.id === id)?.isPublic;
+
+  it("reads which notes are Everyone's and which are GM only", async () => {
+    const { bench } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    expect(isPublic(bench, 'open')).toBe(true);
+    expect(isPublic(bench, 'closed')).toBe(false);
+  });
+
+  it('makes a note GM only, shows it at once, and sends that one change', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    expect(bench.makeNoteGmOnly('a', 'open')).not.toBeNull();
+    expect(isPublic(bench, 'open')).toBe(false);
+    await bench.run();
+    expect(server.writes).toEqual([{ id: 'open', field: 'note.public', value: false }]);
+    expect(bench.status('a')).toBe('synced');
+    expect(isPublic(bench, 'open')).toBe(false);
+    // The other note is as it was.
+    expect(isPublic(bench, 'closed')).toBe(false);
+  });
+
+  it('changes nothing for a note that is GM only already', async () => {
+    const { bench } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    expect(bench.makeNoteGmOnly('a', 'closed')).toBeNull();
+    expect(bench.outbox).toHaveLength(0);
+  });
+
+  it('refuses a note the entry does not have', async () => {
+    const { bench } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    expect(bench.makeNoteGmOnly('a', 'nope')).toBeNull();
+  });
+
+  it("can be undone, which makes it Everyone's again", async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    bench.makeNoteGmOnly('a', 'open');
+    await bench.run();
+    expect(bench.undo('a')).toBe(true);
+    await bench.run();
+    expect(server.writes.map((w) => w.value)).toEqual([false, true]);
+    expect(isPublic(bench, 'open')).toBe(true);
+  });
+
+  it('is waiting while there is no connection, and sent when it is back', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    server.offline = true;
+    bench.makeNoteGmOnly('a', 'open');
+    await bench.run();
+    expect(bench.status('a')).toBe('offline');
+    expect(isPublic(bench, 'open')).toBe(false);
+    server.offline = false;
+    await bench.run();
+    expect(bench.status('a')).toBe('synced');
+    expect(server.writes).toEqual([{ id: 'open', field: 'note.public', value: false }]);
+  });
+
+  it('sends nothing when someone else made it GM only first', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    bench.makeNoteGmOnly('a', 'open');
+    server.setNotePublicElsewhere('a', 'open', false);
+    await bench.run();
+    expect(server.writes).toEqual([]);
+    expect(bench.status('a')).toBe('synced');
+  });
+
+  it('is refused where the note is gone', async () => {
+    const { bench, server } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    bench.makeNoteGmOnly('a', 'open');
+    // Someone takes the note away before it is sent.
+    (server as unknown as { rows: Map<string, { notes: unknown[] }> }).rows
+      .get('a')
+      ?.notes.splice(0, 1);
+    await bench.run();
+    expect(bench.status('a')).toBe('attention');
+  });
+
+  it('a note written here is GM only, and waits for nothing to be locked', async () => {
+    const { bench } = make();
+    await bench.loadEntries();
+    await bench.open('a');
+    const id = bench.addNote('a', 'Mine.') as string;
+    expect(isPublic(bench, id)).toBe(false);
+    expect(bench.makeNoteGmOnly('a', id)).toBeNull();
+    await bench.run();
+    expect(isPublic(bench, id)).toBe(false);
+  });
+});

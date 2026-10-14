@@ -461,7 +461,7 @@ export class Bench {
     if (type === 'description.set-text') {
       // A description not there yet is made under an id of the client's own (ADR 0222).
       command.textId = entry.description?.id ?? this.makeId();
-    } else if (type === 'note.set-text') {
+    } else if (type === 'note.set-text' || type === 'note.set-public') {
       if (!ref || !entry.notes.some((n) => n.id === ref)) return null;
       command.textId = ref;
     } else if (type === 'entry.set-kind') {
@@ -489,6 +489,15 @@ export class Bench {
   /** Changes the text of one of the entry's notes. */
   setNoteText(entryId: string, noteId: string, text: string): Command | null {
     return this.change('note.set-text', entryId, text, noteId);
+  }
+
+  /**
+   * Makes one of the entry's notes GM only, where it was Everyone's: a library that copies the
+   * repository no longer gets it, and nobody looking inside before copying reads it (RFC 0038
+   * section 5). A note that is GM only already changes nothing, so no command is made.
+   */
+  makeNoteGmOnly(entryId: string, noteId: string): Command | null {
+    return this.change('note.set-public', entryId, false, noteId);
   }
 
   /** Moves one of the entry's notes up (-1) or down (+1) among its notes. */
@@ -745,7 +754,7 @@ export class Bench {
     for (let attempt = 0; attempt < 2; attempt++) {
       const server = await this.transport.getEntry(c.entryId);
       this.mirror.set(c.entryId, server);
-      if (c.type === 'note.set-text' && !docOf(server, c))
+      if ((c.type === 'note.set-text' || c.type === 'note.set-public') && !docOf(server, c))
         throw new RefusedError('That note is no longer there.');
       const verdict = compare(c.base, c.mine, this.theirsOf(c, server));
       if (verdict === 'conflict') {
