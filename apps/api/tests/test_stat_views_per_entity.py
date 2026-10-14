@@ -113,15 +113,25 @@ LEFT JOIN entity_slug ON entity_slug.entity_id = e.id{_reference_stat_joins()}
 """
 
 
+def _pseudo(salt: str, *parts: str) -> str:
+    """SQL for a number in [0, 1) that depends only on `salt` and `parts` (SQL expressions). The
+    seed does not use random(): that is called once per row in the order the plan produces them,
+    so even after setseed a different plan (another join or aggregate strategy, other statistics)
+    is another library, and the counts the test relies on moved with it."""
+    key = ", ".join((f"'{salt}'", *parts))
+    return f"(abs(hashtextextended(concat_ws(':', {key}), 285) % 1000000) / 1000000.0)"
+
+
 async def _library(session: AsyncSession, entities: int, *, linked: bool) -> uuid.UUID:
-    """A tenant with `entities` entries; with `linked`, a random acyclic graph of parents (each
-    entry has up to a few, among the dozen before it, in an order of their own), stats of its
-    own, formulas, and stat groups with priorities, so that every way a stat is chosen is used."""
+    """A tenant with `entities` entries; with `linked`, an acyclic graph of parents (each entry
+    has up to a few, among the dozen before it, in an order of their own), stats of its own,
+    formulas, and stat groups with priorities, so that every way a stat is chosen is used. What
+    is chosen follows from the entry's number and names alone, so the library is the same on every
+    run and under every plan."""
     tenant = Tenant(name="stat-views")
     session.add(tenant)
     await session.flush()
     parameters = {"tenant": tenant.id, "entities": entities}
-    await session.execute(text("SELECT setseed(0.285)"))
     await session.execute(
         text(
             "INSERT INTO stat_group (tenant_id, name, priority) "
@@ -153,27 +163,28 @@ async def _library(session: AsyncSession, entities: int, *, linked: bool) -> uui
     for statement in (
         # up to a few parents among the twelve entries before, each with a position of its own
         "INSERT INTO entity_prototype (entity_id, prototype_id, tenant_id, position) "
-        "SELECT DISTINCT ON (c.id, p.id) c.id, p.id, :tenant, (random() * 5)::int FROM ents c "
-        "JOIN LATERAL (SELECT id FROM ents p WHERE p.n < c.n AND p.n >= greatest(1, c.n - 12) "
-        "AND random() < 0.10) p ON true WHERE c.n > 1",
+        f"SELECT c.id, p.id, :tenant, (({_pseudo('position', 'c.n', 'p.n')}) * 5)::int "
+        "FROM ents c JOIN ents p ON p.n < c.n AND p.n >= greatest(1, c.n - 12) "
+        f"WHERE {_pseudo('parent', 'c.n', 'p.n')} < 0.10",
         # stats of their own, some on a definition an ancestor has too
         "INSERT INTO entity_stat (entity_id, stat_definition_id, tenant_id, value_int) "
-        "SELECT DISTINCT ON (e.id, d.id) e.id, d.id, :tenant, (random() * 100)::int FROM ents e "
-        "JOIN LATERAL (SELECT id FROM stat_definition WHERE tenant_id = :tenant AND e.n > 0 "
-        "ORDER BY random() LIMIT 2) d ON true "
-        "WHERE random() < 0.7",
+        f"SELECT e.id, d.id, :tenant, (({_pseudo('value', 'e.n', 'd.name')}) * 100)::int "
+        "FROM ents e "
+        "JOIN LATERAL (SELECT id, name FROM stat_definition WHERE tenant_id = :tenant "
+        f"ORDER BY {_pseudo('definition', 'e.n', 'name')} LIMIT 2) d ON true "
+        f"WHERE {_pseudo('stat', 'e.n')} < 0.7",
         # formulas, some on a definition the same entry also holds a stored value for
         "INSERT INTO computed_stat (entity_id, stat_definition_id, tenant_id) "
-        "SELECT DISTINCT ON (e.id, d.id) e.id, d.id, :tenant FROM ents e "
-        "JOIN LATERAL (SELECT id FROM stat_definition WHERE tenant_id = :tenant AND e.n > 0 "
-        "ORDER BY random() LIMIT 1) d ON true "
-        "WHERE random() < 0.25",
+        "SELECT e.id, d.id, :tenant FROM ents e "
+        "JOIN LATERAL (SELECT id FROM stat_definition WHERE tenant_id = :tenant "
+        f"ORDER BY {_pseudo('formula', 'e.n', 'name')} LIMIT 1) d ON true "
+        f"WHERE {_pseudo('computed', 'e.n')} < 0.25",
         # groups, so that their priority breaks a tie
         "INSERT INTO entity_stat_group (entity_id, stat_group_id, tenant_id) "
-        "SELECT DISTINCT ON (e.id, g.id) e.id, g.id, :tenant FROM ents e "
-        "JOIN LATERAL (SELECT id FROM stat_group WHERE tenant_id = :tenant AND e.n > 0 "
-        "ORDER BY random() LIMIT 1) g ON true "
-        "WHERE random() < 0.4",
+        "SELECT e.id, g.id, :tenant FROM ents e "
+        "JOIN LATERAL (SELECT id FROM stat_group WHERE tenant_id = :tenant "
+        f"ORDER BY {_pseudo('group', 'e.n', 'name')} LIMIT 1) g ON true "
+        f"WHERE {_pseudo('grouped', 'e.n')} < 0.4",
         # the even ones are items, the odd ones instances of them
         "INSERT INTO item (entity_id, tenant_id) SELECT id, :tenant FROM ents WHERE n % 2 = 0",
         "INSERT INTO item_instance (entity_id, tenant_id) SELECT id, :tenant FROM ents "
