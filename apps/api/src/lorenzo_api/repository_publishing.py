@@ -27,6 +27,7 @@ from lorenzo_api.release_document_store import prune_release_documents, store_re
 from lorenzo_api.repository_built_on import built_on_behind
 from lorenzo_api.repository_digest import assess, replace_stored_rows
 from lorenzo_api.repository_grants import notify_tenant_admins
+from lorenzo_api.repository_listing import set_listing_facts
 from lorenzo_api.repository_releases import (
     lock_repository,
     make_release,
@@ -112,6 +113,7 @@ async def publish_release(
             session, tenant_id=tenant_id, release_id=release.id, content=assessed.content
         )
     await set_current_release(session, repository, release.id)
+    await set_listing_facts(session, tenant_id, release=release, content=assessed.content)
     if public:
         await prune_release_documents(
             session,

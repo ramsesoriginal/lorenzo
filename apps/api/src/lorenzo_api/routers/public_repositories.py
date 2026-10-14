@@ -87,7 +87,9 @@ async def browse_public_repository_entities(
 ) -> Page[RepositoryEntityOut]:
     """A public repository's entities at its current release: each one's name, kinds and
     prototypes, never its text (ADR 0118, 0286). `q` filters by name."""
-    return await entities_page(session, repository_id, params, q, lambda: _not_found(repository_id))
+    return await entities_page(
+        session, repository_id, params, q, lambda: _not_found(repository_id), holder=False
+    )
 
 
 @router.get("/{repository_id}/stat-groups")
@@ -95,7 +97,9 @@ async def browse_public_repository_stat_groups(
     repository_id: uuid.UUID, session: SessionDep, user: PublicReader
 ) -> list[RepositoryStatGroupOut]:
     """A public repository's stat groups and their definitions at its current release."""
-    return await stat_groups_of(session, repository_id, lambda: _not_found(repository_id))
+    return await stat_groups_of(
+        session, repository_id, lambda: _not_found(repository_id), holder=False
+    )
 
 
 @router.get("/{repository_id}/dependencies")

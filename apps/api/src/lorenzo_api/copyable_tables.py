@@ -69,6 +69,7 @@ from lorenzo_api.models import (
     RepositoryReleaseBlob,
     RepositoryReleaseDocument,
     RepositoryReleasedRow,
+    RepositoryShowcase,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -166,6 +167,9 @@ REGISTRY: tuple[CopyableTable, ...] = (
     # What the repository says about itself (ADR 0213): a copy never carries it, but the libraries
     # it is granted to read it.
     CopyableTable("repository_profile", RepositoryProfile, True, "none"),
+    # The entries an Owner features in the preview (ADR 0293): read by whoever looks at the preview
+    # through the gated read, never copied.
+    CopyableTable("repository_showcase", RepositoryShowcase, True, "none"),
     # The release document of a repository and the files it points at (ADR 0214): written once
     # for a release, read by the libraries the repository is granted to, never copied.
     CopyableTable("repository_release_document", RepositoryReleaseDocument, True, "none"),

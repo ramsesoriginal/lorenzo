@@ -24,6 +24,7 @@ from lorenzo_api.routers.campaign_invites import router as campaign_invites_rout
 from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.computed_stats import router as computed_stats_router
+from lorenzo_api.routers.discover import router as discover_router
 from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.entity_export import router as entity_export_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
@@ -41,6 +42,13 @@ from lorenzo_api.routers.players import router as players_router
 from lorenzo_api.routers.public_repositories import router as public_repositories_router
 from lorenzo_api.routers.repositories import router as repositories_router
 from lorenzo_api.routers.repository_flips import router as repository_flips_router
+from lorenzo_api.routers.repository_preview import (
+    library_router as repository_preview_library_router,
+)
+from lorenzo_api.routers.repository_preview import owner_router as repository_showcase_router
+from lorenzo_api.routers.repository_preview import (
+    visitor_router as repository_preview_visitor_router,
+)
 from lorenzo_api.routers.repository_profiles import router as repository_profiles_router
 from lorenzo_api.routers.stats import router as stats_router
 from lorenzo_api.routers.tenant_invites import router as tenant_invites_router
@@ -104,6 +112,10 @@ def create_app() -> FastAPI:
     app.include_router(repository_profiles_router)
     app.include_router(repository_flips_router)
     app.include_router(public_repositories_router)
+    app.include_router(repository_preview_visitor_router)
+    app.include_router(repository_preview_library_router)
+    app.include_router(repository_showcase_router)
+    app.include_router(discover_router)
     app.include_router(campaigns_router)
     app.include_router(campaign_invites_router)
     app.include_router(invites_router)

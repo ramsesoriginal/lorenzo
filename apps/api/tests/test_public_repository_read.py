@@ -11,7 +11,7 @@ from _admin_db import admin_session_factory
 from _fake_jwks import FakeJwksServer
 from _release_world import ReleaseWorld, release_world
 from _repository_actors import cleanup, make_actor
-from _upstream_documents import publish_stack, set_visibility
+from _upstream_documents import publish_stack, set_preview, set_visibility
 from httpx import AsyncClient
 from sqlalchemy import delete, func, select
 from test_repository_attachments import _share, _stack
@@ -34,6 +34,7 @@ async def _public_world(
     world = await release_world(raw_client, jwks, published=False)
     await set_visibility([world.repository], "public")
     await world.publish(label="2.0")
+    await set_preview([world.repository], "public")
     if not granted:
         async with admin_session_factory() as session:
             await session.execute(
@@ -154,6 +155,7 @@ async def test_a_public_repository_with_no_release_says_so_and_still_shows_its_p
     visitor = await make_actor(raw_client, fake_jwks_server, "visitor", roles=())
     try:
         await set_visibility([world.repository], "public")
+        await set_preview([world.repository], "public")
         base = f"/repositories/{world.repository}"
         assert (await visitor.get(f"{base}/profile")).status_code == 200
         for path in ("entities", "stat-groups"):

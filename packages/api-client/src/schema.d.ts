@@ -1573,6 +1573,224 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/repositories/{repository_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Public Preview
+         * @description The entries the Owner of a public repository features, with their text, as far as its
+         *     preview switch lets a visitor look: none while it is `off`.
+         */
+        get: operations["get_public_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/{repository_id}/entities/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Public Entry
+         * @description One entry of a public repository as a visitor may look at it: `404` for one the preview
+         *     switch does not show them, whatever it is, the same as for one that does not exist.
+         */
+        get: operations["get_public_entry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repositories/{repository_id}/entities/{entity_id}/pictures/{payload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Public Entry Picture
+         * @description A picture on a row of Everyone's text of an entry a visitor may read the text of.
+         */
+        get: operations["get_public_entry_picture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preview
+         * @description The featured entries with their text, as far as the Owner's preview switch lets this
+         *     library look: a holder at `showcase` and `public`, a visitor as `/repositories/{id}/preview`.
+         */
+        get: operations["get_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/entities/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entry
+         * @description One entry as this library may look at it: a holder sees its name, kinds and parents and,
+         *     when the preview switch says, its Everyone's text, pictures and stat values.
+         */
+        get: operations["get_entry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/entities/{entity_id}/pictures/{payload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entry Picture
+         * @description A picture on a row of Everyone's text of an entry this library may read the text of.
+         */
+        get: operations["get_entry_picture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/showcase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Showcase
+         * @description The entries featured in the repository's preview, in order, for any of its members (the
+         *     entry names as they are now; what a visitor reads is the current release's).
+         */
+        get: operations["get_showcase"];
+        /**
+         * Put Showcase
+         * @description Features these entries, in this order, instead of the ones there: at most 12, each an entry
+         *     of this repository, none twice (`422 showcase-invalid`). Owner only. An entry added after the
+         *     last release is featured from the release that has it.
+         */
+        put: operations["put_showcase"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/discover/repositories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Public Repositories
+         * @description The public repositories, a page at a time: by `name` or by the date of the latest
+         *     `released`, never by popularity. `q` is a case-insensitive part of the name, the summary or a
+         *     tag; `tag`, `system` and `language` narrow it exactly. A page is at most 50 repositories (a
+         *     bigger `size` is that), and a listing goes at most 1000 deep: `422 discover-too-deep`, narrow
+         *     it. Listed are repositories that are public, published and have a release.
+         */
+        get: operations["list_public_repositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/discover/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Discover Facets
+         * @description The tags, game systems and languages in use among the listed repositories, the most used
+         *     first, at most a hundred of each, for the filters of the listing.
+         */
+        get: operations["discover_facets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/discover/repositories/{repository_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Storefront
+         * @description A listed repository's page: its listing entry, its long description and its profile.
+         *     `404` for one that is not listed (private, a draft, or with no release), the same as for one
+         *     that does not exist.
+         */
+        get: operations["get_storefront"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/campaigns": {
         parameters: {
             query?: never;
@@ -5761,6 +5979,94 @@ export interface components {
             device_code: string;
         };
         /**
+         * DiscoverFacetOut
+         * @description A value a listing can be narrowed by, and how many listed repositories have it.
+         */
+        DiscoverFacetOut: {
+            /** Value */
+            value: string;
+            /** Count */
+            count: number;
+        };
+        /**
+         * DiscoverFacetsOut
+         * @description The tags, systems and languages in use among the listed repositories, the most used
+         *     first, at most a hundred of each (ADR 0292). `enabled` is whether this deployment accepts
+         *     public repositories at all (ADR 0290): a client shows Discover only when it does.
+         */
+        DiscoverFacetsOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Tags */
+            tags: components["schemas"]["DiscoverFacetOut"][];
+            /** Systems */
+            systems: components["schemas"]["DiscoverFacetOut"][];
+            /** Languages */
+            languages: components["schemas"]["DiscoverFacetOut"][];
+        };
+        /**
+         * DiscoverItemOut
+         * @description One repository in the listing: what it says of itself and how big it is, never what it
+         *     holds. `has_cover` says `GET /repositories/{id}/profile/cover` has a picture.
+         */
+        DiscoverItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Summary */
+            summary: string;
+            /** Tags */
+            tags: string[];
+            /** System */
+            system: string | null;
+            /** Languages */
+            languages: string[];
+            /** Has Cover */
+            has_cover: boolean;
+            release: components["schemas"]["DiscoverReleaseOut"];
+            /** Entries */
+            entries: number | null;
+            /** Stat Definitions */
+            stat_definitions: number | null;
+        };
+        /**
+         * DiscoverPageOut
+         * @description A page of the listing, in the shape of every page of the API (`items`, `total`, `page`,
+         *     `size`, `pages`), built by hand: Discover caps a page at 50 whatever is asked, where the
+         *     paging library would refuse only past 100.
+         */
+        DiscoverPageOut: {
+            /** Items */
+            items: components["schemas"]["DiscoverItemOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /**
+         * DiscoverReleaseOut
+         * @description The latest release of a listed repository: its label and when it was made.
+         */
+        DiscoverReleaseOut: {
+            /** Label */
+            label: string;
+            /**
+             * Released At
+             * Format: date-time
+             */
+            released_at: string;
+        };
+        /**
          * DroppedOut
          * @description A row a copy leaves out, because something it points at wasn't
          *     copied (usually by the tenant's own choice to skip it).
@@ -8212,6 +8518,65 @@ export interface components {
             /** Self Service */
             self_service?: boolean | null;
         };
+        /**
+         * PreviewDescriptionOut
+         * @description One description of a row of Everyone's text, in a locale.
+         */
+        PreviewDescriptionOut: {
+            /** Locale */
+            locale: string;
+            /** Content */
+            content: string;
+        };
+        /**
+         * PreviewEntityOut
+         * @description An entry as looked at before copying (ADR 0293): its name, kinds and parents, and, when
+         *     the reader may see its text, the Everyone's text, pictures and stat values on it.
+         *     `text_visible` says whether they were left out because the reader may not see them
+         *     (`information` and `stats` are then empty), and `featured` whether the Owner put it in the
+         *     showcase.
+         */
+        PreviewEntityOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character")[];
+            /** Parents */
+            parents: components["schemas"]["PreviewParentOut"][];
+            /** Featured */
+            featured: boolean;
+            /** Text Visible */
+            text_visible: boolean;
+            /** Information */
+            information: components["schemas"]["PreviewInformationOut"][];
+            /** Stats */
+            stats: components["schemas"]["PreviewStatOut"][];
+        };
+        /**
+         * PreviewInformationOut
+         * @description A row of an entry's text that is Everyone's: its title, its descriptions and its pictures.
+         *     A row that is GM only, or known to some only, is never here.
+         */
+        PreviewInformationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+            /** Descriptions */
+            descriptions: components["schemas"]["PreviewDescriptionOut"][];
+            /** Pictures */
+            pictures: components["schemas"]["PreviewPictureOut"][];
+        };
         /** PreviewInputOut */
         PreviewInputOut: {
             /**
@@ -8223,6 +8588,61 @@ export interface components {
             name: string;
             /** Value */
             value: number | string | boolean | null;
+        };
+        /**
+         * PreviewOut
+         * @description `GET .../preview`: the Owner's switch and the entries they feature, in the order they
+         *     chose, as far as this reader may look: none while the reader may see no text.
+         */
+        PreviewOut: {
+            /**
+             * Preview
+             * @enum {string}
+             */
+            preview: "off" | "showcase" | "public";
+            /** Entries */
+            entries: components["schemas"]["PreviewEntityOut"][];
+        };
+        /** PreviewParentOut */
+        PreviewParentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * PreviewPictureOut
+         * @description A picture on a row of Everyone's text: `GET .../entities/{id}/pictures/{id}` reads it.
+         */
+        PreviewPictureOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** File Type */
+            file_type: string;
+        };
+        /**
+         * PreviewStatOut
+         * @description A stat value the entry holds itself, with the stat's name and its group (not an inherited
+         *     or a computed one).
+         */
+        PreviewStatOut: {
+            /**
+             * Definition Id
+             * Format: uuid
+             */
+            definition_id: string;
+            /** Name */
+            name: string;
+            /** Group */
+            group: string;
+            /** Value */
+            value: unknown;
         };
         /**
          * PreviousCopyOut
@@ -8992,6 +9412,35 @@ export interface components {
             /** Stats */
             stats: components["schemas"]["EntityStatValueOut"][];
         };
+        /** ShowcaseEntryOut */
+        ShowcaseEntryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ShowcaseOut
+         * @description `GET`/`PUT .../showcase`: the entries an Owner features, in order, and how many they may.
+         */
+        ShowcaseOut: {
+            /** Limit */
+            limit: number;
+            /** Entries */
+            entries: components["schemas"]["ShowcaseEntryOut"][];
+        };
+        /**
+         * ShowcaseUpdate
+         * @description `PUT .../showcase`: the entries to feature, in order, replacing the ones there. At most
+         *     `limit` of them, each an entry of this repository, none twice.
+         */
+        ShowcaseUpdate: {
+            /** Entity Ids */
+            entity_ids: string[];
+        };
         /**
          * SplitItemInstanceRequest
          * @description POST /item-instances/{id}/split body - see ADR 0041/0044. `quantity`
@@ -9270,6 +9719,18 @@ export interface components {
          * @enum {string}
          */
         StatValueType: "int" | "text" | "float" | "bool" | "enum";
+        /**
+         * StorefrontOut
+         * @description A repository's page (ADR 0292): its listing entry, the long description, and the whole of
+         *     its profile (licence, credits, the preview switch). Its releases, what it is built on and
+         *     what may be looked at before copying are their own routes.
+         */
+        StorefrontOut: {
+            item: components["schemas"]["DiscoverItemOut"];
+            /** Description */
+            description: string;
+            profile: components["schemas"]["RepositoryProfileOut"];
+        };
         /**
          * SubscriberOut
          * @description A tenant granted a repository or holding a copy of it, as its owners
@@ -14824,6 +15285,729 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicDependencyOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_public_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_public_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewEntityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_public_entry_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                entity_id: string;
+                payload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                entity_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewEntityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_entry_picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                entity_id: string;
+                payload_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_showcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShowcaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_showcase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShowcaseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShowcaseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_public_repositories: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                tag?: string | null;
+                system?: string | null;
+                language?: string | null;
+                sort?: "name" | "released";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoverPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    discover_facets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoverFacetsOut"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_storefront: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorefrontOut"];
                 };
             };
             /** @description Validation Error */

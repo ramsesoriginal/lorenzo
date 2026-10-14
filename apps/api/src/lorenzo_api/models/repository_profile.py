@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import ARRAY, CheckConstraint, ForeignKey, Text, text
@@ -63,5 +64,11 @@ class RepositoryProfile(Base):
     cover_picture_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("profile_picture.id", ondelete="SET NULL"), unique=True
     )
+    # What a listing shows of the current release (ADR 0292): written when a release is published
+    # or made current, so that Discover never opens a document.
+    release_label: Mapped[str | None]
+    released_at: Mapped[datetime | None]
+    entry_count: Mapped[int | None]
+    stat_definition_count: Mapped[int | None]
     updated_by: Mapped[UpdatedBy]
     updated_at: Mapped[UpdatedAt]

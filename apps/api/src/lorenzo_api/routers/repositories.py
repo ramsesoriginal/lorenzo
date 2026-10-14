@@ -83,6 +83,8 @@ from lorenzo_api.repository_grants import (
     notify_tenant_admins,
     subscribe_to_public,
 )
+from lorenzo_api.repository_preview import preview_of, read_content, rules_for, showcase_ids
+from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishing import publish_release
 from lorenzo_api.repository_releases import (
     ReleaseRef,
@@ -103,7 +105,6 @@ from lorenzo_api.repository_updates import (
 from lorenzo_api.repository_upstream import (
     entity_rows,
     is_public,
-    load_upstream,
     stat_group_rows,
 )
 from lorenzo_api.schemas.repositories import (
@@ -357,7 +358,7 @@ async def edit_release(
     editable. Owner only. `409` if the label is taken, `404` for a release this
     repository did not make."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
-    await _require_repository(session, tenant_id)
+    tenant = await _require_repository(session, tenant_id)
     release = await session.scalar(
         select(RepositoryRelease).where(
             RepositoryRelease.tenant_id == tenant_id, RepositoryRelease.id == release_id
@@ -368,6 +369,9 @@ async def edit_release(
     changed: list[str] = []
     if "label" in body.model_fields_set and body.label is not None:
         await relabel(session, release, body.label)
+        listing = await profile_of(session, tenant_id)
+        if tenant.current_release_id == release.id:
+            listing.release_label = release.label
         changed.append("label")
     if "notes" in body.model_fields_set:
         release.notes = body.notes
@@ -881,6 +885,12 @@ def _not_found(tenant_id: uuid.UUID, repository_id: uuid.UUID) -> RepositoryNotF
     )
 
 
+async def is_holder(session: AsyncSession, tenant_id: uuid.UUID, repository_id: uuid.UUID) -> bool:
+    """Whether the library holds access to the repository, invited or from a copy: what makes it
+    a holder and not a visitor of a public repository (ADR 0293)."""
+    return (await session.get(RepositorySubscription, (repository_id, tenant_id))) is not None
+
+
 NotFound = Callable[[], RepositoryNotFoundError]
 
 
@@ -929,14 +939,25 @@ async def entities_page(
     params: Params,
     q: str | None,
     not_found: NotFound,
+    *,
+    holder: bool,
 ) -> Page[RepositoryEntityOut]:
     """A repository's entities, before copying: each one's name, kinds, and prototypes, never its
-    text (ADR 0118). `q` filters by name."""
+    text (ADR 0118). `q` filters by name. A visitor of a public repository (one that holds no
+    access to it) sees as many as the Owner's preview switch says (ADR 0293): none, the featured
+    ones, or all."""
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
             raise not_found()
         if await is_public(session, repository_id):
-            read = await load_upstream(session, repository_id)
+            rules = rules_for(await preview_of(session, repository_id), holder=holder)
+            content = await read_content(session, repository_id)
+            rows = entity_rows(content, q)
+            if rules.names == "none":
+                rows = []
+            elif rules.names == "showcase":
+                featured = set(await showcase_ids(session, repository_id))
+                rows = [r for r in rows if r.id in featured]
             return cast(
                 Page[RepositoryEntityOut],
                 paginate(
@@ -944,7 +965,7 @@ async def entities_page(
                         RepositoryEntityOut(
                             id=e.id, name=e.name, kinds=e.kinds, prototype_ids=e.prototype_ids
                         )
-                        for e in entity_rows(read.content, q)
+                        for e in rows
                     ],
                     params,
                 ),
@@ -1008,19 +1029,28 @@ async def browse_repository_entities(
     one's name, kinds, and prototypes, never its text (ADR 0118). `q`
     filters by name."""
     return await entities_page(
-        session, repository_id, params, q, lambda: _not_found(tenant_id, repository_id)
+        session,
+        repository_id,
+        params,
+        q,
+        lambda: _not_found(tenant_id, repository_id),
+        holder=await is_holder(session, tenant_id, repository_id),
     )
 
 
 async def stat_groups_of(
-    session: AsyncSession, repository_id: uuid.UUID, not_found: NotFound
+    session: AsyncSession, repository_id: uuid.UUID, not_found: NotFound, *, holder: bool
 ) -> list[RepositoryStatGroupOut]:
-    """A repository's stat groups and their definitions, before copying (ADR 0118)."""
+    """A repository's stat groups and their definitions, before copying (ADR 0118). A visitor of a
+    public repository sees them only when the Owner's preview switch is `public` (ADR 0293)."""
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
             raise not_found()
         if await is_public(session, repository_id):
-            read = await load_upstream(session, repository_id)
+            rules = rules_for(await preview_of(session, repository_id), holder=holder)
+            if rules.names != "all":
+                return []
+            content = await read_content(session, repository_id)
             return [
                 RepositoryStatGroupOut(
                     id=g.id,
@@ -1034,7 +1064,7 @@ async def stat_groups_of(
                         for d in g.definitions
                     ],
                 )
-                for g in stat_group_rows(read.content)
+                for g in stat_group_rows(content)
             ]
         groups = (
             await session.scalars(
@@ -1082,7 +1112,10 @@ async def browse_repository_stat_groups(
     """A granted, published repository's stat groups and their definitions,
     before copying (ADR 0118)."""
     return await stat_groups_of(
-        session, repository_id, lambda: _not_found(tenant_id, repository_id)
+        session,
+        repository_id,
+        lambda: _not_found(tenant_id, repository_id),
+        holder=await is_holder(session, tenant_id, repository_id),
     )
 
 

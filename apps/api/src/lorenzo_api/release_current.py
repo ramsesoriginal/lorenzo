@@ -33,6 +33,7 @@ from lorenzo_api.repository_digest import (
     split,
     stored_rows,
 )
+from lorenzo_api.repository_listing import set_listing_facts
 from lorenzo_api.repository_releases import current_release, lock_repository, set_current_release
 
 __all__ = ["MadeCurrent", "make_release_current"]
@@ -102,4 +103,5 @@ async def make_release_current(
 
     await replace_stored_rows(session, repository.id, rows.values())
     await set_current_release(session, repository, release.id)
+    await set_listing_facts(session, repository.id, release=release, content=content)
     return MadeCurrent(release, True, current.id if current else None, hits, warnings)
