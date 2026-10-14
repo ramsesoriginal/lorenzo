@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         264249 function calls (258455 primitive calls) in 0.093 seconds
+
+   Ordered by: cumulative time
+   List reduced from 627 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    11/10    0.001    0.000    0.095    0.009 measure.py:358(op_read_document_core)
+        3    0.000    0.000    0.088    0.029 release_document_store.py:117(read_release_content)
+        1    0.000    0.000    0.072    0.072 release_document.py:405(decode)
+        1    0.000    0.000    0.072    0.072 release_document.py:395(_read_v1)
+   5682/1    0.008    0.000    0.072    0.072 release_document.py:194(decode)
+        2    0.005    0.002    0.043    0.022 release_document.py:161(<lambda>)
+    19644    0.022    0.000    0.033    0.000 uuid.py:178(__init__)
+       17    0.003    0.000    0.023    0.001 release_document.py:116(<lambda>)
+     5682    0.008    0.000    0.011    0.000 dataclasses.py:1453(fields)
+        1    0.000    0.000    0.011    0.011 release_document.py:428(loads)
+       15    0.000    0.000    0.009    0.001 _concurrency_py3k.py:167(greenlet_spawn)
+     18/6    0.000    0.000    0.008    0.001 {method 'switch' of 'greenlet.greenlet' objects}
+       19    0.000    0.000    0.008    0.000 base_events.py:1976(_run_once)
+     3901    0.001    0.000    0.007    0.000 release_document.py:83(<lambda>)
+       10    0.000    0.000    0.007    0.001 session.py:423(execute)
+    58938    0.006    0.000    0.006    0.000 {method 'replace' of 'str' objects}
+        1    0.000    0.000    0.006    0.006 gzip.py:643(decompress)
+        1    0.006    0.006    0.006    0.006 {method 'decompress' of 'zlib.Decompress' objects}
+        4    0.000    0.000    0.006    0.001 release_document.py:140(<lambda>)
+     1477    0.000    0.000    0.006    0.000 release_document.py:131(<lambda>)
+        4    0.000    0.000    0.005    0.001 session.py:2141(_execute_internal)
+        3    0.000    0.000    0.005    0.002 context.py:296(orm_execute_statement)
+        4    0.000    0.000    0.004    0.001 __init__.py:304(loads)
+        8    0.000    0.000    0.004    0.001 measure.py:87(in_tenant)
+        4    0.000    0.000    0.004    0.001 decoder.py:340(decode)
+        4    0.004    0.001    0.004    0.001 decoder.py:351(raw_decode)
+       28    0.000    0.000    0.004    0.000 events.py:92(_run)
+    14945    0.003    0.000    0.004    0.000 uuid.py:319(__hash__)
+
+
+
+--- by own time
+         264249 function calls (258455 primitive calls) in 0.093 seconds
+
+   Ordered by: internal time
+   List reduced from 627 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    19644    0.022    0.000    0.033    0.000 uuid.py:178(__init__)
+   5682/1    0.008    0.000    0.072    0.072 release_document.py:194(decode)
+     5682    0.008    0.000    0.011    0.000 dataclasses.py:1453(fields)
+    58938    0.006    0.000    0.006    0.000 {method 'replace' of 'str' objects}
+        1    0.006    0.006    0.006    0.006 {method 'decompress' of 'zlib.Decompress' objects}
+        2    0.005    0.002    0.043    0.022 release_document.py:161(<lambda>)
+        4    0.004    0.001    0.004    0.001 decoder.py:351(raw_decode)
+       20    0.003    0.000    0.003    0.000 {method 'poll' of 'select.epoll' objects}
+       17    0.003    0.000    0.023    0.001 release_document.py:116(<lambda>)
+    14945    0.003    0.000    0.004    0.000 uuid.py:319(__hash__)
+    30076    0.002    0.000    0.002    0.000 dataclasses.py:1468(<genexpr>)
+    19644    0.002    0.000    0.002    0.000 {method 'count' of 'list' objects}
+    19650    0.002    0.000    0.002    0.000 {method 'strip' of 'str' objects}
+    19759    0.001    0.000    0.001    0.000 {built-in method builtins.len}
+    14954    0.001    0.000    0.001    0.000 {built-in method builtins.hash}
+    22436    0.001    0.000    0.001    0.000 release_document.py:82(<lambda>)
+     3901    0.001    0.000    0.007    0.000 release_document.py:83(<lambda>)
+    11/10    0.001    0.000    0.095    0.009 measure.py:358(op_read_document_core)
+
+

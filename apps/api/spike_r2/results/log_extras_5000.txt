@@ -1,0 +1,21 @@
+== document reads inside one request (public)
+   copy_plan_core {'read_release_content': 1, 'read_release_copies': 1, 'loads': 2, 'decode': 1}
+   copy_plan_bridge {'read_release_content': 2, 'read_release_copies': 2, 'loads': 4, 'decode': 2}
+   updates_shelf_core {'read_release_content': 1, 'read_release_copies': 0, 'loads': 1, 'decode': 1}
+   updates_stack_bridge {'read_release_content': 1, 'read_release_copies': 0, 'loads': 1, 'decode': 1}
+   browse_page_core {'read_release_content': 1, 'read_release_copies': 0, 'loads': 1, 'decode': 1}
+== retained memory
+   {'kept_from_rows_mb': 28.4, 'kept_from_rows_entities': 5013, 'kept_from_document_mb': 25.3, 'kept_from_document_entities': 5013}
+== write pieces
+   replace_stored_rows (delete the set, insert it again), core 149.1 ms
+   store_release_document alone, core 368.2 ms
+   read tenant.export_revision, core 2.2 ms
+   read the release list, core 2.3 ms
+== garbage collector
+   read_release_content, gc on 246 ms
+   read_release_content, gc off 240 ms
+   load_content, gc on 355 ms
+   load_content, gc off 213 ms
+== browse, ten pages
+   ten consecutive browse pages (document) 2681 ms
+   ten consecutive browse pages (rows) 209 ms

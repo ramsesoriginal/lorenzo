@@ -1,0 +1,130 @@
+== size 5000: publish while private
+  preview with edits: 435.3 ms
+  publish 2.0 (private, edits (with breaking removals)) of core: 890 ms, 66 stmts
+  publish 2.1 (private, one edit) of core: 643 ms, 66 stmts
+  publish 2.2 (private, one edit) of core: 612 ms, 66 stmts
+  publish 1.1 (private, edits (with removals)) of bridge: 410 ms, 61 stmts
+== pieces on private content
+  [pieces private] core: load_content: 259 ms (34 stmts) {'first_run_ms': 390.3}
+  [pieces private] core: live_rows (hash every row): 51 ms (0 stmts) {'rows': 5061, 'first_run_ms': 51.4}
+  [pieces private] core: digest_of: 1 ms (0 stmts) {'first_run_ms': 1.6}
+  [pieces private] core: stored_rows: 34 ms (2 stmts) {'rows': 5061, 'first_run_ms': 34.3}
+  [pieces private] core: compare + detect: 1 ms (0 stmts) {'first_run_ms': 1.1}
+  [pieces private] core: descriptions_edited_since: 4 ms (2 stmts) {'first_run_ms': 4.6}
+  [pieces private] core: assess (all of the above): 502 ms (37 stmts) {'first_run_ms': 357.8}
+  [pieces private] core: encode: 44 ms (0 stmts) {'first_run_ms': 47.1}
+  [pieces private] core: dumps (JSON + gzip): 314 ms (0 stmts) {'first_run_ms': 299.9, 'plain_bytes': 9600502, 'gzip_bytes': 3243307, 'files': 1, 'file_bytes': 30720}
+  [pieces private] core: gzip level 9 of the JSON: 252 ms (0 stmts) {'first_run_ms': 295.4, 'gzip_bytes': 3243307}
+  [pieces private] core: gzip level 6 of the JSON: 166 ms (0 stmts) {'first_run_ms': 171.8, 'gzip_bytes': 3258745}
+  [pieces private] core: gzip level 1 of the JSON: 50 ms (0 stmts) {'first_run_ms': 60.5, 'gzip_bytes': 3446039}
+  [pieces private] core: JSON text alone: 23 ms (0 stmts) {'first_run_ms': 18.2}
+  [pieces private] core: gunzip + json.loads: 55 ms (0 stmts) {'first_run_ms': 56.2}
+  [pieces private] core: decode (document to Content): 233 ms (0 stmts) {'first_run_ms': 217.6}
+  [pieces private] core: assess + released rows + document, as a publish does it (rolled back): 1060 ms (45 stmts) {'first_run_ms': 1128.9}
+  [pieces private] core: publish without a document (assess + released rows): 717 ms (39 stmts) {'first_run_ms': 789.6}
+  [pieces private] bridge: load_content: 464 ms (34 stmts) {'first_run_ms': 311.4}
+  [pieces private] bridge: live_rows (hash every row): 48 ms (0 stmts) {'rows': 872, 'first_run_ms': 43.9}
+  [pieces private] bridge: digest_of: 0 ms (0 stmts) {'first_run_ms': 1.4}
+  [pieces private] bridge: stored_rows: 16 ms (2 stmts) {'rows': 872, 'first_run_ms': 15.9}
+  [pieces private] bridge: compare + detect: 0 ms (0 stmts) {'first_run_ms': 0.8}
+  [pieces private] bridge: descriptions_edited_since: 6 ms (2 stmts) {'first_run_ms': 8.4}
+  [pieces private] bridge: assess (all of the above): 512 ms (37 stmts) {'first_run_ms': 518.2}
+  [pieces private] bridge: encode: 58 ms (0 stmts) {'first_run_ms': 48.9}
+  [pieces private] bridge: dumps (JSON + gzip): 405 ms (0 stmts) {'first_run_ms': 405.3, 'plain_bytes': 13697869, 'gzip_bytes': 4312283, 'files': 2, 'file_bytes': 61440}
+  [pieces private] bridge: gzip level 9 of the JSON: 358 ms (0 stmts) {'first_run_ms': 372.8, 'gzip_bytes': 4312283}
+  [pieces private] bridge: gzip level 6 of the JSON: 242 ms (0 stmts) {'first_run_ms': 236.0, 'gzip_bytes': 4345152}
+  [pieces private] bridge: gzip level 1 of the JSON: 77 ms (0 stmts) {'first_run_ms': 76.6, 'gzip_bytes': 4683144}
+  [pieces private] bridge: JSON text alone: 36 ms (0 stmts) {'first_run_ms': 30.8}
+  [pieces private] bridge: gunzip + json.loads: 88 ms (0 stmts) {'first_run_ms': 107.6}
+  [pieces private] bridge: decode (document to Content): 284 ms (0 stmts) {'first_run_ms': 264.8}
+  [pieces private] bridge: assess + released rows + document, as a publish does it (rolled back): 1065 ms (46 stmts) {'first_run_ms': 1098.6}
+  [pieces] core: entity_rows of an in-memory Content (a cached browse): 8 ms
+== live (private) reads
+  [private_before_public] GET copy-plan core (Fresh): 1004 ms (65 stmts)
+  [private_before_public] GET copy-plan bridge (Fresh; Core and Bridge): 1615 ms (114 stmts)
+  [private_before_public] GET updates core (Shelf): 1086 ms (79 stmts)
+  [private_before_public] GET updates core (Stack): 1034 ms (79 stmts)
+  [private_before_public] GET updates bridge (Stack): 1204 ms (79 stmts)
+  [private_before_public] GET entities page 1 of 50: 26 ms (15 stmts)
+  [private_before_public] GET entities q=sword: 27 ms (15 stmts)
+  [private_before_public] GET entities last page: 31 ms (15 stmts)
+  [private_before_public] GET stat-groups: 16 ms (11 stmts)
+  [private_before_public] GET dependencies bridge (Fresh): 24 ms (28 stmts)
+  [private_before_public] GET repositories of Shelf (the listing, no content): 22 ms (16 stmts)
+  [private_before_public] GET repositories of Stack (the listing, no content): 30 ms (21 stmts)
+  [private_before_public] load_upstream_core: 247 ms (39 stmts)
+== publish as public
+  publish 3.0 (public (document)) of core: 1098 ms, 71 stmts
+  publish 3.1 (public (document)) of core: 1036 ms, 70 stmts
+  publish 3.2 (public (document)) of core: 1038 ms, 70 stmts
+  publish 2.0 (public (document)) of bridge: 1033 ms, 66 stmts
+  publish 2.1 (public (document)) of bridge: 1041 ms, 65 stmts
+== document pieces
+  [pieces public] core: load_content: 305 ms (34 stmts) {'first_run_ms': 261.9}
+  [pieces public] core: live_rows (hash every row): 52 ms (0 stmts) {'rows': 5061, 'first_run_ms': 50.4}
+  [pieces public] core: digest_of: 2 ms (0 stmts) {'first_run_ms': 2.1}
+  [pieces public] core: stored_rows: 36 ms (2 stmts) {'rows': 5061, 'first_run_ms': 33.0}
+  [pieces public] core: compare + detect: 1 ms (0 stmts) {'first_run_ms': 2.1}
+  [pieces public] core: descriptions_edited_since: 4 ms (2 stmts) {'first_run_ms': 5.0}
+  [pieces public] core: assess (all of the above): 488 ms (37 stmts) {'first_run_ms': 505.9}
+  [pieces public] core: encode: 42 ms (0 stmts) {'first_run_ms': 38.7}
+  [pieces public] core: dumps (JSON + gzip): 271 ms (0 stmts) {'first_run_ms': 268.9, 'plain_bytes': 9600511, 'gzip_bytes': 3243316, 'files': 1, 'file_bytes': 30720}
+  [pieces public] core: gzip level 9 of the JSON: 257 ms (0 stmts) {'first_run_ms': 246.9, 'gzip_bytes': 3243316}
+  [pieces public] core: gzip level 6 of the JSON: 169 ms (0 stmts) {'first_run_ms': 161.8, 'gzip_bytes': 3258757}
+  [pieces public] core: gzip level 1 of the JSON: 53 ms (0 stmts) {'first_run_ms': 51.7, 'gzip_bytes': 3446045}
+  [pieces public] core: JSON text alone: 22 ms (0 stmts) {'first_run_ms': 23.6}
+  [pieces public] core: gunzip + json.loads: 52 ms (0 stmts) {'first_run_ms': 50.2}
+  [pieces public] core: decode (document to Content): 243 ms (0 stmts) {'first_run_ms': 257.9}
+  [pieces public] core: assess + released rows + document, as a publish does it (rolled back): 1075 ms (44 stmts) {'first_run_ms': 985.5}
+  [pieces public] core: publish without a document (assess + released rows): 657 ms (39 stmts) {'first_run_ms': 663.3}
+  [pieces public] core: read_release_content (select + gunzip + decode): 284 ms (4 stmts) {'first_run_ms': 163.7}
+  [pieces public] core: read_release_copies (the manifest's read): 60 ms (3 stmts) {'first_run_ms': 63.4}
+  [pieces public] core: SQL fetch of the document alone: 9 ms (3 stmts) {'first_run_ms': 9.1}
+  [pieces public] bridge: load_content: 598 ms (34 stmts) {'first_run_ms': 384.0}
+  [pieces public] bridge: live_rows (hash every row): 27 ms (0 stmts) {'rows': 872, 'first_run_ms': 39.3}
+  [pieces public] bridge: digest_of: 0 ms (0 stmts) {'first_run_ms': 0.8}
+  [pieces public] bridge: stored_rows: 13 ms (2 stmts) {'rows': 872, 'first_run_ms': 16.9}
+  [pieces public] bridge: compare + detect: 0 ms (0 stmts) {'first_run_ms': 0.8}
+  [pieces public] bridge: descriptions_edited_since: 6 ms (2 stmts) {'first_run_ms': 8.6}
+  [pieces public] bridge: assess (all of the above): 583 ms (37 stmts) {'first_run_ms': 593.5}
+  [pieces public] bridge: encode: 52 ms (0 stmts) {'first_run_ms': 43.3}
+  [pieces public] bridge: dumps (JSON + gzip): 378 ms (0 stmts) {'first_run_ms': 383.3, 'plain_bytes': 13697875, 'gzip_bytes': 4312297, 'files': 2, 'file_bytes': 61440}
+  [pieces public] bridge: gzip level 9 of the JSON: 352 ms (0 stmts) {'first_run_ms': 342.2, 'gzip_bytes': 4312297}
+  [pieces public] bridge: gzip level 6 of the JSON: 232 ms (0 stmts) {'first_run_ms': 223.7, 'gzip_bytes': 4345167}
+  [pieces public] bridge: gzip level 1 of the JSON: 74 ms (0 stmts) {'first_run_ms': 66.0, 'gzip_bytes': 4683143}
+  [pieces public] bridge: JSON text alone: 36 ms (0 stmts) {'first_run_ms': 30.4}
+  [pieces public] bridge: gunzip + json.loads: 82 ms (0 stmts) {'first_run_ms': 79.6}
+  [pieces public] bridge: decode (document to Content): 269 ms (0 stmts) {'first_run_ms': 266.1}
+  [pieces public] bridge: assess + released rows + document, as a publish does it (rolled back): 1015 ms (45 stmts) {'first_run_ms': 1002.4}
+  [pieces public] bridge: read_release_content (select + gunzip + decode): 387 ms (4 stmts) {'first_run_ms': 226.8}
+  [pieces public] bridge: read_release_copies (the manifest's read): 96 ms (3 stmts) {'first_run_ms': 101.9}
+  [pieces public] bridge: SQL fetch of the document alone: 10 ms (3 stmts) {'first_run_ms': 9.6}
+== document (public) reads
+  [public] GET copy-plan core (Fresh): 1016 ms (35 stmts)
+  [public] GET copy-plan bridge (Fresh; Core and Bridge): 1600 ms (54 stmts)
+  [public] GET updates core (Shelf): 964 ms (48 stmts)
+  [public] GET updates core (Stack): 993 ms (48 stmts)
+  [public] GET updates bridge (Stack): 1151 ms (48 stmts)
+  [public] GET entities page 1 of 50: 317 ms (12 stmts)
+  [public] GET entities q=sword: 322 ms (12 stmts)
+  [public] GET entities last page: 330 ms (12 stmts)
+  [public] GET stat-groups: 285 ms (12 stmts)
+  [public] GET dependencies bridge (Fresh): 223 ms (30 stmts)
+  [public] GET repositories of Shelf (the listing, no content): 30 ms (16 stmts)
+  [public] GET repositories of Stack (the listing, no content): 36 ms (21 stmts)
+  [public] load_upstream_core: 296 ms (8 stmts)
+== the live preview and the release list
+== live (private) reads, same content as the release
+  [private] GET copy-plan core (Fresh): 982 ms (65 stmts)
+  [private] GET copy-plan bridge (Fresh; Core and Bridge): 1489 ms (114 stmts)
+  [private] GET updates core (Shelf): 1072 ms (79 stmts)
+  [private] GET updates core (Stack): 1036 ms (79 stmts)
+  [private] GET updates bridge (Stack): 1180 ms (79 stmts)
+  [private] GET entities page 1 of 50: 26 ms (15 stmts)
+  [private] GET entities q=sword: 27 ms (15 stmts)
+  [private] GET entities last page: 32 ms (15 stmts)
+  [private] GET stat-groups: 15 ms (11 stmts)
+  [private] GET dependencies bridge (Fresh): 25 ms (28 stmts)
+  [private] GET repositories of Shelf (the listing, no content): 21 ms (16 stmts)
+  [private] GET repositories of Stack (the listing, no content): 40 ms (21 stmts)
+  [private] load_upstream_core: 310 ms (39 stmts)

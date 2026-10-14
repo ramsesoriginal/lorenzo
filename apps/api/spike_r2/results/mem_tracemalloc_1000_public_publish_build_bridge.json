@@ -1,0 +1,13 @@
+{
+  "op": "publish_build_bridge",
+  "cold_ms": 610.5,
+  "statements": 45,
+  "db_ms": 151.8,
+  "info": {
+    "document_bytes": 838101,
+    "files": 2
+  },
+  "tracemalloc_peak_mb": 24.1,
+  "size": 1000,
+  "visibility": "public"
+}

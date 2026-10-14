@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         3175276 function calls (3162793 primitive calls) in 0.944 seconds
+
+   Ordered by: cumulative time
+   List reduced from 769 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    58/57    0.003    0.000    0.959    0.017 measure.py:401(op_copy_plan_bridge)
+       51    0.001    0.000    0.952    0.019 repository_copying.py:898(plan_copy)
+        2    0.020    0.010    0.554    0.277 repository_copying.py:400(plan_step)
+      866    0.001    0.000    0.419    0.000 description_payloads.py:76(reference_values)
+      866    0.003    0.000    0.418    0.000 lorenzoscript.py:952(references)
+      866    0.003    0.000    0.414    0.000 lorenzoscript.py:924(parse)
+      866    0.001    0.000    0.406    0.000 lorenzoscript.py:748(blocks)
+      866    0.001    0.000    0.398    0.000 lorenzoscript.py:775(paragraph)
+      866    0.001    0.000    0.395    0.000 lorenzoscript.py:315(parse_inline)
+      866    0.258    0.000    0.388    0.000 lorenzoscript.py:206(parse)
+       10    0.001    0.000    0.311    0.031 repository_upstream.py:80(load_upstream)
+        6    0.001    0.000    0.303    0.050 release_document_store.py:117(read_release_content)
+        2    0.000    0.000    0.260    0.130 release_document.py:405(decode)
+        2    0.000    0.000    0.260    0.130 release_document.py:395(_read_v1)
+  11911/2    0.019    0.000    0.260    0.130 release_document.py:194(decode)
+        4    0.012    0.003    0.177    0.044 release_document.py:161(<lambda>)
+    11911    0.097    0.000    0.105    0.000 dataclasses.py:1453(fields)
+    46572    0.056    0.000    0.084    0.000 uuid.py:178(__init__)
+  1334218    0.079    0.000    0.079    0.000 {built-in method builtins.len}
+       34    0.012    0.000    0.068    0.002 release_document.py:116(<lambda>)
+       26    0.000    0.000    0.063    0.002 repository_copying.py:238(manifest)
+      109    0.000    0.000    0.059    0.001 _concurrency_py3k.py:167(greenlet_spawn)
+      121    0.001    0.000    0.056    0.000 base_events.py:1976(_run_once)
+        4    0.000    0.000    0.054    0.014 release_document.py:428(loads)
+       78    0.000    0.000    0.053    0.001 session.py:423(execute)
+   663046    0.050    0.000    0.050    0.000 {method 'append' of 'list' objects}
+       14    0.000    0.000    0.047    0.003 repository_copying.py:229(_dependencies)
+   159/53    0.002    0.000    0.045    0.001 {method 'switch' of 'greenlet.greenlet' objects}
+
+
+
+--- by own time
+         3175276 function calls (3162793 primitive calls) in 0.944 seconds
+
+   Ordered by: internal time
+   List reduced from 769 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      866    0.258    0.000    0.388    0.000 lorenzoscript.py:206(parse)
+    11911    0.097    0.000    0.105    0.000 dataclasses.py:1453(fields)
+  1334218    0.079    0.000    0.079    0.000 {built-in method builtins.len}
+    46572    0.056    0.000    0.084    0.000 uuid.py:178(__init__)
+   663046    0.050    0.000    0.050    0.000 {method 'append' of 'list' objects}
+      122    0.029    0.000    0.029    0.000 {method 'poll' of 'select.epoll' objects}
+        4    0.029    0.007    0.029    0.007 {method 'decompress' of 'zlib.Decompress' objects}
+   143708    0.024    0.000    0.036    0.000 uuid.py:319(__hash__)
+       16    0.022    0.001    0.022    0.001 decoder.py:351(raw_decode)
+        2    0.020    0.010    0.554    0.277 repository_copying.py:400(plan_step)
+  11911/2    0.019    0.000    0.260    0.130 release_document.py:194(decode)
+   140620    0.016    0.000    0.016    0.000 {method 'replace' of 'str' objects}
+    40327    0.015    0.000    0.031    0.000 {method 'get' of 'dict' objects}
+   143813    0.013    0.000    0.013    0.000 {built-in method builtins.hash}
+       34    0.012    0.000    0.068    0.002 release_document.py:116(<lambda>)
+        4    0.012    0.003    0.177    0.044 release_document.py:161(<lambda>)
+    49115    0.009    0.000    0.013    0.000 uuid.py:291(__eq__)
+    19803    0.007    0.000    0.016    0.000 repository_content.py:171(own)
+
+

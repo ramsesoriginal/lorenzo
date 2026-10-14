@@ -1,0 +1,13 @@
+{
+  "op": "assess_bridge",
+  "cold_ms": 6262.8,
+  "statements": 37,
+  "db_ms": 904.7,
+  "info": {
+    "differing": 0,
+    "live_rows": 3487
+  },
+  "tracemalloc_peak_mb": 191.4,
+  "size": 20000,
+  "visibility": "public"
+}

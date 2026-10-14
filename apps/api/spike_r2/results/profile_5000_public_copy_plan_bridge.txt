@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         15960094 function calls (15900008 primitive calls) in 4.225 seconds
+
+   Ordered by: cumulative time
+   List reduced from 769 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    58/57    0.016    0.000    4.237    0.074 measure.py:401(op_copy_plan_bridge)
+       51    0.002    0.000    4.229    0.083 repository_copying.py:898(plan_copy)
+        2    0.093    0.046    2.757    1.378 repository_copying.py:400(plan_step)
+     4405    0.003    0.000    2.114    0.000 description_payloads.py:76(reference_values)
+     4405    0.010    0.000    2.111    0.000 lorenzoscript.py:952(references)
+     4405    0.013    0.000    2.093    0.000 lorenzoscript.py:924(parse)
+     4405    0.007    0.000    2.059    0.000 lorenzoscript.py:748(blocks)
+     4405    0.006    0.000    2.016    0.000 lorenzoscript.py:775(paragraph)
+     4405    0.010    0.000    2.004    0.000 lorenzoscript.py:315(parse_inline)
+     4405    1.312    0.000    1.960    0.000 lorenzoscript.py:206(parse)
+       10    0.001    0.000    1.258    0.126 repository_upstream.py:80(load_upstream)
+        6    0.005    0.001    1.246    0.208 release_document_store.py:117(read_release_content)
+        2    0.000    0.000    1.056    0.528 release_document.py:405(decode)
+        2    0.000    0.000    1.055    0.528 release_document.py:395(_read_v1)
+  59514/2    0.089    0.000    1.055    0.528 release_document.py:194(decode)
+        4    0.059    0.015    0.572    0.143 release_document.py:161(<lambda>)
+       34    0.153    0.005    0.417    0.012 release_document.py:116(<lambda>)
+   230901    0.257    0.000    0.390    0.000 uuid.py:178(__init__)
+  6838911    0.389    0.000    0.389    0.000 {built-in method builtins.len}
+        4    0.002    0.001    0.285    0.071 release_document.py:428(loads)
+  3400122    0.249    0.000    0.249    0.000 {method 'append' of 'list' objects}
+    59514    0.179    0.000    0.217    0.000 dataclasses.py:1453(fields)
+       26    0.000    0.000    0.185    0.007 repository_copying.py:238(manifest)
+   712950    0.112    0.000    0.172    0.000 uuid.py:319(__hash__)
+       14    0.000    0.000    0.168    0.012 repository_copying.py:229(_dependencies)
+     5508    0.028    0.000    0.165    0.000 repository_content.py:615(entity_snapshot)
+        8    0.000    0.000    0.159    0.020 repository_upstream.py:101(upstream_copies)
+        4    0.006    0.001    0.151    0.038 release_document_store.py:153(read_release_copies)
+
+
+
+--- by own time
+         15960094 function calls (15900008 primitive calls) in 4.225 seconds
+
+   Ordered by: internal time
+   List reduced from 769 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     4405    1.312    0.000    1.960    0.000 lorenzoscript.py:206(parse)
+  6838911    0.389    0.000    0.389    0.000 {built-in method builtins.len}
+   230901    0.257    0.000    0.390    0.000 uuid.py:178(__init__)
+  3400122    0.249    0.000    0.249    0.000 {method 'append' of 'list' objects}
+    59514    0.179    0.000    0.217    0.000 dataclasses.py:1453(fields)
+       34    0.153    0.005    0.417    0.012 release_document.py:116(<lambda>)
+        4    0.139    0.035    0.139    0.035 {method 'decompress' of 'zlib.Decompress' objects}
+       16    0.116    0.007    0.116    0.007 decoder.py:351(raw_decode)
+   712950    0.112    0.000    0.172    0.000 uuid.py:319(__hash__)
+        2    0.093    0.046    2.757    1.378 repository_copying.py:400(plan_step)
+  59514/2    0.089    0.000    1.055    0.528 release_document.py:194(decode)
+   697146    0.076    0.000    0.076    0.000 {method 'replace' of 'str' objects}
+   195759    0.068    0.000    0.143    0.000 {method 'get' of 'dict' objects}
+   713055    0.060    0.000    0.060    0.000 {built-in method builtins.hash}
+        4    0.059    0.015    0.572    0.143 release_document.py:161(<lambda>)
+      173    0.049    0.000    0.049    0.000 {method 'poll' of 'select.epoll' objects}
+   244556    0.045    0.000    0.062    0.000 uuid.py:291(__eq__)
+    98350    0.036    0.000    0.078    0.000 repository_content.py:171(own)
+
+

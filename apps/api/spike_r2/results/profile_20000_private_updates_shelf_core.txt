@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         5283621 function calls (5282679 primitive calls) in 5.097 seconds
+
+   Ordered by: cumulative time
+   List reduced from 708 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    83/82    0.080    0.001    5.100    0.062 measure.py:374(op_updates_shelf_core)
+       76    0.063    0.001    5.080    0.067 repository_updates.py:400(compute_updates)
+       68    0.544    0.008    2.771    0.041 repository_content.py:218(load_content)
+      159    0.001    0.000    2.036    0.013 _concurrency_py3k.py:167(greenlet_spawn)
+   234/78    0.005    0.000    2.026    0.026 {method 'switch' of 'greenlet.greenlet' objects}
+      148    0.001    0.000    2.024    0.014 session.py:423(execute)
+       73    0.001    0.000    1.857    0.025 session.py:2313(execute)
+       88    0.001    0.000    1.730    0.020 repository_content.py:223(rows)
+       76    0.000    0.000    1.333    0.018 session.py:2141(_execute_internal)
+       72    0.000    0.000    1.310    0.018 context.py:296(orm_execute_statement)
+       72    0.000    0.000    1.291    0.018 context.py:581(orm_setup_cursor_result)
+       72    0.018    0.000    1.290    0.018 loading.py:79(instances)
+      144    0.404    0.003    1.271    0.009 loading.py:208(chunks)
+       36    0.002    0.000    1.112    0.031 repository_upstream.py:80(load_upstream)
+    59923    0.289    0.000    0.910    0.000 repository_content.py:615(entity_snapshot)
+        1    0.005    0.005    0.850    0.850 repository_updates.py:493(_mark)
+        1    0.032    0.032    0.842    0.842 repository_digest.py:140(live_rows)
+     1717    0.026    0.000    0.713    0.000 base_events.py:1976(_run_once)
+       72    0.597    0.008    0.602    0.008 result.py:576(_raw_all_rows)
+    39978    0.011    0.000    0.601    0.000 repository_updates.py:291(_snapshot)
+     1798    0.002    0.000    0.569    0.000 events.py:92(_run)
+     1798    0.001    0.000    0.564    0.000 {method 'run' of '_contextvars.Context' objects}
+     1637    0.001    0.000    0.534    0.000 selector_events.py:968(_read_ready)
+     1637    0.343    0.000    0.533    0.000 selector_events.py:1008(_read_ready__data_received)
+       46    0.001    0.000    0.494    0.011 result.py:1416(all)
+       47    0.487    0.010    0.493    0.010 result.py:582(_allrows)
+        2    0.035    0.017    0.425    0.212 repository_digest.py:197(stored_rows)
+       28    0.000    0.000    0.390    0.014 session.py:535(scalars)
+
+
+
+--- by own time
+         5283621 function calls (5282679 primitive calls) in 5.097 seconds
+
+   Ordered by: internal time
+   List reduced from 708 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       72    0.597    0.008    0.602    0.008 result.py:576(_raw_all_rows)
+       68    0.544    0.008    2.771    0.041 repository_content.py:218(load_content)
+       47    0.487    0.010    0.493    0.010 result.py:582(_allrows)
+      144    0.404    0.003    1.271    0.009 loading.py:208(chunks)
+     1637    0.343    0.000    0.533    0.000 selector_events.py:1008(_read_ready__data_received)
+        3    0.336    0.112    0.343    0.114 repository_content.py:602(index_entities)
+  1530231    0.296    0.000    0.296    0.000 {method 'get' of 'dict' objects}
+    59923    0.289    0.000    0.910    0.000 repository_content.py:615(entity_snapshot)
+    24141    0.179    0.000    0.201    0.000 instrumentation.py:501(new_instance)
+    19989    0.158    0.000    0.234    0.000 repository_updates.py:240(diff)
+     1718    0.107    0.000    0.107    0.000 {method 'poll' of 'select.epoll' objects}
+   240434    0.082    0.000    0.217    0.000 {built-in method builtins.sorted}
+    83/82    0.080    0.001    5.100    0.062 measure.py:374(op_updates_shelf_core)
+    20089    0.080    0.000    0.080    0.000 encoder.py:207(iterencode)
+   277111    0.080    0.000    0.145    0.000 repository_content.py:165(origin)
+   257028    0.070    0.000    0.207    0.000 repository_content.py:551(<lambda>)
+       76    0.063    0.001    5.080    0.067 repository_updates.py:400(compute_updates)
+    40143    0.060    0.000    0.060    0.000 decoder.py:351(raw_decode)
+
+

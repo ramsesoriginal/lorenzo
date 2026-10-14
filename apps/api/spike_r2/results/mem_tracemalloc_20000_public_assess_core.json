@@ -1,0 +1,13 @@
+{
+  "op": "assess_core",
+  "cold_ms": 6669.2,
+  "statements": 37,
+  "db_ms": 757.8,
+  "info": {
+    "differing": 0,
+    "live_rows": 20089
+  },
+  "tracemalloc_peak_mb": 180.4,
+  "size": 20000,
+  "visibility": "public"
+}

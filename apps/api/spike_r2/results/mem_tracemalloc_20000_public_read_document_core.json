@@ -1,0 +1,12 @@
+{
+  "op": "read_document_core",
+  "cold_ms": 3998.7,
+  "statements": 4,
+  "db_ms": 47.3,
+  "info": {
+    "entities": 20041
+  },
+  "tracemalloc_peak_mb": 184.3,
+  "size": 20000,
+  "visibility": "public"
+}

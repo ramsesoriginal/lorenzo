@@ -1,0 +1,34 @@
+[
+  {
+    "name": "load_content, gc on",
+    "median_ms": 1214.9
+  },
+  {
+    "name": "load_content, gc off",
+    "median_ms": 339.6
+  },
+  {
+    "name": "decode (document to Content), gc on",
+    "median_ms": 536.1
+  },
+  {
+    "name": "decode (document to Content), gc off",
+    "median_ms": 322.4
+  },
+  {
+    "name": "json.loads of the document, gc on",
+    "median_ms": 100.5
+  },
+  {
+    "name": "json.loads of the document, gc off",
+    "median_ms": 80.1
+  },
+  {
+    "name": "gunzip + json.loads, gc on",
+    "median_ms": 221.4
+  },
+  {
+    "name": "gunzip + json.loads, gc off",
+    "median_ms": 195.6
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "op": "load_content_core",
+  "cold_ms": 315.6,
+  "statements": 34,
+  "db_ms": 91.3,
+  "info": {
+    "entities": 1003
+  },
+  "tracemalloc_peak_mb": 8.2,
+  "size": 1000,
+  "visibility": "public"
+}

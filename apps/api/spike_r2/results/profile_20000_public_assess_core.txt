@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         2145756 function calls (2145266 primitive calls) in 2.295 seconds
+
+   Ordered by: cumulative time
+   List reduced from 646 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    44/43    0.024    0.001    2.320    0.054 measure.py:310(op_assess)
+       37    0.005    0.000    2.308    0.062 repository_digest.py:495(assess)
+       81    0.000    0.000    1.158    0.014 _concurrency_py3k.py:167(greenlet_spawn)
+   117/39    0.002    0.000    1.154    0.030 {method 'switch' of 'greenlet.greenlet' objects}
+       74    0.000    0.000    1.151    0.016 session.py:423(execute)
+       35    0.000    0.000    1.142    0.033 session.py:2313(execute)
+       34    0.276    0.008    1.125    0.033 repository_content.py:218(load_content)
+       37    0.000    0.000    0.825    0.022 session.py:2141(_execute_internal)
+       36    0.000    0.000    0.804    0.022 context.py:296(orm_execute_statement)
+       36    0.000    0.000    0.795    0.022 context.py:581(orm_setup_cursor_result)
+       36    0.010    0.000    0.794    0.022 loading.py:79(instances)
+       72    0.443    0.006    0.783    0.011 loading.py:208(chunks)
+       44    0.000    0.000    0.768    0.017 repository_content.py:223(rows)
+        1    0.028    0.028    0.704    0.704 repository_digest.py:140(live_rows)
+    20041    0.249    0.000    0.459    0.000 repository_content.py:615(entity_snapshot)
+        2    0.034    0.017    0.422    0.211 repository_digest.py:197(stored_rows)
+       14    0.000    0.000    0.375    0.027 session.py:535(scalars)
+      868    0.014    0.000    0.348    0.000 base_events.py:1976(_run_once)
+      910    0.001    0.000    0.282    0.000 events.py:92(_run)
+      910    0.001    0.000    0.279    0.000 {method 'run' of '_contextvars.Context' objects}
+    22113    0.035    0.000    0.267    0.000 loading.py:1068(_instance)
+      827    0.000    0.000    0.263    0.000 selector_events.py:968(_read_ready)
+      827    0.193    0.000    0.263    0.000 selector_events.py:1008(_read_ready__data_received)
+    22113    0.181    0.000    0.203    0.000 instrumentation.py:501(new_instance)
+    20089    0.017    0.000    0.157    0.000 repository_digest.py:136(hash_of)
+    20089    0.007    0.000    0.124    0.000 repository_digest.py:131(canonical)
+    20089    0.016    0.000    0.117    0.000 __init__.py:185(dumps)
+   128564    0.034    0.000    0.104    0.000 repository_content.py:551(<lambda>)
+
+
+
+--- by own time
+         2145756 function calls (2145266 primitive calls) in 2.295 seconds
+
+   Ordered by: internal time
+   List reduced from 646 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       72    0.443    0.006    0.783    0.011 loading.py:208(chunks)
+       34    0.276    0.008    1.125    0.033 repository_content.py:218(load_content)
+    20041    0.249    0.000    0.459    0.000 repository_content.py:615(entity_snapshot)
+      827    0.193    0.000    0.263    0.000 selector_events.py:1008(_read_ready__data_received)
+    22113    0.181    0.000    0.203    0.000 instrumentation.py:501(new_instance)
+    20089    0.073    0.000    0.073    0.000 encoder.py:207(iterencode)
+   310629    0.073    0.000    0.073    0.000 {method 'get' of 'dict' objects}
+       36    0.071    0.002    0.073    0.002 result.py:576(_raw_all_rows)
+      869    0.046    0.000    0.046    0.000 {method 'poll' of 'select.epoll' objects}
+    60172    0.041    0.000    0.099    0.000 {built-in method builtins.sorted}
+   128564    0.037    0.000    0.070    0.000 repository_content.py:165(origin)
+    22113    0.035    0.000    0.267    0.000 loading.py:1068(_instance)
+        2    0.034    0.017    0.422    0.211 repository_digest.py:197(stored_rows)
+   128564    0.034    0.000    0.104    0.000 repository_content.py:551(<lambda>)
+        1    0.028    0.028    0.704    0.704 repository_digest.py:140(live_rows)
+        1    0.028    0.028    0.030    0.030 repository_content.py:602(index_entities)
+       23    0.027    0.001    0.030    0.001 result.py:582(_allrows)
+    44/43    0.024    0.001    2.320    0.054 measure.py:310(op_assess)
+
+

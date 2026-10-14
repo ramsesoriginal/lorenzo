@@ -1,0 +1,15 @@
+{
+  "op": "assess_core",
+  "cold_ms": 467.6,
+  "statements": 37,
+  "db_ms": 210.9,
+  "info": {
+    "differing": 0,
+    "live_rows": 5062
+  },
+  "rss_baseline_mb": 132.6,
+  "rss_peak_mb": 182.6,
+  "rss_peak_delta_mb": 50.0,
+  "size": 5000,
+  "visibility": "public"
+}

@@ -1,0 +1,15 @@
+{
+  "op": "browse_page_core",
+  "cold_ms": 31.0,
+  "statements": 12,
+  "db_ms": 20.5,
+  "info": {
+    "total": 1003,
+    "items": 50
+  },
+  "rss_baseline_mb": 132.6,
+  "rss_peak_mb": 133.3,
+  "rss_peak_delta_mb": 0.7,
+  "size": 1000,
+  "visibility": "private"
+}

@@ -1,0 +1,15 @@
+{
+  "op": "updates_stack_bridge",
+  "cold_ms": 19080.6,
+  "statements": 76,
+  "db_ms": 2542.0,
+  "info": {
+    "changed": 101,
+    "added": 0,
+    "removed": 17,
+    "attachments": 500
+  },
+  "tracemalloc_peak_mb": 403.1,
+  "size": 20000,
+  "visibility": "private"
+}

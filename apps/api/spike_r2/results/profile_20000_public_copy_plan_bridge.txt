@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         63771689 function calls (63532595 primitive calls) in 17.601 seconds
+
+   Ordered by: cumulative time
+   List reduced from 770 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    58/57    0.074    0.001   17.581    0.308 measure.py:401(op_copy_plan_bridge)
+       51    0.009    0.000   17.572    0.345 repository_copying.py:898(plan_copy)
+        2    0.399    0.200   11.898    5.949 repository_copying.py:400(plan_step)
+    17637    0.012    0.000    8.827    0.001 description_payloads.py:76(reference_values)
+    17637    0.042    0.000    8.815    0.000 lorenzoscript.py:952(references)
+    17637    0.059    0.000    8.738    0.000 lorenzoscript.py:924(parse)
+    17637    0.028    0.000    8.591    0.000 lorenzoscript.py:748(blocks)
+    17637    0.026    0.000    8.412    0.000 lorenzoscript.py:775(paragraph)
+    17637    0.030    0.000    8.360    0.000 lorenzoscript.py:315(parse_inline)
+    17637    5.428    0.000    8.193    0.000 lorenzoscript.py:206(parse)
+       10    0.002    0.000    4.952    0.495 repository_upstream.py:80(load_upstream)
+        6    0.018    0.003    4.942    0.824 release_document_store.py:117(read_release_content)
+        2    0.000    0.000    4.251    2.126 release_document.py:405(decode)
+        2    0.000    0.000    4.251    2.126 release_document.py:395(_read_v1)
+ 238522/2    0.351    0.000    4.251    2.126 release_document.py:194(decode)
+        4    0.240    0.060    2.357    0.589 release_document.py:161(<lambda>)
+ 27362843    1.657    0.000    1.657    0.000 {built-in method builtins.len}
+       34    0.609    0.018    1.624    0.048 release_document.py:116(<lambda>)
+   923878    1.027    0.000    1.558    0.000 uuid.py:178(__init__)
+        4    0.005    0.001    1.201    0.300 release_document.py:428(loads)
+ 13604480    1.048    0.000    1.048    0.000 {method 'append' of 'list' objects}
+   238522    0.816    0.000    0.966    0.000 dataclasses.py:1453(fields)
+    22024    0.109    0.000    0.834    0.000 repository_content.py:615(entity_snapshot)
+  2853974    0.460    0.000    0.704    0.000 uuid.py:319(__hash__)
+       26    0.000    0.000    0.689    0.027 repository_copying.py:238(manifest)
+       14    0.000    0.000    0.669    0.048 repository_copying.py:229(_dependencies)
+        8    0.000    0.000    0.659    0.082 repository_upstream.py:101(upstream_copies)
+        4    0.028    0.007    0.650    0.163 release_document_store.py:153(read_release_copies)
+
+
+
+--- by own time
+         63771689 function calls (63532595 primitive calls) in 17.601 seconds
+
+   Ordered by: internal time
+   List reduced from 770 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    17637    5.428    0.000    8.193    0.000 lorenzoscript.py:206(parse)
+ 27362843    1.657    0.000    1.657    0.000 {built-in method builtins.len}
+ 13604480    1.048    0.000    1.048    0.000 {method 'append' of 'list' objects}
+   923878    1.027    0.000    1.558    0.000 uuid.py:178(__init__)
+   238522    0.816    0.000    0.966    0.000 dataclasses.py:1453(fields)
+       34    0.609    0.018    1.624    0.048 release_document.py:116(<lambda>)
+       16    0.543    0.034    0.543    0.034 decoder.py:351(raw_decode)
+        4    0.523    0.131    0.523    0.131 {method 'decompress' of 'zlib.Decompress' objects}
+  2853974    0.460    0.000    0.704    0.000 uuid.py:319(__hash__)
+        2    0.399    0.200   11.898    5.949 repository_copying.py:400(plan_step)
+ 238522/2    0.351    0.000    4.251    2.126 release_document.py:194(decode)
+   780097    0.311    0.000    0.623    0.000 {method 'get' of 'dict' objects}
+  2789309    0.306    0.000    0.306    0.000 {method 'replace' of 'str' objects}
+  2854079    0.244    0.000    0.244    0.000 {built-in method builtins.hash}
+    57784    0.243    0.000    0.252    0.000 uuid.py:267(_from_int)
+        4    0.240    0.060    2.357    0.589 release_document.py:161(<lambda>)
+    66157    0.192    0.000    0.292    0.000 {built-in method builtins.sorted}
+   979452    0.191    0.000    0.261    0.000 uuid.py:291(__eq__)
+
+

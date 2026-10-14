@@ -1,0 +1,13 @@
+{
+  "op": "copy_plan_core",
+  "cold_ms": 21896.9,
+  "statements": 62,
+  "db_ms": 555.1,
+  "info": {
+    "steps": 1,
+    "rows": 250782
+  },
+  "tracemalloc_peak_mb": 227.4,
+  "size": 20000,
+  "visibility": "private"
+}

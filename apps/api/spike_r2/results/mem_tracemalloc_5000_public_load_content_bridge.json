@@ -1,0 +1,12 @@
+{
+  "op": "load_content_bridge",
+  "cold_ms": 1602.3,
+  "statements": 34,
+  "db_ms": 288.4,
+  "info": {
+    "entities": 5494
+  },
+  "tracemalloc_peak_mb": 48.4,
+  "size": 5000,
+  "visibility": "public"
+}

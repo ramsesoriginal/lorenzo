@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         5177168 function calls (5063488 primitive calls) in 2.122 seconds
+
+   Ordered by: cumulative time
+   List reduced from 627 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    11/10    0.015    0.001    2.125    0.213 measure.py:358(op_read_document_core)
+        3    0.009    0.003    2.116    0.705 release_document_store.py:117(read_release_content)
+        1    0.000    0.000    1.820    1.820 release_document.py:405(decode)
+        1    0.000    0.000    1.820    1.820 release_document.py:395(_read_v1)
+ 113568/1    0.174    0.000    1.820    1.820 release_document.py:194(decode)
+        2    0.119    0.060    1.173    0.587 release_document.py:161(<lambda>)
+   390649    0.459    0.000    0.696    0.000 uuid.py:178(__init__)
+       17    0.098    0.006    0.515    0.030 release_document.py:116(<lambda>)
+   113568    0.419    0.000    0.492    0.000 dataclasses.py:1453(fields)
+        1    0.001    0.001    0.262    0.262 release_document.py:428(loads)
+    76655    0.024    0.000    0.158    0.000 release_document.py:83(<lambda>)
+        4    0.001    0.000    0.139    0.035 __init__.py:304(loads)
+  1171953    0.136    0.000    0.136    0.000 {method 'replace' of 'str' objects}
+        4    0.004    0.001    0.132    0.033 release_document.py:140(<lambda>)
+    29174    0.009    0.000    0.128    0.000 release_document.py:131(<lambda>)
+        1    0.001    0.001    0.122    0.122 gzip.py:643(decompress)
+        4    0.000    0.000    0.121    0.030 decoder.py:340(decode)
+        4    0.121    0.030    0.121    0.030 decoder.py:351(raw_decode)
+        1    0.114    0.114    0.114    0.114 {method 'decompress' of 'zlib.Decompress' objects}
+    16241    0.020    0.000    0.089    0.000 release_document.py:256(_read_payload)
+   297753    0.053    0.000    0.082    0.000 uuid.py:319(__hash__)
+   600285    0.050    0.000    0.050    0.000 dataclasses.py:1468(<genexpr>)
+   390649    0.037    0.000    0.037    0.000 {method 'count' of 'list' objects}
+   390655    0.034    0.000    0.034    0.000 {method 'strip' of 'str' objects}
+       15    0.000    0.000    0.032    0.002 _concurrency_py3k.py:167(greenlet_spawn)
+     18/6    0.000    0.000    0.031    0.005 {method 'switch' of 'greenlet.greenlet' objects}
+       76    0.000    0.000    0.031    0.000 base_events.py:1976(_run_once)
+   390935    0.030    0.000    0.030    0.000 {built-in method builtins.len}
+
+
+
+--- by own time
+         5177168 function calls (5063488 primitive calls) in 2.122 seconds
+
+   Ordered by: internal time
+   List reduced from 627 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   390649    0.459    0.000    0.696    0.000 uuid.py:178(__init__)
+   113568    0.419    0.000    0.492    0.000 dataclasses.py:1453(fields)
+ 113568/1    0.174    0.000    1.820    1.820 release_document.py:194(decode)
+  1171953    0.136    0.000    0.136    0.000 {method 'replace' of 'str' objects}
+        4    0.121    0.030    0.121    0.030 decoder.py:351(raw_decode)
+        2    0.119    0.060    1.173    0.587 release_document.py:161(<lambda>)
+        1    0.114    0.114    0.114    0.114 {method 'decompress' of 'zlib.Decompress' objects}
+       17    0.098    0.006    0.515    0.030 release_document.py:116(<lambda>)
+   297753    0.053    0.000    0.082    0.000 uuid.py:319(__hash__)
+   600285    0.050    0.000    0.050    0.000 dataclasses.py:1468(<genexpr>)
+   390649    0.037    0.000    0.037    0.000 {method 'count' of 'list' objects}
+   390655    0.034    0.000    0.034    0.000 {method 'strip' of 'str' objects}
+   390935    0.030    0.000    0.030    0.000 {built-in method builtins.len}
+   297762    0.029    0.000    0.029    0.000 {built-in method builtins.hash}
+   444068    0.029    0.000    0.029    0.000 release_document.py:82(<lambda>)
+    76655    0.024    0.000    0.158    0.000 release_document.py:83(<lambda>)
+    16241    0.020    0.000    0.089    0.000 release_document.py:256(_read_payload)
+        8    0.018    0.002    0.018    0.002 {method 'decode' of 'bytes' objects}
+
+

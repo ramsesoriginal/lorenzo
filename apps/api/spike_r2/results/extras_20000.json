@@ -1,0 +1,373 @@
+{
+  "size": 20000,
+  "calls_public_copy_plan_core": {
+    "read_release_content": 1,
+    "read_release_copies": 1,
+    "loads": 2,
+    "decode": 1
+  },
+  "calls_public_copy_plan_bridge": {
+    "read_release_content": 2,
+    "read_release_copies": 2,
+    "loads": 4,
+    "decode": 2
+  },
+  "calls_public_updates_shelf_core": {
+    "read_release_content": 1,
+    "read_release_copies": 0,
+    "loads": 1,
+    "decode": 1
+  },
+  "calls_public_updates_stack_bridge": {
+    "read_release_content": 1,
+    "read_release_copies": 0,
+    "loads": 1,
+    "decode": 1
+  },
+  "calls_public_browse_page_core": {
+    "read_release_content": 1,
+    "read_release_copies": 0,
+    "loads": 1,
+    "decode": 1
+  },
+  "retained": {
+    "kept_from_rows_mb": 112.1,
+    "kept_from_rows_entities": 20041,
+    "kept_from_document_mb": 100.7,
+    "kept_from_document_entities": 20041
+  },
+  "write_pieces": [
+    {
+      "name": "replace_stored_rows (delete the set, insert it again), core",
+      "median_ms": 745.5,
+      "min_ms": 610.9,
+      "max_ms": 790.0,
+      "runs": 5,
+      "first_ms": 769.0,
+      "statements": 3,
+      "db_ms": 510.2,
+      "first_run_ms": 560.5
+    },
+    {
+      "name": "store_release_document alone, core",
+      "median_ms": 1595.6,
+      "min_ms": 1514.1,
+      "max_ms": 1632.9,
+      "runs": 5,
+      "first_ms": 1514.1,
+      "statements": 6,
+      "db_ms": 182.0,
+      "first_run_ms": 1770.4
+    },
+    {
+      "name": "read tenant.export_revision, core",
+      "median_ms": 3.0,
+      "min_ms": 2.6,
+      "max_ms": 3.9,
+      "runs": 7,
+      "first_ms": 3.0,
+      "statements": 2,
+      "db_ms": 1.0,
+      "first_run_ms": 5.6
+    },
+    {
+      "name": "read the release list, core",
+      "median_ms": 3.6,
+      "min_ms": 3.3,
+      "max_ms": 5.0,
+      "runs": 7,
+      "first_ms": 4.9,
+      "statements": 2,
+      "db_ms": 1.5,
+      "first_run_ms": 4.1
+    }
+  ],
+  "gc": [
+    {
+      "name": "read_release_content, gc on",
+      "median_ms": 998.0,
+      "min_ms": 981.1,
+      "max_ms": 1166.7,
+      "runs": 5,
+      "first_ms": 1166.7,
+      "statements": 4,
+      "db_ms": 17.4,
+      "first_run_ms": 1106.8
+    },
+    {
+      "name": "read_release_content, gc off",
+      "median_ms": 620.8,
+      "min_ms": 612.5,
+      "max_ms": 627.2,
+      "runs": 5,
+      "first_ms": 627.2,
+      "statements": 4,
+      "db_ms": 17.2,
+      "first_run_ms": 643.2
+    },
+    {
+      "name": "load_content, gc on",
+      "median_ms": 1144.7,
+      "min_ms": 1099.9,
+      "max_ms": 1179.3,
+      "runs": 5,
+      "first_ms": 1130.0,
+      "statements": 34,
+      "db_ms": 260.4,
+      "first_run_ms": 1170.8
+    },
+    {
+      "name": "load_content, gc off",
+      "median_ms": 420.1,
+      "min_ms": 412.9,
+      "max_ms": 431.2,
+      "runs": 5,
+      "first_ms": 422.6,
+      "statements": 34,
+      "db_ms": 143.8,
+      "first_run_ms": 420.7
+    }
+  ],
+  "browse_ten_public": {
+    "name": "ten consecutive browse pages (document)",
+    "median_ms": 12232.2,
+    "min_ms": 12091.2,
+    "max_ms": 12573.9,
+    "runs": 3,
+    "first_ms": 12091.2,
+    "statements": 90,
+    "db_ms": 231.2,
+    "first_run_ms": 12120.9
+  },
+  "slowest_public": {
+    "updates_shelf_core": {
+      "statements": 45,
+      "db_ms": 1076.9,
+      "slowest": [
+        [
+          "SELECT repository_copy_link_entity.entity_id, repository_copy_link_entity.source_id, repos",
+          330.6,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          234.8,
+          1
+        ],
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          194.6,
+          1
+        ],
+        [
+          "SELECT entity.id, entity.name FROM entity WHERE entity.tenant_id = $1::UUID",
+          182.7,
+          1
+        ],
+        [
+          "SELECT entity_prototype.entity_id, entity_prototype.prototype_id FROM entity_prototype WHE",
+          19.9,
+          1
+        ],
+        [
+          "SELECT payload_description.payload_id, payload_description.locale, payload_description.con",
+          19.3,
+          1
+        ]
+      ]
+    },
+    "copy_plan_bridge": {
+      "statements": 51,
+      "db_ms": 109.2,
+      "slowest": [
+        [
+          "SELECT repository_release_document.format, repository_release_document.content FROM reposi",
+          40.8,
+          2
+        ],
+        [
+          "SELECT repository_release_document.format, repository_release_document.content, repository",
+          36.3,
+          2
+        ],
+        [
+          "SELECT repository_read_tenant_id()",
+          6.6,
+          6
+        ],
+        [
+          "SELECT repository_release.id, repository_release.tenant_id, repository_release.number, rep",
+          5.4,
+          4
+        ],
+        [
+          "SELECT set_config('app.repository_tenant_id', '', true)",
+          4.0,
+          6
+        ],
+        [
+          "SELECT set_config('app.repository_tenant_id', $1, true)",
+          2.8,
+          6
+        ]
+      ]
+    },
+    "assess_core": {
+      "statements": 37,
+      "db_ms": 701.1,
+      "slowest": [
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          190.1,
+          1
+        ],
+        [
+          "SELECT payload_description.payload_id, payload_description.locale, payload_description.con",
+          154.2,
+          1
+        ],
+        [
+          "SELECT computed_stat_linear.entity_id, computed_stat_linear.stat_definition_id, computed_s",
+          136.5,
+          1
+        ],
+        [
+          "SELECT item.entity_id, item.in_public_catalog FROM item WHERE item.tenant_id = $1::UUID",
+          99.2,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          43.0,
+          1
+        ],
+        [
+          "SELECT entity_prototype.entity_id, entity_prototype.prototype_id FROM entity_prototype WHE",
+          15.3,
+          1
+        ]
+      ]
+    }
+  },
+  "browse_ten_private": {
+    "name": "ten consecutive browse pages (rows)",
+    "median_ms": 306.7,
+    "min_ms": 298.3,
+    "max_ms": 307.0,
+    "runs": 3,
+    "first_ms": 306.7,
+    "statements": 120,
+    "db_ms": 243.4,
+    "first_run_ms": 326.5
+  },
+  "slowest_private": {
+    "updates_shelf_core": {
+      "statements": 76,
+      "db_ms": 1385.7,
+      "slowest": [
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          383.7,
+          2
+        ],
+        [
+          "SELECT repository_copy_link_entity.entity_id, repository_copy_link_entity.source_id, repos",
+          327.9,
+          2
+        ],
+        [
+          "SELECT entity_prototype.entity_id, entity_prototype.prototype_id FROM entity_prototype WHE",
+          205.7,
+          2
+        ],
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          183.0,
+          1
+        ],
+        [
+          "SELECT entity_slug.entity_id, entity_slug.slug FROM entity_slug WHERE entity_slug.tenant_i",
+          105.0,
+          2
+        ],
+        [
+          "SELECT payload_description.payload_id, payload_description.locale, payload_description.con",
+          37.4,
+          2
+        ]
+      ]
+    },
+    "copy_plan_bridge": {
+      "statements": 111,
+      "db_ms": 1030.7,
+      "slowest": [
+        [
+          "SELECT repository_copy_link_entity.entity_id, repository_copy_link_entity.source_id, repos",
+          344.1,
+          3
+        ],
+        [
+          "SELECT entity_stat_group.entity_id, entity_stat_group.stat_group_id FROM entity_stat_group",
+          221.1,
+          2
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          202.0,
+          2
+        ],
+        [
+          "SELECT payload_description.payload_id, payload_description.locale, payload_description.con",
+          41.6,
+          2
+        ],
+        [
+          "SELECT entity_prototype.entity_id, entity_prototype.prototype_id FROM entity_prototype WHE",
+          40.7,
+          3
+        ],
+        [
+          "SELECT entity.id, entity.name FROM entity WHERE entity.tenant_id = $1::UUID",
+          23.0,
+          2
+        ]
+      ]
+    },
+    "assess_core": {
+      "statements": 37,
+      "db_ms": 404.4,
+      "slowest": [
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          165.6,
+          1
+        ],
+        [
+          "SELECT entity_prototype.entity_id, entity_prototype.prototype_id FROM entity_prototype WHE",
+          112.2,
+          1
+        ],
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          32.5,
+          1
+        ],
+        [
+          "SELECT payload_description.payload_id, payload_description.locale, payload_description.con",
+          15.8,
+          1
+        ],
+        [
+          "SELECT information.id, information.entity_id, information.title, information.type, informa",
+          10.9,
+          1
+        ],
+        [
+          "SELECT entity.id, entity.name FROM entity WHERE entity.tenant_id = $1::UUID",
+          9.3,
+          1
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "op": "publish_build_core",
+  "cold_ms": 2679.8,
+  "statements": 44,
+  "db_ms": 405.1,
+  "info": {
+    "document_bytes": 3244296,
+    "files": 1
+  },
+  "tracemalloc_peak_mb": 82.6,
+  "size": 5000,
+  "visibility": "public"
+}

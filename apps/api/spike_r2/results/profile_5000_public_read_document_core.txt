@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         1295113 function calls (1266673 primitive calls) in 0.430 seconds
+
+   Ordered by: cumulative time
+   List reduced from 627 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    11/10    0.004    0.000    0.431    0.043 measure.py:358(op_read_document_core)
+        3    0.002    0.001    0.424    0.141 release_document_store.py:117(read_release_content)
+        1    0.000    0.000    0.358    0.358 release_document.py:405(decode)
+        1    0.000    0.000    0.358    0.358 release_document.py:395(_read_v1)
+  28328/1    0.041    0.000    0.358    0.358 release_document.py:194(decode)
+        2    0.026    0.013    0.217    0.108 release_document.py:161(<lambda>)
+    97527    0.107    0.000    0.163    0.000 uuid.py:178(__init__)
+       17    0.014    0.001    0.110    0.006 release_document.py:116(<lambda>)
+    28328    0.038    0.000    0.055    0.000 dataclasses.py:1453(fields)
+        1    0.001    0.001    0.053    0.053 release_document.py:428(loads)
+    19115    0.006    0.000    0.037    0.000 release_document.py:83(<lambda>)
+   292587    0.031    0.000    0.031    0.000 {method 'replace' of 'str' objects}
+        4    0.001    0.000    0.031    0.008 release_document.py:140(<lambda>)
+     7271    0.002    0.000    0.030    0.000 release_document.py:131(<lambda>)
+        1    0.000    0.000    0.029    0.029 gzip.py:643(decompress)
+        1    0.027    0.027    0.027    0.027 {method 'decompress' of 'zlib.Decompress' objects}
+        4    0.000    0.000    0.024    0.006 __init__.py:304(loads)
+        4    0.000    0.000    0.022    0.006 decoder.py:340(decode)
+        4    0.022    0.006    0.022    0.006 decoder.py:351(raw_decode)
+     4051    0.005    0.000    0.022    0.000 release_document.py:256(_read_payload)
+    74361    0.013    0.000    0.020    0.000 uuid.py:319(__hash__)
+       15    0.000    0.000    0.016    0.001 _concurrency_py3k.py:167(greenlet_spawn)
+     18/6    0.000    0.000    0.015    0.003 {method 'switch' of 'greenlet.greenlet' objects}
+       29    0.000    0.000    0.015    0.001 base_events.py:1976(_run_once)
+       10    0.000    0.000    0.014    0.001 session.py:423(execute)
+   149543    0.012    0.000    0.012    0.000 dataclasses.py:1468(<genexpr>)
+        4    0.000    0.000    0.011    0.003 session.py:2141(_execute_internal)
+        3    0.000    0.000    0.011    0.004 context.py:296(orm_execute_statement)
+
+
+
+--- by own time
+         1295113 function calls (1266673 primitive calls) in 0.430 seconds
+
+   Ordered by: internal time
+   List reduced from 627 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    97527    0.107    0.000    0.163    0.000 uuid.py:178(__init__)
+  28328/1    0.041    0.000    0.358    0.358 release_document.py:194(decode)
+    28328    0.038    0.000    0.055    0.000 dataclasses.py:1453(fields)
+   292587    0.031    0.000    0.031    0.000 {method 'replace' of 'str' objects}
+        1    0.027    0.027    0.027    0.027 {method 'decompress' of 'zlib.Decompress' objects}
+        2    0.026    0.013    0.217    0.108 release_document.py:161(<lambda>)
+        4    0.022    0.006    0.022    0.006 decoder.py:351(raw_decode)
+       17    0.014    0.001    0.110    0.006 release_document.py:116(<lambda>)
+    74361    0.013    0.000    0.020    0.000 uuid.py:319(__hash__)
+   149543    0.012    0.000    0.012    0.000 dataclasses.py:1468(<genexpr>)
+    97527    0.009    0.000    0.009    0.000 {method 'count' of 'list' objects}
+    97533    0.008    0.000    0.008    0.000 {method 'strip' of 'str' objects}
+       30    0.008    0.000    0.008    0.000 {method 'poll' of 'select.epoll' objects}
+    97672    0.008    0.000    0.008    0.000 {built-in method builtins.len}
+    74370    0.007    0.000    0.007    0.000 {built-in method builtins.hash}
+   110952    0.007    0.000    0.007    0.000 release_document.py:82(<lambda>)
+    19115    0.006    0.000    0.037    0.000 release_document.py:83(<lambda>)
+     4051    0.005    0.000    0.022    0.000 release_document.py:256(_read_payload)
+
+

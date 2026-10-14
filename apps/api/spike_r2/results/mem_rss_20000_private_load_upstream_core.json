@@ -1,0 +1,15 @@
+{
+  "op": "load_upstream_core",
+  "cold_ms": 1222.1,
+  "statements": 39,
+  "db_ms": 338.2,
+  "info": {
+    "public": false,
+    "entities": 20041
+  },
+  "rss_baseline_mb": 132.6,
+  "rss_peak_mb": 261.0,
+  "rss_peak_delta_mb": 128.4,
+  "size": 20000,
+  "visibility": "private"
+}

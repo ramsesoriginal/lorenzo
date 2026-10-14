@@ -1,0 +1,13 @@
+{
+  "op": "copy_plan_bridge",
+  "cold_ms": 29568.9,
+  "statements": 51,
+  "db_ms": 209.3,
+  "info": {
+    "steps": 2,
+    "rows": 275582
+  },
+  "tracemalloc_peak_mb": 445.4,
+  "size": 20000,
+  "visibility": "public"
+}

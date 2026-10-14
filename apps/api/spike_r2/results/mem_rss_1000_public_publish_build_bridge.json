@@ -1,0 +1,15 @@
+{
+  "op": "publish_build_bridge",
+  "cold_ms": 244.4,
+  "statements": 45,
+  "db_ms": 101.3,
+  "info": {
+    "document_bytes": 838101,
+    "files": 2
+  },
+  "rss_baseline_mb": 132.7,
+  "rss_peak_mb": 157.3,
+  "rss_peak_delta_mb": 24.7,
+  "size": 1000,
+  "visibility": "public"
+}

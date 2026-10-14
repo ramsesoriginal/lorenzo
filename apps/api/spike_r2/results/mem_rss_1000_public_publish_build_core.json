@@ -1,0 +1,15 @@
+{
+  "op": "publish_build_core",
+  "cold_ms": 243.8,
+  "statements": 44,
+  "db_ms": 111.0,
+  "info": {
+    "document_bytes": 631111,
+    "files": 1
+  },
+  "rss_baseline_mb": 132.7,
+  "rss_peak_mb": 151.8,
+  "rss_peak_delta_mb": 19.1,
+  "size": 1000,
+  "visibility": "public"
+}

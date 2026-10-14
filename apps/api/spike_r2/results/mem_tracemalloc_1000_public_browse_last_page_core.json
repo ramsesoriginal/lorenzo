@@ -1,0 +1,13 @@
+{
+  "op": "browse_last_page_core",
+  "cold_ms": 203.0,
+  "statements": 9,
+  "db_ms": 18.4,
+  "info": {
+    "total": 1003,
+    "items": 50
+  },
+  "tracemalloc_peak_mb": 9.5,
+  "size": 1000,
+  "visibility": "public"
+}

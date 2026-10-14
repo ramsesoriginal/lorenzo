@@ -1,0 +1,64 @@
+{
+  "size": 1000,
+  "author": "06f7b68d-061f-45a6-bf32-d1956fc2e5dd",
+  "gm": "c06e8f19-e2b1-445d-9366-41660dc1af6e",
+  "core": "ca445b4d-7fbc-476e-8ce9-62696496c094",
+  "bridge": "b6b8cf56-c3f7-4243-a44f-195ea436ce00",
+  "shelf": "44961380-d130-4ef9-8481-7b5f00285d7b",
+  "stack": "8df44d03-7e7a-46aa-a8f3-baf02e179b52",
+  "fresh": "aff73827-5d2c-49e2-830f-806ce679f247",
+  "seed_core_s": 1.2,
+  "publish_core_first_s": 0.2,
+  "copy_core_into_bridge_s": 2.23,
+  "copy_core_into_bridge_steps": [
+    {
+      "repository_id": "ca445b4d-7fbc-476e-8ce9-62696496c094",
+      "name": "Core 1000",
+      "granted": true,
+      "published": true,
+      "public": false,
+      "already_copied": false,
+      "entities": 1000,
+      "stat_groups": 6,
+      "stat_definitions": 42,
+      "information": 800,
+      "attachments": 0,
+      "dropped": []
+    }
+  ],
+  "seed_bridge_s": 0.1,
+  "publish_bridge_first_s": 0.11,
+  "copy_core_into_library_s": 1.02,
+  "copy_bridge_into_library_s": 1.13,
+  "copy_bridge_into_library_steps": [
+    {
+      "repository_id": "ca445b4d-7fbc-476e-8ce9-62696496c094",
+      "name": "Core 1000",
+      "granted": true,
+      "published": true,
+      "public": false,
+      "already_copied": false,
+      "entities": 1000,
+      "stat_groups": 6,
+      "stat_definitions": 42,
+      "information": 800,
+      "attachments": 0,
+      "dropped": []
+    },
+    {
+      "repository_id": "b6b8cf56-c3f7-4243-a44f-195ea436ce00",
+      "name": "Bridge 1000",
+      "granted": true,
+      "published": true,
+      "public": false,
+      "already_copied": false,
+      "entities": 100,
+      "stat_groups": 1,
+      "stat_definitions": 3,
+      "information": 81,
+      "attachments": 50,
+      "dropped": []
+    }
+  ],
+  "seed_total_s": 7.3
+}

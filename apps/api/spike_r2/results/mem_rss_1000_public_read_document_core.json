@@ -1,0 +1,14 @@
+{
+  "op": "read_document_core",
+  "cold_ms": 54.7,
+  "statements": 4,
+  "db_ms": 10.7,
+  "info": {
+    "entities": 1003
+  },
+  "rss_baseline_mb": 132.7,
+  "rss_peak_mb": 143.9,
+  "rss_peak_delta_mb": 11.2,
+  "size": 1000,
+  "visibility": "public"
+}

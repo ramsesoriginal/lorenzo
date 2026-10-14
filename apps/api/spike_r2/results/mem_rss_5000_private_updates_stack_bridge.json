@@ -1,0 +1,17 @@
+{
+  "op": "updates_stack_bridge",
+  "cold_ms": 1241.8,
+  "statements": 76,
+  "db_ms": 494.7,
+  "info": {
+    "changed": 32,
+    "added": 0,
+    "removed": 6,
+    "attachments": 125
+  },
+  "rss_baseline_mb": 132.5,
+  "rss_peak_mb": 239.0,
+  "rss_peak_delta_mb": 106.5,
+  "size": 5000,
+  "visibility": "private"
+}

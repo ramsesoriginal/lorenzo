@@ -1,0 +1,14 @@
+{
+  "op": "updates_shelf_core",
+  "cold_ms": 3571.4,
+  "statements": 76,
+  "db_ms": 471.2,
+  "info": {
+    "changed": 248,
+    "added": 25,
+    "removed": 11
+  },
+  "tracemalloc_peak_mb": 89.2,
+  "size": 5000,
+  "visibility": "private"
+}

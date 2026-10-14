@@ -1,0 +1,2128 @@
+{
+  "size": 1000,
+  "state": {
+    "size": 1000,
+    "author": "46852d36-6759-4832-9def-190b17f27105",
+    "gm": "fb3a9525-3a27-49d8-8b68-10e63e6c5ca1",
+    "core": "ddc0137e-6805-4713-8533-b487b2288151",
+    "bridge": "84bc386b-ac64-4b41-b868-63b0c1bda0d8",
+    "shelf": "8b56907d-4fad-4f56-b640-5dccd701d72c",
+    "stack": "2537e0c0-844c-47f5-ab5d-d420f62dd6fb",
+    "fresh": "1a50dd44-655b-4a0f-a1ff-03026f1ccf78",
+    "seed_core_s": 0.7,
+    "publish_core_first_s": 0.22,
+    "copy_core_into_bridge_s": 2.34,
+    "copy_core_into_bridge_steps": [
+      {
+        "repository_id": "ddc0137e-6805-4713-8533-b487b2288151",
+        "name": "Core 1000",
+        "granted": true,
+        "published": true,
+        "public": false,
+        "already_copied": false,
+        "entities": 1000,
+        "stat_groups": 6,
+        "stat_definitions": 42,
+        "information": 800,
+        "attachments": 0,
+        "dropped": []
+      }
+    ],
+    "seed_bridge_s": 0.1,
+    "publish_bridge_first_s": 0.11,
+    "copy_core_into_library_s": 0.89,
+    "copy_bridge_into_library_s": 1.08,
+    "copy_bridge_into_library_steps": [
+      {
+        "repository_id": "ddc0137e-6805-4713-8533-b487b2288151",
+        "name": "Core 1000",
+        "granted": true,
+        "published": true,
+        "public": false,
+        "already_copied": false,
+        "entities": 1000,
+        "stat_groups": 6,
+        "stat_definitions": 42,
+        "information": 800,
+        "attachments": 0,
+        "dropped": []
+      },
+      {
+        "repository_id": "84bc386b-ac64-4b41-b868-63b0c1bda0d8",
+        "name": "Bridge 1000",
+        "granted": true,
+        "published": true,
+        "public": false,
+        "already_copied": false,
+        "entities": 100,
+        "stat_groups": 1,
+        "stat_definitions": 3,
+        "information": 81,
+        "attachments": 50,
+        "dropped": []
+      }
+    ],
+    "seed_total_s": 6.5
+  },
+  "edits": {
+    "renamed": 11,
+    "stat_values_changed": 26,
+    "parent_edges_removed": 2,
+    "entities_removed": 1,
+    "entities_added": 5,
+    "descriptions_edited": 14,
+    "payloads_touched": 14
+  },
+  "edits_bridge": {
+    "renamed": 7,
+    "removed": 0,
+    "attachments_added": 25
+  },
+  "facts_before_publish": {
+    "core_releases": [
+      {
+        "number": 1,
+        "label": "1.0",
+        "document_bytes": null,
+        "blobs": null
+      }
+    ],
+    "core_released_rows": 1048,
+    "core_blobs": {
+      "blobs": 0,
+      "bytes": 0
+    },
+    "core_rows": {
+      "entities": 1004,
+      "edges": 1176,
+      "stats": 4778,
+      "infos": 799,
+      "links": 0
+    },
+    "bridge_releases": [
+      {
+        "number": 1,
+        "label": "1.0",
+        "document_bytes": null,
+        "blobs": null
+      }
+    ],
+    "bridge_released_rows": 154,
+    "bridge_blobs": {
+      "blobs": 0,
+      "bytes": 0
+    },
+    "bridge_rows": {
+      "entities": 1100,
+      "edges": 1373,
+      "stats": 5250,
+      "infos": 881,
+      "links": 1000
+    },
+    "table_sizes": {
+      "entity_stat": 3719168,
+      "entity": 1163264,
+      "information": 1613824,
+      "repository_released_row": 524288,
+      "repository_release_blob": 16384,
+      "repository_release_document": 24576
+    }
+  },
+  "preview_with_edits": {
+    "name": "GET release-preview core (with edits)",
+    "median_ms": 102.3,
+    "min_ms": 90.7,
+    "max_ms": 200.2,
+    "runs": 7,
+    "first_ms": 200.2,
+    "statements": 41,
+    "db_ms": 42.8,
+    "response_bytes": 6749,
+    "first_run_ms": 512.2
+  },
+  "publishes": [
+    {
+      "repository": "core",
+      "mode": "private, edits (with breaking removals)",
+      "label": "2.0",
+      "wall_ms": 271.1,
+      "statements": 66,
+      "db_ms": 88.3,
+      "slowest": [
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.02908443500928115,
+          1
+        ],
+        [
+          "INSERT INTO notification (batch_id, user_id, tenant_id, scope, source_id, type, title, bod",
+          0.003707563999341801,
+          4
+        ],
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          0.0036519620043691248,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          0.00316024299536366,
+          1
+        ]
+      ]
+    },
+    {
+      "repository": "core",
+      "mode": "private, one edit",
+      "label": "2.1",
+      "wall_ms": 145.7,
+      "statements": 66,
+      "db_ms": 69.5,
+      "slowest": [
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.02345703000901267,
+          1
+        ],
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          0.003139145002933219,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          0.0030749180004931986,
+          1
+        ],
+        [
+          "SELECT set_config('app.tenant_id', $1, true)",
+          0.0027480410208227113,
+          7
+        ]
+      ]
+    },
+    {
+      "repository": "core",
+      "mode": "private, one edit",
+      "label": "2.2",
+      "wall_ms": 176.6,
+      "statements": 66,
+      "db_ms": 88.8,
+      "slowest": [
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.03220425501058344,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          0.003562457990483381,
+          1
+        ],
+        [
+          "SELECT set_config('app.tenant_id', $1, true)",
+          0.003293939007562585,
+          7
+        ],
+        [
+          "SELECT entity_prototype.entity_id, entity_prototype.prototype_id FROM entity_prototype WHE",
+          0.00324762100353837,
+          1
+        ]
+      ]
+    },
+    {
+      "repository": "bridge",
+      "mode": "private, edits (with removals)",
+      "label": "1.1",
+      "wall_ms": 127.2,
+      "statements": 61,
+      "db_ms": 64.3,
+      "slowest": [
+        [
+          "SELECT repository_copy_link_entity.entity_id, repository_copy_link_entity.source_id, repos",
+          0.007002369995461777,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          0.005226027002208866,
+          1
+        ],
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.0030720729992026463,
+          1
+        ],
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, parent_id, hash, name, facts",
+          0.0029398580081760883,
+          1
+        ]
+      ]
+    },
+    {
+      "repository": "core",
+      "mode": "public (document)",
+      "label": "3.0",
+      "wall_ms": 227.3,
+      "statements": 71,
+      "db_ms": 94.1,
+      "slowest": [
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.035318427995662205,
+          1
+        ],
+        [
+          "INSERT INTO repository_release_document (release_id, tenant_id, format, content, blobs) VA",
+          0.008525979006662965,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          0.0038680209981976077,
+          1
+        ],
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          0.0029337759915506467,
+          1
+        ]
+      ]
+    },
+    {
+      "repository": "core",
+      "mode": "public (document)",
+      "label": "3.1",
+      "wall_ms": 220.3,
+      "statements": 70,
+      "db_ms": 84.2,
+      "slowest": [
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.026627865998307243,
+          1
+        ],
+        [
+          "INSERT INTO repository_release_document (release_id, tenant_id, format, content, blobs) VA",
+          0.008493801011354662,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          0.004890481999609619,
+          1
+        ],
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          0.0030856250086799264,
+          1
+        ]
+      ]
+    },
+    {
+      "repository": "core",
+      "mode": "public (document)",
+      "label": "3.2",
+      "wall_ms": 299.3,
+      "statements": 70,
+      "db_ms": 78.0,
+      "slowest": [
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.023292454003239982,
+          1
+        ],
+        [
+          "INSERT INTO repository_release_document (release_id, tenant_id, format, content, blobs) VA",
+          0.008315618993947282,
+          1
+        ],
+        [
+          "SELECT repository_released_row.id, repository_released_row.tenant_id, repository_released_",
+          0.003380327994818799,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          0.0030219409964047372,
+          1
+        ]
+      ]
+    },
+    {
+      "repository": "bridge",
+      "mode": "public (document)",
+      "label": "2.0",
+      "wall_ms": 213.8,
+      "statements": 66,
+      "db_ms": 73.2,
+      "slowest": [
+        [
+          "INSERT INTO repository_release_document (release_id, tenant_id, format, content, blobs) VA",
+          0.012184714010800235,
+          1
+        ],
+        [
+          "SELECT repository_copy_link_entity.entity_id, repository_copy_link_entity.source_id, repos",
+          0.0074624800035962835,
+          1
+        ],
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.004548265002085827,
+          1
+        ],
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, parent_id, hash, name, facts",
+          0.00423164400854148,
+          1
+        ]
+      ]
+    },
+    {
+      "repository": "bridge",
+      "mode": "public (document)",
+      "label": "2.1",
+      "wall_ms": 199.3,
+      "statements": 65,
+      "db_ms": 62.5,
+      "slowest": [
+        [
+          "INSERT INTO repository_release_document (release_id, tenant_id, format, content, blobs) VA",
+          0.010191203007707372,
+          1
+        ],
+        [
+          "SELECT repository_copy_link_entity.entity_id, repository_copy_link_entity.source_id, repos",
+          0.004347263005911373,
+          1
+        ],
+        [
+          "SELECT entity_stat.entity_id, entity_stat.stat_definition_id, entity_stat.value_int, entit",
+          0.003547444997821003,
+          1
+        ],
+        [
+          "INSERT INTO repository_released_row (tenant_id, kind, row_id, hash, name, facts) VALUES ($",
+          0.0030478079861495644,
+          1
+        ]
+      ]
+    }
+  ],
+  "pieces": [
+    {
+      "phase": "private",
+      "name": "core: load_content",
+      "median_ms": 63.8,
+      "min_ms": 55.0,
+      "max_ms": 172.7,
+      "runs": 7,
+      "first_ms": 69.5,
+      "statements": 34,
+      "db_ms": 33.7,
+      "first_run_ms": 58.6
+    },
+    {
+      "phase": "private",
+      "name": "core: live_rows (hash every row)",
+      "median_ms": 11.6,
+      "min_ms": 9.8,
+      "max_ms": 17.6,
+      "runs": 7,
+      "first_ms": 11.5,
+      "statements": 0,
+      "db_ms": 0.0,
+      "rows": 1052,
+      "first_run_ms": 14.0
+    },
+    {
+      "phase": "private",
+      "name": "core: digest_of",
+      "median_ms": 0.2,
+      "min_ms": 0.2,
+      "max_ms": 0.2,
+      "runs": 7,
+      "first_ms": 0.2,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 0.3
+    },
+    {
+      "phase": "private",
+      "name": "core: stored_rows",
+      "median_ms": 11.8,
+      "min_ms": 7.3,
+      "max_ms": 112.4,
+      "runs": 7,
+      "first_ms": 9.1,
+      "statements": 2,
+      "db_ms": 3.1,
+      "rows": 1052,
+      "first_run_ms": 12.0
+    },
+    {
+      "phase": "private",
+      "name": "core: compare + detect",
+      "median_ms": 0.1,
+      "min_ms": 0.1,
+      "max_ms": 0.2,
+      "runs": 7,
+      "first_ms": 0.2,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 0.2
+    },
+    {
+      "phase": "private",
+      "name": "core: descriptions_edited_since",
+      "median_ms": 4.2,
+      "min_ms": 3.8,
+      "max_ms": 5.2,
+      "runs": 7,
+      "first_ms": 3.8,
+      "statements": 2,
+      "db_ms": 2.0,
+      "first_run_ms": 3.9
+    },
+    {
+      "phase": "private",
+      "name": "core: assess (all of the above)",
+      "median_ms": 84.8,
+      "min_ms": 76.2,
+      "max_ms": 179.8,
+      "runs": 7,
+      "first_ms": 76.2,
+      "statements": 37,
+      "db_ms": 33.0,
+      "first_run_ms": 74.1
+    },
+    {
+      "phase": "private",
+      "name": "core: encode",
+      "median_ms": 8.6,
+      "min_ms": 6.8,
+      "max_ms": 12.5,
+      "runs": 7,
+      "first_ms": 8.6,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 7.4
+    },
+    {
+      "phase": "private",
+      "name": "core: dumps (JSON + gzip)",
+      "median_ms": 50.7,
+      "min_ms": 47.8,
+      "max_ms": 53.2,
+      "runs": 7,
+      "first_ms": 51.6,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 50.2,
+      "plain_bytes": 1919902,
+      "gzip_bytes": 632410,
+      "files": 1,
+      "file_bytes": 30720
+    },
+    {
+      "phase": "private",
+      "name": "core: gzip level 9 of the JSON",
+      "median_ms": 44.6,
+      "min_ms": 42.0,
+      "max_ms": 49.2,
+      "runs": 7,
+      "first_ms": 44.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 47.3,
+      "gzip_bytes": 632410
+    },
+    {
+      "phase": "private",
+      "name": "core: gzip level 6 of the JSON",
+      "median_ms": 32.9,
+      "min_ms": 31.0,
+      "max_ms": 36.0,
+      "runs": 7,
+      "first_ms": 32.6,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 34.6,
+      "gzip_bytes": 635537
+    },
+    {
+      "phase": "private",
+      "name": "core: gzip level 1 of the JSON",
+      "median_ms": 9.6,
+      "min_ms": 8.9,
+      "max_ms": 11.5,
+      "runs": 7,
+      "first_ms": 9.6,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 10.8,
+      "gzip_bytes": 674004
+    },
+    {
+      "phase": "private",
+      "name": "core: composition of the document",
+      "median_ms": 0,
+      "plain": {
+        "tenant_id": 38,
+        "entities": 52471,
+        "kinds": 48335,
+        "in_public_catalog": 38363,
+        "slugs": 34565,
+        "prototypes": 94081,
+        "groups": 523,
+        "definitions": 11215,
+        "enum_values": 345,
+        "entity_groups": 24321,
+        "stats": 734497,
+        "formulas": 33599,
+        "containment": 2,
+        "ownership": 2,
+        "group_members": 2,
+        "information": 129409,
+        "payloads": 717743,
+        "knowledge": 2,
+        "links": 138
+      },
+      "gzip6": {
+        "tenant_id": 58,
+        "entities": 26549,
+        "kinds": 22882,
+        "in_public_catalog": 19669,
+        "slugs": 17487,
+        "prototypes": 27573,
+        "groups": 262,
+        "definitions": 1817,
+        "enum_values": 164,
+        "entity_groups": 7344,
+        "stats": 91624,
+        "formulas": 3561,
+        "containment": 22,
+        "ownership": 22,
+        "group_members": 22,
+        "information": 37404,
+        "payloads": 383475,
+        "knowledge": 22,
+        "links": 114
+      }
+    },
+    {
+      "phase": "private",
+      "name": "core: JSON text alone",
+      "median_ms": 3.9,
+      "min_ms": 3.5,
+      "max_ms": 5.5,
+      "runs": 7,
+      "first_ms": 3.6,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 3.8
+    },
+    {
+      "phase": "private",
+      "name": "core: gunzip + json.loads",
+      "median_ms": 10.6,
+      "min_ms": 10.1,
+      "max_ms": 12.1,
+      "runs": 7,
+      "first_ms": 10.8,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 10.5
+    },
+    {
+      "phase": "private",
+      "name": "core: decode (document to Content)",
+      "median_ms": 21.1,
+      "min_ms": 19.2,
+      "max_ms": 131.3,
+      "runs": 7,
+      "first_ms": 131.3,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 19.6
+    },
+    {
+      "phase": "private",
+      "name": "core: assess + released rows + document, as a publish does it (rolled back)",
+      "median_ms": 194.5,
+      "min_ms": 185.5,
+      "max_ms": 435.4,
+      "runs": 3,
+      "first_ms": 194.5,
+      "statements": 45,
+      "db_ms": 76.5,
+      "first_run_ms": 312.0
+    },
+    {
+      "phase": "private",
+      "name": "core: publish without a document (assess + released rows)",
+      "median_ms": 168.2,
+      "min_ms": 112.8,
+      "max_ms": 228.3,
+      "runs": 3,
+      "first_ms": 168.2,
+      "statements": 39,
+      "db_ms": 67.5,
+      "first_run_ms": 189.4
+    },
+    {
+      "phase": "private",
+      "name": "bridge: load_content",
+      "median_ms": 64.0,
+      "min_ms": 58.3,
+      "max_ms": 167.7,
+      "runs": 7,
+      "first_ms": 167.7,
+      "statements": 34,
+      "db_ms": 32.9,
+      "first_run_ms": 58.2
+    },
+    {
+      "phase": "private",
+      "name": "bridge: live_rows (hash every row)",
+      "median_ms": 4.4,
+      "min_ms": 2.4,
+      "max_ms": 6.0,
+      "runs": 7,
+      "first_ms": 6.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "rows": 179,
+      "first_run_ms": 4.4
+    },
+    {
+      "phase": "private",
+      "name": "bridge: digest_of",
+      "median_ms": 0.0,
+      "min_ms": 0.0,
+      "max_ms": 0.1,
+      "runs": 7,
+      "first_ms": 0.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 0.1
+    },
+    {
+      "phase": "private",
+      "name": "bridge: stored_rows",
+      "median_ms": 4.1,
+      "min_ms": 3.6,
+      "max_ms": 5.1,
+      "runs": 7,
+      "first_ms": 4.2,
+      "statements": 2,
+      "db_ms": 1.4,
+      "rows": 179,
+      "first_run_ms": 4.7
+    },
+    {
+      "phase": "private",
+      "name": "bridge: compare + detect",
+      "median_ms": 0.0,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "runs": 7,
+      "first_ms": 0.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 0.1
+    },
+    {
+      "phase": "private",
+      "name": "bridge: descriptions_edited_since",
+      "median_ms": 3.9,
+      "min_ms": 3.1,
+      "max_ms": 4.6,
+      "runs": 7,
+      "first_ms": 4.2,
+      "statements": 2,
+      "db_ms": 1.8,
+      "first_run_ms": 4.3
+    },
+    {
+      "phase": "private",
+      "name": "bridge: assess (all of the above)",
+      "median_ms": 83.2,
+      "min_ms": 73.8,
+      "max_ms": 189.6,
+      "runs": 7,
+      "first_ms": 189.6,
+      "statements": 37,
+      "db_ms": 38.6,
+      "first_run_ms": 84.1
+    },
+    {
+      "phase": "private",
+      "name": "bridge: encode",
+      "median_ms": 9.6,
+      "min_ms": 8.3,
+      "max_ms": 112.7,
+      "runs": 7,
+      "first_ms": 112.7,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 9.2
+    },
+    {
+      "phase": "private",
+      "name": "bridge: dumps (JSON + gzip)",
+      "median_ms": 77.6,
+      "min_ms": 71.2,
+      "max_ms": 85.0,
+      "runs": 7,
+      "first_ms": 71.2,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 83.4,
+      "plain_bytes": 2751917,
+      "gzip_bytes": 839898,
+      "files": 2,
+      "file_bytes": 61440
+    },
+    {
+      "phase": "private",
+      "name": "bridge: gzip level 9 of the JSON",
+      "median_ms": 77.0,
+      "min_ms": 70.0,
+      "max_ms": 87.8,
+      "runs": 7,
+      "first_ms": 71.7,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 66.7,
+      "gzip_bytes": 839898
+    },
+    {
+      "phase": "private",
+      "name": "bridge: gzip level 6 of the JSON",
+      "median_ms": 59.2,
+      "min_ms": 49.7,
+      "max_ms": 63.8,
+      "runs": 7,
+      "first_ms": 63.8,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 47.5,
+      "gzip_bytes": 846497
+    },
+    {
+      "phase": "private",
+      "name": "bridge: gzip level 1 of the JSON",
+      "median_ms": 14.1,
+      "min_ms": 13.3,
+      "max_ms": 16.3,
+      "runs": 7,
+      "first_ms": 13.3,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 16.3,
+      "gzip_bytes": 916131
+    },
+    {
+      "phase": "private",
+      "name": "bridge: composition of the document",
+      "median_ms": 0,
+      "plain": {
+        "tenant_id": 38,
+        "entities": 57947,
+        "kinds": 52943,
+        "in_public_catalog": 42682,
+        "slugs": 40308,
+        "prototypes": 109841,
+        "groups": 611,
+        "definitions": 12016,
+        "enum_values": 345,
+        "entity_groups": 24321,
+        "stats": 806980,
+        "formulas": 33599,
+        "containment": 2,
+        "ownership": 2,
+        "group_members": 2,
+        "information": 142690,
+        "payloads": 791537,
+        "knowledge": 2,
+        "links": 635800
+      },
+      "gzip6": {
+        "tenant_id": 57,
+        "entities": 28991,
+        "kinds": 25017,
+        "in_public_catalog": 21830,
+        "slugs": 20131,
+        "prototypes": 32467,
+        "groups": 290,
+        "definitions": 1951,
+        "enum_values": 165,
+        "entity_groups": 7342,
+        "stats": 98804,
+        "formulas": 3559,
+        "containment": 22,
+        "ownership": 22,
+        "group_members": 22,
+        "information": 41195,
+        "payloads": 422965,
+        "knowledge": 22,
+        "links": 145480
+      }
+    },
+    {
+      "phase": "private",
+      "name": "bridge: JSON text alone",
+      "median_ms": 7.2,
+      "min_ms": 6.9,
+      "max_ms": 8.2,
+      "runs": 7,
+      "first_ms": 7.9,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 6.3
+    },
+    {
+      "phase": "private",
+      "name": "bridge: gunzip + json.loads",
+      "median_ms": 17.0,
+      "min_ms": 16.2,
+      "max_ms": 18.6,
+      "runs": 7,
+      "first_ms": 17.3,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 16.0
+    },
+    {
+      "phase": "private",
+      "name": "bridge: decode (document to Content)",
+      "median_ms": 24.7,
+      "min_ms": 23.4,
+      "max_ms": 131.7,
+      "runs": 7,
+      "first_ms": 24.7,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 22.6
+    },
+    {
+      "phase": "private",
+      "name": "bridge: assess + released rows + document, as a publish does it (rolled back)",
+      "median_ms": 181.8,
+      "min_ms": 180.4,
+      "max_ms": 276.0,
+      "runs": 3,
+      "first_ms": 180.4,
+      "statements": 46,
+      "db_ms": 55.0,
+      "first_run_ms": 292.1
+    },
+    {
+      "name": "core: entity_rows of an in-memory Content (a cached browse)",
+      "median_ms": 1.0,
+      "min_ms": 0.9,
+      "max_ms": 1.6,
+      "runs": 7,
+      "first_ms": 1.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 1.8
+    },
+    {
+      "phase": "public",
+      "name": "core: load_content",
+      "median_ms": 51.3,
+      "min_ms": 47.3,
+      "max_ms": 146.3,
+      "runs": 7,
+      "first_ms": 52.2,
+      "statements": 34,
+      "db_ms": 26.6,
+      "first_run_ms": 156.4
+    },
+    {
+      "phase": "public",
+      "name": "core: live_rows (hash every row)",
+      "median_ms": 8.3,
+      "min_ms": 7.7,
+      "max_ms": 10.9,
+      "runs": 7,
+      "first_ms": 8.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "rows": 1052,
+      "first_run_ms": 10.7
+    },
+    {
+      "phase": "public",
+      "name": "core: digest_of",
+      "median_ms": 0.2,
+      "min_ms": 0.2,
+      "max_ms": 0.2,
+      "runs": 7,
+      "first_ms": 0.2,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 0.3
+    },
+    {
+      "phase": "public",
+      "name": "core: stored_rows",
+      "median_ms": 8.9,
+      "min_ms": 8.5,
+      "max_ms": 13.2,
+      "runs": 7,
+      "first_ms": 9.4,
+      "statements": 2,
+      "db_ms": 3.3,
+      "rows": 1052,
+      "first_run_ms": 9.7
+    },
+    {
+      "phase": "public",
+      "name": "core: compare + detect",
+      "median_ms": 0.1,
+      "min_ms": 0.1,
+      "max_ms": 0.1,
+      "runs": 7,
+      "first_ms": 0.1,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 0.3
+    },
+    {
+      "phase": "public",
+      "name": "core: descriptions_edited_since",
+      "median_ms": 2.8,
+      "min_ms": 2.7,
+      "max_ms": 3.7,
+      "runs": 7,
+      "first_ms": 3.7,
+      "statements": 2,
+      "db_ms": 1.2,
+      "first_run_ms": 4.0
+    },
+    {
+      "phase": "public",
+      "name": "core: assess (all of the above)",
+      "median_ms": 88.2,
+      "min_ms": 71.6,
+      "max_ms": 203.1,
+      "runs": 7,
+      "first_ms": 71.6,
+      "statements": 37,
+      "db_ms": 36.0,
+      "first_run_ms": 167.3
+    },
+    {
+      "phase": "public",
+      "name": "core: encode",
+      "median_ms": 11.5,
+      "min_ms": 8.7,
+      "max_ms": 15.3,
+      "runs": 7,
+      "first_ms": 10.7,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 11.2
+    },
+    {
+      "phase": "public",
+      "name": "core: dumps (JSON + gzip)",
+      "median_ms": 66.1,
+      "min_ms": 51.3,
+      "max_ms": 94.7,
+      "runs": 7,
+      "first_ms": 56.5,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 54.7,
+      "plain_bytes": 1919911,
+      "gzip_bytes": 632422,
+      "files": 1,
+      "file_bytes": 30720
+    },
+    {
+      "phase": "public",
+      "name": "core: gzip level 9 of the JSON",
+      "median_ms": 46.7,
+      "min_ms": 42.8,
+      "max_ms": 50.3,
+      "runs": 7,
+      "first_ms": 46.5,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 48.3,
+      "gzip_bytes": 632422
+    },
+    {
+      "phase": "public",
+      "name": "core: gzip level 6 of the JSON",
+      "median_ms": 32.9,
+      "min_ms": 29.5,
+      "max_ms": 35.1,
+      "runs": 7,
+      "first_ms": 29.5,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 30.2,
+      "gzip_bytes": 635545
+    },
+    {
+      "phase": "public",
+      "name": "core: gzip level 1 of the JSON",
+      "median_ms": 10.8,
+      "min_ms": 9.8,
+      "max_ms": 12.1,
+      "runs": 7,
+      "first_ms": 10.9,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 11.4,
+      "gzip_bytes": 674014
+    },
+    {
+      "phase": "public",
+      "name": "core: composition of the document",
+      "median_ms": 0,
+      "plain": {
+        "tenant_id": 38,
+        "entities": 52480,
+        "kinds": 48335,
+        "in_public_catalog": 38363,
+        "slugs": 34565,
+        "prototypes": 94081,
+        "groups": 523,
+        "definitions": 11215,
+        "enum_values": 345,
+        "entity_groups": 24321,
+        "stats": 734497,
+        "formulas": 33599,
+        "containment": 2,
+        "ownership": 2,
+        "group_members": 2,
+        "information": 129409,
+        "payloads": 717743,
+        "knowledge": 2,
+        "links": 138
+      },
+      "gzip6": {
+        "tenant_id": 58,
+        "entities": 26558,
+        "kinds": 22882,
+        "in_public_catalog": 19669,
+        "slugs": 17487,
+        "prototypes": 27573,
+        "groups": 262,
+        "definitions": 1817,
+        "enum_values": 164,
+        "entity_groups": 7344,
+        "stats": 91624,
+        "formulas": 3561,
+        "containment": 22,
+        "ownership": 22,
+        "group_members": 22,
+        "information": 37404,
+        "payloads": 383475,
+        "knowledge": 22,
+        "links": 114
+      }
+    },
+    {
+      "phase": "public",
+      "name": "core: JSON text alone",
+      "median_ms": 4.2,
+      "min_ms": 3.8,
+      "max_ms": 6.8,
+      "runs": 7,
+      "first_ms": 5.7,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 4.1
+    },
+    {
+      "phase": "public",
+      "name": "core: gunzip + json.loads",
+      "median_ms": 9.4,
+      "min_ms": 8.9,
+      "max_ms": 12.2,
+      "runs": 7,
+      "first_ms": 10.3,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 12.0
+    },
+    {
+      "phase": "public",
+      "name": "core: decode (document to Content)",
+      "median_ms": 20.0,
+      "min_ms": 16.7,
+      "max_ms": 112.5,
+      "runs": 7,
+      "first_ms": 20.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 20.2
+    },
+    {
+      "phase": "public",
+      "name": "core: assess + released rows + document, as a publish does it (rolled back)",
+      "median_ms": 211.9,
+      "min_ms": 188.8,
+      "max_ms": 315.1,
+      "runs": 3,
+      "first_ms": 315.1,
+      "statements": 44,
+      "db_ms": 73.0,
+      "first_run_ms": 180.1
+    },
+    {
+      "phase": "public",
+      "name": "core: publish without a document (assess + released rows)",
+      "median_ms": 116.2,
+      "min_ms": 107.2,
+      "max_ms": 149.8,
+      "runs": 3,
+      "first_ms": 116.2,
+      "statements": 39,
+      "db_ms": 64.3,
+      "first_run_ms": 224.4
+    },
+    {
+      "phase": "public",
+      "name": "core: read_release_content (select + gunzip + decode)",
+      "median_ms": 38.4,
+      "min_ms": 36.3,
+      "max_ms": 43.9,
+      "runs": 7,
+      "first_ms": 39.7,
+      "statements": 4,
+      "db_ms": 3.0,
+      "first_run_ms": 158.3
+    },
+    {
+      "phase": "public",
+      "name": "core: read_release_copies (the manifest's read)",
+      "median_ms": 19.3,
+      "min_ms": 16.4,
+      "max_ms": 119.2,
+      "runs": 7,
+      "first_ms": 16.4,
+      "statements": 3,
+      "db_ms": 2.6,
+      "first_run_ms": 17.3
+    },
+    {
+      "phase": "public",
+      "name": "core: SQL fetch of the document alone",
+      "median_ms": 6.2,
+      "min_ms": 4.0,
+      "max_ms": 7.0,
+      "runs": 7,
+      "first_ms": 6.6,
+      "statements": 3,
+      "db_ms": 3.1,
+      "first_run_ms": 8.5
+    },
+    {
+      "phase": "public",
+      "name": "bridge: load_content",
+      "median_ms": 81.8,
+      "min_ms": 61.8,
+      "max_ms": 180.8,
+      "runs": 7,
+      "first_ms": 66.1,
+      "statements": 34,
+      "db_ms": 35.6,
+      "first_run_ms": 71.5
+    },
+    {
+      "phase": "public",
+      "name": "bridge: live_rows (hash every row)",
+      "median_ms": 2.4,
+      "min_ms": 2.1,
+      "max_ms": 4.1,
+      "runs": 7,
+      "first_ms": 2.4,
+      "statements": 0,
+      "db_ms": 0.0,
+      "rows": 179,
+      "first_run_ms": 4.9
+    },
+    {
+      "phase": "public",
+      "name": "bridge: digest_of",
+      "median_ms": 0.0,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "runs": 7,
+      "first_ms": 0.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 0.1
+    },
+    {
+      "phase": "public",
+      "name": "bridge: stored_rows",
+      "median_ms": 4.1,
+      "min_ms": 3.3,
+      "max_ms": 5.0,
+      "runs": 7,
+      "first_ms": 4.1,
+      "statements": 2,
+      "db_ms": 1.3,
+      "rows": 179,
+      "first_run_ms": 4.2
+    },
+    {
+      "phase": "public",
+      "name": "bridge: compare + detect",
+      "median_ms": 0.0,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "runs": 7,
+      "first_ms": 0.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 0.1
+    },
+    {
+      "phase": "public",
+      "name": "bridge: descriptions_edited_since",
+      "median_ms": 3.9,
+      "min_ms": 3.6,
+      "max_ms": 4.9,
+      "runs": 7,
+      "first_ms": 3.9,
+      "statements": 2,
+      "db_ms": 1.9,
+      "first_run_ms": 3.2
+    },
+    {
+      "phase": "public",
+      "name": "bridge: assess (all of the above)",
+      "median_ms": 84.6,
+      "min_ms": 75.4,
+      "max_ms": 194.0,
+      "runs": 7,
+      "first_ms": 75.4,
+      "statements": 37,
+      "db_ms": 39.6,
+      "first_run_ms": 72.8
+    },
+    {
+      "phase": "public",
+      "name": "bridge: encode",
+      "median_ms": 11.3,
+      "min_ms": 8.4,
+      "max_ms": 117.2,
+      "runs": 7,
+      "first_ms": 11.3,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 8.4
+    },
+    {
+      "phase": "public",
+      "name": "bridge: dumps (JSON + gzip)",
+      "median_ms": 74.8,
+      "min_ms": 70.7,
+      "max_ms": 83.3,
+      "runs": 7,
+      "first_ms": 83.3,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 71.8,
+      "plain_bytes": 2751923,
+      "gzip_bytes": 839906,
+      "files": 2,
+      "file_bytes": 61440
+    },
+    {
+      "phase": "public",
+      "name": "bridge: gzip level 9 of the JSON",
+      "median_ms": 65.6,
+      "min_ms": 62.5,
+      "max_ms": 69.9,
+      "runs": 7,
+      "first_ms": 65.0,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 69.6,
+      "gzip_bytes": 839906
+    },
+    {
+      "phase": "public",
+      "name": "bridge: gzip level 6 of the JSON",
+      "median_ms": 45.9,
+      "min_ms": 42.4,
+      "max_ms": 64.1,
+      "runs": 7,
+      "first_ms": 45.9,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 44.6,
+      "gzip_bytes": 846504
+    },
+    {
+      "phase": "public",
+      "name": "bridge: gzip level 1 of the JSON",
+      "median_ms": 23.5,
+      "min_ms": 20.9,
+      "max_ms": 29.4,
+      "runs": 7,
+      "first_ms": 21.1,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 16.1,
+      "gzip_bytes": 916140
+    },
+    {
+      "phase": "public",
+      "name": "bridge: composition of the document",
+      "median_ms": 0,
+      "plain": {
+        "tenant_id": 38,
+        "entities": 57953,
+        "kinds": 52943,
+        "in_public_catalog": 42682,
+        "slugs": 40308,
+        "prototypes": 109841,
+        "groups": 611,
+        "definitions": 12016,
+        "enum_values": 345,
+        "entity_groups": 24321,
+        "stats": 806980,
+        "formulas": 33599,
+        "containment": 2,
+        "ownership": 2,
+        "group_members": 2,
+        "information": 142690,
+        "payloads": 791537,
+        "knowledge": 2,
+        "links": 635800
+      },
+      "gzip6": {
+        "tenant_id": 57,
+        "entities": 28998,
+        "kinds": 25017,
+        "in_public_catalog": 21830,
+        "slugs": 20131,
+        "prototypes": 32467,
+        "groups": 290,
+        "definitions": 1951,
+        "enum_values": 165,
+        "entity_groups": 7342,
+        "stats": 98804,
+        "formulas": 3559,
+        "containment": 22,
+        "ownership": 22,
+        "group_members": 22,
+        "information": 41195,
+        "payloads": 422965,
+        "knowledge": 22,
+        "links": 145480
+      }
+    },
+    {
+      "phase": "public",
+      "name": "bridge: JSON text alone",
+      "median_ms": 6.3,
+      "min_ms": 5.8,
+      "max_ms": 7.6,
+      "runs": 7,
+      "first_ms": 7.6,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 8.1
+    },
+    {
+      "phase": "public",
+      "name": "bridge: gunzip + json.loads",
+      "median_ms": 14.9,
+      "min_ms": 14.1,
+      "max_ms": 18.3,
+      "runs": 7,
+      "first_ms": 14.4,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 14.9
+    },
+    {
+      "phase": "public",
+      "name": "bridge: decode (document to Content)",
+      "median_ms": 24.1,
+      "min_ms": 22.8,
+      "max_ms": 133.8,
+      "runs": 7,
+      "first_ms": 22.8,
+      "statements": 0,
+      "db_ms": 0.0,
+      "first_run_ms": 22.6
+    },
+    {
+      "phase": "public",
+      "name": "bridge: assess + released rows + document, as a publish does it (rolled back)",
+      "median_ms": 194.2,
+      "min_ms": 193.2,
+      "max_ms": 302.4,
+      "runs": 3,
+      "first_ms": 194.2,
+      "statements": 45,
+      "db_ms": 64.8,
+      "first_run_ms": 185.6
+    },
+    {
+      "phase": "public",
+      "name": "bridge: read_release_content (select + gunzip + decode)",
+      "median_ms": 55.5,
+      "min_ms": 46.2,
+      "max_ms": 163.7,
+      "runs": 7,
+      "first_ms": 46.2,
+      "statements": 4,
+      "db_ms": 3.2,
+      "first_run_ms": 59.6
+    },
+    {
+      "phase": "public",
+      "name": "bridge: read_release_copies (the manifest's read)",
+      "median_ms": 23.8,
+      "min_ms": 22.1,
+      "max_ms": 25.6,
+      "runs": 7,
+      "first_ms": 25.6,
+      "statements": 3,
+      "db_ms": 2.5,
+      "first_run_ms": 20.9
+    },
+    {
+      "phase": "public",
+      "name": "bridge: SQL fetch of the document alone",
+      "median_ms": 3.8,
+      "min_ms": 3.6,
+      "max_ms": 5.2,
+      "runs": 7,
+      "first_ms": 4.4,
+      "statements": 3,
+      "db_ms": 2.0,
+      "first_run_ms": 6.1
+    }
+  ],
+  "reads_private_before_public": [
+    {
+      "name": "GET copy-plan core (Fresh)",
+      "median_ms": 197.9,
+      "min_ms": 192.9,
+      "max_ms": 296.2,
+      "runs": 7,
+      "first_ms": 194.8,
+      "statements": 65,
+      "db_ms": 47.0,
+      "response_bytes": 274,
+      "first_run_ms": 201.3
+    },
+    {
+      "name": "GET copy-plan bridge (Fresh; Core and Bridge)",
+      "median_ms": 383.8,
+      "min_ms": 280.4,
+      "max_ms": 414.9,
+      "runs": 7,
+      "first_ms": 383.8,
+      "statements": 114,
+      "db_ms": 104.5,
+      "response_bytes": 521,
+      "first_run_ms": 430.0
+    },
+    {
+      "name": "GET updates core (Shelf)",
+      "median_ms": 169.0,
+      "min_ms": 159.6,
+      "max_ms": 269.2,
+      "runs": 7,
+      "first_ms": 166.4,
+      "statements": 79,
+      "db_ms": 77.0,
+      "response_bytes": 15858,
+      "first_run_ms": 265.5
+    },
+    {
+      "name": "GET updates core (Stack)",
+      "median_ms": 274.5,
+      "min_ms": 158.9,
+      "max_ms": 315.1,
+      "runs": 7,
+      "first_ms": 181.0,
+      "statements": 79,
+      "db_ms": 84.3,
+      "response_bytes": 15858,
+      "first_run_ms": 288.4
+    },
+    {
+      "name": "GET updates bridge (Stack)",
+      "median_ms": 248.8,
+      "min_ms": 171.9,
+      "max_ms": 290.4,
+      "runs": 7,
+      "first_ms": 290.4,
+      "statements": 79,
+      "db_ms": 94.6,
+      "response_bytes": 25928,
+      "first_run_ms": 210.0
+    },
+    {
+      "name": "GET entities page 1 of 50",
+      "median_ms": 23.6,
+      "min_ms": 21.9,
+      "max_ms": 25.6,
+      "runs": 7,
+      "first_ms": 24.2,
+      "statements": 15,
+      "db_ms": 12.3,
+      "response_bytes": 7397,
+      "first_run_ms": 35.2
+    },
+    {
+      "name": "GET entities q=sword",
+      "median_ms": 25.4,
+      "min_ms": 23.6,
+      "max_ms": 36.7,
+      "runs": 7,
+      "first_ms": 36.7,
+      "statements": 15,
+      "db_ms": 12.7,
+      "response_bytes": 7592,
+      "first_run_ms": 26.9
+    },
+    {
+      "name": "GET entities last page",
+      "median_ms": 24.7,
+      "min_ms": 23.2,
+      "max_ms": 26.4,
+      "runs": 7,
+      "first_ms": 25.0,
+      "statements": 15,
+      "db_ms": 13.0,
+      "response_bytes": 7322,
+      "first_run_ms": 23.1
+    },
+    {
+      "name": "GET stat-groups",
+      "median_ms": 16.7,
+      "min_ms": 14.2,
+      "max_ms": 17.9,
+      "runs": 7,
+      "first_ms": 15.5,
+      "statements": 11,
+      "db_ms": 8.2,
+      "response_bytes": 4945,
+      "first_run_ms": 20.7
+    },
+    {
+      "name": "GET dependencies bridge (Fresh)",
+      "median_ms": 24.0,
+      "min_ms": 22.3,
+      "max_ms": 26.3,
+      "runs": 7,
+      "first_ms": 22.3,
+      "statements": 28,
+      "db_ms": 13.3,
+      "response_bytes": 147,
+      "first_run_ms": 29.9
+    },
+    {
+      "name": "GET repositories of Shelf (the listing, no content)",
+      "median_ms": 20.4,
+      "min_ms": 19.0,
+      "max_ms": 26.0,
+      "runs": 7,
+      "first_ms": 26.0,
+      "statements": 16,
+      "db_ms": 9.9,
+      "response_bytes": 666,
+      "first_run_ms": 25.5
+    },
+    {
+      "name": "GET repositories of Stack (the listing, no content)",
+      "median_ms": 25.3,
+      "min_ms": 23.3,
+      "max_ms": 27.9,
+      "runs": 7,
+      "first_ms": 27.7,
+      "statements": 21,
+      "db_ms": 13.7,
+      "response_bytes": 1285,
+      "first_run_ms": 27.4
+    },
+    {
+      "name": "load_upstream_core",
+      "median_ms": 67.6,
+      "min_ms": 61.3,
+      "max_ms": 158.9,
+      "runs": 7,
+      "first_ms": 61.3,
+      "statements": 39,
+      "db_ms": 37.9,
+      "first_run_ms": 65.5
+    }
+  ],
+  "documents_exist": true,
+  "facts_after_public": {
+    "core_releases": [
+      {
+        "number": 1,
+        "label": "1.0",
+        "document_bytes": null,
+        "blobs": null
+      },
+      {
+        "number": 2,
+        "label": "2.0",
+        "document_bytes": null,
+        "blobs": null
+      },
+      {
+        "number": 3,
+        "label": "2.1",
+        "document_bytes": null,
+        "blobs": null
+      },
+      {
+        "number": 4,
+        "label": "2.2",
+        "document_bytes": null,
+        "blobs": null
+      },
+      {
+        "number": 5,
+        "label": "3.0",
+        "document_bytes": 632415,
+        "blobs": 1
+      },
+      {
+        "number": 6,
+        "label": "3.1",
+        "document_bytes": 632418,
+        "blobs": 1
+      },
+      {
+        "number": 7,
+        "label": "3.2",
+        "document_bytes": 632422,
+        "blobs": 1
+      }
+    ],
+    "core_released_rows": 1052,
+    "core_blobs": {
+      "blobs": 1,
+      "bytes": 30720
+    },
+    "core_rows": {
+      "entities": 1004,
+      "edges": 1176,
+      "stats": 4778,
+      "infos": 799,
+      "links": 0
+    },
+    "bridge_releases": [
+      {
+        "number": 1,
+        "label": "1.0",
+        "document_bytes": null,
+        "blobs": null
+      },
+      {
+        "number": 2,
+        "label": "1.1",
+        "document_bytes": null,
+        "blobs": null
+      },
+      {
+        "number": 3,
+        "label": "2.0",
+        "document_bytes": 839901,
+        "blobs": 2
+      },
+      {
+        "number": 4,
+        "label": "2.1",
+        "document_bytes": 839906,
+        "blobs": 2
+      }
+    ],
+    "bridge_released_rows": 179,
+    "bridge_blobs": {
+      "blobs": 2,
+      "bytes": 61440
+    },
+    "bridge_rows": {
+      "entities": 1100,
+      "edges": 1373,
+      "stats": 5250,
+      "infos": 881,
+      "links": 1000
+    },
+    "table_sizes": {
+      "entity_stat": 3719168,
+      "entity": 1163264,
+      "information": 1613824,
+      "repository_released_row": 4816896,
+      "repository_release_blob": 32768,
+      "repository_release_document": 9912320
+    }
+  },
+  "reads_public": [
+    {
+      "name": "GET copy-plan core (Fresh)",
+      "median_ms": 202.7,
+      "min_ms": 193.1,
+      "max_ms": 298.0,
+      "runs": 7,
+      "first_ms": 193.1,
+      "statements": 35,
+      "db_ms": 22.4,
+      "response_bytes": 273,
+      "first_run_ms": 297.0
+    },
+    {
+      "name": "GET copy-plan bridge (Fresh; Core and Bridge)",
+      "median_ms": 344.1,
+      "min_ms": 307.2,
+      "max_ms": 437.4,
+      "runs": 7,
+      "first_ms": 311.9,
+      "statements": 54,
+      "db_ms": 42.1,
+      "response_bytes": 519,
+      "first_run_ms": 301.3
+    },
+    {
+      "name": "GET updates core (Shelf)",
+      "median_ms": 204.5,
+      "min_ms": 161.3,
+      "max_ms": 284.9,
+      "runs": 7,
+      "first_ms": 174.8,
+      "statements": 48,
+      "db_ms": 51.9,
+      "response_bytes": 16189,
+      "first_run_ms": 325.3
+    },
+    {
+      "name": "GET updates core (Stack)",
+      "median_ms": 255.5,
+      "min_ms": 155.8,
+      "max_ms": 275.1,
+      "runs": 7,
+      "first_ms": 260.7,
+      "statements": 48,
+      "db_ms": 53.5,
+      "response_bytes": 16189,
+      "first_run_ms": 168.7
+    },
+    {
+      "name": "GET updates bridge (Stack)",
+      "median_ms": 165.6,
+      "min_ms": 157.9,
+      "max_ms": 276.9,
+      "runs": 7,
+      "first_ms": 274.5,
+      "statements": 48,
+      "db_ms": 50.5,
+      "response_bytes": 19007,
+      "first_run_ms": 162.2
+    },
+    {
+      "name": "GET entities page 1 of 50",
+      "median_ms": 59.5,
+      "min_ms": 55.3,
+      "max_ms": 153.0,
+      "runs": 7,
+      "first_ms": 56.9,
+      "statements": 12,
+      "db_ms": 9.7,
+      "response_bytes": 7406,
+      "first_run_ms": 160.7
+    },
+    {
+      "name": "GET entities q=sword",
+      "median_ms": 55.8,
+      "min_ms": 52.1,
+      "max_ms": 165.8,
+      "runs": 7,
+      "first_ms": 56.7,
+      "statements": 12,
+      "db_ms": 9.6,
+      "response_bytes": 7592,
+      "first_run_ms": 54.9
+    },
+    {
+      "name": "GET entities last page",
+      "median_ms": 58.0,
+      "min_ms": 54.8,
+      "max_ms": 140.0,
+      "runs": 7,
+      "first_ms": 54.8,
+      "statements": 12,
+      "db_ms": 9.4,
+      "response_bytes": 7322,
+      "first_run_ms": 61.8
+    },
+    {
+      "name": "GET stat-groups",
+      "median_ms": 57.1,
+      "min_ms": 52.7,
+      "max_ms": 144.3,
+      "runs": 7,
+      "first_ms": 57.1,
+      "statements": 12,
+      "db_ms": 9.2,
+      "response_bytes": 4945,
+      "first_run_ms": 53.9
+    },
+    {
+      "name": "GET dependencies bridge (Fresh)",
+      "median_ms": 65.3,
+      "min_ms": 61.9,
+      "max_ms": 69.7,
+      "runs": 7,
+      "first_ms": 63.9,
+      "statements": 30,
+      "db_ms": 20.1,
+      "response_bytes": 146,
+      "first_run_ms": 67.5
+    },
+    {
+      "name": "GET repositories of Shelf (the listing, no content)",
+      "median_ms": 19.3,
+      "min_ms": 17.8,
+      "max_ms": 20.1,
+      "runs": 7,
+      "first_ms": 19.1,
+      "statements": 16,
+      "db_ms": 9.2,
+      "response_bytes": 666,
+      "first_run_ms": 19.2
+    },
+    {
+      "name": "GET repositories of Stack (the listing, no content)",
+      "median_ms": 25.9,
+      "min_ms": 24.2,
+      "max_ms": 26.8,
+      "runs": 7,
+      "first_ms": 24.2,
+      "statements": 21,
+      "db_ms": 13.4,
+      "response_bytes": 1285,
+      "first_run_ms": 26.5
+    },
+    {
+      "name": "load_upstream_core",
+      "median_ms": 47.9,
+      "min_ms": 45.2,
+      "max_ms": 135.4,
+      "runs": 7,
+      "first_ms": 45.2,
+      "statements": 8,
+      "db_ms": 8.1,
+      "first_run_ms": 47.2
+    }
+  ],
+  "preview_public": {
+    "name": "GET release-preview core (public, unchanged)",
+    "median_ms": 91.2,
+    "min_ms": 84.5,
+    "max_ms": 205.1,
+    "runs": 7,
+    "first_ms": 205.1,
+    "statements": 41,
+    "db_ms": 35.5,
+    "response_bytes": 980,
+    "first_run_ms": 92.0
+  },
+  "preview_bridge": {
+    "name": "GET release-preview bridge",
+    "median_ms": 83.3,
+    "min_ms": 78.2,
+    "max_ms": 194.2,
+    "runs": 7,
+    "first_ms": 83.0,
+    "statements": 41,
+    "db_ms": 40.0,
+    "response_bytes": 980,
+    "first_run_ms": 181.8
+  },
+  "releases_list": {
+    "name": "GET releases core",
+    "median_ms": 12.2,
+    "min_ms": 10.7,
+    "max_ms": 14.3,
+    "runs": 7,
+    "first_ms": 11.6,
+    "statements": 6,
+    "db_ms": 3.1,
+    "response_bytes": 4039,
+    "first_run_ms": 13.3
+  },
+  "reads_private": [
+    {
+      "name": "GET copy-plan core (Fresh)",
+      "median_ms": 218.9,
+      "min_ms": 195.1,
+      "max_ms": 312.2,
+      "runs": 7,
+      "first_ms": 213.0,
+      "statements": 65,
+      "db_ms": 49.7,
+      "response_bytes": 274,
+      "first_run_ms": 358.5
+    },
+    {
+      "name": "GET copy-plan bridge (Fresh; Core and Bridge)",
+      "median_ms": 432.5,
+      "min_ms": 323.8,
+      "max_ms": 594.6,
+      "runs": 7,
+      "first_ms": 432.5,
+      "statements": 114,
+      "db_ms": 112.3,
+      "response_bytes": 521,
+      "first_run_ms": 323.8
+    },
+    {
+      "name": "GET updates core (Shelf)",
+      "median_ms": 273.9,
+      "min_ms": 172.4,
+      "max_ms": 298.3,
+      "runs": 7,
+      "first_ms": 287.0,
+      "statements": 79,
+      "db_ms": 80.5,
+      "response_bytes": 16189,
+      "first_run_ms": 182.1
+    },
+    {
+      "name": "GET updates core (Stack)",
+      "median_ms": 252.2,
+      "min_ms": 171.0,
+      "max_ms": 290.3,
+      "runs": 7,
+      "first_ms": 273.2,
+      "statements": 79,
+      "db_ms": 82.8,
+      "response_bytes": 16189,
+      "first_run_ms": 161.9
+    },
+    {
+      "name": "GET updates bridge (Stack)",
+      "median_ms": 198.8,
+      "min_ms": 169.0,
+      "max_ms": 292.9,
+      "runs": 7,
+      "first_ms": 179.6,
+      "statements": 79,
+      "db_ms": 94.4,
+      "response_bytes": 19007,
+      "first_run_ms": 306.6
+    },
+    {
+      "name": "GET entities page 1 of 50",
+      "median_ms": 25.5,
+      "min_ms": 24.0,
+      "max_ms": 28.3,
+      "runs": 7,
+      "first_ms": 28.3,
+      "statements": 15,
+      "db_ms": 12.2,
+      "response_bytes": 7406,
+      "first_run_ms": 31.5
+    },
+    {
+      "name": "GET entities q=sword",
+      "median_ms": 25.7,
+      "min_ms": 22.4,
+      "max_ms": 35.6,
+      "runs": 7,
+      "first_ms": 24.8,
+      "statements": 15,
+      "db_ms": 12.9,
+      "response_bytes": 7592,
+      "first_run_ms": 26.1
+    },
+    {
+      "name": "GET entities last page",
+      "median_ms": 26.7,
+      "min_ms": 22.9,
+      "max_ms": 29.8,
+      "runs": 7,
+      "first_ms": 26.7,
+      "statements": 15,
+      "db_ms": 13.1,
+      "response_bytes": 7322,
+      "first_run_ms": 30.3
+    },
+    {
+      "name": "GET stat-groups",
+      "median_ms": 15.7,
+      "min_ms": 13.9,
+      "max_ms": 18.4,
+      "runs": 7,
+      "first_ms": 13.9,
+      "statements": 11,
+      "db_ms": 7.8,
+      "response_bytes": 4945,
+      "first_run_ms": 17.0
+    },
+    {
+      "name": "GET dependencies bridge (Fresh)",
+      "median_ms": 24.9,
+      "min_ms": 22.0,
+      "max_ms": 26.3,
+      "runs": 7,
+      "first_ms": 24.9,
+      "statements": 28,
+      "db_ms": 13.3,
+      "response_bytes": 147,
+      "first_run_ms": 27.6
+    },
+    {
+      "name": "GET repositories of Shelf (the listing, no content)",
+      "median_ms": 22.0,
+      "min_ms": 19.5,
+      "max_ms": 24.5,
+      "runs": 7,
+      "first_ms": 24.1,
+      "statements": 16,
+      "db_ms": 9.4,
+      "response_bytes": 666,
+      "first_run_ms": 23.1
+    },
+    {
+      "name": "GET repositories of Stack (the listing, no content)",
+      "median_ms": 27.1,
+      "min_ms": 23.9,
+      "max_ms": 32.4,
+      "runs": 7,
+      "first_ms": 26.1,
+      "statements": 21,
+      "db_ms": 14.3,
+      "response_bytes": 1285,
+      "first_run_ms": 27.8
+    },
+    {
+      "name": "load_upstream_core",
+      "median_ms": 62.4,
+      "min_ms": 56.5,
+      "max_ms": 157.2,
+      "runs": 7,
+      "first_ms": 57.8,
+      "statements": 39,
+      "db_ms": 35.4,
+      "first_run_ms": 158.5
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "op": "copy_plan_core",
+  "cold_ms": 1005.8,
+  "statements": 32,
+  "db_ms": 69.6,
+  "info": {
+    "steps": 1,
+    "rows": 62662
+  },
+  "rss_baseline_mb": 132.6,
+  "rss_peak_mb": 189.2,
+  "rss_peak_delta_mb": 56.6,
+  "size": 5000,
+  "visibility": "public"
+}

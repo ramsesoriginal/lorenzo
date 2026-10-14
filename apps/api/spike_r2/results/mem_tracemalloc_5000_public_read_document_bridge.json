@@ -1,0 +1,12 @@
+{
+  "op": "read_document_bridge",
+  "cold_ms": 1258.1,
+  "statements": 4,
+  "db_ms": 22.8,
+  "info": {
+    "entities": 5494
+  },
+  "tracemalloc_peak_mb": 62.3,
+  "size": 5000,
+  "visibility": "public"
+}

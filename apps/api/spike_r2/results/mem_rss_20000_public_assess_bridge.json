@@ -1,0 +1,15 @@
+{
+  "op": "assess_bridge",
+  "cold_ms": 1758.4,
+  "statements": 37,
+  "db_ms": 504.6,
+  "info": {
+    "differing": 0,
+    "live_rows": 3487
+  },
+  "rss_baseline_mb": 132.6,
+  "rss_peak_mb": 333.2,
+  "rss_peak_delta_mb": 200.6,
+  "size": 20000,
+  "visibility": "public"
+}

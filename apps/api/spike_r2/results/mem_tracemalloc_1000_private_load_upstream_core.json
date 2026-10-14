@@ -1,0 +1,13 @@
+{
+  "op": "load_upstream_core",
+  "cold_ms": 322.0,
+  "statements": 39,
+  "db_ms": 107.9,
+  "info": {
+    "public": false,
+    "entities": 1003
+  },
+  "tracemalloc_peak_mb": 8.3,
+  "size": 1000,
+  "visibility": "private"
+}

@@ -1,0 +1,16 @@
+{
+  "op": "updates_shelf_core",
+  "cold_ms": 293.3,
+  "statements": 76,
+  "db_ms": 117.4,
+  "info": {
+    "changed": 31,
+    "added": 5,
+    "removed": 2
+  },
+  "rss_baseline_mb": 132.6,
+  "rss_peak_mb": 153.0,
+  "rss_peak_delta_mb": 20.4,
+  "size": 1000,
+  "visibility": "private"
+}

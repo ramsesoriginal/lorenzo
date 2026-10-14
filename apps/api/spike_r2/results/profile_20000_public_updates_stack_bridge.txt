@@ -1,0 +1,66 @@
+
+--- by cumulative time
+         11642722 function calls (11517153 primitive calls) in 11.521 seconds
+
+   Ordered by: cumulative time
+   List reduced from 788 to 28 due to restriction <28>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    52/51    0.059    0.001   11.525    0.226 measure.py:381(op_updates_stack_bridge)
+       45    0.023    0.001   11.509    0.256 repository_updates.py:400(compute_updates)
+        1    0.024    0.024    5.854    5.854 repository_updates.py:532(_find_attachment_updates)
+     1500    0.012    0.000    5.564    0.004 repository_updates.py:551(ref)
+     3000    0.577    0.000    5.541    0.002 repository_updates.py:521(_local_entity)
+     3006    4.949    0.002    4.957    0.002 repository_content.py:136(local_of)
+        5    0.001    0.000    2.760    0.552 repository_upstream.py:80(load_upstream)
+        3    0.011    0.004    2.754    0.918 release_document_store.py:117(read_release_content)
+        1    0.000    0.000    2.369    2.369 release_document.py:405(decode)
+        1    0.000    0.000    2.369    2.369 release_document.py:395(_read_v1)
+ 124954/1    0.190    0.000    2.369    2.369 release_document.py:194(decode)
+       34    0.141    0.004    1.642    0.048 repository_content.py:218(load_content)
+        2    0.129    0.064    1.271    0.636 release_document.py:161(<lambda>)
+       97    0.000    0.000    1.270    0.013 _concurrency_py3k.py:167(greenlet_spawn)
+   141/47    0.003    0.000    1.263    0.027 {method 'switch' of 'greenlet.greenlet' objects}
+       86    0.000    0.000    1.262    0.015 session.py:423(execute)
+       42    0.001    0.000    1.250    0.030 session.py:2313(execute)
+       44    0.001    0.000    1.007    0.023 repository_content.py:223(rows)
+       17    0.333    0.020    0.956    0.056 release_document.py:116(<lambda>)
+   534245    0.592    0.000    0.898    0.000 uuid.py:178(__init__)
+       45    0.000    0.000    0.691    0.015 session.py:2141(_execute_internal)
+       41    0.000    0.000    0.669    0.016 context.py:296(orm_execute_statement)
+        3    0.477    0.159    0.659    0.220 repository_content.py:602(index_entities)
+       41    0.000    0.000    0.657    0.016 context.py:581(orm_setup_cursor_result)
+       41    0.011    0.000    0.656    0.016 loading.py:79(instances)
+       82    0.107    0.001    0.644    0.008 loading.py:208(chunks)
+     1054    0.015    0.000    0.594    0.001 base_events.py:1976(_run_once)
+   124954    0.448    0.000    0.530    0.000 dataclasses.py:1453(fields)
+
+
+
+--- by own time
+         11642722 function calls (11517153 primitive calls) in 11.521 seconds
+
+   Ordered by: internal time
+   List reduced from 788 to 18 due to restriction <18>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     3006    4.949    0.002    4.957    0.002 repository_content.py:136(local_of)
+   534245    0.592    0.000    0.898    0.000 uuid.py:178(__init__)
+     3000    0.577    0.000    5.541    0.002 repository_updates.py:521(_local_entity)
+       41    0.509    0.012    0.512    0.012 result.py:576(_raw_all_rows)
+        3    0.477    0.159    0.659    0.220 repository_content.py:602(index_entities)
+   124954    0.448    0.000    0.530    0.000 dataclasses.py:1453(fields)
+       17    0.333    0.020    0.956    0.056 release_document.py:116(<lambda>)
+     1005    0.303    0.000    0.467    0.000 selector_events.py:1008(_read_ready__data_received)
+       24    0.260    0.011    0.263    0.011 result.py:582(_allrows)
+    25546    0.222    0.000    0.222    0.000 decoder.py:351(raw_decode)
+  1355810    0.217    0.000    0.333    0.000 uuid.py:319(__hash__)
+ 124954/1    0.190    0.000    2.369    2.369 release_document.py:194(decode)
+  1602782    0.175    0.000    0.175    0.000 {method 'replace' of 'str' objects}
+   394877    0.172    0.000    0.288    0.000 {method 'get' of 'dict' objects}
+        1    0.148    0.148    0.148    0.148 {method 'decompress' of 'zlib.Decompress' objects}
+       34    0.141    0.004    1.642    0.048 repository_content.py:218(load_content)
+        2    0.129    0.064    1.271    0.636 release_document.py:161(<lambda>)
+  1355905    0.116    0.000    0.116    0.000 {built-in method builtins.hash}
+
+
