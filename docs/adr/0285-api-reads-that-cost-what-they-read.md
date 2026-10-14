@@ -78,3 +78,24 @@ Measured the same way, with the Postgres and the tests pinned to four cores:
 - **Not changed:** a caller who is not an admin and reads a row that is not public (a campaign GM reading a GM-only note) still resolves their sight in full; resolving the GM's reach only when a row asks for it is the next step. Some lookups are still repeated inside a request (the Membership is read for the participant check and again for the tier, when a row is hidden), and the other routes that read information (entities, item instances, link previews) have not taken the reader yet.
 
 Tests: `apps/api/tests/test_item_read_statements.py` holds the counts for the three callers (with room for a few statements, so that they fail when the old work returns and not when a statement is added), and that an owner reads a private description of an ancestor and a player does not; `apps/api/tests/test_information_reader.py` the reader itself: nothing resolved for public rows, an admin's tier alone, an owner who opted out and anyone else resolved in full, equal to `resolve_information_visibility`.
+
+## Addendum (2026-10-14): the write routes
+
+A write answers with the row it wrote, and its dependencies and access checks ask the database for what an earlier one in the same request already asked: with the item read at 15 statements, the writes were the larger part of what the API costs (an end-to-end suite spends about 72% of its API time on writes that build a world). Measured as an owner who also GMs a campaign (three characters), warm, through the route with the caller's identity supplied:
+
+| Route | Before | After |
+| --- | --- | --- |
+| `GET /entities/{id}` | 50 statements, 60.2 ms | 15, 24.6 ms |
+| `PUT /entities/{id}/tags/{stat}` | 58, 61.1 ms | 22, 29.4 ms |
+| `PUT /entities/{id}/stats/{stat}` | 59, 63.6 ms | 23, 29.1 ms |
+| `POST /item-instances` (owned) | 52, 57.6 ms | 29, 33.3 ms |
+| `POST /entities/{id}/information` | 22, 21.6 ms | 17, 18.0 ms |
+| `POST /items` | 19, 26.3 ms | 19, 26.3 ms |
+| `POST /stat-definitions` | 10, 13.3 ms | 10, 13.3 ms |
+
+- **The response of an entity takes the reader.** `entity_detail_out` (the entity's own route, the tag and stat routes through `entity_stats`, and the item-instance responses) resolves who may read with `resolve_information_reader`, as the item read does, instead of resolving the caller's sight in full for every response; the to-one relationships of the entity's detail are joined into its query. The two checks of an information write (`information_out_or_404` with `require_visible`, and `authorize_information_edit`) ask the same of one row and take the same reader. The to-one relationships of an information's payloads and author are joined as well, and an instance response resolves the reader for the rows of the instance and its ancestors, whose chain it already had.
+- **The tenant and the caller's membership are read once per request.** A session's identity map holds an object only for as long as something else does, so `session.get(Tenant, id)` and `session.get(Membership, ...)` in the tenant dependency, the participant check, the tier of the reader and the item routes each went back to the database. `db.hold` keeps what a request has read alive for the rest of it (in the session's `info`), `campaign_access.membership_of` is the one way to read a membership and holds it, and the tenant dependencies hold the tenant. The session is the request's own and ends with it.
+- **Not changed:** `POST /items` and `POST /stat-definitions` are already few statements and their remainder is the write itself (the row, its links, the activity log, the response). The per-request user upsert (ADR 0023) is untouched. A non-admin campaign GM still resolves their reach for rows that are not public; the item-instance reads and lists, link previews and the export have not taken the reader.
+- **A held row can be stale within its own request.** What is held is what the request read first, and the identity map answers for a row the session itself changed or deleted, as it did before; a membership or tenant changed by another transaction while a request runs is not seen by that request after its first read. A request is milliseconds long and its tenant context (RLS) is fixed at its start anyway.
+
+Tests: `apps/api/tests/test_write_route_statements.py` holds the counts of the five routes above that changed, with room for a few statements, and that a membership read twice in a session is one statement. What the answers show is unchanged and is covered by the information visibility, item, item-instance and entity tests of the suite.
