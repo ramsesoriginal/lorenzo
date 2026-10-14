@@ -97,3 +97,13 @@ export type RepositoryStatDefinitionOut = Schema<'RepositoryStatDefinitionOut'>;
 export type PersonalTokenOut = Schema<'PersonalTokenOut'>;
 export type DeviceCodePreviewOut = Schema<'DeviceCodePreviewOut'>;
 export type DeviceApproval = Schema<'DeviceApproval'>;
+
+// Discover and the storefront (RFC 0038 §4, ADR 0292).
+export type DiscoverItemOut = Schema<'DiscoverItemOut'>;
+export type DiscoverPageOut = Schema<'DiscoverPageOut'>;
+export type DiscoverFacetsOut = Schema<'DiscoverFacetsOut'>;
+export type DiscoverFacetOut = Schema<'DiscoverFacetOut'>;
+export type StorefrontOut = Schema<'StorefrontOut'>;
+export type PublicDependencyOut = Schema<'PublicDependencyOut'>;
+export type LicenceOut = Schema<'LicenceOut'>;
+export type CreditOut = Schema<'CreditOut'>;

@@ -12,6 +12,7 @@ import {
   droppedSentences,
   missingSentence,
   previousSentence,
+  publicMissingSentence,
   receiptSentence,
   recommendedChoices,
   resolutionsOf,
@@ -21,7 +22,7 @@ import {
   type WizardStep,
 } from '../../lib/copyWizard';
 import { copyRepository, getCopyPlan } from '../../lib/repositories';
-import { type CopyMode, shelfHref } from '../../lib/shelf';
+import { type CopyMode, type CopySubject, shelfHref } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import type {
@@ -29,7 +30,6 @@ import type {
   CopyOut,
   CopyPlanOut,
   CopyRequest,
-  SubscriptionOut,
   TenantSummaryOut,
 } from '../../lib/types';
 import { renderClashCard } from './clash';
@@ -40,7 +40,7 @@ const STEPS: WizardStep[] = ['check', 'clashes', 'review', 'done'];
 
 type State = {
   library: TenantSummaryOut;
-  subscription: SubscriptionOut;
+  subject: CopySubject;
   mode: CopyMode;
   // For a copy that is made again: what happens to the earlier copy.
   again: 'keep' | 'purge';
@@ -56,7 +56,7 @@ export type CopyWizard = {
   // again) from where it stands, and shows nothing, for the page to show the repository instead.
   open(
     library: TenantSummaryOut,
-    subscription: SubscriptionOut,
+    subject: CopySubject,
     mode: CopyMode,
     isCurrent: () => boolean,
   ): Promise<boolean>;
@@ -152,7 +152,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
     if (!state) return;
 
     const { plan, mode } = state;
-    const target = plan?.steps.find((s) => s.repository_id === state?.subscription.repository.id);
+    const target = plan?.steps.find((s) => s.repository_id === state?.subject.id);
 
     check.limits.replaceChildren(
       ...COPY_LIMITS.map((limit) => {
@@ -179,7 +179,9 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
 
     if (!plan || !target) {
       blocked(
-        'This repository cannot be copied right now. It may have been unpublished, or your library is no longer invited to it.',
+        state.subject.public
+          ? 'This repository cannot be copied right now. It may have been made private since you opened it.'
+          : 'This repository cannot be copied right now. It may have been unpublished, or your library is no longer invited to it.',
         [],
       );
       return;
@@ -201,11 +203,12 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
       blocked(
         'It is built on repositories your library cannot copy yet, so nothing is counted and nothing can be copied.',
         missing.map((step) =>
-          missingSentence({
+          (state?.subject.public ? publicMissingSentence : missingSentence)({
             repositoryId: step.repository_id,
             name: step.name,
             granted: step.granted,
             published: step.published,
+            public: step.public,
           }),
         ),
       );
@@ -268,7 +271,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
     check.againPurge.textContent = 'Counting what this would remove…';
 
     try {
-      const result = await copyRepository(mine.library.id, mine.subscription.repository.id, {
+      const result = await copyRepository(mine.library.id, mine.subject.id, {
         dry_run: true,
         again: 'purge',
       });
@@ -315,7 +318,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
 
     return renderClashCard(panel, collision, {
       index,
-      repositoryName: mine.subscription.repository.name,
+      repositoryName: mine.subject.name,
       choices: mine.choices,
       onChange: refreshClashButtons,
     });
@@ -413,7 +416,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
         paintCheck();
         blocked(
           'It is built on repositories your library cannot copy yet.',
-          refusal.missing.map(missingSentence),
+          refusal.missing.map(state.subject.public ? publicMissingSentence : missingSentence),
         );
         say(null);
         showStep('check');
@@ -449,11 +452,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
     setBusy(true, dryRun ? 'Checking…' : 'Copying…');
 
     try {
-      const result = await copyRepository(
-        mine.library.id,
-        mine.subscription.repository.id,
-        request(dryRun),
-      );
+      const result = await copyRepository(mine.library.id, mine.subject.id, request(dryRun));
 
       return turn === latest ? result : null;
     } catch (cause) {
@@ -495,7 +494,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
   clashes.recommendedAll.addEventListener('click', () => {
     if (!state) return;
 
-    state.choices = recommendedChoices(state.collisions, state.subscription.repository.name);
+    state.choices = recommendedChoices(state.collisions, state.subject.name);
     paintClashes();
   });
   clashes.back.addEventListener('click', () => {
@@ -531,10 +530,8 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
   // --- Opening ---------------------------------------------------------------------------
 
   return {
-    async open(library, subscription, mode, isCurrent) {
-      const copied = subscription.copied_at !== null;
-      const offered =
-        subscription.granted_at !== null && subscription.repository.published_at !== null;
+    async open(library, subject, mode, isCurrent) {
+      const { copied, offered } = subject;
 
       // A first copy is of a repository that is offered, published and not yet copied; another
       // is of one the library has copied.
@@ -544,7 +541,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
 
       state = {
         library,
-        subscription,
+        subject,
         mode,
         again: 'keep',
         plan: null,
@@ -553,12 +550,11 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
         review: null,
         step: 'check',
       };
-      title.textContent =
-        mode === 'again'
-          ? `Copy ${subscription.repository.name} again`
-          : `Copy ${subscription.repository.name}`;
-      back.href = shelfHref(library.slug, subscription.repository.id);
-      done.open.href = shelfHref(library.slug, subscription.repository.id);
+      title.textContent = mode === 'again' ? `Copy ${subject.name} again` : `Copy ${subject.name}`;
+      back.href = subject.backHref;
+      // A page of Discover is not this page: it is left, not moved to.
+      back.toggleAttribute('data-link', !subject.public);
+      done.open.href = shelfHref(library.slug, subject.id);
       say(null);
       setBusy(false);
 
@@ -571,7 +567,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
           'What the earlier copy created is removed first, together with what your library added to it.';
       } else {
         try {
-          const plan = await getCopyPlan(library.id, subscription.repository.id, { fresh: true });
+          const plan = await getCopyPlan(library.id, subject.id, { fresh: true });
 
           if (turn !== latest || !isCurrent()) return true;
 

@@ -275,3 +275,45 @@ export function parentsLine(
 
   return `Inherits from ${parts.join(', ')}`;
 }
+
+// What the copy wizard is about: a repository, and where it stands with the library copying it. A
+// repository the library holds is one of its Shelf entries; a public one it holds nothing of yet
+// is found on Discover (ADR 0292), and its "back" is the page it came from.
+export type CopySubject = {
+  id: string;
+  name: string;
+  // Whether the library can copy it from where it stands: offered to it (or public) and published.
+  offered: boolean;
+  copied: boolean;
+  // A public repository the library has no invitation to: said so where a stack falls short.
+  public: boolean;
+  // Where "Back to the repository" goes.
+  backHref: string;
+};
+
+export function subjectOfSubscription(
+  subscription: SubscriptionOut,
+  library: { slug: string },
+): CopySubject {
+  return {
+    id: subscription.repository.id,
+    name: subscription.repository.name,
+    offered: subscription.granted_at !== null && subscription.repository.published_at !== null,
+    copied: subscription.copied_at !== null,
+    public: false,
+    backHref: shelfHref(library.slug, subscription.repository.id),
+  };
+}
+
+// A public repository the library has not copied and holds no invitation to: copying it gives the
+// library its own access to it and to what it is built on (ADR 0287).
+export function subjectOfPublic(repository: { id: string; name: string }): CopySubject {
+  return {
+    id: repository.id,
+    name: repository.name,
+    offered: true,
+    copied: false,
+    public: true,
+    backHref: `/discover/?${new URLSearchParams({ repository: repository.id }).toString()}`,
+  };
+}

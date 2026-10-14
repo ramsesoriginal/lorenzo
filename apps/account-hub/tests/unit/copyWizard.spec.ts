@@ -13,6 +13,7 @@ import {
   droppedSentences,
   missingSentence,
   previousSentence,
+  publicMissingSentence,
   receiptSentence,
   recommendedAction,
   recommendedChoices,
@@ -402,6 +403,27 @@ describe('a copy the API refused', () => {
 
     expect(result.missing.map(missingSentence)).toEqual([
       'Ask the owner of Core to invite your library.',
+      'Rules is not published; ask its owner to publish it.',
+    ]);
+  });
+
+  it('says what is missing from a public stack, and who to ask', () => {
+    const result = copyRefusal(
+      refusal('repository-copy-needs-grants', 409, {
+        missing: [
+          { repository_id: 'a', name: 'Core', granted: false, published: true, public: false },
+          { repository_id: 'b', name: 'Rules', granted: true, published: false, public: false },
+        ],
+      }),
+    );
+
+    expect(result?.kind).toBe('needs-grants');
+
+    if (result?.kind !== 'needs-grants') return;
+
+    expect(result.missing.map((m) => m.public)).toEqual([false, false]);
+    expect(result.missing.map(publicMissingSentence)).toEqual([
+      'Core is not public, and your library is not invited to it. Ask its Owner to make it public, or to invite your library.',
       'Rules is not published; ask its owner to publish it.',
     ]);
   });

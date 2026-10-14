@@ -1,3 +1,5 @@
+import { showsDiscover } from '../../lib/discover';
+import { getFacets } from '../../lib/discoverApi';
 import { isTenantAdmin } from '../../lib/format';
 import { getMe } from '../../lib/me';
 import { canCreateTenants, isRepository } from '../../lib/tenantKind';
@@ -30,7 +32,7 @@ export async function showAllowedLinks(root: HTMLElement): Promise<void> {
 
   show('signed-in');
 
-  const [me, tenants] = await Promise.allSettled([getMe(), listMyTenants()]);
+  const [me, tenants, facets] = await Promise.allSettled([getMe(), listMyTenants(), getFacets()]);
 
   // ADR 0175: who may create a library or a repository.
   if (me.status === 'fulfilled' && canCreateTenants(me.value)) show('create-tenant');
@@ -53,4 +55,8 @@ export async function showAllowedLinks(root: HTMLElement): Promise<void> {
   const mayCreate = me.status === 'fulfilled' && canCreateTenants(me.value);
 
   if (inRepository || mayCreate) show('repository-work');
+
+  // Discover is where public repositories are found, for a deployment that accepts them (ADR 0290,
+  // ADR 0292): the facets say so, and where they do not come there is no link.
+  if (facets.status === 'fulfilled' && showsDiscover(facets.value)) show('discover');
 }
