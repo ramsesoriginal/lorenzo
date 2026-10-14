@@ -2,6 +2,7 @@
 // identity §14.3 names. The API stores who may read a row as `is_public` plus the rows of knowers
 // (ADR 0038, 0109); the audiences are how this app reads and writes those.
 import { client, type components, unwrap } from './api';
+import type { GmWords } from './gmTitle';
 import { type Information, listInformation } from './information';
 
 export type Knower = components['schemas']['KnowerOut'];
@@ -10,19 +11,35 @@ export type Knower = components['schemas']['KnowerOut'];
 export type Audience = 'gm' | 'everyone' | 'some' | 'player';
 export type Shown = Audience | 'shared';
 
-export const AUDIENCES: Record<Audience, { label: string; hint: string }> = {
-  gm: { label: 'GM only', hint: 'Only the GMs of the campaign can read it.' },
-  everyone: { label: 'Everyone', hint: 'Anyone with access to the library can read it.' },
-  some: { label: 'Some characters', hint: 'The GMs and the characters you choose can read it.' },
-  player: {
-    label: 'Player note',
-    hint: "The GMs and this being's players can read it.",
-  },
-};
+/**
+ * What an audience is called and what it means, with the game masters named by `words`: the
+ * campaign's own title when the being's campaigns agree on one (ADR 0294), otherwise "GM".
+ */
+export function audienceTexts(audience: Audience, words: GmWords): { label: string; hint: string } {
+  switch (audience) {
+    case 'gm':
+      return {
+        label: `${words.title} only`,
+        hint: `Only the ${words.plural} of the campaign can read it.`,
+      };
+    case 'everyone':
+      return { label: 'Everyone', hint: 'Anyone with access to the library can read it.' };
+    case 'some':
+      return {
+        label: 'Some characters',
+        hint: `The ${words.plural} and the characters you choose can read it.`,
+      };
+    case 'player':
+      return {
+        label: 'Player note',
+        hint: `The ${words.plural} and this being's players can read it.`,
+      };
+  }
+}
 
 /** What a note says about who can read it. */
-export function audienceLabel(shown: Shown): string {
-  return shown === 'shared' ? 'Shared with you' : AUDIENCES[shown].label;
+export function audienceLabel(shown: Shown, words: GmWords): string {
+  return shown === 'shared' ? 'Shared with you' : audienceTexts(shown, words).label;
 }
 
 /** Characters told, among the knowers (a player knower is not a character). */
@@ -59,6 +76,7 @@ export function planAudience(
   wanted: { audience: Audience; characters: readonly string[] },
   knowers: readonly Knower[],
   beingId: string,
+  words: GmWords,
 ): Plan {
   const told = new Set(knownCharacters(knowers));
   const players = knowers.flatMap((k) => (k.kind === 'player' && k.player_id ? [k.player_id] : []));
@@ -67,7 +85,9 @@ export function planAudience(
   );
 
   if (wanted.audience === 'some' && target.size === 0) {
-    throw new Error('Choose at least one character, or make it GM only.');
+    throw new Error(
+      `Choose at least one character, or make it ${audienceTexts('gm', words).label}.`,
+    );
   }
 
   // Everyone can read it already; who else was told stays as it was, to come back to.
