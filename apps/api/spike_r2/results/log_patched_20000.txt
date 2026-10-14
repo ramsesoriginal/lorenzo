@@ -1,0 +1,3 @@
+edits {'renamed': 85, 'removed': 17, 'attachments_added': 500}
+as is {'name': 'updates_stack_bridge', 'median_ms': 9537.5, 'min_ms': 9494.9, 'max_ms': 9715.0, 'runs': 3, 'first_ms': 9537.5, 'statements': 76, 'db_ms': 1033.0, 'first_run_ms': 9416.2}
+patched {'name': 'updates_stack_bridge', 'median_ms': 4407.3, 'min_ms': 4158.8, 'max_ms': 4968.5, 'runs': 3, 'first_ms': 4407.3, 'statements': 76, 'db_ms': 1495.9, 'first_run_ms': 4286.6}

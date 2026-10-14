@@ -1,18 +1,18 @@
 {
   "size": 20000,
-  "author": "d42391c0-7a96-4c40-89aa-c887069843fe",
-  "gm": "58c60c09-97c9-40e1-a3a9-8cd4445e5465",
-  "core": "ca663ed9-d045-4f8f-8c98-c4fddd1c6a2c",
-  "bridge": "95625013-921d-42dd-8d74-7af7bfd6dd4f",
-  "shelf": "c6fdc98c-db7c-49bc-8fd9-46a3f395d3b2",
-  "stack": "b9c3b17d-0084-49af-b8a0-c202f7a553a0",
-  "fresh": "1ef05bf8-92c1-4b34-a9bb-cbd2b903206a",
-  "seed_core_s": 18.9,
-  "publish_core_first_s": 2.22,
-  "copy_core_into_bridge_s": 15.06,
+  "author": "e88ed765-cb02-4d9a-a552-23ab703000bd",
+  "gm": "03ed185a-5649-4704-813f-cdee79ce68d1",
+  "core": "7e0b6360-0e5f-416a-8e9b-342acbdb06cb",
+  "bridge": "be1b068c-e53a-49e7-a0a6-77acb2c7a356",
+  "shelf": "c345c1a0-cde2-4827-b593-9b311b33afc0",
+  "stack": "628e647e-f015-4b4f-89d1-cd25e41514e9",
+  "fresh": "c30c5336-5c27-41dd-9021-20774a3b5957",
+  "seed_core_s": 19.4,
+  "publish_core_first_s": 2.56,
+  "copy_core_into_bridge_s": 15.74,
   "copy_core_into_bridge_steps": [
     {
-      "repository_id": "ca663ed9-d045-4f8f-8c98-c4fddd1c6a2c",
+      "repository_id": "7e0b6360-0e5f-416a-8e9b-342acbdb06cb",
       "name": "Core 20000",
       "granted": true,
       "published": true,
@@ -26,13 +26,13 @@
       "dropped": []
     }
   ],
-  "seed_bridge_s": 7.0,
-  "publish_bridge_first_s": 1.91,
-  "copy_core_into_library_s": 12.55,
-  "copy_bridge_into_library_s": 17.93,
+  "seed_bridge_s": 7.4,
+  "publish_bridge_first_s": 1.72,
+  "copy_core_into_library_s": 11.9,
+  "copy_bridge_into_library_s": 17.75,
   "copy_bridge_into_library_steps": [
     {
-      "repository_id": "ca663ed9-d045-4f8f-8c98-c4fddd1c6a2c",
+      "repository_id": "7e0b6360-0e5f-416a-8e9b-342acbdb06cb",
       "name": "Core 20000",
       "granted": true,
       "published": true,
@@ -46,7 +46,7 @@
       "dropped": []
     },
     {
-      "repository_id": "95625013-921d-42dd-8d74-7af7bfd6dd4f",
+      "repository_id": "be1b068c-e53a-49e7-a0a6-77acb2c7a356",
       "name": "Bridge 20000",
       "granted": true,
       "published": true,
@@ -60,5 +60,5 @@
       "dropped": []
     }
   ],
-  "seed_total_s": 78.4
+  "seed_total_s": 79.3
 }
