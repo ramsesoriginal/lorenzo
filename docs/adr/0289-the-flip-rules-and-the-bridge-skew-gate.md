@@ -4,7 +4,7 @@ Status: accepted, decided with the maintainer on 2026-10-14. Slice R8 of [RFC 00
 
 ## Context
 
-[RFC 0037](../rfcs/0037-releases-and-public-snapshots.md) §6 says what must hold when a repository goes between private and public: the flip to public is atomic with its first release, it requires every repository it is built on to be public, going private revokes the grants libraries gave themselves, and a public repository can publish only while it is up to date with what it is built on. [RFC 0038](0038-public-repositories-and-discovery.md) §7 adds that going private is refused while a public repository is built on it. The routes that make a flip an action, with the preview switch, the summary, the terms line and the dialogs, are RFC 0038's D5 and RFC 0036's T7. This slice is the rules, as functions the routes will call, and the gate on publishing, which is reachable now.
+[RFC 0037](../rfcs/0037-releases-and-public-snapshots.md) §6 says what must hold when a repository goes between private and public: the flip to public is atomic with its first release, it requires every repository it is built on to be public, going private revokes the grants libraries gave themselves, and a public repository can publish only while it is up to date with what it is built on. [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) §7 adds that going private is refused while a public repository is built on it. The routes that make a flip an action, with the preview switch, the summary, the terms line and the dialogs, are RFC 0038's D5 and RFC 0036's T7. This slice is the rules, as functions the routes will call, and the gate on publishing, which is reachable now.
 
 ## Decision
 
@@ -30,7 +30,7 @@ Status: accepted, decided with the maintainer on 2026-10-14. Slice R8 of [RFC 00
 - **Refused while a public repository is built on it**: `409 public-repositories-built-on-it` with the repositories, since that would leave a public stack no one can copy. "Public" means public and published, which is what a library can read; a draft bridge does not hold it.
 - **Told how many it cuts off.** The libraries that hold a grant they gave themselves by copying it (`source = public`, [ADR 0287](0287-who-may-read-a-public-repository.md)) lose their update path. Without `acknowledge_revokes`, `409 public-copies-would-be-cut-off` carries the number and nothing changes. A repository nobody copied is made private without asking.
 - **What it does**: revokes every `source = public` grant, tells each library's Owners and Organizers with the words of any revoke ("is no longer shared with your library", and that it is no longer public), sets the visibility. **The copies stay**, as after any revoke; the grants the Owner made by invitation stay and read the repository live again; its documents are kept under retention and nothing reads them while it is private.
-- **The notices** are written in the request, one library at a time. Past a few hundred libraries that is the asynchronous fan-out of [RFC 0038](0038-public-repositories-and-discovery.md) §6 (D6), which takes that loop over; the rule and the words are this slice's.
+- **The notices** are written in the request, one library at a time. Past a few hundred libraries that is the asynchronous fan-out of [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) §6 (D6), which takes that loop over; the rule and the words are this slice's.
 - **Already private** is `409 repository-already-private`. Logged as `repository.made_private` with the number revoked.
 
 ### The bridge-skew gate
@@ -48,7 +48,7 @@ A bridge copied from repositories at one release each; if one of them has since 
 
 ## Not in scope
 
-- **The routes, the preview switch, the dialogs and what they say** ([RFC 0038](0038-public-repositories-and-discovery.md) D5, [RFC 0036](0036-repository-tooling.md) T7); `public` stays refused by the API until D3 to D6.
+- **The routes, the preview switch, the dialogs and what they say** ([RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) D5, [RFC 0036](../rfcs/0036-repository-tooling.md) T7); `public` stays refused by the API until D3 to D6.
 - **The asynchronous revoke notices** (D6), **deleting a repository** with public grants (D5), and **deprecating** (D8).
 - **Making the upstreams public for the Owner** when the dialog offers to: it is a call of `make_public` for each, upstream first.
 
