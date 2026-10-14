@@ -86,9 +86,20 @@ jobs:
       # (apps/loot-bot, ADR 0029); a no-op for apps/api's own matrix entry.
       - run: npm install --global corepack@latest && corepack enable
       # A node split over several runners (`shards` in .github/ci-graph.toml) lints once, on the first.
-      - run: mise run lint
+      # A leg of several nodes (`batch` in the same file) runs them one after the other and runs every
+      # one, so a failure in the first doesn't hide the rest.
+      - name: Lint
         if: matrix.shard == '' || startsWith(matrix.shard, '1/')
-        working-directory: ${{ matrix.app }}
+        env:
+          APPS: ${{ matrix.apps }}
+        run: |
+          status=0
+          for app in $APPS; do
+            echo "::group::lint $app"
+            (cd "$app" && mise run lint) || { echo "::error::lint failed in $app"; status=1; }
+            echo "::endgroup::"
+          done
+          exit $status
       # Asks over TCP: while the image first starts, a server that only listens on its socket answers
       # too, and is then restarted.
       - name: Wait for Postgres
@@ -96,9 +107,17 @@ jobs:
         run: |
           timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
             || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
-      - run: mise run test
-        working-directory: ${{ matrix.app }}
+      - name: Test
+        run: |
+          status=0
+          for app in $APPS; do
+            echo "::group::test $app"
+            (cd "$app" && mise run test) || { echo "::error::tests failed in $app"; status=1; }
+            echo "::endgroup::"
+          done
+          exit $status
         env:
+          APPS: ${{ matrix.apps }}
           # "2/3": run the second of three groups of test files (apps/api's conftest.py). Empty: all.
           TEST_SHARD: ${{ matrix.shard }}
           # DATABASE_URL: what the app/tests connect as - a restricted role

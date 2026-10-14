@@ -48,6 +48,7 @@ class Node:
     declared: bool = False
     postgres: bool = False
     shards: int = 1
+    batch: str = ""
     check_schema: bool = False
     depends_on: set[str] = field(default_factory=set)
     generated_from: set[str] = field(default_factory=set)
@@ -140,6 +141,9 @@ def load_graph(root: Path) -> Graph:
         node.shards = int(table.get("shards", 1))
         if node.shards < 1:
             raise GraphError(f"{where}: `shards` must be at least 1")
+        node.batch = str(table.get("batch", ""))
+        if node.batch and (node.postgres or node.shards > 1):
+            raise GraphError(f"{where}: `batch` is for small legs, not one that needs Postgres or is sharded")
         node.depends_on |= _as_set(table, "depends_on", where)
         node.generated_from |= _as_set(table, "generated_from", where)
 
@@ -263,11 +267,21 @@ def affected(graph: Graph, changed: list[str], everything: bool = False, why: st
 
 def matrices(graph: Graph, result: Result) -> dict[str, str]:
     test = []
+    batches: dict[str, list[str]] = {}
     for name in sorted(result.tests):
         node = graph.nodes[name]
+        if node.batch:
+            batches.setdefault(node.batch, []).append(name)
+            continue
         for index in range(1, node.shards + 1):
             shard = f"{index}/{node.shards}" if node.shards > 1 else ""
-            test.append({"app": name, "label": f"{name} {shard}".strip(), "shard": shard, "postgres": node.postgres})
+            test.append(
+                {"app": name, "apps": name, "label": f"{name} {shard}".strip(), "shard": shard, "postgres": node.postgres}
+            )
+    # The nodes of a batch (`batch` in .github/ci-graph.toml) run one after the other on one runner: the
+    # affected ones only, so a pull request pays for what it changes.
+    for batch, names in sorted(batches.items()):
+        test.append({"app": "", "apps": " ".join(names), "label": f"batch {batch}", "shard": "", "postgres": False})
     drift = [{"app": n} for n in sorted(result.drift)]
     return {
         "test_matrix": json.dumps(test),

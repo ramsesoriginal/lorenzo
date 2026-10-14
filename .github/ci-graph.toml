@@ -15,6 +15,11 @@
 #   postgres       its `test` leg needs a Postgres container.
 #   shards         split its `test` leg over this many runners (TEST_SHARD=i/n; the node's tests
 #                  have to honour it, as apps/api's conftest.py does). Default 1.
+#   batch          run its `lint` and `test` on one runner with the other nodes of the same batch
+#                  name, one after the other, instead of a runner of its own. For a leg that takes
+#                  under a minute: each runner costs 10-15 s to set up, and a push to main ran 33 jobs with
+#                  16 at a time at most, so the slow legs waited behind small ones for a runner (ADR
+#                  0148, addendum of 2026-10-14). Not for a node that needs Postgres or is sharded.
 
 [global]
 # A change to any of these runs every node.
@@ -39,23 +44,54 @@ postgres = true
 shards = 2
 
 [nodes."apps/cli"]
+batch = "cli"
 # Its table of other spellings is a copy of packages/inventory-names' (ADR 0242), and a test compares them; another parses the golden ledgers of packages/converters (ADR 0246).
 depends_on = ["packages/inventory-names", "packages/converters"]
 # Its unit tests need neither the API nor a database; the end-to-end tests, which start the real API,
 # are the cli-e2e suite below. Its generated models come from the API's OpenAPI schema.
 generated_from = ["apps/api"]
 
+[nodes."apps/inventory-web"]
+batch = "web-1"
+
+[nodes."apps/account-hub"]
+batch = "web-1"
+
+[nodes."apps/beings"]
+batch = "web-2"
+
+[nodes."apps/bench"]
+batch = "web-2"
+
+[nodes."packages/inventory-names"]
+batch = "cli"
+
+[nodes."packages/converters"]
+batch = "cli"
+
+[nodes."packages/lorenzoscript"]
+batch = "packages"
+
+[nodes."packages/lorenzoscript-editor"]
+batch = "packages"
+
+[nodes."packages/stat-values"]
+batch = "packages"
+
 [nodes."apps/loot-bot"]
 postgres = true
 
 [nodes."apps/brand"]
+batch = "packages"
 # Plain CSS, fonts and icons: nothing to read.
 
 [nodes."packages/brand"]
+batch = "packages"
 # Its build copies the whole apps/brand layout package in (ADR 0098).
 depends_on = ["apps/brand"]
 
 [nodes."packages/api-client"]
+batch = "packages"
 generated_from = ["apps/api"]
 
 # Slow integration suites, each its own job. A suite runs when its node is affected, or anything

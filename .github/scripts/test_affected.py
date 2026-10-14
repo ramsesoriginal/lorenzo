@@ -185,9 +185,9 @@ class Matrices(unittest.TestCase):
         graph = affected.load_graph(root)
         out = affected.matrices(graph, affected.affected(graph, ["apps/api/a.py"]))
         self.assertIn(
-            {"app": "apps/api", "label": "apps/api 1/2", "shard": "1/2", "postgres": True}, json.loads(out["test_matrix"])
+            {"app": "apps/api", "apps": "apps/api", "label": "apps/api 1/2", "shard": "1/2", "postgres": True}, json.loads(out["test_matrix"])
         )
-        self.assertIn({"app": "apps/bot", "label": "apps/bot", "shard": "", "postgres": False}, json.loads(affected.matrices(graph, affected.affected(graph, ["apps/bot/a.ts"]))["test_matrix"]))
+        self.assertIn({"app": "apps/bot", "apps": "apps/bot", "label": "apps/bot", "shard": "", "postgres": False}, json.loads(affected.matrices(graph, affected.affected(graph, ["apps/bot/a.ts"]))["test_matrix"]))
         self.assertEqual(out["openapi_diff"], "true")
         self.assertEqual(json.loads(out["suites"]), ["web-e2e"])
 
@@ -195,6 +195,38 @@ class Matrices(unittest.TestCase):
         graph = affected.load_graph(make_repo())
         out = affected.matrices(graph, affected.affected(graph, ["docs/a.md"]))
         self.assertEqual((out["test_matrix"], out["drift_matrix"], out["suites"]), ("[]", "[]", "[]"))
+
+
+class Batches(unittest.TestCase):
+    """Nodes with the same `batch` share one runner; only the affected ones are in it."""
+
+    def setUp(self) -> None:
+        self.graph = affected.load_graph(
+            make_repo(GRAPH + '\n[nodes."apps/bot"]\nbatch = "web"\n\n[nodes."apps/web"]\nbatch = "web"\n')
+        )
+
+    def legs(self, *changed: str) -> list[dict]:
+        return json.loads(affected.matrices(self.graph, affected.affected(self.graph, list(changed)))["test_matrix"])
+
+    def test_the_affected_nodes_of_a_batch_are_one_leg(self) -> None:
+        self.assertEqual(
+            self.legs("packages/ts-client/a.ts"),
+            [
+                {"app": "packages/ts-client", "apps": "packages/ts-client", "label": "packages/ts-client", "shard": "", "postgres": False},
+                {"app": "", "apps": "apps/bot apps/web", "label": "batch web", "shard": "", "postgres": False},
+            ],
+        )
+
+    def test_a_batch_holds_only_what_is_affected(self) -> None:
+        self.assertEqual([leg["apps"] for leg in self.legs("apps/bot/a.ts")], ["apps/bot"])
+
+    def test_a_batch_nothing_in_is_affected_is_no_leg(self) -> None:
+        self.assertEqual([leg["label"] for leg in self.legs("packages/py-lib/a.py")], ["apps/tool", "packages/py-lib"])
+
+    def test_a_node_that_needs_postgres_or_is_sharded_cannot_be_batched(self) -> None:
+        for setting in ("postgres = true", "shards = 2"):
+            with self.assertRaises(affected.GraphError):
+                affected.load_graph(make_repo(GRAPH + f'\n[nodes."apps/tool"]\nbatch = "x"\n{setting}\n'))
 
 
 class ThisRepository(unittest.TestCase):
@@ -238,6 +270,20 @@ class ThisRepository(unittest.TestCase):
         self.assertEqual(self.graph.nodes["apps/api"].shards, 2)
         matrix = json.loads(affected.matrices(self.graph, affected.affected(self.graph, ["apps/api/a.py"]))["test_matrix"])
         self.assertEqual([(leg["app"], leg["shard"]) for leg in matrix], [("apps/api", "1/2"), ("apps/api", "2/2")])
+
+    def test_a_push_to_main_runs_the_small_nodes_in_a_few_legs(self) -> None:
+        everything = affected.affected(self.graph, [], everything=True)
+        legs = json.loads(affected.matrices(self.graph, everything)["test_matrix"])
+        batched = [leg for leg in legs if leg["label"].startswith("batch ")]
+        alone = sorted(leg["label"] for leg in legs if not leg["label"].startswith("batch "))
+        self.assertEqual(alone, ["apps/api 1/2", "apps/api 2/2", "apps/loot-bot"])
+        self.assertEqual(len(batched), 4)
+        # every other node is in exactly one batch
+        in_batches = " ".join(leg["apps"] for leg in batched).split()
+        self.assertEqual(sorted(in_batches), sorted(set(in_batches)))
+        self.assertEqual(set(in_batches) | {"apps/api", "apps/loot-bot"}, set(self.graph.nodes))
+        for leg in batched:
+            self.assertEqual((leg["shard"], leg["postgres"]), ("", False))
 
     def test_cli_unit_tests_do_not_run_for_an_api_change_but_its_e2e_does(self) -> None:
         result = affected.affected(self.graph, ["apps/api/a.py"])
