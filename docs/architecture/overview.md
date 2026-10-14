@@ -266,9 +266,9 @@ The being sheet ([RFC 0043](../rfcs/0043-the-being-sheet.md), decided with the m
 - **The sheet read** ([ADR 0281](../adr/0281-sheet-settings-and-the-sheet-read.md)): a tenant's weapon stat group and ability information type, one read of a being's equipped weapons and abilities, and the stat vocabulary readable by every participant.
 - **Beings** ([ADR 0282](../adr/0282-beings-sheet-shell-modes-and-sections.md) to [0284](../adr/0284-beings-sheet-datasheet.md)): Read, Play and Edit with a sticky bar; stat tiles with provenance, steppers, an adjuster and undo; a datasheet layout.
 
-Repositories have since resolved the cross-tenant repository question named in the early chronicle above (RFC 0024, ADR 0117 to 0121). Later repository tooling adds Shelf and Studio in account-hub (RFC 0036), release documents and retention (RFC 0037, ADR 0207, 0208, 0214, 0286, 0288, 0289), and the public read, Discover, storefront and preview (RFC 0038, ADR 0287, 0290, 0292, 0293). Public repositories remain disabled by default until the remaining launch gates are implemented; see the RFC and its live tracking issue.
+Repositories have since resolved the cross-tenant repository question named in the early chronicle above (RFC 0024, ADR 0117 to 0121). Later repository tooling adds Shelf and Studio in account-hub (RFC 0036), release documents and retention (RFC 0037, ADR 0207, 0208, 0214, 0286, 0288, 0289), and the public read, Discover, storefront and preview (RFC 0038, ADR 0287, 0290, 0292, 0293). Public reads are guarded by a deployment feature switch that defaults to off (ADR 0290).
 
-Bench now authors repository entries through its command layer, with text, notes, stats, formulas, pictures, a pack editor, ancestry and compare views (ADR 0221 to 0275). Its shell and online editing are built; persistent offline storage and synchronization remain later slices of RFC 0039.
+Bench now authors repository entries through its command layer, with text, notes, stats, formulas, pictures, a pack editor, ancestry and compare views (ADR 0221 to 0275). Its shell and online editing use the command layer introduced in ADR 0221.
 
 ### What's next
 
