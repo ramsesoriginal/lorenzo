@@ -4,6 +4,7 @@
 // doesn't know it, "Not in the list" makes an unsorted item instead (ADR 0238).
 import { type AddItemStanding, searchAddableItems } from '../../lib/addItem';
 import { errorMessage } from '../../lib/errorMessage';
+import { DEFAULT_GM_WORDS, type GmWords } from '../../lib/gmTitle';
 import { createItemInstance, deleteItemInstance } from '../../lib/items';
 import { requiredIn } from '../../lib/template';
 import type { CatalogItem, ItemInstance } from '../../lib/types';
@@ -16,6 +17,8 @@ export type AddItemOptions = {
   root: HTMLElement;
   tenantId: string;
   standing(holderId: string): Promise<AddItemStanding>;
+  // What the holder's campaigns call their game master (ADR 0294); "GM" when it can't be said.
+  gmWords(holderId: string): Promise<GmWords>;
   // Something was added: shows it on the board, and resolves once it's there.
   onAdded(created: ItemInstance): Promise<void>;
   // Something was taken back: the board is out of date.
@@ -52,7 +55,9 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
   const undo = required<HTMLButtonElement>(root, '[data-undo]');
   const notListed = required<HTMLElement>(root, '[data-not-listed]');
   const openUnsorted = required<HTMLButtonElement>(root, '[data-not-listed-open]');
+  const matchedLater = required<HTMLElement>(root, '[data-matched-later]');
   const noUnsorted = required<HTMLElement>(root, '[data-no-unsorted]');
+  const gmTitle = required<HTMLElement>(root, '[data-gm-title]');
   const unsortedForm = required<HTMLFormElement>(root, '[data-unsorted-form]');
   const unsortedName = required<HTMLInputElement>(root, '[data-unsorted-name]');
   const unsortedDescription = required<HTMLTextAreaElement>(root, '[data-unsorted-description]');
@@ -339,6 +344,8 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
     if (!next) return;
 
     let standing: AddItemStanding;
+    // Not knowing the words isn't a reason to hide the card: it says "GM".
+    const wordsLookup = options.gmWords(next.id).catch(() => DEFAULT_GM_WORDS);
 
     try {
       standing = await options.standing(next.id);
@@ -349,11 +356,17 @@ export function renderAddItem(options: AddItemOptions): RenderedAddItem {
 
     if (turn !== latest || standing === 'hidden') return;
 
+    const words = await wordsLookup;
+
+    if (turn !== latest) return;
+
     root.hidden = false;
+    matchedLater.textContent = `Your ${words.title} matches it to a catalog item later. Your name and notes stay.`;
+    gmTitle.textContent = words.title;
 
     if (standing === 'off') {
       off.hidden = false;
-      off.textContent = `Your GM has switched off adding items for ${next.name}.`;
+      off.textContent = `Your ${words.title} has switched off adding items for ${next.name}.`;
       return;
     }
 

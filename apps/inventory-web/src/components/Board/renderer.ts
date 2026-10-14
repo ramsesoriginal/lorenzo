@@ -1,6 +1,7 @@
 import type { AddItemStanding } from '../../lib/addItem';
 import { type Board, controlledBoard, unownedBoard } from '../../lib/boardColumns';
 import { errorMessage } from '../../lib/errorMessage';
+import type { GmWords } from '../../lib/gmTitle';
 import { getControlledItemInstances, getUnownedItemInstances } from '../../lib/items';
 import { fromTemplate, requiredIn } from '../../lib/template';
 import type { ControlledByResponse, ItemInstance } from '../../lib/types';
@@ -21,6 +22,8 @@ export type BoardOptions = {
   undo: RenderedUndoBanner;
   // Whether to offer adding an item to this being's inventory (ADR 0187).
   addItemStanding(holderId: string): Promise<AddItemStanding>;
+  // What the being's campaigns call their game master (ADR 0294).
+  addItemGmWords(holderId: string): Promise<GmWords>;
   onOpenItem(item: ItemInstance, card: HTMLElement): void;
   onPrefetchItem(item: ItemInstance): void;
 };
@@ -94,6 +97,7 @@ export function renderBoard(options: BoardOptions): RenderedBoard {
     root: required<HTMLElement>(root, '[data-add-item]'),
     tenantId,
     standing: options.addItemStanding,
+    gmWords: options.addItemGmWords,
     async onAdded(created) {
       await reloadCurrentView?.();
       reveal(created.entity_id);

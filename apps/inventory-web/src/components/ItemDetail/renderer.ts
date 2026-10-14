@@ -227,7 +227,11 @@ export function renderItemDetail(options: ItemDetailOptions): RenderedItemDetail
     // Its notes (ADR 0113), written by a GM or by a player whose character owns it.
     const reader = options.myCharacters().find((c) => c.entity_id === item.owner_entity_id) ?? null;
 
-    void notes.load(item.entity_id, { canWrite: options.viewerIsGm || reader !== null, reader });
+    void notes.load(item.entity_id, {
+      canWrite: options.viewerIsGm || reader !== null,
+      reader,
+      ownerId: item.owner_entity_id ?? null,
+    });
 
     // Bound to its owner (ADR 0129).
     bound.hidden = !item.bound;
