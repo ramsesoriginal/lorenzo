@@ -40,6 +40,14 @@ dist/
 .astro/
 .pnpm-store/
 
+# --- Android / Gradle ------------------------------------------------------
+/apps/inventory-mobile/.gradle/
+/apps/inventory-mobile/.kotlin/
+/apps/inventory-mobile/local.properties
+/apps/inventory-mobile/**/build/
+/apps/inventory-mobile/*.jks
+/apps/inventory-mobile/*.keystore
+
 # --- Generated schemas -----------------------------------------------------
 openapi.json
 

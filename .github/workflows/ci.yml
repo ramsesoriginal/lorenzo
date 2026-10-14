@@ -85,6 +85,11 @@ jobs:
       # 0003) - needed job-wide once any app is a pnpm workspace member
       # (apps/loot-bot, ADR 0029); a no-op for apps/api's own matrix entry.
       - run: npm install --global corepack@latest && corepack enable
+      - name: Set up Android SDK
+        if: contains(format(' {0} ', matrix.apps), ' apps/inventory-mobile ')
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
       # A node split over several runners (`shards` in .github/ci-graph.toml) lints once, on the first.
       # A leg of several nodes (`batch` in the same file) runs them one after the other and runs every
       # one, so a failure in the first doesn't hide the rest.
@@ -150,6 +155,11 @@ jobs:
           AUTHGEAR_CLIENT_ID: ci-placeholder-client
           AUTHGEAR_CLIENT_SECRET: ci-placeholder-secret
           LOOT_BOT_TOKEN_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+
+      - name: Build Android APK and release bundle
+        if: contains(format(' {0} ', matrix.apps), ' apps/inventory-mobile ')
+        run: mise run build
+        working-directory: apps/inventory-mobile
 
   # Not matrixed over discover's output like `test` is: an OpenAPI schema
   # dump isn't part of ADR 0007's universal per-app contract (only
