@@ -13,5 +13,6 @@
   "packages/lorenzoscript": "0.0.0",
   "packages/lorenzoscript-editor": "0.0.0",
   "apps/beings": "0.0.0",
-  "packages/stat-values": "0.0.0"
+  "packages/stat-values": "0.0.0",
+  "apps/inventory-mobile": "0.1.0"
 }

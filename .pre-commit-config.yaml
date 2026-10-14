@@ -229,3 +229,12 @@ repos:
 
 # Further language-specific hooks get added here alongside the next app
 # that needs them - see docs/guides/adding-an-app.md.
+
+  - repo: local
+    hooks:
+      - id: inventory-mobile-format
+        name: inventory-mobile Kotlin format
+        entry: mise run //apps/inventory-mobile:check-format
+        language: system
+        pass_filenames: false
+        files: ^apps/inventory-mobile/.*\.(kt|kts)$
