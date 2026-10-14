@@ -6,6 +6,8 @@ one ([ADR 0263](../../docs/adr/0263-inventory-web-editing-stat-values.md), extra
 (for items) and `apps/beings` (for beings).
 
 - `statDefinitions(client, tenantId)`: every stat that is not a tag, with its group's name.
+- `statVocabulary(client, tenantId)`: every stat, tags included, in the library's group and definition order (ADR 0278, 0283).
+- `getEntityDetail(client, tenantId, entityId)`: the entry and its effective stats.
 - `statRows(definitions, entity)`, `sourceOf(row)`: what an entry resolves each stat to, and whether
   that is its own.
 - `parseStat(definition, text)`, `decimalText(n)`: what typing gives; a decimal keeps its point.
