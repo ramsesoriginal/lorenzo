@@ -12,6 +12,7 @@ from lorenzo_api.models import (
     Character,
     Containment,
     Entity,
+    EntityPrototype,
     EntityStat,
     Information,
     ItemInstance,
@@ -334,4 +335,42 @@ async def test_someone_with_no_standing_in_the_tenant_does_not_read_its_vocabula
 
     for path in ("stat-groups", "stat-definitions"):
         assert (await client.get(f"/tenants/{tenant_id}/{path}")).status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_an_equipped_weapon_reports_the_source_of_its_inherited_stat(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    group = await _group(client, tenant_id, "Weapons")
+    damage = await _definition(client, tenant_id, group["id"], "damage")
+    await client.patch(f"/tenants/{tenant_id}", json={"weapon_stat_group_id": group["id"]})
+    being = await _being(tenant_id)
+    sword = await _equip(tenant_id, being, "Old sword", {})
+    async with admin_session_factory() as session:
+        prototype = Entity(tenant_id=tenant_id, name="Sword")
+        session.add(prototype)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=prototype.id,
+                stat_definition_id=uuid.UUID(damage["id"]),
+                tenant_id=tenant_id,
+                value_int=8,
+            )
+        )
+        session.add(
+            EntityPrototype(
+                entity_id=sword,
+                prototype_id=prototype.id,
+                tenant_id=tenant_id,
+            )
+        )
+        await session.commit()
+        source_id = prototype.id
+    response = await client.get(_url(tenant_id, being))
+    assert response.status_code == 200, response.text
+    [stat] = response.json()["weapons"][0]["stats"]
+    assert stat["value"] == 8 and stat["own"] is False
+    assert stat["from_entity"] == {"id": str(source_id), "name": "Sword", "quantity": None}
     await delete_tenant(tenant_id)
