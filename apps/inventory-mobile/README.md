@@ -2,6 +2,8 @@
 
 Lorenzo's native Android companion for character inventories. Kotlin, Jetpack Compose and Material 3; Android 9+ (API 28). The app launches as **Lorenzo Inventory** and uses application ID `io.lorenzo.inventory`.
 
+The app decision is [ADR 0291](../../docs/adr/0291-inventory-mobile-native-android-app.md).
+
 ## Install or run
 
 Open this directory as a project in Android Studio. Use JDK 17 and install Android SDK 37.0 and Build Tools 36.0.0 in SDK Manager. The Gradle wrapper is included; no global Gradle installation is needed.
@@ -10,6 +12,10 @@ Open this directory as a project in Android Studio. Use JDK 17 and install Andro
 ./gradlew :app:assembleDebug
 ./gradlew :app:installDebug   # connected phone/emulator, USB debugging enabled
 ```
+
+For command-line builds, set `ANDROID_HOME` to the SDK directory (or set `sdk.dir` in an untracked `local.properties`). Accept its licenses with `sdkmanager --licenses` and install `sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"`. CI installs the same packages explicitly.
+
+The app participates in root `mise run lint`, `test` and `check`; install JDK 17 with `mise install` from this directory and set up the SDK before running them. `mise run //apps/inventory-mobile:dev` installs the debug app on a connected device.
 
 On Windows use `gradlew.bat`. Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
@@ -42,6 +48,12 @@ The native adapter mirrors the same endpoints as `packages/api-client` without i
 Markdown descriptions and notes render natively through Markwon. Unsupported LorenzoScript extensions (live stat formulas, entity preview links, editor blocks, protected images) remain visible as source rather than guessed results. The TypeScript LorenzoScript engine is not embedded: a full native implementation is a separate compatibility slice. Notes send the entered text with outer whitespace trimmed.
 
 No WebView, telemetry, advertising, analytics, HTTP logging or remote font fetches. Authenticated requests never follow redirects. Room snapshot/draft payloads and credentials use AES-GCM with fresh nonces and an Android Keystore key. Backup/device transfer is disabled. Cache keys are credential-scoped; session-checked persistence prevent a prior session response from repopulating a signed-out cache. A detected 401 clears local access; roster changes and 403/404 remove stale snapshots. Previously downloaded information remains readable while offline until the device learns about a revocation.
+
+## Versioning and distribution
+
+Release-please updates `version.txt` and the changelog independently for this app. The stable `major.minor.patch` version supplies `versionName`; `versionCode` is `major * 1_000_000 + minor * 1_000 + patch + 1`. Minor and patch must each be below 1,000, and the resulting code must fit Google Play's limit. A distributed release needs a version bump; rebuilding that version keeps its code.
+
+Current distribution is local installation of the debug APK. `mise run //apps/inventory-mobile:build` also produces an unsigned release bundle at `app/build/outputs/bundle/release/app-release.aab` for validation. Store publishing and release signing are deferred; no deployment workflow is needed for this slice.
 
 ## Checks
 
