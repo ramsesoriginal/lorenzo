@@ -7,7 +7,7 @@ from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import ForbiddenProblem
 from sqlalchemy import delete, exists, func, literal, or_, select, union_all
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.author_guards import author_may_delete, author_may_touch, author_may_use_kinds
@@ -59,6 +59,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.information_visibility import (
     InformationVisibility,
+    resolve_information_reader,
     resolve_information_visibility,
     visible_information_clause,
 )
@@ -475,10 +476,10 @@ async def get_entity_detail_or_404(
             # The entity's own rows, so each stat can say whether it's own (ADR 0111).
             selectinload(Entity.stats),
             selectinload(Entity.effective_stats)
-            .selectinload(VEffectiveStat.stat_definition)
-            .selectinload(StatDefinition.stat_group),
+            .joinedload(VEffectiveStat.stat_definition)
+            .joinedload(StatDefinition.stat_group),
             # Where an inherited value comes from (ADR 0276).
-            selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
+            selectinload(Entity.effective_stats).joinedload(VEffectiveStat.source_entity),
             # A winning formula's parameters, for stat_evaluation (ADR 0104).
             *formula_load_options(
                 selectinload(Entity.effective_stats).selectinload(VEffectiveStat.computed_stat)
@@ -486,19 +487,19 @@ async def get_entity_detail_or_404(
             selectinload(Entity.stat_groups),
             selectinload(Entity.information)
             .selectinload(Information.payloads)
-            .selectinload(Payload.description),
+            .joinedload(Payload.description),
             selectinload(Entity.information)
             .selectinload(Information.payloads)
-            .selectinload(Payload.number),
+            .joinedload(Payload.number),
             selectinload(Entity.information)
             .selectinload(Information.payloads)
-            .selectinload(Payload.picture),
+            .joinedload(Payload.picture),
             selectinload(Entity.information)
             .selectinload(Information.payloads)
-            .selectinload(Payload.document),
+            .joinedload(Payload.document),
             selectinload(Entity.information).selectinload(Information.knowledge_links),
             # Who wrote each (ADR 0277).
-            selectinload(Entity.information).selectinload(Information.author),
+            selectinload(Entity.information).joinedload(Information.author),
             selectinload(Entity.prototypes),
             selectinload(Entity.instances),
             # ADR 0041: Entity.containment/contained_links (the Containment
@@ -506,13 +507,13 @@ async def get_entity_detail_or_404(
             # (the bare Entity lists) - only the former carry the per-edge
             # quantity column EntityDetailOut.parent/quantity/children now
             # need.
-            selectinload(Entity.containment).selectinload(Containment.parent),
-            selectinload(Entity.contained_links).selectinload(Containment.child),
-            selectinload(Entity.slug),
+            joinedload(Entity.containment).joinedload(Containment.parent),
+            selectinload(Entity.contained_links).joinedload(Containment.child),
+            joinedload(Entity.slug),
             # What the entry is (ADR 0217).
-            selectinload(Entity.item),
-            selectinload(Entity.item_instance),
-            selectinload(Entity.being).selectinload(Being.character),
+            joinedload(Entity.item),
+            joinedload(Entity.item_instance),
+            joinedload(Entity.being).joinedload(Being.character),
         )
     )
     entity = await session.scalar(stmt)
@@ -534,8 +535,11 @@ async def entity_detail_out(
     """What GET /{entity_id} and GET /by-slug/{slug} both return, the caller
     already past require_tenant_participant."""
     entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    return EntityDetailOut.from_entity(entity, request, visibility=visibility)
+    # Who may read the entity's information, as far as `can_see` needs it (ADR 0285).
+    reader = await resolve_information_reader(
+        session, user_id=user.id, tenant_id=tenant_id, information=entity.information
+    )
+    return EntityDetailOut.from_entity(entity, request, visibility=reader)
 
 
 # Registered before /{entity_id}: that route's path would otherwise match
@@ -920,14 +924,15 @@ async def clear_entity_slug(
     await session.commit()
 
 
+# A to-one relationship is joined into the query of what has it (ADR 0285).
 _INFORMATION_LOAD_OPTIONS = (
-    selectinload(Information.payloads).selectinload(Payload.description),
-    selectinload(Information.payloads).selectinload(Payload.number),
-    selectinload(Information.payloads).selectinload(Payload.picture),
-    selectinload(Information.payloads).selectinload(Payload.document),
+    selectinload(Information.payloads).joinedload(Payload.description),
+    selectinload(Information.payloads).joinedload(Payload.number),
+    selectinload(Information.payloads).joinedload(Payload.picture),
+    selectinload(Information.payloads).joinedload(Payload.document),
     selectinload(Information.knowledge_links),
     # Who wrote it (ADR 0277).
-    selectinload(Information.author),
+    joinedload(Information.author),
 )
 
 
@@ -1456,10 +1461,10 @@ async def information_out_or_404(
     """
     information = await get_information_or_404(session, information_id, tenant_id)
     if require_visible:
-        visibility = await resolve_information_visibility(
-            session, user_id=user.id, tenant_id=tenant_id
+        reader = await resolve_information_reader(
+            session, user_id=user.id, tenant_id=tenant_id, information=[information]
         )
-        if not visibility.can_see(information):
+        if not reader.can_see(information):
             raise InformationNotFoundError(
                 detail=f"No information with id {information_id} in tenant {tenant_id}"
             )
@@ -1484,10 +1489,10 @@ async def authorize_information_edit(
     does).
     """
     if information.created_by != user.id:
-        visibility = await resolve_information_visibility(
-            session, user_id=user.id, tenant_id=tenant_id
+        reader = await resolve_information_reader(
+            session, user_id=user.id, tenant_id=tenant_id, information=[information]
         )
-        if not visibility.can_see(information):
+        if not reader.can_see(information):
             raise InformationNotFoundError(
                 detail=f"No information with id {information.id} in tenant {tenant_id}"
             )
