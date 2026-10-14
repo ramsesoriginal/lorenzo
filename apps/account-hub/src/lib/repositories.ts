@@ -11,12 +11,16 @@ import type {
   CopyOut,
   CopyPlanOut,
   CopyRequest,
+  FlipCheckOut,
+  MadePrivateOut,
+  MakePublicRequest,
   Page,
   PublishRequest,
   ReleaseAuthoredOut,
   ReleasePreviewOut,
   ReleaseUpdate,
   RepositoryEntityOut,
+  RepositoryProfileOut,
   RepositoryStatGroupOut,
   SubscriberOut,
   SubscriptionOut,
@@ -277,6 +281,69 @@ export async function editRelease(
     await client.PATCH('/tenants/{tenant_id}/releases/{release_id}', {
       params: { path: { tenant_id: repositoryId, release_id: releaseId } },
       body,
+    }),
+  );
+}
+
+// What a repository says about itself, for any of its members: its summary and its preview switch,
+// and whether it is private or public (ADR 0213).
+export async function getRepositoryProfile(
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<RepositoryProfileOut> {
+  return cached(
+    `repository-profile:${repositoryId}`,
+    async () =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/profile', {
+          params: { path: { tenant_id: repositoryId } },
+        }),
+      ),
+    { force: fresh },
+  );
+}
+
+// What making it public or private would run into, before it is asked (ADR 0290). An Owner's. It
+// writes nothing, and what a dialog says of it decides what is sent, so it is read `fresh`.
+export async function flipCheck(
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<FlipCheckOut> {
+  return cached(
+    `flip-check:${repositoryId}`,
+    async () =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/flip-check', {
+          params: { path: { tenant_id: repositoryId } },
+        }),
+      ),
+    { force: fresh },
+  );
+}
+
+// Makes it public with its first public release, in one step (ADR 0290): a refusal changes nothing.
+// An Owner's.
+export async function makePublic(repositoryId: string, body: MakePublicRequest): Promise<void> {
+  await unwrap(
+    await client.PUT('/tenants/{tenant_id}/public', {
+      params: { path: { tenant_id: repositoryId } },
+      body,
+    }),
+  );
+}
+
+// Makes it private again: the libraries that copied it by themselves lose its updates and keep what
+// they copied. Refused, with their number, until `acknowledgeRevokes`. An Owner's.
+export async function makePrivate(
+  repositoryId: string,
+  acknowledgeRevokes: boolean,
+): Promise<MadePrivateOut> {
+  return unwrap(
+    await client.DELETE('/tenants/{tenant_id}/public', {
+      params: {
+        path: { tenant_id: repositoryId },
+        query: { acknowledge_revokes: acknowledgeRevokes },
+      },
     }),
   );
 }

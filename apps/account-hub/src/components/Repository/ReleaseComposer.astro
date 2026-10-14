@@ -1,0 +1,40 @@
+---
+// What a release is called and says, and what it will contain (ADR 0209): the part of the publish
+// dialog and of the "Make public" dialog (ADR 0290) that is the same in both. Bound by createComposer
+// in composer.ts, which looks its parts up from the dialog it is in.
+---
+
+<div class="stack" data-composer hidden>
+  <label class="field">
+    <span class="field-label">Label</span>
+    <input type="text" class="text-input" maxlength="80" autocomplete="off" data-composer-label />
+    <span class="caption" data-label-help></span>
+  </label>
+  <label class="field">
+    <span class="field-label">Notes</span>
+    <textarea class="text-input" rows="4" data-composer-notes></textarea>
+  </label>
+  <label class="field-row">
+    <input type="checkbox" data-composer-breaking />
+    This release is breaking: libraries should read its notes before they update
+  </label>
+  <section class="stack-tight" data-changes>
+    <strong>What this release contains</strong>
+    <p data-matches-line></p>
+    <ul class="stack-tight" data-content-lines></ul>
+    <p class="caption" data-hint hidden></p>
+    <p class="caption" data-not-tracked></p>
+  </section>
+  <div class="stack-tight" data-warns-box hidden>
+    <strong data-warns-title></strong>
+    <ul class="stack-tight" data-warns-lines></ul>
+  </div>
+  <div class="stack-tight" data-breaks-box hidden>
+    <strong>This release breaks things</strong>
+    <ul class="stack-tight" data-breaks-lines></ul>
+    <label class="field-row">
+      <input type="checkbox" data-composer-ack />
+      <span data-ack-text></span>
+    </label>
+  </div>
+</div>

@@ -23,7 +23,9 @@ export default defineConfig({
       cwd: '../inventory-web',
       url: `${API_URL}/healthz`,
       timeout: 300_000,
-      env: { E2E_DATABASE: 'lorenzo_account_hub_e2e' },
+      // Public repositories are off by default (ADR 0290): Studio's visibility switch is tested on a
+      // deployment that has them, and it is shown only to an Owner of a repository.
+      env: { E2E_DATABASE: 'lorenzo_account_hub_e2e', PUBLIC_REPOSITORIES_ENABLED: 'true' },
     },
     { command: 'node tests/real-api/site-server.ts', url: SITE_URL, timeout: 300_000 },
   ],
