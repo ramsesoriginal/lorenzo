@@ -276,12 +276,15 @@ class ThisRepository(unittest.TestCase):
         legs = json.loads(affected.matrices(self.graph, everything)["test_matrix"])
         batched = [leg for leg in legs if leg["label"].startswith("batch ")]
         alone = sorted(leg["label"] for leg in legs if not leg["label"].startswith("batch "))
-        self.assertEqual(alone, ["apps/api 1/2", "apps/api 2/2", "apps/loot-bot"])
+        self.assertEqual(
+            alone,
+            ["apps/api 1/2", "apps/api 2/2", "apps/inventory-mobile", "apps/loot-bot"],
+        )
         self.assertEqual(len(batched), 4)
         # every other node is in exactly one batch
         in_batches = " ".join(leg["apps"] for leg in batched).split()
         self.assertEqual(sorted(in_batches), sorted(set(in_batches)))
-        self.assertEqual(set(in_batches) | {"apps/api", "apps/loot-bot"}, set(self.graph.nodes))
+        self.assertEqual(set(in_batches) | {"apps/api", "apps/inventory-mobile", "apps/loot-bot"}, set(self.graph.nodes))
         for leg in batched:
             self.assertEqual((leg["shard"], leg["postgres"]), ("", False))
 
