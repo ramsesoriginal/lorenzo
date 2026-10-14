@@ -44,6 +44,7 @@ from lorenzo_api.models import (
     RepositoryReleaseBlob,
     RepositoryReleaseDocument,
     RepositoryReleasedRow,
+    RepositoryShowcase,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -245,6 +246,7 @@ async def seed_every_content_table(
             blobs=[sha256],
         )
     )
+    session.add(RepositoryShowcase(tenant_id=tenant_id, entity_id=sword.id, position=0))
     session.add(
         RepositoryReleasedRow(
             tenant_id=tenant_id, kind="entity", row_id=sword.id, hash="0" * 64, name="Sword"
