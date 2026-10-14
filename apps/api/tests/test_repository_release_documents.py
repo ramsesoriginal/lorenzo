@@ -17,7 +17,7 @@ from _content_compare import differences
 from _fake_jwks import FakeJwksServer
 from _release_world import release_world
 from _repository_fixtures import seed_every_content_table
-from _upstream_documents import deterministic_ids, in_tenant, upstream_from
+from _upstream_documents import deterministic_ids, in_tenant, read_as_public
 from httpx import AsyncClient
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import DBAPIError, IntegrityError
@@ -542,14 +542,15 @@ async def _plan(
 ) -> copying.Plan:
     async with admin_session_factory() as session:
         await in_tenant(session, library)
-        with upstream_from(documents), deterministic_ids():
-            return await copying.plan_copy(
-                session,
-                tenant_id=library,
-                repository_id=repository,
-                user_id=uuid.UUID(int=7),
-                resolutions=[],
-            )
+        async with read_as_public(documents):
+            with deterministic_ids():
+                return await copying.plan_copy(
+                    session,
+                    tenant_id=library,
+                    repository_id=repository,
+                    user_id=uuid.UUID(int=7),
+                    resolutions=[],
+                )
 
 
 async def _updates(
@@ -557,7 +558,7 @@ async def _updates(
 ) -> updating.Updates:
     async with admin_session_factory() as session:
         await in_tenant(session, library)
-        with upstream_from(documents):
+        async with read_as_public(documents):
             return await updating.compute_updates(
                 session, tenant_id=library, repository_id=repository
             )

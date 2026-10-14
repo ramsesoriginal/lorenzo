@@ -1044,6 +1044,14 @@ class ReleaseLabelTakenError(ConflictProblem):
     title = "That release label is taken"
 
 
+class PublicRepositoryHasNoReleaseError(ConflictProblem):
+    """Reading a public repository that has no release to read: it was made public without one,
+    or its current release has no document. A repository cannot be public without a release (RFC
+    0037 section 6), so this is a repository in a state nothing should leave it in - ADR 0286."""
+
+    title = "This public repository has no release to read"
+
+
 class ReleaseHasBreakingChangesError(ConflictProblem):
     """Publishing a release that holds changes the update engine cannot carry to a library that
     already copied the repository, without `acknowledge_breaking` - ADR 0208, RFC 0037 §3.

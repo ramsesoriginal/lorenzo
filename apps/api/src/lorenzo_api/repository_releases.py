@@ -203,3 +203,11 @@ async def releases_named(
             )
         )
     }
+
+
+async def current_release(session: AsyncSession, repository_id: uuid.UUID) -> ReleaseRef | None:
+    """The release a library that reads the repository reads: what a copy takes, what an update
+    check compares with, and what the repository's document is for a public one (ADR 0286). It
+    is the newest until a release can be made current again (RFC 0037 §5), and is asked for by
+    this name so that change is made here."""
+    return await latest_release(session, repository_id)
