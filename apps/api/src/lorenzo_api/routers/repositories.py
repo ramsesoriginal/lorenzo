@@ -23,6 +23,7 @@ from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_owner
+from lorenzo_api.config import get_settings
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -64,7 +65,12 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
 )
-from lorenzo_api.release_document_store import store_release_document
+from lorenzo_api.release_current import make_release_current
+from lorenzo_api.release_document_store import (
+    kept_documents,
+    prune_release_documents,
+    store_release_document,
+)
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
@@ -84,12 +90,14 @@ from lorenzo_api.repository_grants import (
 )
 from lorenzo_api.repository_releases import (
     ReleaseRef,
+    current_notice,
     current_release,
     lock_repository,
     make_release,
     relabel,
     release_notice,
     releases_named,
+    set_current_release,
 )
 from lorenzo_api.repository_updates import (
     COLLISION_KIND,
@@ -125,6 +133,7 @@ from lorenzo_api.schemas.repositories import (
     DroppedOut,
     EntityKindName,
     FieldChangeOut,
+    MakeCurrentRequest,
     NotAppliedOut,
     PreviousCopyOut,
     PublishedOut,
@@ -182,6 +191,22 @@ async def _require_repository(session: SessionDep, tenant_id: uuid.UUID) -> Tena
 # --- The repository's own side ----------------------------------------------
 
 
+def _readable(release: RepositoryRelease | ReleaseRef, *, current: bool) -> ReleaseOut:
+    """A release as any reader sees it, with whether it is the one libraries read (ADR 0288)."""
+    fields = {n: getattr(release, n) for n in ReleaseOut.model_fields if n != "current"}
+    return ReleaseOut.model_validate({**fields, "current": current})
+
+
+def _authored(release: RepositoryRelease, *, current: bool, kept: bool) -> ReleaseAuthoredOut:
+    """A release as the repository's members see it: and whether its content is still kept."""
+    fields = {
+        n: getattr(release, n)
+        for n in ReleaseAuthoredOut.model_fields
+        if n not in ("current", "kept")
+    }
+    return ReleaseAuthoredOut.model_validate({**fields, "current": current, "kept": kept})
+
+
 @router.put("/published")
 async def publish_repository(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
@@ -234,13 +259,22 @@ async def publish_repository(
         warning_rows=[b.as_json() for b in assessed.warnings],
     )
     await replace_stored_rows(session, tenant_id, assessed.live.values())
-    if await is_public(session, tenant_id):
+    public = await is_public(session, tenant_id)
+    if public:
         # What a library reads of a public repository, written from the load the digest was
         # made from, so the two cannot disagree (ADR 0286).
         await store_release_document(
             session, tenant_id=tenant_id, release_id=release.id, content=assessed.content
         )
-    release_out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
+    await set_current_release(session, tenant, release.id)
+    if public:
+        await prune_release_documents(
+            session,
+            tenant_id=tenant_id,
+            keep=get_settings().release_documents_retained,
+            current_release_id=release.id,
+        )
+    release_out = _authored(release, current=True, kept=public)
     tenant.published_at = datetime.now(UTC)
     tenant.updated_by = user.id
     # The label is in the log, which only the repository's own members read, as it is in
@@ -330,11 +364,7 @@ async def preview_release(
     )
     found = assessed.comparison
     return ReleasePreviewOut(
-        release=(
-            ReleaseOut.model_validate(assessed.release, from_attributes=True)
-            if assessed.release
-            else None
-        ),
+        release=(_readable(assessed.release, current=True) if assessed.release else None),
         baseline=assessed.baseline,
         matches=assessed.matches,
         live_digest=assessed.digest,
@@ -367,8 +397,14 @@ async def list_releases(
         .order_by(RepositoryRelease.number.desc())
     )
 
+    current = await current_release(session, tenant_id)
+    kept = await kept_documents(session, tenant_id)
+
     def _out(rows: Sequence[RepositoryRelease]) -> list[ReleaseAuthoredOut]:
-        return [ReleaseAuthoredOut.model_validate(r, from_attributes=True) for r in rows]
+        return [
+            _authored(r, current=bool(current and current.id == r.id), kept=r.id in kept)
+            for r in rows
+        ]
 
     return cast(
         Page[ReleaseAuthoredOut],
@@ -414,7 +450,69 @@ async def edit_release(
         detail=f"release={release.number},fields={'+'.join(changed) or 'none'}",
     )
     await session.flush()
-    out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
+    current = await current_release(session, tenant_id)
+    out = _authored(
+        release,
+        current=bool(current and current.id == release.id),
+        kept=release.id in await kept_documents(session, tenant_id),
+    )
+    await session.commit()
+    return out
+
+
+@router.put("/releases/{release_id}/current")
+async def make_release_current_route(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    release_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    body: MakeCurrentRequest | None = None,
+) -> ReleaseAuthoredOut:
+    """Makes an earlier release the one libraries read, the rollback of a bad release (ADR 0288,
+    RFC 0037 section 5). Owner only. The released rows are recomputed from that release's
+    document, "Edited since" compares with it from now on, and the libraries are told. `409
+    release-not-retained` if its content is no longer kept, `409 release-has-breaking-changes`
+    while moving from the release that is current to it breaks what libraries on that one hold,
+    unless `acknowledge_breaking`. Making the current release current is a no-op."""
+    await _require_owner(session, tenant_id=tenant_id, user=user)
+    tenant = await _require_repository(session, tenant_id)
+    body = body or MakeCurrentRequest()
+    moved = await make_release_current(
+        session,
+        repository=tenant,
+        release_id=release_id,
+        acknowledge_breaking=body.acknowledge_breaking,
+    )
+    release = moved.release
+    if moved.changed:
+        tenant.updated_by = user.id
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="repository.release_made_current",
+            target_type="tenant",
+            target_id=tenant_id,
+            detail=f"release={release.number},label={release.label}",
+        )
+        subscribers = (
+            await session.scalars(
+                select(RepositorySubscription.subscriber_tenant_id).where(
+                    RepositorySubscription.repository_tenant_id == tenant_id
+                )
+            )
+        ).all()
+        title, notice = current_notice(repository_name=tenant.name, release=release)
+        await notify_tenant_admins(
+            session,
+            recipient_tenant_ids=subscribers,
+            current_tenant_id=tenant_id,
+            type="repository_updated",
+            title=title,
+            body=notice,
+            created_by=user.id,
+        )
+    out = _authored(release, current=True, kept=True)
     await session.commit()
     return out
 
@@ -869,8 +967,10 @@ async def releases_page(
             .order_by(RepositoryRelease.number.desc())
         )
 
+        current = await current_release(session, repository_id)
+
         def _out(rows: Sequence[RepositoryRelease]) -> list[ReleaseOut]:
-            return [ReleaseOut.model_validate(r, from_attributes=True) for r in rows]
+            return [_readable(r, current=bool(current and current.id == r.id)) for r in rows]
 
         page = cast(Page[ReleaseOut], await apaginate(session, stmt, params, transformer=_out))
     return page
@@ -1338,11 +1438,7 @@ async def list_repository_updates(
             _attachment_change_out(a) for a in updates.attachments_deleted_locally
         ],
         names=updates.names,
-        release=(
-            ReleaseOut.model_validate(updates.release, from_attributes=True)
-            if updates.release
-            else None
-        ),
+        release=(_readable(updates.release, current=True) if updates.release else None),
     )
 
 

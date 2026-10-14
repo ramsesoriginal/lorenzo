@@ -144,6 +144,8 @@ class ReleaseOut(ReleaseRefOut):
     breaking_rows: list[BreakingRowOut]
     # What it changed in items libraries hold without breaking them: a parent added.
     warning_rows: list[BreakingRowOut]
+    # Whether a library reads this release now: the repository's current one (ADR 0288).
+    current: bool
 
 
 class ReleaseAuthoredOut(ReleaseOut):
@@ -151,6 +153,17 @@ class ReleaseAuthoredOut(ReleaseOut):
     published it, null once their account is gone. A library never reads it."""
 
     created_by: uuid.UUID | None
+    # Whether its content is still kept, so it can be made current again (ADR 0288): the last few
+    # releases of a public repository, and the current one.
+    kept: bool
+
+
+class MakeCurrentRequest(BaseModel):
+    """`PUT .../releases/{release_id}/current` (ADR 0288): `acknowledge_breaking` says the author
+    has looked at the rows listed in the `409` that said the move would break what libraries on
+    the release now current hold."""
+
+    acknowledge_breaking: bool = False
 
 
 class PublishedOut(TenantOut):

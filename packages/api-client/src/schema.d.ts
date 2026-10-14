@@ -953,6 +953,31 @@ export interface paths {
         patch: operations["edit_release"];
         trace?: never;
     };
+    "/tenants/{tenant_id}/releases/{release_id}/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make Release Current Route
+         * @description Makes an earlier release the one libraries read, the rollback of a bad release (ADR 0288,
+         *     RFC 0037 section 5). Owner only. The released rows are recomputed from that release's
+         *     document, "Edited since" compares with it from now on, and the libraries are told. `409
+         *     release-not-retained` if its content is no longer kept, `409 release-has-breaking-changes`
+         *     while moving from the release that is current to it breaks what libraries on that one hold,
+         *     unless `acknowledge_breaking`. Making the current release current is a no-op.
+         */
+        put: operations["make_release_current_route"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/subscribers": {
         parameters: {
             query?: never;
@@ -6912,6 +6937,19 @@ export interface components {
             value: number | string;
         };
         /**
+         * MakeCurrentRequest
+         * @description `PUT .../releases/{release_id}/current` (ADR 0288): `acknowledge_breaking` says the author
+         *     has looked at the rows listed in the `409` that said the move would break what libraries on
+         *     the release now current hold.
+         */
+        MakeCurrentRequest: {
+            /**
+             * Acknowledge Breaking
+             * @default false
+             */
+            acknowledge_breaking: boolean;
+        };
+        /**
          * ManagedCampaignOut
          * @description One campaign in `GET /me/managed` - see ADR 0086. `is_gm` is true if
          *     the caller holds a `CampaignGm` row for it; a tenant administrator sees
@@ -8235,8 +8273,12 @@ export interface components {
             breaking_rows: components["schemas"]["BreakingRowOut"][];
             /** Warning Rows */
             warning_rows: components["schemas"]["BreakingRowOut"][];
+            /** Current */
+            current: boolean;
             /** Created By */
             created_by: string | null;
+            /** Kept */
+            kept: boolean;
         };
         /**
          * ReleaseCountsOut
@@ -8285,6 +8327,8 @@ export interface components {
             breaking_rows: components["schemas"]["BreakingRowOut"][];
             /** Warning Rows */
             warning_rows: components["schemas"]["BreakingRowOut"][];
+            /** Current */
+            current: boolean;
         };
         /**
          * ReleasePreviewOut
@@ -12443,6 +12487,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReleaseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseAuthoredOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    make_release_current_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                release_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MakeCurrentRequest"] | null;
             };
         };
         responses: {

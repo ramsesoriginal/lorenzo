@@ -1044,6 +1044,14 @@ class ReleaseLabelTakenError(ConflictProblem):
     title = "That release label is taken"
 
 
+class ReleaseNotRetainedError(ConflictProblem):
+    """`PUT .../releases/{release_id}/current` - the release exists but its content is no longer
+    kept (a private repository's releases never had a document, an old one of a public
+    repository was pruned), so it cannot be made current again - ADR 0288."""
+
+    title = "That release's content is no longer kept"
+
+
 class PublicRepositoryHasNoReleaseError(ConflictProblem):
     """Reading a public repository that has no release to read: it was made public without one,
     or its current release has no document. A repository cannot be public without a release (RFC

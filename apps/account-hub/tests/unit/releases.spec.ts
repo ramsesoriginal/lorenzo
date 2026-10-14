@@ -42,6 +42,7 @@ const release = (over: Partial<ReleaseOut> = {}): ReleaseOut => ({
   counts: counts(),
   breaking_rows: [],
   warning_rows: [],
+  current: true,
   ...over,
 });
 

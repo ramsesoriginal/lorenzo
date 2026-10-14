@@ -711,6 +711,10 @@ class LinkPreviewStatOut(BaseModel):
     value: int | str | float = Field(..., title="Value")
 
 
+class MakeCurrentRequest(BaseModel):
+    acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
+
+
 class ManagedCampaignOut(BaseModel):
     campaign_id: UUID = Field(..., title="Campaign Id")
     name: str = Field(..., title="Name")
@@ -1100,6 +1104,7 @@ class ReleaseOut(BaseModel):
     counts: ReleaseCountsOut | None
     breaking_rows: list[BreakingRowOut] = Field(..., title="Breaking Rows")
     warning_rows: list[BreakingRowOut] = Field(..., title="Warning Rows")
+    current: bool = Field(..., title="Current")
 
 
 class ReleaseRefOut(BaseModel):
@@ -1935,7 +1940,9 @@ class ReleaseAuthoredOut(BaseModel):
     counts: ReleaseCountsOut | None
     breaking_rows: list[BreakingRowOut] = Field(..., title="Breaking Rows")
     warning_rows: list[BreakingRowOut] = Field(..., title="Warning Rows")
+    current: bool = Field(..., title="Current")
     created_by: UUID | None = Field(..., title="Created By")
+    kept: bool = Field(..., title="Kept")
 
 
 class ReleasePreviewOut(BaseModel):

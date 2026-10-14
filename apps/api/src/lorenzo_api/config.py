@@ -160,6 +160,10 @@ class Settings(BaseSettings):
     # its own because a cover or a map may want more than an avatar. Bytes in Postgres here too.
     picture_max_bytes: int = 2_000_000
 
+    # How many of a public repository's newest releases keep their document (RFC 0037 section 5,
+    # ADR 0288): a setting, not a promise. The current release keeps its own whatever its age.
+    release_documents_retained: int = 5
+
     @field_validator("database_url", "migrations_database_url")
     @classmethod
     def _normalize_for_asyncpg(cls, v: str) -> str:

@@ -207,7 +207,37 @@ async def releases_named(
 
 async def current_release(session: AsyncSession, repository_id: uuid.UUID) -> ReleaseRef | None:
     """The release a library that reads the repository reads: what a copy takes, what an update
-    check compares with, and what the repository's document is for a public one (ADR 0286). It
-    is the newest until a release can be made current again (RFC 0037 §5), and is asked for by
-    this name so that change is made here."""
-    return await latest_release(session, repository_id)
+    check compares with, and, for a public repository, the document that is read (ADR 0286,
+    0288). The one `tenant.current_release_id` names; a repository that has none set, because
+    nothing has made it current yet, reads as its newest release."""
+    release = await session.scalar(
+        select(RepositoryRelease)
+        .join(
+            Tenant,
+            (Tenant.current_release_id == RepositoryRelease.id)
+            & (Tenant.id == RepositoryRelease.tenant_id),
+        )
+        .where(Tenant.id == repository_id)
+    )
+    return _ref(release) if release else await latest_release(session, repository_id)
+
+
+async def set_current_release(
+    session: AsyncSession, repository: Tenant, release_id: uuid.UUID
+) -> None:
+    """Points the repository at `release_id`, one of its own releases (the key says so). The
+    caller holds the repository's row (`lock_repository`) and commits."""
+    repository.current_release_id = release_id
+    await session.flush()
+
+
+def current_notice(*, repository_name: str, release: RepositoryRelease) -> tuple[str, str]:
+    """What the libraries a repository is granted to are told when one of its earlier releases
+    is made current again: the label, the notes (cut), and what it means for a library that took
+    a later one."""
+    said = [cut(release.notes)] if release.notes else []
+    said.append(
+        "A library that already took a later release will see the earlier state as changes in "
+        "its updates."
+    )
+    return f"{repository_name} made release {release.label} current", "\n\n".join(said)
