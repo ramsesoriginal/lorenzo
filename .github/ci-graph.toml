@@ -121,3 +121,8 @@ depends_on = ["apps/api", "apps/inventory-web"]
 node = "apps/cli"
 # The real API on a fresh database behind a fake Authgear (ADR 0137), split over three runners.
 depends_on = ["apps/api"]
+
+[nodes."apps/inventory-mobile"]
+# Native Kotlin adapter consumes the REST contract; copied fonts and icons follow the brand.
+depends_on = ["apps/brand"]
+generated_from = ["apps/api"]
