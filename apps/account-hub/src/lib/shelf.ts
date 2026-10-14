@@ -193,7 +193,7 @@ export function outlineOf(plan: CopyPlanOut, repositoryId: string): Outline | nu
 }
 
 // Whether the plan's counts mean anything. The API plans a copy only when every repository it needs
-// is offered to the library and published; when one is missing it returns the plan with nothing
+// is offered to the library (or is public) and published; when one is missing it returns the plan with nothing
 // counted, and a repository the library has copied is not counted again. Zero entries would then be
 // a lie, so the page shows counts only when they were made, and says why when they were not.
 export function countsKnown(plan: CopyPlanOut, repositoryId: string): boolean {
@@ -201,7 +201,9 @@ export function countsKnown(plan: CopyPlanOut, repositoryId: string): boolean {
 
   if (!target || target.already_copied) return false;
 
-  return plan.steps.every((step) => step.already_copied || (step.granted && step.published));
+  return plan.steps.every(
+    (step) => step.already_copied || (step.published && (step.granted || step.public)),
+  );
 }
 
 export type InsideCount = { label: string; value: number };

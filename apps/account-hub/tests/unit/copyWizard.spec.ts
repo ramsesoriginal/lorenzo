@@ -44,6 +44,7 @@ function step(overrides: Partial<CopyStepOut> = {}): CopyStepOut {
     name: 'Core rules',
     granted: true,
     published: true,
+    public: false,
     already_copied: false,
     entities: 0,
     stat_groups: 0,
