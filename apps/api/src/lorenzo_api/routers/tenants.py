@@ -381,8 +381,20 @@ async def delete_tenant(
         select(func.count()).where(RepositorySubscription.repository_tenant_id == tenant_id)
     )
     if grants:
+        public = await session.scalar(
+            select(func.count()).where(
+                RepositorySubscription.repository_tenant_id == tenant_id,
+                RepositorySubscription.source == "public",
+            )
+        )
         raise RepositoryStillGrantedError(
             detail=f"Tenant {tenant_id} is still granted to {grants} tenant(s)"
+            + (
+                f", {public} of them by copying it while it was public: make it private first, "
+                "which revokes those grants (ADR 0290)"
+                if public
+                else ""
+            )
         )
 
     # A repository's cover is a row of the blob table, which the tenant's deletion does not reach.

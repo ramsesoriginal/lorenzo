@@ -1312,9 +1312,10 @@ export interface paths {
         head?: never;
         /**
          * Update Profile
-         * @description An Owner changes what the profile says; only the fields named are touched. `visibility:
-         *     "public"` is refused, in the same request as everything else in it (so nothing is kept),
-         *     until the gates that come before a public repository are built (RFC 0038 §1).
+         * @description An Owner changes what the profile says; only the fields named are touched. A `visibility`
+         *     other than the repository's own is refused, in the same request as everything else in it (so
+         *     nothing is kept): a flip makes a release, tells libraries and revokes grants, so it is `PUT`
+         *     and `DELETE` on `/public` (ADR 0290).
          */
         patch: operations["update_profile"];
         trace?: never;
@@ -1385,6 +1386,64 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/flip-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Flip
+         * @description What making the repository public, or private, would run into, before it is asked: the
+         *     repositories it is built on that are not public (with whether the caller owns each) or are
+         *     behind, the public repositories built on it, the summary, and how many libraries hold a
+         *     grant they gave themselves by copying it and how many it invited. Owner only; writes
+         *     nothing.
+         */
+        get: operations["check_flip"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/public": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make Repository Public
+         * @description Makes the repository public and makes its first public release, together or not at all
+         *     (ADR 0289): the release, its document and its notice are those of `PUT .../published`.
+         *     Needs a summary, given here or already on the profile (`422
+         *     public-repository-summary-required`), every repository it is built on public (`409
+         *     built-on-not-public`) and up to date (`409 built-on-behind`), and says what a visitor may
+         *     look at before copying (`preview`, the default `showcase`). Owner only; `422
+         *     public-repositories-not-available` while the deployment does not accept public
+         *     repositories.
+         */
+        put: operations["make_repository_public"];
+        post?: never;
+        /**
+         * Make Repository Private
+         * @description Makes the repository private. `409 public-repositories-built-on-it` while a public
+         *     repository is built on it, and `409 public-copies-would-be-cut-off` with the number of
+         *     libraries until `acknowledge_revokes` says the Owner has been told: they keep what they
+         *     copied and lose its updates. Invited libraries keep their grant. Owner only.
+         */
+        delete: operations["make_repository_private"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4643,6 +4702,22 @@ export interface components {
             readable: boolean;
         };
         /**
+         * BuiltOnPublicOut
+         * @description A repository this one is built on that is not public, and whether the caller owns it (so
+         *     the dialog can offer to make it public first).
+         */
+        BuiltOnPublicOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Owned */
+            owned: boolean;
+        };
+        /**
          * BulkAddPrototypeRequest
          * @description POST /items/bulk-add-prototype body - see ADR 0073. Adds
          *     prototype_id to every listed item's direct prototype set; an item that
@@ -6089,6 +6164,36 @@ export interface components {
             removed: unknown[] | null;
         };
         /**
+         * FlipCheckOut
+         * @description `GET .../flip-check` (ADR 0290): what a flip of this repository would run into, for the
+         *     dialog to say before the Owner asks. `available` is false while the deployment does not
+         *     accept public repositories (RFC 0038 section 1). Going public needs `built_on_not_public` and
+         *     `built_on_behind` empty and a summary; going private needs `public_dependents` empty and says
+         *     how many libraries it cuts off (`public_libraries`, which copied it by themselves, against
+         *     `invited_libraries`, which it invited and keeps).
+         */
+        FlipCheckOut: {
+            /** Available */
+            available: boolean;
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "public";
+            /** Has Summary */
+            has_summary: boolean;
+            /** Built On Not Public */
+            built_on_not_public: components["schemas"]["BuiltOnPublicOut"][];
+            /** Built On Behind */
+            built_on_behind: components["schemas"]["BuiltOnBehindOut"][];
+            /** Public Dependents */
+            public_dependents: components["schemas"]["PublicDependentOut"][];
+            /** Public Libraries */
+            public_libraries: number;
+            /** Invited Libraries */
+            invited_libraries: number;
+        };
+        /**
          * GiveContentsRequest
          * @description POST /item-instances/{id}/give-contents (ADR 0125): everything inside
          *     the container, not the container itself. `recursive` false gives only
@@ -6957,6 +7062,14 @@ export interface components {
             value: number | string;
         };
         /**
+         * MadePrivateOut
+         * @description `DELETE .../public`: how many libraries' own grants were revoked.
+         */
+        MadePrivateOut: {
+            /** Revoked */
+            revoked: number;
+        };
+        /**
          * MakeCurrentRequest
          * @description `PUT .../releases/{release_id}/current` (ADR 0288): `acknowledge_breaking` says the author
          *     has looked at the rows listed in the `409` that said the move would break what libraries on
@@ -6968,6 +7081,38 @@ export interface components {
              * @default false
              */
             acknowledge_breaking: boolean;
+        };
+        /**
+         * MakePublicRequest
+         * @description `PUT .../public`: the first public release, as `PUT .../published` makes one (`label`,
+         *     `notes`, `breaking`, `acknowledge_breaking`), and what the repository says about itself as
+         *     it goes public. `summary` is kept if given (a repository must have one, here or already);
+         *     `preview` is the Owner's switch for what a visitor may look at before copying (RFC 0038
+         *     section 5), `showcase` unless they choose.
+         */
+        MakePublicRequest: {
+            /** Label */
+            label?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Breaking
+             * @default false
+             */
+            breaking: boolean;
+            /**
+             * Acknowledge Breaking
+             * @default false
+             */
+            acknowledge_breaking: boolean;
+            /**
+             * Preview
+             * @default showcase
+             * @enum {string}
+             */
+            preview: "off" | "showcase" | "public";
+            /** Summary */
+            summary?: string | null;
         };
         /**
          * ManagedCampaignOut
@@ -8204,6 +8349,19 @@ export interface components {
             slug: string;
             /** Public */
             public: boolean;
+        };
+        /**
+         * PublicDependentOut
+         * @description A public repository built on this one.
+         */
+        PublicDependentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /**
          * PublishRequest
@@ -14066,6 +14224,207 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    check_flip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlipCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    make_repository_public: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MakePublicRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    make_repository_private: {
+        parameters: {
+            query?: {
+                acknowledge_revokes?: boolean;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MadePrivateOut"];
                 };
             };
             /** @description Validation Error */
