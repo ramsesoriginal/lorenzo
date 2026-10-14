@@ -776,8 +776,8 @@ async def test_a_first_copy_with_pictures_and_documents_carries_their_bytes_from
 async def test_the_comparison_notices_when_a_document_is_not_the_rows(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:
-    """The tests above are only as good as their means of telling: a document that says
-    something else gives another plan and other updates."""
+    """The tests above are only as good as their means of telling: rows edited after the
+    document was made give other updates from the rows than from the document."""
     world = await release_world(raw_client, fake_jwks_server, copied=True)
     try:
         documents = await _documents(world.repository)
@@ -789,10 +789,14 @@ async def test_the_comparison_notices_when_a_document_is_not_the_rows(
             == []
         )
 
-        documents[world.repository].entities[world.ids["Longsword"]] = "Tampered with"
-        updates = await _updates(world.table, world.repository, documents)
+        async with admin_session_factory() as session:
+            (await session.get_one(Entity, world.ids["Longsword"])).name = "Tampered with"
+            await session.commit()
+        from_rows = await _updates(world.table, world.repository, {})
+        from_documents = await _updates(world.table, world.repository, documents)
 
-        assert [c.fields[0].field for c in updates.changed] == ["name"]
-        assert differences(await _updates(world.table, world.repository, {}), updates)
+        assert [c.fields[0].field for c in from_rows.changed] == ["name"]
+        assert from_documents.changed == []
+        assert differences(from_rows, from_documents)
     finally:
         await world.done()
