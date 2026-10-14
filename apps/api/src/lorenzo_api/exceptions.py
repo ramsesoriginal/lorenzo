@@ -1303,3 +1303,18 @@ class PublicCopiesWouldBeCutOffError(ConflictProblem):
     it, without `acknowledge_revokes`. Carries `libraries`: how many - ADR 0289."""
 
     title = "Libraries that copied this repository would lose their update path"
+
+
+class PublicRepositorySummaryRequiredError(UnprocessableProblem):
+    """Making a repository public without a summary: what a visitor reads of it in Discover and
+    on its page - ADR 0290, RFC 0038 section 7."""
+
+    title = "A public repository needs a summary"
+
+
+class VisibilityHasItsOwnRouteError(UnprocessableProblem):
+    """`PATCH .../profile` with a `visibility` other than the one the repository has: a flip
+    makes a release, tells libraries and revokes grants, so it is `PUT` and `DELETE` on
+    `.../public` - ADR 0290."""
+
+    title = "Visibility is changed through its own route"

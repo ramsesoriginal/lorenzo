@@ -164,6 +164,11 @@ class Settings(BaseSettings):
     # ADR 0288): a setting, not a promise. The current release keeps its own whatever its age.
     release_documents_retained: int = 5
 
+    # Whether a repository can be made public (RFC 0038 section 1, ADR 0290). Off until the gates
+    # that come before a public repository are in (D3 to D6) and the deployment says so: the flip
+    # routes exist and answer `public-repositories-not-available` while it is off.
+    public_repositories_enabled: bool = False
+
     @field_validator("database_url", "migrations_database_url")
     @classmethod
     def _normalize_for_asyncpg(cls, v: str) -> str:

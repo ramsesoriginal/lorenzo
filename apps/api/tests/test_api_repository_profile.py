@@ -308,10 +308,10 @@ async def test_editing_the_profile_is_logged_by_field_name_not_by_text(
         await cleanup([faerun], [owner])
 
 
-# --- Public is refused until its gates are built ------------------------------------------
+# --- The visibility is changed through its own route --------------------------------------
 
 
-async def test_public_is_refused_in_words_and_changes_nothing(
+async def test_the_visibility_is_not_changed_through_the_profile_and_changes_nothing(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:
     owner = await make_actor(raw_client, fake_jwks_server, "owner")
@@ -323,12 +323,12 @@ async def test_public_is_refused_in_words_and_changes_nothing(
         )
         assert refused.status_code == 422
         problem = refused.json()
-        assert problem["type"] == "public-repositories-not-available"
-        assert "not available yet" in problem["detail"]
+        assert problem["type"] == "visibility-has-its-own-route"
+        assert "PUT or DELETE on /public" in problem["detail"]
         assert "tenant" not in (problem["title"] + problem["detail"]).lower()
         # Nothing of the request was kept, not even the summary beside it.
         assert _without_stamp(await _profile(owner, faerun)) == _DEFAULTS
-        # Saying private is fine, and so is every value of the preview switch.
+        # Saying private, which it is, is fine, and so is every value of the preview switch.
         for body in (
             {"visibility": "private"},
             {"preview": "public"},
