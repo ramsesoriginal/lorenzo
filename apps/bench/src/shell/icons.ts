@@ -29,6 +29,8 @@ export const ICON_NAMES = [
   'offline',
   'refresh',
   'ancestry',
+  // Who can read a note: the lock on one that is Everyone's
+  'private',
   // The panes and the layouts
   'edit',
   'stat',

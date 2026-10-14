@@ -22,6 +22,7 @@ import type {
   RepositoryEntityOut,
   RepositoryProfileOut,
   RepositoryStatGroupOut,
+  ShowcaseOut,
   SubscriberOut,
   SubscriptionOut,
   UpdatesOut,
@@ -347,4 +348,65 @@ export async function makePrivate(
       },
     }),
   );
+}
+
+// What a visitor may look at before copying (RFC 0038 §5, ADR 0293): the Owner's switch, written on
+// the profile. An Owner's.
+export async function setPreviewChoice(
+  repositoryId: string,
+  preview: RepositoryProfileOut['preview'],
+): Promise<RepositoryProfileOut> {
+  return unwrap(
+    await client.PATCH('/tenants/{tenant_id}/profile', {
+      params: { path: { tenant_id: repositoryId } },
+      body: { preview },
+    }),
+  );
+}
+
+// The entries the Owner features, in order, and how many they may (any member reads them).
+export async function getShowcase(
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<ShowcaseOut> {
+  return cached(
+    `showcase:${repositoryId}`,
+    async () =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/showcase', {
+          params: { path: { tenant_id: repositoryId } },
+        }),
+      ),
+    { force: fresh },
+  );
+}
+
+// Features these entries, in this order, instead of the ones there. An Owner's. A refusal
+// (`showcase-invalid`) changes nothing and is thrown for the card to say.
+export async function putShowcase(
+  repositoryId: string,
+  entityIds: readonly string[],
+): Promise<ShowcaseOut> {
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/showcase', {
+      params: { path: { tenant_id: repositoryId } },
+      body: { entity_ids: [...entityIds] },
+    }),
+  );
+}
+
+// The entries of the repository whose name has `q` in it, by name: to find one to feature. Names as
+// they are now, which is what the Owner sees when they edit; a visitor reads the latest release.
+export async function searchOwnEntries(
+  repositoryId: string,
+  q: string,
+  size = 10,
+): Promise<{ id: string; name: string }[]> {
+  const page = await unwrap(
+    await client.GET('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id: repositoryId }, query: { q, page: 1, size } },
+    }),
+  );
+
+  return page.items.map((entry) => ({ id: entry.id, name: entry.name }));
 }

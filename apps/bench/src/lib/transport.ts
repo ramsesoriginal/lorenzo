@@ -86,6 +86,8 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
               text: text.content,
               // The payload's own `updated_at`, as a weak ETag (ADR 0108).
               version: `W/"${text.updated_at}"`,
+              // Everyone's, or GM only (the row's `is_public`).
+              isPublic: info.is_public,
             },
           ];
         });
@@ -488,6 +490,20 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
           await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/information/order', {
             params,
             body: { information_ids: ordered },
+          }),
+        );
+        return read(id);
+      }),
+
+    // The information row's own `is_public`: an edit of content, so an Author may do it (RFC 0038
+    // section 5). No `If-Match`: the command layer has compared the value itself, and a note made
+    // GM only (or Everyone's) is the same whatever else about the row changed.
+    setNotePublic: (id, noteId, isPublic) =>
+      guarded(async () => {
+        await unwrap(
+          await client.PATCH('/tenants/{tenant_id}/information/{information_id}', {
+            params: { path: { ...path, information_id: noteId } },
+            body: { is_public: isPublic },
           }),
         );
         return read(id);

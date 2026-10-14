@@ -23,6 +23,7 @@ export type CommandType =
   | 'description.set-text'
   | 'note.add'
   | 'note.set-text'
+  | 'note.set-public'
   | 'notes.set-order';
 export type CommandState = 'waiting' | 'sending' | 'synced' | 'conflict' | 'attention';
 
@@ -94,6 +95,8 @@ const withText = (doc: TextDoc | undefined, c: Command, text: string, title: str
   title: doc?.title ?? title,
   text,
   version: doc?.version ?? null,
+  // What is written here is GM only until someone says otherwise (RFC 0038 section 5).
+  isPublic: doc?.isPublic ?? false,
 });
 
 const descriptionDef: Definition = {
@@ -125,6 +128,21 @@ const noteSetDef: Definition = {
     notes: entry.notes.map((n) => (n.id === c.textId ? { ...n, text: value as string } : n)),
   }),
   send: sent,
+};
+
+/**
+ * Who a note is for, as one value: `true` is Everyone (a library that copies the repository gets it,
+ * and a visitor may read it), `false` is GM only. Bench makes notes GM only, and takes Everyone's
+ * back to GM only with one click (RFC 0038 section 5).
+ */
+const noteAudienceDef: Definition = {
+  label: 'who can read the note',
+  read: (entry, c) => entry.notes.find((n) => n.id === c.textId)?.isPublic ?? false,
+  apply: (entry, value, c) => ({
+    ...entry,
+    notes: entry.notes.map((n) => (n.id === c.textId ? { ...n, isPublic: value === true } : n)),
+  }),
+  send: (t, entry, value, c) => t.setNotePublic(entry.id, c.textId as string, value === true),
 };
 
 /** The entry's own value for the command's stat, or null when it has none of its own. */
@@ -208,6 +226,7 @@ export const REGISTRY: Record<CommandType, Definition> = {
   'description.set-text': descriptionDef,
   'note.add': noteAddDef,
   'note.set-text': noteSetDef,
+  'note.set-public': noteAudienceDef,
   'stat.set': statDef,
   'entry.set-kind': kindDef,
   'entry.set-slug': slugDef,
@@ -268,7 +287,7 @@ export function makesId(c: Command): string | undefined {
 /** Every id this command needs to exist before it can be sent: its entry, its parents, its note. */
 export function usedIds(c: Command): string[] {
   const ids = [c.entryId, ...(Array.isArray(c.mine) ? c.mine : []), ...(c.args?.parents ?? [])];
-  if (c.type === 'note.set-text' && c.textId) ids.push(c.textId);
+  if ((c.type === 'note.set-text' || c.type === 'note.set-public') && c.textId) ids.push(c.textId);
   if (c.type === 'notes.set-order') ids.push(...String(c.mine).split(','));
   return ids;
 }

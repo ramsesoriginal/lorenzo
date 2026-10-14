@@ -65,6 +65,7 @@ const entry = {
       id: 'i1',
       type: 'description',
       title: 'Description',
+      is_public: false,
       payloads: [
         {
           id: 'p1',
@@ -78,6 +79,7 @@ const entry = {
       id: 'i2',
       type: 'note',
       title: 'Note',
+      is_public: true,
       payloads: [
         {
           id: 'p2',
@@ -128,6 +130,7 @@ describe('apiTransport', () => {
         title: 'Description',
         text: 'Hunts in packs.',
         version: 'W/"2026-10-09T10:00:00Z"',
+        isPublic: false,
       },
       notes: [
         {
@@ -136,6 +139,7 @@ describe('apiTransport', () => {
           title: 'Note',
           text: 'A ranger note.',
           version: 'W/"2026-10-09T11:00:00Z"',
+          isPublic: true,
         },
       ],
       stats: [
@@ -385,6 +389,42 @@ describe('apiTransport', () => {
           : json(detail(['n1'])),
       );
       await expect(transport.setNoteOrder(E, ['n1'])).rejects.toThrow(/List mismatch/);
+    });
+  });
+
+  describe('who reads a note', () => {
+    it("reads whether a note is Everyone's from the row's is_public", async () => {
+      const { transport } = setup(() => json(entry, { etag: '"abc"' }));
+      const state = await transport.getEntry(E);
+      expect(state.notes.map((n) => n.isPublic)).toEqual([true]);
+      expect(state.description?.isPublic).toBe(false);
+    });
+
+    it("makes a note GM only with the information's own is_public, and reads the entry back", async () => {
+      const { transport, calls } = setup((r) =>
+        r.method === 'PATCH' ? json({ id: 'i2', is_public: false }) : json(entry, { etag: '"n"' }),
+      );
+      const after = await transport.setNotePublic(E, 'i2', false);
+      expect(calls[0]).toMatchObject({
+        method: 'PATCH',
+        url: `/tenants/${T}/information/i2`,
+        body: { is_public: false },
+      });
+      expect(calls[1]).toMatchObject({ method: 'GET', url: `/tenants/${T}/entities/${E}` });
+      expect(after.etag).toBe('"n"');
+    });
+
+    it('says what the API said when it refuses (403), and is offline when there is no connection', async () => {
+      const refusing = setup((r) =>
+        r.method === 'PATCH' ? json({ detail: 'Not yours' }, { status: 403 }) : json(entry),
+      );
+      await expect(refusing.transport.setNotePublic(E, 'i2', false)).rejects.toThrow(/Not yours/);
+      const offline = setup(() => {
+        throw new TypeError('Failed to fetch');
+      });
+      await expect(offline.transport.setNotePublic(E, 'i2', false)).rejects.toBeInstanceOf(
+        OfflineError,
+      );
     });
   });
 

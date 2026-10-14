@@ -3,7 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 // The sign-in library needs a browser; nothing here signs in.
 vi.mock('./auth', () => ({ getAccessToken: vi.fn() }));
 
-import { audienceLabel, audienceOf, type Knower, moved, planAudience, reordered } from './notes';
+import {
+  audienceLabel,
+  audienceOf,
+  EVERYONE_NOTE_IN_REPOSITORY,
+  type Knower,
+  moved,
+  planAudience,
+  reordered,
+  showsLock,
+} from './notes';
 
 const entity = (id: string): Knower => ({
   kind: 'entity',
@@ -78,5 +87,15 @@ describe('order', () => {
     expect(moved(['a', 'b', 'c'], 2, 1)).toEqual(['a', 'c', 'b']);
     expect(moved(['a', 'b', 'c'], 0, -1)).toEqual(['a', 'b', 'c']);
     expect(moved(['a', 'b', 'c'], 2, 3)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('the lock on a note', () => {
+  it("is on an Everyone's note in a repository, and nowhere else", () => {
+    expect(showsLock(true, { is_public: true })).toBe(true);
+    expect(showsLock(true, { is_public: false })).toBe(false);
+    expect(showsLock(false, { is_public: true })).toBe(false);
+    expect(showsLock(undefined, { is_public: true })).toBe(false);
+    expect(EVERYONE_NOTE_IN_REPOSITORY).toBe('Visible to libraries that copy this');
   });
 });

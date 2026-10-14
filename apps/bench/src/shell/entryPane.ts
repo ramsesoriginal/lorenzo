@@ -164,12 +164,43 @@ export function renderEntry(
       b.dataset.key = `note-${by < 0 ? 'up' : 'down'}:${note.id}`;
       order.append(b);
     }
-    row.append(order, editor);
+    row.append(order, editor, noteAudience(bench, id, note));
     extra.append(row);
   });
   extra.append(newNote(bench, id));
   c.append(extra);
   return c;
+}
+
+/** What a note says of who reads it, and where it is Everyone's, the one click that takes it back. */
+export const EVERYONE_NOTE = 'Visible to libraries that copy this';
+
+/**
+ * Under a note: GM only, or, for a note that is Everyone's, a lock and "Make GM only". Everyone's
+ * text goes with every copy of the repository and is what a person may read before copying it
+ * (RFC 0038 section 5), so it is shown where it is written. Making a note GM only is a change like
+ * any other: written down, sent, and undone with Undo.
+ */
+function noteAudience(
+  bench: Bench,
+  entryId: string,
+  note: { id: string; title: string; isPublic: boolean },
+): HTMLElement {
+  if (!note.isPublic) {
+    const quiet = el('div', 'note-audience note-gm');
+    quiet.dataset.key = `note-gm:${note.id}`;
+    quiet.append(el('span', undefined, 'GM only'));
+    return quiet;
+  }
+  const box = el('div', 'note-audience note-lock');
+  box.dataset.key = `note-lock:${note.id}`;
+  const label = el('span', 'note-lock-label');
+  label.append(icon('private', 14), el('span', undefined, EVERYONE_NOTE));
+  const make = button('Make GM only', () => bench.makeNoteGmOnly(entryId, note.id), 'btn quiet');
+  make.setAttribute('aria-label', `Make GM only: ${note.title}`);
+  make.dataset.key = `note-make-gm:${note.id}`;
+  box.append(label, make);
+  return box;
 }
 
 /** The link name: what `[[Name]]` and `[text](slug)` in a text call the entry by. */
@@ -353,6 +384,7 @@ export const kindsText = (kinds: readonly string[]): string =>
 
 export const showValue = (v: unknown, bench: Bench, cmd?: Command): string => {
   if (cmd?.type === 'notes.set-order') return 'another order';
+  if (cmd?.type === 'note.set-public') return v === true ? 'Everyone' : 'GM only';
   if (cmd?.type === 'entry.set-slug' && v === null) return 'no link name';
   if (Array.isArray(v)) return v.map((p) => bench.displayName(p)).join(', ') || 'none';
   if (v === null) return 'nothing of its own (inherited)';
@@ -366,6 +398,7 @@ export function fieldLabel(cmd: Command): string {
     cmd.stat?.name ??
     (cmd.type === 'entry.set-slug' ? 'link name' : undefined) ??
     (cmd.type === 'notes.set-order' ? 'order of the notes' : undefined) ??
+    (cmd.type === 'note.set-public' ? 'audience of the note' : undefined) ??
     (cmd.kind ? `${cmd.kind} kind` : cmd.type === 'entry.set-name' ? 'name' : 'parents')
   );
 }

@@ -11,6 +11,7 @@ import { gmCampaignsIn, isTenantMember, myBeingIds } from '../../lib/me';
 import { valueText, vitalsOf } from '../../lib/statBand';
 import { say } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
+import { getTenant } from '../../lib/tenants';
 import type { Character, EntityDetail } from '../../lib/types';
 import { renderBeingNotes } from '../BeingNotes/renderer';
 import { renderBeingView } from '../BeingView/renderer';
@@ -207,10 +208,15 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
 
       // Who gets the writing controls: those who run a campaign or the library, and whoever plays
       // this being. A convenience only; the API decides every write.
-      const [gmCampaigns, member, mine] = await Promise.all([
+      const [gmCampaigns, member, mine, inRepository] = await Promise.all([
         gmCampaignsIn(tenantId).catch(() => []),
         isTenantMember(tenantId).catch(() => false),
         myBeingIds(tenantId).catch(() => new Set<string>()),
+        // A repository's beings are opened here too, and their Everyone's notes go with every copy.
+        getTenant(tenantId).then(
+          (tenant) => tenant.kind === 'repository',
+          () => false,
+        ),
       ]);
       const runsTheTable = gmCampaigns.length > 0 || member;
 
@@ -220,6 +226,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
         tenantId,
         renderer,
         beingId: entityId,
+        inRepository,
       });
 
       void notes.load({ canWrite: canEdit, runsTheTable });

@@ -415,6 +415,57 @@ test('a note added with no connection can be edited, then both are sent in order
   ]);
 });
 
+test.describe('who reads a note', () => {
+  const lock = (page: Page, note: string) => page.locator(`[data-key="note-lock:${note}"]`);
+  const gmOnly = (page: Page, note: string) => page.locator(`[data-key="note-gm:${note}"]`);
+
+  test("an Everyone's note shows a lock, and one click makes it GM only and Undo puts it back", async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    // Everyone's: the lock and what it means. GM only: said quietly.
+    await expect(lock(page, 'wolf-tactics')).toContainText('Visible to libraries that copy this');
+    await expect(gmOnly(page, 'wolf-note')).toHaveText('GM only');
+    await expect(lock(page, 'wolf-note')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Make GM only: Pack tactics' }).click();
+    await expect(status(page)).toHaveText('Synced');
+    await expect(lock(page, 'wolf-tactics')).toHaveCount(0);
+    await expect(gmOnly(page, 'wolf-tactics')).toHaveText('GM only');
+    expect(await writes(page)).toEqual([
+      { id: 'wolf-tactics', field: 'note.public', value: false },
+    ]);
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(status(page)).toHaveText('Synced');
+    await expect(lock(page, 'wolf-tactics')).toBeVisible();
+    expect((await writes(page)).map((w) => w.value)).toEqual([false, true]);
+  });
+
+  test('a note written here is GM only', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByLabel('A new note').fill('Mine.');
+    await page.getByRole('button', { name: 'Add note' }).click();
+    await expect(status(page)).toHaveText('Synced');
+    await expect(page.locator('.note-audience.note-gm')).toHaveCount(2);
+    await expect(page.locator('.note-lock')).toHaveCount(1);
+  });
+
+  test('with no connection it is saved here, and sent when it is back', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await page.getByRole('button', { name: 'Make GM only: Pack tactics' }).click();
+    await expect(status(page)).toHaveText('Saved on this device');
+    await expect(gmOnly(page, 'wolf-tactics')).toHaveText('GM only');
+    expect(await writes(page)).toEqual([]);
+    await palette(page, 'get the connection back');
+    await expect(status(page)).toHaveText('Synced');
+    expect(await writes(page)).toEqual([
+      { id: 'wolf-tactics', field: 'note.public', value: false },
+    ]);
+  });
+});
+
 test('what is typed in a description survives another change arriving', async ({ page }) => {
   await page.locator('[data-entry="wolf"]').click();
   await openText(page, 'Description');
