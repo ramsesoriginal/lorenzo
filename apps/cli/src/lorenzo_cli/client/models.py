@@ -1072,10 +1072,32 @@ class PlayerUpdate(BaseModel):
     self_service: bool | None = Field(None, title="Self Service")
 
 
+class PreviewDescriptionOut(BaseModel):
+    locale: str = Field(..., title="Locale")
+    content: str = Field(..., title="Content")
+
+
 class PreviewInputOut(BaseModel):
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
     name: str = Field(..., title="Name")
     value: int | float | str | bool | None = Field(..., title="Value")
+
+
+class PreviewParentOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+
+
+class PreviewPictureOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    file_type: str = Field(..., title="File Type")
+
+
+class PreviewStatOut(BaseModel):
+    definition_id: UUID = Field(..., title="Definition Id")
+    name: str = Field(..., title="Name")
+    group: str = Field(..., title="Group")
+    value: Any = Field(..., title="Value")
 
 
 class Mode1(StrEnum):
@@ -1226,7 +1248,7 @@ class RepositorySummaryOut(BaseModel):
     published_at: AwareDatetime | None = Field(..., title="Published At")
 
 
-class Kind15(StrEnum):
+class Kind16(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -1239,13 +1261,13 @@ class Action(StrEnum):
 
 
 class ResolutionIn(BaseModel):
-    kind: Kind15 = Field(..., title="Kind")
+    kind: Kind16 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
-class Kind16(StrEnum):
+class Kind17(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -1256,7 +1278,7 @@ class ResolvedSlugOut(BaseModel):
     slug: str = Field(..., title="Slug")
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind16] = Field(..., title="Kinds")
+    kinds: list[Kind17] = Field(..., title="Kinds")
 
 
 class RoundMode(StrEnum):
@@ -1267,7 +1289,7 @@ class RoundMode(StrEnum):
     truncate = "truncate"
 
 
-class Kind17(StrEnum):
+class Kind18(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1278,7 +1300,7 @@ class State4(StrEnum):
     edited = "edited"
 
 
-class Kind18(StrEnum):
+class Kind19(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1286,14 +1308,14 @@ class Kind18(StrEnum):
 
 
 class RowNameOut(BaseModel):
-    kind: Kind18 = Field(..., title="Kind")
+    kind: Kind19 = Field(..., title="Kind")
     row_id: UUID = Field(..., title="Row Id")
     parent_id: UUID | None = Field(..., title="Parent Id")
     name: str = Field(..., title="Name")
     parent_name: str | None = Field(..., title="Parent Name")
 
 
-class Kind19(StrEnum):
+class Kind20(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1320,6 +1342,23 @@ class SetOwnerRequest(BaseModel):
 
 class SetPrototypesRequest(BaseModel):
     prototype_ids: list[UUID] | None = Field([], title="Prototype Ids")
+
+
+class ShowcaseEntryOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+
+
+class ShowcaseOut(BaseModel):
+    limit: int = Field(..., title="Limit")
+    entries: list[ShowcaseEntryOut] = Field(..., title="Entries")
+
+
+class ShowcaseUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entity_ids: list[UUID] = Field(..., max_length=100, title="Entity Ids")
 
 
 class SplitItemInstanceRequest(BaseModel):
@@ -2012,6 +2051,14 @@ class PageTenantSummaryOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PreviewInformationOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    title: str = Field(..., title="Title")
+    type: str = Field(..., title="Type")
+    descriptions: list[PreviewDescriptionOut] = Field(..., title="Descriptions")
+    pictures: list[PreviewPictureOut] = Field(..., title="Pictures")
+
+
 class ReleaseAuthoredOut(BaseModel):
     id: UUID = Field(..., title="Id")
     number: int = Field(..., title="Number")
@@ -2063,7 +2110,7 @@ class RepositoryStatGroupOut(BaseModel):
 
 
 class RowChangeOut(BaseModel):
-    kind: Kind17 = Field(..., title="Kind")
+    kind: Kind18 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -2073,7 +2120,7 @@ class RowChangeOut(BaseModel):
 
 
 class RowRefOut(BaseModel):
-    kind: Kind19 = Field(..., title="Kind")
+    kind: Kind20 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -2157,7 +2204,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind19 = Field(..., title="Kind")
+    kind: Kind20 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
@@ -2396,6 +2443,22 @@ class PageStatDefinitionOut(BaseModel):
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
     pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PreviewEntityOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    kinds: list[Kind13] = Field(..., title="Kinds")
+    parents: list[PreviewParentOut] = Field(..., title="Parents")
+    featured: bool = Field(..., title="Featured")
+    text_visible: bool = Field(..., title="Text Visible")
+    information: list[PreviewInformationOut] = Field(..., title="Information")
+    stats: list[PreviewStatOut] = Field(..., title="Stats")
+
+
+class PreviewOut(BaseModel):
+    preview: Preview = Field(..., title="Preview")
+    entries: list[PreviewEntityOut] = Field(..., title="Entries")
 
 
 class PublishedOut(BaseModel):
