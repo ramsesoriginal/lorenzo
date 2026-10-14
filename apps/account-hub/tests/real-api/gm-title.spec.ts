@@ -50,8 +50,8 @@ test("a table's own word for its game master is read wherever its campaign appea
 
   // The settings: two plain boxes, the default as their placeholders, and what they do not change.
   await card.getByRole('button', { name: 'Edit', exact: true }).click();
-  const title = card.getByLabel('Title', { exact: true });
-  const plural = card.getByLabel('Plural', { exact: true });
+  const title = card.locator('[data-campaign-form]').getByLabel('Title', { exact: true });
+  const plural = card.locator('[data-campaign-form]').getByLabel('Plural', { exact: true });
   await expect(card.getByText('What does your table call its game master?')).toBeVisible();
   await expect(title).toHaveValue('');
   await expect(title).toHaveAttribute('placeholder', 'GM');
@@ -106,6 +106,7 @@ test("a table's own word for its game master is read wherever its campaign appea
   // A repository has no campaign: its publish dialog still says GM only.
   const repository = await newRepository(owner.api, `Bestiary ${crypto.randomUUID().slice(0, 8)}`);
   await addItem(owner.api, repository.id, 'Owlbear');
+  await page.evaluate(() => sessionStorage.clear());
   await page.goto(`/studio/?repository=${repository.slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await page.getByRole('button', { name: 'Publish…', exact: true }).click();
@@ -116,9 +117,11 @@ test("a table's own word for its game master is read wherever its campaign appea
   // Back to the default: both boxes empty.
   const again = campaignCard(await openLibrary(page, library), 'Zorro');
   await again.getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(again.getByLabel('Title', { exact: true })).toHaveValue('Storyteller');
-  await again.getByLabel('Title', { exact: true }).fill('');
-  await again.getByLabel('Plural', { exact: true }).fill('');
+  await expect(
+    again.locator('[data-campaign-form]').getByLabel('Title', { exact: true }),
+  ).toHaveValue('Storyteller');
+  await again.locator('[data-campaign-form]').getByLabel('Title', { exact: true }).fill('');
+  await again.locator('[data-campaign-form]').getByLabel('Plural', { exact: true }).fill('');
   await again.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(again.locator('[data-campaign-meta]')).toContainText('test · GM');
   const reset = await read();
@@ -130,6 +133,7 @@ test('a title is refused in words, whether the page or the API refuses it', asyn
   const owner = await newUser('owner', ['tenant_creator']);
   const library = await newLibrary(owner.api);
   const zorro = await newCampaign(owner.api, library.id, 'Zorro');
+  await makeGm(owner.api, library.id, zorro.id, owner.me.id);
   const path = { tenant_id: library.id, campaign_id: zorro.id };
   const read = async () =>
     ok(owner.api.GET('/tenants/{tenant_id}/campaigns/{campaign_id}', { params: { path } }));
@@ -143,13 +147,19 @@ test('a title is refused in words, whether the page or the API refuses it', asyn
   await card.getByRole('button', { name: 'Edit', exact: true }).click();
 
   // One without the other.
-  await card.getByLabel('Title', { exact: true }).fill('Storyteller');
+  await card
+    .locator('[data-campaign-form]')
+    .getByLabel('Title', { exact: true })
+    .fill('Storyteller');
   await card.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(status).toHaveText(words);
 
   // Markup is the API's to refuse, and is said with the same words.
-  await card.getByLabel('Title', { exact: true }).fill('<b>Teller</b>');
-  await card.getByLabel('Plural', { exact: true }).fill('Tellers');
+  await card
+    .locator('[data-campaign-form]')
+    .getByLabel('Title', { exact: true })
+    .fill('<b>Teller</b>');
+  await card.locator('[data-campaign-form]').getByLabel('Plural', { exact: true }).fill('Tellers');
   await card.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(status).toHaveText(words);
   await expect(status).not.toContainText('{');
@@ -158,8 +168,14 @@ test('a title is refused in words, whether the page or the API refuses it', asyn
   expect([kept.gm_title, kept.gm_title_plural]).toEqual(['GM', 'GMs']);
 
   // A name with an apostrophe and a space is plain text, kept as written.
-  await card.getByLabel('Title', { exact: true }).fill("Keeper o' Tales");
-  await card.getByLabel('Plural', { exact: true }).fill("Keepers o' Tales");
+  await card
+    .locator('[data-campaign-form]')
+    .getByLabel('Title', { exact: true })
+    .fill("Keeper o' Tales");
+  await card
+    .locator('[data-campaign-form]')
+    .getByLabel('Plural', { exact: true })
+    .fill("Keepers o' Tales");
   await card.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(card.locator('[data-campaign-meta]')).toContainText("Keeper o' Tales");
   expect((await read()).gm_title).toBe("Keeper o' Tales");
@@ -219,8 +235,8 @@ test('the settings field works on a phone: boxes the size of a thumb, nothing wi
   const card = campaignCard(await openLibrary(page, library), 'Zorro');
 
   await card.getByRole('button', { name: 'Edit', exact: true }).click();
-  const title = card.getByLabel('Title', { exact: true });
-  const plural = card.getByLabel('Plural', { exact: true });
+  const title = card.locator('[data-campaign-form]').getByLabel('Title', { exact: true });
+  const plural = card.locator('[data-campaign-form]').getByLabel('Plural', { exact: true });
   await title.scrollIntoViewIfNeeded();
   await expect(title).toBeVisible();
   await expect(plural).toBeVisible();
