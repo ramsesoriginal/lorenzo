@@ -195,3 +195,12 @@ Playwright's own `--shard` (1.63) splits by the number of tests, and what a spec
 - **apps/api: two legs again** (`shards = 2` in `.github/ci-graph.toml`), each on four parallel workers, since one leg's 116 s of tests would be the longest job once the end-to-end ones are shorter.
 
 This is three more runners for a full run. What it should bring, to be confirmed by the run of the change that made it: two workers on 137-144 worker-seconds are about 70 s, with about 25 s to set a job up, so about 100 s for each inventory-web shard, and about 90 s and 95 s for the hub's and the API's, against 162 s for the longest job before.
+
+## Addendum (2026-10-14): small legs share a runner
+
+The full run after the shards and the API's write routes had merged (a push to main, 2026-10-14) took 175 s, and its longest job 128 s. The rest was waiting: it ran 33 jobs, and never more than 16 at once. Fifteen of them started at once, and `test (apps/api 1/2)`, the longest job, got a runner 46 s into the run (its other half at 16 s), then ran 122 s: it was done at 168 s, of 175. Thirteen of the 33 were legs of 12 to 50 s (`test` of each package, of `apps/cli`, `apps/inventory-web`, `apps/account-hub`, `apps/beings`, `apps/bench`), each paying 10 to 15 s to be set up, and taking a runner that a slow leg was waiting for.
+
+- **`batch` in `.github/ci-graph.toml`.** Nodes with the same `batch` name run their `lint` and `test` one after the other on one runner (`apps/inventory-web` and `apps/account-hub`; `apps/beings` and `apps/bench`; `apps/cli` with `packages/inventory-names` and `packages/converters`; the other packages), as four legs of an estimated 45 to 75 s instead of thirteen. Every node of a batch runs even when an earlier one failed, with a log group and an error annotation each. Only the nodes that are affected are in a leg, so a pull request pays for what it changes, as before. A node that needs Postgres or is sharded cannot be in a batch (`affected.py` says so); `apps/api` and `apps/loot-bot` keep legs of their own.
+- **Job names change.** `test (apps/cli)` and the like are `test (batch cli)` now. Nothing requires them by name: the `main` ruleset requires `ci-summary`, and the `needs` of that job is the `test` job as a whole.
+
+A full run is then 24 jobs instead of 33, and what it should bring, to be confirmed by the run of the change that made it: the API's two legs start with the end-to-end ones, so the longest job is done at about 145 s, and the whole run at about 150 s, with less runner time paid for (nine setups of 10 to 15 s).
