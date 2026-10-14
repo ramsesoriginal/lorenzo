@@ -134,5 +134,20 @@ export function dialogFor(mode: PublishMode, name: string, facts: PublishFacts):
   }
 }
 
+// Which of the publish buttons a person has: only an Owner has any. A public repository is not
+// unpublished (ADR 0290): it is made private first, which says what that does to the libraries that
+// read it, so its Unpublish button is not there.
+export function publishButtons(
+  owner: boolean,
+  published: boolean,
+  isPublic: boolean,
+): { publish: boolean; announce: boolean; unpublish: boolean } {
+  return {
+    publish: owner && !published,
+    announce: owner && published,
+    unpublish: owner && published && !isPublic,
+  };
+}
+
 // Only an Owner can publish or unpublish; an Organizer is told so where the buttons would be.
 export const OWNER_ONLY_NOTE = 'Only an Owner can publish or unpublish a repository.';

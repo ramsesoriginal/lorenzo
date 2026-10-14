@@ -10,6 +10,7 @@ import TenantInviteLinks from '../TenantInviteLinks/TenantInviteLinks.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
 import TenantDelete from '../TenantDelete/TenantDelete.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
+import ReleaseComposer from './ReleaseComposer.astro';
 ---
 
 <article class="stack card card-body" data-repository data-tenant hidden>
@@ -93,6 +94,18 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           </div>
           <p class="caption" data-owner-only hidden></p>
           <p class="status-text" role="status" data-publish-status hidden></p>
+        </div>
+        <!-- Private or public, and the switch (ADR 0290): an Owner's, and only where the deployment has public repositories or this one already is. -->
+        <div class="stack-tight" data-visibility hidden>
+          <h3 data-visibility-heading></h3>
+          <p class="row">
+            <span class="pill" data-visibility-state></span>
+            <span data-visibility-explanation></span>
+          </p>
+          <div class="row">
+            <button type="button" class="btn btn-secondary" data-visibility-button></button>
+          </div>
+          <p class="status-text" role="status" data-visibility-status hidden></p>
         </div>
         <div class="stack-tight" data-subscriber>
           <h3 data-subscriber-heading></h3>
@@ -213,52 +226,56 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       <ul class="stack-tight" data-dialog-lines></ul>
 
       <!-- What a release is called and says, and what it will contain (ADR 0209). -->
-      <div class="stack" data-composer hidden>
-        <label class="field">
-          <span class="field-label">Label</span>
-          <input
-            type="text"
-            class="text-input"
-            maxlength="80"
-            autocomplete="off"
-            data-composer-label
-          />
-          <span class="caption" data-label-help></span>
-        </label>
-        <label class="field">
-          <span class="field-label">Notes</span>
-          <textarea class="text-input" rows="4" data-composer-notes></textarea>
-        </label>
-        <label class="field-row">
-          <input type="checkbox" data-composer-breaking />
-          This release is breaking: libraries should read its notes before they update
-        </label>
-        <section class="stack-tight" data-changes>
-          <strong>What this release contains</strong>
-          <p data-matches-line></p>
-          <ul class="stack-tight" data-content-lines></ul>
-          <p class="caption" data-hint hidden></p>
-          <p class="caption" data-not-tracked></p>
-        </section>
-        <div class="stack-tight" data-warns-box hidden>
-          <strong data-warns-title></strong>
-          <ul class="stack-tight" data-warns-lines></ul>
-        </div>
-        <div class="stack-tight" data-breaks-box hidden>
-          <strong>This release breaks things</strong>
-          <ul class="stack-tight" data-breaks-lines></ul>
-          <label class="field-row">
-            <input type="checkbox" data-composer-ack />
-            <span data-ack-text></span>
-          </label>
-        </div>
-      </div>
+      <ReleaseComposer />
       <p class="error-text" role="alert" data-dialog-error hidden></p>
       <div class="row">
         <button type="button" class="btn btn-secondary" data-dialog-cancel autofocus>
           Cancel
         </button>
         <button type="submit" class="btn btn-primary" data-dialog-confirm></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- What making it public or private will do, said before it does it (ADR 0290). -->
+  <dialog aria-labelledby="visibility-dialog-title" data-visibility-dialog>
+    <form method="dialog" class="stack" data-visibility-form>
+      <h3 id="visibility-dialog-title" data-vis-title></h3>
+      <div class="stack-tight" data-vis-blockers hidden>
+        <strong data-vis-blockers-title></strong>
+        <ul class="stack-tight" data-vis-blocker-list></ul>
+      </div>
+      <div class="stack-tight" data-vis-warnings hidden>
+        <strong>Check before you go on</strong>
+        <ul class="stack-tight" data-vis-warning-list></ul>
+      </div>
+      <ul class="stack-tight" data-vis-lines></ul>
+
+      <!-- Making it public: what it says of itself, what people may look at, and the release. -->
+      <div class="stack" data-vis-public hidden>
+        <label class="field">
+          <span class="field-label">Summary</span>
+          <textarea class="text-input" rows="3" data-vis-summary></textarea>
+          <span class="caption" data-vis-summary-help></span>
+          <span class="caption" data-vis-summary-count></span>
+        </label>
+        <fieldset data-vis-preview>
+          <legend data-vis-preview-legend></legend>
+        </fieldset>
+        <ReleaseComposer />
+      </div>
+
+      <!-- Making it private: only asked when libraries lose its updates. -->
+      <label class="field-row" data-vis-ack-row hidden>
+        <input type="checkbox" data-vis-ack />
+        <span data-vis-ack-text></span>
+      </label>
+      <p class="error-text" role="alert" data-vis-error hidden></p>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-vis-cancel>
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" data-vis-confirm></button>
       </div>
     </form>
   </dialog>

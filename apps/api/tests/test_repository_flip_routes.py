@@ -271,6 +271,7 @@ async def test_a_repository_a_public_one_is_built_on_is_not_made_private(
 
         check = (await stack.author.get(f"/tenants/{stack.equipment}/flip-check")).json()
         assert [d["name"] for d in check["public_dependents"]] == ["D&D Equipment"]
+        assert check["public_dependents"][0]["owned"] is True
         refused = await stack.author.delete(f"/tenants/{stack.equipment}/public")
         assert refused.status_code == 409
         assert refused.json()["type"] == "public-repositories-built-on-it"
@@ -325,3 +326,28 @@ async def test_the_profile_cannot_flip_a_repository_and_a_public_one_is_not_dele
     finally:
         await world.done()
         await cleanup([], [stranger])
+
+
+async def test_a_public_repository_is_made_private_and_not_unpublished(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, enabled: None
+) -> None:
+    world = await _public_world(raw_client, fake_jwks_server)
+    try:
+        refused = await world.author.delete(f"/tenants/{world.repository}/published")
+        assert refused.status_code == 409
+        assert refused.json()["type"] == "public-repository-cannot-be-unpublished"
+        assert "Make this repository private first" in refused.json()["detail"]
+        # Nothing moved: libraries still read it.
+        assert (
+            await world.gm.get(f"/tenants/{world.table}/repositories/{world.repository}/entities")
+        ).status_code == 200
+
+        made = await world.author.delete(
+            f"/tenants/{world.repository}/public", params={"acknowledge_revokes": "true"}
+        )
+        assert made.status_code == 200, made.text
+        assert (
+            await world.author.delete(f"/tenants/{world.repository}/published")
+        ).status_code == 200
+    finally:
+        await world.done()

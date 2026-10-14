@@ -78,7 +78,7 @@ async def check_flip(
         ],
         built_on_behind=[BuiltOnBehindOut.model_validate(b.as_json()) for b in behind],
         public_dependents=[
-            PublicDependentOut(**d) for d in await public_dependents(session, tenant_id)
+            PublicDependentOut(**d) for d in await public_dependents(session, tenant_id, user.id)
         ],
         public_libraries=await count_public_grants(session, tenant_id),
         invited_libraries=invited or 0,

@@ -4,23 +4,14 @@
 // contain, read from the API's preview. Nothing is asked of the API to change anything until the
 // dialog's last button; what the dialog says is read fresh when it opens.
 
-import { ApiError } from '../../lib/apiError';
-import { dialogFor, OWNER_ONLY_NOTE, type PublishMode, publishFacts } from '../../lib/publishing';
 import {
-  ACKNOWLEDGE_TEXT,
-  breakingLines,
-  type ComposerForm,
-  composerProblem,
-  contentLines,
-  defaultLabel,
-  descriptionsHint,
-  LABEL_MAX,
-  matchesSentence,
-  publishBody,
-  TEXT_NOT_TRACKED,
-  WARNING_TITLE,
-  warningLines,
-} from '../../lib/releases';
+  dialogFor,
+  OWNER_ONLY_NOTE,
+  type PublishMode,
+  publishButtons,
+  publishFacts,
+} from '../../lib/publishing';
+import { composerProblem, publishBody } from '../../lib/releases';
 import {
   getReleasePreview,
   listLibraryRepositories,
@@ -31,7 +22,8 @@ import {
 import { say, sayError } from '../../lib/statusLine';
 import { canChangePeople } from '../../lib/studio';
 import { requiredIn } from '../../lib/template';
-import type { BreakingRowOut, TenantSummaryOut } from '../../lib/types';
+import type { TenantSummaryOut } from '../../lib/types';
+import { createComposer } from './composer';
 
 const required = requiredIn('Repository');
 
@@ -39,6 +31,8 @@ export type PublishControls = {
   clear(): void;
   // Shows what this person can do about a repository in the state it is in.
   paint(repository: TenantSummaryOut, published: boolean): void;
+  // Whether it is public, once that is known: a public repository is made private, not unpublished.
+  markPublic(isPublic: boolean): void;
   // A message to show the next time the controls are painted (after what was done).
   say(message: string): void;
 };
@@ -62,32 +56,26 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
   const cancel = required<HTMLButtonElement>(dialog, '[data-dialog-cancel]');
   const confirm = required<HTMLButtonElement>(dialog, '[data-dialog-confirm]');
 
-  // The composer: what a release is called and says, and what it will contain.
-  const composer = required<HTMLElement>(dialog, '[data-composer]');
-  const label = required<HTMLInputElement>(dialog, '[data-composer-label]');
-  const labelHelp = required<HTMLElement>(dialog, '[data-label-help]');
-  const notes = required<HTMLTextAreaElement>(dialog, '[data-composer-notes]');
-  const breaking = required<HTMLInputElement>(dialog, '[data-composer-breaking]');
-  const matches = required<HTMLElement>(dialog, '[data-matches-line]');
-  const contents = required<HTMLElement>(dialog, '[data-content-lines]');
-  const hint = required<HTMLElement>(dialog, '[data-hint]');
-  const notTracked = required<HTMLElement>(dialog, '[data-not-tracked]');
-  const breaksBox = required<HTMLElement>(dialog, '[data-breaks-box]');
-  const breaksLines = required<HTMLElement>(dialog, '[data-breaks-lines]');
-  const warnsBox = required<HTMLElement>(dialog, '[data-warns-box]');
-  const warnsLines = required<HTMLElement>(dialog, '[data-warns-lines]');
-  const acknowledge = required<HTMLInputElement>(dialog, '[data-composer-ack]');
-
-  required<HTMLElement>(dialog, '[data-ack-text]').textContent = ACKNOWLEDGE_TEXT;
-  notTracked.textContent = TEXT_NOT_TRACKED;
-  required<HTMLElement>(dialog, '[data-warns-title]').textContent = WARNING_TITLE;
-  label.maxLength = LABEL_MAX;
+  // What a release is called and says, and what it will contain.
+  const composer = createComposer(dialog);
 
   let shown: TenantSummaryOut | null = null;
   let mode: PublishMode = 'publish';
   let pending: string | null = null;
-  // What the release would break, as the preview or the API's refusal says.
-  let hits: BreakingRowOut[] = [];
+  let published = false;
+  let isPublic = false;
+
+  function showButtons(): void {
+    const owner = shown !== null && canChangePeople(shown.role);
+    const shows = publishButtons(owner, published, isPublic);
+
+    buttons.hidden = !owner;
+    publish.hidden = !shows.publish;
+    announce.hidden = !shows.announce;
+    unpublish.hidden = !shows.unpublish;
+    ownerOnly.textContent = owner ? '' : OWNER_ONLY_NOTE;
+    ownerOnly.hidden = owner;
+  }
 
   function item(text: string): HTMLElement {
     const li = document.createElement('li');
@@ -95,27 +83,6 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
     li.textContent = text;
 
     return li;
-  }
-
-  function showHits(rows: BreakingRowOut[]): void {
-    hits = rows;
-    breaksLines.replaceChildren(...breakingLines(rows).map(item));
-    breaksBox.hidden = rows.length === 0;
-  }
-
-  // What the release only says: said, never refused, nothing to acknowledge.
-  function showWarnings(rows: BreakingRowOut[]): void {
-    warnsLines.replaceChildren(...warningLines(rows).map(item));
-    warnsBox.hidden = rows.length === 0;
-  }
-
-  function currentForm(): ComposerForm {
-    return {
-      label: label.value,
-      notes: notes.value,
-      breaking: breaking.checked,
-      acknowledged: acknowledge.checked,
-    };
   }
 
   async function open(next: PublishMode): Promise<void> {
@@ -144,24 +111,9 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
       error.hidden = true;
       confirm.disabled = false;
 
-      composer.hidden = preview === null;
+      composer.element.hidden = preview === null;
 
-      if (preview) {
-        label.value = '';
-        notes.value = '';
-        breaking.checked = false;
-        acknowledge.checked = false;
-        labelHelp.textContent = `Free text, such as 1.3 or Spring errata. Left empty, it is ${defaultLabel(preview)}.`;
-        matches.textContent = matchesSentence(preview);
-        contents.replaceChildren(...contentLines(preview).map(item));
-
-        const description = descriptionsHint(preview);
-
-        hint.textContent = description ?? '';
-        hint.hidden = description === null;
-        showHits(preview.breaking);
-        showWarnings(preview.warnings);
-      }
+      if (preview) composer.show(preview);
 
       say(status, '');
       dialog.showModal();
@@ -182,7 +134,7 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
 
     if (!repository) return;
 
-    const problem = mode === 'unpublish' ? null : composerProblem(currentForm(), hits);
+    const problem = mode === 'unpublish' ? null : composerProblem(composer.form(), composer.hits());
 
     if (problem) {
       sayError(error, new Error(problem));
@@ -195,7 +147,7 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
     void (async () => {
       try {
         if (mode === 'unpublish') await unpublishRepository(repository.id);
-        else await publishRepository(repository.id, publishBody(currentForm(), hits));
+        else await publishRepository(repository.id, publishBody(composer.form(), composer.hits()));
 
         pending = mode === 'unpublish' ? 'Unpublished. It is a draft again.' : 'Release published.';
         dialog.close();
@@ -204,13 +156,7 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
         confirm.disabled = false;
 
         // What the preview did not see: the API names the rows, and they have to be acknowledged.
-        if (cause instanceof ApiError && cause.problemType === 'release-has-breaking-changes') {
-          const rows = cause.problem.breaking_rows;
-
-          showHits(Array.isArray(rows) ? (rows as BreakingRowOut[]) : []);
-          acknowledge.checked = false;
-        }
-
+        composer.refused(cause);
         sayError(error, cause);
       }
     })();
@@ -219,6 +165,8 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
   return {
     clear() {
       shown = null;
+      published = false;
+      isPublic = false;
       buttons.hidden = true;
       publish.hidden = true;
       announce.hidden = true;
@@ -227,22 +175,20 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
       say(status, '');
     },
 
-    paint(repository, published) {
+    paint(repository, isPublished) {
       shown = repository;
-
-      const owner = canChangePeople(repository.role);
-
-      buttons.hidden = !owner;
-      publish.hidden = !owner || published;
-      announce.hidden = !owner || !published;
-      unpublish.hidden = !owner || !published;
-      ownerOnly.textContent = owner ? '' : OWNER_ONLY_NOTE;
-      ownerOnly.hidden = owner;
+      published = isPublished;
+      showButtons();
 
       if (pending) {
         say(status, pending);
         pending = null;
       }
+    },
+
+    markPublic(value) {
+      isPublic = value;
+      showButtons();
     },
 
     say(message) {

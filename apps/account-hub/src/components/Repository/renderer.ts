@@ -33,6 +33,7 @@ import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 import { createPublishControls } from './publish';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
 import { createViewAs } from './viewAs';
+import { createVisibilityControls } from './visibility';
 
 const required = requiredIn('Repository');
 
@@ -95,6 +96,10 @@ export function renderRepository(
   // An invitation made or stopped changes only what the Libraries using it tab shows.
   // A publish or an unpublish changes what the page shows, so it is read again.
   const publishControls = createPublishControls(root, hooks.onChanged);
+  // Private or public is a change of the same kind: the page reads the repository again after it.
+  const visibility = createVisibilityControls(root, hooks.onChanged, (visibility) =>
+    publishControls.markPublic(visibility === 'public'),
+  );
   const viewAs = createViewAs(root, hooks.mayCreate);
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);
@@ -134,6 +139,7 @@ export function renderRepository(
     people.hidden = true;
     live.hidden = true;
     publishControls.clear();
+    visibility.clear();
     viewAs.clear();
     releases.clear();
     using.clear();
@@ -152,6 +158,7 @@ export function renderRepository(
     live.hidden = !current.published;
     publishControls.paint(repository, current.published);
     void viewAs.paint(repository, current.published);
+    void visibility.paint(repository);
     overview.hidden = false;
   }
 

@@ -59,6 +59,12 @@ export type ReleaseUpdate = Schema<'ReleaseUpdate'>;
 export type BreakingRowOut = Schema<'BreakingRowOut'>;
 export type BreakingNoteOut = Schema<'BreakingNoteOut'>;
 export type PublishRequest = Schema<'PublishRequest'>;
+
+// Private and public (RFC 0038, ADR 0290).
+export type FlipCheckOut = Schema<'FlipCheckOut'>;
+export type MakePublicRequest = Schema<'MakePublicRequest'>;
+export type MadePrivateOut = Schema<'MadePrivateOut'>;
+export type RepositoryProfileOut = Schema<'RepositoryProfileOut'>;
 export type RepositorySummaryOut = Schema<'RepositorySummaryOut'>;
 export type ContributionCountsOut = Schema<'ContributionCountsOut'>;
 export type CopyPlanOut = Schema<'CopyPlanOut'>;

@@ -33,6 +33,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     InvalidSubscriberError,
     NotARepositoryError,
+    PublicRepositoryCannotBeUnpublishedError,
     ReleaseNotFoundError,
     RepositoryManagementForbiddenError,
     RepositoryNotCopiedError,
@@ -243,6 +244,11 @@ async def unpublish_repository(
     §6)."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
     tenant = await _require_repository(session, tenant_id)
+    if await is_public(session, tenant_id):
+        raise PublicRepositoryCannotBeUnpublishedError(
+            detail="Make this repository private first: unpublishing it would cut off every "
+            "library that reads it without telling you how many."
+        )
     if tenant.published_at is not None:
         tenant.published_at = None
         tenant.updated_by = user.id
