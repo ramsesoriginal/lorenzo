@@ -477,6 +477,8 @@ class Assessment:
 
     release: ReleaseRef | None
     baseline: bool
+    # The load everything else here was made from: what a public repository's release stores.
+    content: Content
     live: dict[Key, Row]
     digest: str
     matches: bool | None
@@ -511,6 +513,7 @@ async def assess(session: AsyncSession, repository_id: uuid.UUID) -> Assessment:
     return Assessment(
         release=release,
         baseline=baseline,
+        content=content,
         live=live,
         digest=digest,
         matches=(release is not None and release.digest == digest) if baseline else None,

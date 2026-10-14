@@ -1,41 +1,42 @@
-"""What the release document tests do to the engines (ADR 0214): answer `load_content` from a
-document where the engines read a repository, and compare what they say with what they say
-from the rows. R6 makes the switch in the code; until then it is made here.
+"""What the release document tests do to the engines (ADR 0214, ADR 0286): make the repositories
+named public, so the engines read their current release's document, and put them back. Their
+`Content` is what `load_upstream` answers; every other tenant (the library) is read from the rows.
 """
 
-import copy
 import itertools
 import uuid
-from collections.abc import Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Iterable, Iterator
+from contextlib import asynccontextmanager, contextmanager
 
-from sqlalchemy import text
+from _admin_db import admin_session_factory
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import lorenzo_api.repository_copying as copying
-import lorenzo_api.repository_updates as updating
-from lorenzo_api.repository_content import Content
+from lorenzo_api.models import RepositoryProfile
 
 
-@contextmanager
-def upstream_from(documents: dict[uuid.UUID, Content]) -> Iterator[None]:
-    """`plan_copy` and `compute_updates` each read a repository through `load_content`; for the
-    repositories named, it answers with a copy of the document's content, for every other
-    tenant (the library) from the rows."""
-    real = copying.load_content
+async def set_visibility(repositories: Iterable[uuid.UUID], visibility: str) -> None:
+    """The repositories' visibility, written straight in the database: the API refuses `public`
+    until the rest of RFC 0038 is built."""
+    async with admin_session_factory() as session:
+        await session.execute(
+            update(RepositoryProfile)
+            .where(RepositoryProfile.tenant_id.in_(list(repositories)))
+            .values(visibility=visibility)
+        )
+        await session.commit()
 
-    async def load(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
-        if tenant_id in documents:
-            return copy.deepcopy(documents[tenant_id])
-        return await real(session, tenant_id)
 
-    copying.load_content = load  # type: ignore[assignment]
-    updating.load_content = load  # type: ignore[assignment]
+@asynccontextmanager
+async def read_as_public(repositories: Iterable[uuid.UUID]) -> AsyncIterator[None]:
+    """`plan_copy` and `compute_updates` read each of the repositories through its current
+    release's document, as they do for a public repository."""
+    named = list(repositories)
+    await set_visibility(named, "public")
     try:
         yield
     finally:
-        copying.load_content = real
-        updating.load_content = real
+        await set_visibility(named, "private")
 
 
 @contextmanager

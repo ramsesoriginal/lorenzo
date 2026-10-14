@@ -63,6 +63,7 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
 )
+from lorenzo_api.release_document_store import store_release_document
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
@@ -78,7 +79,7 @@ from lorenzo_api.repository_digest import BreakingNote, Row, assess, replace_sto
 from lorenzo_api.repository_grants import grant_repository_access, notify_tenant_admins
 from lorenzo_api.repository_releases import (
     ReleaseRef,
-    latest_release,
+    current_release,
     lock_repository,
     make_release,
     relabel,
@@ -93,6 +94,12 @@ from lorenzo_api.repository_updates import (
     UpdateAction,
     apply_updates,
     compute_updates,
+)
+from lorenzo_api.repository_upstream import (
+    entity_rows,
+    is_public,
+    load_upstream,
+    stat_group_rows,
 )
 from lorenzo_api.schemas.repositories import (
     AddedOut,
@@ -222,6 +229,12 @@ async def publish_repository(
         warning_rows=[b.as_json() for b in assessed.warnings],
     )
     await replace_stored_rows(session, tenant_id, assessed.live.values())
+    if await is_public(session, tenant_id):
+        # What a library reads of a public repository, written from the load the digest was
+        # made from, so the two cannot disagree (ADR 0286).
+        await store_release_document(
+            session, tenant_id=tenant_id, release_id=release.id, content=assessed.content
+        )
     release_out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
     tenant.published_at = datetime.now(UTC)
     tenant.updated_by = user.id
@@ -699,8 +712,8 @@ async def list_repositories(
         async with reading_repository(session, repository_id) as allowed:
             if not allowed:
                 continue
-            if latest := await latest_release(session, repository_id):
-                current[repository_id] = latest
+            if read := await current_release(session, repository_id):
+                current[repository_id] = read
             held = copies.get(repository_id)
             if held and held.synced_release_id:
                 taken = await releases_named(session, repository_id, [held.synced_release_id])
@@ -873,6 +886,20 @@ async def browse_repository_entities(
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
             raise _not_found(tenant_id, repository_id)
+        if await is_public(session, repository_id):
+            read = await load_upstream(session, repository_id)
+            return cast(
+                Page[RepositoryEntityOut],
+                paginate(
+                    [
+                        RepositoryEntityOut(
+                            id=e.id, name=e.name, kinds=e.kinds, prototype_ids=e.prototype_ids
+                        )
+                        for e in entity_rows(read.content, q)
+                    ],
+                    params,
+                ),
+            )
         stmt = select(Entity).where(Entity.tenant_id == repository_id)
         if q is not None:
             stmt = stmt.where(Entity.name.ilike(f"%{q}%"))
@@ -931,6 +958,23 @@ async def browse_repository_stat_groups(
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
             raise _not_found(tenant_id, repository_id)
+        if await is_public(session, repository_id):
+            read = await load_upstream(session, repository_id)
+            return [
+                RepositoryStatGroupOut(
+                    id=g.id,
+                    name=g.name,
+                    priority=g.priority,
+                    mandatory=g.mandatory,
+                    definitions=[
+                        RepositoryStatDefinitionOut(
+                            id=d.id, name=d.name, value_type=d.value_type, enum_values=d.enum_values
+                        )
+                        for d in g.definitions
+                    ],
+                )
+                for g in stat_group_rows(read.content)
+            ]
         groups = (
             await session.scalars(
                 select(StatGroup)

@@ -317,7 +317,7 @@ async def test_it_loads_no_content(
     await world.build(raw_client, fake_jwks_server)
     try:
         await _invite(world.bridger, world.bridge, world.table)
-        monkeypatch.setattr(copying, "load_content", refuse)
+        monkeypatch.setattr(copying, "load_upstream", refuse)
         monkeypatch.setattr(copying, "load_links", refuse)
         assert (await _dependencies(world.gm, world.table, world.bridge)).status_code == 200
     finally:
