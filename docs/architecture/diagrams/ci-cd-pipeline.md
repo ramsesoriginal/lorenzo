@@ -3,19 +3,19 @@
 ```mermaid
 flowchart TD
     A["Push / PR opened"] --> B["ci.yml"]
-    B --> B1["discover: find apps/*/mise.toml"]
-    B1 --> B2["test: mise run lint + test, per app<br/>(own Postgres service)"]
+    B --> B1["discover: apps and packages, dependency graph"]
+    B1 --> B2["test: affected nodes only, shards and batches<br/>(background Postgres where needed)"]
     A --> B3["security.yml: CodeQL + dependency-review"]
     A --> B4["docs.yml: markdownlint + lychee"]
     B2 --> C{"ci-summary<br/>(required check)"}
-    B3 --> C
-    B4 --> C
+    B3 --> D
+    B4 --> D
 
     C -->|all required checks pass| D["Merge to main<br/>(real merge commit)"]
 
     D --> E{"Touches apps/api/**?"}
     E -->|yes| F["deploy-api.yml triggers"]
-    D --> EL{"Touches apps/loot-bot/**?"}
+    D --> EL{"Touches loot-bot or api-client?"}
     EL -->|yes| FL["deploy-loot-bot.yml triggers"]
     D --> G["release.yml triggers<br/>(every push)"]
 
@@ -40,4 +40,6 @@ flowchart TD
     FL6 -->|non-200| I
 ```
 
-Three independent triggers can fire off the same push to `main`: `release.yml` (always, proposing/updating a version bump), `deploy-api.yml` (only if the push touches `apps/api/**`), and `deploy-loot-bot.yml` (only if it touches `apps/loot-bot/**`, [ADR 0053](../../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)). None depend on each other — a release PR being merged doesn't itself deploy anything, and a deploy doesn't wait for a release to be tagged. `apps/inventory-web` and `apps/account-hub` have no equivalent job in this repo at all — Cloudflare Pages' own Git integration deploys them independently on the same push, outside GitHub Actions entirely (see [deployment.md](../deployment.md#appsinventory-web-and-appsaccount-hub)). See [docs/operations/releasing.md](../../operations/releasing.md) and [docs/architecture/deployment.md](../deployment.md).
+`ci-summary` aggregates the CI jobs; the separate security and documentation workflows run alongside it.
+
+Three independent triggers can fire off the same push to `main`: `release.yml` (always, proposing/updating a version bump), `deploy-api.yml` (only if the push touches `apps/api/**`), and `deploy-loot-bot.yml` (only if it touches `apps/loot-bot/**` or `packages/api-client/**`, [ADR 0053](../../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md)). None depend on each other — a release PR being merged doesn't itself deploy anything, and a deploy doesn't wait for a release to be tagged. `apps/inventory-web` and `apps/account-hub` have no equivalent job in this repo at all — Cloudflare Pages' own Git integration deploys them independently on the same push, outside GitHub Actions entirely (see [deployment.md](../deployment.md#appsinventory-web-and-appsaccount-hub)). See [docs/operations/releasing.md](../../operations/releasing.md) and [docs/architecture/deployment.md](../deployment.md).

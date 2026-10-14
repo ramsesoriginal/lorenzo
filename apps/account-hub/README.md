@@ -18,7 +18,8 @@ repo root:
 | `mise run lint` | Biome + `astro check` + Prettier (`.astro`) |
 | `mise run format` | Autoformat |
 | `mise run test` | Run the unit test suite (Vitest) |
-| `mise run test-e2e` | Run the e2e test suite (Playwright) — needs a running `apps/api` and a configured Authgear session, see ADR 0071 |
+| `mise run test-e2e` | Playwright smoke tests of logged-out pages; starts the dev server |
+| `mise run test-real-api` | Browser tests against the real API and a fake Authgear; needs local Postgres and Chromium, see below |
 | `mise run build` | Build the static site to `dist/` |
 
 ## Deploy
@@ -76,13 +77,17 @@ who holds no library membership sees them too. It reads `GET /me` and
 
 ## Repositories
 
-A repository (a tenant of kind `repository`, ADR 0178) is its own noun, not a
-library. `/tenants` lists libraries as before and gives repositories a section
-of their own: rename and edit, their people and invitations, and whether they
-are a draft or published (read-only: publishing stays on the CLI). They have no
-campaigns, invite links or characters. `/campaigns` lists libraries only;
-`/beings` lists a repository's beings for reading, without the hand-off. "Create a library" and "Create a repository" are shown only when
-`GET /me` says `capabilities.create_tenant` (ADR 0175).
+A repository is its own noun, distinct from a library. **Shelf** (`/repositories`) shows what a library can copy, with a repository page, built-on outline, copy wizard and row-by-row update inbox (ADR 0196, 0201, 0203). **Studio** (`/studio`) manages repositories: create, People and role/library-access invite links, libraries using it, dependencies, activity, publishing and releases (ADR 0202 to 0213, 0220). Its test-library action lets an Owner view a copy as a subscriber (ADR 0261).
+
+The API stores a repository's profile and cover (ADR 0213); the full Studio profile editor remains RFC 0036 T5. Studio composes a release and offers guarded public/private switches with blocker and revocation warnings (ADR 0209, 0213, 0290). Showcase entries and the preview choice control what people can look inside (ADR 0293). These controls do not bypass the API's public-repository feature switch: public repositories are disabled by default pending the remaining launch gates in RFC 0038.
+
+**Discover** (`/discover`) lists public repositories for signed-in users with search, tags, system and language filters, and a storefront showing the current release. “Look inside” reads the release's permitted preview, not the repository's live authored rows (ADR 0292, 0293).
+
+Libraries and repositories have People with Owner, Organizer and Author roles (ADR 0212, 0219). An Author edits content without administering the library. A repository has no campaigns or player roster. “Create a library” and “Create a repository” require `GET /me`'s `capabilities.create_tenant`.
+
+## Personal access tokens and connecting a device
+
+`/device` approves a device code with a token name and optional expiry; `/profile` lists tokens, last use and revocation. Issued secrets are shown only when issued, not recovered from the list (ADR 0268, 0269). The CLI and Android companion can connect with these tokens. Library and repository deletion is available to an Owner after typing its name (ADR 0267).
 
 ## Real API browser tests
 

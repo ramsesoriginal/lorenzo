@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-Numbered sequentially, never renumbered. Superseded ADRs stay in place with a status update pointing at the replacement — see [0009](0009-identity-provider-authgear.md). Numbers have already collided many times across long-lived parallel branches (see the renumbering and collision-avoidance notes on 0050, 0054, 0068, 0069, 0070, 0075, 0077, 0087, and 0096 below) — to shrink that window, put a new RFC/ADR on its own small branch and merge the document itself as soon as the decision is settled, before the rest of the implementation lands; see [ADR 0070](0070-planning-milestones-issues-and-a-deferred-roadmap.md).
+Numbered sequentially. Numbers remain stable except when recovering a collision, with a history note as described below. Superseded ADRs stay in place with a status update pointing at the replacement — see [0009](0009-identity-provider-authgear.md). Numbers have already collided many times across long-lived parallel branches (see the renumbering and collision-avoidance notes on 0050, 0054, 0068, 0069, 0070, 0075, 0077, 0087, and 0096 below) — to shrink that window, put a new RFC/ADR on its own small branch and merge the document itself as soon as the decision is settled, before the rest of the implementation lands; see [ADR 0070](0070-planning-milestones-issues-and-a-deferred-roadmap.md).
 
 - [0000 - Template](0000-template.md)
 - [0001 - Record architecture decisions as ADRs](0001-record-architecture-decisions.md)
