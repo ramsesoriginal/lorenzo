@@ -90,7 +90,8 @@ from lorenzo_api.repository_digest import (
     stored_rows,
 )
 from lorenzo_api.repository_digest import State as RowState
-from lorenzo_api.repository_releases import ReleaseRef, latest_release
+from lorenzo_api.repository_releases import ReleaseRef
+from lorenzo_api.repository_upstream import load_upstream
 
 RowKind = Literal["entity", "stat_group", "stat_definition"]
 _ROW_KINDS: tuple[RowKind, ...] = ("entity", "stat_group", "stat_definition")
@@ -407,9 +408,9 @@ async def compute_updates(
             raise RepositoryNotFoundError(
                 detail=f"No published repository {repository_id} is granted to tenant {tenant_id}"
             )
-        upstream = await load_content(session, repository_id)
-        release = await latest_release(session, repository_id)
-        # What the latest release saw, for the marks, when it has a digest to say so.
+        read = await load_upstream(session, repository_id)
+        upstream, release = read.content, read.release
+        # What the release read saw, for the marks, when it has a digest to say so.
         stored = await stored_rows(session, repository_id) if release and release.digest else None
         noted, warned = await notes_since(session, repository_id, copy.synced_release_id)
     local = await load_content(session, tenant_id)

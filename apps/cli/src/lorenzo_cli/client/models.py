@@ -1067,6 +1067,13 @@ class PrototypeAncestorOut(BaseModel):
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
+class PublicDependencyOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str = Field(..., title="Slug")
+    public: bool = Field(..., title="Public")
+
+
 class PublishRequest(BaseModel):
     label: constr(min_length=1, max_length=80) | None = Field(None, title="Label")
     notes: constr(max_length=4000) | None = Field(None, title="Notes")
@@ -1116,6 +1123,7 @@ class RepositoryDependencyOut(BaseModel):
     invited: bool = Field(..., title="Invited")
     copied: bool = Field(..., title="Copied")
     published: bool = Field(..., title="Published")
+    public: bool = Field(..., title="Public")
 
 
 class RepositoryEntityOut(BaseModel):
@@ -1566,6 +1574,7 @@ class CopyStepOut(BaseModel):
     name: str = Field(..., title="Name")
     granted: bool = Field(..., title="Granted")
     published: bool = Field(..., title="Published")
+    public: bool = Field(..., title="Public")
     already_copied: bool = Field(..., title="Already Copied")
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")

@@ -3,7 +3,8 @@
 Two doors lead to the same grant (ADR 0118, ADR 0220): the Owner of a repository naming a
 library by its id (`PUT /tenants/{id}/subscribers/{library}`), and a library-access invite link
 redeemed by the Owner of a library. Both call `grant_repository_access`, so what a grant
-writes, logs and says is one thing. No commit here: the routes commit.
+writes, logs and says is one thing. A third, `subscribe_to_public`, is the library giving itself
+a grant to a public repository when it copies it (ADR 0287). No commit here: the routes commit.
 """
 
 import uuid
@@ -15,8 +16,9 @@ from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import set_tenant_rls_context
 from lorenzo_api.models import RepositorySubscription, Tenant
 from lorenzo_api.notifications import create_tenant_admins_notification
+from lorenzo_api.repository_access import reading_repository
 
-__all__ = ["grant_repository_access", "notify_tenant_admins"]
+__all__ = ["grant_repository_access", "notify_tenant_admins", "subscribe_to_public"]
 
 
 async def notify_tenant_admins(
@@ -91,3 +93,46 @@ async def grant_repository_access(
         ),
         created_by=granted_by,
     )
+
+
+async def subscribe_to_public(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    repository_ids: Sequence[uuid.UUID],
+    user_id: uuid.UUID,
+) -> list[uuid.UUID]:
+    """Gives the library `tenant_id` a grant of its own, `source = public`, to each of the
+    public repositories (ADR 0287, RFC 0038 section 3): what copying a public repository does
+    for it and for every repository it is built on, on the library's own authority. Each is
+    written inside the gated read of that repository, which is where the database lets the
+    library see that it is public; one that is not public and published is refused by the
+    insert policy. The caller has checked that the library holds no grant to it yet (an
+    invitation outranks this, and is left as it is), runs under the library's RLS context, and
+    commits. Nothing is said to the repository's Owner here: what they see of a public copy is
+    RFC 0038's section 6. Returns the ids written."""
+    written: list[uuid.UUID] = []
+    for repository_id in repository_ids:
+        async with reading_repository(session, repository_id) as readable:
+            if not readable:
+                continue
+            session.add(
+                RepositorySubscription(
+                    repository_tenant_id=repository_id,
+                    subscriber_tenant_id=tenant_id,
+                    created_by=user_id,
+                    source="public",
+                )
+            )
+            await session.flush()
+        written.append(repository_id)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user_id,
+            action="repository.subscribed",
+            target_type="tenant",
+            target_id=repository_id,
+            detail="source=public",
+        )
+    return written

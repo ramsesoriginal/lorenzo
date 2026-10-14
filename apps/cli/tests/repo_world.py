@@ -58,13 +58,19 @@ def problem(status: int, kind: str, detail: str, **extra: Any) -> httpx.Response
 
 
 def step(
-    *, granted: bool = True, published: bool = True, copied: bool = False, repo: uuid.UUID = REPO_ID
+    *,
+    granted: bool = True,
+    published: bool = True,
+    public: bool = False,
+    copied: bool = False,
+    repo: uuid.UUID = REPO_ID,
 ) -> dict[str, Any]:
     return {
         "repository_id": str(repo),
         "name": "Sunken Vale",
         "granted": granted,
         "published": published,
+        "public": public,
         "already_copied": copied,
         "entities": 12,
         "stat_groups": 2,

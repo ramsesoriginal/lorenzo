@@ -52,6 +52,7 @@ function step(
   return {
     granted: true,
     published: true,
+    public: false,
     already_copied: false,
     entities: 0,
     stat_groups: 0,
@@ -250,6 +251,9 @@ describe('countsKnown', () => {
     expect(countsKnown(plan({ granted: false }), 'r')).toBe(false);
     expect(countsKnown(plan({ published: false }), 'r')).toBe(false);
     expect(countsKnown(plan({ already_copied: true, granted: false }), 'r')).toBe(true);
+    // A public repository needs no invitation (ADR 0287).
+    expect(countsKnown(plan({ granted: false, public: true }), 'r')).toBe(true);
+    expect(countsKnown(plan({ granted: false, public: true, published: false }), 'r')).toBe(false);
     expect(countsKnown(plan({}), 'r')).toBe(true);
   });
 

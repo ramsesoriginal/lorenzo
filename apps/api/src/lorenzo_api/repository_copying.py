@@ -68,13 +68,12 @@ from lorenzo_api.repository_content import (
     attachments_of,
     entity_snapshot,
     index_entities,
-    load_content,
     load_links,
     origin_namer,
     stat_definition_snapshot,
     stat_group_snapshot,
 )
-from lorenzo_api.repository_releases import latest_release
+from lorenzo_api.repository_upstream import is_public, load_upstream, upstream_copies
 
 CollisionKind = Literal["stat_group", "stat_definition", "slug"]
 Action = Literal["rename", "merge", "skip"]
@@ -128,8 +127,11 @@ class Step:
     granted: bool
     published: bool
     already_copied: bool
+    # Readable without a grant, because the repository is public (ADR 0287).
+    public: bool = False
     content: Content | None = None
-    # The repository's latest release when it is planned: what the copy records as taken (ADR 0207).
+    # The release the repository is read at when it is planned, its current one: what the copy
+    # records as taken (ADR 0207, 0286).
     release_id: uuid.UUID | None = None
     entities: int = 0
     stat_groups: int = 0
@@ -138,6 +140,12 @@ class Step:
     # The attachment edges the step writes (ADR 0172).
     attachments: int = 0
     dropped: list[Dropped] = field(default_factory=list)
+
+    @property
+    def readable(self) -> bool:
+        """Whether the copying tenant may read it: it is published, and the tenant holds a grant
+        or it is public (ADR 0287)."""
+        return self.published and (self.granted or self.public)
 
 
 LOOP_REASON = "it would make a prototype loop here"
@@ -167,7 +175,7 @@ class Plan:
 
     @property
     def missing(self) -> list[Step]:
-        return [s for s in self.steps if not s.already_copied and not (s.granted and s.published)]
+        return [s for s in self.steps if not s.already_copied and not s.readable]
 
     @property
     def to_copy(self) -> list[Step]:
@@ -178,20 +186,33 @@ class Plan:
 
 
 async def _step(
-    session: AsyncSession, tenant_id: uuid.UUID, repository_id: uuid.UUID, copied: set[uuid.UUID]
+    session: AsyncSession,
+    tenant_id: uuid.UUID | None,
+    repository_id: uuid.UUID,
+    copied: set[uuid.UUID],
 ) -> Step:
+    """One repository as `tenant_id` stands with it (a user with no library: `None`)."""
     repository = await session.get(Tenant, repository_id)
-    granted = (await session.get(RepositorySubscription, (repository_id, tenant_id))) is not None
+    granted = (
+        tenant_id is not None
+        and (await session.get(RepositorySubscription, (repository_id, tenant_id))) is not None
+    )
+    published = bool(
+        repository
+        and repository.kind is TenantKind.REPOSITORY
+        and repository.published_at is not None
+    )
+    public = False
+    if published:
+        async with reading_repository(session, repository_id) as readable:
+            public = readable and await is_public(session, repository_id)
     return Step(
         repository_id=repository_id,
         name=repository.name if repository else "",
         granted=granted,
-        published=bool(
-            repository
-            and repository.kind is TenantKind.REPOSITORY
-            and repository.published_at is not None
-        ),
+        published=published,
         already_copied=repository_id in copied,
+        public=public,
     )
 
 
@@ -211,36 +232,31 @@ async def _dependencies(session: AsyncSession, repository_id: uuid.UUID) -> set[
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
             return None
-        return set(
-            await session.scalars(
-                select(RepositoryCopy.repository_tenant_id).where(
-                    RepositoryCopy.tenant_id == repository_id
-                )
-            )
-        )
+        return await upstream_copies(session, repository_id)
 
 
 async def manifest(
-    session: AsyncSession, *, tenant_id: uuid.UUID, repository_id: uuid.UUID
+    session: AsyncSession, *, tenant_id: uuid.UUID | None, repository_id: uuid.UUID
 ) -> list[Step]:
     """`repository_id`'s dependencies in dependency order, then itself
     (ADR 0120). A dependency's own dependencies are already among the
     repository's: it had to copy them first. The copying tenant is never a
     step, even if it's somebody's dependency - its rows are the origins.
     """
-    copied = await _copied_by(session, tenant_id)
+    copied = await _copied_by(session, tenant_id) if tenant_id is not None else set()
     top = await _step(session, tenant_id, repository_id, copied)
-    if not (top.granted and top.published):
+    if not top.readable:
         raise RepositoryNotFoundError(
             detail=f"No published repository {repository_id} is granted to tenant {tenant_id}"
+            if tenant_id is not None
+            else f"No public repository {repository_id}"
         )
     deps = (await _dependencies(session, repository_id) or set()) - {tenant_id, repository_id}
     steps = {d: await _step(session, tenant_id, d, copied) for d in deps}
     # Order the dependencies among themselves by what each one copied.
     edges: dict[uuid.UUID, set[uuid.UUID]] = {}
     for d, step in steps.items():
-        readable = step.granted and step.published
-        edges[d] = ((await _dependencies(session, d) or set()) & deps) if readable else set()
+        edges[d] = ((await _dependencies(session, d) or set()) & deps) if step.readable else set()
     ordered: list[uuid.UUID] = []
     state: dict[uuid.UUID, int] = {}
 
@@ -261,14 +277,15 @@ async def manifest(
 
 
 async def dependencies_of(
-    session: AsyncSession, *, tenant_id: uuid.UUID, repository_id: uuid.UUID
+    session: AsyncSession, *, tenant_id: uuid.UUID | None, repository_id: uuid.UUID
 ) -> list[Step]:
     """What `repository_id` is built on, in the manifest's order (ADR 0198):
     its steps without itself, each carrying `tenant_id`'s own state of it
     (`granted`, `already_copied`) and whether it is published. Reads no
     content, only copy records, and refuses as the manifest does, with
     `RepositoryNotFoundError`, unless `tenant_id` holds a grant to the
-    repository and it is published."""
+    repository, or it is public, and it is published. `tenant_id` is `None` for a user with no
+    library, who can read only what is public (ADR 0287)."""
     return (await manifest(session, tenant_id=tenant_id, repository_id=repository_id))[:-1]
 
 
@@ -899,9 +916,9 @@ async def plan_copy(
     for step in plan.to_copy:
         async with reading_repository(session, step.repository_id) as allowed:
             assert allowed  # manifest already checked grant and publication
-            step.content = await load_content(session, step.repository_id)
-            latest = await latest_release(session, step.repository_id)
-            step.release_id = latest.id if latest else None
+            upstream = await load_upstream(session, step.repository_id)
+            step.content = upstream.content
+            step.release_id = upstream.release.id if upstream.release else None
         planner.plan_step(step)
     plan.collisions = planner.collisions
     plan.rows = planner.rows
@@ -1053,6 +1070,7 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
                     "name": s.name,
                     "granted": s.granted,
                     "published": s.published,
+                    "public": s.public,
                 }
                 for s in plan.missing
             ],

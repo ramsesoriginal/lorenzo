@@ -30,6 +30,7 @@ from repo_world import (
     removed,
     row_change,
     runtime,
+    step,
 )
 from rich.console import Console
 from typer.testing import CliRunner
@@ -320,6 +321,22 @@ def test_copy_plan_that_would_be_refused_exits_one_and_says_why(tmp_path: Path) 
     result = run(tmp_path, world, "copy-plan", str(REPO_ID), "-t", "table-one")
     assert result.exit_code == 1
     assert "isn't granted to this tenant" in said(result)
+
+
+def test_a_public_repository_needs_no_invitation_to_be_copied() -> None:
+    from lorenzo_cli.client.models import CopyPlanOut
+    from lorenzo_cli.repos import copy_plan_blockers
+
+    public = CopyPlanOut.model_validate(
+        {"steps": [step(granted=False, public=True)], "collisions": []}
+    )
+    assert copy_plan_blockers(public, REPO_ID) == []
+    private = CopyPlanOut.model_validate({"steps": [step(granted=False)], "collisions": []})
+    assert "isn't granted to this tenant" in copy_plan_blockers(private, REPO_ID)[0]
+    draft = CopyPlanOut.model_validate(
+        {"steps": [step(granted=False, public=True, published=False)], "collisions": []}
+    )
+    assert "isn't published" in copy_plan_blockers(draft, REPO_ID)[0]
 
 
 def test_copy_plan_json_is_the_plan_and_keeps_the_exit_code(tmp_path: Path) -> None:

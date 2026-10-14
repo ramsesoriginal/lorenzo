@@ -425,8 +425,12 @@ def copy_plan_blockers(plan: CopyPlanOut, repository_id: UUID) -> list[str]:
                 f"{step.name} is already copied here: take its changes with `lorenzo repo "
                 "updates`, or copy it afresh with --again keep|purge."
             )
-        elif not step.already_copied and not (step.granted and step.published):
-            why = "isn't granted to this tenant" if not step.granted else "isn't published"
+        elif not step.already_copied and not (step.published and (step.granted or step.public)):
+            why = (
+                "isn't granted to this tenant"
+                if not (step.granted or step.public)
+                else "isn't published"
+            )
             blockers.append(f"{step.name} {why}: ask its owners for access, or to publish it.")
     return blockers
 

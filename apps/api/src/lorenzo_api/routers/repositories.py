@@ -10,14 +10,15 @@ Two sides, both under /tenants/{tenant_id}: the repository's own
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Response
-from fastapi_pagination import Page, paginate
+from fastapi_pagination import Page, Params, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -63,6 +64,7 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
 )
+from lorenzo_api.release_document_store import store_release_document
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
@@ -75,10 +77,14 @@ from lorenzo_api.repository_copying import (
     plan_copy,
 )
 from lorenzo_api.repository_digest import BreakingNote, Row, assess, replace_stored_rows
-from lorenzo_api.repository_grants import grant_repository_access, notify_tenant_admins
+from lorenzo_api.repository_grants import (
+    grant_repository_access,
+    notify_tenant_admins,
+    subscribe_to_public,
+)
 from lorenzo_api.repository_releases import (
     ReleaseRef,
-    latest_release,
+    current_release,
     lock_repository,
     make_release,
     relabel,
@@ -93,6 +99,12 @@ from lorenzo_api.repository_updates import (
     UpdateAction,
     apply_updates,
     compute_updates,
+)
+from lorenzo_api.repository_upstream import (
+    entity_rows,
+    is_public,
+    load_upstream,
+    stat_group_rows,
 )
 from lorenzo_api.schemas.repositories import (
     AddedOut,
@@ -222,6 +234,12 @@ async def publish_repository(
         warning_rows=[b.as_json() for b in assessed.warnings],
     )
     await replace_stored_rows(session, tenant_id, assessed.live.values())
+    if await is_public(session, tenant_id):
+        # What a library reads of a public repository, written from the load the digest was
+        # made from, so the two cannot disagree (ADR 0286).
+        await store_release_document(
+            session, tenant_id=tenant_id, release_id=release.id, content=assessed.content
+        )
     release_out = ReleaseAuthoredOut.model_validate(release, from_attributes=True)
     tenant.published_at = datetime.now(UTC)
     tenant.updated_by = user.id
@@ -699,8 +717,8 @@ async def list_repositories(
         async with reading_repository(session, repository_id) as allowed:
             if not allowed:
                 continue
-            if latest := await latest_release(session, repository_id):
-                current[repository_id] = latest
+            if read := await current_release(session, repository_id):
+                current[repository_id] = read
             held = copies.get(repository_id)
             if held and held.synced_release_id:
                 taken = await releases_named(session, repository_id, [held.synced_release_id])
@@ -833,19 +851,18 @@ def _not_found(tenant_id: uuid.UUID, repository_id: uuid.UUID) -> RepositoryNotF
     )
 
 
-@router.get("/repositories/{repository_id}/releases")
-async def list_repository_releases(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
-    repository_id: uuid.UUID,
-    session: SessionDep,
-    params: ParamsDep,
+NotFound = Callable[[], RepositoryNotFoundError]
+
+
+async def releases_page(
+    session: AsyncSession, repository_id: uuid.UUID, params: Params, not_found: NotFound
 ) -> Page[ReleaseOut]:
-    """What a granted, published repository has released, newest first (ADR 0207),
-    through the gated read: the same list its own members have, without who
-    published it."""
+    """What a repository has released, newest first (ADR 0207), through the gated read: the same
+    list its own members have, without who published it. `not_found` makes the error for a
+    repository this reader may not read (ADR 0287: a library and a user with none ask the same)."""
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
-            raise _not_found(tenant_id, repository_id)
+            raise not_found()
         stmt = (
             select(RepositoryRelease)
             .where(RepositoryRelease.tenant_id == repository_id)
@@ -859,20 +876,47 @@ async def list_repository_releases(
     return page
 
 
-@router.get("/repositories/{repository_id}/entities")
-async def browse_repository_entities(
+@router.get("/repositories/{repository_id}/releases")
+async def list_repository_releases(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     repository_id: uuid.UUID,
     session: SessionDep,
     params: ParamsDep,
-    q: str | None = None,
+) -> Page[ReleaseOut]:
+    """What a granted, published repository has released, newest first (ADR 0207),
+    through the gated read: the same list its own members have, without who
+    published it."""
+    return await releases_page(
+        session, repository_id, params, lambda: _not_found(tenant_id, repository_id)
+    )
+
+
+async def entities_page(
+    session: AsyncSession,
+    repository_id: uuid.UUID,
+    params: Params,
+    q: str | None,
+    not_found: NotFound,
 ) -> Page[RepositoryEntityOut]:
-    """A granted, published repository's entities, before copying: each
-    one's name, kinds, and prototypes, never its text (ADR 0118). `q`
-    filters by name."""
+    """A repository's entities, before copying: each one's name, kinds, and prototypes, never its
+    text (ADR 0118). `q` filters by name."""
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
-            raise _not_found(tenant_id, repository_id)
+            raise not_found()
+        if await is_public(session, repository_id):
+            read = await load_upstream(session, repository_id)
+            return cast(
+                Page[RepositoryEntityOut],
+                paginate(
+                    [
+                        RepositoryEntityOut(
+                            id=e.id, name=e.name, kinds=e.kinds, prototype_ids=e.prototype_ids
+                        )
+                        for e in entity_rows(read.content, q)
+                    ],
+                    params,
+                ),
+            )
         stmt = select(Entity).where(Entity.tenant_id == repository_id)
         if q is not None:
             stmt = stmt.where(Entity.name.ilike(f"%{q}%"))
@@ -920,17 +964,46 @@ async def browse_repository_entities(
     return page
 
 
-@router.get("/repositories/{repository_id}/stat-groups")
-async def browse_repository_stat_groups(
+@router.get("/repositories/{repository_id}/entities")
+async def browse_repository_entities(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     repository_id: uuid.UUID,
     session: SessionDep,
+    params: ParamsDep,
+    q: str | None = None,
+) -> Page[RepositoryEntityOut]:
+    """A granted, published repository's entities, before copying: each
+    one's name, kinds, and prototypes, never its text (ADR 0118). `q`
+    filters by name."""
+    return await entities_page(
+        session, repository_id, params, q, lambda: _not_found(tenant_id, repository_id)
+    )
+
+
+async def stat_groups_of(
+    session: AsyncSession, repository_id: uuid.UUID, not_found: NotFound
 ) -> list[RepositoryStatGroupOut]:
-    """A granted, published repository's stat groups and their definitions,
-    before copying (ADR 0118)."""
+    """A repository's stat groups and their definitions, before copying (ADR 0118)."""
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
-            raise _not_found(tenant_id, repository_id)
+            raise not_found()
+        if await is_public(session, repository_id):
+            read = await load_upstream(session, repository_id)
+            return [
+                RepositoryStatGroupOut(
+                    id=g.id,
+                    name=g.name,
+                    priority=g.priority,
+                    mandatory=g.mandatory,
+                    definitions=[
+                        RepositoryStatDefinitionOut(
+                            id=d.id, name=d.name, value_type=d.value_type, enum_values=d.enum_values
+                        )
+                        for d in g.definitions
+                    ],
+                )
+                for g in stat_group_rows(read.content)
+            ]
         groups = (
             await session.scalars(
                 select(StatGroup)
@@ -968,6 +1041,19 @@ async def browse_repository_stat_groups(
     ]
 
 
+@router.get("/repositories/{repository_id}/stat-groups")
+async def browse_repository_stat_groups(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    session: SessionDep,
+) -> list[RepositoryStatGroupOut]:
+    """A granted, published repository's stat groups and their definitions,
+    before copying (ADR 0118)."""
+    return await stat_groups_of(
+        session, repository_id, lambda: _not_found(tenant_id, repository_id)
+    )
+
+
 @router.get("/repositories/{repository_id}/dependencies")
 async def list_repository_dependencies(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
@@ -996,6 +1082,7 @@ async def list_repository_dependencies(
             invited=step.granted,
             copied=step.already_copied,
             published=step.published,
+            public=step.public,
         )
         for step in steps
         # One whose tenant is gone has nothing to ask, invite or copy.
@@ -1012,6 +1099,7 @@ def _step_out(step: Step) -> CopyStepOut:
         name=step.name,
         granted=step.granted,
         published=step.published,
+        public=step.public,
         already_copied=step.already_copied,
         entities=step.entities,
         stat_groups=step.stat_groups,
@@ -1100,6 +1188,14 @@ async def copy_repository(
         resolutions=resolutions,
     )
     await apply_plan(session, plan, user_id=user.id)
+    # A public repository is not granted to the library that copies it, so the copy grants it, and
+    # every public repository it is built on, to the library, as its own (ADR 0287).
+    await subscribe_to_public(
+        session,
+        tenant_id=tenant_id,
+        repository_ids=[s.repository_id for s in plan.to_copy if s.public and not s.granted],
+        user_id=user.id,
+    )
     if dry_run:
         await session.rollback()
         response.status_code = 200

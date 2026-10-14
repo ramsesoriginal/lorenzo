@@ -7,7 +7,7 @@ the update engine and the copy planner take.
 
 Like `load_content`, both filter on the repository's id explicitly (ADR 0002): a member of the
 repository reads and writes its own, a library reads inside `reading_repository` (ADR 0118).
-Nothing here is called from a publish: which repositories keep documents is RFC 0038's.
+A publish of a public repository writes one (ADR 0286); a private repository keeps none.
 """
 
 import uuid
@@ -148,3 +148,33 @@ async def read_release_content(
             f"the document of release {release_id} holds the content of {content.tenant_id}"
         )
     return content
+
+
+async def read_release_copies(
+    session: AsyncSession, *, tenant_id: uuid.UUID, release_id: uuid.UUID
+) -> set[uuid.UUID]:
+    """The repositories the repository had copied when the release was made: the one part of a
+    document the manifest wants, read without the files or the rest (RFC 0037 §4)."""
+    row = (
+        await session.execute(
+            select(RepositoryReleaseDocument.format, RepositoryReleaseDocument.content).where(
+                RepositoryReleaseDocument.release_id == release_id,
+                RepositoryReleaseDocument.tenant_id == tenant_id,
+            )
+        )
+    ).one_or_none()
+    if row is None:
+        raise ReleaseDocumentNotFoundError(f"no document of release {release_id}")
+    format_, data = row
+    if format_ not in release_document.READERS:
+        raise release_document.UnknownDocumentFormatError(
+            f"no reader for release documents of format {format_}"
+        )
+    try:
+        return {
+            uuid.UUID(copied) for copied in release_document.loads(bytes(data))["links"]["copies"]
+        }
+    except (KeyError, TypeError, ValueError) as error:
+        raise ReleaseDocumentCorruptError(
+            f"the document of release {release_id} does not say what it was built on: {error!r}"
+        ) from error
