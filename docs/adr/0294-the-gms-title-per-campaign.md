@@ -33,6 +33,15 @@ A game master is called something else at many tables: DM, Storyteller, Narrator
 
 A client that says "GM" for a campaign takes the title from the campaign it already has (it is in the list rows as well as the page), through one small function per client that returns the singular or plural (and the audience text), so no surface keeps the word in a literal. Wording that needs an article is rewritten so it does not: "a GM" would turn into "a Narrator" or "an Illusionist", so a text says "the Storyteller of this campaign" or "*Title* only" instead. A test per client fails on a literal "GM" in a campaign's surface.
 
+### The clients
+
+Each client has one pure function, `gmWords(campaigns)`, that returns the singular and the plural of the campaigns involved by the rule above: the campaign's own pair for one campaign or when all agree, "GM" and "GMs" for none or for a mix. A campaign the reader cannot see (a secret one, in a character's roster) counts as one that may disagree, so the surface says "GM". A source scan per client fails on a literal "GM" in a campaign's surface and pins the places that must keep it.
+
+- **Account hub.** The campaign's settings carry "What does your table call its game master?" (a title and a plural, both optional, 30 characters, the API's refusal in words), opened by a library admin or the campaign's own GM. The campaign card, GM management ("Assign someone as *Title*:"), the roster badge, the step-down button and its confirmation, the invite link panel ("*Title* link", "Invite someone to run it", "joins the *Plural* of this campaign"), the run list, the home cards, the managed index and the confirmation of deleting an account read the title. The page of an invite link says "GM" before the link is used, since the preview of an invite names no campaign (ADR 0092), and the title after. The setup flow says "GM" until the campaign exists.
+- **inventory-web.** The add-item card's lines ("Your *Title* matches it to a catalog item later") and the line about private notes ("the campaign's *Plural*") use the words of the campaigns of the being or item's owner. The public catalog and the unsorted page are a library's, and say "GM".
+- **Lorenzo Beings.** The audience "GM only" reads "*Title* only" with its hint in the plural, for a being in a play library whose campaigns agree; the lock on an Everyone's note belongs to a repository's entry and says "GM only".
+- **loot-bot.** Only `/whoami`, whose GM field uses the words of the campaigns the person runs when they agree. Every other reply is about no one campaign (the bot works across a library, and drops carry no campaign), and the commands' names and descriptions are fixed with Discord.
+
 ## What the tests pin
 
 - The default is `"GM"` and `"GMs"` on every campaign read, in the list and on the page; setting both reads back; setting one is `422`; `""` returns both to the default.
@@ -46,6 +55,9 @@ A client that says "GM" for a campaign takes the title from the campaign it alre
 - A title for a library or a repository (they have no campaign).
 - Gender and other inflections, a title per language, and a translated "game master" (RFC 0040 defers them).
 - Renaming the role in API routes or invite links.
+- A title at creation (`POST` of a campaign) and in the preview of an invite link, before the person has joined: both say "GM" until a campaign exists or the link is used.
+- Campaigns of a bare being or NPC: the API links a character to its campaigns only through its players, so a being with none says "GM".
+- The loot bot's replies about a character's campaign: `/me`'s player rows carry no campaign title yet.
 
 ## Consequences
 
