@@ -41,11 +41,13 @@ __all__ = [
     "CurrentUser",
     "InteractiveUser",
     "ParamsDep",
+    "PublicReader",
     "SessionDep",
     "get_campaign_context",
     "get_current_user",
     "get_entity_or_404",
     "get_jwks_client",
+    "get_public_reader",
     "get_tenant_admin_context",
     "get_tenant_context",
     "get_tenant_or_404",
@@ -69,6 +71,9 @@ _AUTHGEAR_ROLES_CLAIM = "https://authgear.com/claims/user/roles"
 
 # verify_token's stand-in "claims" for a personal access token (ADR 0268).
 _PERSONAL_TOKEN_CLAIM = "_personal_access_token"
+
+# A tenant id nobody has: the tenant context of a request that is not in one.
+NO_TENANT = uuid.UUID(int=0)
 
 SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 ParamsDep = Annotated[Params, Depends()]
@@ -434,6 +439,18 @@ async def get_tenant_context(
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     await set_tenant_rls_context(session, tenant_id)
     return tenant_id
+
+
+async def get_public_reader(session: SessionDep, user: CurrentUser) -> User:
+    """A signed-in user with no library, for the routes that read what is public (ADR 0287).
+    RLS policies cast `app.tenant_id` to a uuid, so it is set to an id no tenant has: nothing of
+    any tenant is visible, and a public repository is read through `reading_repository` as
+    ever."""
+    await set_tenant_rls_context(session, NO_TENANT)
+    return user
+
+
+PublicReader = Annotated[User, Depends(get_public_reader)]
 
 
 async def get_tenant_admin_context(

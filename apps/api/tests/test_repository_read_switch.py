@@ -320,15 +320,17 @@ async def test_a_public_repository_without_a_release_is_a_conflict_and_not_a_liv
         await world.done()
 
 
-async def test_what_a_library_cannot_read_stays_unread_when_the_repository_is_public(
+async def test_what_a_library_cannot_read_stays_unread_when_the_repository_is_private(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:
     """The read switch changes what is read and not who may read it (ADR 0286): a library with
-    no grant gets the 404 it got, public or not."""
+    no grant gets the 404 it got, whatever documents the repository holds. A public repository is
+    another matter, and ADR 0287's."""
     world = await release_world(raw_client, fake_jwks_server, published=False)
     try:
         await set_visibility([world.repository], "public")
         await world.publish(label="1.0")
+        await set_visibility([world.repository], "private")
         stranger = await world.gm.create_tenant("Stranger")
         world.tenants.append(stranger)
         for path in ("entities", "stat-groups", "copy-plan", "dependencies"):
