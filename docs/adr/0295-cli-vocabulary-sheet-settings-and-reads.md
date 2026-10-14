@@ -22,3 +22,7 @@ Retyping or moving definitions, editing entity values, computed-formula authorin
 ## Consequences
 
 The CLI can author the vocabulary used by the being sheet and read entries without switching apps. Its wheel carries a generated copy of the existing parser; changes to that package require regenerating it. Tests cover writes and clearing, permissions and ambiguity, syntax fidelity and reads against the real API.
+
+### Addendum: the existing sheet read's inherited weapon stats
+
+The CLI's real-API test found that the sheet read used the item view's eager-load recipe but then serialized ADR 0276's provenance. An equipped instance that inherited a weapon stat consequently failed with `VEffectiveStat.source_entity` unavailable. Load that relationship in the sheet query before calling `_stats_out`, with a regression for an inherited stat. This restores ADR 0281's existing read without changing its schema or visibility; it is the only API change in this slice.
