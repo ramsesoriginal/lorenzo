@@ -1,0 +1,30 @@
+[tools]
+java = "temurin-17"
+
+[tasks.dev]
+description = "Build and install on the connected Android phone or emulator"
+run = "./gradlew :app:installDebug"
+
+[tasks.lint]
+description = "Android lint and Kotlin compilation"
+run = "./gradlew checkKotlinFormat :app:lintDebug :core:compileKotlin"
+
+[tasks.test]
+description = "JVM API contract tests and Android unit tests"
+run = "./gradlew :core:test :app:testDebugUnitTest"
+
+[tasks.build]
+description = "Build an installable debug APK and an unsigned release bundle"
+run = "./gradlew :app:assembleDebug :app:bundleRelease"
+
+[tasks.check-schema]
+description = "Check consumed mobile contracts against the API's current OpenAPI"
+run = ["mise run //apps/api:openapi-schema", "python3 scripts/check_contract.py ../api/openapi.json"]
+
+[tasks.format]
+description = "Format Kotlin with ktfmt"
+run = "./gradlew formatKotlin"
+
+[tasks.check-format]
+description = "Verify Kotlin formatting"
+run = "./gradlew checkKotlinFormat"

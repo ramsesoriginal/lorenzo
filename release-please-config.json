@@ -60,6 +60,10 @@
     "packages/stat-values": {
       "release-type": "node",
       "component": "stat-values"
+    },
+    "apps/inventory-mobile": {
+      "release-type": "simple",
+      "component": "inventory-mobile"
     }
   }
 }
