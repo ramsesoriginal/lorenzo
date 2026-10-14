@@ -89,7 +89,7 @@ jobs:
         if: contains(format(' {0} ', matrix.apps), ' apps/inventory-mobile ')
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
+          packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
       # A node split over several runners (`shards` in .github/ci-graph.toml) lints once, on the first.
       # A leg of several nodes (`batch` in the same file) runs them one after the other and runs every
       # one, so a failure in the first doesn't hide the rest.
