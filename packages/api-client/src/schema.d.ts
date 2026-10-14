@@ -865,9 +865,10 @@ export interface paths {
          *     body is optional: without a label the release is called by its number.
          *     `409` if the label is taken, and `409 release-has-breaking-changes` while it holds
          *     changes the update engine cannot carry to the libraries that copied it, unless
-         *     `acknowledge_breaking` (ADR 0208). The release records the digest of what was
-         *     published, what it added, changed and removed, and those changes, and the
-         *     repository's released rows become what was published. Until the first publish, no
+         *     `acknowledge_breaking` (ADR 0208), and, for a public repository, `409 built-on-behind` while
+         *     a repository it is built on has a release it has not taken (ADR 0289). The release records
+         *     the digest of what was published, what it added, changed and removed, and those changes,
+         *     and the repository's released rows become what was published. Until the first publish, no
          *     subscriber can see anything of it.
          */
         put: operations["publish_repository"];
@@ -4623,6 +4624,25 @@ export interface components {
             detail: string;
         };
         /**
+         * BuiltOnBehindOut
+         * @description A repository this one is built on whose current release this one has not taken (ADR 0289):
+         *     `taken` is the release this one last took of it, `current` the one it should take, and
+         *     `readable` is false when nothing can be told because it cannot be read.
+         */
+        BuiltOnBehindOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /** Name */
+            name: string;
+            taken: components["schemas"]["ReleaseRefOut"] | null;
+            current: components["schemas"]["ReleaseRefOut"] | null;
+            /** Readable */
+            readable: boolean;
+        };
+        /**
          * BulkAddPrototypeRequest
          * @description POST /items/bulk-add-prototype body - see ADR 0073. Adds
          *     prototype_id to every listed item's direct prototype set; an item that
@@ -8346,7 +8366,10 @@ export interface components {
          *     of kinds no round-trip matrix covers yet. `warnings` is what it says and never refuses, a parent
          *     added to an item libraries hold. `descriptions_edited` is the hint of texts written or edited
          *     since the release, which `matches` does not see: text edits are not tracked. `libraries_told`
-         *     is how many libraries hold an invitation, whom a publish would tell.
+         *     is how many libraries hold an invitation, whom a publish would tell. `built_on_behind` lists
+         *     the repositories this one is built on that have a release it has not taken (ADR 0289), and
+         *     `built_on_blocks_publish` is whether a publish refuses for it: it does for a public repository
+         *     and only warns for a private one.
          */
         ReleasePreviewOut: {
             release: components["schemas"]["ReleaseOut"] | null;
@@ -8375,6 +8398,10 @@ export interface components {
             descriptions_edited: number | null;
             /** Libraries Told */
             libraries_told: number;
+            /** Built On Behind */
+            built_on_behind: components["schemas"]["BuiltOnBehindOut"][];
+            /** Built On Blocks Publish */
+            built_on_blocks_publish: boolean;
         };
         /**
          * ReleaseRefOut

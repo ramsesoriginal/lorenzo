@@ -1527,6 +1527,14 @@ class BreakingNoteOut(BaseModel):
     release: ReleaseRefOut
 
 
+class BuiltOnBehindOut(BaseModel):
+    repository_id: UUID = Field(..., title="Repository Id")
+    name: str = Field(..., title="Name")
+    taken: ReleaseRefOut | None
+    current: ReleaseRefOut | None
+    readable: bool = Field(..., title="Readable")
+
+
 class BulkMembershipResultItem(BaseModel):
     user_id: UUID = Field(..., title="User Id")
     status: Status = Field(..., title="Status")
@@ -1960,6 +1968,8 @@ class ReleasePreviewOut(BaseModel):
     unproven_kinds: list[UnprovenKindOut] = Field(..., title="Unproven Kinds")
     descriptions_edited: int | None = Field(..., title="Descriptions Edited")
     libraries_told: int = Field(..., title="Libraries Told")
+    built_on_behind: list[BuiltOnBehindOut] = Field(..., title="Built On Behind")
+    built_on_blocks_publish: bool = Field(..., title="Built On Blocks Publish")
 
 
 class RepositoryStatDefinitionOut(BaseModel):

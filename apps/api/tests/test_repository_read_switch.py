@@ -11,7 +11,7 @@ from _admin_db import admin_session_factory
 from _fake_jwks import FakeJwksServer
 from _release_world import ReleaseWorld, release_world
 from _repository_actors import cleanup
-from _upstream_documents import set_visibility
+from _upstream_documents import publish_stack, set_visibility
 from httpx import AsyncClient
 from sqlalchemy import delete, func, select
 from test_repository_attachments import _copy, _stack, _table
@@ -256,9 +256,7 @@ async def test_a_public_bridge_is_built_on_what_its_release_was_built_on(
         assert await steps() == built
 
         await set_visibility([stack.equipment, stack.rules, stack.bridge], "public")
-        for repository in (stack.equipment, stack.rules, stack.bridge):
-            response = await stack.author.put(f"/tenants/{repository}/published", json={})
-            assert response.status_code == 200, response.text
+        await publish_stack(stack)
         assert await steps() == built
 
         # The bridge's own copy records change after the release: a public bridge is still

@@ -7,6 +7,7 @@ import itertools
 import uuid
 from collections.abc import AsyncIterator, Iterable, Iterator
 from contextlib import asynccontextmanager, contextmanager
+from typing import Any
 
 from _admin_db import admin_session_factory
 from sqlalchemy import text, update
@@ -56,3 +57,19 @@ async def in_tenant(session: AsyncSession, tenant_id: uuid.UUID) -> None:
     await session.execute(
         text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)}
     )
+
+
+async def publish_stack(stack: Any) -> None:
+    """Publishes the equipment and the rules, has the bridge take their new releases (a public
+    bridge cannot publish while it is behind, ADR 0289) and publishes the bridge."""
+    author = stack.author
+    for upstream in (stack.equipment, stack.rules):
+        response = await author.put(f"/tenants/{upstream}/published", json={})
+        assert response.status_code == 200, response.text
+    for upstream in (stack.equipment, stack.rules):
+        response = await author.post(
+            f"/tenants/{stack.bridge}/repositories/{upstream}/updates", json={"actions": []}
+        )
+        assert response.status_code == 200, response.text
+    response = await author.put(f"/tenants/{stack.bridge}/published", json={})
+    assert response.status_code == 200, response.text

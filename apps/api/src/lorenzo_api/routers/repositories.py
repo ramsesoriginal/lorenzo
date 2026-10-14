@@ -11,7 +11,6 @@ Two sides, both under /tenants/{tenant_id}: the repository's own
 
 import uuid
 from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Response
@@ -23,7 +22,6 @@ from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_owner
-from lorenzo_api.config import get_settings
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -32,13 +30,10 @@ from lorenzo_api.dependencies import (
     get_tenant_context,
     set_tenant_rls_context,
 )
-from lorenzo_api.entity_kinds import unpublishable_sentence
 from lorenzo_api.exceptions import (
     InvalidSubscriberError,
     NotARepositoryError,
-    ReleaseHasBreakingChangesError,
     ReleaseNotFoundError,
-    RepositoryHasUnprovenKindsError,
     RepositoryManagementForbiddenError,
     RepositoryNotCopiedError,
     RepositoryNotFoundError,
@@ -68,10 +63,9 @@ from lorenzo_api.models import (
 from lorenzo_api.release_current import make_release_current
 from lorenzo_api.release_document_store import (
     kept_documents,
-    prune_release_documents,
-    store_release_document,
 )
 from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_built_on import built_on_behind
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
     Plan,
@@ -82,22 +76,19 @@ from lorenzo_api.repository_copying import (
     forget_copy,
     plan_copy,
 )
-from lorenzo_api.repository_digest import BreakingNote, Row, assess, replace_stored_rows
+from lorenzo_api.repository_digest import BreakingNote, Row, assess
 from lorenzo_api.repository_grants import (
     grant_repository_access,
     notify_tenant_admins,
     subscribe_to_public,
 )
+from lorenzo_api.repository_publishing import publish_release
 from lorenzo_api.repository_releases import (
     ReleaseRef,
     current_notice,
     current_release,
-    lock_repository,
-    make_release,
     relabel,
-    release_notice,
     releases_named,
-    set_current_release,
 )
 from lorenzo_api.repository_updates import (
     COLLISION_KIND,
@@ -123,6 +114,7 @@ from lorenzo_api.schemas.repositories import (
     AttachmentRefOut,
     BreakingNoteOut,
     BreakingRowOut,
+    BuiltOnBehindOut,
     CollisionOut,
     ContributionCountsOut,
     ContributionOut,
@@ -220,96 +212,18 @@ async def publish_repository(
     body is optional: without a label the release is called by its number.
     `409` if the label is taken, and `409 release-has-breaking-changes` while it holds
     changes the update engine cannot carry to the libraries that copied it, unless
-    `acknowledge_breaking` (ADR 0208). The release records the digest of what was
-    published, what it added, changed and removed, and those changes, and the
-    repository's released rows become what was published. Until the first publish, no
+    `acknowledge_breaking` (ADR 0208), and, for a public repository, `409 built-on-behind` while
+    a repository it is built on has a release it has not taken (ADR 0289). The release records
+    the digest of what was published, what it added, changed and removed, and those changes,
+    and the repository's released rows become what was published. Until the first publish, no
     subscriber can see anything of it.
     """
     await _require_owner(session, tenant_id=tenant_id, user=user)
     tenant = await _require_repository(session, tenant_id)
-    body = body or PublishRequest()
-    was_published = tenant.published_at is not None
-    await lock_repository(session, tenant_id)
-    assessed = await assess(session, tenant_id)
-    if assessed.unproven_kinds:
-        raise RepositoryHasUnprovenKindsError(
-            detail=unpublishable_sentence(assessed.unproven_kinds),
-            entries=[
-                {"id": str(e["id"]), "name": e["name"], "kinds": e["kinds"]}
-                for e in assessed.unproven_kinds
-            ],
-        )
-    if assessed.hits and not body.acknowledge_breaking:
-        raise ReleaseHasBreakingChangesError(
-            detail=f"{len(assessed.hits)} of the changes in this release break what libraries "
-            "built on this repository hold. Look at them, then publish again, saying you "
-            "acknowledge it.",
-            breaking_rows=[b.as_json() for b in assessed.hits],
-        )
-    release = await make_release(
-        session,
-        repository=tenant,
-        user_id=user.id,
-        label=body.label,
-        notes=body.notes,
-        breaking=body.breaking or bool(assessed.hits),
-        digest=assessed.digest,
-        counts=assessed.counts,
-        breaking_rows=[b.as_json() for b in assessed.hits],
-        warning_rows=[b.as_json() for b in assessed.warnings],
+    published = await publish_release(
+        session, repository=tenant, user_id=user.id, body=body or PublishRequest()
     )
-    await replace_stored_rows(session, tenant_id, assessed.live.values())
-    public = await is_public(session, tenant_id)
-    if public:
-        # What a library reads of a public repository, written from the load the digest was
-        # made from, so the two cannot disagree (ADR 0286).
-        await store_release_document(
-            session, tenant_id=tenant_id, release_id=release.id, content=assessed.content
-        )
-    await set_current_release(session, tenant, release.id)
-    if public:
-        await prune_release_documents(
-            session,
-            tenant_id=tenant_id,
-            keep=get_settings().release_documents_retained,
-            current_release_id=release.id,
-        )
-    release_out = _authored(release, current=True, kept=public)
-    tenant.published_at = datetime.now(UTC)
-    tenant.updated_by = user.id
-    # The label is in the log, which only the repository's own members read, as it is in
-    # the list of releases the libraries read: words the author chose to publish.
-    await record_activity(
-        session,
-        tenant_id=tenant_id,
-        actor_id=user.id,
-        action="repository.published",
-        target_type="tenant",
-        target_id=tenant_id,
-        detail=(
-            f"release={release.number},breaking={str(release.breaking).lower()},"
-            f"label={release.label}"
-        ),
-    )
-    subscribers = (
-        await session.scalars(
-            select(RepositorySubscription.subscriber_tenant_id).where(
-                RepositorySubscription.repository_tenant_id == tenant_id
-            )
-        )
-    ).all()
-    title, notice = release_notice(
-        repository_name=tenant.name, release=release, first=not was_published
-    )
-    await notify_tenant_admins(
-        session,
-        recipient_tenant_ids=subscribers,
-        current_tenant_id=tenant_id,
-        type="repository_updated" if was_published else "repository_published",
-        title=title,
-        body=notice,
-        created_by=user.id,
-    )
+    release_out = _authored(published.release, current=True, kept=published.public)
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return PublishedOut(
@@ -357,6 +271,7 @@ async def preview_release(
     loads the repository once, like a publish. `409` for a play tenant."""
     await _require_repository(session, tenant_id)
     assessed = await assess(session, tenant_id)
+    behind = await built_on_behind(session, tenant_id)
     told = await session.scalar(
         select(func.count())
         .select_from(RepositorySubscription)
@@ -378,6 +293,17 @@ async def preview_release(
         unproven_kinds=[UnprovenKindOut.model_validate(e) for e in assessed.unproven_kinds],
         descriptions_edited=assessed.descriptions_edited,
         libraries_told=told or 0,
+        built_on_behind=[
+            BuiltOnBehindOut(
+                repository_id=b.repository_id,
+                name=b.name,
+                taken=_release_ref(b.taken),
+                current=_release_ref(b.current),
+                readable=b.readable,
+            )
+            for b in behind
+        ],
+        built_on_blocks_publish=bool(behind) and await is_public(session, tenant_id),
     )
 
 

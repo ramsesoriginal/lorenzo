@@ -61,6 +61,8 @@ const preview = (over: Partial<ReleasePreviewOut> = {}): ReleasePreviewOut => ({
   unproven_kinds: [],
   descriptions_edited: 0,
   libraries_told: 2,
+  built_on_behind: [],
+  built_on_blocks_publish: false,
   ...over,
 });
 

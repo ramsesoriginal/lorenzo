@@ -26,6 +26,10 @@ from lorenzo_api.models import RepositoryRelease, Tenant
 NOTICE_NOTES_LENGTH = 280
 
 BREAKING_LINE = "This release is marked breaking: it may change things your library already uses."
+FLIPPED_LINE = (
+    "It is now public: you read its releases, so what its author changes between releases is not "
+    "visible to your library until the next one."
+)
 NOTHING_SAID = "Check its updates to see what changed."
 FIRST_PUBLISH_BODY = "You can browse it and copy it into your tenant."
 
@@ -79,15 +83,18 @@ def cut(text: str, limit: int = NOTICE_NOTES_LENGTH) -> str:
 
 
 def release_notice(
-    *, repository_name: str, release: RepositoryRelease, first: bool
+    *, repository_name: str, release: RepositoryRelease, first: bool, flipped: bool = False
 ) -> tuple[str, str]:
     """The title and body the libraries a repository is granted to are told when it
     publishes: the release's label in the title, its notes (cut) and a line when it
     is breaking in the body. The first publish keeps its own words, and adds the
-    notes if there are any."""
+    notes if there are any. `flipped` says the repository was made public by this release, and
+    what that means for a library that already reads it."""
     said = [cut(release.notes)] if release.notes else []
     if release.breaking:
         said.append(BREAKING_LINE)
+    if flipped:
+        said.append(FLIPPED_LINE)
     if first:
         return f"{repository_name} is published", "\n\n".join([FIRST_PUBLISH_BODY, *said])
     return (
