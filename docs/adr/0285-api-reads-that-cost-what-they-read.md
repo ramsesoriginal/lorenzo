@@ -99,3 +99,12 @@ A write answers with the row it wrote, and its dependencies and access checks as
 - **A held row can be stale within its own request.** What is held is what the request read first, and the identity map answers for a row the session itself changed or deleted, as it did before; a membership or tenant changed by another transaction while a request runs is not seen by that request after its first read. A request is milliseconds long and its tenant context (RLS) is fixed at its start anyway.
 
 Tests: `apps/api/tests/test_write_route_statements.py` holds the counts of the five routes above that changed, with room for a few statements, and that a membership read twice in a session is one statement. What the answers show is unchanged and is covered by the information visibility, item, item-instance and entity tests of the suite.
+
+## Addendum (2026-10-14): the update engine's attachment lookup
+
+The scale spike of [RFC 0037](../rfcs/0037-releases-and-public-snapshots.md) (R2, #709) found that `updates` of a bridge costs far more than `updates` of a repository of the same size: at 20,000 entries 11.6 to 16 s against 4.2 to 5.3 s. In a profile, 5.0 of 11.5 s was one thing: `_find_attachment_updates` found the local row of each end of each attachment through `_local_entity`, which called `Links.local_of("entity")`, which builds the inverse of the whole copy-link map, so the cost grew with attachments times entries. Memoising the inversion in the harness took the same call from 9.5 s to 4.4 s.
+
+- **The inversion is made once.** `_find_attachment_updates` and the apply of attachments invert the entity links once and pass the map to `_local_entity`; its result is the same row for the same origin.
+- **Not changed:** the engine's other uses of `local_of` (one for each kind, once for each call), and the rest of what R2 listed (the manifest's read of a whole document, browse of a public repository, the compression level, the rewrite of the released rows), which are not this fix.
+
+Test: `apps/api/tests/test_update_attachment_lookup.py` counts the inversions of the entity links during an `updates` of a bridge with attachments the library has not taken, and fails when each end makes its own.

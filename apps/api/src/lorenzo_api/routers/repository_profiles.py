@@ -20,8 +20,8 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.exceptions import (
     ProfilePictureNotFoundError,
-    PublicRepositoriesNotAvailableError,
     RepositoryNotFoundError,
+    VisibilityHasItsOwnRouteError,
 )
 from lorenzo_api.models import ProfilePicture, RepositoryProfile, Tenant
 from lorenzo_api.profile_pictures import read_and_validate_upload
@@ -71,16 +71,19 @@ async def update_profile(
     session: SessionDep,
     user: CurrentUser,
 ) -> RepositoryProfileOut:
-    """An Owner changes what the profile says; only the fields named are touched. `visibility:
-    "public"` is refused, in the same request as everything else in it (so nothing is kept),
-    until the gates that come before a public repository are built (RFC 0038 §1)."""
+    """An Owner changes what the profile says; only the fields named are touched. A `visibility`
+    other than the repository's own is refused, in the same request as everything else in it (so
+    nothing is kept): a flip makes a release, tells libraries and revokes grants, so it is `PUT`
+    and `DELETE` on `/public` (ADR 0290)."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
     await _require_repository(session, tenant_id)
-    if body.visibility == "public":
-        raise PublicRepositoriesNotAvailableError(
-            detail="Public repositories are not available yet. This repository stays private."
-        )
     profile = await profile_of(session, tenant_id)
+    if body.visibility is not None and body.visibility != profile.visibility:
+        raise VisibilityHasItsOwnRouteError(
+            detail="Making a repository public or private is PUT or DELETE on /public: it makes "
+            "a release, tells the libraries and, going private, revokes the access they gave "
+            "themselves."
+        )
     changed = [name for name in _FIELDS if name in body.model_fields_set]
     for name in changed:
         value = getattr(body, name)
