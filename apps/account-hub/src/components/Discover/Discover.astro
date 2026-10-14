@@ -3,6 +3,7 @@
 // filter, and one repository's page, its storefront. Both are in the one page, the address saying
 // which: the list for `?q=…&tag=…`, a repository for `?repository=<id>`. Rendered by renderDiscover.
 import { BRANDING_CSS_URL } from '../../lib/config';
+import Preview from '../Preview/Preview.astro';
 ---
 
 <div class="stack" data-discover hidden>
@@ -180,8 +181,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <p class="caption" data-built-on-note hidden></p>
     </section>
 
-    <!-- D4 (RFC 0038 §5): what a visitor may look at before copying goes here, after "Built on".
-         Not on screen yet, and neither are the publisher, the Report link and the terms (D6). -->
+    <!-- What a visitor may look at before copying (RFC 0038 §5, ADR 0293). The publisher, the Report
+         link and the terms are D6's and not on screen yet. -->
+    <Preview />
   </article>
 
   <p data-not-listed hidden></p>

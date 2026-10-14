@@ -12,6 +12,8 @@ import { getStorefront } from '../../lib/discoverApi';
 import { isEditingIn } from '../../lib/editing';
 import { avatarInitial } from '../../lib/format';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
+import type { PreviewLevel } from '../../lib/preview';
+import { librarySource } from '../../lib/previewApi';
 import { releasePlace } from '../../lib/releases';
 import {
   getCopyPlan,
@@ -52,6 +54,7 @@ import type {
   SubscriptionOut,
   TenantSummaryOut,
 } from '../../lib/types';
+import { createPreview } from '../Preview/renderer';
 import { createInbox } from './inbox';
 import { createUpdatesView } from './updatesView';
 import { createCopyWizard } from './wizard';
@@ -125,6 +128,11 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
   const back = required<HTMLAnchorElement>(root, '[data-back]');
   const copyView = required<HTMLElement>(root, '[data-copy-view]');
   const wizard = createCopyWizard(root, copyView);
+  // What the Owner opened for a look, on a repository's page, and the entries that open in it.
+  const lookInside = createPreview(required<HTMLElement>(root, '[data-detail-view]'), {
+    list: false,
+  });
+  let lookLevel: PreviewLevel | null = null;
   const updatesViewElement = required<HTMLElement>(root, '[data-updates-view]');
   const updatesView = createUpdatesView(root, updatesViewElement);
   const inboxViewElement = required<HTMLElement>(root, '[data-inbox-view]');
@@ -264,6 +272,12 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
           .map(kindLabel)
           .join(', ');
         required<HTMLElement>(item, '[data-parents]').textContent = parentsLine(entry, names) ?? '';
+        // An entry opens in the dialog wherever the Owner opened something to look at.
+        const look = required<HTMLButtonElement>(item, '[data-look]');
+
+        look.hidden = lookLevel === null || lookLevel === 'off';
+        look.setAttribute('aria-label', `Look at ${entry.name}`);
+        look.addEventListener('click', () => void lookInside.open(entry.id));
 
         return item;
       }),
@@ -371,6 +385,8 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     detail.statGroups.replaceChildren();
     detail.entriesSection.open = false;
     detail.statGroupsSection.open = false;
+    lookLevel = null;
+    lookInside.hide();
 
     back.href = shelfHref(library.slug);
     showPicture(detail.picture, detail.initial, repository);
@@ -451,6 +467,22 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
       : '';
     detail.brought.hidden = !subscription.contributed;
     detail.historySection.hidden = detail.history.children.length === 0;
+
+    // What the Owner opened for a look, for a repository that can be looked inside.
+    if (step) {
+      const looking = { libraryId: library.id, repositoryId: repository.id };
+
+      void lookInside
+        .show(
+          librarySource(library.id, repository.id),
+          'holder',
+          () => shown?.repositoryId === looking.repositoryId && turn === latest,
+        )
+        .then((level) => {
+          lookLevel = level;
+          if (entries.loaded.length > 0) paintEntries();
+        });
+    }
 
     // Entries and stat groups are read when their section is opened.
     detail.entriesSection.hidden = !step;

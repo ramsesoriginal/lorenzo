@@ -3,6 +3,7 @@
 // has copied. A list, and one repository's page, both for the library chosen at the top. Rendered
 // by renderRepositoriesPanel.
 import { BRANDING_CSS_URL } from '../../lib/config';
+import Preview from '../Preview/Preview.astro';
 ---
 
 <div class="stack" data-repositories-panel hidden>
@@ -86,9 +87,13 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <p class="caption" data-attachments hidden></p>
       <p class="caption">
         Only names show until your library copies this repository: entries with their kinds and
-        parents, and stat groups with their stats.
+        parents, and stat groups with their stats. What its Owner has opened for a look is under
+        Look inside.
       </p>
     </section>
+
+    <!-- What its Owner opened for a look (ADR 0293): the featured entries, and any entry from the list below. -->
+    <Preview />
 
     <section class="stack" data-built-on-section hidden>
       <h3>Built on</h3>
@@ -520,6 +525,9 @@ import { BRANDING_CSS_URL } from '../../lib/config';
       <span class="grow" data-name></span>
       <span class="badge" data-kinds></span>
       <span class="campaign-meta" data-parents></span>
+      <button type="button" class="btn btn-secondary" data-look>
+        Look
+      </button>
     </li>
   </template>
 

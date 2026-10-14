@@ -1,7 +1,7 @@
 // A repository's page on /discover (ADR 0292): its cover, what it says of itself, its latest release,
 // what it is built on, and "Copy to a library…", which picks the library and hands over to Shelf's
-// copy wizard (ADR 0201), the page that checks a copy first. Nothing here reads what the repository
-// holds: the preview a visitor gets before copying is slice D4's (RFC 0038 §5).
+// copy wizard (ADR 0201), the page that checks a copy first. What a visitor may look at before copying
+// is the preview below it (RFC 0038 §5, ADR 0293), which the Owner's switch decides.
 
 import {
   BUILT_ON_NOT_PUBLIC,
@@ -18,10 +18,12 @@ import {
 } from '../../lib/discover';
 import { getStorefront, listPublicDependencies, listPublicReleases } from '../../lib/discoverApi';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
+import { visitorSource } from '../../lib/previewApi';
 import { shelfHref } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { listMyTenants } from '../../lib/tenants';
+import { createPreview } from '../Preview/renderer';
 import { showCover } from './cover';
 
 const required = requiredIn('Storefront');
@@ -76,6 +78,8 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
   const builtOn = required<HTMLElement>(view, '[data-built-on]');
   const builtOnNone = required<HTMLElement>(view, '[data-built-on-none]');
   const builtOnNote = required<HTMLElement>(view, '[data-built-on-note]');
+  // Looking inside, as a visitor: the Owner's switch says how much (ADR 0293).
+  const preview = createPreview(view, { list: true });
 
   const copy = {
     open: required<HTMLButtonElement>(view, '[data-copy-open]'),
@@ -237,6 +241,7 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
       partError.hidden = true;
       releaseSection.hidden = true;
       builtOnSection.hidden = true;
+      preview.hide();
 
       showCover(cover, null, item, isCurrent);
       name.textContent = item.name;
@@ -283,6 +288,9 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
         }),
       );
       creditsSection.hidden = profile.credits.length === 0;
+
+      // Looking inside is read at the same time, with its own failure: the page does not wait for it.
+      void preview.show(visitorSource(item.id), 'visitor', isCurrent);
 
       // Releases and what it is built on come from routes of their own, and either may fail
       // without taking the page with it.

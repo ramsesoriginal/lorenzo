@@ -107,3 +107,13 @@ export type StorefrontOut = Schema<'StorefrontOut'>;
 export type PublicDependencyOut = Schema<'PublicDependencyOut'>;
 export type LicenceOut = Schema<'LicenceOut'>;
 export type CreditOut = Schema<'CreditOut'>;
+
+// The preview of a repository and its showcase (RFC 0038 §5, ADR 0293).
+export type PreviewOut = Schema<'PreviewOut'>;
+export type PreviewEntityOut = Schema<'PreviewEntityOut'>;
+export type PreviewInformationOut = Schema<'PreviewInformationOut'>;
+export type PreviewDescriptionOut = Schema<'PreviewDescriptionOut'>;
+export type PreviewPictureOut = Schema<'PreviewPictureOut'>;
+export type PreviewStatOut = Schema<'PreviewStatOut'>;
+export type ShowcaseOut = Schema<'ShowcaseOut'>;
+export type ShowcaseEntryOut = Schema<'ShowcaseEntryOut'>;

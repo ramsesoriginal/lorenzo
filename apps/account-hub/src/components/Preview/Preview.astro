@@ -1,0 +1,95 @@
+---
+// Looking inside a repository before copying it (RFC 0038 §5, ADR 0293): the entries its Owner
+// features with their text, pictures and stat values, and, where the Owner opened every entry, a
+// searchable list of them with each one opening in a dialog. Used on a repository's page in Discover
+// (a visitor) and on its page in Shelf (a library that holds it), and drawn by createPreview. What it
+// shows is what the API answered with: nothing here decides what a reader may see.
+---
+
+<section class="stack" data-preview hidden>
+  <h3 data-preview-heading></h3>
+  <p class="error-text" role="alert" data-preview-error hidden></p>
+  <p data-preview-line hidden></p>
+  <ul class="stack" data-preview-featured></ul>
+
+  <div class="stack" data-preview-all hidden>
+    <h4 data-preview-all-heading></h4>
+    <div class="field">
+      <label class="field-label" for="preview-search" data-preview-search-label></label>
+      <input
+        id="preview-search"
+        class="text-input"
+        type="search"
+        autocomplete="off"
+        data-preview-search
+      />
+    </div>
+    <p class="caption" role="status" data-preview-count></p>
+    <ul class="list" data-preview-list></ul>
+    <p data-preview-empty hidden></p>
+    <p>
+      <button type="button" class="btn btn-secondary" data-preview-more hidden>
+        Show more
+      </button>
+    </p>
+    <p class="error-text" role="alert" data-preview-all-error hidden></p>
+  </div>
+
+  <dialog class="preview-dialog" aria-label="An entry" data-preview-dialog>
+    <div class="stack">
+      <p class="error-text" role="alert" data-preview-dialog-error hidden></p>
+      <p data-preview-dialog-loading hidden>
+        Loading&hellip;
+      </p>
+      <div class="stack" data-preview-dialog-body></div>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-preview-close>
+          Close
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <template data-preview-entry-template>
+    <article class="card card-body stack preview-entry">
+      <header class="stack-tight">
+        <div class="row">
+          <h4 class="grow" data-name></h4>
+          <span class="pill pill-success" data-featured hidden></span>
+        </div>
+        <p class="campaign-meta" data-kinds></p>
+        <p class="campaign-meta" data-parents hidden></p>
+      </header>
+      <p class="caption" data-note hidden></p>
+      <div class="stack" data-texts></div>
+      <div class="stack" data-stats hidden></div>
+    </article>
+  </template>
+
+  <template data-preview-text-template>
+    <section class="stack-tight preview-text">
+      <h5 data-title></h5>
+      <div class="ls-content" data-content hidden></div>
+      <div class="preview-pictures" data-pictures hidden></div>
+    </section>
+  </template>
+
+  <template data-preview-stat-group-template>
+    <div class="stack-tight">
+      <strong data-group></strong>
+      <dl class="key-values" data-values></dl>
+    </div>
+  </template>
+
+  <template data-preview-item-template>
+    <li class="row preview-item">
+      <div class="grow stack-tight">
+        <strong data-name></strong>
+        <span class="campaign-meta" data-kinds></span>
+      </div>
+      <button type="button" class="btn btn-secondary" data-look>
+        Look
+      </button>
+    </li>
+  </template>
+</section>

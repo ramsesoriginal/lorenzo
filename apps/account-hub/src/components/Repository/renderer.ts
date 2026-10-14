@@ -32,6 +32,7 @@ import { renderTenantEdit } from '../TenantEdit/renderer';
 import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 import { createPublishControls } from './publish';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
+import { createShowcaseControls } from './showcase';
 import { createViewAs } from './viewAs';
 import { createVisibilityControls } from './visibility';
 
@@ -100,6 +101,8 @@ export function renderRepository(
   const visibility = createVisibilityControls(root, hooks.onChanged, (visibility) =>
     publishControls.markPublic(visibility === 'public'),
   );
+  // What people can look at, and the entries featured: the Owner's, beside the switch.
+  const showcase = createShowcaseControls(root);
   const viewAs = createViewAs(root, hooks.mayCreate);
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);
@@ -140,6 +143,7 @@ export function renderRepository(
     live.hidden = true;
     publishControls.clear();
     visibility.clear();
+    showcase.clear();
     viewAs.clear();
     releases.clear();
     using.clear();
@@ -159,6 +163,7 @@ export function renderRepository(
     publishControls.paint(repository, current.published);
     void viewAs.paint(repository, current.published);
     void visibility.paint(repository);
+    void showcase.paint(repository);
     overview.hidden = false;
   }
 

@@ -161,7 +161,8 @@
    the brand's target size at phone widths and for a coarse pointer (identity.md 8.5). */
 @media (max-width: 720px), (pointer: coarse) {
   [data-publish-dialog] .field-row,
-  [data-visibility-dialog] .field-row {
+  [data-visibility-dialog] .field-row,
+  [data-showcase] .field-row {
     min-height: var(--target-min);
   }
 }
@@ -232,4 +233,61 @@
   margin: 0;
   white-space: pre-line;
   overflow-wrap: anywhere;
+}
+
+/* Looking inside a repository (ADR 0293): an entry as a card with its text, pictures and stat values,
+   and the dialog one opens in. Long names and values wrap, and nothing is wider than the phone. */
+.preview-entry {
+  min-width: 0;
+}
+
+.preview-entry h4,
+.preview-text h5 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.preview-entry .key-values dd {
+  overflow-wrap: anywhere;
+}
+
+.preview-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.preview-pictures[hidden] {
+  display: none;
+}
+
+.preview-picture {
+  display: block;
+  max-width: 100%;
+  max-height: 20rem;
+  height: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.preview-picture[hidden] {
+  display: none;
+}
+
+.preview-dialog {
+  /* A long entry scrolls inside the dialog, and the dialog is never wider than the screen. */
+  width: min(40rem, calc(100vw - 2 * var(--space-3)));
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.list > .preview-item {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .preview-item button,
+  .preview-dialog button {
+    min-height: var(--target-min);
+  }
 }

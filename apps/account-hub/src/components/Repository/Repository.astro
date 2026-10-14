@@ -107,6 +107,33 @@ import ReleaseComposer from './ReleaseComposer.astro';
           </div>
           <p class="status-text" role="status" data-visibility-status hidden></p>
         </div>
+        <!-- What people can look at before copying, and the entries featured (ADR 0293): an Owner's, for any repository. -->
+        <div class="stack-tight" data-showcase hidden>
+          <h3 data-showcase-heading></h3>
+          <p class="caption" data-showcase-explanation></p>
+          <fieldset data-showcase-choice></fieldset>
+          <p class="status-text" role="status" data-showcase-choice-status hidden></p>
+          <h4 data-featured-heading></h4>
+          <p data-featured-none hidden></p>
+          <ol class="list" data-featured-list></ol>
+          <p class="caption" role="status" data-featured-count></p>
+          <div class="field">
+            <label class="field-label" for="featured-search" data-featured-search-label></label>
+            <input
+              id="featured-search"
+              class="text-input"
+              type="search"
+              autocomplete="off"
+              aria-describedby="featured-hint"
+              data-featured-search
+            />
+            <span class="caption" id="featured-hint" data-featured-hint></span>
+          </div>
+          <ul class="list" data-featured-results></ul>
+          <p data-featured-add-none hidden></p>
+          <p class="caption" data-featured-release-note></p>
+          <p class="status-text" role="status" data-featured-status hidden></p>
+        </div>
         <div class="stack-tight" data-subscriber>
           <h3 data-subscriber-heading></h3>
           <p class="caption" data-subscriber-explanation></p>
@@ -337,6 +364,28 @@ import ReleaseComposer from './ReleaseComposer.astro';
         </div>
         <p class="status-text" role="status" data-edit-status hidden></p>
       </form>
+    </li>
+  </template>
+  <template data-featured-template>
+    <li class="row">
+      <span class="grow" data-name></span>
+      <button type="button" class="btn btn-secondary" data-up>
+        Up
+      </button>
+      <button type="button" class="btn btn-secondary" data-down>
+        Down
+      </button>
+      <button type="button" class="btn btn-secondary" data-remove>
+        Remove
+      </button>
+    </li>
+  </template>
+  <template data-candidate-template>
+    <li class="row">
+      <span class="grow" data-name></span>
+      <button type="button" class="btn btn-secondary" data-add>
+        Add
+      </button>
     </li>
   </template>
   <template data-using-template>
