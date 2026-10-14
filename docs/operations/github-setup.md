@@ -41,7 +41,7 @@ Settings → General:
 
 ## Pages
 
-Settings → Pages → Source: **GitHub Actions**, once a web frontend actually needs deploying.
+The static frontends use **Cloudflare Pages Git integration**, not GitHub Pages or a GitHub Actions upload. Each app needs a Cloudflare Pages project and its Authgear client; see [deployment-setup.md](deployment-setup.md) and [beings-setup.md](beings-setup.md). No GitHub Pages setting is required for these apps.
 
 ## Optional, once every laptop is set up for it
 

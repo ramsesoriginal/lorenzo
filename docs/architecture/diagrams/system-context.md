@@ -2,14 +2,14 @@
 
 ```mermaid
 C4Context
-  title Lorenzo — system context (target shape - apps/api, the Discord bot, and two web frontends are built, mobile is unbuilt)
+  title Lorenzo — system context (implemented API, web and authoring clients, Discord bot, and Android inventory companion)
 
   Person(gm, "Game Master", "Runs campaigns, owns the secrets")
   Person(player, "Player", "Sees only what they're allowed to")
 
-  System(web, "Web frontend(s)", "One or many static sites")
+  System(web, "Web frontend(s)", "Inventory, account hub, Beings and Bench")
   System(bot, "Discord bot(s)", "At least one")
-  System(mobile, "Mobile app(s)", "Possibly more than one")
+  System(mobile, "Mobile app(s)", "Lorenzo Inventory - native Android")
   System(api, "Backend API", "Multi-tenant REST API - source of truth")
   SystemDb(db, "PostgreSQL", "Shared schema, row-level security per tenant")
 
