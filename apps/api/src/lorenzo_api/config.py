@@ -164,6 +164,11 @@ class Settings(BaseSettings):
     # ADR 0288): a setting, not a promise. The current release keeps its own whatever its age.
     release_documents_retained: int = 5
 
+    # How many entries of decoded release documents a process keeps for the preview (ADR 0293):
+    # a document is immutable, so one decoded is exact for as long as it is kept. A release larger
+    # than this is not kept; 0 keeps none.
+    release_cache_entries: int = 10_000
+
     # Whether a repository can be made public (RFC 0038 section 1, ADR 0290). Off until the gates
     # that come before a public repository are in (D3 to D6) and the deployment says so: the flip
     # routes exist and answer `public-repositories-not-available` while it is off.

@@ -73,3 +73,15 @@ async def publish_stack(stack: Any) -> None:
         assert response.status_code == 200, response.text
     response = await author.put(f"/tenants/{stack.bridge}/published", json={})
     assert response.status_code == 200, response.text
+
+
+async def set_preview(repositories: Iterable[uuid.UUID], preview: str) -> None:
+    """The repositories' preview switch, written straight in the database (ADR 0293): the default,
+    `showcase`, shows a visitor only the entries the Owner featured, which is none until they do."""
+    async with admin_session_factory() as session:
+        await session.execute(
+            update(RepositoryProfile)
+            .where(RepositoryProfile.tenant_id.in_(list(repositories)))
+            .values(preview=preview)
+        )
+        await session.commit()

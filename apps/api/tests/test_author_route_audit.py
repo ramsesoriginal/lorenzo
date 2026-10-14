@@ -61,6 +61,10 @@ AUTHORING = {
     ("GET", REPOSITORY + "/copy-plan"),
     ("GET", REPOSITORY + "/dependencies"),
     ("GET", REPOSITORY + "/entities"),
+    ("GET", REPOSITORY + "/entities/{entity_id}"),
+    ("GET", REPOSITORY + "/entities/{entity_id}/pictures/{payload_id}"),
+    ("GET", REPOSITORY + "/preview"),
+    ("GET", T + "/showcase"),
     ("GET", REPOSITORY + "/releases"),
     ("GET", REPOSITORY + "/stat-groups"),
     ("GET", REPOSITORY + "/updates"),
@@ -111,6 +115,7 @@ OWNER = {
     ("PUT", T + "/published"),
     ("GET", T + "/flip-check"),
     ("PUT", T + "/public"),
+    ("PUT", T + "/showcase"),
     ("DELETE", T + "/public"),
     ("DELETE", T + "/published"),
     ("PATCH", T + "/releases/{release_id}"),
@@ -192,6 +197,7 @@ _BODIES: dict[tuple[str, str], object] = {
     ("PATCH", T + "/memberships/{user_id}"): {"role": "author"},
     ("PATCH", T + "/releases/{release_id}"): {"notes": "x"},
     ("POST", T + "/invites"): {"kind": "tenant_role", "role": "author"},
+    ("PUT", T + "/showcase"): {"entity_ids": []},
     ("PATCH", T + "/profile"): {"summary": "x"},
 }
 
