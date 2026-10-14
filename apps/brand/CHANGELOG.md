@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/brand-v1.1.0...brand-v1.2.0) (2026-10-14)
+
+
+### Features
+
+* **account-hub:** Studio, libraries using it, built on and activity (ADR 0205) ([83fdc0d](https://github.com/ramsesoriginal/lorenzo/commit/83fdc0d9ab7d594197c54cfb77044a1c8ceba09b))
+* **account-hub:** Studio's libraries using it, built on and activity ([b0aae73](https://github.com/ramsesoriginal/lorenzo/commit/b0aae7346442edafcf74da9c9a835e082e754eb7)), closes [#526](https://github.com/ramsesoriginal/lorenzo/issues/526)
+* **bench,brand:** an icon for every kind, from the shared atlas ([ab0f60d](https://github.com/ramsesoriginal/lorenzo/commit/ab0f60d2eb17be36e58229d42fbd81d4d145d35a))
+* **bench,brand:** an icon for every kind, from the shared atlas (ADR 0274) ([cdf5ddd](https://github.com/ramsesoriginal/lorenzo/commit/cdf5ddd2355948ac88a40f76c97e6c06b501f19f))
+* **bench:** the main picture - show, choose, replace, remove (B8) ([c19d639](https://github.com/ramsesoriginal/lorenzo/commit/c19d6391da96ed3c44fb6928b309dfd21fb58004))
+
+
+### Bug Fixes
+
+* **ci:** format account-hub and beings, keep bench e2e unconfigured, size the nav toggle ([82a0db9](https://github.com/ramsesoriginal/lorenzo/commit/82a0db98f55427dffb4b5599c7c32c5a21d12b4b))
+
 ## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/brand-v1.0.0...brand-v1.1.0) (2026-09-23)
 
 

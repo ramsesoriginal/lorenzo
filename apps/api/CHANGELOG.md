@@ -1,5 +1,105 @@
 # Changelog
 
+## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.7.0...api-v1.0.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** campaign_name and role of GET /invites/{token}, campaign_id and role of a redemption and of a campaign's invite list and creation can now be null; accepted in openapi-breaking-accepted.txt.
+* **api:** the role in GET /tenants and GET /me/managed can now be 'author'; accepted in openapi-breaking-accepted.txt.
+
+### Features
+
+* **account-hub:** People with Authors and a panel for invite links (ADR 0212) ([945570b](https://github.com/ramsesoriginal/lorenzo/commit/945570b30ea5c58d9cdfcf036c72c8e5007542a3))
+* **api,cli:** display fields in repository copy, updates and seed ([d7c00a1](https://github.com/ramsesoriginal/lorenzo/commit/d7c00a182e5952ea8700871678a78e5aa8627cbf))
+* **api:** a parent added to a copy is a warning, not a breaking change ([81a65bd](https://github.com/ramsesoriginal/lorenzo/commit/81a65bdb855aa5a2ff4c76bafc358c23e1eda032))
+* **api:** a release holds a digest, and a publish says what it breaks ([cc8f901](https://github.com/ramsesoriginal/lorenzo/commit/cc8f901a0795e20eb03846eeca476a237d5704e2))
+* **api:** an Author's reach over the entry, profile and vocabulary routes main added ([0d88e6e](https://github.com/ramsesoriginal/lorenzo/commit/0d88e6e2381de58141adaa9d73d44f6e35d8fad2))
+* **api:** break a stat tie by the entry's own parent order ([9827312](https://github.com/ramsesoriginal/lorenzo/commit/9827312314eead21b5b1ff355275c17c3ecd46fd))
+* **api:** bulk entity export with cursor pages, gzip and a per-tenant revision ETag ([3065130](https://github.com/ramsesoriginal/lorenzo/commit/3065130b6f90066510be1b6a3154d8927e40f397))
+* **api:** creates take an id the client made, and a second send is a replay ([1a03c6d](https://github.com/ramsesoriginal/lorenzo/commit/1a03c6d531c6597cb0a10d48c21f9b807c0908e4))
+* **api:** creates take an id the client made, and a second send is a replay ([d21ad3f](https://github.com/ramsesoriginal/lorenzo/commit/d21ad3fe0ef3931bc5d0eb7cdd63b3bdf8144e66))
+* **api:** entries with kinds (RFC 0041 K2) ([8a8a6d1](https://github.com/ramsesoriginal/lorenzo/commit/8a8a6d1f7f6560bf4969e6f30f1769b4f7ba6330))
+* **api:** GET /app-links, the registry of app links (ADR 0273) ([73da22c](https://github.com/ramsesoriginal/lorenzo/commit/73da22c00048e43e9b02d6842b9131fbe1947529))
+* **api:** GET /entities filters by name, kind and parent, and says what each entry is ([5d494f1](https://github.com/ramsesoriginal/lorenzo/commit/5d494f15b7404306bacc74e809dd62a20ccda7ef)), closes [#551](https://github.com/ramsesoriginal/lorenzo/issues/551)
+* **api:** GET /entities filters by name, kind and parent, and says what each entry is (RFC 0041 K5) ([275ea2e](https://github.com/ramsesoriginal/lorenzo/commit/275ea2e78a63b2fabf00686a7105c983191b8de6))
+* **api:** information shows who wrote it ([8aa11d5](https://github.com/ramsesoriginal/lorenzo/commit/8aa11d55f9d009914c8b15233ceb82a59c326b0b))
+* **api:** link preview endpoint with per-kind templates in a registry ([168ba0f](https://github.com/ramsesoriginal/lorenzo/commit/168ba0f1a3dfc79f9e916163d5e93d9ed47fa8bd))
+* **api:** make an entry with kinds, change its kinds, and publish only proven combinations ([fa50b2c](https://github.com/ramsesoriginal/lorenzo/commit/fa50b2c4897330bf4f49f4547408ae96ad41734b)), closes [#553](https://github.com/ramsesoriginal/lorenzo/issues/553)
+* **api:** my/ links resolve in the context of the text ([69fe672](https://github.com/ramsesoriginal/lorenzo/commit/69fe672f28d6fc9ad38f37982d51c2b50d0cde34))
+* **api:** my/ links resolve in the context of the text (ADR 0240, slice 1) ([de85d27](https://github.com/ramsesoriginal/lorenzo/commit/de85d27f4d0fb39e9da18c93ba1d5ddbed533206))
+* **api:** one invite table with kinds, role links and library-access links ([9644de9](https://github.com/ramsesoriginal/lorenzo/commit/9644de932ffe61a7621d865ac28ddcaffad48d36)), closes [#546](https://github.com/ramsesoriginal/lorenzo/issues/546)
+* **api:** one registry of copyable tables (RFC 0041 K1) ([a454135](https://github.com/ramsesoriginal/lorenzo/commit/a454135d1eb9d7559e0bf81f156a4ea88c6068bc))
+* **api:** one registry of copyable tables, with tests that hold it to the database and the planner ([fcce6f0](https://github.com/ramsesoriginal/lorenzo/commit/fcce6f0adfb53dd5f8332f98a4bf978cdc1e9ff6)), closes [#554](https://github.com/ramsesoriginal/lorenzo/issues/554)
+* **api:** parent ids in the entry list ([5691ed2](https://github.com/ramsesoriginal/lorenzo/commit/5691ed27c0070272347f7581fad9f22004cc3322))
+* **api:** parent ids in the entry list ([6d57bcb](https://github.com/ramsesoriginal/lorenzo/commit/6d57bcb2786076facf38c0d158dae8c5f1286cd7))
+* **api:** personal access tokens and the device-code flow ([704cb8e](https://github.com/ramsesoriginal/lorenzo/commit/704cb8e2f45340f78652aa20085cd30e2ee8e31a))
+* **api:** picture payload upload and delete, main picture, information order ([77ac511](https://github.com/ramsesoriginal/lorenzo/commit/77ac5111a1c30b2005381000edcf1c1ce0c7730f))
+* **api:** picture upload and delete, main picture, information order (RFC 0041 K8) ([103227a](https://github.com/ramsesoriginal/lorenzo/commit/103227a4087b8c6eb46657fade4f5290f515197b))
+* **api:** PUT /entities/{id}/parents sets the parents of any entry ([6710605](https://github.com/ramsesoriginal/lorenzo/commit/67106052fbef5d203575b0d42c11401016cb070c)), closes [#552](https://github.com/ramsesoriginal/lorenzo/issues/552)
+* **api:** PUT /entities/{id}/parents sets the parents of any entry (RFC 0041 K3) ([a876c6a](https://github.com/ramsesoriginal/lorenzo/commit/a876c6a2c1afd51c54cad32585a02e5ea2770226))
+* **api:** retention and making a release current (ADR 0288) ([d3750a8](https://github.com/ramsesoriginal/lorenzo/commit/d3750a86fdf196e88d80fc22ae884a6f51ae5016)), closes [#710](https://github.com/ramsesoriginal/lorenzo/issues/710)
+* **api:** sheet settings and the being sheet read ([12a72c9](https://github.com/ramsesoriginal/lorenzo/commit/12a72c945a0be534eacb9deaf13113cd0f6971ac))
+* **api:** stat definition display fields, order and PATCH ([e32ed57](https://github.com/ramsesoriginal/lorenzo/commit/e32ed570b62c4dd116c3060c43f3042b814575d1))
+* **api:** stat hints ([bf2304c](https://github.com/ramsesoriginal/lorenzo/commit/bf2304cfdc481f5d84e959e38a2e42a8f7ac264d))
+* **api:** stat writes that can be checked and undone ([f135b7c](https://github.com/ramsesoriginal/lorenzo/commit/f135b7c47ed235039c547e1a4d18dc6ad7110990))
+* **api:** stat writes that can be checked and undone ([abc4ae7](https://github.com/ramsesoriginal/lorenzo/commit/abc4ae79d0e4a16e7244c99a18f2958a9be84b2a))
+* **api:** the author role, an admin gate and a table-driven route audit ([f25f832](https://github.com/ramsesoriginal/lorenzo/commit/f25f83225ffe1ee4223996c0c556dfa27ae23542)), closes [#545](https://github.com/ramsesoriginal/lorenzo/issues/545)
+* **api:** the device-code flow sends devices to the hub the app-links registry names ([abd9410](https://github.com/ramsesoriginal/lorenzo/commit/abd94102b1500fd8b58512df65ef994f44ab512d))
+* **api:** the flip rules and the bridge-skew gate (ADR 0289) ([956fbf0](https://github.com/ramsesoriginal/lorenzo/commit/956fbf0586997e18595924f6f5054c8af7ef63f6))
+* **api:** the flip rules and the bridge-skew gate (ADR 0289) ([7f83b56](https://github.com/ramsesoriginal/lorenzo/commit/7f83b56f500155d9d862c2e34bc2a822ec11396d)), closes [#711](https://github.com/ramsesoriginal/lorenzo/issues/711)
+* **api:** the flips as routes (ADR 0290) ([f576dbf](https://github.com/ramsesoriginal/lorenzo/commit/f576dbf6b4aac96ad98250c7ba9dba572c2be248))
+* **api:** the flips as routes (ADR 0290) ([88a5248](https://github.com/ramsesoriginal/lorenzo/commit/88a524842773779c3ea8adc40568410bcb4d57b7)), closes [#718](https://github.com/ramsesoriginal/lorenzo/issues/718)
+* **api:** the read switch for public repositories (ADR 0286) ([61897d6](https://github.com/ramsesoriginal/lorenzo/commit/61897d671b2301eed489dc89a7bf0bc57c1ce681))
+* **api:** the read switch for public repositories (ADR 0286) ([acaa100](https://github.com/ramsesoriginal/lorenzo/commit/acaa10097566a5c5e38e16506aa7bfbc027a29b7)), closes [#701](https://github.com/ramsesoriginal/lorenzo/issues/701)
+* **api:** the release digest and the breaking-change detector (ADR 0208) ([0742ebb](https://github.com/ramsesoriginal/lorenzo/commit/0742ebb5e0a8ed734d43dc782e808aa1f0502ed8))
+* **api:** the release document, a Content serialised and stored with its files ([631f0f0](https://github.com/ramsesoriginal/lorenzo/commit/631f0f056aa228e1911af0474dddf3a2542480b2)), closes [#550](https://github.com/ramsesoriginal/lorenzo/issues/550)
+* **api:** the release ledger, publishing makes a release (ADR 0207) ([d58f904](https://github.com/ramsesoriginal/lorenzo/commit/d58f904d5389b0628f90f1400dd2471b5478ee7f))
+* **api:** the repository profile, its cover and the source of a grant ([88c42ed](https://github.com/ramsesoriginal/lorenzo/commit/88c42edcd297b57f09d85dce7fa745330adab735)), closes [#548](https://github.com/ramsesoriginal/lorenzo/issues/548)
+* **api:** the stat vocabulary is readable by every participant ([a501961](https://github.com/ramsesoriginal/lorenzo/commit/a501961b73ad4c01c003bd99e7b427501babb4ad))
+* **api:** where a stat value comes from, and why ([4e1f892](https://github.com/ramsesoriginal/lorenzo/commit/4e1f89219bb1eca3bb91109e0a86c60e83432880))
+* **api:** who may read a public repository (ADR 0287) ([574108a](https://github.com/ramsesoriginal/lorenzo/commit/574108acc8dcd75c1621cec57d7b26682bd42e38))
+* **api:** who may read a public repository (ADR 0287) ([15869f2](https://github.com/ramsesoriginal/lorenzo/commit/15869f2a6d2fae77df6de21edd73e23d3afd6fc8)), closes [#702](https://github.com/ramsesoriginal/lorenzo/issues/702)
+* **beings:** Lorenzo Beings, a new app for characters and NPCs (ADR 0270-0272) ([26f7b8f](https://github.com/ramsesoriginal/lorenzo/commit/26f7b8f63eef01898a6ff14dc7c58129aca5e71c))
+* **bench:** keyboard moves for tabs (11 of 12) ([9ff4392](https://github.com/ramsesoriginal/lorenzo/commit/9ff4392b7781676e0311bf4288e32840c41971e0))
+* **bench:** the main picture - show, choose, replace, remove (B8) ([c19d639](https://github.com/ramsesoriginal/lorenzo/commit/c19d6391da96ed3c44fb6928b309dfd21fb58004))
+* **inventory-web:** edit an item's stat values ([3ec929a](https://github.com/ramsesoriginal/lorenzo/commit/3ec929a96bd80fac962a40790d427638271868c4))
+* **lorenzoscript:** a stat in a text, {weight} ([3bccede](https://github.com/ramsesoriginal/lorenzo/commit/3bccede76447f031ce553bd60e92bf5acda0a513))
+
+
+### Bug Fixes
+
+* **api:** the invite table is the registry's invite, and the vocabulary gate reads well ([5f6a2c1](https://github.com/ramsesoriginal/lorenzo/commit/5f6a2c1f03bc1b010a44ffbd5eb2922ee4a93758))
+* **api:** the parent-order migration runs on a database that has parents ([a40b879](https://github.com/ramsesoriginal/lorenzo/commit/a40b87974b464d93a3110bcdfecab28c9e5697f9))
+* **api:** the profile migration follows main's latest ([8fc4953](https://github.com/ramsesoriginal/lorenzo/commit/8fc4953c035b47e82f1275eb238f33126af11f6f))
+* **api:** the release document carries a stat definition's display fields ([370c47e](https://github.com/ramsesoriginal/lorenzo/commit/370c47e2af71c604fccdfcd88008c628c8489a83))
+* **api:** write https URLs behind a proxy that speaks http to the API ([83193e6](https://github.com/ramsesoriginal/lorenzo/commit/83193e6babc82ec6719e8b299be31e4032ecb4fb))
+* **api:** write https URLs behind a proxy that speaks http to the API ([a604890](https://github.com/ramsesoriginal/lorenzo/commit/a60489054aaf93ae0fcbb760c54631550041daea))
+* the app-links registry avoids two patterns CodeQL flags ([6f18465](https://github.com/ramsesoriginal/lorenzo/commit/6f18465f3809ed5b8fa8fb86dbba125af96edd31))
+
+
+### Performance Improvements
+
+* **api:** an item read in half the statements: one query for the prototype chain, joined to-one loads, and visibility only as far as it is read ([1c55c7c](https://github.com/ramsesoriginal/lorenzo/commit/1c55c7c7b6a14d2be56c42fb9321a29143dbd422))
+* **api:** an item read in half the statements: one query for the prototype chain, joined to-one loads, and visibility only as far as it is read ([9edff0b](https://github.com/ramsesoriginal/lorenzo/commit/9edff0b25bc45d5808dc5e2107b2019f6c9cb973))
+* **api:** an item read loads what it reads with the row, and resolves who may read it as far as it needs ([ac0873a](https://github.com/ramsesoriginal/lorenzo/commit/ac0873a6e63c507907e872c4f160d2f717bdf4c5))
+* **api:** ask the database once per request for the tenant and the caller's membership ([5149927](https://github.com/ramsesoriginal/lorenzo/commit/514992716368a12afb01d583378a237088d039b0))
+* **api:** item reads cost what they read: entity-scoped stat views and no JIT ([3aae810](https://github.com/ramsesoriginal/lorenzo/commit/3aae8106ff6635f140501058fef7cf608d5ecfd3))
+* **api:** the app role runs without JIT ([4f35337](https://github.com/ramsesoriginal/lorenzo/commit/4f353372e9bcb7fd94dd5d23b1fa5461916fbb71))
+* **api:** the prototype chain of an item is one recursive query ([458dae9](https://github.com/ramsesoriginal/lorenzo/commit/458dae9705020f68951d492187f4608502d2c47c))
+* **api:** the update engine inverts the entity links once, not per attachment end ([42913b6](https://github.com/ramsesoriginal/lorenzo/commit/42913b646306365e6d565328f86c3e2bad6e790a))
+* **api:** the update engine inverts the entity links once, not per attachment end ([4901e6c](https://github.com/ramsesoriginal/lorenzo/commit/4901e6cc84fa3bd3fa486ff2a6ca29270fa45fec)), closes [#716](https://github.com/ramsesoriginal/lorenzo/issues/716)
+* **api:** v_effective_stat, v_item and v_item_instance resolve per entity ([c3a9b3a](https://github.com/ramsesoriginal/lorenzo/commit/c3a9b3a5aca11fea50be4da8d5a6ed1397f5a874))
+* **api:** write routes answer with the reader, and join to-one relationships ([91f80c6](https://github.com/ramsesoriginal/lorenzo/commit/91f80c6477eec22eb911baf15179de1f527ee983))
+* **api:** write routes cost what they write ([0d47c97](https://github.com/ramsesoriginal/lorenzo/commit/0d47c97b26bec7f15493b64462bb3fe9bed6d17b))
+
+
+### Documentation
+
+* **adr:** ADR 0211, one invite table with kinds ([b672b03](https://github.com/ramsesoriginal/lorenzo/commit/b672b03ab00f2bff10d73c20fe180aa25036ffab))
+* **adr:** the Author role is ADR 0219 ([9e6533c](https://github.com/ramsesoriginal/lorenzo/commit/9e6533cbe4d5c48d39a196c443a2b400a4ffc9fa))
+* the being sheet as built ([782ac03](https://github.com/ramsesoriginal/lorenzo/commit/782ac0332cba4b2b92d315ede0b82951804558db))
+
 ## [0.7.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.6.0...api-v0.7.0) (2026-09-23)
 
 

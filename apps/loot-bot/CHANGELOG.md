@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.4.0...loot-bot-v1.0.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** the role in GET /tenants and GET /me/managed can now be 'author'; accepted in openapi-breaking-accepted.txt.
+
+### Features
+
+* **account-hub:** People with Authors and a panel for invite links (ADR 0212) ([945570b](https://github.com/ramsesoriginal/lorenzo/commit/945570b30ea5c58d9cdfcf036c72c8e5007542a3))
+* **api:** the author role, an admin gate and a table-driven route audit ([f25f832](https://github.com/ramsesoriginal/lorenzo/commit/f25f83225ffe1ee4223996c0c556dfa27ae23542)), closes [#545](https://github.com/ramsesoriginal/lorenzo/issues/545)
+* **bench:** the main picture - show, choose, replace, remove (B8) ([c19d639](https://github.com/ramsesoriginal/lorenzo/commit/c19d6391da96ed3c44fb6928b309dfd21fb58004))
+
 ## [0.4.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.3.0...loot-bot-v0.4.0) (2026-09-23)
 
 
