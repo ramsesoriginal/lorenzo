@@ -166,6 +166,12 @@ class BreakingRowOut(BaseModel):
     detail: str = Field(..., title="Detail")
 
 
+class BuiltOnPublicOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    owned: bool = Field(..., title="Owned")
+
+
 class BulkAddPrototypeRequest(BaseModel):
     prototype_id: UUID = Field(..., title="Prototype Id")
     item_ids: list[UUID] = Field(..., title="Item Ids")
@@ -547,6 +553,11 @@ class FieldChangeOut(BaseModel):
     removed: list[Any] | None = Field(..., title="Removed")
 
 
+class Visibility(StrEnum):
+    private = "private"
+    public = "public"
+
+
 class GiveContentsRequest(BaseModel):
     owner_character_id: UUID = Field(..., title="Owner Character Id")
     recursive: bool | None = Field(True, title="Recursive")
@@ -711,8 +722,27 @@ class LinkPreviewStatOut(BaseModel):
     value: int | str | float = Field(..., title="Value")
 
 
+class MadePrivateOut(BaseModel):
+    revoked: int = Field(..., title="Revoked")
+
+
 class MakeCurrentRequest(BaseModel):
     acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
+
+
+class Preview(StrEnum):
+    off = "off"
+    showcase = "showcase"
+    public = "public"
+
+
+class MakePublicRequest(BaseModel):
+    label: constr(min_length=1, max_length=80) | None = Field(None, title="Label")
+    notes: constr(max_length=4000) | None = Field(None, title="Notes")
+    breaking: bool | None = Field(False, title="Breaking")
+    acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
+    preview: Preview | None = Field("showcase", title="Preview")
+    summary: constr(max_length=2000) | None = Field(None, title="Summary")
 
 
 class ManagedCampaignOut(BaseModel):
@@ -1078,6 +1108,11 @@ class PublicDependencyOut(BaseModel):
     public: bool = Field(..., title="Public")
 
 
+class PublicDependentOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+
+
 class PublishRequest(BaseModel):
     label: constr(min_length=1, max_length=80) | None = Field(None, title="Label")
     notes: constr(max_length=4000) | None = Field(None, title="Notes")
@@ -1136,17 +1171,6 @@ class RepositoryEntityOut(BaseModel):
     name: str = Field(..., title="Name")
     kinds: list[Kind13] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
-
-
-class Visibility(StrEnum):
-    private = "private"
-    public = "public"
-
-
-class Preview(StrEnum):
-    off = "off"
-    showcase = "showcase"
-    public = "public"
 
 
 class RepositoryProfileOut(BaseModel):
@@ -1609,6 +1633,17 @@ class EntityStatValueOut(BaseModel):
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
     computed: bool | None = Field(False, title="Computed")
+
+
+class FlipCheckOut(BaseModel):
+    available: bool = Field(..., title="Available")
+    visibility: Visibility = Field(..., title="Visibility")
+    has_summary: bool = Field(..., title="Has Summary")
+    built_on_not_public: list[BuiltOnPublicOut] = Field(..., title="Built On Not Public")
+    built_on_behind: list[BuiltOnBehindOut] = Field(..., title="Built On Behind")
+    public_dependents: list[PublicDependentOut] = Field(..., title="Public Dependents")
+    public_libraries: int = Field(..., title="Public Libraries")
+    invited_libraries: int = Field(..., title="Invited Libraries")
 
 
 class GroupMemberResultItem(BaseModel):
