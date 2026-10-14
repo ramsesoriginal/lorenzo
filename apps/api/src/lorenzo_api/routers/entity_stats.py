@@ -31,7 +31,7 @@ from lorenzo_api.exceptions import (
     InvalidStatValueTypeError,
     StatDefinitionNotFoundError,
 )
-from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.information_visibility import resolve_information_reader
 from lorenzo_api.models import (
     ComputedStat,
     Entity,
@@ -292,8 +292,10 @@ async def _entity_detail(
     user: CurrentUser,
 ) -> EntityDetailOut:
     detail_entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    return EntityDetailOut.from_entity(detail_entity, request, visibility=visibility)
+    reader = await resolve_information_reader(
+        session, user_id=user.id, tenant_id=tenant_id, information=detail_entity.information
+    )
+    return EntityDetailOut.from_entity(detail_entity, request, visibility=reader)
 
 
 async def _write_out(

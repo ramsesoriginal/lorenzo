@@ -63,7 +63,11 @@ from lorenzo_api.exceptions import (
     StackNeedsContainerError,
 )
 from lorenzo_api.identical import signatures
-from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
+from lorenzo_api.information_visibility import (
+    InformationVisibility,
+    resolve_information_reader,
+    resolve_information_visibility,
+)
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
     Being,
@@ -961,14 +965,22 @@ async def _item_instance_out(
     own to set, unlike every single-item route that calls this.
     """
     view = await _get_v_item_instance_or_404(tenant_id, entity_id, session)
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    ancestors = await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id)
+    # Who may read the information of both, as far as `can_see` needs it (ADR 0285).
+    reader = await resolve_information_reader(
+        session,
+        user_id=user.id,
+        tenant_id=tenant_id,
+        information=[
+            information
+            for entity in (view.entity, *ancestors)
+            for information in entity.information
+        ],
+    )
     if response is not None:
         response.headers["ETag"] = etag_for(view.entity.updated_at)
     return ItemInstanceOut.from_v_item_instance(
-        view,
-        request,
-        visibility=visibility,
-        ancestors=await ancestors_of(session, tenant_id=tenant_id, entity_id=view.entity_id),
+        view, request, visibility=reader, ancestors=ancestors
     )
 
 

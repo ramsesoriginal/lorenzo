@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import Request
 from pydantic import BaseModel, model_validator
 
-from lorenzo_api.information_visibility import InformationVisibility
+from lorenzo_api.information_visibility import InformationReader
 from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
@@ -301,7 +301,7 @@ class EntityDetailOut(BaseModel):
 
     @classmethod
     def from_entity(
-        cls, entity: Entity, request: Request, *, visibility: InformationVisibility
+        cls, entity: Entity, request: Request, *, visibility: InformationReader
     ) -> EntityDetailOut:
         return cls(
             id=entity.id,

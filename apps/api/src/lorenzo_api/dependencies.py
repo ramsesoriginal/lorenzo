@@ -19,9 +19,10 @@ from lorenzo_api.campaign_access import (
     can_access_campaign,
     is_tenant_admin,
     is_tenant_participant,
+    membership_of,
 )
 from lorenzo_api.config import get_settings
-from lorenzo_api.db import get_db_session
+from lorenzo_api.db import get_db_session, hold
 from lorenzo_api.exceptions import (
     AccountSuspendedError,
     CampaignNotFoundError,
@@ -33,7 +34,7 @@ from lorenzo_api.exceptions import (
     TenantCreationForbiddenError,
     TenantNotFoundError,
 )
-from lorenzo_api.models import Campaign, Entity, Membership, Tenant, User
+from lorenzo_api.models import Campaign, Entity, Tenant, User
 from lorenzo_api.personal_tokens import find_live_token, is_personal_token, touch_last_used
 
 __all__ = [
@@ -425,9 +426,11 @@ async def get_tenant_context(
     raise the exact same TenantNotFoundError - same class, same body - so
     a non-member can't distinguish the two (ADR 0023).
     """
-    if await session.get(Tenant, tenant_id) is None:
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
-    if await session.get(Membership, (tenant_id, user.id)) is None:
+    hold(session, tenant)
+    if await membership_of(session, tenant_id=tenant_id, user_id=user.id) is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     await set_tenant_rls_context(session, tenant_id)
     return tenant_id
@@ -478,8 +481,10 @@ async def get_tenant_or_404(
     never had this problem, purely incidentally - it already took `user`
     for its own membership check.
     """
-    if await session.get(Tenant, tenant_id) is None:
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
+    hold(session, tenant)
     await set_tenant_rls_context(session, tenant_id)
     return tenant_id
 

@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from sqlalchemy import ColumnElement, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.db import hold
 from lorenzo_api.entity_access import (
     containing_ancestors_ids,
     controlled_character_entity_ids,
@@ -35,6 +36,16 @@ from lorenzo_api.models import (
 )
 
 
+async def membership_of(
+    session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID
+) -> Membership | None:
+    """The user's Membership of the tenant, kept for the rest of the request: its dependencies and
+    each access check ask for it, and used to ask the database each time (ADR 0285)."""
+    membership = await session.get(Membership, (tenant_id, user_id))
+    hold(session, membership)
+    return membership
+
+
 async def is_tenant_orga(
     session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID
 ) -> bool:
@@ -48,7 +59,7 @@ async def is_tenant_orga(
     "administrative access != automatic character/GM knowledge" principle,
     even though campaign *reachability* now admits OWNER too.
     """
-    membership = await session.get(Membership, (tenant_id, user_id))
+    membership = await membership_of(session, tenant_id=tenant_id, user_id=user_id)
     return membership is not None and membership.role is MembershipRole.ORGA
 
 
@@ -60,7 +71,7 @@ async def is_tenant_admin(
     from ORGA-only to both; see that function's own docstring for why this
     doesn't widen information visibility too.
     """
-    membership = await session.get(Membership, (tenant_id, user_id))
+    membership = await membership_of(session, tenant_id=tenant_id, user_id=user_id)
     return membership is not None and membership.role in (MembershipRole.OWNER, MembershipRole.ORGA)
 
 
@@ -70,7 +81,7 @@ async def is_tenant_owner(
     """Whether a user holds the tenant-wide OWNER role - what managing
     memberships (ADR 0036) and a repository's grants and publishing (ADR
     0118) require."""
-    membership = await session.get(Membership, (tenant_id, user_id))
+    membership = await membership_of(session, tenant_id=tenant_id, user_id=user_id)
     return membership is not None and membership.role is MembershipRole.OWNER
 
 
@@ -78,7 +89,7 @@ async def membership_role_of(
     session: AsyncSession, *, tenant_id: uuid.UUID, user_id: uuid.UUID
 ) -> MembershipRole | None:
     """The role a user holds in a tenant, or None without a membership."""
-    membership = await session.get(Membership, (tenant_id, user_id))
+    membership = await membership_of(session, tenant_id=tenant_id, user_id=user_id)
     return membership.role if membership is not None else None
 
 
@@ -145,7 +156,7 @@ async def is_tenant_participant(
     three-short-circuiting-existence-checks shape as `can_access_campaign`,
     just tenant-wide rather than scoped to one campaign.
     """
-    if await session.get(Membership, (tenant_id, user_id)) is not None:
+    if await membership_of(session, tenant_id=tenant_id, user_id=user_id) is not None:
         return True
 
     player_stmt = select(Player.id).where(Player.user_id == user_id, Player.tenant_id == tenant_id)
