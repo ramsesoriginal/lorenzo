@@ -5273,6 +5273,10 @@ export interface components {
             secret: boolean;
             /** Player Self Service */
             player_self_service: boolean;
+            /** Gm Title */
+            gm_title: string;
+            /** Gm Title Plural */
+            gm_title_plural: string;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -5308,6 +5312,10 @@ export interface components {
             game_system: string;
             /** Secret */
             secret: boolean;
+            /** Gm Title */
+            gm_title: string;
+            /** Gm Title Plural */
+            gm_title_plural: string;
         };
         /**
          * CampaignUpdate
@@ -5330,6 +5338,10 @@ export interface components {
             secret?: boolean | null;
             /** Player Self Service */
             player_self_service?: boolean | null;
+            /** Gm Title */
+            gm_title?: string | null;
+            /** Gm Title Plural */
+            gm_title_plural?: string | null;
         };
         /**
          * CharacterCreate
@@ -7436,6 +7448,10 @@ export interface components {
             name: string;
             /** Is Gm */
             is_gm: boolean;
+            /** Gm Title */
+            gm_title: string;
+            /** Gm Title Plural */
+            gm_title_plural: string;
         };
         /**
          * ManagedScopeOut
