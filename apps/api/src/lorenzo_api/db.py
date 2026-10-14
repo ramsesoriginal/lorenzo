@@ -100,3 +100,15 @@ async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 async def get_db_session() -> AsyncGenerator[AsyncSession]:
     async with async_session_factory() as session:
         yield session
+
+
+def hold(session: AsyncSession, *rows: object | None) -> None:
+    """Keeps rows a request has read alive for the rest of it (ADR 0285).
+
+    A session's identity map holds its objects only for as long as something else does, so asking
+    for the same row again (the tenant, the caller's membership: each dependency and each access
+    check of a request does) went back to the database. The session is the request's own and ends
+    with it, and a row that is deleted or changed in it is still the identity map's to answer for.
+    """
+    held: list[object] = session.info.setdefault("held_rows", [])
+    held.extend(row for row in rows if row is not None)
