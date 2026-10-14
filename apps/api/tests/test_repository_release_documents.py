@@ -116,6 +116,9 @@ async def _release(tenant_id: uuid.UUID, number: int) -> uuid.UUID:
     async with admin_session_factory() as session:
         release = RepositoryRelease(tenant_id=tenant_id, number=number + 1, label=f"r{number}")
         session.add(release)
+        await session.flush()
+        # A release is the one libraries read from the moment it is made, as a publish makes it.
+        (await session.get_one(Tenant, tenant_id)).current_release_id = release.id
         await session.commit()
         return release.id
 

@@ -144,6 +144,8 @@ class ReleaseOut(ReleaseRefOut):
     breaking_rows: list[BreakingRowOut]
     # What it changed in items libraries hold without breaking them: a parent added.
     warning_rows: list[BreakingRowOut]
+    # Whether a library reads this release now: the repository's current one (ADR 0288).
+    current: bool
 
 
 class ReleaseAuthoredOut(ReleaseOut):
@@ -151,6 +153,17 @@ class ReleaseAuthoredOut(ReleaseOut):
     published it, null once their account is gone. A library never reads it."""
 
     created_by: uuid.UUID | None
+    # Whether its content is still kept, so it can be made current again (ADR 0288): the last few
+    # releases of a public repository, and the current one.
+    kept: bool
+
+
+class MakeCurrentRequest(BaseModel):
+    """`PUT .../releases/{release_id}/current` (ADR 0288): `acknowledge_breaking` says the author
+    has looked at the rows listed in the `409` that said the move would break what libraries on
+    the release now current hold."""
+
+    acknowledge_breaking: bool = False
 
 
 class PublishedOut(TenantOut):
@@ -221,6 +234,18 @@ class UnprovenKindOut(BaseModel):
     kinds: list[str]
 
 
+class BuiltOnBehindOut(BaseModel):
+    """A repository this one is built on whose current release this one has not taken (ADR 0289):
+    `taken` is the release this one last took of it, `current` the one it should take, and
+    `readable` is false when nothing can be told because it cannot be read."""
+
+    repository_id: uuid.UUID
+    name: str
+    taken: ReleaseRefOut | None
+    current: ReleaseRefOut | None
+    readable: bool
+
+
 class ReleasePreviewOut(BaseModel):
     """`GET .../release-preview` (ADR 0208): the repository's live content against what its latest
     release saw, which is what a publish would say of itself, before it is made.
@@ -236,7 +261,10 @@ class ReleasePreviewOut(BaseModel):
     of kinds no round-trip matrix covers yet. `warnings` is what it says and never refuses, a parent
     added to an item libraries hold. `descriptions_edited` is the hint of texts written or edited
     since the release, which `matches` does not see: text edits are not tracked. `libraries_told`
-    is how many libraries hold an invitation, whom a publish would tell."""
+    is how many libraries hold an invitation, whom a publish would tell. `built_on_behind` lists
+    the repositories this one is built on that have a release it has not taken (ADR 0289), and
+    `built_on_blocks_publish` is whether a publish refuses for it: it does for a public repository
+    and only warns for a private one."""
 
     release: ReleaseOut | None
     baseline: bool
@@ -252,6 +280,8 @@ class ReleasePreviewOut(BaseModel):
     unproven_kinds: list[UnprovenKindOut]
     descriptions_edited: int | None
     libraries_told: int
+    built_on_behind: list[BuiltOnBehindOut]
+    built_on_blocks_publish: bool
 
 
 class SubscriberOut(BaseModel):

@@ -1044,6 +1044,14 @@ class ReleaseLabelTakenError(ConflictProblem):
     title = "That release label is taken"
 
 
+class ReleaseNotRetainedError(ConflictProblem):
+    """`PUT .../releases/{release_id}/current` - the release exists but its content is no longer
+    kept (a private repository's releases never had a document, an old one of a public
+    repository was pruned), so it cannot be made current again - ADR 0288."""
+
+    title = "That release's content is no longer kept"
+
+
 class PublicRepositoryHasNoReleaseError(ConflictProblem):
     """Reading a public repository that has no release to read: it was made public without one,
     or its current release has no document. A repository cannot be public without a release (RFC
@@ -1249,3 +1257,49 @@ class InvalidTokenExpiryError(UnprocessableProblem):
 
 class TooManyTokensError(ConflictProblem):
     title = "Too many personal access tokens"
+
+
+class BuiltOnBehindError(ConflictProblem):
+    """Publishing a release of a public repository while a repository it is built on has a
+    release it has not taken (or cannot be read): a library copying it would get rows made
+    against another state of that repository, which ADR 0120 drops and reports. Carries
+    `repositories`: each one, with the release this repository took and the one it should take -
+    ADR 0289, RFC 0037 section 6."""
+
+    title = "A repository this one is built on has a newer release"
+
+
+class BuiltOnNotPublicError(ConflictProblem):
+    """Making a repository public while a repository it is built on is not public: a library
+    copying it could not be granted that one by an Owner who never saw it. Carries
+    `repositories`: each one that is not, and whether the caller owns it, so that they can be
+    offered to make it public - ADR 0289, RFC 0037 section 6."""
+
+    title = "A repository this one is built on is not public"
+
+
+class RepositoryAlreadyPublicError(ConflictProblem):
+    """Making a public repository public - ADR 0289."""
+
+    title = "This repository is already public"
+
+
+class RepositoryAlreadyPrivateError(ConflictProblem):
+    """Making a private repository private - ADR 0289."""
+
+    title = "This repository is already private"
+
+
+class PublicRepositoriesBuiltOnItError(ConflictProblem):
+    """Making a repository private while a public repository is built on it, which would leave a
+    public stack no one can copy. Carries `repositories`: the public ones - ADR 0289, RFC 0038
+    section 7."""
+
+    title = "Public repositories are built on this one"
+
+
+class PublicCopiesWouldBeCutOffError(ConflictProblem):
+    """Making a repository private while libraries hold a grant they gave themselves by copying
+    it, without `acknowledge_revokes`. Carries `libraries`: how many - ADR 0289."""
+
+    title = "Libraries that copied this repository would lose their update path"

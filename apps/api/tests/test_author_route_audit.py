@@ -111,6 +111,7 @@ OWNER = {
     ("PUT", T + "/published"),
     ("DELETE", T + "/published"),
     ("PATCH", T + "/releases/{release_id}"),
+    ("PUT", T + "/releases/{release_id}/current"),
     ("PUT", T + "/subscribers/{subscriber_tenant_id}"),
     ("DELETE", T + "/subscribers/{subscriber_tenant_id}"),
     ("DELETE", REPOSITORY),

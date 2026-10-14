@@ -11,7 +11,7 @@ from _admin_db import admin_session_factory
 from _fake_jwks import FakeJwksServer
 from _release_world import ReleaseWorld, release_world
 from _repository_actors import cleanup, make_actor
-from _upstream_documents import set_visibility
+from _upstream_documents import publish_stack, set_visibility
 from httpx import AsyncClient
 from sqlalchemy import delete, func, select
 from test_repository_attachments import _share, _stack
@@ -297,9 +297,7 @@ async def test_a_public_stack_copies_in_one_action_and_the_library_holds_a_grant
     repositories = (stack.equipment, stack.rules, stack.bridge)
     try:
         await set_visibility(repositories, "public")
-        for repository in repositories:
-            response = await stack.author.put(f"/tenants/{repository}/published", json={})
-            assert response.status_code == 200, response.text
+        await publish_stack(stack)
         base = f"/tenants/{table}/repositories/{stack.bridge}"
 
         dependencies = (await gm.get(f"/repositories/{stack.bridge}/dependencies")).json()
@@ -342,8 +340,7 @@ async def test_a_stack_with_a_private_repository_copies_nothing_and_grants_nothi
     stack.actors.append(gm)
     try:
         await set_visibility([stack.equipment, stack.bridge], "public")
-        for repository in (stack.equipment, stack.rules, stack.bridge):
-            await stack.author.put(f"/tenants/{repository}/published", json={})
+        await publish_stack(stack)
         base = f"/tenants/{table}/repositories/{stack.bridge}"
 
         dependencies = (await gm.get(f"/repositories/{stack.bridge}/dependencies")).json()

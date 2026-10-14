@@ -49,6 +49,14 @@ class Tenant(Base):
             ondelete="SET NULL",
             use_alter=True,
         ),
+        # ADR 0288: the release other tenants read, one of the repository's own.
+        ForeignKeyConstraint(
+            ["current_release_id", "id"],
+            ["repository_release.id", "repository_release.tenant_id"],
+            name="tenant_current_release_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
     )
 
     id: Mapped[UuidPk]
@@ -80,6 +88,9 @@ class Tenant(Base):
     # A repository's draft/published state (ADR 0118): null while it's a
     # draft, invisible to every subscriber. Always null for a play tenant.
     published_at: Mapped[datetime | None]
+    # ADR 0288: the release a library reads of a repository, set by a publish and by "make release
+    # current"; null for a play tenant and for a repository that has made none.
+    current_release_id: Mapped[uuid.UUID | None]
     # ADR 0152: whether every GM of the tenant sees, and acts for, the beings
     # in no campaign (on, the default), or only such a being's author and the
     # GMs who share a campaign with its author. Meaningless for a repository,

@@ -38,7 +38,7 @@ from lorenzo_api.repository_content import (
     stat_definition_snapshot,
     stat_group_snapshot,
 )
-from lorenzo_api.repository_releases import ReleaseRef, latest_release, releases_as_refs
+from lorenzo_api.repository_releases import ReleaseRef, current_release, releases_as_refs
 
 # A row's key: its kind, its origin id, and an attachment's parent (None for every other kind).
 Key = tuple[str, uuid.UUID, uuid.UUID | None]
@@ -436,17 +436,23 @@ class BreakingNote:
 
 
 async def notes_since(
-    session: AsyncSession, repository_id: uuid.UUID, synced_release_id: uuid.UUID | None
+    session: AsyncSession,
+    repository_id: uuid.UUID,
+    synced_release_id: uuid.UUID | None,
+    upto: int | None = None,
 ) -> tuple[dict[Key, list[BreakingNote]], dict[Key, list[BreakingNote]]]:
     """The rows any release after the one a library last took listed as breaking, and as a
-    warning: the union of what the library skipped, oldest release first. A library with no
-    release on record (a copy from before releases) is owed all of them. Read inside the gated
-    read of the repository."""
+    warning: the union of what the library skipped, oldest release first, up to the number
+    `upto` (the current release, which is not the newest once an earlier one has been made
+    current again). A library with no release on record (a copy from before releases) is owed
+    all of them. Read inside the gated read of the repository."""
     stmt = select(RepositoryRelease).where(
         RepositoryRelease.tenant_id == repository_id,
         (func.jsonb_array_length(RepositoryRelease.breaking_rows) > 0)
         | (func.jsonb_array_length(RepositoryRelease.warning_rows) > 0),
     )
+    if upto is not None:
+        stmt = stmt.where(RepositoryRelease.number <= upto)
     if synced_release_id is not None:
         synced = await session.scalar(
             select(RepositoryRelease.number).where(
@@ -499,7 +505,7 @@ async def assess(session: AsyncSession, repository_id: uuid.UUID) -> Assessment:
     rows, as one of its members."""
     content = await load_content(session, repository_id)
     live = live_rows(content)
-    release = await latest_release(session, repository_id)
+    release = await current_release(session, repository_id)
     baseline = release is not None and release.digest is not None
     stored = await stored_rows(session, repository_id) if baseline else {}
     comparison = compare(stored, live)
