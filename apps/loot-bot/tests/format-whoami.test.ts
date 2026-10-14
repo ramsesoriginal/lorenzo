@@ -14,7 +14,7 @@ function profile(overrides: Partial<MyProfile> = {}): MyProfile {
     pictureUrl: "https://lorenzo-api.test/users/user-1/picture",
     membershipRole: null,
     characters: [],
-    gmCampaignCount: 0,
+    gmCampaigns: [],
     ...overrides,
   };
 }
@@ -146,13 +146,50 @@ describe("formatWhoamiEmbed", () => {
     expect(embed.fields?.some((f) => f.name === "GM")).toBe(false);
   });
 
+  const DEFAULT_TITLE = { gmTitle: "GM", gmTitlePlural: "GMs" };
+  const STORYTELLER = { gmTitle: "Storyteller", gmTitlePlural: "Storytellers" };
+
   it("shows a singular GM count", () => {
-    const embed = formatWhoamiEmbed(profile({ gmCampaignCount: 1 })).toJSON();
+    const embed = formatWhoamiEmbed(profile({ gmCampaigns: [DEFAULT_TITLE] })).toJSON();
     expect(embed.fields?.find((f) => f.name === "GM")?.value).toMatch(/^GM for 1 campaign \(/);
   });
 
   it("shows a plural GM count", () => {
-    const embed = formatWhoamiEmbed(profile({ gmCampaignCount: 3 })).toJSON();
+    const embed = formatWhoamiEmbed(
+      profile({ gmCampaigns: [DEFAULT_TITLE, DEFAULT_TITLE, DEFAULT_TITLE] }),
+    ).toJSON();
     expect(embed.fields?.find((f) => f.name === "GM")?.value).toMatch(/^GM for 3 campaigns \(/);
+  });
+
+  it("uses the campaigns' title when every campaign the caller GMs has the same one (ADR 0294)", () => {
+    const embed = formatWhoamiEmbed(profile({ gmCampaigns: [STORYTELLER, STORYTELLER] })).toJSON();
+    const field = embed.fields?.find((f) => f.name === "Storyteller");
+    expect(field?.value).toMatch(/^Storyteller for 2 campaigns \(/);
+    // No literal "GM" is left on a campaign's surface.
+    expect(embed.fields?.some((f) => /\bGMs?\b/.test(`${f.name} ${f.value}`))).toBe(false);
+  });
+
+  it("says GM when the campaigns the caller GMs name their game master differently", () => {
+    const embed = formatWhoamiEmbed(
+      profile({ gmCampaigns: [STORYTELLER, DEFAULT_TITLE] }),
+    ).toJSON();
+    expect(embed.fields?.find((f) => f.name === "GM")?.value).toMatch(/^GM for 2 campaigns \(/);
+  });
+
+  it("says GM when the two campaigns share the singular but not the plural", () => {
+    const embed = formatWhoamiEmbed(
+      profile({
+        gmCampaigns: [STORYTELLER, { gmTitle: "Storyteller", gmTitlePlural: "Storytellers!" }],
+      }),
+    ).toJSON();
+    expect(embed.fields?.some((f) => f.name === "GM")).toBe(true);
+  });
+
+  it("escapes a title for Discord", () => {
+    const embed = formatWhoamiEmbed(
+      profile({ gmCampaigns: [{ gmTitle: "*Dungeon* Master", gmTitlePlural: "Masters" }] }),
+    ).toJSON();
+    const value = embed.fields?.find((f) => f.name.includes("Master"))?.value;
+    expect(value?.startsWith("\\*Dungeon\\* Master for 1 campaign")).toBe(true);
   });
 });
