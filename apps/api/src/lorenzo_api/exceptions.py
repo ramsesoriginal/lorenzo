@@ -1326,3 +1326,10 @@ class PublicRepositoryCannotBeUnpublishedError(ConflictProblem):
     private first."""
 
     title = "A public repository is made private, not unpublished"
+
+
+class DiscoverTooDeepError(UnprocessableProblem):
+    """Asking Discover for a page deeper than it goes: a hard maximum, so that the listing cannot
+    be used to walk the whole directory in a few requests - ADR 0292, RFC 0038 section 4."""
+
+    title = "That is too deep into the listing"

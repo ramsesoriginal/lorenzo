@@ -454,6 +454,23 @@ class DeviceTokenRequest(BaseModel):
     device_code: constr(min_length=1, max_length=200) = Field(..., title="Device Code")
 
 
+class DiscoverFacetOut(BaseModel):
+    value: str = Field(..., title="Value")
+    count: int = Field(..., title="Count")
+
+
+class DiscoverFacetsOut(BaseModel):
+    enabled: bool = Field(..., title="Enabled")
+    tags: list[DiscoverFacetOut] = Field(..., title="Tags")
+    systems: list[DiscoverFacetOut] = Field(..., title="Systems")
+    languages: list[DiscoverFacetOut] = Field(..., title="Languages")
+
+
+class DiscoverReleaseOut(BaseModel):
+    label: str = Field(..., title="Label")
+    released_at: AwareDatetime = Field(..., title="Released At")
+
+
 class DroppedOut(BaseModel):
     kind: str = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
@@ -1628,6 +1645,28 @@ class DescriptionOut(BaseModel):
     from_entity: EntitySummary | None
 
 
+class DiscoverItemOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str = Field(..., title="Slug")
+    summary: str = Field(..., title="Summary")
+    tags: list[str] = Field(..., title="Tags")
+    system: str | None = Field(..., title="System")
+    languages: list[str] = Field(..., title="Languages")
+    has_cover: bool = Field(..., title="Has Cover")
+    release: DiscoverReleaseOut
+    entries: int | None = Field(..., title="Entries")
+    stat_definitions: int | None = Field(..., title="Stat Definitions")
+
+
+class DiscoverPageOut(BaseModel):
+    items: list[DiscoverItemOut] = Field(..., title="Items")
+    total: int = Field(..., title="Total")
+    page: int = Field(..., title="Page")
+    size: int = Field(..., title="Size")
+    pages: int = Field(..., title="Pages")
+
+
 class EntityStatValueOut(BaseModel):
     name: str = Field(..., title="Name")
     value: int | str | float | bool = Field(..., title="Value")
@@ -2080,6 +2119,12 @@ class StatDefinitionOut(BaseModel):
     resolved_hint_id: UUID | None = Field(..., title="Resolved Hint Id")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class StorefrontOut(BaseModel):
+    item: DiscoverItemOut
+    description: str = Field(..., title="Description")
+    profile: RepositoryProfileOut
 
 
 class SumFormulaBodyInput(BaseModel):

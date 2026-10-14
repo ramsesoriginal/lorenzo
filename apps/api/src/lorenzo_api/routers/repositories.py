@@ -83,6 +83,7 @@ from lorenzo_api.repository_grants import (
     notify_tenant_admins,
     subscribe_to_public,
 )
+from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishing import publish_release
 from lorenzo_api.repository_releases import (
     ReleaseRef,
@@ -357,7 +358,7 @@ async def edit_release(
     editable. Owner only. `409` if the label is taken, `404` for a release this
     repository did not make."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
-    await _require_repository(session, tenant_id)
+    tenant = await _require_repository(session, tenant_id)
     release = await session.scalar(
         select(RepositoryRelease).where(
             RepositoryRelease.tenant_id == tenant_id, RepositoryRelease.id == release_id
@@ -368,6 +369,9 @@ async def edit_release(
     changed: list[str] = []
     if "label" in body.model_fields_set and body.label is not None:
         await relabel(session, release, body.label)
+        listing = await profile_of(session, tenant_id)
+        if tenant.current_release_id == release.id:
+            listing.release_label = release.label
         changed.append("label")
     if "notes" in body.model_fields_set:
         release.notes = body.notes
