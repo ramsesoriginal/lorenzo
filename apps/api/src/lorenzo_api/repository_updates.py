@@ -521,11 +521,17 @@ def _mark(updates: Updates, stored: dict[Key, Any] | None) -> None:
 
 
 def _local_entity(
-    upstream: Content, local: Content, tenant_id: uuid.UUID, origin: uuid.UUID
+    upstream: Content,
+    local: Content,
+    tenant_id: uuid.UUID,
+    origin: uuid.UUID,
+    by_origin: dict[uuid.UUID, uuid.UUID],
 ) -> uuid.UUID | None:
     """The tenant's own row for an entity named by origin: its copy, or the
-    tenant's own row that the repository copied from it (ADR 0120)."""
-    row = local.links.local_of("entity").get(origin)
+    tenant's own row that the repository copied from it (ADR 0120). `by_origin` is
+    `local.links.local_of("entity")`, inverted once by the caller: doing it here, for each end of
+    each attachment, was the square of the content (ADR 0285, R2)."""
+    row = by_origin.get(origin)
     if row is None and upstream.links.origin_tenant.get(origin) == tenant_id:
         return origin if origin in local.entities else None
     return row
@@ -541,6 +547,7 @@ def _find_attachment_updates(updates: Updates, *, tenant_id: uuid.UUID) -> None:
     assert upstream is not None and local is not None
     theirs = {a.pair: a for a in attachments_of(upstream)}
     taken = local.links.attachments.get(updates.repository_id, set())
+    by_origin = local.links.local_of("entity")
     edges = set(local.prototypes)
     known = {upstream.origin("entity", e): name for e, name in upstream.entities.items()}
 
@@ -552,8 +559,8 @@ def _find_attachment_updates(updates: Updates, *, tenant_id: uuid.UUID) -> None:
 
     def ref(pair: tuple[uuid.UUID, uuid.UUID]) -> AttachmentRef:
         child_source, parent_source = pair
-        child = _local_entity(upstream, local, tenant_id, child_source)
-        parent = _local_entity(upstream, local, tenant_id, parent_source)
+        child = _local_entity(upstream, local, tenant_id, child_source, by_origin)
+        parent = _local_entity(upstream, local, tenant_id, parent_source, by_origin)
         return AttachmentRef(
             child_source,
             child,
@@ -1225,6 +1232,7 @@ async def _attach(
         published=True,
         already_copied=True,
     )
+    by_origin = local.links.local_of("entity")
     planned: list[PlannedAttachment] = []
     for attachment in attachments:
         child_source, parent_source = attachment.pair
@@ -1239,8 +1247,8 @@ async def _attach(
             )
             result.attachments_detached += 1
             continue
-        child = _local_entity(updates.upstream, local, tenant_id, child_source)
-        parent = _local_entity(updates.upstream, local, tenant_id, parent_source)
+        child = _local_entity(updates.upstream, local, tenant_id, child_source, by_origin)
+        parent = _local_entity(updates.upstream, local, tenant_id, parent_source, by_origin)
         if child is None or parent is None:
             reason = (
                 "the item it attaches to isn't here"
