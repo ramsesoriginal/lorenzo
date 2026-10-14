@@ -63,6 +63,8 @@ type Mode = 'public' | 'private';
 export function createVisibilityControls(
   root: HTMLElement,
   onDone: () => void,
+  // Told what the repository is once the check was read, for what depends on it (a public one is not unpublished).
+  onKnown: (visibility: FlipCheckOut['visibility']) => void,
 ): VisibilityControls {
   const card = required<HTMLElement>(root, '[data-visibility]');
   const state = required<HTMLElement>(card, '[data-visibility-state]');
@@ -339,6 +341,7 @@ export function createVisibilityControls(
     if (shown !== repository) return;
 
     check = read;
+    onKnown(read.visibility);
 
     const content = visibilityCard(read, repository.role);
 

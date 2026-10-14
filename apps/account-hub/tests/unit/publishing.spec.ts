@@ -5,6 +5,7 @@ import {
   LIVE_LINE,
   OWNER_ONLY_NOTE,
   type PublishFacts,
+  publishButtons,
   publishFacts,
 } from '../../src/lib/publishing';
 import type { SubscriberOut, SubscriptionOut } from '../../src/lib/types';
@@ -141,5 +142,33 @@ describe('the publish dialog', () => {
     ].join(' ');
 
     expect(text).not.toMatch(/tenant|grant|subscri/i);
+  });
+});
+
+describe('the publish buttons', () => {
+  it('are an Owner’s: publish before the first, a new release and unpublish after', () => {
+    expect(publishButtons(true, false, false)).toEqual({
+      publish: true,
+      announce: false,
+      unpublish: false,
+    });
+    expect(publishButtons(true, true, false)).toEqual({
+      publish: false,
+      announce: true,
+      unpublish: true,
+    });
+    expect(publishButtons(false, true, false)).toEqual({
+      publish: false,
+      announce: false,
+      unpublish: false,
+    });
+  });
+
+  it('have no Unpublish for a public repository: it is made private first', () => {
+    expect(publishButtons(true, true, true)).toEqual({
+      publish: false,
+      announce: true,
+      unpublish: false,
+    });
   });
 });

@@ -97,7 +97,9 @@ export function renderRepository(
   // A publish or an unpublish changes what the page shows, so it is read again.
   const publishControls = createPublishControls(root, hooks.onChanged);
   // Private or public is a change of the same kind: the page reads the repository again after it.
-  const visibility = createVisibilityControls(root, hooks.onChanged);
+  const visibility = createVisibilityControls(root, hooks.onChanged, (visibility) =>
+    publishControls.markPublic(visibility === 'public'),
+  );
   const viewAs = createViewAs(root, hooks.mayCreate);
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);

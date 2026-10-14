@@ -4,7 +4,13 @@
 // contain, read from the API's preview. Nothing is asked of the API to change anything until the
 // dialog's last button; what the dialog says is read fresh when it opens.
 
-import { dialogFor, OWNER_ONLY_NOTE, type PublishMode, publishFacts } from '../../lib/publishing';
+import {
+  dialogFor,
+  OWNER_ONLY_NOTE,
+  type PublishMode,
+  publishButtons,
+  publishFacts,
+} from '../../lib/publishing';
 import { composerProblem, publishBody } from '../../lib/releases';
 import {
   getReleasePreview,
@@ -25,6 +31,8 @@ export type PublishControls = {
   clear(): void;
   // Shows what this person can do about a repository in the state it is in.
   paint(repository: TenantSummaryOut, published: boolean): void;
+  // Whether it is public, once that is known: a public repository is made private, not unpublished.
+  markPublic(isPublic: boolean): void;
   // A message to show the next time the controls are painted (after what was done).
   say(message: string): void;
 };
@@ -54,6 +62,20 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
   let shown: TenantSummaryOut | null = null;
   let mode: PublishMode = 'publish';
   let pending: string | null = null;
+  let published = false;
+  let isPublic = false;
+
+  function showButtons(): void {
+    const owner = shown !== null && canChangePeople(shown.role);
+    const shows = publishButtons(owner, published, isPublic);
+
+    buttons.hidden = !owner;
+    publish.hidden = !shows.publish;
+    announce.hidden = !shows.announce;
+    unpublish.hidden = !shows.unpublish;
+    ownerOnly.textContent = owner ? '' : OWNER_ONLY_NOTE;
+    ownerOnly.hidden = owner;
+  }
 
   function item(text: string): HTMLElement {
     const li = document.createElement('li');
@@ -143,6 +165,8 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
   return {
     clear() {
       shown = null;
+      published = false;
+      isPublic = false;
       buttons.hidden = true;
       publish.hidden = true;
       announce.hidden = true;
@@ -151,22 +175,20 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
       say(status, '');
     },
 
-    paint(repository, published) {
+    paint(repository, isPublished) {
       shown = repository;
-
-      const owner = canChangePeople(repository.role);
-
-      buttons.hidden = !owner;
-      publish.hidden = !owner || published;
-      announce.hidden = !owner || !published;
-      unpublish.hidden = !owner || !published;
-      ownerOnly.textContent = owner ? '' : OWNER_ONLY_NOTE;
-      ownerOnly.hidden = owner;
+      published = isPublished;
+      showButtons();
 
       if (pending) {
         say(status, pending);
         pending = null;
       }
+    },
+
+    markPublic(value) {
+      isPublic = value;
+      showButtons();
     },
 
     say(message) {

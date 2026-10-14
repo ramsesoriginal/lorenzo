@@ -47,7 +47,10 @@ const form = {
 
 // Everything a person reads, in one place, for the words nobody may read.
 function words(): string {
-  const dependents = [{ id: 'd', name: 'Dragons' }];
+  const dependents = [
+    { id: 'd', name: 'Dragons', owned: true },
+    { id: 'e', name: 'Elves', owned: false },
+  ];
 
   return [
     visibilityCard(check(), 'owner')?.sentence,
@@ -73,7 +76,10 @@ function words(): string {
     ...makePublicWarnings(),
     ...makePrivateLines(check({ visibility: 'public', public_libraries: 3, invited_libraries: 1 })),
     privateAcknowledgement({ public_libraries: 3 }),
-    ...privateBlockers(check({ public_dependents: dependents })).map((blocker) => blocker.text),
+    ...privateBlockers(check({ public_dependents: dependents })).flatMap((blocker) => [
+      blocker.text,
+      blocker.link?.label,
+    ]),
     madePrivateDone(2),
     ...PREVIEW_CHOICES.map((choice) => choice.label),
   ].join('\n');
@@ -314,16 +320,22 @@ describe('the Make private dialog', () => {
       check({
         visibility: 'public',
         public_dependents: [
-          { id: 'a', name: 'Dragons' },
-          { id: 'b', name: 'Giants' },
+          { id: 'a', name: 'Dragons', owned: true },
+          { id: 'b', name: 'Giants', owned: false },
         ],
       }),
     );
 
     expect(blockers.map((blocker) => blocker.text)).toEqual([
       'Dragons is public and built on this repository. Make it private first, so that what it is built on can still be copied.',
-      'Giants is public and built on this repository. Make it private first, so that what it is built on can still be copied.',
+      'Giants is public and built on this repository. It has to be private first, so that what it is built on can still be copied: ask its Owner to make it private.',
     ]);
+    // A link to the Studio page of one the Owner owns, and none for the other.
+    expect(blockers[0]?.link).toEqual({
+      href: '/studio/?repository=a',
+      label: 'Open Dragons to make it private',
+    });
+    expect(blockers[1]?.link).toBeUndefined();
     expect(privateBlockers(check({ visibility: 'public' }))).toEqual([]);
   });
 

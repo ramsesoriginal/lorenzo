@@ -114,6 +114,9 @@ test('a repository goes public through the dialog, and private again', async ({ 
     'Public. A release was published.',
   );
   await expect(card(page).getByRole('button', { name: 'Make private…' })).toBeVisible();
+  // A public repository is made private, not unpublished.
+  await expect(page.getByRole('button', { name: 'Publish a new release…' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Unpublish…' })).toBeHidden();
 
   const profile = await profileOf(owner.api, repository.id);
 
@@ -346,7 +349,7 @@ test('going private says how many libraries lose its updates, and asks first', a
   await context.close();
 });
 
-test('a repository that another public one is built on cannot be made private, and the dialog names it', async ({
+test('a repository that public ones are built on cannot be made private, and the dialog names them', async ({
   browser,
 }) => {
   const { owner, repository, tag } = await world();
@@ -364,8 +367,24 @@ test('a repository that another public one is built on cannot be made private, a
       },
     }),
   );
+  const other = await newUser('dependent-owner', ['tenant_creator']);
+  const theirs = await newRepository(other.api, `Theirs ${tag}`);
+
+  await addItem(other.api, theirs.id, 'Shield');
   await invite(owner.api, repository.id, bridge.id);
   await copyInto(owner.api, bridge.id, repository.id);
+  await copyInto(other.api, theirs.id, repository.id);
+  await ok(
+    other.api.PUT('/tenants/{tenant_id}/public', {
+      params: { path: { tenant_id: theirs.id } },
+      body: {
+        summary: 'Theirs',
+        preview: 'showcase',
+        breaking: false,
+        acknowledge_breaking: true,
+      },
+    }),
+  );
   await ok(
     owner.api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: bridge.id } },
@@ -388,6 +407,15 @@ test('a repository that another public one is built on cannot be made private, a
   await expect(dialog(page).locator('[data-vis-blocker-list]')).toContainText(
     `${bridge.name} is public and built on this repository. Make it private first`,
   );
+  await expect(dialog(page).locator('[data-vis-blocker-list]')).toContainText(
+    `${theirs.name} is public and built on this repository. It has to be private first, so that what it is built on can still be copied: ask its Owner to make it private.`,
+  );
+
+  // A link to the Studio page of the one the Owner owns, and none for the other.
+  await expect(dialog(page).getByRole('link')).toHaveCount(1);
+  await expect(
+    dialog(page).getByRole('link', { name: `Open ${bridge.name} to make it private` }),
+  ).toHaveAttribute('href', `/studio/?repository=${bridge.id}`);
   await expect(
     dialog(page).getByRole('button', { name: 'Make private', exact: true }),
   ).toBeDisabled();
@@ -497,5 +525,43 @@ test('on a phone, both dialogs fit and everything pressed is big enough', async 
   await card(page).getByRole('button', { name: 'Make private…' }).click();
   await expect(dialog(page)).toBeVisible();
   await fits();
+  await context.close();
+});
+
+test('if it became public under an open page, Unpublish is refused in the API’s words', async ({
+  browser,
+}) => {
+  const { owner, repository } = await world();
+
+  await publish(owner.api, repository.id);
+
+  const { page, context } = await signedInPage(browser, owner.subject);
+
+  await overview(page, repository.slug);
+  await expect(state(page)).toHaveText('Private');
+  await expect(page.getByRole('button', { name: 'Unpublish…' })).toBeVisible();
+
+  // Somebody else makes it public after the page was read.
+  await ok(
+    owner.api.PUT('/tenants/{tenant_id}/public', {
+      params: { path: { tenant_id: repository.id } },
+      body: {
+        summary: 'Every beast',
+        preview: 'showcase',
+        breaking: false,
+        acknowledge_breaking: true,
+      },
+    }),
+  );
+  await page.getByRole('button', { name: 'Unpublish…' }).click();
+  await page
+    .locator('[data-publish-dialog]')
+    .getByRole('button', { name: 'Unpublish', exact: true })
+    .click();
+  await expect(page.locator('[data-publish-dialog] [data-dialog-error]')).toContainText(
+    'Make this repository private first',
+  );
+  await expect(page.locator('[data-publish-dialog]')).toBeVisible();
+  expect((await profileOf(owner.api, repository.id)).visibility).toBe('public');
   await context.close();
 });

@@ -122,9 +122,19 @@ export const PUBLIC_BLOCKERS_TITLE = 'Before you can make it public';
 
 // The public repositories built on this one, which have to be made private first.
 export function privateBlockers(check: FlipCheckOut): Blocker[] {
-  return check.public_dependents.map((dependent) => ({
-    text: `${dependent.name} is public and built on this repository. Make it private first, so that what it is built on can still be copied.`,
-  }));
+  return check.public_dependents.map((dependent) =>
+    dependent.owned
+      ? {
+          text: `${dependent.name} is public and built on this repository. Make it private first, so that what it is built on can still be copied.`,
+          link: {
+            href: studioHref(dependent.id),
+            label: `Open ${dependent.name} to make it private`,
+          },
+        }
+      : {
+          text: `${dependent.name} is public and built on this repository. It has to be private first, so that what it is built on can still be copied: ask its Owner to make it private.`,
+        },
+  );
 }
 
 export const PRIVATE_BLOCKERS_TITLE = 'Before you can make it private';
