@@ -1,4 +1,5 @@
 ---
+import { BRANDING_CSS_URL } from '../../lib/config';
 import AudienceField from '../AudienceField/AudienceField.astro';
 import InfoForm from '../InfoForm/InfoForm.astro';
 ---
@@ -23,6 +24,16 @@ import InfoForm from '../InfoForm/InfoForm.astro';
         <span class="badge-visibility" data-audience></span>
       </div>
       <div class="item-detail-descriptions" data-text></div>
+      <!-- A note of a repository's being that is Everyone's goes with every copy, and is what a person may read before copying it (RFC 0038 section 5). -->
+      <div class="row-tight" data-lock hidden>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-private`}></use>
+        </svg>
+        <span class="caption" data-lock-text></span>
+        <button type="button" class="btn btn-secondary" data-make-gm hidden>
+          Make GM only
+        </button>
+      </div>
       <p class="caption" data-author hidden></p>
       <div class="row" data-actions>
         <button type="button" class="btn btn-secondary" data-up aria-label="Move up">

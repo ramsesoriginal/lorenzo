@@ -171,3 +171,14 @@ export async function saveOrder(tenantId: string, entityId: string, ids: string[
     }),
   );
 }
+
+/**
+ * What a note says where it is Everyone's in a repository: it goes with every copy of the
+ * repository and is what a person may read before copying it (RFC 0038 section 5, ADR 0293).
+ */
+export const EVERYONE_NOTE_IN_REPOSITORY = 'Visible to libraries that copy this';
+
+/** Whether a note shows the lock: it is Everyone's, and the being is an entry of a repository. */
+export function showsLock(inRepository: boolean | undefined, info: Pick<Information, 'is_public'>) {
+  return inRepository === true && info.is_public;
+}

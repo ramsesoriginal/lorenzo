@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
 import { enterMode } from './support/modes.ts';
+import { person } from './support/world.ts';
 
 const url = (world: { tenantId: string }, id: string) =>
   `/being/?tenant=${world.tenantId}&id=${id}`;
@@ -133,4 +135,74 @@ test('a player writes a Player note on their own being, which their GM reads', a
   // On a being they do not play, a player reads what is shared and writes nothing.
   await page.goto(url(world, world.oskar.character.entity_id));
   await expect(page.getByRole('button', { name: 'Add a note' })).toBeHidden();
+});
+
+// RFC 0038 section 5, ADR 0293: in a repository, a note that is Everyone's goes with every copy and is
+// what a person may read before copying it, so it shows a lock and one click to make it GM only.
+test("in a repository an Everyone's note shows a lock, and one click makes it GM only", async ({
+  as,
+}) => {
+  const owner = await person('Rhea', ['tenant_creator']);
+  const repository = await ok(
+    owner.api.POST('/tenants', { body: { name: `Bestiary ${randomUUID()}`, kind: 'repository' } }),
+  );
+  const path = { tenant_id: repository.id };
+  const being = await ok(
+    owner.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path },
+      body: { name: 'Owlbear', kinds: ['being'], parents: [] },
+    }),
+  );
+  const write = (title: string, content: string, isPublic: boolean) =>
+    ok(
+      owner.api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+        params: { path: { ...path, entity_id: being.id } },
+        body: { title, type: 'note', is_public: isPublic, content, locale: 'en' },
+      }),
+    );
+  const open = await write('Habits', 'Hunts at night.', true);
+
+  await write('Weakness', 'Fears fire.', false);
+
+  const page = await as(owner);
+
+  await page.goto(`/being/?tenant=${repository.id}&id=${being.id}`);
+
+  const habits = page.locator('[data-being-notes] ul > li', { hasText: 'Habits' });
+  const weakness = page.locator('[data-being-notes] ul > li', { hasText: 'Weakness' });
+
+  await expect(habits.locator('[data-audience]')).toHaveText('Everyone');
+  await expect(habits.locator('[data-lock]')).toBeVisible();
+  await expect(habits.locator('[data-lock]')).toContainText('Visible to libraries that copy this');
+  await expect(weakness.locator('[data-audience]')).toHaveText('GM only');
+  await expect(weakness.locator('[data-lock]')).toBeHidden();
+
+  await habits.getByRole('button', { name: 'Make GM only: Habits' }).click();
+  await expect(habits.locator('[data-audience]')).toHaveText('GM only');
+  await expect(habits.locator('[data-lock]')).toBeHidden();
+
+  // The row is GM only for the API too, and its text is as it was.
+  const row = await ok(
+    owner.api.GET('/tenants/{tenant_id}/information/{information_id}', {
+      params: { path: { ...path, information_id: open.id } },
+    }),
+  );
+
+  expect(row.is_public).toBe(false);
+  await expect(habits).toContainText('Hunts at night.');
+});
+
+test("in a library an Everyone's note shows no lock: nothing is copied from it", async ({
+  world,
+  as,
+}) => {
+  const target = world.pia.character.entity_id;
+
+  await world.note(target, 'Known', 'To all.', true);
+
+  const page = await as(world.gm);
+
+  await page.goto(url(world, target));
+  await expect(page.locator('[data-being-notes] [data-audience]')).toHaveText('Everyone');
+  await expect(page.locator('[data-being-notes] [data-lock]')).toBeHidden();
 });

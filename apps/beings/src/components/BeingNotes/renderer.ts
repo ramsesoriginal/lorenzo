@@ -20,6 +20,7 @@ import {
   applyKnowers,
   audienceLabel,
   audienceOf,
+  EVERYONE_NOTE_IN_REPOSITORY,
   type Knower,
   knownCharacters,
   listKnowers,
@@ -27,6 +28,7 @@ import {
   planAudience,
   reordered,
   saveOrder,
+  showsLock,
   visibleOrder,
 } from '../../lib/notes';
 import { say } from '../../lib/statusLine';
@@ -38,6 +40,9 @@ export type BeingNotesOptions = {
   tenantId: string;
   renderer: Renderer;
   beingId: string;
+  // Whether the being is an entry of a repository: a note that is Everyone's goes with every copy of
+  // it, so it shows a lock, and `Make GM only` to take it back (RFC 0038 section 5, ADR 0293).
+  inRepository?: boolean;
   // After any save, reorder or delete.
   onChanged?: () => void;
 };
@@ -147,6 +152,20 @@ export function renderBeingNotes(
     }
   }
 
+  // One edit of the row (its `is_public`), not a rewrite of the note: its text, title and order stay.
+  async function makeGmOnly(info: Information, button: HTMLButtonElement) {
+    button.disabled = true;
+    say(status, '');
+
+    try {
+      await updateInformation(tenantId, info, { ...draftOf(info), isPublic: false });
+      await afterWrite();
+    } catch (error) {
+      button.disabled = false;
+      fail(error);
+    }
+  }
+
   function drawRow(row: Row, index: number): HTMLLIElement {
     const { info, knowers } = row;
     const item = cloneTemplate<HTMLLIElement>(rowTemplate, 'li');
@@ -168,6 +187,16 @@ export function renderBeingNotes(
 
     author.hidden = !info.created_by_name;
     author.textContent = info.created_by_name ?? '';
+
+    // Everyone's text in a repository: said, with one click to take it back for whoever may write.
+    const lock = required<HTMLElement>(item, '[data-lock]');
+    const makeGm = required<HTMLButtonElement>(lock, '[data-make-gm]');
+
+    required<HTMLElement>(lock, '[data-lock-text]').textContent = EVERYONE_NOTE_IN_REPOSITORY;
+    lock.hidden = !showsLock(options.inRepository, info);
+    makeGm.hidden = !viewer.canWrite;
+    makeGm.setAttribute('aria-label', `Make GM only: ${info.title || 'Note'}`);
+    makeGm.addEventListener('click', () => void makeGmOnly(info, makeGm));
 
     const actions = required<HTMLElement>(item, '[data-actions]');
 
