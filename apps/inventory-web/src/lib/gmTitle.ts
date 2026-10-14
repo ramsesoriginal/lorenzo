@@ -94,8 +94,11 @@ export function gmWordsOfBeing(tenantId: string, entityId: string | null): Promi
           campaignIdsOf(tenantId, entityId),
         ]);
         const wanted = new Set(ids);
+        const found = campaigns.filter((campaign) => wanted.has(campaign.id));
 
-        return gmWords(campaigns.filter((campaign) => wanted.has(campaign.id)));
+        // A campaign the viewer can't list is one whose words aren't known: not every campaign
+        // involved agrees, as far as anyone can tell.
+        return found.length === wanted.size ? gmWords(found) : DEFAULT_GM_WORDS;
       } catch {
         // Not remembered: the next surface asks again.
         beingWords.delete(key);

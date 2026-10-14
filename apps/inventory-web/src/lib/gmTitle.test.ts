@@ -116,6 +116,26 @@ describe('gmWordsOfBeing', () => {
     expect(await gmWordsOfBeing('t', 'ashfang')).toEqual({ title: 'GM', plural: 'GMs' });
   });
 
+  it('reads the shared words of two campaigns that agree', async () => {
+    const { gmWordsOfBeing } = await import('./gmTitle');
+    api.campaigns = [
+      campaign('a', 'Narrator', 'Narrators'),
+      campaign('b', 'Narrator', 'Narrators'),
+    ];
+    api.rosters = { ashfang: ['a', 'b'] };
+    expect(await gmWordsOfBeing('t', 'ashfang')).toEqual({
+      title: 'Narrator',
+      plural: 'Narrators',
+    });
+  });
+
+  it("says GM when one of its campaigns isn't one the viewer can list", async () => {
+    const { gmWordsOfBeing } = await import('./gmTitle');
+    api.campaigns = [campaign('a', 'Narrator', 'Narrators')];
+    api.rosters = { ashfang: ['a', 'secret'] };
+    expect(await gmWordsOfBeing('t', 'ashfang')).toEqual({ title: 'GM', plural: 'GMs' });
+  });
+
   it('says GM for a bare being, which has no roster to read', async () => {
     const { gmWordsOfBeing } = await import('./gmTitle');
     api.campaigns = [campaign('a', 'Narrator', 'Narrators')];
