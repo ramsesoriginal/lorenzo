@@ -1360,6 +1360,7 @@ def test_updates_show_what_was_edited_after_the_release_and_what_is_breaking(
         "counts": None,
         "breaking_rows": [],
         "warning_rows": [],
+        "current": True,
     }
     result = run(tmp_path, world, "updates", "sunken-vale", "-t", "table-one")
 

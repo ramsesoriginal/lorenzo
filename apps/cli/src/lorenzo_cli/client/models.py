@@ -711,6 +711,10 @@ class LinkPreviewStatOut(BaseModel):
     value: int | str | float = Field(..., title="Value")
 
 
+class MakeCurrentRequest(BaseModel):
+    acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
+
+
 class ManagedCampaignOut(BaseModel):
     campaign_id: UUID = Field(..., title="Campaign Id")
     name: str = Field(..., title="Name")
@@ -1100,6 +1104,7 @@ class ReleaseOut(BaseModel):
     counts: ReleaseCountsOut | None
     breaking_rows: list[BreakingRowOut] = Field(..., title="Breaking Rows")
     warning_rows: list[BreakingRowOut] = Field(..., title="Warning Rows")
+    current: bool = Field(..., title="Current")
 
 
 class ReleaseRefOut(BaseModel):
@@ -1522,6 +1527,14 @@ class BreakingNoteOut(BaseModel):
     release: ReleaseRefOut
 
 
+class BuiltOnBehindOut(BaseModel):
+    repository_id: UUID = Field(..., title="Repository Id")
+    name: str = Field(..., title="Name")
+    taken: ReleaseRefOut | None
+    current: ReleaseRefOut | None
+    readable: bool = Field(..., title="Readable")
+
+
 class BulkMembershipResultItem(BaseModel):
     user_id: UUID = Field(..., title="User Id")
     status: Status = Field(..., title="Status")
@@ -1935,7 +1948,9 @@ class ReleaseAuthoredOut(BaseModel):
     counts: ReleaseCountsOut | None
     breaking_rows: list[BreakingRowOut] = Field(..., title="Breaking Rows")
     warning_rows: list[BreakingRowOut] = Field(..., title="Warning Rows")
+    current: bool = Field(..., title="Current")
     created_by: UUID | None = Field(..., title="Created By")
+    kept: bool = Field(..., title="Kept")
 
 
 class ReleasePreviewOut(BaseModel):
@@ -1953,6 +1968,8 @@ class ReleasePreviewOut(BaseModel):
     unproven_kinds: list[UnprovenKindOut] = Field(..., title="Unproven Kinds")
     descriptions_edited: int | None = Field(..., title="Descriptions Edited")
     libraries_told: int = Field(..., title="Libraries Told")
+    built_on_behind: list[BuiltOnBehindOut] = Field(..., title="Built On Behind")
+    built_on_blocks_publish: bool = Field(..., title="Built On Blocks Publish")
 
 
 class RepositoryStatDefinitionOut(BaseModel):

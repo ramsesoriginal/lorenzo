@@ -412,7 +412,9 @@ async def compute_updates(
         upstream, release = read.content, read.release
         # What the release read saw, for the marks, when it has a digest to say so.
         stored = await stored_rows(session, repository_id) if release and release.digest else None
-        noted, warned = await notes_since(session, repository_id, copy.synced_release_id)
+        noted, warned = await notes_since(
+            session, repository_id, copy.synced_release_id, upto=release.number if release else None
+        )
     local = await load_content(session, tenant_id)
     links = local.links
     updates = Updates(repository_id=repository_id, release=release, upstream=upstream, local=local)

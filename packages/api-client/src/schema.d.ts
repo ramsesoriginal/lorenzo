@@ -865,9 +865,10 @@ export interface paths {
          *     body is optional: without a label the release is called by its number.
          *     `409` if the label is taken, and `409 release-has-breaking-changes` while it holds
          *     changes the update engine cannot carry to the libraries that copied it, unless
-         *     `acknowledge_breaking` (ADR 0208). The release records the digest of what was
-         *     published, what it added, changed and removed, and those changes, and the
-         *     repository's released rows become what was published. Until the first publish, no
+         *     `acknowledge_breaking` (ADR 0208), and, for a public repository, `409 built-on-behind` while
+         *     a repository it is built on has a release it has not taken (ADR 0289). The release records
+         *     the digest of what was published, what it added, changed and removed, and those changes,
+         *     and the repository's released rows become what was published. Until the first publish, no
          *     subscriber can see anything of it.
          */
         put: operations["publish_repository"];
@@ -951,6 +952,31 @@ export interface paths {
          *     repository did not make.
          */
         patch: operations["edit_release"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/releases/{release_id}/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make Release Current Route
+         * @description Makes an earlier release the one libraries read, the rollback of a bad release (ADR 0288,
+         *     RFC 0037 section 5). Owner only. The released rows are recomputed from that release's
+         *     document, "Edited since" compares with it from now on, and the libraries are told. `409
+         *     release-not-retained` if its content is no longer kept, `409 release-has-breaking-changes`
+         *     while moving from the release that is current to it breaks what libraries on that one hold,
+         *     unless `acknowledge_breaking`. Making the current release current is a no-op.
+         */
+        put: operations["make_release_current_route"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/tenants/{tenant_id}/subscribers": {
@@ -4598,6 +4624,25 @@ export interface components {
             detail: string;
         };
         /**
+         * BuiltOnBehindOut
+         * @description A repository this one is built on whose current release this one has not taken (ADR 0289):
+         *     `taken` is the release this one last took of it, `current` the one it should take, and
+         *     `readable` is false when nothing can be told because it cannot be read.
+         */
+        BuiltOnBehindOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /** Name */
+            name: string;
+            taken: components["schemas"]["ReleaseRefOut"] | null;
+            current: components["schemas"]["ReleaseRefOut"] | null;
+            /** Readable */
+            readable: boolean;
+        };
+        /**
          * BulkAddPrototypeRequest
          * @description POST /items/bulk-add-prototype body - see ADR 0073. Adds
          *     prototype_id to every listed item's direct prototype set; an item that
@@ -6912,6 +6957,19 @@ export interface components {
             value: number | string;
         };
         /**
+         * MakeCurrentRequest
+         * @description `PUT .../releases/{release_id}/current` (ADR 0288): `acknowledge_breaking` says the author
+         *     has looked at the rows listed in the `409` that said the move would break what libraries on
+         *     the release now current hold.
+         */
+        MakeCurrentRequest: {
+            /**
+             * Acknowledge Breaking
+             * @default false
+             */
+            acknowledge_breaking: boolean;
+        };
+        /**
          * ManagedCampaignOut
          * @description One campaign in `GET /me/managed` - see ADR 0086. `is_gm` is true if
          *     the caller holds a `CampaignGm` row for it; a tenant administrator sees
@@ -8235,8 +8293,12 @@ export interface components {
             breaking_rows: components["schemas"]["BreakingRowOut"][];
             /** Warning Rows */
             warning_rows: components["schemas"]["BreakingRowOut"][];
+            /** Current */
+            current: boolean;
             /** Created By */
             created_by: string | null;
+            /** Kept */
+            kept: boolean;
         };
         /**
          * ReleaseCountsOut
@@ -8285,6 +8347,8 @@ export interface components {
             breaking_rows: components["schemas"]["BreakingRowOut"][];
             /** Warning Rows */
             warning_rows: components["schemas"]["BreakingRowOut"][];
+            /** Current */
+            current: boolean;
         };
         /**
          * ReleasePreviewOut
@@ -8302,7 +8366,10 @@ export interface components {
          *     of kinds no round-trip matrix covers yet. `warnings` is what it says and never refuses, a parent
          *     added to an item libraries hold. `descriptions_edited` is the hint of texts written or edited
          *     since the release, which `matches` does not see: text edits are not tracked. `libraries_told`
-         *     is how many libraries hold an invitation, whom a publish would tell.
+         *     is how many libraries hold an invitation, whom a publish would tell. `built_on_behind` lists
+         *     the repositories this one is built on that have a release it has not taken (ADR 0289), and
+         *     `built_on_blocks_publish` is whether a publish refuses for it: it does for a public repository
+         *     and only warns for a private one.
          */
         ReleasePreviewOut: {
             release: components["schemas"]["ReleaseOut"] | null;
@@ -8331,6 +8398,10 @@ export interface components {
             descriptions_edited: number | null;
             /** Libraries Told */
             libraries_told: number;
+            /** Built On Behind */
+            built_on_behind: components["schemas"]["BuiltOnBehindOut"][];
+            /** Built On Blocks Publish */
+            built_on_blocks_publish: boolean;
         };
         /**
          * ReleaseRefOut
@@ -12443,6 +12514,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ReleaseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseAuthoredOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    make_release_current_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                release_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MakeCurrentRequest"] | null;
             };
         };
         responses: {

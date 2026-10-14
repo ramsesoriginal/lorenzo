@@ -12,9 +12,11 @@ A publish of a public repository writes one (ADR 0286); a private repository kee
 
 import uuid
 from dataclasses import dataclass
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import any_, delete, exists, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api import release_document
@@ -178,3 +180,59 @@ async def read_release_copies(
         raise ReleaseDocumentCorruptError(
             f"the document of release {release_id} does not say what it was built on: {error!r}"
         ) from error
+
+
+@dataclass(frozen=True)
+class Pruned:
+    documents: int
+    files: int
+
+
+async def prune_release_documents(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    keep: int,
+    current_release_id: uuid.UUID | None,
+) -> Pruned:
+    """Retention (RFC 0037 §5): drops the documents of every release but the newest `keep` of
+    the repository and its current one, then the files no kept document refers to. A release
+    keeps its ledger row, its counts, its digest and its breaking rows for good; only its content
+    goes. The caller holds the repository's row (`lock_repository`) and commits."""
+    newest = (
+        select(RepositoryRelease.id)
+        .where(RepositoryRelease.tenant_id == tenant_id)
+        .order_by(RepositoryRelease.number.desc())
+        .limit(max(keep, 0))
+    )
+    stmt = delete(RepositoryReleaseDocument).where(
+        RepositoryReleaseDocument.tenant_id == tenant_id,
+        RepositoryReleaseDocument.release_id.not_in(newest),
+    )
+    if current_release_id is not None:
+        stmt = stmt.where(RepositoryReleaseDocument.release_id != current_release_id)
+    documents = cast("CursorResult[Any]", await session.execute(stmt)).rowcount
+    files = cast(
+        "CursorResult[Any]",
+        await session.execute(
+            delete(RepositoryReleaseBlob).where(
+                RepositoryReleaseBlob.tenant_id == tenant_id,
+                ~exists().where(
+                    RepositoryReleaseDocument.tenant_id == RepositoryReleaseBlob.tenant_id,
+                    RepositoryReleaseBlob.sha256 == any_(RepositoryReleaseDocument.blobs),
+                ),
+            )
+        ),
+    ).rowcount
+    return Pruned(documents, files)
+
+
+async def kept_documents(session: AsyncSession, tenant_id: uuid.UUID) -> set[uuid.UUID]:
+    """The releases of the repository whose document is still kept."""
+    return set(
+        await session.scalars(
+            select(RepositoryReleaseDocument.release_id).where(
+                RepositoryReleaseDocument.tenant_id == tenant_id
+            )
+        )
+    )

@@ -348,6 +348,8 @@ class World:
                     "counts": None,
                     "breaking_rows": [],
                     "warning_rows": self.publish_warnings,
+                    "current": True,
+                    "kept": False,
                 }
             return httpx.Response(200, json=answer)
         if path == f"{repo}/subscribers" and method == "GET":

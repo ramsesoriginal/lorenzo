@@ -26,6 +26,10 @@ from lorenzo_api.models import RepositoryRelease, Tenant
 NOTICE_NOTES_LENGTH = 280
 
 BREAKING_LINE = "This release is marked breaking: it may change things your library already uses."
+FLIPPED_LINE = (
+    "It is now public: you read its releases, so what its author changes between releases is not "
+    "visible to your library until the next one."
+)
 NOTHING_SAID = "Check its updates to see what changed."
 FIRST_PUBLISH_BODY = "You can browse it and copy it into your tenant."
 
@@ -79,15 +83,18 @@ def cut(text: str, limit: int = NOTICE_NOTES_LENGTH) -> str:
 
 
 def release_notice(
-    *, repository_name: str, release: RepositoryRelease, first: bool
+    *, repository_name: str, release: RepositoryRelease, first: bool, flipped: bool = False
 ) -> tuple[str, str]:
     """The title and body the libraries a repository is granted to are told when it
     publishes: the release's label in the title, its notes (cut) and a line when it
     is breaking in the body. The first publish keeps its own words, and adds the
-    notes if there are any."""
+    notes if there are any. `flipped` says the repository was made public by this release, and
+    what that means for a library that already reads it."""
     said = [cut(release.notes)] if release.notes else []
     if release.breaking:
         said.append(BREAKING_LINE)
+    if flipped:
+        said.append(FLIPPED_LINE)
     if first:
         return f"{repository_name} is published", "\n\n".join([FIRST_PUBLISH_BODY, *said])
     return (
@@ -207,7 +214,37 @@ async def releases_named(
 
 async def current_release(session: AsyncSession, repository_id: uuid.UUID) -> ReleaseRef | None:
     """The release a library that reads the repository reads: what a copy takes, what an update
-    check compares with, and what the repository's document is for a public one (ADR 0286). It
-    is the newest until a release can be made current again (RFC 0037 §5), and is asked for by
-    this name so that change is made here."""
-    return await latest_release(session, repository_id)
+    check compares with, and, for a public repository, the document that is read (ADR 0286,
+    0288). The one `tenant.current_release_id` names; a repository that has none set, because
+    nothing has made it current yet, reads as its newest release."""
+    release = await session.scalar(
+        select(RepositoryRelease)
+        .join(
+            Tenant,
+            (Tenant.current_release_id == RepositoryRelease.id)
+            & (Tenant.id == RepositoryRelease.tenant_id),
+        )
+        .where(Tenant.id == repository_id)
+    )
+    return _ref(release) if release else await latest_release(session, repository_id)
+
+
+async def set_current_release(
+    session: AsyncSession, repository: Tenant, release_id: uuid.UUID
+) -> None:
+    """Points the repository at `release_id`, one of its own releases (the key says so). The
+    caller holds the repository's row (`lock_repository`) and commits."""
+    repository.current_release_id = release_id
+    await session.flush()
+
+
+def current_notice(*, repository_name: str, release: RepositoryRelease) -> tuple[str, str]:
+    """What the libraries a repository is granted to are told when one of its earlier releases
+    is made current again: the label, the notes (cut), and what it means for a library that took
+    a later one."""
+    said = [cut(release.notes)] if release.notes else []
+    said.append(
+        "A library that already took a later release will see the earlier state as changes in "
+        "its updates."
+    )
+    return f"{repository_name} made release {release.label} current", "\n\n".join(said)
