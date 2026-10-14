@@ -13,7 +13,7 @@ Open this directory as a project in Android Studio. Use JDK 17 and install Andro
 ./gradlew :app:installDebug   # connected phone/emulator, USB debugging enabled
 ```
 
-For command-line builds, set `ANDROID_HOME` to the SDK directory (or set `sdk.dir` in an untracked `local.properties`). Accept its licenses with `sdkmanager --licenses` and install `sdkmanager "platform-tools" "platforms;android-37" "build-tools;36.0.0"`. CI installs the same packages explicitly.
+For command-line builds, set `ANDROID_HOME` to the SDK directory (or set `sdk.dir` in an untracked `local.properties`). Accept its licenses with `sdkmanager --licenses` and install `sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;36.0.0"`. CI installs the same packages explicitly.
 
 The app participates in root `mise run lint`, `test` and `check`; install JDK 17 with `mise install` from this directory and set up the SDK before running them. `mise run //apps/inventory-mobile:dev` installs the debug app on a connected device.
 
