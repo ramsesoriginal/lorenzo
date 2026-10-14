@@ -52,15 +52,18 @@ from lorenzo_cli.client.models import (
     SetContainerRequest,
     SetEntityStatRequest,
     SetPrototypesRequest,
+    SheetOut,
     StatDefinitionCreate,
     StatDefinitionOut,
     StatDefinitionUpdate,
     StatGroupCreate,
     StatGroupOut,
+    StatGroupUpdate,
     SubscriberOut,
     SumFormulaBodyInput,
     TenantCreate,
     TenantOut,
+    TenantUpdate,
     UpdatesOut,
 )
 
@@ -314,7 +317,46 @@ APPLY_REPOSITORY_UPDATES: Op[ApplyUpdatesOut] = Op(
     response_type=ApplyUpdatesOut,
 )
 
+UPDATE_STAT_GROUP: Op[StatGroupOut] = Op(
+    "update_stat_group",
+    "PATCH",
+    f"{_TENANT}/stat-groups/{{stat_group_id}}",
+    request_type=StatGroupUpdate,
+    response_type=StatGroupOut,
+)
+UPDATE_STAT_DEFINITION: Op[StatDefinitionOut] = Op(
+    "update_stat_definition",
+    "PATCH",
+    f"{_TENANT}/stat-definitions/{{stat_definition_id}}",
+    request_type=StatDefinitionUpdate,
+    response_type=StatDefinitionOut,
+)
+UPDATE_TENANT: Op[TenantOut] = Op(
+    "update_tenant",
+    "PATCH",
+    _TENANT,
+    request_type=TenantUpdate,
+    response_type=TenantOut,
+)
+GET_ITEM_INSTANCE: Op[ItemInstanceOut] = Op(
+    "get_item_instance",
+    "GET",
+    f"{_TENANT}/item-instances/{{entity_id}}",
+    response_type=ItemInstanceOut,
+)
+GET_BEING_SHEET: Op[SheetOut] = Op(
+    "get_being_sheet",
+    "GET",
+    f"{_TENANT}/beings/{{entity_id}}/sheet",
+    response_type=SheetOut,
+)
+
 ALL_OPS: tuple[Op[Any], ...] = (
+    UPDATE_STAT_GROUP,
+    UPDATE_STAT_DEFINITION,
+    UPDATE_TENANT,
+    GET_ITEM_INSTANCE,
+    GET_BEING_SHEET,
     GET_ME,
     GET_TENANT,
     LIST_TENANTS,

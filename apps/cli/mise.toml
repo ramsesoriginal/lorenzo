@@ -55,3 +55,7 @@ run = [
   "LORENZO_REQUIRE_SCHEMA=1 uv run pytest tests/test_ops_schema.py --no-cov -q",
   "git diff --exit-code --stat -- src/lorenzo_cli/client/models.py || { echo 'The generated models are stale - run `mise run //apps/cli:generate-schema` and commit the result.'; exit 1; }",
 ]
+
+[tasks.bundle-lorenzoscript]
+description = "Regenerate the terminal renderer's shared parser bundle (ADR 0295)"
+run = "node scripts/bundle-lorenzoscript.cjs"
