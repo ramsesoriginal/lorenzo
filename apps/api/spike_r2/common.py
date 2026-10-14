@@ -228,3 +228,20 @@ def new_client() -> httpx.AsyncClient:
 def write_result(name: str, payload: Any) -> None:
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
     (RESULT_DIR / f"{name}.json").write_text(json.dumps(payload, indent=2, default=str))
+
+
+if os.environ.get("R2_PATCH_LOCAL_OF"):
+    # The fix proposed in the findings: invert a copy-link map once, not on every call
+    # (repository_updates._local_entity calls Links.local_of for each end of each attachment).
+    from lorenzo_api.repository_content import Links as _Links
+
+    _real_local_of = _Links.local_of
+    _memo: dict[tuple[int, str], dict[uuid.UUID, uuid.UUID]] = {}
+
+    def _memoised_local_of(self: _Links, kind: str) -> dict[uuid.UUID, uuid.UUID]:
+        key = (id(self), kind)
+        if key not in _memo:
+            _memo[key] = _real_local_of(self, kind)
+        return _memo[key]
+
+    _Links.local_of = _memoised_local_of  # type: ignore[method-assign]
