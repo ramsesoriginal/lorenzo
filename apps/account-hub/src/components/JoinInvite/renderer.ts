@@ -6,6 +6,7 @@
 
 import { ApiError } from '../../lib/apiError';
 import { isAuthConfigured, isAuthenticated, login } from '../../lib/auth';
+import { GM_WORDS, type GmWords, gmWords } from '../../lib/gmTitle';
 import {
   DEAD_LINK_MESSAGE,
   forgetInviteToken,
@@ -26,6 +27,7 @@ import { browserSessionStorage } from '../../lib/returnPath';
 import { say, sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants, tenantHref } from '../../lib/tenantKind';
+import { getCampaign } from '../../lib/tenants';
 import type { InviteRedeemOut } from '../../lib/types';
 
 const required = requiredIn('Join invite');
@@ -33,6 +35,19 @@ const required = requiredIn('Join invite');
 // Every dead link is the same 404, and the page does not tell them apart.
 function isDead(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404;
+}
+
+// What the campaign a visitor has just become a GM of calls its game master (ADR 0294): the
+// invite's preview could not say it before they joined, the campaign can once it is theirs to read.
+// Without it (another kind of link, or a campaign that can't be read just now) it is "GM".
+async function gmWordsOf(joined: InviteRedeemOut): Promise<GmWords> {
+  if (joined.role !== 'gm' || joined.campaign_id === null) return GM_WORDS;
+
+  try {
+    return gmWords([await getCampaign(joined.tenant_id, joined.campaign_id)]);
+  } catch {
+    return GM_WORDS;
+  }
 }
 
 // Where to go on once a link has been used.
@@ -178,7 +193,7 @@ export async function renderJoinInvite(root: HTMLElement): Promise<void> {
         const joined = await redeemInvite(currentToken, chosen?.id);
 
         forgetInviteToken(storage);
-        say(status, joinedMessageFor(preview, joined, chosen?.name ?? ''));
+        say(status, joinedMessageFor(preview, joined, chosen?.name ?? '', await gmWordsOf(joined)));
         joinButton.hidden = true;
         library.disabled = true;
 

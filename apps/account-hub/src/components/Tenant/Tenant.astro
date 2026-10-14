@@ -170,11 +170,10 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           </div>
           <div class="stack grow">
             <div data-campaign-gms-slot hidden></div>
-            <!-- Stepping down as the campaign's GM, shown to its GMs. -->
+            <!-- Stepping down as the campaign's GM, shown to its GMs. The button's words are what
+                 the campaign calls its game master (ADR 0294), set by bindStepDownAsGm. -->
             <div class="row" data-campaign-step-down hidden>
-              <button type="button" class="btn-danger" data-step-down>
-                Step down as GM
-              </button>
+              <button type="button" class="btn-danger" data-step-down></button>
               <span class="status-text" role="status" data-step-down-status hidden></span>
             </div>
           </div>

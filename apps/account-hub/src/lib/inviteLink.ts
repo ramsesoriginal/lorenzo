@@ -2,6 +2,8 @@
 // format.ts: how a link is built and read, what an invite's state is called,
 // and the one place a token is kept while a person logs in.
 
+import { GM_WORDS, type GmWords } from './gmTitle';
+
 // --- The link -------------------------------------------------------------
 
 // The token goes in the fragment: a browser never sends one to a server, a
@@ -158,10 +160,12 @@ export const DEAD_LINK_MESSAGE =
 export const LINK_SHOWN_ONCE_NOTICE =
   "This link won't be shown again. Anyone who has it can join this campaign as a player until it expires or you revoke it.";
 
-// A GM link is worth more than a player link, and says so (ADR 0177): the first
-// person to open it becomes a GM of the campaign, and it works once.
-export const GM_LINK_SHOWN_ONCE_NOTICE =
-  "This link won't be shown again, and it works once: whoever opens it first becomes a GM of this campaign. Send it only to the person who should run it, or revoke it.";
+// A GM link is worth more than a player link, and says so (ADR 0177): the first person to open it
+// joins the campaign's GMs, and it works once. `plural` is what the campaign calls them (ADR 0294),
+// which the campaign being made in /setup has not been given a different word for yet.
+export function gmLinkShownOnceNotice(plural: string): string {
+  return `This link won't be shown again, and it works once: whoever opens it first joins the ${plural} of this campaign. Send it only to the person who should run it, or revoke it.`;
+}
 
 // What a link makes someone: `player` for every link before ADR 0177, `gm`, and (ADR 0220) an
 // `author` or an `orga` of a library or repository. A library-access link makes no one anything.
@@ -169,12 +173,12 @@ export type InviteRole = 'player' | 'gm' | 'author' | 'orga';
 
 export type InviteKind = 'campaign' | 'tenant_role' | 'library_access';
 
-export function linkKindLabel(
-  role: InviteRole | null,
-): 'Player link' | 'GM link' | 'Author link' | 'Organizer link' | 'Library link' {
+// `gmTitle` is what the campaign calls its game master (ADR 0294). The links of a library or a
+// repository are never a GM's, and a caller with no one campaign passes GM_WORDS.title.
+export function linkKindLabel(role: InviteRole | null, gmTitle: string): string {
   switch (role) {
     case 'gm':
-      return 'GM link';
+      return `${gmTitle} link`;
     case 'author':
       return 'Author link';
     case 'orga':
@@ -186,19 +190,21 @@ export function linkKindLabel(
   }
 }
 
-// A role with its article, as a sentence wants it (ADR 0194's names: never `orga`).
+// A role with its article, as a sentence wants it (ADR 0194's names: never `orga`). A campaign's
+// GM has none: what its campaign calls it is written without an article (joinedMessage).
 const ROLE_PHRASES = {
   player: 'a player',
-  gm: 'a GM',
   author: 'an Author',
   orga: 'an Organizer',
-} as const satisfies Record<InviteRole, string>;
+} as const satisfies Record<Exclude<InviteRole, 'gm'>, string>;
 
-export function rolePhrase(role: InviteRole): string {
+export function rolePhrase(role: Exclude<InviteRole, 'gm'>): string {
   return ROLE_PHRASES[role];
 }
 
-// What the /join page says it offers, and what its button says.
+// What the /join page says it offers, and what its button says. It is said before the visitor has
+// joined anything, and the preview does not name the campaign's title (ADR 0092: nothing a leaked
+// link could not already tell), so it says "GM" until the campaign is theirs to read.
 export function inviteOffer(role: InviteRole): { sentence: string; joinLabel: string } {
   return role === 'gm'
     ? {
@@ -236,11 +242,13 @@ export function offerFor(preview: InvitePreview): { sentence: string; actionLabe
 
   if (preview.kind === 'tenant_role' && preview.role !== null) {
     const noun = placeWord(preview.tenant_kind);
-    const phrase = rolePhrase(preview.role);
+    // A library or a repository has Authors and Organizers; its link is never a campaign's GM link.
+    const role = preview.role === 'orga' ? 'orga' : 'author';
+    const phrase = rolePhrase(role);
 
     return {
       sentence: `You've been invited to join the ${noun} ${preview.name} as ${phrase}.`,
-      actionLabel: preview.role === 'orga' ? 'Join as an Organizer' : 'Join as an Author',
+      actionLabel: role === 'orga' ? 'Join as an Organizer' : 'Join as an Author',
     };
   }
 
@@ -249,15 +257,23 @@ export function offerFor(preview: InvitePreview): { sentence: string; actionLabe
   return { sentence: campaign.sentence, actionLabel: campaign.joinLabel };
 }
 
+// What a joined campaign says. The campaign is the visitor's now, so a GM's sentences use what it
+// calls its GMs (`gm`, ADR 0294), written with no article so any title reads right.
 export function joinedMessage(
   campaignName: string,
   alreadyJoined: boolean,
   role: InviteRole = 'player',
+  gm: GmWords = GM_WORDS,
 ): string {
-  const noun = role === 'gm' ? 'a GM' : 'a player';
+  if (role === 'gm') {
+    return alreadyJoined
+      ? `You're already one of the ${gm.plural} of ${campaignName}.`
+      : `You're in. ${campaignName} lists you among its ${gm.plural}.`;
+  }
+
   return alreadyJoined
-    ? `You're already ${noun} ${role === 'gm' ? 'of' : 'in'} ${campaignName}.`
-    : `You're in. ${campaignName} lists you as ${noun}.`;
+    ? `You're already a player in ${campaignName}.`
+    : `You're in. ${campaignName} lists you as a player.`;
 }
 
 // What the page says once a link was used (or had already been): `shareTargetName` is the library the
@@ -266,6 +282,7 @@ export function joinedMessageFor(
   preview: InvitePreview,
   joined: { already_joined: boolean; role: InviteRole | null },
   shareTargetName = '',
+  gm: GmWords = GM_WORDS,
 ): string {
   if (preview.kind === 'library_access') {
     return joined.already_joined
@@ -277,10 +294,10 @@ export function joinedMessageFor(
     // A link never changes a role someone already has, so it says only that they belong.
     return joined.already_joined
       ? `You already belong to ${preview.name}. A link doesn't change anyone's role.`
-      : `You're in. ${preview.name} lists you as ${rolePhrase(joined.role ?? 'author')}.`;
+      : `You're in. ${preview.name} lists you as ${rolePhrase(joined.role === 'orga' ? 'orga' : 'author')}.`;
   }
 
-  return joinedMessage(preview.name, joined.already_joined, joined.role ?? 'player');
+  return joinedMessage(preview.name, joined.already_joined, joined.role ?? 'player', gm);
 }
 
 // --- Choosing the library to share with ----------------------------------------------------

@@ -200,7 +200,7 @@ test('"someone I\'ll send a link to": a single-use GM link that makes a GM and n
   await expect(joinPage).toHaveURL(`${SITE_URL}/join/`);
   await joinPage.getByRole('button', { name: 'Join as a GM' }).click();
   await expect(joinPage.locator('[data-join] [data-status]')).toHaveText(
-    `You're in. ${n.campaign} lists you as a GM.`,
+    `You're in. ${n.campaign} lists you among its GMs.`,
   );
   expect((await made.gms(campaignId)).map((g) => g.user_id)).toEqual([newcomer.me.id]);
   const theirs = await ok(newcomer.api.GET('/me'));
@@ -335,11 +335,11 @@ test('a campaign manager hands over a GM seat from the invite panel, one use, la
   await campaignPanel.getByRole('tab', { name: 'Invite links' }).click();
   const panel = campaignPanel.locator('[data-invite-links]');
 
-  await panel.getByRole('button', { name: 'Invite a GM' }).click();
+  await panel.getByRole('button', { name: 'Invite someone to run it' }).click();
   const link = panel.getByLabel('GM invite link');
   await expect(link).toHaveValue(TOKEN_URL);
   await expect(panel).toContainText('works once');
-  await expect(panel).toContainText('becomes a GM');
+  await expect(panel).toContainText('joins the GMs of this campaign');
   await expect(panel.locator('[data-list] > li').filter({ hasText: 'GM link' })).toContainText(
     'Used 0 of 1',
   );

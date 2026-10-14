@@ -6,7 +6,7 @@ import {
   expiresAtFor,
   forgetInviteToken,
   GM_EXPIRY_PRESETS,
-  GM_LINK_SHOWN_ONCE_NOTICE,
+  gmLinkShownOnceNotice,
   INVITE_TOKEN_KEY,
   inviteOffer,
   inviteStatus,
@@ -278,21 +278,55 @@ describe('GM links (ADR 0177)', () => {
     });
     expect(inviteOffer('gm').sentence).toContain('as a GM');
     expect(inviteOffer('gm').joinLabel).toBe('Join as a GM');
-    expect(linkKindLabel('gm')).toBe('GM link');
-    expect(linkKindLabel('player')).toBe('Player link');
+    expect(linkKindLabel('gm', 'GM')).toBe('GM link');
+    expect(linkKindLabel('player', 'GM')).toBe('Player link');
   });
 
   it("says joined as a GM in a GM link's own words, and a player link's as before", () => {
     expect(joinedMessage('Zorro', false)).toBe("You're in. Zorro lists you as a player.");
     expect(joinedMessage('Zorro', true)).toBe("You're already a player in Zorro.");
-    expect(joinedMessage('Zorro', false, 'gm')).toBe("You're in. Zorro lists you as a GM.");
-    expect(joinedMessage('Zorro', true, 'gm')).toBe("You're already a GM of Zorro.");
+    expect(joinedMessage('Zorro', false, 'gm')).toBe("You're in. Zorro lists you among its GMs.");
+    expect(joinedMessage('Zorro', true, 'gm')).toBe("You're already one of the GMs of Zorro.");
   });
 
   it('warns that a GM link works once and makes a GM', () => {
-    expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain('works once');
-    expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain('becomes a GM');
-    expect(GM_LINK_SHOWN_ONCE_NOTICE).toContain("won't be shown again");
+    const notice = gmLinkShownOnceNotice('GMs');
+
+    expect(notice).toContain('works once');
+    expect(notice).toContain('joins the GMs of this campaign');
+    expect(notice).toContain("won't be shown again");
+  });
+
+  // ADR 0294: a campaign that names its game master says so, with no article that a title could
+  // break and no GM left over.
+  it("speaks of a campaign's game master by the campaign's own title", () => {
+    const storytellers = { title: 'Storyteller', plural: 'Storytellers' };
+    const texts = [
+      linkKindLabel('gm', storytellers.title),
+      joinedMessage('Zorro', false, 'gm', storytellers),
+      joinedMessage('Zorro', true, 'gm', storytellers),
+      gmLinkShownOnceNotice(storytellers.plural),
+    ];
+
+    expect(texts[0]).toBe('Storyteller link');
+    expect(texts[1]).toBe("You're in. Zorro lists you among its Storytellers.");
+    expect(texts[2]).toBe("You're already one of the Storytellers of Zorro.");
+    for (const text of texts) expect(text).not.toMatch(/\bGMs?\b/);
+  });
+
+  it('says joined with the title of the campaign the link opened (joinedMessageFor)', () => {
+    const preview = { kind: 'campaign', name: 'Zorro', tenant_kind: null, role: 'gm' } as const;
+
+    expect(
+      joinedMessageFor(preview, { already_joined: false, role: 'gm' }, '', {
+        title: 'Narrator',
+        plural: 'Narrators',
+      }),
+    ).toBe("You're in. Zorro lists you among its Narrators.");
+    // With no campaign to read it from, it is "GM".
+    expect(joinedMessageFor(preview, { already_joined: false, role: 'gm' })).toBe(
+      "You're in. Zorro lists you among its GMs.",
+    );
   });
 });
 
@@ -364,9 +398,9 @@ describe('the other kinds of link (ADR 0220)', () => {
   });
 
   it('labels every link in the list in the three names', () => {
-    expect(linkKindLabel('author')).toBe('Author link');
-    expect(linkKindLabel('orga')).toBe('Organizer link');
-    expect(linkKindLabel(null)).toBe('Library link');
+    expect(linkKindLabel('author', 'GM')).toBe('Author link');
+    expect(linkKindLabel('orga', 'GM')).toBe('Organizer link');
+    expect(linkKindLabel(null, 'GM')).toBe('Library link');
   });
 
   it('offers to share with the libraries and repositories you own, and no other', () => {

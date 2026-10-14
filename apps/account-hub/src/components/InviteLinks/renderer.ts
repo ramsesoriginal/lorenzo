@@ -7,8 +7,8 @@ import {
   type ExpiryPresetId,
   expiresAtFor,
   GM_EXPIRY_PRESETS,
-  GM_LINK_SHOWN_ONCE_NOTICE,
   type GmExpiryPresetId,
+  gmLinkShownOnceNotice,
   inviteStatus,
   inviteUrl,
   linkKindLabel,
@@ -52,7 +52,7 @@ function inviteRow(
 
   required<HTMLElement>(fragment, '[data-state]').textContent = STATUS_LABELS[state];
   required<HTMLElement>(fragment, '[data-meta]').textContent =
-    `${linkKindLabel(invite.role)} · Created ${formatTimestamp(invite.created_at)} · Expires ${formatTimestamp(invite.expires_at)} · Used ${usesLabel(invite)}`;
+    `${linkKindLabel(invite.role, campaign.gm_title)} · Created ${formatTimestamp(invite.created_at)} · Expires ${formatTimestamp(invite.expires_at)} · Used ${usesLabel(invite)}`;
 
   // Only a link that still works can be revoked.
   if (state !== 'active') {
@@ -101,6 +101,9 @@ export function renderInviteLinks(
 
   fillPresets(expiry, EXPIRY_PRESETS, '1w');
   fillPresets(gmExpiry, GM_EXPIRY_PRESETS, '3d');
+  // What this campaign calls its game master (ADR 0294).
+  required<HTMLElement>(gmForm, '[data-gm-expiry-label]').textContent =
+    `${campaign.gm_title} link expires in`;
 
   // The link, shown in place of any earlier one; Done takes it off the page again.
   function showLink(url: string, options: { notice?: string; label?: string } = {}): void {
@@ -171,8 +174,8 @@ export function renderInviteLinks(
 
       say(gmStatus, '');
       showLink(inviteUrl(window.location.origin, invite.token), {
-        notice: GM_LINK_SHOWN_ONCE_NOTICE,
-        label: 'GM invite link',
+        notice: gmLinkShownOnceNotice(campaign.gm_title_plural),
+        label: `${campaign.gm_title} invite link`,
       });
       await refresh();
     } catch (e) {

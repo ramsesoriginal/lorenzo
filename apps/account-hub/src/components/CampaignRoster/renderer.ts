@@ -151,7 +151,9 @@ export function renderCampaignRoster(
       const row = fromTemplate(root, '[data-entry-template]');
 
       required<HTMLElement>(row, '[data-name]').textContent = displayNameFor(entry);
-      required<HTMLElement>(row, '[data-role]').textContent = entry.kind;
+      // A GM's badge says what this campaign calls its game master (ADR 0294).
+      required<HTMLElement>(row, '[data-role]').textContent =
+        entry.kind === 'gm' ? campaign.gm_title : entry.kind;
 
       if (entry.kind === 'player') {
         const playerId = management ? playerIdForUser(management.players, entry.user_id) : null;

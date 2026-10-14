@@ -31,14 +31,15 @@ import LinkOnce from '../LinkOnce/LinkOnce.astro';
     </form>
 
     <!-- A GM link (ADR 0177): one person, one use, at most a week. Next to the player link,
-        since whoever may grant GM may hand it over this way. -->
+        since whoever may grant GM may hand it over this way. What the campaign calls its game
+        master (ADR 0294) is put in the label by renderInviteLinks. -->
     <form class="row card card-body grow" data-gm-form>
       <label class="field">
-        <span class="field-label">GM link expires in</span>
+        <span class="field-label" data-gm-expiry-label></span>
         <select class="text-input" data-gm-expiry></select>
       </label>
       <button type="submit" data-gm-create>
-        Invite a GM
+        Invite someone to run it
       </button>
       <span class="status-text" role="status" data-gm-status hidden></span>
     </form>

@@ -1,7 +1,8 @@
 // The result of /setup (ADR 0180): the links, each shown once, and where to go next. "Done" clears a
 // link from the page; nothing keeps it (ADR 0171's panel does the same).
 
-import { GM_LINK_SHOWN_ONCE_NOTICE, inviteUrl, LINK_SHOWN_ONCE_NOTICE } from '../../lib/inviteLink';
+import { GM_WORDS } from '../../lib/gmTitle';
+import { gmLinkShownOnceNotice, inviteUrl, LINK_SHOWN_ONCE_NOTICE } from '../../lib/inviteLink';
 import type { SetupInput, SetupState } from '../../lib/setup';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { tenantHref } from '../../lib/tenantKind';
@@ -63,7 +64,8 @@ export function showResult(
     '[data-gm-link]',
     '[data-gm-link-box]',
     state.gmLinkToken,
-    GM_LINK_SHOWN_ONCE_NOTICE,
+    // The campaign has just been made, so it still has the default.
+    gmLinkShownOnceNotice(GM_WORDS.plural),
     'GM invite link',
   );
   showLink(
