@@ -405,13 +405,16 @@ A new definition takes `--type int|float|text|bool|enum`, a required `--group`, 
 
 `edit` changes only the options you name. Boolean flags have negative forms (`--no-pin`, `--no-signed`, `--no-adjustable-in-play`, and a group's `--no-mandatory`). Use `--clear-unit`, `--clear-max-hint`, `--clear-min-hint` or `--clear-resolved-hint` to clear a nullable field; setting and clearing it together is refused. A definition's name, type and group cannot be edited by the API. Groups can edit their name, priority, mandatory flag and position. Priority decides inheritance ties; position decides display order. Vocabulary writes require the API's administrator permissions.
 
-The library's weapon stat group and ability information type use one command. With no setting options it reads them; with options it changes only those named. The ability type is free text, not a separately created vocabulary row.
+The library's being stat group, weapon stat group and ability information type use one command. With no setting options it reads them; with options it changes only those named. The ability type is free text, not a separately created vocabulary row.
 
 ```bash
 lorenzo tenant sheet-settings my-library
+lorenzo tenant sheet-settings my-library --being-stat-group Vitals
 lorenzo tenant sheet-settings my-library --weapon-stat-group Weapons --ability-information-type ability
 lorenzo tenant sheet-settings my-library --clear-weapon-stat-group --clear-ability-information-type
 ```
+
+The being stat group is an optional tenant selection ([ADR 0296](../../docs/adr/0296-being-stat-group.md)); `--clear-being-stat-group` unsets it, and omitted options preserve it. The API accepts and validates a campaign on the sheet read but does not override this setting yet. No frontend display behavior changes in this slice.
 
 Read an item, an instance or a being by id, link name or exact name/title:
 
