@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_gm
 from lorenzo_api.dependencies import (
@@ -33,6 +33,7 @@ from lorenzo_api.models import (
     Information,
     StatDefinition,
     Tenant,
+    VEffectiveStat,
     VItemInstance,
 )
 from lorenzo_api.routers.entities import _INFORMATION_LOAD_OPTIONS
@@ -167,7 +168,14 @@ async def get_being_sheet(
                         ),
                         _owner_predicate_for(reach),
                     )
-                    .options(*eager_load_options(VItemInstance.entity))
+                    .options(
+                        *eager_load_options(VItemInstance.entity),
+                        # The sheet reports inherited stat provenance (ADR 0276), unlike
+                        # the item view's numeric lists. Load the source before _stats_out.
+                        joinedload(VItemInstance.entity)
+                        .selectinload(Entity.effective_stats)
+                        .joinedload(VEffectiveStat.source_entity),
+                    )
                     .order_by(Entity.name, VItemInstance.entity_id)
                 )
             )
@@ -205,6 +213,7 @@ async def get_being_sheet(
         abilities = [InformationOut.from_information(row, request) for row in rows]
 
     return SheetOut(
+        being_stat_group_id=tenant.being_stat_group_id,
         weapons_configured=tenant.weapon_stat_group_id is not None,
         abilities_configured=tenant.ability_information_type is not None,
         weapons=weapons,

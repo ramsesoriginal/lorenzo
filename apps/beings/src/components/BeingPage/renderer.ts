@@ -7,7 +7,8 @@ import { descriptionOf, getCharacter, pictureOf } from '../../lib/being';
 import { kindLabel } from '../../lib/beingList';
 import type { Renderer } from '../../lib/descriptions';
 import { getEntityDetail } from '../../lib/entities';
-import { gmCampaignsIn, isTenantMember, myBeingIds } from '../../lib/me';
+import { DEFAULT_GM_WORDS, gmWordsOfBeing } from '../../lib/gmTitle';
+import { gmCampaignsIn, isTenantMember, listCampaigns, myBeingIds } from '../../lib/me';
 import { valueText, vitalsOf } from '../../lib/statBand';
 import { say } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
@@ -193,11 +194,14 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     async show(entityId) {
       root.hidden = false;
 
-      const entity = await getEntityDetail(tenantId, entityId);
+      const [entity, tenant] = await Promise.all([
+        getEntityDetail(tenantId, entityId),
+        getTenant(tenantId).catch(() => null),
+      ]);
 
       character = await getCharacter(tenantId, entityId).catch(() => null);
       kind.textContent = character ? kindLabel(character) : 'NPC';
-      await statBand.load();
+      await statBand.load(tenant?.being_stat_group_id ?? null);
       showEntity(entity);
 
       // Asked for the datasheet before the being had arrived (a link, or a quick hand).
@@ -208,15 +212,14 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
 
       // Who gets the writing controls: those who run a campaign or the library, and whoever plays
       // this being. A convenience only; the API decides every write.
-      const [gmCampaigns, member, mine, inRepository] = await Promise.all([
+      const [gmCampaigns, member, mine, inRepository, campaigns] = await Promise.all([
         gmCampaignsIn(tenantId).catch(() => []),
         isTenantMember(tenantId).catch(() => false),
         myBeingIds(tenantId).catch(() => new Set<string>()),
         // A repository's beings are opened here too, and their Everyone's notes go with every copy.
-        getTenant(tenantId).then(
-          (tenant) => tenant.kind === 'repository',
-          () => false,
-        ),
+        Promise.resolve(tenant?.kind === 'repository'),
+        // What the campaigns it is in call their game master (ADR 0294); not knowing says "GM".
+        listCampaigns(tenantId).catch(() => []),
       ]);
       const runsTheTable = gmCampaigns.length > 0 || member;
 
@@ -226,6 +229,8 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
         tenantId,
         renderer,
         beingId: entityId,
+        // A repository's entries belong to no campaign: they say "GM".
+        words: inRepository ? DEFAULT_GM_WORDS : gmWordsOfBeing(character, campaigns),
         inRepository,
       });
 

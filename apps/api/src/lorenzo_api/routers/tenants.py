@@ -315,11 +315,11 @@ async def update_tenant(
         if update.get(field) is not None:
             setattr(tenant, field, update[field])
             changed_fields.append(field)
-    # ADR 0281: these two can be cleared, so an explicit null counts.
-    for field in ("weapon_stat_group_id", "ability_information_type"):
+    # ADR 0281/0296: these settings can be cleared, so an explicit null counts.
+    for field in ("being_stat_group_id", "weapon_stat_group_id", "ability_information_type"):
         if field not in update or update[field] == getattr(tenant, field):
             continue
-        if field == "weapon_stat_group_id" and update[field] is not None:
+        if field in ("being_stat_group_id", "weapon_stat_group_id") and update[field] is not None:
             found = await session.scalar(
                 select(StatGroup.id).where(
                     StatGroup.id == update[field], StatGroup.tenant_id == tenant_id

@@ -1,6 +1,6 @@
 # 0148 - Dependency-aware PR CI: test what a change can affect, never what it can't
 
-Status: accepted (decided with the maintainer on 2026-09-30); implemented the same day, see the addenda at the end. Not built, on purpose: the Playwright browser cache (measured, about 10 s per shard) and the items under "Not in scope"
+Status: accepted (decided with the maintainer on 2026-09-30); implemented the same day, see the addenda at the end. The Playwright browser cache, initially deferred, is implemented in the 2026-10-08 addendum below; the items under "Not in scope" remain deferred
 
 ## Context
 

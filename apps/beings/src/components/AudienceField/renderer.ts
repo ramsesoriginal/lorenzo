@@ -2,13 +2,16 @@
 // line under them saying what it means, and for "Some characters" the characters to choose. The
 // field is read by the form that holds it; the API decides what is allowed.
 
-import { AUDIENCES, type Audience } from '../../lib/notes';
+import type { GmWords } from '../../lib/gmTitle';
+import { type Audience, audienceTexts } from '../../lib/notes';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import type { BeingRef } from '../../lib/types';
 
 const required = requiredIn('Audience field');
 
 export type AudienceFieldOptions = {
+  /** What the game masters are called, where the audiences name them (ADR 0294). */
+  words: GmWords;
   /** Which audiences are offered, in order. */
   offer: readonly Audience[];
   initial: Audience;
@@ -72,7 +75,7 @@ export function renderAudienceField(
   async function update() {
     const audience = current();
 
-    hint.textContent = AUDIENCES[audience].hint;
+    hint.textContent = audienceTexts(audience, options.words).hint;
     characters.hidden = audience !== 'some';
 
     if (audience === 'some' && loaded === null) {
@@ -96,7 +99,10 @@ export function renderAudienceField(
     radio.value = audience;
     radio.checked = audience === options.initial;
     radio.addEventListener('change', () => void update());
-    required<HTMLElement>(choice, '[data-text]').textContent = AUDIENCES[audience].label;
+    required<HTMLElement>(choice, '[data-text]').textContent = audienceTexts(
+      audience,
+      options.words,
+    ).label;
     radios.set(audience, radio);
     choices.append(choice);
   }

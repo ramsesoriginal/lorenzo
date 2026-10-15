@@ -12,6 +12,7 @@ from lorenzo_api.models import (
     Character,
     Containment,
     Entity,
+    EntityPrototype,
     EntityStat,
     Information,
     ItemInstance,
@@ -176,6 +177,7 @@ async def test_an_unconfigured_library_gets_empty_sections_and_the_flags(
     sheet = (await client.get(_url(tenant_id, being))).json()
 
     assert sheet == {
+        "being_stat_group_id": None,
         "weapons_configured": False,
         "abilities_configured": False,
         "weapons": [],
@@ -334,4 +336,140 @@ async def test_someone_with_no_standing_in_the_tenant_does_not_read_its_vocabula
 
     for path in ("stat-groups", "stat-definitions"):
         assert (await client.get(f"/tenants/{tenant_id}/{path}")).status_code == 404
+    await delete_tenant(tenant_id)
+
+
+async def test_an_equipped_weapon_reports_the_source_of_its_inherited_stat(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    group = await _group(client, tenant_id, "Weapons")
+    damage = await _definition(client, tenant_id, group["id"], "damage")
+    await client.patch(f"/tenants/{tenant_id}", json={"weapon_stat_group_id": group["id"]})
+    being = await _being(tenant_id)
+    sword = await _equip(tenant_id, being, "Old sword", {})
+    async with admin_session_factory() as session:
+        prototype = Entity(tenant_id=tenant_id, name="Sword")
+        session.add(prototype)
+        await session.flush()
+        session.add(
+            EntityStat(
+                entity_id=prototype.id,
+                stat_definition_id=uuid.UUID(damage["id"]),
+                tenant_id=tenant_id,
+                value_int=8,
+            )
+        )
+        session.add(
+            EntityPrototype(
+                entity_id=sword,
+                prototype_id=prototype.id,
+                tenant_id=tenant_id,
+            )
+        )
+        await session.commit()
+        source_id = prototype.id
+    response = await client.get(_url(tenant_id, being))
+    assert response.status_code == 200, response.text
+    [stat] = response.json()["weapons"][0]["stats"]
+    assert stat["value"] == 8 and stat["own"] is False
+    assert stat["from_entity"] == {"id": str(source_id), "name": "Sword", "quantity": None}
+    await delete_tenant(tenant_id)
+
+
+async def test_the_tenant_being_group_can_be_set_kept_and_cleared_without_campaign_overrides(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    group = await _group(client, tenant_id, "Being")
+    being = await _being(tenant_id)
+    fresh = await client.get(f"/tenants/{tenant_id}")
+    assert fresh.json()["being_stat_group_id"] is None
+    written = await client.patch(f"/tenants/{tenant_id}", json={"being_stat_group_id": group["id"]})
+    assert written.status_code == 200, written.text
+    assert written.json()["being_stat_group_id"] == group["id"]
+    async with admin_session_factory() as session:
+        campaign = await make_campaign(session, tenant_id=tenant_id, name="Context only")
+        await session.commit()
+        campaign_id = campaign.id
+    without = await client.get(_url(tenant_id, being))
+    with_campaign = await client.get(
+        _url(tenant_id, being), params={"campaign_id": str(campaign_id)}
+    )
+    assert without.status_code == with_campaign.status_code == 200
+    assert without.json() == with_campaign.json()
+    assert without.json()["being_stat_group_id"] == group["id"]
+    invalid = await client.get(_url(tenant_id, being), params={"campaign_id": str(uuid.uuid4())})
+    assert invalid.status_code == 404
+    kept = await client.patch(f"/tenants/{tenant_id}", json={"ability_information_type": "ability"})
+    assert kept.json()["being_stat_group_id"] == group["id"]
+    cleared = await client.patch(f"/tenants/{tenant_id}", json={"being_stat_group_id": None})
+    assert cleared.json()["being_stat_group_id"] is None
+    assert cleared.json()["ability_information_type"] == "ability"
+    assert (await client.get(_url(tenant_id, being))).json()["being_stat_group_id"] is None
+    await delete_tenant(tenant_id)
+
+
+async def test_the_being_group_must_belong_to_the_tenant_even_below_the_api(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+
+    tenant_id = await make_tenant(test_user_id)
+    other = await make_tenant(test_user_id)
+    foreign = await _group(client, other, "Foreign")
+    for group_id in (foreign["id"], str(uuid.uuid4())):
+        response = await client.patch(
+            f"/tenants/{tenant_id}", json={"being_stat_group_id": group_id}
+        )
+        assert response.status_code == 422, response.text
+    async with admin_session_factory() as session:
+        tenant = await session.get_one(Tenant, tenant_id)
+        tenant.being_stat_group_id = uuid.UUID(foreign["id"])
+        with pytest.raises(IntegrityError):
+            await session.flush()
+        await session.rollback()
+    await delete_tenant(tenant_id)
+    await delete_tenant(other)
+
+
+async def test_deleting_a_being_group_clears_only_its_setting_and_tenant_deletion_still_works(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    being_group = await _group(client, tenant_id, "Being")
+    weapon_group = await _group(client, tenant_id, "Weapons")
+    configured = await client.patch(
+        f"/tenants/{tenant_id}",
+        json={
+            "being_stat_group_id": being_group["id"],
+            "weapon_stat_group_id": weapon_group["id"],
+        },
+    )
+    assert configured.status_code == 200, configured.text
+    async with admin_session_factory() as session:
+        await session.delete(await session.get_one(StatGroup, uuid.UUID(being_group["id"])))
+        await session.commit()
+    kept = (await client.get(f"/tenants/{tenant_id}")).json()
+    assert kept["id"] == str(tenant_id) and kept["being_stat_group_id"] is None
+    assert kept["weapon_stat_group_id"] == weapon_group["id"]
+    again = await _group(client, tenant_id, "Being again")
+    await client.patch(f"/tenants/{tenant_id}", json={"being_stat_group_id": again["id"]})
+    await delete_tenant(tenant_id)
+    async with admin_session_factory() as session:
+        assert await session.get(Tenant, tenant_id) is None
+
+
+async def test_a_participant_can_read_the_being_group_but_not_change_it(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant_id = await make_tenant(test_user_id)
+    group = await _group(client, tenant_id, "Being")
+    being = await _being(tenant_id)
+    await client.patch(f"/tenants/{tenant_id}", json={"being_stat_group_id": group["id"]})
+    await make_plain_participant(tenant_id, test_user_id)
+    assert (await client.get(_url(tenant_id, being))).json()["being_stat_group_id"] == group["id"]
+    denied = await client.patch(f"/tenants/{tenant_id}", json={"being_stat_group_id": None})
+    assert denied.status_code in (403, 404)
     await delete_tenant(tenant_id)

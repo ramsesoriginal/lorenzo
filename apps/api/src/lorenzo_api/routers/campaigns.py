@@ -8,6 +8,7 @@ from sqlalchemy import exists, select
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import can_manage_campaign, is_tenant_admin
+from lorenzo_api.campaign_gm_title import normalise_gm_titles
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -212,9 +213,24 @@ async def update_campaign(
     await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
 
     update = body.model_dump(exclude_unset=True)
+    if "gm_title" in update or "gm_title_plural" in update:
+        # ADR 0294: both or neither, trimmed; empty puts both back to the default.
+        update["gm_title"], update["gm_title_plural"] = normalise_gm_titles(
+            update.get("gm_title", campaign.gm_title),
+            update.get("gm_title_plural", campaign.gm_title_plural),
+        )
     changed_fields = [
         field
-        for field in ("name", "game_system", "slug", "description", "secret", "player_self_service")
+        for field in (
+            "name",
+            "game_system",
+            "slug",
+            "description",
+            "secret",
+            "player_self_service",
+            "gm_title",
+            "gm_title_plural",
+        )
         if field in update
     ]
     for field in changed_fields:

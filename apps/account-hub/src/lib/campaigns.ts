@@ -7,6 +7,7 @@
 // where you RUN (a campaign you GM, or one of a library you administer). A
 // campaign you do both in is in both.
 import { byName, displayNameFor } from './format';
+import type { GmWords } from './gmTitle';
 import type { CampaignSummaryOut, ManagedScopeOut, MeOut, PlayerContextOut } from './types';
 
 export type RunRole = 'gm' | 'admin';
@@ -21,10 +22,13 @@ export interface RunRow {
   // `gm`: you hold the GM grant. `admin`: you administer the library and so run
   // every campaign in it, GM of it or not (ADR 0086's `is_gm`).
   role: RunRole;
+  // What this campaign calls its game master (ADR 0294), as the API sends it.
+  gm: GmWords;
 }
 
-export function runRoleLabel(role: RunRole): 'GM' | 'Admin' {
-  return role === 'gm' ? 'GM' : 'Admin';
+// What the row says you are there: what the campaign calls its game master (`gmTitle`), or Admin.
+export function runRoleLabel(role: RunRole, gmTitle: string): string {
+  return role === 'gm' ? gmTitle : 'Admin';
 }
 
 // The campaigns you run, from `GET /me/managed`, libraries only (a repository
@@ -42,6 +46,7 @@ export function runRows(managed: ManagedScopeOut): RunRow[] {
         campaignId: campaign.campaign_id,
         campaignName: campaign.name,
         role: campaign.is_gm ? 'gm' : 'admin',
+        gm: { title: campaign.gm_title, plural: campaign.gm_title_plural },
       });
     }
   }
@@ -70,7 +75,8 @@ export interface TableCard {
   name: string;
   gameSystem: string | null;
   secret: boolean;
-  roles: ('Player' | 'GM' | 'Admin')[];
+  // "Player", what the campaign calls its game master, "Admin".
+  roles: string[];
   // Your characters there, or null when you don't play in it.
   characters: string[] | null;
 }
@@ -131,7 +137,7 @@ export function tableCards(input: {
       row.campaignId,
       row.campaignName,
     );
-    const role = runRoleLabel(row.role);
+    const role = runRoleLabel(row.role, row.gm.title);
 
     if (!card.roles.includes(role)) card.roles.push(role);
   }

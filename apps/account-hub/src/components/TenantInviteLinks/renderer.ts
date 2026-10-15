@@ -2,6 +2,7 @@
 // one. A token exists exactly once, in the response to creating a link; the panel shows the whole
 // link then and nowhere else.
 
+import { GM_WORDS } from '../../lib/gmTitle';
 import {
   EXPIRY_PRESETS,
   type ExpiryPresetId,
@@ -59,7 +60,7 @@ function inviteRow(
 
   required<HTMLElement>(fragment, '[data-state]').textContent = STATUS_LABELS[state];
   required<HTMLElement>(fragment, '[data-meta]').textContent =
-    `${linkKindLabel(invite.role)} · Created ${formatTimestamp(invite.created_at)} · Expires ${formatTimestamp(invite.expires_at)} · Used ${usesLabel(invite)}`;
+    `${linkKindLabel(invite.role, GM_WORDS.title)} · Created ${formatTimestamp(invite.created_at)} · Expires ${formatTimestamp(invite.expires_at)} · Used ${usesLabel(invite)}`;
 
   // Only a link that still works can be revoked.
   if (state !== 'active') {

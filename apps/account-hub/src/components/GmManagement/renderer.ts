@@ -8,7 +8,7 @@ import { grantCampaignGm, revokeCampaignGm } from '../../lib/tenants';
 import type { CampaignSummaryOut, RosterEntry, TenantSummaryOut } from '../../lib/types';
 import { renderUserPicker } from '../UserPicker/renderer';
 
-const required = requiredIn('GM management');
+const required = requiredIn('Game master management');
 
 // GmOut itself has no display name (ADR 0076) - roster is the tenant's full
 // GET /tenants/{id}/memberships fetch (RFC 0017 (a)), a materially better name source resolved
@@ -25,6 +25,11 @@ export function renderGmManagement(
 ): void {
   const list = required<HTMLElement>(root, '[data-gm-list]');
   const error = required<HTMLElement>(root, '[data-error]');
+
+  // What this campaign calls its game masters (ADR 0294), written with no article.
+  required<HTMLElement>(root, '[data-assign]').textContent =
+    `Assign someone as ${campaign.gm_title}:`;
+  required<HTMLElement>(root, '[data-heading]').textContent = `${campaign.gm_title_plural}:`;
 
   for (const userId of gms) {
     const row = fromTemplate(root, '[data-row-template]');
