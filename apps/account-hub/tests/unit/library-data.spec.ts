@@ -27,6 +27,8 @@ const played: CampaignSummaryOut = {
   slug: 'played',
   game_system: 'test',
   secret: false,
+  gm_title: 'GM',
+  gm_title_plural: 'GMs',
 };
 const other: CampaignSummaryOut = { ...played, id: 'other', name: 'Another table', slug: 'other' };
 const page = <T>(items: T[]) => ({ items, total: items.length, page: 1, size: 50, pages: 1 });

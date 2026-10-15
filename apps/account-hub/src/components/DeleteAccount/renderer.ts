@@ -5,20 +5,29 @@
 
 import { logout } from '../../lib/auth';
 import { deleteAccountConfirmation, soleOwnerMessage } from '../../lib/exits';
+import { gmWords } from '../../lib/gmTitle';
 import { deleteMyAccount } from '../../lib/me';
 import { say, sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
 import { listMyTenants } from '../../lib/tenants';
+import type { MeOut } from '../../lib/types';
 
 const required = requiredIn('Delete account');
 
-// `root` is the <DeleteAccount /> block; it shows itself.
-export function renderDeleteAccount(root: HTMLElement): void {
+// `root` is the <DeleteAccount /> block; it shows itself. Its GM role is the word of the campaigns the
+// person holds that role in (ADR 0294): what they all call it, else "GM".
+export function renderDeleteAccount(
+  root: HTMLElement,
+  me: Pick<MeOut, 'campaign_gm_grants'>,
+): void {
   const button = required<HTMLButtonElement>(root, '[data-delete]');
   const status = required<HTMLElement>(root, '[data-status]');
+  const gmTitle = gmWords(me.campaign_gm_grants).title;
+
+  required<HTMLElement>(root, '[data-gm-title]').textContent = gmTitle;
 
   button.addEventListener('click', async () => {
-    if (!window.confirm(deleteAccountConfirmation())) return;
+    if (!window.confirm(deleteAccountConfirmation(gmTitle))) return;
 
     button.disabled = true;
     say(status, 'Deleting…');

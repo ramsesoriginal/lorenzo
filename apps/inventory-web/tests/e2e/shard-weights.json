@@ -5,6 +5,7 @@
   "board.spec.ts": 106,
   "capacity.spec.ts": 13,
   "giving-contents.spec.ts": 18,
+  "gm-title.spec.ts": 15,
   "groups.spec.ts": 20,
   "hand-over.spec.ts": 48,
   "item-gm.spec.ts": 19,

@@ -38,6 +38,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
     import { descriptionRenderer } from '../../lib/descriptions';
     import { isCampaignGm, seatsIn } from '../../lib/me';
     import { addItemStanding } from '../../lib/addItem';
+    import { gmWordsOfBeing } from '../../lib/gmTitle';
     import { getTenant } from '../../lib/tenants';
 
     const required = requiredIn('Board page');
@@ -81,6 +82,7 @@ import UndoBanner from '../../components/UndoBanner/UndoBanner.astro';
           undo,
           addItemStanding: async (holderId) =>
             addItemStanding({ viewerIsGm, holderId, seats: await seatsIn(tenantId) }),
+          addItemGmWords: (holderId) => gmWordsOfBeing(tenantId, holderId),
           onOpenItem: (item, card) => detail.open(item, card),
           onPrefetchItem: (item) => detail.prefetch(item),
         });

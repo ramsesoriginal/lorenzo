@@ -6,6 +6,7 @@
 import { listBeings } from '../../lib/beingList';
 import { at, type Renderer, showDescriptions } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
+import type { GmWords } from '../../lib/gmTitle';
 import {
   createInformation,
   deleteInformation,
@@ -40,6 +41,8 @@ export type BeingNotesOptions = {
   tenantId: string;
   renderer: Renderer;
   beingId: string;
+  // What the being's campaigns call their game master, or "GM" (ADR 0294).
+  words: GmWords;
   // Whether the being is an entry of a repository: a note that is Everyone's goes with every copy of
   // it, so it shows a lock, and `Make GM only` to take it back (RFC 0038 section 5, ADR 0293).
   inRepository?: boolean;
@@ -90,6 +93,7 @@ export function renderBeingNotes(
     const allowed = offer();
 
     return {
+      words: options.words,
       offer: allowed,
       initial: allowed.includes(initial) ? initial : (allowed[0] as Audience),
       told,
@@ -174,6 +178,7 @@ export function renderBeingNotes(
     required<HTMLElement>(item, '[data-heading]').textContent = info.title || 'Note';
     required<HTMLElement>(item, '[data-audience]').textContent = audienceLabel(
       audienceOf(info, knowers, beingId),
+      options.words,
     );
 
     if (content) {
@@ -236,7 +241,7 @@ export function renderBeingNotes(
           ...(field && { extra: field.element }),
           onSubmit: async (draft) => {
             const plan = field
-              ? planAudience(field.value(), knowers ?? [], beingId)
+              ? planAudience(field.value(), knowers ?? [], beingId, options.words)
               : { isPublic: info.is_public, add: [], remove: [], removePlayers: [] };
 
             await updateInformation(tenantId, info, {
@@ -307,7 +312,7 @@ export function renderBeingNotes(
         showVisibility: false,
         extra: field.element,
         onSubmit: async (draft) => {
-          const plan = planAudience(field.value(), [], beingId);
+          const plan = planAudience(field.value(), [], beingId, options.words);
           const created = await createInformation(tenantId, beingId, {
             ...draft,
             title: draft.title || 'Note',

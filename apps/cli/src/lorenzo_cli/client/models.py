@@ -226,6 +226,8 @@ class CampaignOut(BaseModel):
     game_system: str = Field(..., title="Game System")
     secret: bool = Field(..., title="Secret")
     player_self_service: bool = Field(..., title="Player Self Service")
+    gm_title: str = Field(..., title="Gm Title")
+    gm_title_plural: str = Field(..., title="Gm Title Plural")
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
     created_at: AwareDatetime = Field(..., title="Created At")
@@ -238,6 +240,8 @@ class CampaignSummaryOut(BaseModel):
     name: str = Field(..., title="Name")
     game_system: str = Field(..., title="Game System")
     secret: bool = Field(..., title="Secret")
+    gm_title: str = Field(..., title="Gm Title")
+    gm_title_plural: str = Field(..., title="Gm Title Plural")
 
 
 class CampaignUpdate(BaseModel):
@@ -247,6 +251,8 @@ class CampaignUpdate(BaseModel):
     description: str | None = Field(None, title="Description")
     secret: bool | None = Field(None, title="Secret")
     player_self_service: bool | None = Field(None, title="Player Self Service")
+    gm_title: str | None = Field(None, title="Gm Title")
+    gm_title_plural: str | None = Field(None, title="Gm Title Plural")
 
 
 class CharacterCreate(BaseModel):
@@ -766,6 +772,8 @@ class ManagedCampaignOut(BaseModel):
     campaign_id: UUID = Field(..., title="Campaign Id")
     name: str = Field(..., title="Name")
     is_gm: bool = Field(..., title="Is Gm")
+    gm_title: str = Field(..., title="Gm Title")
+    gm_title_plural: str = Field(..., title="Gm Title Plural")
 
 
 class Role(StrEnum):

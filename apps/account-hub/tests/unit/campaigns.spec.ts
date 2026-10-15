@@ -12,7 +12,7 @@ const managed = (tenants: ManagedScopeOut['tenants']): ManagedScopeOut => ({ ten
 
 const tenant = (
   name: string,
-  campaigns: [string, boolean][],
+  campaigns: [string, boolean, [string, string]?][],
   kind: 'play' | 'repository' = 'play',
 ): ManagedScopeOut['tenants'][number] => ({
   tenant_id: `t-${name}`,
@@ -20,10 +20,12 @@ const tenant = (
   slug: name.toLowerCase(),
   role: 'owner',
   kind,
-  campaigns: campaigns.map(([campaignName, is_gm]) => ({
+  campaigns: campaigns.map(([campaignName, is_gm, titles]) => ({
     campaign_id: `c-${name}-${campaignName}`,
     name: campaignName,
     is_gm,
+    gm_title: titles?.[0] ?? 'GM',
+    gm_title_plural: titles?.[1] ?? 'GMs',
   })),
 });
 
@@ -41,8 +43,27 @@ describe('runRows', () => {
       ['Hood', 'admin'],
       ['Open Table', 'gm'],
     ]);
-    expect(runRoleLabel('gm')).toBe('GM');
-    expect(runRoleLabel('admin')).toBe('Admin');
+    expect(runRoleLabel('gm', 'GM')).toBe('GM');
+    expect(runRoleLabel('admin', 'GM')).toBe('Admin');
+  });
+
+  it("keeps each campaign's own title for its game master (ADR 0294)", () => {
+    const rows = runRows(
+      managed([
+        tenant('Realms', [
+          ['Hood', true, ['Storyteller', 'Storytellers']],
+          ['Open Table', true],
+        ]),
+      ]),
+    );
+    const hood = rows.find((r) => r.campaignName === 'Hood');
+    const open = rows.find((r) => r.campaignName === 'Open Table');
+
+    expect(hood?.gm).toEqual({ title: 'Storyteller', plural: 'Storytellers' });
+    expect(open?.gm).toEqual({ title: 'GM', plural: 'GMs' });
+    expect(runRoleLabel('gm', hood?.gm.title ?? '')).toBe('Storyteller');
+    // An administrator who is not its GM is an Admin whatever the table calls its game master.
+    expect(runRoleLabel('admin', 'Storyteller')).toBe('Admin');
   });
 
   it('names the library each is in, and sorts by library then campaign, ignoring case', () => {

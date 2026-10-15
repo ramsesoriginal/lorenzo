@@ -4,11 +4,13 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 
 <div class="stack" data-gm-management>
   <div class="card card-body stack">
-    <strong>Assign a new GM:</strong>
+    <!-- The words are what the campaign calls its game master (ADR 0294), set by
+         renderGmManagement. -->
+    <strong data-assign></strong>
     <UserPicker />
     <p class="error-text" role="alert" data-error hidden></p>
   </div>
-  <strong>GMs:</strong>
+  <strong data-heading></strong>
   <ul class="list" data-gm-list></ul>
 
   <template data-row-template>

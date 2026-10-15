@@ -1,4 +1,5 @@
 import { EmbedBuilder, type HexColorString } from "discord.js";
+import { gmWords } from "./gm-title.js";
 import type { MyProfile } from "./lorenzo-client.js";
 
 // Matches MembershipRole's own three values (apps/api/src/lorenzo_api/models/
@@ -65,10 +66,14 @@ export function formatWhoamiEmbed(profile: MyProfile): EmbedBuilder {
         : "None yet.",
   });
 
-  if (profile.gmCampaignCount > 0) {
+  if (profile.gmCampaigns.length > 0) {
+    // Every campaign the caller GMs, in any library: the title only when they all agree
+    // on it, "GM" otherwise (ADR 0294).
+    const count = profile.gmCampaigns.length;
+    const title = gmWords(profile.gmCampaigns).singular;
     embed.addFields({
-      name: "GM",
-      value: `GM for ${profile.gmCampaignCount} campaign${profile.gmCampaignCount === 1 ? "" : "s"} (may include campaigns outside this server's own library).`,
+      name: title,
+      value: `${title} for ${count} campaign${count === 1 ? "" : "s"} (may include campaigns outside this server's own library).`,
     });
   }
 

@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 // The sign-in library needs a browser; nothing here signs in.
 vi.mock('./auth', () => ({ getAccessToken: vi.fn() }));
 
+import { DEFAULT_GM_WORDS } from './gmTitle';
 import {
   audienceLabel,
   audienceOf,
+  audienceTexts,
   EVERYONE_NOTE_IN_REPOSITORY,
   type Knower,
   moved,
@@ -13,6 +15,9 @@ import {
   reordered,
   showsLock,
 } from './notes';
+
+const GMS = DEFAULT_GM_WORDS;
+const STORYTELLERS = { title: 'Storyteller', plural: 'Storytellers' };
 
 const entity = (id: string): Knower => ({
   kind: 'entity',
@@ -38,15 +43,15 @@ describe('audienceOf', () => {
   });
 
   it('says it is shared when the viewer cannot list who was told', () => {
-    expect(audienceLabel(audienceOf({ is_public: false }, null, 'b'))).toBe('Shared with you');
-    expect(audienceLabel('player')).toBe('Player note');
+    expect(audienceLabel(audienceOf({ is_public: false }, null, 'b'), GMS)).toBe('Shared with you');
+    expect(audienceLabel('player', GMS)).toBe('Player note');
   });
 });
 
 describe('planAudience', () => {
   it('makes a GM-only note by taking everyone told away', () => {
     expect(
-      planAudience({ audience: 'gm', characters: [] }, [entity('c'), player('p')], 'b'),
+      planAudience({ audience: 'gm', characters: [] }, [entity('c'), player('p')], 'b', GMS),
     ).toEqual({
       isPublic: false,
       add: [],
@@ -56,24 +61,34 @@ describe('planAudience', () => {
   });
 
   it('tells the being for a player note, and only the chosen for some characters', () => {
-    expect(planAudience({ audience: 'player', characters: [] }, [], 'b')).toMatchObject({
+    expect(planAudience({ audience: 'player', characters: [] }, [], 'b', GMS)).toMatchObject({
       isPublic: false,
       add: ['b'],
     });
     expect(
-      planAudience({ audience: 'some', characters: ['c', 'd'] }, [entity('c'), entity('e')], 'b'),
+      planAudience(
+        { audience: 'some', characters: ['c', 'd'] },
+        [entity('c'), entity('e')],
+        'b',
+        GMS,
+      ),
     ).toEqual({ isPublic: false, add: ['d'], remove: ['e'], removePlayers: [] });
   });
 
   it('keeps the knowers when it becomes public, and wants a character for some', () => {
-    expect(planAudience({ audience: 'everyone', characters: [] }, [entity('c')], 'b')).toEqual({
-      isPublic: true,
-      add: [],
-      remove: [],
-      removePlayers: [],
-    });
-    expect(() => planAudience({ audience: 'some', characters: [] }, [], 'b')).toThrow(
-      /at least one/,
+    expect(planAudience({ audience: 'everyone', characters: [] }, [entity('c')], 'b', GMS)).toEqual(
+      {
+        isPublic: true,
+        add: [],
+        remove: [],
+        removePlayers: [],
+      },
+    );
+    expect(() => planAudience({ audience: 'some', characters: [] }, [], 'b', GMS)).toThrow(
+      'Choose at least one character, or make it GM only.',
+    );
+    expect(() => planAudience({ audience: 'some', characters: [] }, [], 'b', STORYTELLERS)).toThrow(
+      'Choose at least one character, or make it Storyteller only.',
     );
   });
 });
@@ -97,5 +112,42 @@ describe('the lock on a note', () => {
     expect(showsLock(false, { is_public: true })).toBe(false);
     expect(showsLock(undefined, { is_public: true })).toBe(false);
     expect(EVERYONE_NOTE_IN_REPOSITORY).toBe('Visible to libraries that copy this');
+  });
+});
+
+describe('the audiences name the game masters by the campaign', () => {
+  it('reads "GM only" and the GMs by default', () => {
+    expect(audienceTexts('gm', GMS)).toEqual({
+      label: 'GM only',
+      hint: 'Only the GMs of the campaign can read it.',
+    });
+    expect(audienceTexts('some', GMS).hint).toBe(
+      'The GMs and the characters you choose can read it.',
+    );
+    expect(audienceTexts('player', GMS).hint).toBe("The GMs and this being's players can read it.");
+  });
+
+  it("reads the campaign's own title, in the singular and in the plural", () => {
+    expect(audienceTexts('gm', STORYTELLERS)).toEqual({
+      label: 'Storyteller only',
+      hint: 'Only the Storytellers of the campaign can read it.',
+    });
+    expect(audienceTexts('some', STORYTELLERS).hint).toBe(
+      'The Storytellers and the characters you choose can read it.',
+    );
+    expect(audienceTexts('player', STORYTELLERS).hint).toBe(
+      "The Storytellers and this being's players can read it.",
+    );
+    expect(audienceLabel('gm', STORYTELLERS)).toBe('Storyteller only');
+  });
+
+  it('keeps the audiences that name no game master as they are', () => {
+    expect(audienceTexts('everyone', STORYTELLERS)).toEqual({
+      label: 'Everyone',
+      hint: 'Anyone with access to the library can read it.',
+    });
+    expect(audienceTexts('some', STORYTELLERS).label).toBe('Some characters');
+    expect(audienceTexts('player', STORYTELLERS).label).toBe('Player note');
+    expect(audienceLabel('shared', STORYTELLERS)).toBe('Shared with you');
   });
 });

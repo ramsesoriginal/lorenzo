@@ -65,7 +65,7 @@ describe("whoamiCommand", () => {
       pictureUrl: "https://lorenzo-api.test/users/user-1/picture",
       membershipRole: "owner",
       characters: [{ entityId: "char-1", name: "Frodo" }],
-      gmCampaignCount: 0,
+      gmCampaigns: [],
     });
 
     const interaction = fakeInteraction();

@@ -22,7 +22,10 @@ export async function renderRunCampaign(
 ): Promise<void> {
   required<HTMLElement>(root, '[data-name]').textContent = row.campaignName;
   required<HTMLElement>(root, '[data-meta]').textContent =
-    ` in ${row.tenantName} · ${runRoleLabel(row.role)}`;
+    ` in ${row.tenantName} · ${runRoleLabel(row.role, row.gm.title)}`;
+  // What this campaign calls its game masters (ADR 0294).
+  required<HTMLElement>(root, '[data-gms-heading]').textContent = row.gm.plural;
+  required<HTMLElement>(root, '[data-no-gms]').textContent = `No ${row.gm.plural} yet.`;
 
   // Its administration is on /tenants, with this library open.
   required<HTMLAnchorElement>(root, '[data-manage]').href = tenantHref(row.tenantSlug);

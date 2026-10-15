@@ -107,14 +107,26 @@ describe('the confirmations', () => {
   });
 
   it('stepping down says who can make you its GM again, and that an administrator keeps it', () => {
-    const text = stepDownConfirmation('Zorro');
+    const text = stepDownConfirmation('Zorro', 'GM');
     expect(text).toContain('Step down as GM of "Zorro"?');
     expect(text).toContain('unless you also administer its library');
     expect(text).toContain('can make you its GM again');
   });
 
+  it('stepping down uses what the campaign calls its game master, with no literal GM (ADR 0294)', () => {
+    const text = stepDownConfirmation('Zorro', 'Storyteller');
+    expect(text).toContain('Step down as Storyteller of "Zorro"?');
+    expect(text).toContain('another Storyteller can make you its Storyteller again');
+    expect(text).not.toMatch(/\bGMs?\b/);
+  });
+
+  it('deleting an account names the role by what the campaigns call it', () => {
+    expect(deleteAccountConfirmation('Narrator')).toContain('player seat, Narrator role and');
+    expect(deleteAccountConfirmation('Narrator')).not.toMatch(/\bGMs?\b/);
+  });
+
   it('deleting an account says what goes, what stays, and that the Authgear login does not', () => {
-    const text = deleteAccountConfirmation();
+    const text = deleteAccountConfirmation('GM');
     // What it does (ADR 0036): the account and every row it holds, everywhere.
     expect(text).toContain('removes your account');
     for (const held of ['membership', 'player seat', 'GM role', 'campaign opt-out']) {
@@ -132,8 +144,8 @@ describe('the confirmations', () => {
     for (const text of [
       leaveLibraryConfirmation('x'),
       leaveRepositoryConfirmation('x'),
-      stepDownConfirmation('x'),
-      deleteAccountConfirmation(),
+      stepDownConfirmation('x', 'GM'),
+      deleteAccountConfirmation('GM'),
     ]) {
       expect(text.toLowerCase()).not.toContain('tenant');
     }

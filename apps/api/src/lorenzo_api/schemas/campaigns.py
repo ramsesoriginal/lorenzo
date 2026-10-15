@@ -4,9 +4,19 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from lorenzo_api.campaign_gm_title import DEFAULT_GM_TITLE, DEFAULT_GM_TITLE_PLURAL
 from lorenzo_api.models import CampaignGm
 
 __all__ = ["CampaignCreate", "CampaignOut", "CampaignSummaryOut", "CampaignUpdate", "GmOut"]
+
+
+def _title_or_default(value: str | None) -> str:
+    """What this table calls its game master, "GM" while it has not said (ADR 0294)."""
+    return value or DEFAULT_GM_TITLE
+
+
+def _plural_or_default(value: str | None) -> str:
+    return value or DEFAULT_GM_TITLE_PLURAL
 
 
 class CampaignCreate(BaseModel):
@@ -41,6 +51,9 @@ class CampaignUpdate(BaseModel):
     secret: bool | None = None
     # RFC 0034/ADR 0185. Not nullable: there is no "no setting" for a campaign.
     player_self_service: bool | None = None
+    # ADR 0294: written together; empty (or null) puts both back to "GM" and "GMs".
+    gm_title: str | None = None
+    gm_title_plural: str | None = None
 
     @field_validator("player_self_service")
     @classmethod
@@ -62,6 +75,11 @@ class CampaignSummaryOut(BaseModel):
     name: str
     game_system: str
     secret: bool
+    gm_title: str
+    gm_title_plural: str
+
+    _gm_title = field_validator("gm_title", mode="before")(_title_or_default)
+    _gm_title_plural = field_validator("gm_title_plural", mode="before")(_plural_or_default)
 
 
 class CampaignOut(BaseModel):
@@ -83,10 +101,15 @@ class CampaignOut(BaseModel):
     game_system: str
     secret: bool
     player_self_service: bool
+    gm_title: str
+    gm_title_plural: str
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
+
+    _gm_title = field_validator("gm_title", mode="before")(_title_or_default)
+    _gm_title_plural = field_validator("gm_title_plural", mode="before")(_plural_or_default)
 
 
 class GmOut(BaseModel):
