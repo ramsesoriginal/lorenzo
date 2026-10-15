@@ -149,3 +149,61 @@ describe('tagsOf', () => {
     ]);
   });
 });
+
+describe('the being group and valued stats (ADR 0297)', () => {
+  const vocabulary = [
+    entry(definition('hp', 'int'), 'Vitals'),
+    entry(definition('mood', 'text'), 'Vitals'),
+    entry(definition('damage', 'int'), 'Weapons'),
+    entry(definition('range', 'int'), 'Weapons'),
+    entry(definition('weight', 'float'), 'Gear'),
+    entry(definition('flag', 'bool'), 'Vitals'),
+  ];
+  const names = (stats: Parameters<typeof bandOf>[1]['stats'], group: string | null) =>
+    bandOf(vocabulary, { stats }, { beingStatGroupId: group }).flatMap((group) => [
+      ...group.tiles,
+      ...group.rows,
+    ]);
+
+  it('keeps the selected group unset, plus own, inherited and computed values elsewhere', () => {
+    const drawn = names(
+      [
+        stat('damage', 0),
+        stat('weight', 2.5, { own: false, computed: true }),
+        stat('unknown', '', { own: false, from_entity: { id: 'p', name: 'Parent' } }),
+      ],
+      'Vitals',
+    );
+
+    expect(drawn.map((tile) => [tile.name, tile.value])).toEqual([
+      ['hp', null],
+      ['mood', null],
+      ['damage', 0],
+      ['weight', 2.5],
+      ['unknown', ''],
+    ]);
+    expect(drawn.find((tile) => tile.name === 'weight')?.computed).toBe(true);
+    expect(drawn.find((tile) => tile.name === 'unknown')?.from).toBe('Parent');
+  });
+
+  it('shows only valued stats without a selected group, and drops an outside value once cleared', () => {
+    expect(names([stat('damage', 0)], null).map((tile) => tile.name)).toEqual(['damage']);
+    expect(names([], null)).toEqual([]);
+    expect(names([], 'Vitals').map((tile) => tile.name)).toEqual(['hp', 'mood']);
+  });
+
+  it('selects by group id, retains tags outside the band, and never duplicates a valued group stat', () => {
+    const renamed = vocabulary.map((entry) => ({ ...entry, group: 'A renamed group' }));
+    const drawn = bandOf(
+      renamed,
+      { stats: [stat('hp', 7), stat('flag', false)] },
+      {
+        beingStatGroupId: 'Vitals',
+      },
+    ).flatMap((group) => [...group.tiles, ...group.rows]);
+    expect(drawn.map((tile) => [tile.name, tile.value])).toEqual([
+      ['hp', 7],
+      ['mood', null],
+    ]);
+  });
+});
