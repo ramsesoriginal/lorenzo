@@ -111,6 +111,7 @@ __all__ = [
     "RepositoryNotCopiedError",
     "RepositoryUpdateNeedsChoicesError",
     "PublicRepositoriesNotAvailableError",
+    "TermsNotAcceptedError",
     "ReleaseLabelTakenError",
     "ReleaseHasBreakingChangesError",
     "EntityKindInUseError",
@@ -1158,6 +1159,14 @@ class PublicRepositoriesNotAvailableError(UnprocessableProblem):
     can be made public before they exist."""
 
     title = "Public repositories are not available yet"
+
+
+class TermsNotAcceptedError(UnprocessableProblem):
+    """PUT /tenants/{id}/public without `accept_terms: true` - ADR 0299, RFC 0038 section 6. The
+    Owner agrees to the terms line before a repository goes public: that they have the right to
+    publish it, and that publishing cannot be recalled."""
+
+    title = "Agree to the terms to make it public"
 
 
 class EntityKindInUseError(ConflictProblem):

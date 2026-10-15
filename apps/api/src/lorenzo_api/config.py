@@ -174,6 +174,16 @@ class Settings(BaseSettings):
     # routes exist and answer `public-repositories-not-available` while it is off.
     public_repositories_enabled: bool = False
 
+    # Where a report about a public repository goes (RFC 0038 section 6, ADR 0299): an email
+    # address, `REPORT_ADDRESS`. A storefront carries a `mailto:` to it, with the repository's name
+    # and id in the subject, only when it is set; there is no report inbox in Lorenzo.
+    report_address: str | None = None
+
+    @field_validator("report_address")
+    @classmethod
+    def _blank_report_address_is_unset(cls, v: str | None) -> str | None:
+        return (v or "").strip() or None
+
     @field_validator("database_url", "migrations_database_url")
     @classmethod
     def _normalize_for_asyncpg(cls, v: str) -> str:

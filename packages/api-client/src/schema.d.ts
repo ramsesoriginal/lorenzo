@@ -988,12 +988,35 @@ export interface paths {
         };
         /**
          * List Subscribers
-         * @description The tenants this repository is granted to or that have copied it, for any
-         *     of its members (ADR 0204): whether and when each copied it and last
-         *     updated, and, for one whose invitation is gone but whose copy stays, no
-         *     `granted_at`.
+         * @description The libraries this repository invited, and those it invited once that still hold a copy,
+         *     for any of its members (ADR 0204): whether and when each copied it and last updated, and, for
+         *     one whose invitation is gone but whose copy stays, no `granted_at`. A library that copied a
+         *     public repository by itself is not named here, only counted by `GET /subscribers/summary`
+         *     (ADR 0299).
          */
         get: operations["list_subscribers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/subscribers/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summarize Subscribers
+         * @description How many libraries `GET /subscribers` names (`named`) and how many copied the repository
+         *     by themselves from Discover (`public_copies`), which is all a repository learns of them
+         *     (ADR 0299, RFC 0038 section 6). For its Owners and Organizers.
+         */
+        get: operations["summarize_subscribers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1039,7 +1062,10 @@ export interface paths {
          * @description Grants another tenant access (ADR 0118): `201` for a new grant,
          *     `200` if it already had one. The tenant is named by its id, which its
          *     own members pass on; there's no directory of tenants to pick from.
-         *     Its members are told.
+         *     Its members are told. A library that holds a public grant, which it gave itself by copying
+         *     a public repository, is invited all the same (an invitation outranks it, ADR 0287): its
+         *     grant becomes an invitation and the answer is `201`, as for any new one, so that what
+         *     comes back says nothing of whether it had copied the repository by itself (ADR 0299).
          */
         put: operations["grant_repository"];
         post?: never;
@@ -1430,9 +1456,11 @@ export interface paths {
          *     Needs a summary, given here or already on the profile (`422
          *     public-repository-summary-required`), every repository it is built on public (`409
          *     built-on-not-public`) and up to date (`409 built-on-behind`), and says what a visitor may
-         *     look at before copying (`preview`, the default `showcase`). Owner only; `422
-         *     public-repositories-not-available` while the deployment does not accept public
-         *     repositories.
+         *     look at before copying (`preview`, the default `showcase`) and the terms line agreed to
+         *     (`accept_terms: true`, else `422 terms-not-accepted`; the agreement is logged in the
+         *     repository's activity log as `repository.terms_accepted`, with the user and no wording).
+         *     Owner only; `422 public-repositories-not-available` while the deployment does not accept
+         *     public repositories.
          */
         put: operations["make_repository_public"];
         post?: never;
@@ -1737,7 +1765,8 @@ export interface paths {
          *     `released`, never by popularity. `q` is a case-insensitive part of the name, the summary or a
          *     tag; `tag`, `system` and `language` narrow it exactly. A page is at most 50 repositories (a
          *     bigger `size` is that), and a listing goes at most 1000 deep: `422 discover-too-deep`, narrow
-         *     it. Listed are repositories that are public, published and have a release.
+         *     it. Listed are repositories that are public, published and have a release. Each says who
+         *     published it, by its Owners' accounts (`publishers`, ADR 0299).
          */
         get: operations["list_public_repositories"];
         put?: never;
@@ -1778,7 +1807,9 @@ export interface paths {
         };
         /**
          * Get Storefront
-         * @description A listed repository's page: its listing entry, its long description and its profile.
+         * @description A listed repository's page: its listing entry (with who published it, by its Owners'
+         *     accounts), its long description, its profile and, where the deployment sets a report address,
+         *     a `mailto:` for the Report link.
          *     `404` for one that is not listed (private, a draft, or with no release), the same as for one
          *     that does not exist.
          */
@@ -6046,6 +6077,8 @@ export interface components {
             entries: number | null;
             /** Stat Definitions */
             stat_definitions: number | null;
+            /** Publishers */
+            publishers: components["schemas"]["PublisherOut"][];
         };
         /**
          * DiscoverPageOut
@@ -6510,6 +6543,8 @@ export interface components {
             public_libraries: number;
             /** Invited Libraries */
             invited_libraries: number;
+            /** Publishers */
+            publishers: components["schemas"]["PublisherOut"][];
         };
         /**
          * GiveContentsRequest
@@ -7407,6 +7442,11 @@ export interface components {
          *     it goes public. `summary` is kept if given (a repository must have one, here or already);
          *     `preview` is the Owner's switch for what a visitor may look at before copying (RFC 0038
          *     section 5), `showcase` unless they choose.
+         *
+         *     `accept_terms` is the terms line the Owner agrees to in the dialog, and it must be `true`
+         *     (`422 terms-not-accepted` otherwise; a client that does not send it is refused). Draft
+         *     wording, the maintainer's to approve: I have the right to publish this repository.
+         *     Publishing cannot be recalled: libraries that copied it keep their copies.
          */
         MakePublicRequest: {
             /** Label */
@@ -7431,6 +7471,11 @@ export interface components {
             preview: "off" | "showcase" | "public";
             /** Summary */
             summary?: string | null;
+            /**
+             * Accept Terms
+             * @default false
+             */
+            accept_terms: boolean;
         };
         /**
          * ManagedCampaignOut
@@ -8861,6 +8906,16 @@ export interface components {
             release: components["schemas"]["ReleaseAuthoredOut"];
         };
         /**
+         * PublisherOut
+         * @description Who published a repository, as its Owners' accounts say it (ADR 0299, RFC 0038 section 6):
+         *     an account's display name, else its nickname, and never a field the repository writes about
+         *     itself. An Owner whose account has neither is "A Lorenzo account".
+         */
+        PublisherOut: {
+            /** Display Name */
+            display_name: string;
+        };
+        /**
          * ReleaseAuthoredOut
          * @description A release as the repository's own members see it: `created_by` is the user who
          *     published it, null once their account is gone. A library never reads it.
@@ -9750,13 +9805,15 @@ export interface components {
             /** Description */
             description: string;
             profile: components["schemas"]["RepositoryProfileOut"];
+            /** Report Mailto */
+            report_mailto: string | null;
         };
         /**
          * SubscriberOut
-         * @description A tenant granted a repository or holding a copy of it, as its owners
-         *     see it - ADR 0118, 0204. `granted_at` is null for one whose invitation is
-         *     gone and whose copy stays; `copied_at` and `synced_at` are null until it
-         *     copies.
+         * @description A tenant invited to a repository, or invited once and still holding a copy of it, as its
+         *     owners see it - ADR 0118, 0204. `granted_at` is null for one whose invitation is gone and
+         *     whose copy stays; `copied_at` and `synced_at` are null until it copies. A library that
+         *     copied a public repository by itself is never one of these (ADR 0299).
          */
         SubscriberOut: {
             /**
@@ -9777,6 +9834,19 @@ export interface components {
             /** Synced At */
             synced_at: string | null;
             synced_release: components["schemas"]["ReleaseRefOut"] | null;
+        };
+        /**
+         * SubscribersSummaryOut
+         * @description How many libraries use a repository, for its members (ADR 0299, RFC 0038 section 6): the
+         *     ones `GET /subscribers` names, and, as one number, the ones that copied it by themselves from
+         *     Discover, whose names a repository never learns. `public_copies` also counts a copy that
+         *     outlived the grant a public repository going private revoked.
+         */
+        SubscribersSummaryOut: {
+            /** Named */
+            named: number;
+            /** Public Copies */
+            public_copies: number;
         };
         /**
          * SubscriptionOut
@@ -13307,6 +13377,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_SubscriberOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    summarize_subscribers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscribersSummaryOut"];
                 };
             };
             /** @description Validation Error */

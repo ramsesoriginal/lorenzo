@@ -15,10 +15,19 @@ __all__ = [
     "DiscoverPageOut",
     "DiscoverReleaseOut",
     "DiscoverSort",
+    "PublisherOut",
     "StorefrontOut",
 ]
 
 DiscoverSort = Literal["name", "released"]
+
+
+class PublisherOut(BaseModel):
+    """Who published a repository, as its Owners' accounts say it (ADR 0299, RFC 0038 section 6):
+    an account's display name, else its nickname, and never a field the repository writes about
+    itself. An Owner whose account has neither is "A Lorenzo account"."""
+
+    display_name: str
 
 
 class DiscoverReleaseOut(BaseModel):
@@ -43,6 +52,8 @@ class DiscoverItemOut(BaseModel):
     release: DiscoverReleaseOut
     entries: int | None
     stat_definitions: int | None
+    # Its Owners' account names, in the order they became Owners, at most five (ADR 0299).
+    publishers: list[PublisherOut]
 
 
 class DiscoverPageOut(BaseModel):
@@ -65,6 +76,10 @@ class StorefrontOut(BaseModel):
     item: DiscoverItemOut
     description: str
     profile: RepositoryProfileOut
+    # A `mailto:` to the deployment's report address with the repository's name and id in the
+    # subject, for the page's "Report this repository" link; null where no address is set
+    # (ADR 0299). The address is the deployment's, so every storefront says the same one.
+    report_mailto: str | None
 
 
 class DiscoverFacetOut(BaseModel):
