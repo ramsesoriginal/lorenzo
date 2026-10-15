@@ -435,11 +435,6 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
         say(`${refusal.detail}. Change it, and review again.`);
         showStep(hasClashes() ? 'clashes' : 'check');
         return;
-      case 'over-limit':
-        // The API's own words, with the limit and what the repository holds. A copy is whole or
-        // not at all, so nothing was written.
-        say(`${refusal.detail} Nothing was copied.`);
-        return;
       default:
         sayError(error, cause);
     }
