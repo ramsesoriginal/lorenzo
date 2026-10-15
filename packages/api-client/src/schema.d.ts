@@ -122,7 +122,7 @@ export interface paths {
          * @description Idempotent - re-suspending an already-suspended account updates the
          *     reason/operator but doesn't error, mirroring `grant_campaign_gm`'s own
          *     idempotent-PUT precedent. Every repository the account is an Owner of is delisted with it
-         *     (ADR 0297). See ADR 0057: the target's *next* request,
+         *     (ADR 0303). See ADR 0057: the target's *next* request,
          *     anywhere in the API, is rejected by `dependencies.get_current_user`.
          */
         put: operations["suspend_user"];
@@ -170,7 +170,7 @@ export interface paths {
         /**
          * List Delisted Repositories
          * @description The repositories the platform's operators have taken off Discover, the latest first: id,
-         *     name, the reason, when and by whom (ADR 0297).
+         *     name, the reason, when and by whom (ADR 0303).
          */
         get: operations["list_delisted_repositories"];
         put?: never;
@@ -195,14 +195,14 @@ export interface paths {
          *     reading it from outside (they read it as unpublished, so an update check stops too), and
          *     its own members still read and edit it and are told. Libraries that copied it keep their
          *     copies. Idempotent: delisting a delisted repository updates the reason, and the Owners are
-         *     told once, the first time. `404` for an id that is not a repository (ADR 0297).
+         *     told once, the first time. `404` for an id that is not a repository (ADR 0303).
          */
         put: operations["delist_repository_route"];
         post?: never;
         /**
          * Relist Repository Route
          * @description Lists a repository again. A no-op, still `200` with `relisted: false`, if it was not
-         *     delisted. Its Owners are told when it was (ADR 0297).
+         *     delisted. Its Owners are told when it was (ADR 0303).
          */
         delete: operations["relist_repository_route"];
         options?: never;
@@ -5996,7 +5996,7 @@ export interface components {
         };
         /**
          * DelistRepositoryRequest
-         * @description PUT /admin/repositories/{id}/delist body - ADR 0297: why, in 1 to 500 characters. The
+         * @description PUT /admin/repositories/{id}/delist body - ADR 0303: why, in 1 to 500 characters. The
          *     repository's Owners read it, in the notice and on their repository's page.
          */
         DelistRepositoryRequest: {
@@ -6006,7 +6006,7 @@ export interface components {
         /**
          * DelistedOut
          * @description That the platform's operators took a repository off Discover, and why: read by the
-         *     repository's own members and by nobody else (ADR 0297). Never who: the operators are the
+         *     repository's own members and by nobody else (ADR 0303). Never who: the operators are the
          *     platform's, not a person.
          */
         DelistedOut: {
@@ -6021,7 +6021,7 @@ export interface components {
         /**
          * DelistedRepositoryOut
          * @description A repository the platform's operators have off Discover: GET /admin/repositories/delisted
-         *     and PUT /admin/repositories/{id}/delist - ADR 0297. `delisted_by` is the operator's account,
+         *     and PUT /admin/repositories/{id}/delist - ADR 0303. `delisted_by` is the operator's account,
          *     which only operators read (`delisted_by_nickname` its nickname, where it has one); the
          *     repository's own members read the reason and the time and never who.
          */
@@ -7698,7 +7698,7 @@ export interface components {
         };
         /**
          * MemberProfileOut
-         * @description What the repository's own members read of its profile (ADR 0297): the profile, and
+         * @description What the repository's own members read of its profile (ADR 0303): the profile, and
          *     `delisted` while the platform's operators have it off Discover (`null` while it is listed).
          *     A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
          *     they cannot read a delisted repository.
@@ -9211,7 +9211,7 @@ export interface components {
         /**
          * RelistedRepositoryOut
          * @description DELETE /admin/repositories/{id}/delist: `relisted` says whether it had been delisted
-         *     (a repository that was not is left as it is) - ADR 0297.
+         *     (a repository that was not is left as it is) - ADR 0303.
          */
         RelistedRepositoryOut: {
             /**
