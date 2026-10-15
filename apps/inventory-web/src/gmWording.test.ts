@@ -18,10 +18,22 @@ function sourceFiles(directory: string): string[] {
 }
 
 // The words a person could read: a file without its comments.
+function withoutHtmlComments(text: string): string {
+  let out = text;
+
+  // One span at a time, so a comment cannot be rebuilt from what is left of two.
+  for (let start = out.indexOf('<!--'); start !== -1; start = out.indexOf('<!--')) {
+    const end = out.indexOf('-->', start + 4);
+
+    out = out.slice(0, start) + (end === -1 ? '' : out.slice(end + 3));
+  }
+
+  return out;
+}
+
 function withoutComments(source: string): string {
-  return source
+  return withoutHtmlComments(source)
     .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/(^|\s)\/\/.*$/gm, '');
 }
 

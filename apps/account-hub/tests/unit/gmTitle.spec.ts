@@ -152,9 +152,21 @@ describe('the cards of the home page', () => {
 // A campaign's surface has no literal GM in it (ADR 0294): what it says comes from the campaign.
 // What a text does not say through the title is read in the source here, with its comments taken out,
 // since a test cannot paint the page; the sentences built in lib/ are held to it where they are tested.
+function withoutHtmlComments(text: string): string {
+  let out = text;
+
+  // One span at a time, so a comment cannot be rebuilt from what is left of two.
+  for (let start = out.indexOf('<!--'); start !== -1; start = out.indexOf('<!--')) {
+    const end = out.indexOf('-->', start + 4);
+
+    out = out.slice(0, start) + (end === -1 ? '' : out.slice(end + 3));
+  }
+
+  return out;
+}
+
 function readSource(path: string): string {
-  return readFileSync(new URL(`../../src/${path}`, import.meta.url), 'utf8')
-    .replace(/<!--[\s\S]*?-->/g, '')
+  return withoutHtmlComments(readFileSync(new URL(`../../src/${path}`, import.meta.url), 'utf8'))
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '')
     .replace(/\s\/\/\s.*$/gm, '');
