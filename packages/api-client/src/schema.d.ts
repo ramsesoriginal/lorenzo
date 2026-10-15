@@ -7580,8 +7580,8 @@ export interface components {
          *     section 5), `showcase` unless they choose.
          *
          *     `accept_terms` is the terms line the Owner agrees to in the dialog, and it must be `true`
-         *     (`422 terms-not-accepted` otherwise; a client that does not send it is refused). Draft
-         *     wording, the maintainer's to approve: I have the right to publish this repository.
+         *     (`422 terms-not-accepted` otherwise; a client that does not send it is refused). The wording is
+         *     the maintainer's, approved on 2026-10-16: I have the right to publish this repository.
          *     Publishing cannot be recalled: libraries that copied it keep their copies.
          */
         MakePublicRequest: {

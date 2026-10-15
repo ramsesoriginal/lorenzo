@@ -134,6 +134,10 @@ jobs:
           # front end actually saw), which a client cannot spoof. If a CDN
           # (e.g. Cloudflare) is ever put in front of the service, this
           # becomes 2 - see docs/operations/invite-link-rate-limiting.md.
+          # REPORT_ADDRESS (ADR 0299): the mailbox behind a storefront's Report link; unset (empty)
+          # means no link. PUBLIC_REPOSITORIES_ENABLED (ADR 0290): whether a repository can be made
+          # public; an unset GitHub variable means off. Both are set under Settings, Secrets and
+          # variables, Actions, Variables; see docs/operations/public-launch.md.
           # ACCOUNT_HUB_URL, INVENTORY_WEB_URL, BEINGS_URL, BENCH_URL, APP_LINK_TEMPLATES
           # (ADR 0273): the registry GET /app-links serves. All optional: unset (empty)
           # means the official *.pages.dev address. APP_LINK_TEMPLATES is space-separated
@@ -150,6 +154,8 @@ jobs:
             BEINGS_URL=${{ vars.BEINGS_URL }}
             BENCH_URL=${{ vars.BENCH_URL }}
             APP_LINK_TEMPLATES=${{ vars.APP_LINK_TEMPLATES }}
+            REPORT_ADDRESS=${{ vars.REPORT_ADDRESS }}
+            PUBLIC_REPOSITORIES_ENABLED=${{ vars.PUBLIC_REPOSITORIES_ENABLED || 'false' }}
             INVITE_RATE_LIMIT_TRUSTED_PROXY_HOPS=1
 
       - name: Verify the deployed revision is actually ready

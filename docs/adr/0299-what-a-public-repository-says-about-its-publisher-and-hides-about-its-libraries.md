@@ -1,6 +1,6 @@
 # 0299 - What a public repository says about its publisher, and hides about the libraries that copied it
 
-Status: accepted for build, 2026-10-15. Slice D6c of [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) (§6 items 4 to 6), tracked in #746. The wording of the terms line is a draft for the maintainer to approve. Builds on [ADR 0204](0204-the-owner-sees-who-copied-a-repository.md) (the Owner sees who copied a repository), [ADR 0287](0287-who-may-read-a-public-repository.md) (a library copying a public repository gives itself a grant), [ADR 0290](0290-the-flips-as-routes-and-the-visibility-switch.md) (the flips and the Make public dialog) and [ADR 0292](0292-discover-the-listing-and-the-storefront.md) (Discover and the storefront).
+Status: accepted for build, 2026-10-15. Slice D6c of [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) (§6 items 4 to 6), tracked in #746. The wording of the terms line was approved by the maintainer on 2026-10-16. Builds on [ADR 0204](0204-the-owner-sees-who-copied-a-repository.md) (the Owner sees who copied a repository), [ADR 0287](0287-who-may-read-a-public-repository.md) (a library copying a public repository gives itself a grant), [ADR 0290](0290-the-flips-as-routes-and-the-visibility-switch.md) (the flips and the Make public dialog) and [ADR 0292](0292-discover-the-listing-and-the-storefront.md) (Discover and the storefront).
 
 ## Context
 
@@ -43,7 +43,7 @@ The hub says it as "Published by Ada Author, Bob" under a result's summary and u
 
 `PUT /tenants/{id}/public` takes `accept_terms`, and answers `422 terms-not-accepted` ("Agree to the terms to make it public") without `true`, keeping nothing, after the answer that public repositories are not available and before everything else. A client that does not send it, as every client written before this was, is refused; the one in this repository that sends it is the account hub's dialog. A flip that is made records `repository.terms_accepted` in the repository's activity log with the user and no wording, in the transaction that makes it: a flip refused for anything else logs no agreement. The wording is the dialog's and may change, so it is not stored.
 
-**Draft wording, for the maintainer to approve**, kept in one constant in the hub (`TERMS_LINE` in `lib/visibility.ts`) and written once in the API's documentation of `accept_terms`:
+**The maintainer's wording, approved on 2026-10-16**, kept in one constant in the hub (`TERMS_LINE` in `lib/visibility.ts`) and written once in the API's documentation of `accept_terms`:
 
 > I have the right to publish this repository. Publishing cannot be recalled: libraries that copied it keep their copies.
 

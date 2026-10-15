@@ -79,6 +79,27 @@ The API never logs a token (`tests/test_invite_token_redaction.py` fails if one 
 
 A spike of `invite_link_rejected` from one address is a probe. Filter Cloud Logging on the event name and group by `source`, then tighten the edge rule.
 
+## Discover and the copy of a public repository
+
+[RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) §8 adds routes of the same kind: they need a signed-in user, and each is cheap to call in a loop. They go on the same edge rule set, so there is one place to configure. Do this before the API gets a public production address and before public repositories are switched on ([Going public](public-launch.md)).
+
+| Routes | What they are | A starting limit (per IP) |
+| --- | --- | --- |
+| `/discover/*` | The listing, its facets and a storefront | 120 per minute |
+| `GET /repositories/{id}/...` (profile, cover, releases, entities, stat groups, dependencies, preview and an entry with its pictures) | A visitor reading a public repository | 120 per minute, with the line above |
+| `GET /tenants/{id}/repositories/{id}/copy-plan` and `POST /tenants/{id}/repositories/{id}/copy` | A library planning and making a copy | 10 per minute |
+
+The numbers are a starting point to adjust after watching real traffic, not measured values, and the same caveat as above applies: check the exact field names against the vendor's documentation.
+
+Cloudflare, two rules (*Security → WAF → Rate limiting rules*):
+
+- **Reading:** expression `starts_with(http.request.uri.path, "/discover/") or starts_with(http.request.uri.path, "/repositories/")`, characteristics IP, 120 requests per minute, block for a minute.
+- **Copying:** expression `http.request.uri.path matches "^/tenants/[^/]+/repositories/[^/]+/(copy|copy-plan)$"`, characteristics IP, 10 requests per minute, block for a minute.
+
+Cloud Armor takes the same two expressions in `request.path.matches(...)` form, with the same thresholds, as in the example above.
+
+The in-process backstop covers the invite routes only; Discover is not behind it (the RFC leaves a per-user key as an open question). The edge rule is the control here, so the caveat of the direct `*.run.app` address applies in full.
+
 ## See also
 
 - [ADR 0092](../adr/0092-campaign-invite-links.md): the design, including why uses are unlimited by default and what that costs.

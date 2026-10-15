@@ -11,8 +11,8 @@
 // stays with it whatever happens to the repository (ADR 0289); and the libraries that copied it by
 // themselves are told and lose its updates when it goes private, while the ones invited keep theirs.
 // An Owner agrees to the terms line before the last button, and the dialog says which account names
-// are shown as the publisher (RFC 0038 §6, ADR 0299). The terms line is DRAFT WORDING, the
-// maintainer's to approve, and is kept here in one constant.
+// are shown as the publisher (RFC 0038 §6, ADR 0299). The terms line is the maintainer's wording,
+// approved on 2026-10-16, and is kept here in one constant.
 
 import { DELISTED_CANNOT_BE_MADE_PUBLIC, DELISTED_PUBLIC_NOTE } from './delisting';
 import { type ComposerForm, composerProblem, publishBody } from './releases';
@@ -165,8 +165,8 @@ export const PREVIEW_LEGEND = 'What can people look at before they copy it?';
 
 export const SUMMARY_HELP = `One or two lines that say what this repository is. People read it before they copy it. At most ${SUMMARY_MAX} characters.`;
 
-// The terms line the Owner ticks before a repository goes public. DRAFT WORDING, the maintainer's to
-// approve (RFC 0038 §6, ADR 0299): the only place it is written in the hub.
+// The terms line the Owner ticks before a repository goes public. The maintainer's wording,
+// approved on 2026-10-16 (RFC 0038 §6, ADR 0299): the only place it is written in the hub.
 export const TERMS_LINE =
   'I have the right to publish this repository. Publishing cannot be recalled: libraries that copied it keep their copies.';
 
