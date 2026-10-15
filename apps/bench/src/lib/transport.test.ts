@@ -188,6 +188,18 @@ describe('apiTransport', () => {
     ).rejects.toMatchObject({ name: 'RefusedError', message: 'That id is not available.' });
   });
 
+  it('a repository that holds as many entries as it can is a refusal in the API2019s words', async () => {
+    const words = 'This repository holds 20,000 entries, which is the most a repository can have.';
+    const { transport, calls } = setup(() =>
+      json({ type: 'repository-entry-limit', detail: words, quota: 'entries' }, { status: 422 }),
+    );
+    await expect(
+      transport.createEntry({ id: E, name: 'x', kinds: [], parents: [], slug: 'x' }),
+    ).rejects.toMatchObject({ name: 'RefusedError', message: words, precondition: false });
+    // It is not tried again without the link name: the entry was refused, not the name.
+    expect(calls).toHaveLength(1);
+  });
+
   it('renames with If-Match, then reads the item again for the new etag', async () => {
     const { transport, calls } = setup((r) =>
       r.method === 'PATCH' ? json({}) : json({ ...entry, name: 'Dire wolf' }, { etag: '"def"' }),
@@ -301,6 +313,16 @@ describe('apiTransport', () => {
       await expect(
         transport.setPicture(E, new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })),
       ).rejects.toThrow(/exceeds the limit/);
+    });
+
+    it('says how large a picture can be in a repository when it is too large (413)', async () => {
+      const words = 'This picture is 1.4 MB, and a picture in a repository can be 1 MB at most.';
+      const { transport } = setup(() =>
+        json({ type: 'repository-picture-too-large', detail: words }, { status: 413 }),
+      );
+      await expect(
+        transport.setPicture(E, new File([new Uint8Array([1])], 'a.png', { type: 'image/png' })),
+      ).rejects.toMatchObject({ name: 'RefusedError', message: words });
     });
 
     it('takes the picture away, and has no complaint when there was none', async () => {

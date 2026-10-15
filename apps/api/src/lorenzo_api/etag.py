@@ -29,3 +29,15 @@ def check_if_match(if_match: str | None, *, updated_at: datetime) -> None:
         raise PreconditionFailedError(
             detail="Resource has been modified since If-Match's ETag was computed"
         )
+
+
+def matches_if_none_match(if_none_match: str | None, token: str) -> bool:
+    """Whether `If-None-Match` names this token (weak comparison, RFC 9110: `W/` is ignored), or
+    is `*`."""
+    if if_none_match is None:
+        return False
+    for candidate in if_none_match.split(","):
+        candidate = candidate.strip()
+        if candidate == "*" or candidate.removeprefix("W/").strip('"') == token:
+            return True
+    return False

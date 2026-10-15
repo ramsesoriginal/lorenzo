@@ -17,6 +17,7 @@ import type { Character, EntityDetail } from '../../lib/types';
 import { renderBeingNotes } from '../BeingNotes/renderer';
 import { renderBeingView } from '../BeingView/renderer';
 import { renderDatasheet } from '../Datasheet/renderer';
+import { renderDeleteBeing } from '../DeleteBeing/renderer';
 import { renderDescriptionEdit } from '../DescriptionEdit/renderer';
 import { renderHandOver } from '../HandOver/renderer';
 import { renderInventorySummary } from '../InventorySummary/renderer';
@@ -75,6 +76,13 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
 
     return shown;
   };
+
+  const deletion = renderDeleteBeing({
+    root: required<HTMLElement>(root, '[data-delete-being]'),
+    tenantId,
+    current,
+    onDeleted: () => window.location.assign(back.href),
+  });
 
   // Reads the being again after a change and shows it.
   async function refresh() {
@@ -194,11 +202,14 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     async show(entityId) {
       root.hidden = false;
 
-      const entity = await getEntityDetail(tenantId, entityId);
+      const [entity, tenant] = await Promise.all([
+        getEntityDetail(tenantId, entityId),
+        getTenant(tenantId).catch(() => null),
+      ]);
 
       character = await getCharacter(tenantId, entityId).catch(() => null);
       kind.textContent = character ? kindLabel(character) : 'NPC';
-      await statBand.load();
+      await statBand.load(tenant?.being_stat_group_id ?? null);
       showEntity(entity);
 
       // Asked for the datasheet before the being had arrived (a link, or a quick hand).
@@ -214,16 +225,14 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
         isTenantMember(tenantId).catch(() => false),
         myBeingIds(tenantId).catch(() => new Set<string>()),
         // A repository's beings are opened here too, and their Everyone's notes go with every copy.
-        getTenant(tenantId).then(
-          (tenant) => tenant.kind === 'repository',
-          () => false,
-        ),
+        Promise.resolve(tenant?.kind === 'repository'),
         // What the campaigns it is in call their game master (ADR 0294); not knowing says "GM".
         listCampaigns(tenantId).catch(() => []),
       ]);
       const runsTheTable = gmCampaigns.length > 0 || member;
 
       canEdit = runsTheTable || mine.has(entityId);
+      deletion.allow(canEdit);
 
       const notes = renderBeingNotes(required<HTMLElement>(root, '[data-being-notes]'), {
         tenantId,

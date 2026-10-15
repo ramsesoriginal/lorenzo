@@ -4,12 +4,14 @@ import uuid
 from collections.abc import Sequence
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, selectinload
 
+from lorenzo_api.activity_log import record_activity
+from lorenzo_api.being_deletion import authorize_being_deletion, settle_inventory
 from lorenzo_api.campaign_access import is_tenant_admin, is_tenant_gm
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -21,6 +23,8 @@ from lorenzo_api.dependencies import (
     require_tenant_participant,
 )
 from lorenzo_api.entity_access import entity_id_among
+from lorenzo_api.entity_kinds import require_deletable
+from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import EntityNotFoundError, TenantNotFoundError
 from lorenzo_api.information_visibility import (
     resolve_information_visibility,
@@ -219,3 +223,46 @@ async def get_being_sheet(
         weapons=weapons,
         abilities=abilities,
     )
+
+
+@router.delete("/{entity_id}", status_code=204)
+async def delete_being(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_or_404)],
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> None:
+    """Permanently delete a being, its entry and its owned-and-carried inventory (ADR 0302).
+
+    Other carried items survive; owned items elsewhere become unowned and uncarried.
+    Unlike DELETE /characters/{id}, this removes the entry rather than demoting it.
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    # Serialize with other writes before reading the version and the inventory.
+    entity = (
+        await session.scalars(
+            select(Entity)
+            .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+            .with_for_update()
+        )
+    ).one_or_none()
+    if entity is None or await session.get(Being, entity_id) is None:
+        raise EntityNotFoundError(detail=f"No being with id {entity_id} in tenant {tenant_id}")
+    await authorize_being_deletion(
+        session, tenant_id=tenant_id, user_id=user.id, entity_id=entity_id
+    )
+    check_if_match(if_match, updated_at=entity.updated_at)
+    await require_deletable(session, tenant_id=tenant_id, entity_id=entity_id, allow_character=True)
+    await settle_inventory(session, tenant_id=tenant_id, actor_id=user.id, being_id=entity_id)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="being.deleted",
+        target_type="being",
+        target_id=entity_id,
+        detail=None,
+    )
+    await session.delete(entity)
+    await session.commit()

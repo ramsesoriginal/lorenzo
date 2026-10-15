@@ -42,10 +42,11 @@ async def test_upload_a_picture_payload_and_fetch_its_bytes(
     tenant_id = await make_tenant(test_user_id)
     entity_id = await _make_item(tenant_id)
     note = await _note(client, tenant_id, entity_id)
+    picture = _PNG.ljust(10_000_000, b"0")
 
     response = await client.post(
         f"/tenants/{tenant_id}/information/{note['id']}/payloads",
-        files={"file": ("a.png", _PNG, "image/png")},
+        files={"file": ("a.png", picture, "image/png")},
     )
 
     assert response.status_code == 201, response.text
@@ -53,7 +54,7 @@ async def test_upload_a_picture_payload_and_fetch_its_bytes(
     assert body["kind"] == "picture"
     assert body["file_type"] == "image/png"
     served = await client.get(f"/tenants/{tenant_id}/payloads/{body['id']}/content")
-    assert served.content == _PNG
+    assert served.content == picture
     await delete_tenant(tenant_id)
 
 

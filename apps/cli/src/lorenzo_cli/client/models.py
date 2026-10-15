@@ -432,6 +432,25 @@ class CreditOut(BaseModel):
     url: str | None = Field(..., title="Url")
 
 
+class DelistRepositoryRequest(BaseModel):
+    reason: constr(min_length=1, max_length=500) = Field(..., title="Reason")
+
+
+class DelistedOut(BaseModel):
+    reason: str = Field(..., title="Reason")
+    at: AwareDatetime = Field(..., title="At")
+
+
+class DelistedRepositoryOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str = Field(..., title="Slug")
+    reason: str = Field(..., title="Reason")
+    delisted_at: AwareDatetime = Field(..., title="Delisted At")
+    delisted_by: UUID | None = Field(..., title="Delisted By")
+    delisted_by_nickname: str | None = Field(..., title="Delisted By Nickname")
+
+
 class DeviceApproval(BaseModel):
     name: constr(min_length=1, max_length=80) = Field(..., title="Name")
     expires_at: AwareDatetime | None = Field(None, title="Expires At")
@@ -795,6 +814,20 @@ class MePlayerOut(BaseModel):
     self_service_effective: bool = Field(..., title="Self Service Effective")
 
 
+class MemberProfileOut(BaseModel):
+    visibility: Visibility = Field(..., title="Visibility")
+    preview: Preview = Field(..., title="Preview")
+    summary: str = Field(..., title="Summary")
+    licence: LicenceOut | None
+    credits: list[CreditOut] = Field(..., title="Credits")
+    tags: list[str] = Field(..., title="Tags")
+    system: str | None = Field(..., title="System")
+    languages: list[str] = Field(..., title="Languages")
+    has_cover: bool = Field(..., title="Has Cover")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    delisted: DelistedOut | None = None
+
+
 class MembershipCreate(BaseModel):
     user_id: UUID = Field(..., title="User Id")
     role: Role = Field(..., title="Role")
@@ -912,6 +945,14 @@ class PageCharacterSummaryOut(BaseModel):
 
 class PageContributionOut(BaseModel):
     items: list[ContributionOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageDelistedRepositoryOut(BaseModel):
+    items: list[DelistedRepositoryOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -1207,6 +1248,12 @@ class ReleaseUpdate(BaseModel):
     )
     label: constr(min_length=1, max_length=80) | None = Field(None, title="Label")
     notes: constr(max_length=4000) | None = Field(None, title="Notes")
+
+
+class RelistedRepositoryOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    relisted: bool = Field(..., title="Relisted")
 
 
 class RepositoryDependencyOut(BaseModel):
@@ -1745,6 +1792,7 @@ class FlipCheckOut(BaseModel):
     public_libraries: int = Field(..., title="Public Libraries")
     invited_libraries: int = Field(..., title="Invited Libraries")
     publishers: list[PublisherOut] = Field(..., title="Publishers")
+    delisted: DelistedOut | None = None
 
 
 class GroupMemberResultItem(BaseModel):

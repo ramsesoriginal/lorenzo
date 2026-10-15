@@ -8,10 +8,17 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.models import ProfilePicture, RepositoryProfile
-from lorenzo_api.schemas.repository_profiles import CreditOut, LicenceOut, RepositoryProfileOut
+from lorenzo_api.schemas.repository_profiles import (
+    CreditOut,
+    DelistedOut,
+    LicenceOut,
+    MemberProfileOut,
+    RepositoryProfileOut,
+)
 
 __all__ = [
     "delete_repository_cover",
+    "member_profile_out",
     "profile_out",
     "profile_of",
     "set_repository_cover",
@@ -63,6 +70,14 @@ def profile_out(
         has_cover=profile.cover_picture_id is not None,
         updated_at=profile.updated_at,
     )
+
+
+def member_profile_out(
+    profile: RepositoryProfile, *, delisted: DelistedOut | None
+) -> MemberProfileOut:
+    """What the repository's own members read: the profile, and what they are told of it being off
+    Discover (ADR 0303), which no other reader is."""
+    return MemberProfileOut(**profile_out(profile).model_dump(), delisted=delisted)
 
 
 async def set_repository_cover(

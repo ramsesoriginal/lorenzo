@@ -137,13 +137,19 @@ async def publish_release(
             f"label={release.label}"
         ),
     )
+    # A delisted repository reads as unpublished to the libraries, which are told nothing of a
+    # release they cannot read (ADR 0303).
     subscribers = (
-        await session.scalars(
-            select(RepositorySubscription.subscriber_tenant_id).where(
-                RepositorySubscription.repository_tenant_id == tenant_id
+        []
+        if repository.delisted_at is not None
+        else (
+            await session.scalars(
+                select(RepositorySubscription.subscriber_tenant_id).where(
+                    RepositorySubscription.repository_tenant_id == tenant_id
+                )
             )
-        )
-    ).all()
+        ).all()
+    )
     title, notice = release_notice(
         repository_name=repository.name,
         release=release,
