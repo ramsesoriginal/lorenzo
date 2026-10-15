@@ -25,7 +25,12 @@ export default defineConfig({
       timeout: 300_000,
       // Public repositories are off by default (ADR 0290): Studio's visibility switch is tested on a
       // deployment that has them, and it is shown only to an Owner of a repository.
-      env: { E2E_DATABASE: 'lorenzo_account_hub_e2e', PUBLIC_REPOSITORIES_ENABLED: 'true' },
+      env: {
+        E2E_DATABASE: 'lorenzo_account_hub_e2e',
+        PUBLIC_REPOSITORIES_ENABLED: 'true',
+        // Where a storefront's Report link goes (ADR 0299).
+        REPORT_ADDRESS: 'reports@example.test',
+      },
     },
     { command: 'node tests/real-api/site-server.ts', url: SITE_URL, timeout: 300_000 },
   ],

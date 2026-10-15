@@ -43,6 +43,7 @@ import {
   publicBlockers,
   SUMMARY_HELP,
   summaryCount,
+  TERMS_LINE,
   VISIBILITY_HEADING,
   visibilityCard,
 } from '../../lib/visibility';
@@ -85,6 +86,7 @@ export function createVisibilityControls(
   const summary = required<HTMLTextAreaElement>(dialog, '[data-vis-summary]');
   const summaryCountLine = required<HTMLElement>(dialog, '[data-vis-summary-count]');
   const previewFieldset = required<HTMLElement>(dialog, '[data-vis-preview]');
+  const terms = required<HTMLInputElement>(dialog, '[data-vis-terms]');
   const ackRow = required<HTMLElement>(dialog, '[data-vis-ack-row]');
   const ack = required<HTMLInputElement>(dialog, '[data-vis-ack]');
   const ackText = required<HTMLElement>(dialog, '[data-vis-ack-text]');
@@ -96,6 +98,7 @@ export function createVisibilityControls(
   required<HTMLElement>(card, '[data-visibility-heading]').textContent = VISIBILITY_HEADING;
   required<HTMLElement>(dialog, '[data-vis-summary-help]').textContent = SUMMARY_HELP;
   required<HTMLElement>(dialog, '[data-vis-preview-legend]').textContent = PREVIEW_LEGEND;
+  required<HTMLElement>(dialog, '[data-vis-terms-text]').textContent = TERMS_LINE;
 
   // The three plain-language choices of what people may look at before they copy it.
   const radios: Partial<Record<PreviewChoice, HTMLInputElement>> = {};
@@ -150,7 +153,12 @@ export function createVisibilityControls(
   }
 
   function currentForm(): MakePublicForm {
-    return { ...composer.form(), summary: summary.value, preview: chosenPreview() };
+    return {
+      ...composer.form(),
+      summary: summary.value,
+      preview: chosenPreview(),
+      terms: terms.checked,
+    };
   }
 
   // What stands in the way, and what the dialog says, from a read of the API. What was typed stays.
@@ -218,6 +226,7 @@ export function createVisibilityControls(
 
       error.hidden = true;
       ack.checked = false;
+      terms.checked = false;
 
       if (profile && preview) {
         summary.value = profile.summary;

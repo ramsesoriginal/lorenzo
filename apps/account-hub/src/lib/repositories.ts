@@ -24,6 +24,7 @@ import type {
   RepositoryStatGroupOut,
   ShowcaseOut,
   SubscriberOut,
+  SubscribersSummaryOut,
   SubscriptionOut,
   UpdatesOut,
 } from './types';
@@ -190,6 +191,24 @@ export async function listSubscribers(
             params: { path: { tenant_id: repositoryId }, query: { page, size: MAX_PAGE_SIZE } },
           }),
         ),
+      ),
+    { force: fresh },
+  );
+}
+
+// How many libraries copied it by themselves, from Discover: the one thing a repository learns of them
+// besides the libraries it invited, which `listSubscribers` names (ADR 0299).
+export async function getSubscribersSummary(
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<SubscribersSummaryOut> {
+  return cached(
+    `subscribers-summary:${repositoryId}`,
+    async () =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/subscribers/summary', {
+          params: { path: { tenant_id: repositoryId } },
+        }),
       ),
     { force: fresh },
   );

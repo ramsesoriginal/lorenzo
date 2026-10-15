@@ -16,9 +16,12 @@ import {
   privateAcknowledgement,
   privateBlockers,
   publicBlockers,
+  publisherLine,
   SUMMARY_MAX,
   summaryCount,
   summaryProblem,
+  TERMS_LINE,
+  TERMS_PROBLEM,
   visibilityCard,
 } from '../../src/lib/visibility';
 
@@ -32,6 +35,7 @@ function check(overrides: Partial<FlipCheckOut> = {}): FlipCheckOut {
     public_dependents: [],
     public_libraries: 0,
     invited_libraries: 0,
+    publishers: [{ display_name: 'Ada Author' }],
     ...overrides,
   };
 }
@@ -43,6 +47,7 @@ const form = {
   notes: '',
   breaking: false,
   acknowledged: false,
+  terms: true,
 };
 
 // Everything a person reads, in one place, for the words nobody may read.
@@ -74,6 +79,8 @@ function words(): string {
     ).flatMap((blocker) => [blocker.text, blocker.link?.label]),
     ...makePublicLines(check({ invited_libraries: 2 }), 'Bestiary'),
     ...makePublicWarnings(),
+    TERMS_LINE,
+    TERMS_PROBLEM,
     ...makePrivateLines(check({ visibility: 'public', public_libraries: 3, invited_libraries: 1 })),
     privateAcknowledgement({ public_libraries: 3 }),
     ...privateBlockers(check({ public_dependents: dependents })).flatMap((blocker) => [
@@ -185,12 +192,27 @@ describe('the Make public dialog', () => {
     expect(lines[0]).toContain('Making Bestiary public publishes a release');
     expect(lines[1]).toContain('what you edit between two releases is not seen');
     expect(lines[2]).toBe(
+      'People will see who published it, by the name of your account: Ada Author. You can change it in your profile.',
+    );
+    expect(lines[3]).toBe(
       "2 libraries have an invitation and are told when you publish: each one's Owners and Organizers get a notification.",
     );
-    expect(makePublicLines(check({ invited_libraries: 1 }), 'B')[2]).toContain(
+    expect(makePublicLines(check({ invited_libraries: 1 }), 'B')[3]).toContain(
       '1 library has an invitation and is told',
     );
-    expect(makePublicLines(check(), 'B')).toHaveLength(2);
+    expect(makePublicLines(check(), 'B')).toHaveLength(3);
+  });
+
+  it('says which account names are shown as the publisher, before the Owner agrees', () => {
+    expect(publisherLine([{ display_name: 'Ada Author' }])).toContain(
+      'by the name of your account: Ada Author',
+    );
+    expect(publisherLine([{ display_name: 'Ada' }, { display_name: 'Bob' }])).toContain(
+      'by the names of the accounts of its Owners: Ada, Bob',
+    );
+    expect(publisherLine([])).toBe(
+      'People will see who published it, by the name of your account.',
+    );
   });
 
   it('warns that GM-only text is in a copy, and that copies stay', () => {
@@ -246,6 +268,15 @@ describe('the summary', () => {
     expect(makePublicProblem(form, [])).toBeNull();
   });
 
+  it('wants the terms line agreed to, after the summary and before the release', () => {
+    expect(makePublicProblem({ ...form, terms: false }, [])).toBe(TERMS_PROBLEM);
+    expect(makePublicProblem({ ...form, summary: '', terms: false }, [])).toContain(
+      'Write a summary',
+    );
+    expect(TERMS_LINE).toContain('I have the right to publish this repository.');
+    expect(TERMS_LINE).toContain('libraries that copied it keep their copies');
+  });
+
   it('wants what a release breaks acknowledged', () => {
     const rows = [{ detail: 'It removes Longsword.' }] as never;
 
@@ -261,6 +292,7 @@ describe('the body of the request', () => {
       preview: 'off',
       breaking: false,
       acknowledge_breaking: false,
+      accept_terms: true,
     });
   });
 
@@ -279,6 +311,7 @@ describe('the body of the request', () => {
       preview: 'public',
       breaking: true,
       acknowledge_breaking: true,
+      accept_terms: true,
     });
   });
 });

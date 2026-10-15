@@ -192,6 +192,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
       <section class="stack" data-using hidden>
         <h3>Libraries using it</h3>
         <p data-using-summary></p>
+        <p data-using-public hidden></p>
         <p class="error-text" role="alert" data-using-error hidden></p>
         <ul class="list" data-using-list></ul>
 
@@ -290,6 +291,12 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <legend data-vis-preview-legend></legend>
         </fieldset>
         <ReleaseComposer />
+
+        <!-- The terms line an Owner agrees to (RFC 0038 section 6, ADR 0299). -->
+        <label class="field-row" data-vis-terms-row>
+          <input type="checkbox" data-vis-terms />
+          <span data-vis-terms-text></span>
+        </label>
       </div>
 
       <!-- Making it private: only asked when libraries lose its updates. -->

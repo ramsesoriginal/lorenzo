@@ -5,6 +5,7 @@ import {
   builtOn,
   INVITE_HELP,
   libraryIdProblem,
+  publicCopiesLine,
   stopInvitingConfirmation,
   USING_LABEL,
   usingLine,
@@ -87,6 +88,18 @@ describe('a row in a line', () => {
 describe('the summary', () => {
   it('says so when nothing uses it', () => {
     expect(usingSummary([])).toMatch(/Nothing is using this repository yet/);
+  });
+
+  it('says the libraries that copied it by themselves are one number and never names', () => {
+    expect(usingSummary([], 2)).toBe('No library is invited to it.');
+    expect(usingSummary([subscriber()], 2)).toMatch(/^1 library or repository has an invitation/);
+    expect(publicCopiesLine(0)).toBeNull();
+    expect(publicCopiesLine(1)).toBe(
+      '1 library copied it by itself from Discover. Their names are not shown: you see how many, not which.',
+    );
+    expect(publicCopiesLine(5)).toBe(
+      '5 libraries copied it by themselves from Discover. Their names are not shown: you see how many, not which.',
+    );
   });
 
   it('counts those with an invitation or a copy, and those who copied', () => {
