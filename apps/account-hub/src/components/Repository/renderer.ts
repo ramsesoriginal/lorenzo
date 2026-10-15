@@ -251,7 +251,7 @@ export function renderRepository(
           const picture = cloneRoot(root, '[data-picture-upload-template]');
 
           renderPictureUpload(picture, {
-            url: tenantPictureUrl(repository.id),
+            url: () => tenantPictureUrl(repository.id),
             onUpload: (file) => uploadTenantPicture(repository.id, file),
             onDelete: () => deleteTenantPicture(repository.id),
           });

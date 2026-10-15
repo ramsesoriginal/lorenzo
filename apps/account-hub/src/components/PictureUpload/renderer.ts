@@ -3,7 +3,9 @@
 // (MeOut.picture_url, always resolvable via a Gravatar fallback), tenants/campaigns have no
 // server-provided picture_url field and GET .../picture has no fallback at all - a 404 when
 // nothing's uploaded (ADR 0056) - so the <img> needs its own onerror handler rather than
-// trusting a bare src to always resolve.
+// trusting a bare src to always resolve. A picture that wants the token (a repository's, ADR 0300)
+// is given as a function that fetches it and answers a `blob:` address; one that does not is given
+// as its address.
 
 import { PICTURE_ACCEPT, pictureProblem } from '../../lib/profilePicture';
 import { say, sayError } from '../../lib/statusLine';
@@ -12,7 +14,7 @@ import { requiredIn } from '../../lib/template';
 const required = requiredIn('Picture upload');
 
 export type PictureUploadOptions = {
-  url: string;
+  url: string | (() => Promise<string>);
   onUpload(file: File): Promise<void>;
   onDelete(): Promise<void>;
 };
@@ -28,7 +30,26 @@ export function renderPictureUpload(root: HTMLElement, options: PictureUploadOpt
   // The picture sits at one address whatever it is, so after a change the browser is asked for it
   // afresh, or it would go on showing the one it already has.
   let version = '';
-  const address = () => `${url}${version}`;
+  let turn = 0;
+  // Shown from its address, or fetched first; whatever was asked last wins, and one that does not
+  // come (no picture, or none this person may see) is left out like a broken one.
+  const show = () => {
+    if (typeof url === 'string') {
+      img.src = `${url}${version}`;
+
+      return;
+    }
+
+    const mine = ++turn;
+
+    url()
+      .then((src) => {
+        if (mine === turn) img.src = src;
+      })
+      .catch(() => {
+        if (mine === turn) img.hidden = true;
+      });
+  };
 
   // Only what the API takes, so a picker doesn't offer an SVG.
   fileInput.accept = PICTURE_ACCEPT;
@@ -39,7 +60,7 @@ export function renderPictureUpload(root: HTMLElement, options: PictureUploadOpt
   img.addEventListener('load', () => {
     img.hidden = false;
   });
-  img.src = address();
+  show();
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files?.[0];
@@ -61,7 +82,7 @@ export function renderPictureUpload(root: HTMLElement, options: PictureUploadOpt
     try {
       await onUpload(file);
       version = `?v=${Date.now()}`;
-      img.src = address();
+      show();
       say(status, 'Updated.');
     } catch (cause) {
       sayError(status, cause);

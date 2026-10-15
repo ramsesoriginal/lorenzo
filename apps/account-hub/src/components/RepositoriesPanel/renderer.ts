@@ -64,9 +64,9 @@ const required = requiredIn('Repositories panel');
 // How long a description may run on a card before it is cut: a line, not the page.
 const CARD_DESCRIPTION_LENGTH = 140;
 
-// The picture of a repository where it has one, and its first letter where it has none. The
-// picture's address answers "not found" for a repository nobody uploaded one to, so the letter
-// stays until the picture has actually loaded.
+// The picture of a repository where it has one, and its first letter where it has none. It is
+// fetched with the token (ADR 0300) and answers "not found" for a repository nobody uploaded one to
+// (or that this person cannot see), so the letter stays until the picture has actually loaded.
 function showPicture(
   img: HTMLImageElement,
   initial: HTMLElement,
@@ -79,7 +79,13 @@ function showPicture(
     img.hidden = false;
     initial.hidden = true;
   });
-  img.src = tenantPictureUrl(repository.id);
+  void tenantPictureUrl(repository.id)
+    .then((url) => {
+      img.src = url;
+    })
+    .catch(() => {
+      // The letter stands.
+    });
 }
 
 function pair(list: HTMLElement, term: string, value: string): void {

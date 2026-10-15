@@ -23,6 +23,7 @@ import {
 } from '../../lib/inviteLink';
 import { previewInvite, redeemInvite } from '../../lib/invites';
 import { getManaged, getMe } from '../../lib/me';
+import { fetchPictureUrl } from '../../lib/pictureFetch';
 import { browserSessionStorage } from '../../lib/returnPath';
 import { say, sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
@@ -31,6 +32,28 @@ import { getCampaign } from '../../lib/tenants';
 import type { InviteRedeemOut } from '../../lib/types';
 
 const required = requiredIn('Join invite');
+
+// A repository's picture is for a signed-in user unless the repository is public (ADR 0300). Someone
+// logged in has it fetched with the token; someone who is not asks for it as it is, which a public
+// repository answers and a private one does not, so there is no picture for them. Any other
+// picture is open and shown from its address.
+async function showInvitePicture(
+  img: HTMLImageElement,
+  address: string,
+  ofRepository: boolean,
+): Promise<void> {
+  if (ofRepository && isAuthConfigured() && (await isAuthenticated())) {
+    try {
+      img.src = await fetchPictureUrl(new URL(address).pathname);
+    } catch {
+      // No picture; the name and the offer stand.
+    }
+
+    return;
+  }
+
+  img.src = address;
+}
 
 // Every dead link is the same 404, and the page does not tell them apart.
 function isDead(error: unknown): boolean {
@@ -229,11 +252,11 @@ export async function renderJoinInvite(root: HTMLElement): Promise<void> {
     offer.textContent = offerFor(preview).sentence;
 
     if (preview.picture_url) {
-      picture.src = preview.picture_url;
       picture.referrerPolicy = 'no-referrer';
       picture.addEventListener('load', () => {
         picture.hidden = false;
       });
+      void showInvitePicture(picture, preview.picture_url, preview.tenant_kind === 'repository');
     }
 
     invite.hidden = false;
