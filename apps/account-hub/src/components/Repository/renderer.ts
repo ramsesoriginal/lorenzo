@@ -105,7 +105,7 @@ export function renderRepository(
   // What people can look at, and the entries featured: the Owner's, beside the switch.
   const showcase = createShowcaseControls(root);
   const viewAs = createViewAs(root, hooks.mayCreate);
-  // Off Discover by the platform's operators: the notice every member reads (ADR 0297).
+  // Off Discover by the platform's operators: the notice every member reads (ADR 0303).
   const delisted = createDelistedNotice(root);
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);

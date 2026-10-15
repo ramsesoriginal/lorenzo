@@ -138,7 +138,7 @@ async def publish_release(
         ),
     )
     # A delisted repository reads as unpublished to the libraries, which are told nothing of a
-    # release they cannot read (ADR 0297).
+    # release they cannot read (ADR 0303).
     subscribers = (
         []
         if repository.delisted_at is not None

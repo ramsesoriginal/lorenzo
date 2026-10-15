@@ -208,7 +208,7 @@ class RepositoryProfileUpdate(BaseModel):
 
 class DelistedOut(BaseModel):
     """That the platform's operators took a repository off Discover, and why: read by the
-    repository's own members and by nobody else (ADR 0297). Never who: the operators are the
+    repository's own members and by nobody else (ADR 0303). Never who: the operators are the
     platform's, not a person."""
 
     reason: str
@@ -232,7 +232,7 @@ class RepositoryProfileOut(BaseModel):
 
 
 class MemberProfileOut(RepositoryProfileOut):
-    """What the repository's own members read of its profile (ADR 0297): the profile, and
+    """What the repository's own members read of its profile (ADR 0303): the profile, and
     `delisted` while the platform's operators have it off Discover (`null` while it is listed).
     A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
     they cannot read a delisted repository."""

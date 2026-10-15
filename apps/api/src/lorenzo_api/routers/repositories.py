@@ -431,7 +431,7 @@ async def make_release_current_route(
             target_id=tenant_id,
             detail=f"release={release.number},label={release.label}",
         )
-        # A delisted repository reads as unpublished to the libraries (ADR 0297): nothing to tell.
+        # A delisted repository reads as unpublished to the libraries (ADR 0303): nothing to tell.
         subscribers = (
             []
             if tenant.delisted_at is not None
@@ -781,7 +781,7 @@ async def list_repositories(
                     name=repository.name if repository else (copy.repository_name if copy else ""),
                     slug=repository.slug if repository else "",
                     description=repository.description if repository else "",
-                    # A delisted repository reads as unpublished to the libraries (ADR 0297).
+                    # A delisted repository reads as unpublished to the libraries (ADR 0303).
                     published_at=(
                         repository.published_at
                         if repository and repository.delisted_at is None

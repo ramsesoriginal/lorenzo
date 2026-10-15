@@ -1352,6 +1352,6 @@ class CampaignGmTitleInvalidError(UnprocessableProblem):
 class RepositoryDelistedError(ConflictProblem):
     """Making a repository public while the platform's operators have it delisted: it would be
     public and listed nowhere, and closed to every library. Carries the reason in `detail` - ADR
-    0297, RFC 0038 section 6. The Owner makes it public again after an operator lists it."""
+    0303, RFC 0038 section 6. The Owner makes it public again after an operator lists it."""
 
     title = "This repository was taken off Discover"

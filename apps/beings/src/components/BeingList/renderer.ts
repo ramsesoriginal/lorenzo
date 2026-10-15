@@ -18,6 +18,7 @@ import { gmCampaignsIn, isTenantMember, listCampaigns, seatsIn } from '../../lib
 import { createBeing, createOwnCharacter, seatOptions } from '../../lib/people';
 import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
+import { renderListPictures } from './pictures';
 
 export type BeingListOptions = {
   root: HTMLElement;
@@ -40,6 +41,7 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
   const list = required<HTMLUListElement>(root, '[data-list]');
   const template = required<HTMLTemplateElement>(root, '[data-being-template]');
   const form = required<HTMLFormElement>(root, '[data-create-form]');
+  const pictures = renderListPictures(root, tenantId);
 
   root.hidden = false;
   say(status, 'Loading beings…');
@@ -120,6 +122,7 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
     required<HTMLElement>(row, '[data-kind-badge]').textContent = kindLabel(being);
     required<HTMLElement>(row, '[data-mine-badge]').hidden = !ownedSet?.has(being.entity_id);
 
+    pictures.observe(row, being.entity_id, being.name);
     return row;
   }
 
@@ -133,6 +136,7 @@ export async function renderBeingList(options: BeingListOptions): Promise<void> 
 
       if (turn !== latest) return;
 
+      pictures.reset();
       list.replaceChildren(...shown.map((being) => drawRow(being, ownedIds)));
       list.hidden = shown.length === 0;
       say(

@@ -10,7 +10,7 @@ import {
   signedInPage,
 } from './support';
 
-// ADR 0297: Studio when the platform's operators have taken a repository off Discover. Its members
+// ADR 0303: Studio when the platform's operators have taken a repository off Discover. Its members
 // read a notice on the Overview, in words, with the reason; the visibility card cannot make it
 // public; and everything else works as ever, since they have to be able to fix it. Operators have
 // no screen: they delist through the API, as these specs do.

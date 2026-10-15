@@ -31,7 +31,17 @@
   </div>
 
   <p class="status-text" role="status" data-status hidden></p>
-  <ul class="list" data-list hidden></ul>
+  <ul class="list being-list" data-list hidden></ul>
+
+  <div
+    id="being-list-picture-preview"
+    class="being-picture-preview"
+    role="tooltip"
+    data-picture-preview
+    hidden
+  >
+    <img width="512" height="512" alt="" />
+  </div>
 
   <form class="stack-tight section" data-create-form hidden>
     <h2>New being</h2>
@@ -71,7 +81,16 @@
 
   <template data-being-template>
     <li>
-      <a data-link>
+      <a class="being-list-link" data-link>
+        <img
+          class="being-list-picture"
+          data-list-picture
+          width="80"
+          height="80"
+          alt=""
+          decoding="async"
+          hidden
+        />
         <div class="row">
           <strong data-name></strong>
           <span class="badge" data-kind-badge></span>

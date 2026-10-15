@@ -76,7 +76,7 @@ def member_profile_out(
     profile: RepositoryProfile, *, delisted: DelistedOut | None
 ) -> MemberProfileOut:
     """What the repository's own members read: the profile, and what they are told of it being off
-    Discover (ADR 0297), which no other reader is."""
+    Discover (ADR 0303), which no other reader is."""
     return MemberProfileOut(**profile_out(profile).model_dump(), delisted=delisted)
 
 

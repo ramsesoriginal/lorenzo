@@ -82,7 +82,7 @@ async def suspend_user(
     """Idempotent - re-suspending an already-suspended account updates the
     reason/operator but doesn't error, mirroring `grant_campaign_gm`'s own
     idempotent-PUT precedent. Every repository the account is an Owner of is delisted with it
-    (ADR 0297). See ADR 0057: the target's *next* request,
+    (ADR 0303). See ADR 0057: the target's *next* request,
     anywhere in the API, is rejected by `dependencies.get_current_user`.
     """
     target = await session.get(User, user_id)
@@ -92,7 +92,7 @@ async def suspend_user(
     target.suspended_at = datetime.now(tz=UTC)
     target.suspended_by = user.id
     target.suspension_reason = body.reason
-    # Its Owner's repositories go off Discover with the account, in the same transaction (ADR 0297,
+    # Its Owner's repositories go off Discover with the account, in the same transaction (ADR 0303,
     # RFC 0038 section 6); lifting the suspension does not list them again.
     await delist_owned_by(session, user_id=target.id, operator_id=user.id)
     await session.commit()
@@ -137,7 +137,7 @@ async def create_platform_notification_route(
     return NotificationOut.model_validate(notification)
 
 
-# --- Delisting a repository (ADR 0297, RFC 0038 section 6) -------------------------------------
+# --- Delisting a repository (ADR 0303, RFC 0038 section 6) -------------------------------------
 
 
 async def _repository_or_404(session: SessionDep, repository_id: uuid.UUID) -> Tenant:
@@ -165,7 +165,7 @@ async def list_delisted_repositories(
     session: SessionDep, params: ParamsDep
 ) -> Page[DelistedRepositoryOut]:
     """The repositories the platform's operators have taken off Discover, the latest first: id,
-    name, the reason, when and by whom (ADR 0297)."""
+    name, the reason, when and by whom (ADR 0303)."""
     stmt = (
         select(Tenant, User.nickname)
         .outerjoin(User, User.id == Tenant.delisted_by)
@@ -189,7 +189,7 @@ async def delist_repository_route(
     reading it from outside (they read it as unpublished, so an update check stops too), and
     its own members still read and edit it and are told. Libraries that copied it keep their
     copies. Idempotent: delisting a delisted repository updates the reason, and the Owners are
-    told once, the first time. `404` for an id that is not a repository (ADR 0297)."""
+    told once, the first time. `404` for an id that is not a repository (ADR 0303)."""
     repository = await _repository_or_404(session, repository_id)
     await delist_repository(session, repository=repository, operator_id=user.id, reason=body.reason)
     await session.commit()
@@ -201,7 +201,7 @@ async def relist_repository_route(
     repository_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> RelistedRepositoryOut:
     """Lists a repository again. A no-op, still `200` with `relisted: false`, if it was not
-    delisted. Its Owners are told when it was (ADR 0297)."""
+    delisted. Its Owners are told when it was (ADR 0303)."""
     repository = await _repository_or_404(session, repository_id)
     relisted = await relist_repository(session, repository=repository, operator_id=user.id)
     await session.commit()

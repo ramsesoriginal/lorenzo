@@ -1,4 +1,4 @@
-"""Delisting a repository - ADR 0297, RFC 0038 section 6.
+"""Delisting a repository - ADR 0303, RFC 0038 section 6.
 
 The platform's operators take a repository off Discover: it closes to new copies and to every
 library and visitor reading it from outside (it reads as unpublished, `tenant.delisted_at` beside

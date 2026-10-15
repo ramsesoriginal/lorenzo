@@ -1,4 +1,4 @@
-# 0297 - Operator delist
+# 0303 - Operator delist
 
 Status: accepted. Slice D6a of [RFC 0038](../rfcs/0038-public-repositories-and-discovery.md) §6 item 1, tracked in #744. Builds on [ADR 0057](0057-platform-operations.md) (the `platform-operator` role, `/admin` and account suspension), [ADR 0287](0287-who-may-read-a-public-repository.md) (the gate, and the three places that say who may read a repository) and [ADR 0292](0292-discover-the-listing-and-the-storefront.md) (the listing, which this adds a condition to).
 

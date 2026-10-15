@@ -1,5 +1,5 @@
 // The notice on a repository's Overview while the platform's operators have it off Discover (RFC 0038
-// §6, ADR 0297): every member of the repository reads it, whatever their role, since they are the
+// §6, ADR 0303): every member of the repository reads it, whatever their role, since they are the
 // people who fix it. The words are lib/delisting.ts's. It reads the repository's profile fresh, since
 // an operator can list it again at any moment, and shows nothing where the profile cannot be read:
 // the rest of the Overview does not depend on it.

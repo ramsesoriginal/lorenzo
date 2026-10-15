@@ -1,4 +1,4 @@
-"""ADR 0297: the platform's operators delist a repository (RFC 0038 section 6).
+"""ADR 0303: the platform's operators delist a repository (RFC 0038 section 6).
 
 A delisted repository leaves Discover and its storefront, closes its preview and its browse, blocks
 new copies, and stops update checks and reads for every library and visitor, which read it as

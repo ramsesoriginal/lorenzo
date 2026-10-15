@@ -57,7 +57,7 @@ export type StatBandOptions = {
 
 export type RenderedStatBand = {
   /** Loads the library's stat vocabulary; without it (not a member) stats are drawn ungrouped. */
-  load(): Promise<void>;
+  load(beingStatGroupId?: string | null): Promise<void>;
   /** Draws the being as `mode` shows it, for someone who `canEdit` or not; returns the groups drawn. */
   show(entity: EntityDetail, mode: Mode, canEdit: boolean, layout: Layout): BandGroup[];
   /** The library's stat vocabulary, as loaded. */
@@ -113,6 +113,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   const undoButton = required<HTMLButtonElement>(undoBar, '[data-undo]');
 
   let vocabulary: Vocabulary = [];
+  let beingStatGroupId: string | null = null;
   let entity: EntityDetail | null = null;
   let mode: Mode = 'read';
   let canEdit = false;
@@ -681,7 +682,7 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
     const editing = mode === 'edit' && canEdit;
     const focused = document.activeElement?.closest<HTMLElement>('[data-stat]')?.dataset.stat;
 
-    drawn = bandOf(vocabulary, entity, { includeUnset: editing && vocabulary.length > 0 });
+    drawn = bandOf(vocabulary, entity, { beingStatGroupId });
 
     // Only the layout in view is drawn; the other is drawn when it is asked for.
     const [into, draw] =
@@ -710,7 +711,8 @@ export function renderStatBand(options: StatBandOptions): RenderedStatBand {
   }
 
   return {
-    async load() {
+    async load(selectedGroupId = null) {
+      beingStatGroupId = selectedGroupId;
       // Listing definitions needs library membership; without it the stats are drawn ungrouped.
       vocabulary = await statVocabulary(tenantId).catch(() => []);
     },
