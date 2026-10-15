@@ -431,13 +431,18 @@ async def make_release_current_route(
             target_id=tenant_id,
             detail=f"release={release.number},label={release.label}",
         )
+        # A delisted repository reads as unpublished to the libraries (ADR 0297): nothing to tell.
         subscribers = (
-            await session.scalars(
-                select(RepositorySubscription.subscriber_tenant_id).where(
-                    RepositorySubscription.repository_tenant_id == tenant_id
+            []
+            if tenant.delisted_at is not None
+            else (
+                await session.scalars(
+                    select(RepositorySubscription.subscriber_tenant_id).where(
+                        RepositorySubscription.repository_tenant_id == tenant_id
+                    )
                 )
-            )
-        ).all()
+            ).all()
+        )
         title, notice = current_notice(repository_name=tenant.name, release=release)
         await notify_tenant_admins(
             session,
@@ -744,7 +749,11 @@ async def list_repositories(
     synced: dict[uuid.UUID, ReleaseRef] = {}
     current: dict[uuid.UUID, ReleaseRef] = {}
     for repository_id, offered in repositories.items():
-        if offered.published_at is None or offered.kind is not TenantKind.REPOSITORY:
+        if (
+            offered.published_at is None
+            or offered.delisted_at is not None
+            or offered.kind is not TenantKind.REPOSITORY
+        ):
             continue
         # What a library may read of a repository's releases it reads through the gated
         # read: an invitation withdrawn, or a repository back in draft, leaves it none.
@@ -772,7 +781,12 @@ async def list_repositories(
                     name=repository.name if repository else (copy.repository_name if copy else ""),
                     slug=repository.slug if repository else "",
                     description=repository.description if repository else "",
-                    published_at=repository.published_at if repository else None,
+                    # A delisted repository reads as unpublished to the libraries (ADR 0297).
+                    published_at=(
+                        repository.published_at
+                        if repository and repository.delisted_at is None
+                        else None
+                    ),
                 ),
                 granted_at=grant.created_at if grant else None,
                 copied_at=copy.copied_at if copy else None,

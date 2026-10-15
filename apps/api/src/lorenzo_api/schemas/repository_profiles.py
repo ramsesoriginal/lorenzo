@@ -18,6 +18,7 @@ from pydantic import (
 __all__ = [
     "CreditIn",
     "CreditOut",
+    "DelistedOut",
     "LicenceIn",
     "LicenceOut",
     "RepositoryProfileOut",
@@ -204,9 +205,20 @@ class RepositoryProfileUpdate(BaseModel):
         return self
 
 
+class DelistedOut(BaseModel):
+    """That the platform's operators took a repository off Discover, and why: read by the
+    repository's own members and by nobody else (ADR 0297). Never who: the operators are the
+    platform's, not a person."""
+
+    reason: str
+    at: datetime
+
+
 class RepositoryProfileOut(BaseModel):
     """A repository's profile: what the Owner says of it, and whether it has a cover (the
-    picture is `GET .../profile/cover`)."""
+    picture is `GET .../profile/cover`). `delisted` is set only in what the repository's own
+    members read, while the platform's operators have it off Discover; a visitor's and a
+    holder's view never carry it (they cannot read a delisted repository at all)."""
 
     visibility: Visibility
     preview: Preview
@@ -218,3 +230,4 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str]
     has_cover: bool
     updated_at: datetime
+    delisted: DelistedOut | None = None

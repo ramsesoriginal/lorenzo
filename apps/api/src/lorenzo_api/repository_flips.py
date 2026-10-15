@@ -23,6 +23,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.models import RepositorySubscription, Tenant
 from lorenzo_api.repository_built_on import built_on_not_public, public_dependents
+from lorenzo_api.repository_delisting import refuse_if_delisted
 from lorenzo_api.repository_grants import notify_tenant_admins
 from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishing import Published, publish_release
@@ -39,9 +40,11 @@ async def make_public(
     public repository without a release, and the release is made as any publish makes one
     (`publish_release`, its document and its gates included). `409` if it already is public, and
     `409 built-on-not-public` naming each repository it is built on that is not (with whether the
-    caller owns it): a library copying it could not be granted a private one. The libraries that
+    caller owns it): a library copying it could not be granted a private one. `409
+    repository-delisted` while the platform's operators have it off Discover. The libraries that
     already read it live keep their grants and links; their next update check reads the release,
     and the notice they get says so."""
+    refuse_if_delisted(repository)
     await lock_repository(session, repository.id)
     profile = await profile_of(session, repository.id)
     if profile.visibility == "public":

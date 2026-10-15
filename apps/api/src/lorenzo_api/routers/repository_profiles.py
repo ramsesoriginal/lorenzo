@@ -26,6 +26,7 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.models import ProfilePicture, RepositoryProfile, Tenant
 from lorenzo_api.profile_pictures import read_and_validate_upload
 from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_delisting import delisted_out
 from lorenzo_api.repository_profiles import (
     delete_repository_cover,
     profile_of,
@@ -60,8 +61,8 @@ async def get_profile(
 ) -> RepositoryProfileOut:
     """What the repository says about itself, for any of its members: private, with the preview at
     `showcase` and nothing else said, until its Owner says more."""
-    await _require_repository(session, tenant_id)
-    return profile_out(await profile_of(session, tenant_id))
+    repository = await _require_repository(session, tenant_id)
+    return profile_out(await profile_of(session, tenant_id), delisted=delisted_out(repository))
 
 
 @router.patch("/profile")
@@ -76,7 +77,7 @@ async def update_profile(
     nothing is kept): a flip makes a release, tells libraries and revokes grants, so it is `PUT`
     and `DELETE` on `/public` (ADR 0290)."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
-    await _require_repository(session, tenant_id)
+    repository = await _require_repository(session, tenant_id)
     profile = await profile_of(session, tenant_id)
     if body.visibility is not None and body.visibility != profile.visibility:
         raise VisibilityHasItsOwnRouteError(
@@ -108,7 +109,7 @@ async def update_profile(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     await session.refresh(profile)
-    return profile_out(profile)
+    return profile_out(profile, delisted=delisted_out(repository))
 
 
 @router.get("/profile/cover")

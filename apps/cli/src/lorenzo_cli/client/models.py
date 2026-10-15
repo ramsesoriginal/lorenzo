@@ -432,6 +432,25 @@ class CreditOut(BaseModel):
     url: str | None = Field(..., title="Url")
 
 
+class DelistRepositoryRequest(BaseModel):
+    reason: constr(min_length=1, max_length=500) = Field(..., title="Reason")
+
+
+class DelistedOut(BaseModel):
+    reason: str = Field(..., title="Reason")
+    at: AwareDatetime = Field(..., title="At")
+
+
+class DelistedRepositoryOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str = Field(..., title="Slug")
+    reason: str = Field(..., title="Reason")
+    delisted_at: AwareDatetime = Field(..., title="Delisted At")
+    delisted_by: UUID | None = Field(..., title="Delisted By")
+    delisted_by_nickname: str | None = Field(..., title="Delisted By Nickname")
+
+
 class DeviceApproval(BaseModel):
     name: constr(min_length=1, max_length=80) = Field(..., title="Name")
     expires_at: AwareDatetime | None = Field(None, title="Expires At")
@@ -917,6 +936,14 @@ class PageContributionOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageDelistedRepositoryOut(BaseModel):
+    items: list[DelistedRepositoryOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageEntityChangeOut(BaseModel):
     items: list[EntityChangeOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1204,6 +1231,12 @@ class ReleaseUpdate(BaseModel):
     notes: constr(max_length=4000) | None = Field(None, title="Notes")
 
 
+class RelistedRepositoryOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    relisted: bool = Field(..., title="Relisted")
+
+
 class RepositoryDependencyOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -1232,6 +1265,7 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    delisted: DelistedOut | None = None
 
 
 class RepositoryProfileUpdate(BaseModel):
@@ -1733,6 +1767,7 @@ class FlipCheckOut(BaseModel):
     public_dependents: list[PublicDependentOut] = Field(..., title="Public Dependents")
     public_libraries: int = Field(..., title="Public Libraries")
     invited_libraries: int = Field(..., title="Invited Libraries")
+    delisted: DelistedOut | None = None
 
 
 class GroupMemberResultItem(BaseModel):

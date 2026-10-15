@@ -30,6 +30,7 @@ from lorenzo_api.repository_built_on import (
     built_on_not_public,
     public_dependents,
 )
+from lorenzo_api.repository_delisting import delisted_out, refuse_if_delisted
 from lorenzo_api.repository_flips import count_public_grants, make_private, make_public
 from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.routers.repositories import _authored, _require_owner, _require_repository
@@ -58,7 +59,7 @@ async def check_flip(
     grant they gave themselves by copying it and how many it invited. Owner only; writes
     nothing."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
-    await _require_repository(session, tenant_id)
+    repository = await _require_repository(session, tenant_id)
     profile = await profile_of(session, tenant_id)
     invited = await session.scalar(
         select(func.count())
@@ -82,6 +83,7 @@ async def check_flip(
         ],
         public_libraries=await count_public_grants(session, tenant_id),
         invited_libraries=invited or 0,
+        delisted=delisted_out(repository),
     )
 
 
@@ -106,6 +108,7 @@ async def make_repository_public(
         raise PublicRepositoriesNotAvailableError(
             detail="Public repositories are not available yet. This repository stays private."
         )
+    refuse_if_delisted(tenant)
     body = body or MakePublicRequest()
     profile = await profile_of(session, tenant_id)
     if body.summary is not None:
