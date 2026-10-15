@@ -31,19 +31,19 @@ describe('describeError: what the API said', () => {
     const entries = problem(422, {
       type: 'repository-entry-limit',
       title: 'A repository cannot hold more entries',
-      detail: 'This repository holds 20,000 entries, which is the most a repository can have.',
+      detail: 'This repository holds 30,000 entries, which is the most a repository can have.',
     });
     const picture = problem(413, {
       type: 'repository-picture-too-large',
       title: 'That picture is too large for a repository',
-      detail: 'This picture is 1.4 MB, and a picture in a repository can be 1 MB at most.',
+      detail: 'This picture is 3.4 MB, and a picture in a repository can be 2 MB at most.',
     });
 
     expect(describeError(entries)).toBe(
-      'This repository holds 20,000 entries, which is the most a repository can have.',
+      'This repository holds 30,000 entries, which is the most a repository can have.',
     );
     expect(describeError(picture)).toBe(
-      'This picture is 1.4 MB, and a picture in a repository can be 1 MB at most.',
+      'This picture is 3.4 MB, and a picture in a repository can be 2 MB at most.',
     );
   });
 

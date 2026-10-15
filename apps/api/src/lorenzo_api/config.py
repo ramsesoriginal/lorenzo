@@ -186,12 +186,13 @@ class Settings(BaseSettings):
     # Quotas on a repository (RFC 0038 section 6, ADR 0298), for every tenant of kind repository and
     # no other: the most entries a repository holds, the most picture bytes it holds in all (the
     # pictures on its entries, not its cover), and the most bytes in one such picture. Set well
-    # above the seeded repositories and the 20,000-entry repository of RFC 0037's scale spike;
-    # `0` takes a limit off. A repository over a limit lowered later is never blocked from
-    # changing or shrinking, only from growing.
-    repository_max_entries: int = 20_000
-    repository_max_picture_bytes: int = 50_000_000
-    repository_picture_max_bytes: int = 1_000_000
+    # above the seeded repositories; `0` takes a limit off. Held for what is written by hand (the
+    # routes, the importer, Bench), not for the copy and update engines. A repository over a limit
+    # lowered later is never blocked from changing or shrinking, only from growing. The picture
+    # limit equals `picture_max_bytes` by default and is its own setting so it can be lowered.
+    repository_max_entries: int = 30_000
+    repository_max_picture_bytes: int = 20_000_000
+    repository_picture_max_bytes: int = 10_000_000
 
     # Whether a repository can be made public (RFC 0038 section 1, ADR 0290). Off until the gates
     # that come before a public repository are in (D3 to D6) and the deployment says so: the flip

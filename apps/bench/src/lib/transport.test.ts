@@ -189,7 +189,7 @@ describe('apiTransport', () => {
   });
 
   it('a repository that holds as many entries as it can is a refusal in the API2019s words', async () => {
-    const words = 'This repository holds 20,000 entries, which is the most a repository can have.';
+    const words = 'This repository holds 30,000 entries, which is the most a repository can have.';
     const { transport, calls } = setup(() =>
       json({ type: 'repository-entry-limit', detail: words, quota: 'entries' }, { status: 422 }),
     );
@@ -316,7 +316,7 @@ describe('apiTransport', () => {
     });
 
     it('says how large a picture can be in a repository when it is too large (413)', async () => {
-      const words = 'This picture is 1.4 MB, and a picture in a repository can be 1 MB at most.';
+      const words = 'This picture is 3.4 MB, and a picture in a repository can be 2 MB at most.';
       const { transport } = setup(() =>
         json({ type: 'repository-picture-too-large', detail: words }, { status: 413 }),
       );
