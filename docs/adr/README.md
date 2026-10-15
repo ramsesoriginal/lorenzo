@@ -299,3 +299,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0294 - The GM's title, per campaign](0294-the-gms-title-per-campaign.md) — the side ADR of [RFC 0040](../rfcs/0040-authors-and-invites.md): `gm_title` and `gm_title_plural` on a campaign (written together, empty for the default, 1 to 30 characters of plain text, `422 campaign-gm-title-invalid`), always set on a read as "GM" and "GMs" by default; read by the surfaces of one campaign, not by a library, a repository, the CLI or the identifiers; a label and not a role.
 - [0295 - The CLI's stat vocabulary, sheet settings and terminal entry reads](0295-cli-vocabulary-sheet-settings-and-reads.md)
 - [0296 - The tenant's being stat group](0296-being-stat-group.md)
+- [0297 - Beings shows the being group and valued stats](0297-beings-stat-selection.md)
