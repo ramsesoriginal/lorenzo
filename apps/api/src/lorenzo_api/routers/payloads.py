@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from typing import Annotated
 from urllib.parse import quote
@@ -16,7 +17,7 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.description_payloads import write_description
-from lorenzo_api.etag import check_if_match, etag_for
+from lorenzo_api.etag import check_if_match, etag_for, matches_if_none_match
 from lorenzo_api.exceptions import (
     PayloadContentNotFoundError,
     PayloadKindNotEditableError,
@@ -58,6 +59,7 @@ def _content_disposition(disposition_type: str, filename: str) -> str:
 @router.get(
     "/{payload_id}/content",
     name="payload_content",
+    responses={304: {"description": "The picture is unchanged; reuse the cached bytes."}},
     dependencies=[Depends(get_tenant_context)],
 )
 async def get_payload_content(
@@ -65,6 +67,7 @@ async def get_payload_content(
     payload_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
+    if_none_match: Annotated[str | None, Header()] = None,
 ) -> Response:
     """Raw bytes for a picture/document payload, with the correct
     Content-Type - and Content-Disposition for documents - rather than
@@ -96,7 +99,18 @@ async def get_payload_content(
         raise PayloadNotFoundError(detail=f"No payload with id {payload_id} in tenant {tenant_id}")
 
     if payload.picture is not None:
-        return Response(content=payload.picture.data, media_type=payload.picture.file_type)
+        # The representation includes its media type. Hashing the bytes also covers direct
+        # replacements and identical re-uploads, without relying on a parent's timestamp.
+        digest = hashlib.sha256(
+            payload.picture.file_type.encode() + b"\0" + payload.picture.data
+        ).hexdigest()
+        headers = {"ETag": f'"{digest}"', "Cache-Control": "private, no-cache"}
+        # Always authorize above, even when a browser already holds a matching picture.
+        if matches_if_none_match(if_none_match, digest):
+            return Response(status_code=304, headers=headers)
+        return Response(
+            content=payload.picture.data, media_type=payload.picture.file_type, headers=headers
+        )
     if payload.document is not None:
         return Response(
             content=payload.document.data,

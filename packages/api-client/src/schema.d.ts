@@ -18828,7 +18828,9 @@ export interface operations {
     payload_content: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "if-none-match"?: string | null;
+            };
             path: {
                 tenant_id: string;
                 payload_id: string;
@@ -18845,6 +18847,13 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description The picture is unchanged; reuse the cached bytes. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
