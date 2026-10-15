@@ -24,7 +24,13 @@ async function publicRepository() {
   await ok(
     owner.api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: repository.id } },
-      body: { summary: 'Every monster there is', label: '1.0', preview: 'showcase' },
+      body: {
+        summary: 'Every monster there is',
+        label: '1.0',
+        preview: 'showcase',
+        breaking: false,
+        acknowledge_breaking: true,
+      },
     }),
   );
 
