@@ -442,19 +442,6 @@ describe('a copy the API refused', () => {
     ).toEqual({ kind: 'bad-choice', detail: "'Mass' is taken here too" });
   });
 
-  it('says which limit a repository ran into, as the API worded it', () => {
-    for (const type of [
-      'repository-entry-limit',
-      'repository-picture-total-limit',
-      'repository-picture-too-large',
-    ]) {
-      expect(copyRefusal(refusal(type, 422, { detail: 'It holds 20,000 entries.' }))).toEqual({
-        kind: 'over-limit',
-        detail: 'It holds 20,000 entries.',
-      });
-    }
-  });
-
   it('leaves anything else to be shown as the API worded it', () => {
     expect(copyRefusal(refusal('something-else', 500))).toBeNull();
     expect(copyRefusal(new Error('network'))).toBeNull();

@@ -12,8 +12,10 @@ Where it is enforced is one place for each way a row is made, not one call at ev
   split or a pack's items, and the importer, Bench and the hub through them) and new or replaced
   `PayloadPicture` rows (every picture upload). It runs before the first statement of the flush,
   so a refused write has written nothing.
-- **`check_rows`** is the same check for the copy and update engines, which insert whole tables
-  of rows with Core statements the hook never sees (`repository_copying.write_rows`).
+- **The copy and update engines are exempt.** `repository_copying.write_rows` inserts whole tables
+  of rows with Core statements the hook never sees, and it is not checked: what a repository that
+  builds on another holds is its upstream's, which the limits bounded there, and refusing the
+  engine would leave a half-built stack. What it brings still counts when someone adds by hand.
 
 A write is refused only for what it adds: renaming, editing, deleting, and replacing a picture
 with a smaller one are never blocked by a repository being over a limit that was lowered later.
@@ -44,7 +46,6 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.models import Entity, PayloadPicture, Tenant, TenantKind
 
 __all__ = [
-    "check_rows",
     "check_writes",
     "entries_held",
     "install",
@@ -164,26 +165,6 @@ def check_writes(
                 holds=held_bytes,
                 adding=picture_growth,
             )
-
-
-async def check_rows(session: Any, rows: dict[str, list[dict[str, Any]]]) -> None:
-    """The check for rows an engine is about to insert with Core statements (a copy, an update's
-    additions): the entries in `rows["entity"]` and the pictures in `rows["payload_picture"]`,
-    each row naming its own tenant. `session` is the AsyncSession."""
-    new_entries: Counter[uuid.UUID] = Counter(r["tenant_id"] for r in rows.get("entity", ()))
-    sizes: dict[uuid.UUID, list[int]] = defaultdict(list)
-    for row in rows.get("payload_picture", ()):
-        sizes[row["tenant_id"]].append(len(row["data"]))
-    for tenant_id in new_entries.keys() | sizes.keys():
-        await session.run_sync(
-            lambda sync, t=tenant_id: check_writes(
-                sync,
-                t,
-                new_entries=new_entries[t],
-                picture_sizes=sizes[t],
-                picture_growth=sum(sizes[t]),
-            )
-        )
 
 
 def _picture_change(picture: PayloadPicture) -> tuple[int, int] | None:

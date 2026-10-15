@@ -371,8 +371,7 @@ export type CopyRefusal =
   | { kind: 'needs-grants'; missing: MissingRepository[] }
   | { kind: 'already-copied' }
   | { kind: 'formula-cycle'; detail: string }
-  | { kind: 'bad-choice'; detail: string }
-  | { kind: 'over-limit'; detail: string };
+  | { kind: 'bad-choice'; detail: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -444,11 +443,6 @@ export function copyRefusal(cause: unknown): CopyRefusal | null {
       return { kind: 'formula-cycle', detail };
     case 'invalid-repository-copy-choice':
       return { kind: 'bad-choice', detail };
-    // A repository holds only so many entries and picture bytes (the API says which, with its number).
-    case 'repository-entry-limit':
-    case 'repository-picture-total-limit':
-    case 'repository-picture-too-large':
-      return { kind: 'over-limit', detail };
     default:
       return null;
   }
