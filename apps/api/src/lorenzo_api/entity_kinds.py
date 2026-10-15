@@ -235,21 +235,25 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
 
 
 async def require_deletable(
-    session: AsyncSession, *, tenant_id: uuid.UUID, entity_id: uuid.UUID
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    allow_character: bool = False,
 ) -> set[str]:
     """The guards of every kind the entry has, composed (RFC 0041 section 2), and the kinds it
     has, so a delete can say what went with it. An inventory item is deleted through its own
     route (it moves what it holds back out, ADR 0128), a character is demoted before its entry
     goes, a catalog item is not deleted while an inventory item inherits from it, and a
     campaign's own entry stays with the campaign. A being that is no character, an item and a
-    bare entry go."""
+    bare entry go. The permanent being-deletion route explicitly allows a character here."""
     kinds = await kinds_of_entry(session, entity_id)
     if "item_instance" in kinds:
         raise InventoryItemKindError(
             detail=f"Entry {entity_id} is an inventory item: delete it with "
             f"DELETE /tenants/{tenant_id}/item-instances/{entity_id}"
         )
-    if "character" in kinds:
+    if "character" in kinds and not allow_character:
         raise EntityKindInUseError(
             detail=f"Entry {entity_id} is a character: demote it with "
             f"DELETE /tenants/{tenant_id}/characters/{entity_id} before deleting the entry"
