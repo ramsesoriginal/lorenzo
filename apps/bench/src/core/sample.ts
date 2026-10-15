@@ -253,7 +253,7 @@ export class SampleTransport implements Transport {
     this.need();
     if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type))
       throw new RefusedError(`Unsupported content type '${file.type}'.`);
-    if (file.size > 2_000_000) throw new RefusedError('The picture is over the size limit.');
+    if (file.size > 10_000_000) throw new RefusedError('The picture is over the size limit.');
     this.row(id).picture = '#36c';
     this.pictureWrites.push(`set:${id}`);
   }
