@@ -1,3 +1,4 @@
+import { ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
 import { enterMode } from './support/modes.ts';
 
@@ -42,7 +43,13 @@ test('a GM renames a being, writes its description and gives it a link name', as
 });
 
 test('a GM sets a stat and a tag, and clears the stat again', async ({ world, as }) => {
-  await world.defineStat('abilities', 'strength', 'int');
+  const strength = await world.defineStat('abilities', 'strength', 'int');
+  await ok(
+    world.gm.api.PATCH('/tenants/{tenant_id}', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { being_stat_group_id: strength.stat_group_id },
+    }),
+  );
   await world.defineStat('tags', 'is_undead', 'bool');
   const goblin = await world.npc('Goblin Chief');
   const page = await as(world.gm);
