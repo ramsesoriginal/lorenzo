@@ -122,7 +122,15 @@ describe('campaignRoleFor', () => {
   it('returns gm when the campaign is in campaign_gm_grants', () => {
     const caller = me({
       campaign_gm_grants: [
-        { id: campaignId, slug: 's', name: 'N', game_system: 'dnd5e', secret: false },
+        {
+          id: campaignId,
+          slug: 's',
+          name: 'N',
+          game_system: 'dnd5e',
+          secret: false,
+          gm_title: 'GM',
+          gm_title_plural: 'GMs',
+        },
       ],
     });
     expect(campaignRoleFor(campaignId, caller)).toBe('gm');
@@ -150,7 +158,15 @@ describe('campaignRoleFor', () => {
   it('prefers gm over player if somehow both are present', () => {
     const caller = me({
       campaign_gm_grants: [
-        { id: campaignId, slug: 's', name: 'N', game_system: 'dnd5e', secret: false },
+        {
+          id: campaignId,
+          slug: 's',
+          name: 'N',
+          game_system: 'dnd5e',
+          secret: false,
+          gm_title: 'GM',
+          gm_title_plural: 'GMs',
+        },
       ],
       players: [
         {

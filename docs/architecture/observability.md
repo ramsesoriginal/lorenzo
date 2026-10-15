@@ -33,7 +33,7 @@ In practice: locally, spans print to your terminal; in Cloud Run, they land in C
 
 ## Versioning
 
-`FastAPI(title="Lorenzo API", version=...)` (in `main.py`) reports the running package's own installed version — via `importlib.metadata.version("lorenzo-api")` — so it always matches whatever release-please last tagged, visible at `/docs` or in `/openapi.json`, without needing a manual update on every release.
+`FastAPI(title="Lorenzo API", version=...)` (in `main.py`) reports the running package's own installed version — via `importlib.metadata.version("lorenzo-api")` — so it reports the installed artifact's version, visible at `/docs` or in `/openapi.json`, without needing a manual update on every release.
 
 ## What's deliberately not here yet
 

@@ -291,3 +291,10 @@
     min-height: var(--target-min);
   }
 }
+
+/* What a campaign calls its game master (ADR 0294): the title and its plural, side by side on a desk
+   and one under the other when there is no room for two, so a phone gets two full-width boxes
+   (the brand's .text-input is already the target size there). */
+.gm-title-fields > .field {
+  flex: 1 1 11rem;
+}

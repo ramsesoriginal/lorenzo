@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.campaign_gm_title import DEFAULT_GM_TITLE, DEFAULT_GM_TITLE_PLURAL
 from lorenzo_api.dependencies import CurrentUser, SessionDep, set_tenant_rls_context
 from lorenzo_api.exceptions import (
     InvalidInviteLibraryError,
@@ -175,11 +176,15 @@ async def _redeem_gm_link(
             tenant_id=tenant_id, user_id=user.id, campaign_id=campaign_id, created_by=granted_by
         )
     )
-    campaign_name = (
+    campaign_name, gm_title, gm_title_plural = (
         await session.execute(
-            select(Campaign.name).where(Campaign.id == campaign_id, Campaign.tenant_id == tenant_id)
+            select(Campaign.name, Campaign.gm_title, Campaign.gm_title_plural).where(
+                Campaign.id == campaign_id, Campaign.tenant_id == tenant_id
+            )
         )
-    ).scalar_one()
+    ).one()
+    gm_title = gm_title or DEFAULT_GM_TITLE
+    gm_title_plural = gm_title_plural or DEFAULT_GM_TITLE_PLURAL
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -196,8 +201,8 @@ async def _redeem_gm_link(
         campaign_id=campaign_id,
         gm_user_ids=gm_user_ids,
         type="campaign_invite_gm_redeemed",
-        title=f"A new GM joined {campaign_name}",
-        body=f"{who} joined as a GM through an invite link.",
+        title=f"A new {gm_title} joined {campaign_name}",
+        body=f"{who} joined the {gm_title_plural} through an invite link.",
         created_by=user.id,
     )
     await session.commit()

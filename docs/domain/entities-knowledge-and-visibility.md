@@ -14,17 +14,17 @@ The same entity can carry different stats/state depending on which game system i
 
 ## Text is always split by audience
 
-Every piece of text — lore, notes, stats, descriptions — is split into at least these tiers, not stored as one blob:
+Information — lore, notes and descriptions — is split by audience, not stored as one blob:
 
 - **GM-only** — never shown to players.
 - **Visible to everyone** in the game.
 - **Visible to a subset** of players (e.g. only the character who discovered something).
 - **Player-authored** — written by players themselves, not the GM.
 
-This split is what lets one entity have a public description, a GM's secret notes, and a player's personal journal entry about it, all attached to the same underlying thing.
+This split is what lets one entity have a public description, a GM's secret notes, and a player's personal journal entry about it, all attached to the same underlying thing. The current stat vocabulary and effective stat values are readable by participants; information's audience rules do not make an individual stat value secret.
 
 ## Knowledge is tracked, not assumed
 
 "Everyone in the room knows X" isn't good enough. Lorenzo needs to track **who knows what, and as of when** — including who has met whom, and what they learned about each other at that meeting. Knowledge is a fact about a specific character at a specific point in the story's timeline, not a global flag on the piece of lore itself.
 
-This is genuinely unbuilt design space — exactly how "knowledge" gets represented (a simple visibility flag vs. a full event log of what was learned when) isn't decided yet.
+The current system records which characters, players or groups may read a piece of information, alongside public and GM-only audiences ([ADR 0028](../adr/0028-knowledge-and-group-membership.md), [ADR 0109](../adr/0109-player-knowers-knower-listing-and-information-list.md)). It does not yet record a story-time history of when someone learned it. That temporal model is proposed in [RFC 0028](../rfcs/0028-time-causality-and-calendars.md); it remains undecided.

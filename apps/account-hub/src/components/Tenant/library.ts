@@ -54,10 +54,12 @@ export type LibraryData = LibraryReads & {
   activity: HTMLElement | null;
 };
 
-function roleLabel(role: CampaignRole): string {
+// What you are in a campaign, as its row says: what it calls its game master (ADR 0294), Player or
+// Visible.
+function roleLabel(role: CampaignRole, campaign: CampaignSummaryOut): string {
   switch (role) {
     case 'gm':
-      return 'GM';
+      return campaign.gm_title;
     case 'player':
       return 'Player';
     case 'visible':
@@ -108,7 +110,7 @@ function renderCampaign(
     data.descriptions.get(campaign.id) ?? '',
   );
   required<HTMLElement>(item, '[data-campaign-meta]').textContent =
-    `${campaign.game_system} · ${roleLabel(role)}${campaign.secret ? ' · secret' : ''}`;
+    `${campaign.game_system} · ${roleLabel(role, campaign)}${campaign.secret ? ' · secret' : ''}`;
 
   const admin = isTenantAdmin(tenant);
   // can_manage_campaign's real two-way gate: a tenant admin, or this
@@ -138,11 +140,20 @@ function renderCampaign(
     fillSlot(item, '[data-campaign-roster-slot]', roster);
   }
 
-  if (admin) {
+  // Editing the campaign (its name, description, switches and what it calls its game master) is
+  // update_campaign's gate, the same as everything else a manager does here: a library
+  // administrator or the campaign's own GM. Nothing in it is administrator-only.
+  if (canManage) {
     const edit = cloneComponent(root, '[data-campaign-edit-template]');
-    const gms = cloneComponent(root, '[data-gm-management-template]');
 
     renderCampaignEdit(edit, tenant, campaign, onChanged);
+    fillSlot(item, '[data-campaign-edit-slot]', edit);
+  }
+
+  // GM management needs the library's roster to name people, which only an administrator reads.
+  if (admin) {
+    const gms = cloneComponent(root, '[data-gm-management-template]');
+
     renderGmManagement(
       gms,
       tenant,
@@ -151,7 +162,6 @@ function renderCampaign(
       data.roster ?? [],
       onChanged,
     );
-    fillSlot(item, '[data-campaign-edit-slot]', edit);
     fillSlot(item, '[data-campaign-gms-slot]', gms);
   }
 

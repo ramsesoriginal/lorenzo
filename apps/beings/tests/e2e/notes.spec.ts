@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ok } from './support/api.ts';
+import { type Api, ok } from './support/api.ts';
 import { expect, test } from './support/fixtures.ts';
 import { enterMode } from './support/modes.ts';
 import { person } from './support/world.ts';
@@ -205,4 +205,103 @@ test("in a library an Everyone's note shows no lock: nothing is copied from it",
   await page.goto(url(world, target));
   await expect(page.locator('[data-being-notes] [data-audience]')).toHaveText('Everyone');
   await expect(page.locator('[data-being-notes] [data-lock]')).toBeHidden();
+});
+
+// ADR 0294: a campaign's own name for its game master, wherever a note's audience names one.
+async function nameTheGm(
+  world: { gm: { api: Api }; tenantId: string },
+  campaignId: string,
+  title: string,
+  plural: string,
+) {
+  await ok(
+    world.gm.api.PATCH('/tenants/{tenant_id}/campaigns/{campaign_id}', {
+      params: { path: { tenant_id: world.tenantId, campaign_id: campaignId } },
+      body: { gm_title: title, gm_title_plural: plural },
+    }),
+  );
+}
+
+test("a note's audiences name the game master by the campaign's title", async ({ world, as }) => {
+  const target = world.pia.character.entity_id;
+
+  await nameTheGm(world, world.campaignId, 'Storyteller', 'Storytellers');
+  await world.note(target, 'Plot', 'A secret.');
+
+  const page = await as(world.gm);
+
+  await page.goto(url(world, target));
+
+  const audience = page.locator('[data-being-notes] [data-audience]');
+
+  await expect(audience).toHaveText('Storyteller only');
+
+  await page.getByRole('button', { name: 'Add a note' }).click();
+
+  const form = page.locator('[data-add-mount] form');
+
+  // Offered as the title, with what each one means in the plural.
+  await expect(form.getByLabel('Storyteller only', { exact: true })).toBeChecked();
+  await expect(form.getByText('Only the Storytellers of the campaign can read it.')).toBeVisible();
+  await form.getByLabel('Some characters', { exact: true }).check();
+  await expect(
+    form.getByText('The Storytellers and the characters you choose can read it.'),
+  ).toBeVisible();
+  await form.getByLabel('Player note', { exact: true }).check();
+  await expect(
+    form.getByText("The Storytellers and this being's players can read it."),
+  ).toBeVisible();
+  await expect(page.getByText(/\bGMs?\b/)).toBeHidden();
+});
+
+test('a being in two campaigns that name their game master differently says GM', async ({
+  world,
+  as,
+}) => {
+  const target = world.pia.character.entity_id;
+
+  await nameTheGm(world, world.campaignId, 'Storyteller', 'Storytellers');
+  await nameTheGm(world, world.otherCampaignId, 'Narrator', 'Narrators');
+
+  // Ashfang joins Ash Road too, whose game master has another name.
+  const seat = await ok(
+    world.gm.api.POST('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
+      params: { path: { tenant_id: world.tenantId, campaign_id: world.otherCampaignId } },
+      body: { user_id: world.pia.userId },
+    }),
+  );
+
+  await ok(
+    world.gm.api.PUT('/tenants/{tenant_id}/characters/{character_id}/players/{player_id}', {
+      params: {
+        path: { tenant_id: world.tenantId, character_id: target, player_id: seat.id },
+      },
+    }),
+  );
+  await world.note(target, 'Plot', 'A secret.');
+
+  const page = await as(world.gm);
+
+  await page.goto(url(world, target));
+  await expect(page.locator('[data-being-notes] [data-audience]')).toHaveText('GM only');
+
+  // The same two campaigns, agreeing, name it again.
+  await nameTheGm(world, world.otherCampaignId, 'Storyteller', 'Storytellers');
+  await page.reload();
+  await expect(page.locator('[data-being-notes] [data-audience]')).toHaveText('Storyteller only');
+});
+
+test('a being no campaign holds says GM, whatever its campaigns call theirs', async ({
+  world,
+  as,
+}) => {
+  const owl = await world.npc('Owlbear');
+
+  await nameTheGm(world, world.campaignId, 'Storyteller', 'Storytellers');
+  await world.note(owl.entity_id, 'Habits', 'Hunts at night.');
+
+  const page = await as(world.gm);
+
+  await page.goto(url(world, owl.entity_id));
+  await expect(page.locator('[data-being-notes] [data-audience]')).toHaveText('GM only');
 });

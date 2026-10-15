@@ -1340,3 +1340,10 @@ class ShowcaseInvalidError(UnprocessableProblem):
     entry of the repository - ADR 0293."""
 
     title = "That showcase cannot be kept"
+
+
+class CampaignGmTitleInvalidError(UnprocessableProblem):
+    """A GM's title that is not given with its plural, or is longer than the API keeps, or is not
+    plain text - ADR 0294."""
+
+    title = "That title for the GM cannot be kept"

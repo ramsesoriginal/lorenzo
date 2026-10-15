@@ -5,6 +5,7 @@ import {
   LorenzoApiError,
   toLorenzoApiError,
 } from "@lorenzo/api-client";
+import type { GmTitled } from "./gm-title.js";
 
 export type OwnedByResponse = components["schemas"]["OwnedByResponse"];
 export type HeldByResponse = components["schemas"]["HeldByResponse"];
@@ -53,9 +54,9 @@ export type MyPlayer = Readonly<{
  * already do (flat, not grouped by campaign like `MyPlayer` -
  * `PlayerContextOut` carries a campaign *id*, not its name, and a raw
  * UUID wouldn't read as "presented nicely"; character names alone are
- * enough for an identity check). `gmCampaignCount` deliberately isn't
- * tenant-filtered - `/me`'s `campaign_gm_grants` carries no `tenant_id` at
- * all, the same cross-tenant imprecision {@link isCampaignGm}'s own doc
+ * enough for an identity check). `gmCampaigns` (each with its GM title,
+ * ADR 0294) deliberately isn't tenant-filtered - `/me`'s `campaign_gm_grants`
+ * carries no `tenant_id` at all, the same cross-tenant imprecision {@link isCampaignGm}'s own doc
  * comment already flags, so this is honestly a global count, not a
  * per-tenant one.
  */
@@ -70,7 +71,7 @@ export type MyProfile = Readonly<{
   pictureUrl: string;
   membershipRole: string | null;
   characters: readonly ControlledCharacter[];
-  gmCampaignCount: number;
+  gmCampaigns: readonly GmTitled[];
 }>;
 
 /** One item instance the caller owns, flattened out of whichever
@@ -265,7 +266,10 @@ export function createLorenzoApiClient(baseUrl: string) {
           .flatMap((player) =>
             player.characters.map((c) => ({ entityId: c.entity_id, name: c.name })),
           ),
-        gmCampaignCount: data.campaign_gm_grants.length,
+        gmCampaigns: data.campaign_gm_grants.map((grant) => ({
+          gmTitle: grant.gm_title,
+          gmTitlePlural: grant.gm_title_plural,
+        })),
       };
     },
 

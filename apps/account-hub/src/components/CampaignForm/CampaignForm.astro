@@ -47,6 +47,40 @@
        same card, and a second label of that name makes a lookup by it ambiguous. -->
   <textarea placeholder="Description" data-description></textarea>
 
+  <!-- What this table calls its game master (ADR 0294): a title and its plural, written together,
+       both empty for the default. Only an existing campaign has them to change (the create call
+       has no field for them). The placeholders are the default the API sends. -->
+  <fieldset data-gm-title-field hidden>
+    <legend>What does your table call its game master?</legend>
+    <div class="row gm-title-fields">
+      <label class="field">
+        <span class="field-label">Title</span>
+        <input
+          type="text"
+          class="text-input"
+          placeholder="GM"
+          maxlength="30"
+          autocomplete="off"
+          data-gm-title
+        />
+      </label>
+      <label class="field">
+        <span class="field-label">Plural</span>
+        <input
+          type="text"
+          class="text-input"
+          placeholder="GMs"
+          maxlength="30"
+          autocomplete="off"
+          data-gm-title-plural
+        />
+      </label>
+    </div>
+    <p class="status-text">
+      Shown wherever this campaign appears. It does not change what a GM may do.
+    </p>
+  </fieldset>
+
   <div class="row">
     <div class="row grow">
       <label class="field-row">

@@ -17,6 +17,9 @@ class ManagedCampaignOut(BaseModel):
     campaign_id: uuid.UUID
     name: str
     is_gm: bool
+    # ADR 0294: what this campaign calls its game master, "GM" and "GMs" by default.
+    gm_title: str
+    gm_title_plural: str
 
 
 class ManagedTenantOut(BaseModel):
