@@ -48,9 +48,7 @@ export function renderBeingView(root: HTMLElement, options: BeingViewOptions): R
       } else if (main.id !== pictureId || main.updated_at !== picture.dataset.version) {
         pictureId = main.id;
         picture.dataset.version = main.updated_at;
-        blobUrl(
-          `${main.url}${main.url.includes('?') ? '&' : '?'}v=${encodeURIComponent(main.updated_at)}`,
-        ).then(
+        blobUrl(main.url, main.updated_at).then(
           (src) => {
             picture.src = src;
             figure.hidden = false;

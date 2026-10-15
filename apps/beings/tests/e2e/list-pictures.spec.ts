@@ -79,6 +79,7 @@ test('a picture hidden from the viewer is neither shown nor downloaded', async (
   const row = page.locator('[data-list] > li').filter({ hasText: 'Ashfang' });
   await expect(row).toHaveAttribute('data-picture-state', 'none');
   await expect(row.locator('[data-list-picture]')).toBeHidden();
+  expect((await row.getByRole('link').boundingBox())?.height).toBeLessThan(80);
   await row.hover();
   await expect(page.locator('[data-picture-preview]')).toBeHidden();
   expect(downloads).toEqual([]);
@@ -97,6 +98,7 @@ test('late pictures do not open a popup after the pointer leaves', async ({ worl
   });
   await page.goto(`/beings/?tenant=${world.tenantId}`);
   const row = page.locator('[data-list] > li').filter({ hasText: 'Ashfang' });
+  expect((await row.getByRole('link').boundingBox())?.height).toBeLessThan(80);
   await row.hover();
   await page.mouse.move(0, 0);
   release();
@@ -133,4 +135,38 @@ test('touch devices get portraits without a popup or an intercepted tap', async 
   } finally {
     await context.close();
   }
+});
+
+test('the browser revalidates cached pictures across reloads and the sheet', async ({
+  world,
+  as,
+}) => {
+  await portrait(world, world.pia.character.entity_id);
+  const page = await as(world.gm);
+  const network = await page.context().newCDPSession(page);
+  const pictureRequests = new Set<string>();
+  const statuses: number[] = [];
+  network.on('Network.requestWillBeSent', ({ requestId, request }) => {
+    if (
+      request.method === 'GET' &&
+      /\/payloads\/[^/]+\/content$/.test(new URL(request.url).pathname)
+    ) {
+      pictureRequests.add(requestId);
+    }
+  });
+  network.on('Network.responseReceivedExtraInfo', ({ requestId, statusCode }) => {
+    if (pictureRequests.has(requestId)) statuses.push(statusCode);
+  });
+  await network.send('Network.enable');
+  await page.goto(`/beings/?tenant=${world.tenantId}`);
+  const row = page.locator('[data-list] > li').filter({ hasText: 'Ashfang' });
+  await expect(row.locator('[data-list-picture]')).toBeVisible();
+  await expect.poll(() => statuses).toEqual([200]);
+  await page.reload();
+  await expect(row.locator('[data-list-picture]')).toBeVisible();
+  await expect.poll(() => statuses).toEqual([200, 304]);
+  await row.getByRole('link').click();
+  await expect(page.getByRole('heading', { name: 'Ashfang', level: 1 })).toBeVisible();
+  await expect.poll(() => statuses).toEqual([200, 304, 304]);
+  await network.detach();
 });
