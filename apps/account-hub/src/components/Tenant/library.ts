@@ -226,7 +226,7 @@ export function fillLibrary(
     const picture = cloneComponent(root, '[data-picture-upload-template]');
 
     renderPictureUpload(picture, {
-      url: tenantPictureUrl(tenant.id),
+      url: () => tenantPictureUrl(tenant.id),
       onUpload: (file) => uploadTenantPicture(tenant.id, file),
       onDelete: () => deleteTenantPicture(tenant.id),
     });

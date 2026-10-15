@@ -63,9 +63,14 @@ def print_repositories(console: Console, rows: Sequence[SubscriptionOut], tenant
     console.print(table)
 
 
-def print_subscribers(console: Console, rows: Sequence[SubscriberOut]) -> None:
-    if not rows:
+def print_subscribers(
+    console: Console, rows: Sequence[SubscriberOut], *, public_copies: int = 0
+) -> None:
+    if not rows and not public_copies:
         console.print("This repository isn't granted to any tenant yet, and nobody has copied it.")
+        return
+    if not rows:
+        _say_public_copies(console, public_copies)
         return
     table = Table(box=None, pad_edge=False)
     for heading in ("slug", "name", "granted", "copied", "release", "id"):
@@ -81,6 +86,17 @@ def print_subscribers(console: Console, rows: Sequence[SubscriberOut]) -> None:
             str(row.tenant_id),
         )
     console.print(table)
+    if public_copies:
+        _say_public_copies(console, public_copies)
+
+
+def _say_public_copies(console: Console, count: int) -> None:
+    """Libraries that copied a public repository by themselves are a number, never names."""
+    libraries = "1 library" if count == 1 else f"{count} libraries"
+    console.print(
+        f"{libraries} copied it by {'itself' if count == 1 else 'themselves'} from Discover. "
+        "Their names are not shown."
+    )
 
 
 def print_collisions(console: Console, collisions: Sequence[CollisionOut]) -> None:

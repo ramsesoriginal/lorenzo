@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { ApiError } from '../../src/lib/apiError';
 import {
   ACKNOWLEDGE_TEXT,
   breakingLines,
   composerProblem,
   contentLines,
+  cooldownRefusal,
   countsLines,
   defaultLabel,
   descriptionsHint,
+  intervalWords,
   matchesSentence,
   nameList,
   onRelease,
@@ -283,5 +286,54 @@ describe('where a library stands among the releases', () => {
     );
     expect(onRelease({ copied_at: null, synced_release: null })).toBeNull();
     expect(onRelease({ copied_at: '2026-10-02T10:00:00Z', synced_release: null })).toBeNull();
+  });
+});
+
+describe('the release cooldown (ADR 0301)', () => {
+  const refusal = (body: Record<string, unknown> = {}): ApiError =>
+    new ApiError(
+      'This repository can make its next release at 14:05 UTC.',
+      429,
+      'release-cooldown',
+      {
+        title: 'This repository released a moment ago',
+        detail: 'This repository can make its next release at 14:05 UTC. Releases are apart.',
+        allowed_at: '2026-10-15T14:05:00+00:00',
+        interval_seconds: 300,
+        ...body,
+      },
+    );
+
+  it('says the interval in the words a person uses', () => {
+    expect(intervalWords(300)).toBe('5 minutes');
+    expect(intervalWords(60)).toBe('1 minute');
+    expect(intervalWords(90)).toBe('90 seconds');
+    expect(intervalWords(1)).toBe('1 second');
+  });
+
+  it('says when the next release is possible, in the reader’s own time, and how far apart they are', () => {
+    expect(cooldownRefusal(refusal(), 'en-GB', 'UTC')).toBe(
+      'This repository can make its next release at 14:05. Releases of a public repository are at least 5 minutes apart.',
+    );
+    expect(cooldownRefusal(refusal(), 'en-GB', 'Europe/Berlin')).toContain('at 16:05.');
+  });
+
+  it('falls back to the API’s detail when the times are missing', () => {
+    expect(cooldownRefusal(refusal({ allowed_at: undefined }))).toBe(
+      'This repository can make its next release at 14:05 UTC. Releases are apart.',
+    );
+    expect(cooldownRefusal(refusal({ allowed_at: 'not a time' }))).toContain('Releases are apart');
+  });
+
+  it('says nothing of any other error', () => {
+    expect(cooldownRefusal(new ApiError('Conflict', 409, 'release-label-taken', {}))).toBeNull();
+    expect(cooldownRefusal(new Error('boom'))).toBeNull();
+    expect(cooldownRefusal(null)).toBeNull();
+  });
+
+  it('never says tenant, grant or subscription, or a thing about being stable', () => {
+    const said = cooldownRefusal(refusal(), 'en-GB', 'UTC') ?? '';
+
+    expect(said).not.toMatch(/tenant|grant|subscription|stable|frozen/i);
   });
 });

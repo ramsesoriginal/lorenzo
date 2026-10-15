@@ -42,6 +42,7 @@ from lorenzo_api.models.payload_picture import PayloadPicture
 from lorenzo_api.models.personal_access_token import DeviceAuthorization, PersonalAccessToken
 from lorenzo_api.models.player import Player
 from lorenzo_api.models.profile_picture import ProfilePicture
+from lorenzo_api.models.release_fanout import ReleaseFanout
 from lorenzo_api.models.repository_copy import (
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
@@ -122,6 +123,7 @@ __all__ = [
     "RepositoryCopyLinkEntity",
     "RepositoryCopyLinkStatDefinition",
     "RepositoryCopyLinkStatGroup",
+    "ReleaseFanout",
     "RepositoryProfile",
     "RepositoryShowcase",
     "RepositoryRelease",

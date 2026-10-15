@@ -60,6 +60,7 @@ from lorenzo_cli.client.models import (
     StatGroupOut,
     StatGroupUpdate,
     SubscriberOut,
+    SubscribersSummaryOut,
     SumFormulaBodyInput,
     TenantCreate,
     TenantOut,
@@ -280,6 +281,12 @@ UNPUBLISH_REPOSITORY: Op[TenantOut] = Op(
 )
 LIST_SUBSCRIBERS: Op[PageSubscriberOut] = Op(
     "list_subscribers", "GET", f"{_TENANT}/subscribers", response_type=PageSubscriberOut
+)
+SUBSCRIBERS_SUMMARY: Op[SubscribersSummaryOut] = Op(
+    "summarize_subscribers",
+    "GET",
+    f"{_TENANT}/subscribers/summary",
+    response_type=SubscribersSummaryOut,
 )
 GRANT_REPOSITORY: Op[SubscriberOut] = Op(
     "grant_repository",

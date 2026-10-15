@@ -13,10 +13,10 @@ import uuid
 from collections.abc import Callable, Sequence
 from typing import Annotated, Any, Literal, cast
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Response
 from fastapi_pagination import Page, Params, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -43,6 +43,7 @@ from lorenzo_api.exceptions import (
     TenantNotFoundError,
 )
 from lorenzo_api.models import (
+    AuditLog,
     Being,
     Character,
     Entity,
@@ -65,6 +66,7 @@ from lorenzo_api.release_current import make_release_current
 from lorenzo_api.release_document_store import (
     kept_documents,
 )
+from lorenzo_api.release_fanout import announce, drain_after_response
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_built_on import built_on_behind
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
@@ -147,6 +149,7 @@ from lorenzo_api.schemas.repositories import (
     RowNameOut,
     RowRefOut,
     SubscriberOut,
+    SubscribersSummaryOut,
     SubscriptionOut,
     UnprovenKindOut,
     UpdatesOut,
@@ -206,6 +209,7 @@ async def publish_repository(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     session: SessionDep,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     body: PublishRequest | None = None,
 ) -> PublishedOut:
     """Publishes a repository, or announces an update to one already
@@ -227,6 +231,7 @@ async def publish_repository(
     )
     release_out = _authored(published.release, current=True, kept=published.public)
     await session.commit()
+    drain_after_response(background_tasks, session)
     await set_tenant_rls_context(session, tenant_id)
     return PublishedOut(
         **TenantOut.model_validate(await session.get_one(Tenant, tenant_id)).model_dump(),
@@ -402,6 +407,7 @@ async def make_release_current_route(
     release_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     body: MakeCurrentRequest | None = None,
 ) -> ReleaseAuthoredOut:
     """Makes an earlier release the one libraries read, the rollback of a bad release (ADR 0288,
@@ -431,25 +437,32 @@ async def make_release_current_route(
             target_id=tenant_id,
             detail=f"release={release.number},label={release.label}",
         )
+        # A delisted repository reads as unpublished to the libraries (ADR 0303): nothing to tell.
         subscribers = (
-            await session.scalars(
-                select(RepositorySubscription.subscriber_tenant_id).where(
-                    RepositorySubscription.repository_tenant_id == tenant_id
+            []
+            if tenant.delisted_at is not None
+            else (
+                await session.scalars(
+                    select(RepositorySubscription.subscriber_tenant_id).where(
+                        RepositorySubscription.repository_tenant_id == tenant_id
+                    )
                 )
-            )
-        ).all()
+            ).all()
+        )
         title, notice = current_notice(repository_name=tenant.name, release=release)
-        await notify_tenant_admins(
+        await announce(
             session,
-            recipient_tenant_ids=subscribers,
-            current_tenant_id=tenant_id,
+            repository_id=tenant_id,
+            release_id=release.id,
             type="repository_updated",
             title=title,
             body=notice,
             created_by=user.id,
+            recipients=subscribers,
         )
     out = _authored(release, current=True, kept=True)
     await session.commit()
+    drain_after_response(background_tasks, session)
     return out
 
 
@@ -505,19 +518,17 @@ async def _releases_taken_by(
     )
 
 
-@router.get("/subscribers")
-async def list_subscribers(
-    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
-    session: SessionDep,
-    params: ParamsDep,
-) -> Page[SubscriberOut]:
-    """The tenants this repository is granted to or that have copied it, for any
-    of its members (ADR 0204): whether and when each copied it and last
-    updated, and, for one whose invitation is gone but whose copy stays, no
-    `granted_at`."""
-    await _require_repository(session, tenant_id)
-    stmt = (
-        select(Tenant, RepositorySubscription, RepositoryCopy)
+# What a repository's log records of a library it named itself: an invitation and the end of one.
+# A library a repository has never named is not named by it (ADR 0299).
+_NAMED_ACTIONS = ("repository.granted", "repository.revoked")
+
+
+def _holders(tenant_id: uuid.UUID, *columns: Any) -> Any:
+    """The libraries that hold a grant to the repository or a copy of it, one row each:
+    `Tenant`, its grant and its copy, joined, for `columns` to read."""
+    return (
+        select(*columns)
+        .select_from(Tenant)
         .outerjoin(
             RepositorySubscription,
             (RepositorySubscription.subscriber_tenant_id == Tenant.id)
@@ -528,10 +539,65 @@ async def list_subscribers(
             (RepositoryCopy.tenant_id == Tenant.id)
             & (RepositoryCopy.repository_tenant_id == tenant_id),
         )
-        .where(
-            RepositorySubscription.subscriber_tenant_id.is_not(None)
-            | RepositoryCopy.tenant_id.is_not(None)
+    )
+
+
+def _once_named(tenant_id: uuid.UUID) -> Any:
+    """Whether the repository's own log names the library: its Owner invited it, or stopped
+    inviting it, so the Owner knows it already."""
+    return Tenant.id.in_(
+        select(AuditLog.target_id).where(
+            AuditLog.tenant_id == tenant_id,
+            AuditLog.action.in_(_NAMED_ACTIONS),
+            AuditLog.target_id.is_not(None),
         )
+    )
+
+
+def _is_named(tenant_id: uuid.UUID) -> Any:
+    """The libraries a repository's members are told by name: those it invited, and those it
+    invited once that still hold a copy of it (ADR 0204). A library that copied a public
+    repository by itself is not among them, whether its grant stands or went when the repository
+    went private: it is counted (`_is_public_copy`) and never named (ADR 0299)."""
+    return or_(
+        RepositorySubscription.source == "invited",
+        and_(
+            RepositorySubscription.subscriber_tenant_id.is_(None),
+            RepositoryCopy.tenant_id.is_not(None),
+            _once_named(tenant_id),
+        ),
+    )
+
+
+def _is_public_copy(tenant_id: uuid.UUID) -> Any:
+    """The libraries that copied it by themselves, from Discover: a grant they gave themselves,
+    or a copy and no grant that the repository's log never names (its public grants are
+    revoked when it goes private, and the copies stay)."""
+    return or_(
+        RepositorySubscription.source == "public",
+        and_(
+            RepositorySubscription.subscriber_tenant_id.is_(None),
+            RepositoryCopy.tenant_id.is_not(None),
+            ~_once_named(tenant_id),
+        ),
+    )
+
+
+@router.get("/subscribers")
+async def list_subscribers(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
+    session: SessionDep,
+    params: ParamsDep,
+) -> Page[SubscriberOut]:
+    """The libraries this repository invited, and those it invited once that still hold a copy,
+    for any of its members (ADR 0204): whether and when each copied it and last updated, and, for
+    one whose invitation is gone but whose copy stays, no `granted_at`. A library that copied a
+    public repository by itself is not named here, only counted by `GET /subscribers/summary`
+    (ADR 0299)."""
+    await _require_repository(session, tenant_id)
+    stmt = (
+        _holders(tenant_id, Tenant, RepositorySubscription, RepositoryCopy)
+        .where(_is_named(tenant_id))
         .order_by(Tenant.name, Tenant.id)
     )
 
@@ -545,6 +611,23 @@ async def list_subscribers(
         Page[SubscriberOut],
         await apaginate(session, stmt, params, transformer=_rows_out, unique=False),
     )
+
+
+@router.get("/subscribers/summary")
+async def summarize_subscribers(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)], session: SessionDep
+) -> SubscribersSummaryOut:
+    """How many libraries `GET /subscribers` names (`named`) and how many copied the repository
+    by themselves from Discover (`public_copies`), which is all a repository learns of them
+    (ADR 0299, RFC 0038 section 6). For its Owners and Organizers."""
+    await _require_repository(session, tenant_id)
+    named = await session.scalar(
+        _holders(tenant_id, func.count(Tenant.id)).where(_is_named(tenant_id))
+    )
+    public_copies = await session.scalar(
+        _holders(tenant_id, func.count(Tenant.id)).where(_is_public_copy(tenant_id))
+    )
+    return SubscribersSummaryOut(named=named or 0, public_copies=public_copies or 0)
 
 
 @router.get("/attachments")
@@ -586,7 +669,10 @@ async def grant_repository(
     """Grants another tenant access (ADR 0118): `201` for a new grant,
     `200` if it already had one. The tenant is named by its id, which its
     own members pass on; there's no directory of tenants to pick from.
-    Its members are told.
+    Its members are told. A library that holds a public grant, which it gave itself by copying
+    a public repository, is invited all the same (an invitation outranks it, ADR 0287): its
+    grant becomes an invitation and the answer is `201`, as for any new one, so that what
+    comes back says nothing of whether it had copied the repository by itself (ADR 0299).
     """
     await _require_owner(session, tenant_id=tenant_id, user=user)
     repository = await _require_repository(session, tenant_id)
@@ -596,7 +682,10 @@ async def grant_repository(
     if subscriber is None:
         raise TenantNotFoundError(detail=f"No tenant with id {subscriber_tenant_id}")
     subscription = await session.get(RepositorySubscription, (tenant_id, subscriber_tenant_id))
-    if subscription is not None:
+    if subscription is not None and subscription.source == "public":
+        await session.delete(subscription)
+        await session.flush()
+    elif subscription is not None:
         held = await session.get(RepositoryCopy, (subscriber_tenant_id, tenant_id))
         return _subscriber_out(
             subscriber, subscription, held, await _releases_taken_by(session, tenant_id, [held])
@@ -630,8 +719,10 @@ async def revoke_repository(
     """
     await _require_owner(session, tenant_id=tenant_id, user=user)
     repository = await _require_repository(session, tenant_id)
+    # A grant a library gave itself by copying a public repository is not the repository's to end,
+    # or to know by id: for the repository it is not there (ADR 0299).
     subscription = await session.get(RepositorySubscription, (tenant_id, subscriber_tenant_id))
-    if subscription is None:
+    if subscription is None or subscription.source != "invited":
         raise SubscriptionNotFoundError(
             detail=f"Tenant {subscriber_tenant_id} holds no grant for repository {tenant_id}"
         )
@@ -744,7 +835,11 @@ async def list_repositories(
     synced: dict[uuid.UUID, ReleaseRef] = {}
     current: dict[uuid.UUID, ReleaseRef] = {}
     for repository_id, offered in repositories.items():
-        if offered.published_at is None or offered.kind is not TenantKind.REPOSITORY:
+        if (
+            offered.published_at is None
+            or offered.delisted_at is not None
+            or offered.kind is not TenantKind.REPOSITORY
+        ):
             continue
         # What a library may read of a repository's releases it reads through the gated
         # read: an invitation withdrawn, or a repository back in draft, leaves it none.
@@ -772,7 +867,12 @@ async def list_repositories(
                     name=repository.name if repository else (copy.repository_name if copy else ""),
                     slug=repository.slug if repository else "",
                     description=repository.description if repository else "",
-                    published_at=repository.published_at if repository else None,
+                    # A delisted repository reads as unpublished to the libraries (ADR 0303).
+                    published_at=(
+                        repository.published_at
+                        if repository and repository.delisted_at is None
+                        else None
+                    ),
                 ),
                 granted_at=grant.created_at if grant else None,
                 copied_at=copy.copied_at if copy else None,

@@ -84,7 +84,14 @@ export async function goPublic(api: Api, repositoryId: string, summary: string, 
   await ok(
     api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: repositoryId } },
-      body: { preview, breaking: false, acknowledge_breaking: true, summary, label: '1.0' },
+      body: {
+        preview,
+        breaking: false,
+        acknowledge_breaking: true,
+        accept_terms: true,
+        summary,
+        label: '1.0',
+      },
     }),
   );
 }

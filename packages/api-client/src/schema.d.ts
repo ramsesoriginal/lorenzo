@@ -121,7 +121,8 @@ export interface paths {
          * Suspend User
          * @description Idempotent - re-suspending an already-suspended account updates the
          *     reason/operator but doesn't error, mirroring `grant_campaign_gm`'s own
-         *     idempotent-PUT precedent. See ADR 0057: the target's *next* request,
+         *     idempotent-PUT precedent. Every repository the account is an Owner of is delisted with it
+         *     (ADR 0303). See ADR 0057: the target's *next* request,
          *     anywhere in the API, is rejected by `dependencies.get_current_user`.
          */
         put: operations["suspend_user"];
@@ -154,6 +155,56 @@ export interface paths {
          */
         post: operations["create_platform_notification_route"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/repositories/delisted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Delisted Repositories
+         * @description The repositories the platform's operators have taken off Discover, the latest first: id,
+         *     name, the reason, when and by whom (ADR 0303).
+         */
+        get: operations["list_delisted_repositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/repositories/{repository_id}/delist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Delist Repository Route
+         * @description Takes a repository off Discover: it closes to new copies and to every library and visitor
+         *     reading it from outside (they read it as unpublished, so an update check stops too), and
+         *     its own members still read and edit it and are told. Libraries that copied it keep their
+         *     copies. Idempotent: delisting a delisted repository updates the reason, and the Owners are
+         *     told once, the first time. `404` for an id that is not a repository (ADR 0303).
+         */
+        put: operations["delist_repository_route"];
+        post?: never;
+        /**
+         * Relist Repository Route
+         * @description Lists a repository again. A no-op, still `200` with `relisted: false`, if it was not
+         *     delisted. Its Owners are told when it was (ADR 0303).
+         */
+        delete: operations["relist_repository_route"];
         options?: never;
         head?: never;
         patch?: never;
@@ -710,8 +761,14 @@ export interface paths {
         };
         /**
          * Get Tenant Picture
-         * @description No auth, no fallback - see module docstring and ADR 0056. A tenant
-         *     with no uploaded picture 404s the same way an unknown tenant_id does;
+         * @description Open, with no fallback - see module docstring and ADR 0056 - except for a private
+         *     repository's picture, which is for a signed-in user: any, a member or not (ADR 0300). A
+         *     request with no token for one gets the answer of a tenant with no picture, a `404`, so that
+         *     nothing tells a private repository from an unknown id or a play tenant without a picture; a
+         *     token that is sent is checked, and a bad one is a `401` for every tenant alike. A play
+         *     tenant's picture and a public repository's are served as ever.
+         *
+         *     A tenant with no uploaded picture 404s the same way an unknown tenant_id does;
          *     the only signal disclosed either way is whether a *picture* exists for
          *     this id, not bare tenant existence beyond that.
          */
@@ -988,12 +1045,35 @@ export interface paths {
         };
         /**
          * List Subscribers
-         * @description The tenants this repository is granted to or that have copied it, for any
-         *     of its members (ADR 0204): whether and when each copied it and last
-         *     updated, and, for one whose invitation is gone but whose copy stays, no
-         *     `granted_at`.
+         * @description The libraries this repository invited, and those it invited once that still hold a copy,
+         *     for any of its members (ADR 0204): whether and when each copied it and last updated, and, for
+         *     one whose invitation is gone but whose copy stays, no `granted_at`. A library that copied a
+         *     public repository by itself is not named here, only counted by `GET /subscribers/summary`
+         *     (ADR 0299).
          */
         get: operations["list_subscribers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/subscribers/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summarize Subscribers
+         * @description How many libraries `GET /subscribers` names (`named`) and how many copied the repository
+         *     by themselves from Discover (`public_copies`), which is all a repository learns of them
+         *     (ADR 0299, RFC 0038 section 6). For its Owners and Organizers.
+         */
+        get: operations["summarize_subscribers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1039,7 +1119,10 @@ export interface paths {
          * @description Grants another tenant access (ADR 0118): `201` for a new grant,
          *     `200` if it already had one. The tenant is named by its id, which its
          *     own members pass on; there's no directory of tenants to pick from.
-         *     Its members are told.
+         *     Its members are told. A library that holds a public grant, which it gave itself by copying
+         *     a public repository, is invited all the same (an invitation outranks it, ADR 0287): its
+         *     grant becomes an invitation and the answer is `201`, as for any new one, so that what
+         *     comes back says nothing of whether it had copied the repository by itself (ADR 0299).
          */
         put: operations["grant_repository"];
         post?: never;
@@ -1430,9 +1513,11 @@ export interface paths {
          *     Needs a summary, given here or already on the profile (`422
          *     public-repository-summary-required`), every repository it is built on public (`409
          *     built-on-not-public`) and up to date (`409 built-on-behind`), and says what a visitor may
-         *     look at before copying (`preview`, the default `showcase`). Owner only; `422
-         *     public-repositories-not-available` while the deployment does not accept public
-         *     repositories.
+         *     look at before copying (`preview`, the default `showcase`) and the terms line agreed to
+         *     (`accept_terms: true`, else `422 terms-not-accepted`; the agreement is logged in the
+         *     repository's activity log as `repository.terms_accepted`, with the user and no wording).
+         *     Owner only; `422 public-repositories-not-available` while the deployment does not accept
+         *     public repositories.
          */
         put: operations["make_repository_public"];
         post?: never;
@@ -1737,7 +1822,8 @@ export interface paths {
          *     `released`, never by popularity. `q` is a case-insensitive part of the name, the summary or a
          *     tag; `tag`, `system` and `language` narrow it exactly. A page is at most 50 repositories (a
          *     bigger `size` is that), and a listing goes at most 1000 deep: `422 discover-too-deep`, narrow
-         *     it. Listed are repositories that are public, published and have a release.
+         *     it. Listed are repositories that are public, published and have a release. Each says who
+         *     published it, by its Owners' accounts (`publishers`, ADR 0299).
          */
         get: operations["list_public_repositories"];
         put?: never;
@@ -1778,7 +1864,9 @@ export interface paths {
         };
         /**
          * Get Storefront
-         * @description A listed repository's page: its listing entry, its long description and its profile.
+         * @description A listed repository's page: its listing entry (with who published it, by its Owners'
+         *     accounts), its long description, its profile and, where the deployment sets a report address,
+         *     a `mailto:` for the Report link.
          *     `404` for one that is not listed (private, a draft, or with no release), the same as for one
          *     that does not exist.
          */
@@ -2074,6 +2162,8 @@ export interface paths {
          *     and picture and the role, Author or Organizer; for a library link the repository's name and
          *     picture. Nothing else: no ids but those in a picture's address, no roster, no members. Does
          *     an indexed read and never writes, and a dead link is the same 404 whatever the kind.
+         *     A repository's picture address answers a request with no token only for a public repository
+         *     (ADR 0300): the page of someone who is logged in fetches it with the token.
          */
         get: operations["preview_invite"];
         put?: never;
@@ -5944,6 +6034,59 @@ export interface components {
             url: string | null;
         };
         /**
+         * DelistRepositoryRequest
+         * @description PUT /admin/repositories/{id}/delist body - ADR 0303: why, in 1 to 500 characters. The
+         *     repository's Owners read it, in the notice and on their repository's page.
+         */
+        DelistRepositoryRequest: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * DelistedOut
+         * @description That the platform's operators took a repository off Discover, and why: read by the
+         *     repository's own members and by nobody else (ADR 0303). Never who: the operators are the
+         *     platform's, not a person.
+         */
+        DelistedOut: {
+            /** Reason */
+            reason: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /**
+         * DelistedRepositoryOut
+         * @description A repository the platform's operators have off Discover: GET /admin/repositories/delisted
+         *     and PUT /admin/repositories/{id}/delist - ADR 0303. `delisted_by` is the operator's account,
+         *     which only operators read (`delisted_by_nickname` its nickname, where it has one); the
+         *     repository's own members read the reason and the time and never who.
+         */
+        DelistedRepositoryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Delisted At
+             * Format: date-time
+             */
+            delisted_at: string;
+            /** Delisted By */
+            delisted_by: string | null;
+            /** Delisted By Nickname */
+            delisted_by_nickname: string | null;
+        };
+        /**
          * DescriptionOut
          * @description Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
          *     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
@@ -6069,6 +6212,8 @@ export interface components {
             entries: number | null;
             /** Stat Definitions */
             stat_definitions: number | null;
+            /** Publishers */
+            publishers: components["schemas"]["PublisherOut"][];
         };
         /**
          * DiscoverPageOut
@@ -6533,6 +6678,9 @@ export interface components {
             public_libraries: number;
             /** Invited Libraries */
             invited_libraries: number;
+            /** Publishers */
+            publishers: components["schemas"]["PublisherOut"][];
+            delisted?: components["schemas"]["DelistedOut"] | null;
         };
         /**
          * GiveContentsRequest
@@ -7430,6 +7578,11 @@ export interface components {
          *     it goes public. `summary` is kept if given (a repository must have one, here or already);
          *     `preview` is the Owner's switch for what a visitor may look at before copying (RFC 0038
          *     section 5), `showcase` unless they choose.
+         *
+         *     `accept_terms` is the terms line the Owner agrees to in the dialog, and it must be `true`
+         *     (`422 terms-not-accepted` otherwise; a client that does not send it is refused). Draft
+         *     wording, the maintainer's to approve: I have the right to publish this repository.
+         *     Publishing cannot be recalled: libraries that copied it keep their copies.
          */
         MakePublicRequest: {
             /** Label */
@@ -7454,6 +7607,11 @@ export interface components {
             preview: "off" | "showcase" | "public";
             /** Summary */
             summary?: string | null;
+            /**
+             * Accept Terms
+             * @default false
+             */
+            accept_terms: boolean;
         };
         /**
          * ManagedCampaignOut
@@ -7590,6 +7748,44 @@ export interface components {
             characters: components["schemas"]["CharacterSummaryOut"][];
             /** Self Service Effective */
             self_service_effective: boolean;
+        };
+        /**
+         * MemberProfileOut
+         * @description What the repository's own members read of its profile (ADR 0303): the profile, and
+         *     `delisted` while the platform's operators have it off Discover (`null` while it is listed).
+         *     A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
+         *     they cannot read a delisted repository.
+         */
+        MemberProfileOut: {
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "public";
+            /**
+             * Preview
+             * @enum {string}
+             */
+            preview: "off" | "showcase" | "public";
+            /** Summary */
+            summary: string;
+            licence: components["schemas"]["LicenceOut"] | null;
+            /** Credits */
+            credits: components["schemas"]["CreditOut"][];
+            /** Tags */
+            tags: string[];
+            /** System */
+            system: string | null;
+            /** Languages */
+            languages: string[];
+            /** Has Cover */
+            has_cover: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            delisted?: components["schemas"]["DelistedOut"] | null;
         };
         /**
          * MembershipCreate
@@ -7931,6 +8127,19 @@ export interface components {
         Page_ContributionOut_: {
             /** Items */
             items: components["schemas"]["ContributionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[DelistedRepositoryOut] */
+        Page_DelistedRepositoryOut_: {
+            /** Items */
+            items: components["schemas"]["DelistedRepositoryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -8884,6 +9093,16 @@ export interface components {
             release: components["schemas"]["ReleaseAuthoredOut"];
         };
         /**
+         * PublisherOut
+         * @description Who published a repository, as its Owners' accounts say it (ADR 0299, RFC 0038 section 6):
+         *     an account's display name, else its nickname, and never a field the repository writes about
+         *     itself. An Owner whose account has neither is "A Lorenzo account".
+         */
+        PublisherOut: {
+            /** Display Name */
+            display_name: string;
+        };
+        /**
          * ReleaseAuthoredOut
          * @description A release as the repository's own members see it: `created_by` is the user who
          *     published it, null once their account is gone. A library never reads it.
@@ -9051,6 +9270,22 @@ export interface components {
             label?: string | null;
             /** Notes */
             notes?: string | null;
+        };
+        /**
+         * RelistedRepositoryOut
+         * @description DELETE /admin/repositories/{id}/delist: `relisted` says whether it had been delisted
+         *     (a repository that was not is left as it is) - ADR 0303.
+         */
+        RelistedRepositoryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Relisted */
+            relisted: boolean;
         };
         /**
          * RepositoryDependencyOut
@@ -9773,13 +10008,15 @@ export interface components {
             /** Description */
             description: string;
             profile: components["schemas"]["RepositoryProfileOut"];
+            /** Report Mailto */
+            report_mailto: string | null;
         };
         /**
          * SubscriberOut
-         * @description A tenant granted a repository or holding a copy of it, as its owners
-         *     see it - ADR 0118, 0204. `granted_at` is null for one whose invitation is
-         *     gone and whose copy stays; `copied_at` and `synced_at` are null until it
-         *     copies.
+         * @description A tenant invited to a repository, or invited once and still holding a copy of it, as its
+         *     owners see it - ADR 0118, 0204. `granted_at` is null for one whose invitation is gone and
+         *     whose copy stays; `copied_at` and `synced_at` are null until it copies. A library that
+         *     copied a public repository by itself is never one of these (ADR 0299).
          */
         SubscriberOut: {
             /**
@@ -9800,6 +10037,19 @@ export interface components {
             /** Synced At */
             synced_at: string | null;
             synced_release: components["schemas"]["ReleaseRefOut"] | null;
+        };
+        /**
+         * SubscribersSummaryOut
+         * @description How many libraries use a repository, for its members (ADR 0299, RFC 0038 section 6): the
+         *     ones `GET /subscribers` names, and, as one number, the ones that copied it by themselves from
+         *     Discover, whose names a repository never learns. `public_copies` also counts a copy that
+         *     outlived the grant a public repository going private revoked.
+         */
+        SubscribersSummaryOut: {
+            /** Named */
+            named: number;
+            /** Public Copies */
+            public_copies: number;
         };
         /**
          * SubscriptionOut
@@ -10659,6 +10909,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_delisted_repositories: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_DelistedRepositoryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delist_repository_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DelistRepositoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DelistedRepositoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    relist_repository_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelistedRepositoryOut"];
                 };
             };
             /** @description Validation Error */
@@ -13377,6 +13827,71 @@ export interface operations {
             };
         };
     };
+    summarize_subscribers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscribersSummaryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_attachments: {
         parameters: {
             query?: {
@@ -14337,7 +14852,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                    "application/json": components["schemas"]["MemberProfileOut"];
                 };
             };
             /** @description Validation Error */
@@ -14406,7 +14921,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                    "application/json": components["schemas"]["MemberProfileOut"];
                 };
             };
             /** @description Validation Error */

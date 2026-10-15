@@ -39,6 +39,7 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
 )
+from lorenzo_api.release_fanout import drain
 from lorenzo_api.repository_built_on import built_on_behind, public_dependents
 from lorenzo_api.repository_flips import make_private, make_public
 from lorenzo_api.schemas.repositories import PublishRequest
@@ -124,6 +125,8 @@ async def test_making_a_repository_public_is_one_action_with_its_first_public_re
             f"/tenants/{world.table}/repositories/{world.repository}/entities"
         )
         assert [e["name"] for e in names.json()["items"]] == ["Dagger", "Longsword", "Orc"]
+        # Called as a function, so no response to hint a drain: the announcement is drained here.
+        await drain()
         notices = await _notices(world.gm)
         assert len(notices) == told + 1
         assert "release 2.0" in notices[0]["title"]
@@ -365,6 +368,8 @@ async def test_making_a_repository_private_revokes_the_grants_libraries_gave_the
             (r["repository"]["id"], r["granted_at"], r["copied_at"] is not None)
             for r in listed.json()["items"]
         ] == [(str(world.repository), None, True)]
+        # Called as a function, so no response to hint a drain: the announcement is drained here.
+        await drain()
         notices = await _notices(world.gm)
         assert len(notices) == told + 1
         assert notices[0]["type"] == "repository_revoked"

@@ -250,6 +250,17 @@ def test_subscribers_say_who_copied_it_and_who_kept_a_copy_without_an_invitation
     assert "2026-10-03" in kept
 
 
+def test_subscribers_say_how_many_copied_it_by_themselves_and_never_who(tmp_path: Path) -> None:
+    result = run(tmp_path, World(granted=True, public_copies=3), "subscribers", "-t", "sunken-vale")
+
+    assert result.exit_code == 0, result.output
+    assert "table-one" in result.output
+    assert "3 libraries copied it by themselves from Discover" in said(result)
+    only = run(tmp_path, World(granted=False, public_copies=1), "subscribers", "-t", "sunken-vale")
+    assert "isn't granted to any tenant" not in said(only)
+    assert "1 library copied it by itself from Discover" in said(only)
+
+
 def test_subscribers_json_is_an_array(tmp_path: Path) -> None:
     result = run(tmp_path, World(granted=True), "subscribers", "-t", "sunken-vale", "--json")
 
@@ -1274,6 +1285,27 @@ def test_a_publish_the_api_refuses_for_breaking_changes_says_which_and_how_to_go
     text = said(result)
     assert "Orc" in text and "was removed" in text
     assert "--acknowledge-breaking" in text
+
+
+def test_a_publish_inside_the_cooldown_prints_the_apis_words_and_the_status(
+    tmp_path: Path,
+) -> None:
+    world = World()
+    world.publish_answer = problem(
+        429,
+        "release-cooldown",
+        "This repository can make its next release at 14:05 UTC. Releases of a public "
+        "repository are at least 5 minutes apart.",
+        allowed_at="2026-10-15T14:05:00+00:00",
+        interval_seconds=300,
+    )
+    result = run(tmp_path, world, "publish", "-t", "sunken-vale")
+
+    assert result.exit_code == 1
+    text = said(result)
+    assert "can make its next release at 14:05 UTC" in text
+    assert "at least 5 minutes apart" in text
+    assert "HTTP 429" in text
 
 
 def test_acknowledging_breaking_changes_is_sent(tmp_path: Path) -> None:

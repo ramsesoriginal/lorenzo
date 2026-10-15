@@ -7,6 +7,7 @@
 // "Matches release 1.3" and "Edited since 1.3", never "stable", "frozen" or "final", and always
 // beside them that text edits are not tracked.
 
+import { ApiError } from './apiError';
 import { dayOf } from './shelf';
 import type {
   BreakingRowOut,
@@ -165,6 +166,50 @@ export function publishBody(form: ComposerForm, hits: readonly BreakingRowOut[])
     breaking: form.breaking || (hits.length > 0 && form.acknowledged),
     acknowledge_breaking: hits.length > 0 && form.acknowledged,
   };
+}
+
+// The API refuses a release of a public repository inside the interval after its newest one
+// (`429 release-cooldown`, ADR 0301). It says when the next is possible and how far apart they are;
+// here that is said once more in the reader's own time, since the API cannot know their time zone.
+export const RELEASE_COOLDOWN_TYPE = 'release-cooldown';
+
+export function intervalWords(seconds: number): string {
+  if (seconds % 60 === 0) return plural(seconds / 60, 'minute', 'minutes');
+
+  return plural(seconds, 'second', 'seconds');
+}
+
+// The time of day of an ISO instant, as a person reads a clock: the reader's own, unless told.
+export function timeOfDay(iso: string, locale?: string, timeZone?: string): string {
+  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone });
+}
+
+export function cooldownSentence(
+  allowedAt: string,
+  intervalSeconds: number,
+  locale?: string,
+  timeZone?: string,
+): string {
+  return `This repository can make its next release at ${timeOfDay(allowedAt, locale, timeZone)}. Releases of a public repository are at least ${intervalWords(intervalSeconds)} apart.`;
+}
+
+// The sentence for the API's refusal to release again so soon, or null for any other error. A
+// refusal without the times it carries falls back to the API's own detail, which says the same.
+export function cooldownRefusal(cause: unknown, locale?: string, timeZone?: string): string | null {
+  if (!(cause instanceof ApiError) || cause.problemType !== RELEASE_COOLDOWN_TYPE) return null;
+
+  const { allowed_at: allowedAt, interval_seconds: interval, detail } = cause.problem;
+
+  if (
+    typeof allowedAt === 'string' &&
+    !Number.isNaN(Date.parse(allowedAt)) &&
+    typeof interval === 'number' &&
+    interval > 0
+  ) {
+    return cooldownSentence(allowedAt, interval, locale, timeZone);
+  }
+
+  return typeof detail === 'string' && detail !== '' ? detail : null;
 }
 
 // What a label will be if the author writes none: the next number.

@@ -2,7 +2,7 @@ import json
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -169,10 +169,45 @@ class Settings(BaseSettings):
     # than this is not kept; 0 keeps none.
     release_cache_entries: int = 10_000
 
+    # The interval between two releases of a public repository, in seconds (ADR 0301, RFC 0038
+    # section 6): a release is announced to every library that holds the repository, and a
+    # stranger can copy it; a private one is not held back. 0 turns it off. A rollback and the
+    # release made by the flip to public are never refused by it.
+    release_cooldown_seconds: int = Field(default=300, ge=0)
+
+    # The fan-out of a release announcement (ADR 0301): how many libraries one chunk of a drain
+    # tells, in one transaction; how many chunks one sweep writes before it leaves the rest for
+    # the next; and the least time between two sweeps a process starts on an authenticated
+    # request.
+    release_fanout_chunk_size: int = Field(default=250, ge=1)
+    release_fanout_sweep_chunks: int = Field(default=20, ge=1)
+    release_fanout_sweep_interval_seconds: int = Field(default=60, ge=0)
+
+    # Quotas on a repository (RFC 0038 section 6, ADR 0298), for every tenant of kind repository and
+    # no other: the most entries a repository holds, the most picture bytes it holds in all (the
+    # pictures on its entries, not its cover), and the most bytes in one such picture. Set well
+    # above the seeded repositories; `0` takes a limit off. Held for what is written by hand (the
+    # routes, the importer, Bench), not for the copy and update engines. A repository over a limit
+    # lowered later is never blocked from changing or shrinking, only from growing. The picture
+    # limit equals `picture_max_bytes` by default and is its own setting so it can be lowered.
+    repository_max_entries: int = 30_000
+    repository_max_picture_bytes: int = 20_000_000
+    repository_picture_max_bytes: int = 10_000_000
+
     # Whether a repository can be made public (RFC 0038 section 1, ADR 0290). Off until the gates
     # that come before a public repository are in (D3 to D6) and the deployment says so: the flip
     # routes exist and answer `public-repositories-not-available` while it is off.
     public_repositories_enabled: bool = False
+
+    # Where a report about a public repository goes (RFC 0038 section 6, ADR 0299): an email
+    # address, `REPORT_ADDRESS`. A storefront carries a `mailto:` to it, with the repository's name
+    # and id in the subject, only when it is set; there is no report inbox in Lorenzo.
+    report_address: str | None = None
+
+    @field_validator("report_address")
+    @classmethod
+    def _blank_report_address_is_unset(cls, v: str | None) -> str | None:
+        return (v or "").strip() or None
 
     @field_validator("database_url", "migrations_database_url")
     @classmethod

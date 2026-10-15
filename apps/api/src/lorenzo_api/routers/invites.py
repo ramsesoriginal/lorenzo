@@ -65,6 +65,8 @@ async def preview_invite(token: str, request: Request, session: SessionDep) -> I
     and picture and the role, Author or Organizer; for a library link the repository's name and
     picture. Nothing else: no ids but those in a picture's address, no roster, no members. Does
     an indexed read and never writes, and a dead link is the same 404 whatever the kind.
+    A repository's picture address answers a request with no token only for a public repository
+    (ADR 0300): the page of someone who is logged in fetches it with the token.
     """
     invite = await find_live_invite(session, token)
     if invite is None:

@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Enum, ForeignKeyConstraint, text
+from sqlalchemy import BigInteger, Enum, ForeignKey, ForeignKeyConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy, UuidPk
@@ -96,6 +96,16 @@ class Tenant(Base):
     # A repository's draft/published state (ADR 0118): null while it's a
     # draft, invisible to every subscriber. Always null for a play tenant.
     published_at: Mapped[datetime | None]
+    # ADR 0303: a repository the platform's operators took off Discover - when, which operator and
+    # why. All three or none, and only a repository has them. A delisted repository reads as
+    # unpublished to everyone but its own members and the operators; the operator's account may
+    # be gone, the time and the reason are kept. They sit here, beside `published_at`, because
+    # the gate and the policies that decide who reads a repository read this row.
+    delisted_at: Mapped[datetime | None]
+    delisted_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("app_user.id", ondelete="SET NULL")
+    )
+    delist_reason: Mapped[str | None]
     # ADR 0288: the release a library reads of a repository, set by a publish and by "make release
     # current"; null for a play tenant and for a repository that has made none.
     current_release_id: Mapped[uuid.UUID | None]

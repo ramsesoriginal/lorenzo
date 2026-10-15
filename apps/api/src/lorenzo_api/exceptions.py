@@ -111,7 +111,9 @@ __all__ = [
     "RepositoryNotCopiedError",
     "RepositoryUpdateNeedsChoicesError",
     "PublicRepositoriesNotAvailableError",
+    "TermsNotAcceptedError",
     "ReleaseLabelTakenError",
+    "ReleaseCooldownError",
     "ReleaseHasBreakingChangesError",
     "EntityKindInUseError",
     "InvalidKindRequestError",
@@ -1075,6 +1077,17 @@ class UpdateNeedsConfirmationError(ConflictProblem):
     title = "Some changes are marked breaking"
 
 
+class ReleaseCooldownError(StatusProblem):
+    """Publishing a release of a public repository inside the interval after its newest release
+    (`release_cooldown_seconds`) - ADR 0301, RFC 0038 section 6. `429` with `Retry-After`; carries
+    `allowed_at`, the time the next release is possible, and `interval_seconds`, the interval.
+    fastapi_problem has no named 429 base, so this subclasses StatusProblem directly, as
+    TooManyRequestsError does."""
+
+    status = 429
+    title = "This repository released a moment ago"
+
+
 class ReleaseNotFoundError(NotFoundProblem):
     """Editing a release the repository has not made - ADR 0207."""
 
@@ -1158,6 +1171,14 @@ class PublicRepositoriesNotAvailableError(UnprocessableProblem):
     can be made public before they exist."""
 
     title = "Public repositories are not available yet"
+
+
+class TermsNotAcceptedError(UnprocessableProblem):
+    """PUT /tenants/{id}/public without `accept_terms: true` - ADR 0299, RFC 0038 section 6. The
+    Owner agrees to the terms line before a repository goes public: that they have the right to
+    publish it, and that publishing cannot be recalled."""
+
+    title = "Agree to the terms to make it public"
 
 
 class EntityKindInUseError(ConflictProblem):
@@ -1347,3 +1368,38 @@ class CampaignGmTitleInvalidError(UnprocessableProblem):
     plain text - ADR 0294."""
 
     title = "That title for the GM cannot be kept"
+
+
+class RepositoryEntryLimitError(UnprocessableProblem):
+    """A write that would give a repository more entries than a repository can have
+    (`Settings.repository_max_entries`) - ADR 0298, RFC 0038 section 6. Carries `quota`
+    (`entries`), `limit`, `holds` and `adding`; `detail` says it in words. Nothing is written."""
+
+    title = "A repository cannot hold more entries"
+
+
+class RepositoryPictureTotalLimitError(UnprocessableProblem):
+    """A picture that would take the pictures of a repository past the most a repository can
+    hold (`Settings.repository_max_picture_bytes`) - ADR 0298. Carries `quota`
+    (`picture_total`), `limit`, `holds` and `adding`, all in bytes."""
+
+    title = "A repository cannot hold more pictures"
+
+
+class RepositoryPictureTooLargeError(StatusProblem):
+    """One picture larger than a picture in a repository can be
+    (`Settings.repository_picture_max_bytes`) - ADR 0298. A `413`: the picture itself is the
+    problem, not the repository's room. Carries `quota` (`picture_size`), `limit` and `size`, in
+    bytes. fastapi_problem has no named 413 base, so this subclasses StatusProblem directly, as
+    PreconditionFailedError does for 412."""
+
+    status = 413
+    title = "That picture is too large for a repository"
+
+
+class RepositoryDelistedError(ConflictProblem):
+    """Making a repository public while the platform's operators have it delisted: it would be
+    public and listed nowhere, and closed to every library. Carries the reason in `detail` - ADR
+    0303, RFC 0038 section 6. The Owner makes it public again after an operator lists it."""
+
+    title = "This repository was taken off Discover"

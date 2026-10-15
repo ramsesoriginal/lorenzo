@@ -30,6 +30,7 @@ import { bindLeaveTenant } from '../Tenant/leaveTenant';
 import { renderTenantDelete } from '../TenantDelete/renderer';
 import { renderTenantEdit } from '../TenantEdit/renderer';
 import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
+import { createDelistedNotice } from './delisted';
 import { createPublishControls } from './publish';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
 import { createShowcaseControls } from './showcase';
@@ -104,6 +105,8 @@ export function renderRepository(
   // What people can look at, and the entries featured: the Owner's, beside the switch.
   const showcase = createShowcaseControls(root);
   const viewAs = createViewAs(root, hooks.mayCreate);
+  // Off Discover by the platform's operators: the notice every member reads (ADR 0303).
+  const delisted = createDelistedNotice(root);
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);
   const builtOn = createBuiltOn(root);
@@ -143,6 +146,7 @@ export function renderRepository(
     live.hidden = true;
     publishControls.clear();
     visibility.clear();
+    delisted.clear();
     showcase.clear();
     viewAs.clear();
     releases.clear();
@@ -163,6 +167,7 @@ export function renderRepository(
     publishControls.paint(repository, current.published);
     void viewAs.paint(repository, current.published);
     void visibility.paint(repository);
+    void delisted.paint(repository);
     void showcase.paint(repository);
     overview.hidden = false;
   }
@@ -251,7 +256,7 @@ export function renderRepository(
           const picture = cloneRoot(root, '[data-picture-upload-template]');
 
           renderPictureUpload(picture, {
-            url: tenantPictureUrl(repository.id),
+            url: () => tenantPictureUrl(repository.id),
             onUpload: (file) => uploadTenantPicture(repository.id, file),
             onDelete: () => deleteTenantPicture(repository.id),
           });

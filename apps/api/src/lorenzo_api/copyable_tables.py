@@ -59,6 +59,7 @@ from lorenzo_api.models import (
     PayloadNumber,
     PayloadPicture,
     Player,
+    ReleaseFanout,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -190,6 +191,9 @@ REGISTRY: tuple[CopyableTable, ...] = (
     CopyableTable("entity_change", EntityChange, False, "none"),
     CopyableTable("membership", Membership, False, "none"),
     CopyableTable("notification", Notification, False, "none"),
+    # The announcements a repository owes the libraries that hold it (ADR 0301): who copied it,
+    # drained by a process that finishes them across repositories; never content, never copied.
+    CopyableTable("release_fanout", ReleaseFanout, False, "none"),
     CopyableTable("player", Player, False, "none"),
     CopyableTable("tenant_admin_campaign_opt_out", TenantAdminCampaignOptOut, False, "none"),
     CopyableTable("tenant_profile_picture", TenantProfilePicture, False, "none"),

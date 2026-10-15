@@ -24,7 +24,13 @@ async function makePublic(
   await ok(
     api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: repositoryId } },
-      body: { preview: 'showcase', breaking: false, acknowledge_breaking: true, ...body },
+      body: {
+        preview: 'showcase',
+        breaking: false,
+        acknowledge_breaking: true,
+        accept_terms: true,
+        ...body,
+      },
     }),
   );
 }
@@ -226,11 +232,14 @@ test('a public repository is found by a word and by a tag, and its storefront op
   await expect(storefront(page).locator('[data-others]')).toContainText('Release 1.0, ');
   await expect(storefront(page).locator('[data-others]')).toContainText('The first release.');
 
-  // The wording rule, and what is not on the page yet.
+  // The wording rule, who published it (the Owner's account, here with no name, so a Lorenzo account)
+  // and the Report link the deployment sets an address for (ADR 0299).
   const words = await storefront(page).innerText();
 
   expect(words).not.toMatch(/tenant|grant|subscri|stable|frozen|popular/i);
-  expect(words).not.toMatch(/Report|Publisher|Terms/);
+  expect(words).toContain('Published by A Lorenzo account');
+  expect(words).toContain('Report this repository');
+  expect(words).not.toMatch(/Terms/);
 
   // Back to the list.
   await storefront(page).getByRole('link', { name: 'All public repositories' }).click();

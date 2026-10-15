@@ -197,10 +197,12 @@ async def _step(
         tenant_id is not None
         and (await session.get(RepositorySubscription, (repository_id, tenant_id))) is not None
     )
+    # A delisted repository reads as unpublished to everyone but its own members (ADR 0303).
     published = bool(
         repository
         and repository.kind is TenantKind.REPOSITORY
         and repository.published_at is not None
+        and repository.delisted_at is None
     )
     public = False
     if published:
@@ -941,6 +943,7 @@ _LINKS = COPY_LINKS
 async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]]) -> None:
     """Inserts a plan's rows in dependency order. Shared with ADR 0121's
     updates, which add rows the same way."""
+    # Not held to the quotas of ADR 0298: a bridge's size is its upstream's (see there).
     for key, model in _TABLES:
         if rows.get(key):
             await session.execute(insert(model), rows[key])

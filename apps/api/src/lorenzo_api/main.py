@@ -16,6 +16,8 @@ from lorenzo_api.forwarded_scheme import ForwardedSchemeMiddleware
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
 from lorenzo_api.observability.tracing import configure_tracing
+from lorenzo_api.release_fanout import start_sweeping, stop_sweeping
+from lorenzo_api.repository_quotas import install as install_repository_quotas
 from lorenzo_api.routers.activity_log import router as activity_log_router
 from lorenzo_api.routers.admin import router as admin_router
 from lorenzo_api.routers.app_links import router as app_links_router
@@ -55,11 +57,17 @@ from lorenzo_api.routers.tenant_invites import router as tenant_invites_router
 from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
 
+install_repository_quotas()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+    # Finish the announcements a process before this one left half sent (ADR 0301), off the
+    # start-up path.
+    start_sweeping()
     yield
+    await stop_sweeping()
     await engine.dispose()
 
 

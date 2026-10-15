@@ -14,7 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from lorenzo_api.config import get_settings
-from lorenzo_api.dependencies import PublicReader, SessionDep
+from lorenzo_api.dependencies import NO_TENANT, PublicReader, SessionDep
 from lorenzo_api.discover import (
     MAX_PAGE_SIZE,
     facets,
@@ -24,6 +24,7 @@ from lorenzo_api.discover import (
 )
 from lorenzo_api.exceptions import RepositoryNotFoundError
 from lorenzo_api.repository_profiles import profile_out
+from lorenzo_api.repository_publishers import publishers_of, report_mailto
 from lorenzo_api.schemas.discover import (
     DiscoverFacetsOut,
     DiscoverPageOut,
@@ -50,7 +51,8 @@ async def list_public_repositories(
     `released`, never by popularity. `q` is a case-insensitive part of the name, the summary or a
     tag; `tag`, `system` and `language` narrow it exactly. A page is at most 50 repositories (a
     bigger `size` is that), and a listing goes at most 1000 deep: `422 discover-too-deep`, narrow
-    it. Listed are repositories that are public, published and have a release."""
+    it. Listed are repositories that are public, published and have a release. Each says who
+    published it, by its Owners' accounts (`publishers`, ADR 0299)."""
     found, total = await search(
         session,
         q=q,
@@ -62,8 +64,11 @@ async def list_public_repositories(
         size=size,
     )
     clamped = max(1, min(size, MAX_PAGE_SIZE))
+    publishers = await publishers_of(
+        session, [f.tenant.id for f in found], current_tenant_id=NO_TENANT
+    )
     return DiscoverPageOut(
-        items=[item_out(f.profile, f.tenant) for f in found],
+        items=[item_out(f.profile, f.tenant, publishers[f.tenant.id]) for f in found],
         total=total,
         page=max(1, page),
         size=clamped,
@@ -82,14 +87,20 @@ async def discover_facets(session: SessionDep, user: PublicReader) -> DiscoverFa
 async def get_storefront(
     repository_id: uuid.UUID, session: SessionDep, user: PublicReader
 ) -> StorefrontOut:
-    """A listed repository's page: its listing entry, its long description and its profile.
+    """A listed repository's page: its listing entry (with who published it, by its Owners'
+    accounts), its long description, its profile and, where the deployment sets a report address,
+    a `mailto:` for the Report link.
     `404` for one that is not listed (private, a draft, or with no release), the same as for one
     that does not exist."""
     found = await listing_of(session, repository_id)
     if found is None:
         raise RepositoryNotFoundError(detail=f"No public repository {repository_id}")
+    publishers = await publishers_of(session, [repository_id], current_tenant_id=NO_TENANT)
     return StorefrontOut(
-        item=item_out(found.profile, found.tenant),
+        item=item_out(found.profile, found.tenant, publishers[repository_id]),
         description=found.tenant.description,
         profile=profile_out(found.profile, stamp=found.tenant.updated_at),
+        report_mailto=report_mailto(
+            get_settings().report_address, name=found.tenant.name, repository_id=repository_id
+        ),
     )

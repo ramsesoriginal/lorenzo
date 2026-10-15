@@ -140,4 +140,11 @@ def drop_worker_database() -> None:
         _run(lambda: _drop(admin_url, _DATABASE))
 
 
+# The tests release the same public repository again and again within
+# seconds; the cooldown between two releases (ADR 0301) is off unless a test sets a real value.
+os.environ.setdefault("RELEASE_COOLDOWN_SECONDS", "0")
+# Nor does a request start a sweep of stranded announcements behind a test that holds one: the
+# sweep is exercised by the tests of ADR 0301, which set their own interval.
+os.environ.setdefault("RELEASE_FANOUT_SWEEP_INTERVAL_SECONDS", "3600")
+
 point_at_worker_database()

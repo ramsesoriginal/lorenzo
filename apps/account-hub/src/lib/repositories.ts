@@ -14,6 +14,7 @@ import type {
   FlipCheckOut,
   MadePrivateOut,
   MakePublicRequest,
+  MemberProfileOut,
   Page,
   PublishRequest,
   ReleaseAuthoredOut,
@@ -24,6 +25,7 @@ import type {
   RepositoryStatGroupOut,
   ShowcaseOut,
   SubscriberOut,
+  SubscribersSummaryOut,
   SubscriptionOut,
   UpdatesOut,
 } from './types';
@@ -195,6 +197,24 @@ export async function listSubscribers(
   );
 }
 
+// How many libraries copied it by themselves, from Discover: the one thing a repository learns of them
+// besides the libraries it invited, which `listSubscribers` names (ADR 0299).
+export async function getSubscribersSummary(
+  repositoryId: string,
+  { fresh = false }: { fresh?: boolean } = {},
+): Promise<SubscribersSummaryOut> {
+  return cached(
+    `subscribers-summary:${repositoryId}`,
+    async () =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/subscribers/summary', {
+          params: { path: { tenant_id: repositoryId } },
+        }),
+      ),
+    { force: fresh },
+  );
+}
+
 // Invites a library (or another repository) to copy from this one, by its id. An Owner's.
 export async function inviteLibrary(repositoryId: string, libraryId: string): Promise<void> {
   await unwrap(
@@ -292,7 +312,7 @@ export async function editRelease(
 export async function getRepositoryProfile(
   repositoryId: string,
   { fresh = false }: { fresh?: boolean } = {},
-): Promise<RepositoryProfileOut> {
+): Promise<MemberProfileOut> {
   return cached(
     `repository-profile:${repositoryId}`,
     async () =>
@@ -355,7 +375,7 @@ export async function makePrivate(
 export async function setPreviewChoice(
   repositoryId: string,
   preview: RepositoryProfileOut['preview'],
-): Promise<RepositoryProfileOut> {
+): Promise<MemberProfileOut> {
   return unwrap(
     await client.PATCH('/tenants/{tenant_id}/profile', {
       params: { path: { tenant_id: repositoryId } },

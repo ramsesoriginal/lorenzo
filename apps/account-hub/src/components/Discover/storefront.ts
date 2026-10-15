@@ -13,8 +13,11 @@ import {
   factsOf,
   hasPrivateUpstream,
   licenceLine,
+  publishedByLine,
+  REPORT_LABEL,
   releaseGroups,
   releaseHeading,
+  reportHref,
 } from '../../lib/discover';
 import { getStorefront, listPublicDependencies, listPublicReleases } from '../../lib/discoverApi';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
@@ -61,12 +64,15 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
   const cover = required<HTMLImageElement>(view, '[data-cover]');
   const name = required<HTMLElement>(view, '[data-name]');
   const summary = required<HTMLElement>(view, '[data-summary]');
+  const publishedBy = required<HTMLElement>(view, '[data-published-by]');
   const tags = required<HTMLElement>(view, '[data-tags]');
   const facts = required<HTMLElement>(view, '[data-facts]');
   const description = required<HTMLElement>(view, '[data-description]');
   const licence = required<HTMLElement>(view, '[data-licence]');
   const creditsSection = required<HTMLElement>(view, '[data-credits-section]');
   const credits = required<HTMLElement>(view, '[data-credits]');
+  const reportLine = required<HTMLElement>(view, '[data-report-line]');
+  const report = required<HTMLAnchorElement>(view, '[data-report]');
   const partError = required<HTMLElement>(view, '[data-part-error]');
   const releaseSection = required<HTMLElement>(view, '[data-release-section]');
   const release = required<HTMLElement>(view, '[data-release]');
@@ -247,6 +253,19 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
       name.textContent = item.name;
       summary.textContent = item.summary;
       summary.hidden = item.summary === '';
+
+      const publisher = publishedByLine(item.publishers);
+
+      publishedBy.textContent = publisher ?? '';
+      publishedBy.hidden = publisher === null;
+
+      // A plain link, and only where the deployment says where a report goes (ADR 0299).
+      const mailto = reportHref(storefront.report_mailto);
+
+      report.textContent = REPORT_LABEL;
+      if (mailto) report.href = mailto;
+      else report.removeAttribute('href');
+      reportLine.hidden = mailto === null;
 
       tags.replaceChildren(
         ...profile.tags.map((tag) => {
