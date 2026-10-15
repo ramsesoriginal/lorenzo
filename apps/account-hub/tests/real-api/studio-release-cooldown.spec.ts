@@ -30,6 +30,7 @@ async function publicRepository() {
         preview: 'showcase',
         breaking: false,
         acknowledge_breaking: true,
+        accept_terms: true,
       },
     }),
   );

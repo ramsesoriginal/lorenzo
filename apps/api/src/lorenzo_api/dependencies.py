@@ -362,7 +362,7 @@ async def get_optional_user(
         return None
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
     claims = await verify_token(credentials, jwks_client)
-    return await get_current_user(claims, session, credentials, userinfo_url)
+    return await _current_user(claims, session, credentials, userinfo_url)
 
 
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]

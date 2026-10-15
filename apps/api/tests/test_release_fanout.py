@@ -307,7 +307,8 @@ async def test_making_an_earlier_release_current_is_announced_through_the_table(
     try:
         # A public repository keeps the content of its releases, which a rollback reads.
         made = await author.put(
-            f"/tenants/{repository}/public", json={"summary": "Every blade", "label": "1.0"}
+            f"/tenants/{repository}/public",
+            json={"summary": "Every blade", "label": "1.0", "accept_terms": True},
         )
         assert made.status_code == 200, made.text
         first = made.json()["release"]
@@ -333,7 +334,9 @@ async def test_the_revoke_notice_of_going_private_reaches_the_libraries_whose_gr
     author, repository, _ = await _repository(raw_client, fake_jwks_server, 0)
     copying = invited = Libraries()
     try:
-        made = await author.put(f"/tenants/{repository}/public", json={"summary": "Every blade"})
+        made = await author.put(
+            f"/tenants/{repository}/public", json={"summary": "Every blade", "accept_terms": True}
+        )
         assert made.status_code == 200, made.text
         copying = await add_libraries(repository, 4, source="public")
         invited = await add_libraries(repository, 2)

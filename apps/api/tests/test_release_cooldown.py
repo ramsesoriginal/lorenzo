@@ -168,7 +168,8 @@ async def test_the_release_made_by_the_flip_to_public_is_not_held_back_and_the_n
     try:
         assert (await _publish(author, repository, label="1.0")).status_code == 200
         flipped = await author.put(
-            f"/tenants/{repository}/public", json={"summary": "Every blade", "label": "2.0"}
+            f"/tenants/{repository}/public",
+            json={"summary": "Every blade", "label": "2.0", "accept_terms": True},
         )
         assert flipped.status_code == 200, flipped.text
         assert await _release_count(repository) == 2
