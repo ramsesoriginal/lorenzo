@@ -49,6 +49,14 @@ class Tenant(Base):
             ondelete="SET NULL",
             use_alter=True,
         ),
+        # ADR 0296: same-tenant primary group; the migration clears only the reference on delete.
+        ForeignKeyConstraint(
+            ["being_stat_group_id", "id"],
+            ["stat_group.id", "stat_group.tenant_id"],
+            name="tenant_being_stat_group_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
         # ADR 0288: the release other tenants read, one of the repository's own.
         ForeignKeyConstraint(
             ["current_release_id", "id"],
@@ -101,6 +109,7 @@ class Tenant(Base):
     export_revision: Mapped[int] = mapped_column(BigInteger, server_default=text("0"))
     # ADR 0281: the being sheet's datasheet reads weapons from this stat group of the tenant and
     # abilities from information of this type. Unset until a library says.
+    being_stat_group_id: Mapped[uuid.UUID | None]
     weapon_stat_group_id: Mapped[uuid.UUID | None]
     ability_information_type: Mapped[str | None]
     # ADR 0029's attribution pair, landing here alongside created_at/

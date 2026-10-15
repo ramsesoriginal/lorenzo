@@ -17,4 +17,4 @@ It's tempting to want one tree that contains all of this ("planet → sphere →
 
 Every one of these axes can keep time differently, and not just "different calendar, same clock speed" — a plane can sit outside time entirely, a ship traveling near light speed experiences time differently than the world it left, and parallel timelines aren't necessarily synchronized at all.
 
-Exactly how far this needs to be modeled — a shared "true" timeline vs. many independent local ones, and how causality gets tracked across them — is genuinely open. Flagged here rather than decided; it's the kind of thing that needs an RFC once it's actually being built, not an assumption baked into this doc.
+Exactly how far this needs to be modeled — a shared "true" timeline vs. many independent local ones, and how causality gets tracked across them — is genuinely open. Flagged here rather than decided; the proposed [RFC 0028](../rfcs/0028-time-causality-and-calendars.md) explores time and causality without making them implemented behavior. The non-containment address axes are likewise proposed in [RFC 0026](../rfcs/0026-world-model-axes-and-address.md).

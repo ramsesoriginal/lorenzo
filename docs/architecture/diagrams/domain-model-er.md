@@ -1,252 +1,31 @@
 # ER diagram: domain model
 
-The merged, up-to-date picture of every table built so far: `feat/inventory-management` (sub-slices 1-7), `feat/auth-users` (auth/users/tenants/campaigns/players/GM, merged together - see ADR 0021+), the REST API surface built on top (ADR 0030-0049), and the tenant/user-management and notifications work since (profile pictures - ADR 0056, platform operations/activity log - ADR 0057/0063, notifications - ADR 0058-0061, campaign invite links - ADR 0092, the player-facing change feed - ADR 0099, editable information - ADR 0101, stat enum values and mandatory groups - ADR 0103, computed stats - ADR 0104, entity slugs - ADR 0107, content references - ADR 0110, the public catalog - ADR 0116, and repositories - ADR 0117-0121). Each table's own ADR is the authoritative source for *why* it looks this way; this diagram just shows how they all connect. `created_at`/`updated_at` timestamps exist on every table except the pure join/extension tables (`entity_stat`, `entity_stat_group`, `entity_prototype`, `containment`, `item`, `item_instance`, `entity_slug`, `content_reference`, `being`, `character`, `character_player`, `ownership`, `campaign_gm`, `tenant_admin_campaign_opt_out`, `group_member`, `user_profile_picture`, `tenant_profile_picture`, `campaign_profile_picture`) and are omitted below - they're uniform across the schema and would only add repetition, not information. `audit_log` and `notification` are the one exception worth calling out explicitly: both are append-only logs, so they carry `created_at` but deliberately no `updated_at` - a row is never mutated after creation. `created_by`/`updated_by` (nullable `FK -> app_user.id`, `ON DELETE SET NULL` - [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md)) are omitted the same way, for a different reason: they're deliberately *not* uniform (which tables get the full pair, `created_by` only, or neither is itself a real decision, see ADR 0029's own table), and deliberately have no `relationship()` in code for mermaid to draw as a line - both by design, not by omission here. The `v_item`/`v_item_instance` views aren't drawn - each is derived (a `SELECT` over `entity`/`information`/`entity_stat`/`containment`, filtered to `item` or `item_instance` respectively), not its own stored relation - see [ADR 0019](../../adr/0019-item-and-v-item.md).
+A snapshot of the stored API tables, checked against [`models/`](../../../apps/api/src/lorenzo_api/models) on 2026-10-15. The diagrams are grouped to keep the entry/component core, stat vocabulary, information, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
+
+Columns show primary and foreign keys and nullable values. Routine `created_at`/`updated_at` and `created_by`/`updated_by` columns and their attribution edges are omitted; timestamps and attribution differ by table, so consult the model and [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md) for their exact shape. Views (`v_item`, `v_item_instance`, `v_character`, `v_effective_stat`) are reads over these tables, not stored tables.
+
+Relationship lines are foreign-key references: dotted lines do not claim a cascade or ownership rule. A same-tenant composite foreign key is drawn once by its non-tenant column; every tenant table still carries `tenant_id` and enforced RLS. Unique constraints, checks, trigger rules and delete actions are defined in the migrations and the [ADR index](../../adr/README.md), not reproduced here.
+
+## Entries, inheritance, containment and ownership
 
 ```mermaid
 erDiagram
-    APP_USER ||--o{ MEMBERSHIP : holds
-    APP_USER ||--o{ PLAYER : holds
-    APP_USER |o--o{ APP_USER : suspends
-    TENANT ||--o{ MEMBERSHIP : scopes
-    TENANT ||--o{ CAMPAIGN : scopes
-    CAMPAIGN ||--o{ PLAYER : has
-    CAMPAIGN ||--|| ENTITY : "has a dedicated"
-    APP_USER }o--o{ CAMPAIGN : GMs
-    APP_USER }o--o{ CAMPAIGN : "opts out of"
-    TENANT ||--o{ ENTITY : scopes
-    TENANT ||--o{ STAT_GROUP : scopes
-    TENANT ||--o{ STAT_DEFINITION : scopes
-    STAT_GROUP ||--o{ STAT_DEFINITION : clusters
-    ENTITY }o--o{ STAT_GROUP : acquires
-    ENTITY ||--o{ ENTITY_STAT : has
-    STAT_DEFINITION ||--o{ ENTITY_STAT : "valued by"
-    STAT_DEFINITION ||--o{ STAT_DEFINITION_ENUM_VALUE : allows
-    ENTITY ||--o{ COMPUTED_STAT : "computes"
-    STAT_DEFINITION ||--o{ COMPUTED_STAT : "computed by"
-    COMPUTED_STAT ||--o| COMPUTED_STAT_LINEAR : "is a"
-    COMPUTED_STAT ||--o| COMPUTED_STAT_COMPARISON : "is a"
-    ENTITY }o--o{ ENTITY : "inherits from"
-    ENTITY ||--o{ ENTITY : contains
-    ENTITY ||--o{ INFORMATION : "described by"
-    INFORMATION ||--o{ PAYLOAD : bundles
-    PAYLOAD ||--o| PAYLOAD_DESCRIPTION : "is a"
-    PAYLOAD ||--o| PAYLOAD_NUMBER : "is a"
-    PAYLOAD ||--o| PAYLOAD_PICTURE : "is a"
-    PAYLOAD ||--o| PAYLOAD_DOCUMENT : "is a"
-    PAYLOAD ||--o{ CONTENT_REFERENCE : "refers to"
-    CONTENT_REFERENCE }o..o| ENTITY_SLUG : "resolves by slug"
-    ENTITY ||--o| ITEM : "is a"
-    ENTITY ||--o| ITEM_INSTANCE : "is a"
-    ENTITY ||--o| BEING : "is a"
-    ENTITY ||--o| ENTITY_SLUG : "named by"
-    BEING ||--o| CHARACTER : "is a"
-    PLAYER o|--o{ CHARACTER : owns
-    CHARACTER }o--o{ PLAYER : "piloted by"
-    ENTITY ||--o{ ENTITY : owns
-    ENTITY }o--o{ CHARACTER : groups
-    ENTITY ||--o{ KNOWLEDGE : has
-    PLAYER ||--o{ KNOWLEDGE : has
-    INFORMATION ||--o{ KNOWLEDGE : has
-    APP_USER ||--o{ NOTIFICATION : receives
-    APP_USER ||--o{ NOTIFICATION : sends
-    TENANT ||--o{ NOTIFICATION : scopes
-    TENANT ||--o{ AUDIT_LOG : scopes
-    APP_USER ||--o{ AUDIT_LOG : "acts as"
-    APP_USER ||--o| USER_PROFILE_PICTURE : has
-    TENANT ||--o| TENANT_PROFILE_PICTURE : has
-    CAMPAIGN ||--o| CAMPAIGN_PROFILE_PICTURE : has
-    USER_PROFILE_PICTURE ||--|| PROFILE_PICTURE : is
-    TENANT_PROFILE_PICTURE ||--|| PROFILE_PICTURE : is
-    CAMPAIGN_PROFILE_PICTURE ||--|| PROFILE_PICTURE : is
-    CAMPAIGN ||--o{ CAMPAIGN_INVITE : "shared by"
-    APP_USER ||--o{ CAMPAIGN_INVITE : creates
-    TENANT ||--o{ ENTITY_CHANGE : scopes
-    APP_USER ||--o{ ENTITY_CHANGE : receives
-    TENANT ||--o{ REPOSITORY_SUBSCRIPTION : "grants (as repository)"
-    TENANT ||--o{ REPOSITORY_SUBSCRIPTION : "is granted"
-    TENANT ||--o{ REPOSITORY_COPY : "has copied"
-    ENTITY |o--o{ REPOSITORY_COPY_LINK_ENTITY : "copied as"
-    STAT_GROUP |o--o{ REPOSITORY_COPY_LINK_STAT_GROUP : "copied or merged as"
-    STAT_DEFINITION |o--o{ REPOSITORY_COPY_LINK_STAT_DEFINITION : "copied or merged as"
-
-    APP_USER {
-        uuid id PK
-        string authgear_subject_id "globally unique, not per-tenant"
-        string email "nullable, unique, synced from Authgear, never written otherwise"
-        string nickname "nullable, unique, set by the user"
-        string display_name "nullable, not unique"
-        string pronouns "nullable"
-        string bio "nullable"
-        text_array locales "Postgres text[]"
-        string user_color "nullable, hex colour"
-        timestamptz suspended_at "nullable, set = rejected on every request"
-        uuid suspended_by FK "nullable, ON DELETE SET NULL"
-        string suspension_reason "nullable"
-    }
-    TENANT {
-        uuid id PK
-        string name
-        string slug "globally unique, URL-safe"
-        string description
-        enum kind "play | repository - never changes"
-        timestamptz published_at "nullable; a repository's draft/published state"
-    }
-    MEMBERSHIP {
-        uuid tenant_id PK,FK
-        uuid user_id PK,FK
-        enum role "owner | orga - tenant-wide access only"
-    }
-    CAMPAIGN {
-        uuid id PK
-        uuid tenant_id FK
-        string name
-        string game_system
-        string slug "unique per tenant"
-        string description
-        boolean secret "default false; governs list filtering only"
-        uuid entity_id FK "unique - a dedicated Entity for Information/Knowledge"
-    }
-    PLAYER {
-        uuid id PK
-        uuid user_id FK
-        uuid campaign_id FK
-        uuid tenant_id FK "denormalized copy of campaign.tenant_id"
-    }
-    ENTITY {
-        uuid id PK
-        uuid tenant_id FK
-        string name "internal/reference name, not in-fiction text"
-    }
-    STAT_GROUP {
-        uuid id PK
-        uuid tenant_id FK
-        string name
-        int priority "inheritance tie-break"
-        boolean mandatory "display-only; nothing enforces it"
-    }
-    STAT_DEFINITION {
-        uuid id PK
-        uuid tenant_id FK
-        uuid stat_group_id FK
-        string name
-        enum value_type "int | text | float | bool | enum"
-    }
-    COMPUTED_STAT {
-        uuid entity_id PK,FK
-        uuid stat_definition_id PK,FK
-        uuid tenant_id FK
-    }
-    COMPUTED_STAT_LINEAR {
-        uuid entity_id PK,FK
-        uuid stat_definition_id PK,FK
-        uuid tenant_id FK
-        uuid source_stat_definition_id FK
-        numeric multiplier
-        numeric offset
-        text round_mode "none | floor | ceil | round | truncate"
-    }
-    COMPUTED_STAT_COMPARISON {
-        uuid entity_id PK,FK
-        uuid stat_definition_id PK,FK
-        uuid tenant_id FK
-        uuid left_stat_definition_id FK
-        text comparator "lt | le | eq | ne | ge | gt"
-        uuid right_stat_definition_id FK "exactly one of this or right_constant"
-        numeric right_constant
-        text true_value "text/enum targets only"
-        text false_value "text/enum targets only"
-    }
-    STAT_DEFINITION_ENUM_VALUE {
-        uuid id PK
-        uuid tenant_id FK
-        uuid stat_definition_id FK
-        text value "unique per stat_definition"
-        int sort_order "display hint, not unique"
-    }
-    ENTITY_STAT {
-        uuid entity_id PK,FK
-        uuid stat_definition_id PK,FK
-        uuid tenant_id FK
-        int value_int "exactly one of these four set"
-        string value_text
-        float value_float
-        boolean value_bool
-    }
-    ENTITY_PROTOTYPE {
-        uuid entity_id PK,FK
-        uuid prototype_id PK,FK
-        uuid tenant_id FK
-    }
-    CONTAINMENT {
-        uuid child_entity_id PK,FK
-        uuid parent_entity_id FK
-        uuid tenant_id FK
-    }
-    INFORMATION {
-        uuid id PK
-        uuid tenant_id FK
-        uuid entity_id FK
-        text title
-        text type "free-form category; only singleton types are unique per entity"
-        boolean is_public "default false; false + no knowledge row = GM-only"
-        int order "position per entity, unique; appended by trigger when omitted"
-    }
-    INFORMATION_TYPE {
-        text name PK "global catalog, no tenant_id/RLS; read-only to the app"
-        boolean is_singleton
-        text category "technical | gm_authored"
-    }
-    PAYLOAD {
-        uuid id PK
-        uuid tenant_id FK
-        uuid information_id FK
-        int order "position per information, unique; appended by trigger when omitted"
-    }
-    PAYLOAD_DESCRIPTION {
-        uuid payload_id PK,FK
-        uuid tenant_id FK
-        text locale
-        text content
-    }
-    PAYLOAD_NUMBER {
-        uuid payload_id PK,FK
-        uuid tenant_id FK
-        numeric value
-    }
-    PAYLOAD_PICTURE {
-        uuid payload_id PK,FK
-        uuid tenant_id FK
-        bytea data
-        text file_type
-    }
-    PAYLOAD_DOCUMENT {
-        uuid payload_id PK,FK
-        uuid tenant_id FK
-        bytea data
-        text filename
-    }
-    CONTENT_REFERENCE {
-        uuid payload_id PK,FK
-        int position PK "order of first use in the text"
-        uuid tenant_id FK
-        text kind "entity | image | date | calendar"
-        text hint "view hint; empty unless entity or image"
-        text target "slug, ISO date, or calendar expression"
-    }
-    ITEM {
-        uuid entity_id PK,FK
-        uuid tenant_id FK
-        boolean in_public_catalog "default false: players may list it (ADR 0116)"
-    }
-    ITEM_INSTANCE {
-        uuid entity_id PK,FK
-        uuid tenant_id FK
-    }
-    ENTITY_SLUG {
-        uuid entity_id PK,FK "one slug per entity"
-        uuid tenant_id FK
-        string slug "unique per tenant"
-    }
+    ENTITY ||..o{ BEING : "entity_id"
+    BEING ||..o{ CHARACTER : "entity_id"
+    PLAYER |o..o{ CHARACTER : "owner_player_id"
+    ENTITY ||..o{ CONTAINMENT : "child_entity_id"
+    ENTITY ||..o{ CONTAINMENT : "parent_entity_id"
+    ENTITY ||..o{ ENTITY_PROTOTYPE : "entity_id"
+    ENTITY ||..o{ ENTITY_PROTOTYPE : "prototype_id"
+    ENTITY ||..o{ ENTITY_SLUG : "entity_id"
+    ENTITY ||..o{ ENTITY_STAT_GROUP : "entity_id"
+    STAT_GROUP ||..o{ ENTITY_STAT_GROUP : "stat_group_id"
+    CHARACTER ||..o{ GROUP_MEMBER : "character_entity_id"
+    ENTITY ||..o{ GROUP_MEMBER : "group_entity_id"
+    ENTITY ||..o{ ITEM : "entity_id"
+    ENTITY ||..o{ ITEM_INSTANCE : "entity_id"
+    ENTITY ||..o{ OWNERSHIP : "owned_entity_id"
+    ENTITY ||..o{ OWNERSHIP : "owner_character_id"
     BEING {
         uuid entity_id PK,FK
         uuid tenant_id FK
@@ -254,137 +33,532 @@ erDiagram
     CHARACTER {
         uuid entity_id PK,FK
         uuid tenant_id FK
-        uuid owner_player_id FK "nullable, ON DELETE SET NULL"
+        uuid owner_player_id FK "nullable"
+    }
+    CONTAINMENT {
+        uuid child_entity_id PK,FK
+        uuid parent_entity_id FK
+        uuid tenant_id FK
+        int quantity
+    }
+    ENTITY {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+    }
+    ENTITY_PROTOTYPE {
+        uuid entity_id PK,FK
+        uuid prototype_id PK,FK
+        uuid tenant_id FK
+        int position
+    }
+    ENTITY_SLUG {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        string slug
+    }
+    ENTITY_STAT_GROUP {
+        uuid entity_id PK,FK
+        uuid stat_group_id PK,FK
+        uuid tenant_id FK
+    }
+    GROUP_MEMBER {
+        uuid group_entity_id PK,FK
+        uuid character_entity_id PK,FK
+        uuid tenant_id FK
+    }
+    ITEM {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        boolean in_public_catalog
+    }
+    ITEM_INSTANCE {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
     }
     OWNERSHIP {
         uuid owned_entity_id PK,FK
-        uuid owner_character_id FK "FK -> entity.id generically, not being.entity_id"
+        uuid owner_character_id FK
         uuid tenant_id FK
+    }
+```
+
+## Stat vocabulary and formulas
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ COMPUTED_STAT : "entity_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT : "stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_COMPARISON : "left_stat_definition_id"
+    STAT_DEFINITION |o..o{ COMPUTED_STAT_COMPARISON : "right_stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_CONTENTS : "source_stat_definition_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_LINEAR : "source_stat_definition_id"
+    COMPUTED_STAT_SUM ||..o{ COMPUTED_STAT_SUM_TERM : "entity_id"
+    STAT_DEFINITION ||..o{ COMPUTED_STAT_SUM_TERM : "source_stat_definition_id"
+    COMPUTED_STAT_SUM ||..o{ COMPUTED_STAT_SUM_TERM : "stat_definition_id"
+    ENTITY ||..o{ ENTITY_STAT : "entity_id"
+    STAT_DEFINITION ||..o{ ENTITY_STAT : "stat_definition_id"
+    STAT_DEFINITION |o..o{ STAT_DEFINITION : "max_hint_id"
+    STAT_DEFINITION |o..o{ STAT_DEFINITION : "min_hint_id"
+    STAT_DEFINITION |o..o{ STAT_DEFINITION : "resolved_hint_id"
+    STAT_GROUP ||..o{ STAT_DEFINITION : "stat_group_id"
+    STAT_DEFINITION ||..o{ STAT_DEFINITION_ENUM_VALUE : "stat_definition_id"
+    COMPUTED_STAT {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+    }
+    COMPUTED_STAT_COMPARISON {
+        uuid entity_id PK
+        uuid stat_definition_id PK
+        uuid tenant_id FK
+        uuid left_stat_definition_id FK
+        string comparator
+        uuid right_stat_definition_id FK "nullable"
+        string right_constant "nullable"
+        string true_value "nullable"
+        string false_value "nullable"
+    }
+    COMPUTED_STAT_CONTENTS {
+        uuid entity_id PK
+        uuid stat_definition_id PK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK
+    }
+    COMPUTED_STAT_LINEAR {
+        uuid entity_id PK
+        uuid stat_definition_id PK
+        uuid tenant_id FK
+        uuid source_stat_definition_id FK
+        string multiplier
+        string offset
+        string round_mode
+    }
+    COMPUTED_STAT_SUM {
+        uuid entity_id PK
+        uuid stat_definition_id PK
+        uuid tenant_id FK
+        string offset
+        string round_mode
+    }
+    COMPUTED_STAT_SUM_TERM {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid source_stat_definition_id PK,FK
+        uuid tenant_id FK
+        string coefficient
+        int position
+    }
+    ENTITY_STAT {
+        uuid entity_id PK,FK
+        uuid stat_definition_id PK,FK
+        uuid tenant_id FK
+        int value_int "nullable"
+        string value_text "nullable"
+        float value_float "nullable"
+        boolean value_bool "nullable"
+    }
+    STAT_DEFINITION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid stat_group_id FK
+        string name
+        string value_type
+        string unit "nullable"
+        boolean adjustable_in_play
+        boolean pin
+        boolean signed
+        int position
+        uuid max_hint_id FK "nullable"
+        uuid min_hint_id FK "nullable"
+        uuid resolved_hint_id FK "nullable"
+    }
+    STAT_DEFINITION_ENUM_VALUE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid stat_definition_id FK
+        string value
+        int sort_order
+    }
+    STAT_GROUP {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        int priority
+        boolean mandatory
+        int position
+    }
+```
+
+## Information and payloads
+
+```mermaid
+erDiagram
+    PAYLOAD ||..o{ CONTENT_REFERENCE : "payload_id"
+    ENTITY ||..o{ INFORMATION : "entity_id"
+    INFORMATION ||..o{ KNOWLEDGE : "information_id"
+    ENTITY |o..o{ KNOWLEDGE : "knower_entity_id"
+    PLAYER |o..o{ KNOWLEDGE : "knower_player_id"
+    INFORMATION ||..o{ PAYLOAD : "information_id"
+    PAYLOAD ||..o{ PAYLOAD_DESCRIPTION : "payload_id"
+    PAYLOAD ||..o{ PAYLOAD_DOCUMENT : "payload_id"
+    PAYLOAD ||..o{ PAYLOAD_NUMBER : "payload_id"
+    PAYLOAD ||..o{ PAYLOAD_PICTURE : "payload_id"
+    CONTENT_REFERENCE {
+        uuid payload_id PK,FK
+        int position PK
+        uuid tenant_id FK
+        string kind
+        string hint
+        string target
+    }
+    INFORMATION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid entity_id FK
+        string title
+        string type
+        boolean is_public
+        int order
+    }
+    INFORMATION_TYPE {
+        string name PK
+        boolean is_singleton
+        string category
     }
     KNOWLEDGE {
         uuid id PK
         uuid tenant_id FK
-        uuid knower_entity_id FK "nullable - character or group; exactly one of knower_entity_id/knower_player_id set"
-        uuid knower_player_id FK "nullable - campaign-scoped player; exactly one of knower_entity_id/knower_player_id set"
+        uuid knower_entity_id FK "nullable"
+        uuid knower_player_id FK "nullable"
         uuid information_id FK
     }
-    NOTIFICATION {
+    PAYLOAD {
         uuid id PK
-        uuid batch_id "shared by every row one fan-out call creates"
-        uuid user_id FK "recipient"
-        uuid tenant_id FK "nullable - null for platform scope"
-        string scope "platform | tenant | campaign | character | group, by convention"
-        uuid source_id "nullable - campaign/character id, for deep-linking"
-        string type "free-form, e.g. tenant_invite"
-        string title
-        string body
-        datetime read_at "nullable"
-        uuid created_by FK "nullable - sender"
+        uuid tenant_id FK
+        uuid information_id FK
+        int order
+    }
+    PAYLOAD_DESCRIPTION {
+        uuid payload_id PK,FK
+        uuid tenant_id FK
+        string locale
+        string content
+    }
+    PAYLOAD_DOCUMENT {
+        uuid payload_id PK,FK
+        uuid tenant_id FK
+        bytes data
+        string filename
+        string file_type
+    }
+    PAYLOAD_NUMBER {
+        uuid payload_id PK,FK
+        uuid tenant_id FK
+        string value
+    }
+    PAYLOAD_PICTURE {
+        uuid payload_id PK,FK
+        uuid tenant_id FK
+        bytes data
+        string file_type
+    }
+```
+
+## People, campaigns, credentials and activity
+
+```mermaid
+erDiagram
+    APP_USER |o..o{ APP_USER : "suspended_by"
+    APP_USER |o..o{ AUDIT_LOG : "actor_id"
+    ENTITY ||..o{ CAMPAIGN : "entity_id"
+    CAMPAIGN ||..o{ CAMPAIGN_GM : "campaign_id"
+    APP_USER ||..o{ CAMPAIGN_GM : "user_id"
+    CAMPAIGN ||..o{ CAMPAIGN_PROFILE_PICTURE : "campaign_id"
+    PROFILE_PICTURE ||..o{ CAMPAIGN_PROFILE_PICTURE : "profile_picture_id"
+    CHARACTER ||..o{ CHARACTER_PLAYER : "character_entity_id"
+    PLAYER ||..o{ CHARACTER_PLAYER : "player_id"
+    APP_USER |o..o{ DEVICE_AUTHORIZATION : "user_id"
+    APP_USER |o..o{ ENTITY_CHANGE : "actor_user_id"
+    APP_USER ||..o{ ENTITY_CHANGE : "user_id"
+    CAMPAIGN |o..o{ INVITE : "campaign_id"
+    APP_USER ||..o{ MEMBERSHIP : "user_id"
+    APP_USER ||..o{ NOTIFICATION : "user_id"
+    APP_USER ||..o{ PERSONAL_ACCESS_TOKEN : "user_id"
+    CAMPAIGN ||..o{ PLAYER : "campaign_id"
+    APP_USER ||..o{ PLAYER : "user_id"
+    REPOSITORY_RELEASE |o..o{ TENANT : "current_release_id"
+    REPOSITORY_RELEASE ||..o{ TENANT : "id"
+    STAT_GROUP ||..o{ TENANT : "id"
+    STAT_GROUP |o..o{ TENANT : "weapon_stat_group_id"
+    CAMPAIGN ||..o{ TENANT_ADMIN_CAMPAIGN_OPT_OUT : "campaign_id"
+    APP_USER ||..o{ TENANT_ADMIN_CAMPAIGN_OPT_OUT : "user_id"
+    PROFILE_PICTURE ||..o{ TENANT_PROFILE_PICTURE : "profile_picture_id"
+    PROFILE_PICTURE ||..o{ USER_PROFILE_PICTURE : "profile_picture_id"
+    APP_USER ||..o{ USER_PROFILE_PICTURE : "user_id"
+    APP_USER {
+        uuid id PK
+        string authgear_subject_id
+        string email "nullable"
+        string nickname "nullable"
+        datetime suspended_at "nullable"
+        uuid suspended_by FK "nullable"
+        string suspension_reason "nullable"
+        string display_name "nullable"
+        string pronouns "nullable"
+        string bio "nullable"
+        array locales
+        string user_color "nullable"
+        array last_seen_roles
     }
     AUDIT_LOG {
         uuid id PK
-        uuid tenant_id FK "not nullable - platform-scope events out of scope for this slice"
-        uuid actor_id FK "nullable, ON DELETE SET NULL"
+        uuid tenant_id FK
+        uuid actor_id FK "nullable"
         string action
         string target_type
         uuid target_id "nullable"
         string detail "nullable"
     }
-    PROFILE_PICTURE {
+    CAMPAIGN {
         uuid id PK
-        bytea data
-        string file_type
+        uuid tenant_id FK
+        string name
+        string game_system
+        string slug
+        string description
+        boolean secret
+        boolean player_self_service
+        uuid entity_id FK
     }
-    USER_PROFILE_PICTURE {
-        uuid user_id PK,FK
-        uuid profile_picture_id FK "unique"
-    }
-    TENANT_PROFILE_PICTURE {
+    CAMPAIGN_GM {
         uuid tenant_id PK,FK
-        uuid profile_picture_id FK "unique"
+        uuid user_id PK,FK
+        uuid campaign_id PK,FK
     }
     CAMPAIGN_PROFILE_PICTURE {
         uuid campaign_id PK,FK
-        uuid tenant_id FK "denormalized copy of campaign.tenant_id"
-        uuid profile_picture_id FK "unique"
-    }
-    CAMPAIGN_INVITE {
-        uuid id PK
         uuid tenant_id FK
-        uuid campaign_id FK
-        string token_hash "SHA-256 of the token, unique; the token itself is never stored"
-        timestamptz expires_at "required"
-        int max_uses "nullable = unlimited"
-        int use_count
-        timestamptz revoked_at "nullable"
+        uuid profile_picture_id FK
+    }
+    CHARACTER_PLAYER {
+        uuid character_entity_id PK,FK
+        uuid player_id PK,FK
+        uuid tenant_id FK
+    }
+    DEVICE_AUTHORIZATION {
+        uuid id PK
+        string device_code_hash
+        string user_code
+        string client_name "nullable"
+        string status
+        uuid user_id FK "nullable"
+        string token_name "nullable"
+        datetime token_expires_at "nullable"
+        datetime expires_at
+        datetime last_polled_at "nullable"
     }
     ENTITY_CHANGE {
-        uuid id PK "generated by the app, not the database"
+        uuid id PK
         uuid tenant_id FK
-        uuid user_id FK "the recipient"
-        uuid character_entity_id "not a foreign key"
-        uuid entity_id "not a foreign key, outlives a deleted item"
-        string kind "received, given_away, moved, split, merged, renamed, deleted"
-        string entity_name "copied in at write time"
-        string detail "nullable, ids and counts only"
-        uuid actor_user_id FK "nullable, ON DELETE SET NULL"
-        boolean actor_visible "false for GMs and tenant administrators"
-        timestamptz occurred_at "app-generated, 90-day retention"
+        uuid user_id FK
+        uuid character_entity_id
+        uuid entity_id
+        string kind
+        string entity_name
+        string detail "nullable"
+        uuid actor_user_id FK "nullable"
+        boolean actor_visible
+        datetime occurred_at
     }
-    REPOSITORY_SUBSCRIPTION {
-        uuid repository_tenant_id PK,FK "must be a repository"
-        uuid subscriber_tenant_id PK,FK
+    INVITE {
+        uuid id PK
+        uuid tenant_id FK
+        string kind
+        uuid campaign_id FK "nullable"
+        string token_hash
+        string role "nullable"
+        datetime expires_at
+        int max_uses "nullable"
+        int use_count
+        datetime revoked_at "nullable"
     }
-    REPOSITORY_COPY {
-        uuid tenant_id PK,FK "the copying tenant"
-        uuid repository_tenant_id PK "not a foreign key"
-        timestamptz copied_at
-        timestamptz synced_at
-    }
-    REPOSITORY_COPY_LINK_ENTITY {
+    MEMBERSHIP {
         uuid tenant_id PK,FK
-        uuid source_id PK "the origin row, not a foreign key"
-        uuid source_tenant_id "not a foreign key"
-        uuid entity_id FK "nullable: null once the copy is deleted"
-        jsonb snapshot "what was copied, in origin ids"
+        uuid user_id PK,FK
+        string role
     }
-    REPOSITORY_COPY_LINK_STAT_GROUP {
-        uuid tenant_id PK,FK
-        uuid source_id PK
-        uuid stat_group_id FK "nullable"
-        string mode "copied | merged"
-        jsonb snapshot
+    NOTIFICATION {
+        uuid id PK
+        uuid batch_id
+        uuid user_id FK
+        uuid tenant_id FK "nullable"
+        string scope
+        uuid source_id "nullable"
+        string type
+        string title
+        string body
+        datetime read_at "nullable"
     }
-    REPOSITORY_COPY_LINK_STAT_DEFINITION {
+    PERSONAL_ACCESS_TOKEN {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string token_hash
+        string token_hint
+        datetime last_used_at "nullable"
+        datetime expires_at "nullable"
+        datetime revoked_at "nullable"
+    }
+    PLAYER {
+        uuid id PK
+        uuid user_id FK
+        uuid campaign_id FK
+        uuid tenant_id FK
+        boolean self_service "nullable"
+    }
+    PROFILE_PICTURE {
+        uuid id PK
+        bytes data
+        string file_type
+    }
+    TENANT {
+        uuid id PK,FK
+        string name
+        string slug
+        string description
+        string kind
+        datetime published_at "nullable"
+        uuid current_release_id FK "nullable"
+        boolean npcs_shared_with_gms
+        int export_revision
+        uuid weapon_stat_group_id FK "nullable"
+        string ability_information_type "nullable"
+    }
+    TENANT_ADMIN_CAMPAIGN_OPT_OUT {
         uuid tenant_id PK,FK
-        uuid source_id PK
-        uuid stat_definition_id FK "nullable"
-        string mode "copied | merged"
-        jsonb snapshot
+        uuid user_id PK,FK
+        uuid campaign_id PK,FK
+    }
+    TENANT_PROFILE_PICTURE {
+        uuid tenant_id PK,FK
+        uuid profile_picture_id FK
+    }
+    USER_PROFILE_PICTURE {
+        uuid user_id PK,FK
+        uuid profile_picture_id FK
     }
 ```
 
-A few things this single view makes clearer than any one sub-slice's diagram could:
+## Repositories, copies, profiles and releases
 
-- **`ENTITY` carries two independent self-relations with opposite cycle policies**: `entity_prototype` (`}o--o{`, many-to-many, cycles rejected by a trigger - [ADR 0015](../../adr/0015-entity-prototype.md)) and `containment` (`||--o{`, one-to-many, cycles deliberately allowed - [ADR 0016](../../adr/0016-containment.md)). They look similar as plain FK pairs but mean opposite things.
-- **`ENTITY }o--o{ STAT_GROUP : acquires`** is the one n:m relation realized as a pure join table (`entity_stat_group`) with no attributes of its own, so it isn't drawn as its own box here, unlike the two self-relations above (which need a box because mermaid can't label a self-loop's own columns inline).
-- **Every table added after `entity` FKs back to it, directly or transitively** - `stat_group`/`stat_definition` are the only tenant-scoped tables that don't (they're independent top-level vocabulary, only linked to entities through `entity_stat_group`/`entity_stat`), which is why they get their own explicit `TENANT` relation above while everything else's tenant-scoping is implied through the chain back to `ENTITY`.
-- `payload`'s four extensions (`is a`) are drawn identically to how `item`/`item_instance`/`being` extend `entity` here - the same class-table-inheritance shape, applied a third time (a `place` extension may still follow later).
-- **`ownership` reuses `containment`'s exact self-loop shape**: `owned_entity_id` alone is the PK (at most one owner at a time, globally, just like at most one container), so it's drawn as a direct `ENTITY ||--o{ ENTITY : owns` self-loop rather than routing through its own box - `owner_character_id` is deliberately a plain `FK -> entity.id`, not `being.entity_id`, so the schema doesn't rule out a non-character owner later ([ADR 0025](../../adr/0025-character-being-and-ownership.md)).
-- **`character` is layered under `being`, not a sibling extending `entity`** ([ADR 0031](../../adr/0031-character-table-and-read-api.md)) - `entity_id` is PK *and* FK to `being.entity_id`, the first three-level class-table-inheritance chain here (`entity` -> `being` -> `character`), drawn as `BEING ||--o| CHARACTER : "is a"` rather than off `ENTITY` directly. A bare `being` with no `character` row is still valid - an untracked NPC/monster stub.
-- `character.owner_player_id` ("who primarily owns this character," nullable, `ON DELETE SET NULL`, moved here from `being` by ADR 0031) and `character_player` ("which player rows can currently pilot it," genuinely n:m, retargeted from `being.entity_id` to `character.entity_id` by the same ADR) are deliberately two separate mechanisms, not one - RFC 0002 allows one player to control several characters at once and one character to be linked into several campaigns' player rows (roster reuse), so there's no single derivable "primary" owner to collapse them into. A `being` now has to be "promoted" to a `character` row before either can apply.
-- `item_instance.owner_entity_id` used to be a column on `item_instance` itself (ADR 0019's placeholder, "until character exists"); it's now `v_item_instance`'s own derived column, sourced from a join against `ownership` - same name, position, and type in the view's output, so nothing downstream of the view noticed the change ([ADR 0025](../../adr/0025-character-being-and-ownership.md)).
-- **`campaign_gm` and `tenant_admin_campaign_opt_out` are two separate n:m joins between the same two entities**, `APP_USER` and `CAMPAIGN` - like `entity_stat_group`, both are pure existence joins with no attribute beyond their own FKs/`tenant_id`, so neither gets its own box; unlike `entity_stat_group`, there are two of them here rather than one, since GMing a campaign and opting out of a campaign are independent facts about the same pair ([ADR 0026](../../adr/0026-campaign-gm-orga-and-access-rule.md)). Renamed from `orga_campaign_opt_out` ([ADR 0030](../../adr/0030-tenant-campaign-read-api.md)): the opt-out now applies to either tenant-admin role (`OWNER` or `ORGA`), not `ORGA` alone. Not drawn: `campaign_gm`/`player` aren't mutually exclusive for the same user+campaign - a user can hold both at once.
-- **`campaign`'s dedicated `entity_id`** ([ADR 0030](../../adr/0030-tenant-campaign-read-api.md)) is a plain reference column, not class-table inheritance the way `item`/`item_instance`/`being` extend `entity` - `campaign` keeps its own surrogate `id`, so this is drawn as an ordinary `||--||` line rather than an `"is a"` label. Exists so a campaign can carry `Information`/`Knowledge` (GM notes, images) the same generic way any other entity does; not exposed over REST yet.
-- **`information.is_public` plus `knowledge` complete RFC 0001's four knower cases** ([ADR 0028](../../adr/0028-knowledge-and-group-membership.md)): character or group (`knowledge.knower_entity_id`), player (`knowledge.knower_player_id`), everyone (`is_public = true`, no `knowledge` row needed), or GM-only (the absence of both, the default). `group_member` reuses `character_player`'s bipartite shape (`group_entity_id -> entity.id`, `character_entity_id -> character.entity_id`, retargeted from `being.entity_id` by [ADR 0031](../../adr/0031-character-table-and-read-api.md)) - drawn as a plain `ENTITY }o--o{ CHARACTER` line, not a self-loop, and needs no box of its own for the same reason `entity_stat_group` doesn't.
-- **`information_type` is the one table with no `tenant_id` and no RLS on purpose** ([ADR 0101](../../adr/0101-editable-information-and-description-payloads.md)): a global catalog of the few `information.type` values the application treats specially, written only by migrations (the app role can read it, not write it). It's drawn unconnected: `information.type` isn't a foreign key to it, since free-form types a GM invents have no row. Its `is_singleton` rows are mirrored by hand in the partial unique index `information_singleton_type`, which can't read another table.
-- **`computed_stat` extends a stat's address, not an entity** ([ADR 0104](../../adr/0104-computed-stats.md)): it shares `entity_stat`'s `(entity_id, stat_definition_id)` key, and its two kinds extend it the way `payload`'s kinds extend `payload`. The source/left/right stat references (not drawn, to keep the diagram readable) point back at `stat_definition` without cascading, so a stat a formula reads can't disappear under it. `v_effective_stat` weighs `computed_stat` rows against `entity_stat` rows at every prototype hop; the formula itself is evaluated in Python.
-- **`knowledge` is the one join table that needed a surrogate `id` and two explicit `UNIQUE` constraints** rather than relying on a composite PK - its two knower columns are mutually exclusive and always one-null (`CHECK(num_nonnulls(...) = 1)`, same shape as `entity_stat`'s four value columns), and Postgres can't put a nullable column in a composite PK at all.
-- **`invite` (once `campaign_invite`, [ADR 0220](../../adr/0220-one-invite-table-with-kinds.md)) is the one table readable by holding a secret rather than being someone** ([ADR 0092](../../adr/0092-campaign-invite-links.md)): besides the ordinary tenant policy it has a select-only policy keyed on `app.invite_token_hash`, which only the two public `/invites/{token}` routes set - a token holder can read that one row and nothing else, and can write nothing. Redeeming creates an ordinary `player`, `campaign_gm` or `membership` row, or a repository grant, by the link's `kind`; there is no separate "redemption" table, only `use_count` and an `audit_log` entry.
-- **`entity_change` is readable only by its recipient** ([ADR 0099](../../adr/0099-player-facing-change-feed.md)) - stricter than `notification`, which also admits anyone holding the tenant context. Rows are written by whoever made the change, inside that route's tenant context, so the app generates `id` and `occurred_at` itself: with nothing server-generated there is no `INSERT ... RETURNING` that the recipient-only read policy would reject. `entity_id` and `character_entity_id` are deliberately not foreign keys, so a `deleted` row outlives its item; like `audit_log`, a row is never updated after it is written.
-- **Every foreign key between two tenant tables includes `tenant_id`** ([ADR 0117](../../adr/0117-same-tenant-references-by-composite-foreign-keys.md)), so a row can never point into another tenant. The lines above draw each key by its id column alone; each referenced table carries a `UNIQUE (id, tenant_id)` for the composite key to point at.
-- **A repository is a tenant of `kind = repository`** ([ADR 0118](../../adr/0118-repository-tenants-subscriptions-and-a-gated-read.md)) and holds no campaigns (a trigger). `repository_subscription` is the one table spanning two tenants, so it has no `tenant_id`: either side reads or removes a grant, only the repository's side creates one. Every content table has a second, `FOR SELECT` policy, `repository_read`, true only for the rows of a granted, published repository that the current request asked to read (`app.repository_tenant_id`, set only by `repository_access.reading_repository`).
-- **The copy tables belong to the copying tenant** ([ADR 0119](../../adr/0119-copying-a-repository-into-a-tenant.md)): `repository_copy` says it copied a repository, and each link says which origin row a local row came from, with a snapshot [ADR 0121](../../adr/0121-repository-updates-and-re-sync.md) diffs against. The source side is a plain id, so the copy outlives the repository; the local side nulls on delete, so a deleted copy stays distinguishable from a row new upstream.
-- **`content_reference` points at a slug, not at an entity** ([ADR 0110](../../adr/0110-lorenzoscript-content-references-and-backlinks.md)) - the dotted line to `entity_slug` is a match on `target`, resolved when read, not a foreign key. So a reference to a slug nobody holds yet is kept and counts once the slug exists. Rows are derived from description text by `write_description` and never written any other way.
+```mermaid
+erDiagram
+    APP_USER |o..o{ REPOSITORY_COPY : "copied_by"
+    ENTITY |o..o{ REPOSITORY_COPY_LINK_ENTITY : "entity_id"
+    STAT_DEFINITION |o..o{ REPOSITORY_COPY_LINK_STAT_DEFINITION : "stat_definition_id"
+    STAT_GROUP |o..o{ REPOSITORY_COPY_LINK_STAT_GROUP : "stat_group_id"
+    PROFILE_PICTURE |o..o{ REPOSITORY_PROFILE : "cover_picture_id"
+    REPOSITORY_RELEASE ||..o{ REPOSITORY_RELEASE_DOCUMENT : "release_id"
+    ENTITY ||..o{ REPOSITORY_SHOWCASE : "entity_id"
+    TENANT ||..o{ REPOSITORY_SUBSCRIPTION : "repository_tenant_id"
+    TENANT ||..o{ REPOSITORY_SUBSCRIPTION : "subscriber_tenant_id"
+    REPOSITORY_COPY {
+        uuid tenant_id
+        uuid repository_tenant_id PK
+        string repository_name
+        datetime copied_at
+        uuid copied_by FK "nullable"
+        datetime synced_at
+        uuid synced_release_id "nullable"
+    }
+    REPOSITORY_COPY_LINK_ATTACHMENT {
+        uuid tenant_id
+        uuid source_tenant_id PK
+        uuid child_source_id PK
+        uuid parent_source_id PK
+        datetime copied_at
+    }
+    REPOSITORY_COPY_LINK_ENTITY {
+        uuid entity_id FK "nullable"
+    }
+    REPOSITORY_COPY_LINK_STAT_DEFINITION {
+        uuid stat_definition_id FK "nullable"
+        string mode
+    }
+    REPOSITORY_COPY_LINK_STAT_GROUP {
+        uuid stat_group_id FK "nullable"
+        string mode
+    }
+    REPOSITORY_PROFILE {
+        uuid tenant_id PK,FK
+        string visibility
+        string preview
+        string summary
+        string licence_label "nullable"
+        string licence_url "nullable"
+        json credits
+        array tags
+        string system "nullable"
+        array languages
+        uuid cover_picture_id FK "nullable"
+        string release_label "nullable"
+        datetime released_at "nullable"
+        int entry_count "nullable"
+        int stat_definition_count "nullable"
+    }
+    REPOSITORY_RELEASE {
+        uuid id PK
+        uuid tenant_id FK
+        int number
+        string label
+        string notes "nullable"
+        boolean breaking
+        string digest "nullable"
+        json counts "nullable"
+        json breaking_rows
+        json warning_rows
+    }
+    REPOSITORY_RELEASE_BLOB {
+        uuid tenant_id PK,FK
+        string sha256 PK
+        bytes data
+    }
+    REPOSITORY_RELEASE_DOCUMENT {
+        uuid release_id PK,FK
+        uuid tenant_id FK
+        int format
+        bytes content
+        array blobs
+    }
+    REPOSITORY_RELEASED_ROW {
+        uuid id PK
+        uuid tenant_id FK
+        string kind
+        uuid row_id
+        uuid parent_id "nullable"
+        string hash
+        string name
+        json facts
+    }
+    REPOSITORY_SHOWCASE {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        int position
+    }
+    REPOSITORY_SUBSCRIPTION {
+        uuid repository_tenant_id PK,FK
+        uuid subscriber_tenant_id PK,FK
+        string source
+    }
+```
 
-Not shown: the partial `UNIQUE(entity_id, type) WHERE type IN ('description', 'main_picture')` on `information` plus `UNIQUE(entity_id, order)` on it and `UNIQUE(information_id, order)` on `payload` ([ADR 0101](../../adr/0101-editable-information-and-description-payloads.md)), `UNIQUE(tenant_id, name)` on `stat_group`/`stat_definition`, `UNIQUE(authgear_subject_id)`, `UNIQUE(email)` and `UNIQUE(nickname)` on `app_user`, `UNIQUE(campaign_id, user_id)` on `player`, `UNIQUE(tenant_id, slug)` on `campaign` and `entity_slug`, `UNIQUE` (global) on `tenant.slug` and `invite.token_hash`, and on `knowledge`, `UNIQUE(knower_entity_id, information_id)`/`UNIQUE(knower_player_id, information_id)` - mermaid's ER notation has no marker for a composite/plain unique constraint distinct from the relationship lines above, and nothing here can draw `item_instance`'s unenforced "must have an item-typed direct prototype" invariant either, since it isn't a real constraint. See each table's ADR for the full constraint list ([0012](../../adr/0012-entity-table.md) entity, [0013](../../adr/0013-tenant-table-bootstrap.md) tenant, [0014](../../adr/0014-stats.md) stats, [0015](../../adr/0015-entity-prototype.md) entity_prototype, [0016](../../adr/0016-containment.md) containment, [0017](../../adr/0017-information-and-payloads.md) information/payload, [0019](../../adr/0019-item-and-v-item.md) item/item_instance/v_item, [0022](../../adr/0022-user-tenant-membership.md) app_user/tenant/membership, [0054](../../adr/0054-user-identity-email-and-nickname.md) app_user email/nickname, [0057](../../adr/0057-platform-operations.md) app_user suspension, [0060](../../adr/0060-user-profile-expansion.md) app_user profile, [0024](../../adr/0024-campaign-and-player.md)/[0030](../../adr/0030-tenant-campaign-read-api.md) campaign/player, [0025](../../adr/0025-character-being-and-ownership.md)/[0031](../../adr/0031-character-table-and-read-api.md) being/character/character_player/ownership, [0026](../../adr/0026-campaign-gm-orga-and-access-rule.md)/[0030](../../adr/0030-tenant-campaign-read-api.md) campaign_gm/tenant_admin_campaign_opt_out, [0028](../../adr/0028-knowledge-and-group-membership.md)/[0031](../../adr/0031-character-table-and-read-api.md) knowledge/group_member/information.is_public, [0029](../../adr/0029-attribution-created-by-updated-by.md) created_by/updated_by, [0056](../../adr/0056-profile-pictures.md) profile_picture/user_profile_picture/tenant_profile_picture/campaign_profile_picture, [0057](../../adr/0057-platform-operations.md)/[0063](../../adr/0063-tenant-activity-log.md) audit_log, [0058](../../adr/0058-notifications.md)-[0061](../../adr/0061-notification-sender-read-receipts.md) notification, [0092](../../adr/0092-campaign-invite-links.md)/[0220](../../adr/0220-one-invite-table-with-kinds.md) invite (once campaign_invite), [0099](../../adr/0099-player-facing-change-feed.md) entity_change, [0107](../../adr/0107-entity-slugs-and-batch-resolve.md) entity_slug, [0110](../../adr/0110-lorenzoscript-content-references-and-backlinks.md) content_reference.
+## Rules the lines do not show
+
+- **Tenant isolation:** tenant data has `tenant_id` and `FORCE ROW LEVEL SECURITY`, read through a restricted app role (ADR 0002, 0021). Tenant-to-tenant foreign keys include `tenant_id` (ADR 0117). `repository_subscription` is the deliberate cross-tenant grant table, with policies on both ends.
+- **Inheritance:** `entity_prototype.position` orders parents and breaks equal-distance, equal-priority stat ties (ADR 0266). Cycles are refused by database triggers.
+- **Knowledge and visibility:** public, character, player and group audiences determine which information a caller reads (ADR 0028, 0109); the lines do not imply access. A content reference is keyed by its textual target, not a foreign key to the entity it resolves to (ADR 0110).
+- **Repositories:** a repository is a tenant of kind `repository`, with no campaigns. Copies have local rows, plain source identifiers and snapshots; source identifiers deliberately outlive the source repository. Attachments carry parents a bridge adds to copied entries (ADR 0118 to 0121, 0172).
+- **Releases:** release documents and blobs preserve public content; `tenant.current_release_id` selects the current release, with retention and rollback (ADR 0214, 0288). Private repository reads remain live. Public reads and previews use the current document and the read/preview gates (ADR 0286, 0287, 0293).
+- **Credentials:** personal tokens and device authorizations belong to a user, not a tenant; only hashes of credentials are stored (ADR 0268).
+- **Activity:** logs and change-feed records keep identifiers of deleted objects without foreign keys to those objects. A notification can later be marked read; its `read_at` changes even though its authored message stays fixed (ADR 0058, 0099).

@@ -434,7 +434,15 @@ describe("getMyProfile", () => {
             },
           ],
           campaign_gm_grants: [
-            { id: "campaign-3", slug: "a", name: "A", game_system: "5e", secret: false },
+            {
+              id: "campaign-3",
+              slug: "a",
+              name: "A",
+              game_system: "5e",
+              secret: false,
+              gm_title: "Storyteller",
+              gm_title_plural: "Storytellers",
+            },
           ],
         }),
       ),
@@ -454,7 +462,7 @@ describe("getMyProfile", () => {
       pictureUrl: "https://lorenzo-api.test/users/user-1/picture",
       membershipRole: "orga",
       characters: [{ entityId: CHARACTER_ID, name: "Frodo" }],
-      gmCampaignCount: 1,
+      gmCampaigns: [{ gmTitle: "Storyteller", gmTitlePlural: "Storytellers" }],
     });
   });
 
@@ -493,7 +501,7 @@ describe("getMyProfile", () => {
       pictureUrl: "https://lorenzo-api.test/users/user-1/picture",
       membershipRole: null,
       characters: [],
-      gmCampaignCount: 0,
+      gmCampaigns: [],
     });
   });
 });

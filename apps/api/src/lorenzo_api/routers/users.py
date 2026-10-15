@@ -11,6 +11,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.campaign_gm_title import DEFAULT_GM_TITLE, DEFAULT_GM_TITLE_PLURAL
 from lorenzo_api.change_feed import RETENTION_DAYS
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -193,7 +194,7 @@ async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> Manage
         ).one()
         gm_campaign_ids = gm_campaign_ids_by_tenant.get(tenant_id, set())
         campaign_stmt = (
-            select(Campaign.id, Campaign.name)
+            select(Campaign.id, Campaign.name, Campaign.gm_title, Campaign.gm_title_plural)
             .where(Campaign.tenant_id == tenant_id)
             .order_by(Campaign.name, Campaign.id)
         )
@@ -201,9 +202,15 @@ async def get_my_managed_scope(user: CurrentUser, session: SessionDep) -> Manage
             campaign_stmt = campaign_stmt.where(Campaign.id.in_(gm_campaign_ids))
         campaigns = [
             ManagedCampaignOut(
-                campaign_id=campaign_id, name=name, is_gm=campaign_id in gm_campaign_ids
+                campaign_id=campaign_id,
+                name=name,
+                is_gm=campaign_id in gm_campaign_ids,
+                gm_title=gm_title or DEFAULT_GM_TITLE,
+                gm_title_plural=gm_title_plural or DEFAULT_GM_TITLE_PLURAL,
             )
-            for campaign_id, name in (await session.execute(campaign_stmt)).all()
+            for campaign_id, name, gm_title, gm_title_plural in (
+                await session.execute(campaign_stmt)
+            ).all()
         ]
         role = role_by_tenant.get(tenant_id)
         tenants.append(

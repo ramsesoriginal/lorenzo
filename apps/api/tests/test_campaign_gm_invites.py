@@ -21,6 +21,7 @@ from sqlalchemy import select
 from lorenzo_api.invites import generate_token, hash_token
 from lorenzo_api.models import (
     AuditLog,
+    Campaign,
     CampaignGm,
     Invite,
     InviteRole,
@@ -483,3 +484,36 @@ async def test_a_dead_gm_link_is_indistinguishable_from_any_other_dead_link(
     assert len({repr(p) for p in previews}) == 1
     assert len({repr(r) for r in redeems}) == 1
     assert await _gm_user_ids(table) == set()
+
+
+async def test_the_notice_of_a_new_gm_uses_the_title_the_campaign_has_for_its_gm(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, table: Table
+) -> None:
+    """ADR 0294: a campaign that calls its game master something else is told in those words."""
+    token, _ = await _seed_gm_link(table)
+    co_gm_id, _ = await _add_user(table, "co-storyteller")
+    async with admin_session_factory() as session:
+        session.add(
+            CampaignGm(user_id=co_gm_id, campaign_id=table.campaign_id, tenant_id=table.tenant_id)
+        )
+        campaign = await session.get(Campaign, table.campaign_id)
+        assert campaign is not None
+        campaign.gm_title, campaign.gm_title_plural = "Storyteller", "Storytellers"
+        await session.commit()
+
+    response = await raw_client.post(
+        f"/invites/{token}/redeem", headers=_auth(table, fake_jwks_server)
+    )
+
+    assert response.status_code == 201, response.text
+    async with admin_session_factory() as session:
+        note = (
+            await session.execute(
+                select(Notification).where(
+                    Notification.tenant_id == table.tenant_id,
+                    Notification.type == "campaign_invite_gm_redeemed",
+                )
+            )
+        ).scalar_one()
+    assert note.title.startswith("A new Storyteller joined ")
+    assert "joined the Storytellers through an invite link" in (note.body or "")

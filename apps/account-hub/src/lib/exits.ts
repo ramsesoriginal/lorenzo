@@ -55,12 +55,14 @@ export function leaveTenantConfirmation(name: string, kind: TenantKind): string 
 
 // Revoking your own GM grant (ADR 0034). A library administrator keeps the
 // campaign through their administrator standing.
-export function stepDownConfirmation(campaignName: string): string {
-  return `Step down as GM of "${campaignName}"? You'll stop managing this campaign unless you also administer its library. A library administrator or another GM can make you its GM again.`;
+// `gmTitle` is what the campaign calls its game master (ADR 0294).
+export function stepDownConfirmation(campaignName: string, gmTitle: string): string {
+  return `Step down as ${gmTitle} of "${campaignName}"? You'll stop managing this campaign unless you also administer its library. A library administrator or another ${gmTitle} can make you its ${gmTitle} again.`;
 }
 
 // DELETE /me (ADR 0036, ADR 0084's addendum): what it removes, what it leaves,
-// and what it does not touch: the Authgear login.
-export function deleteAccountConfirmation(): string {
-  return "Delete your Lorenzo account? This removes your account and ends every membership, player seat, GM role and campaign opt-out you hold, in every library. What you made stays, but no longer names you. It does not delete your Authgear login: if you log in again, you'll get a fresh, empty Lorenzo account.";
+// and what it does not touch: the Authgear login. `gmTitle` is the word for the game master of
+// the campaigns the account holds that role in, GM unless they all call it the same (gmWords).
+export function deleteAccountConfirmation(gmTitle: string): string {
+  return `Delete your Lorenzo account? This removes your account and ends every membership, player seat, ${gmTitle} role and campaign opt-out you hold, in every library. What you made stays, but no longer names you. It does not delete your Authgear login: if you log in again, you'll get a fresh, empty Lorenzo account.`;
 }

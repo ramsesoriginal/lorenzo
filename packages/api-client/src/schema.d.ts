@@ -5273,6 +5273,10 @@ export interface components {
             secret: boolean;
             /** Player Self Service */
             player_self_service: boolean;
+            /** Gm Title */
+            gm_title: string;
+            /** Gm Title Plural */
+            gm_title_plural: string;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -5308,6 +5312,10 @@ export interface components {
             game_system: string;
             /** Secret */
             secret: boolean;
+            /** Gm Title */
+            gm_title: string;
+            /** Gm Title Plural */
+            gm_title_plural: string;
         };
         /**
          * CampaignUpdate
@@ -5330,6 +5338,10 @@ export interface components {
             secret?: boolean | null;
             /** Player Self Service */
             player_self_service?: boolean | null;
+            /** Gm Title */
+            gm_title?: string | null;
+            /** Gm Title Plural */
+            gm_title_plural?: string | null;
         };
         /**
          * CharacterCreate
@@ -7436,6 +7448,10 @@ export interface components {
             name: string;
             /** Is Gm */
             is_gm: boolean;
+            /** Gm Title */
+            gm_title: string;
+            /** Gm Title Plural */
+            gm_title_plural: string;
         };
         /**
          * ManagedScopeOut
@@ -8832,6 +8848,8 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms: boolean;
+            /** Being Stat Group Id */
+            being_stat_group_id?: string | null;
             /** Weapon Stat Group Id */
             weapon_stat_group_id: string | null;
             /** Ability Information Type */
@@ -9385,6 +9403,8 @@ export interface components {
          *     one read. A section whose setting the library has not made is empty and says so.
          */
         SheetOut: {
+            /** Being Stat Group Id */
+            being_stat_group_id?: string | null;
             /** Weapons Configured */
             weapons_configured: boolean;
             /** Abilities Configured */
@@ -9947,6 +9967,8 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms: boolean;
+            /** Being Stat Group Id */
+            being_stat_group_id?: string | null;
             /** Weapon Stat Group Id */
             weapon_stat_group_id: string | null;
             /** Ability Information Type */
@@ -10001,6 +10023,8 @@ export interface components {
              * @description Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.
              */
             npcs_shared_with_gms?: boolean | null;
+            /** Being Stat Group Id */
+            being_stat_group_id?: string | null;
             /** Weapon Stat Group Id */
             weapon_stat_group_id?: string | null;
             /** Ability Information Type */
