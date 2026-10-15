@@ -31,9 +31,7 @@ async def test_upload_and_serve_my_picture(
     client: AsyncClient, raw_client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     picture = _PNG_BYTES.ljust(10_000_000, b"0")
-    upload = await client.put(
-        "/me/picture", files={"file": ("avatar.png", picture, "image/png")}
-    )
+    upload = await client.put("/me/picture", files={"file": ("avatar.png", picture, "image/png")})
     assert upload.status_code == 204
 
     served = await raw_client.get(f"/users/{test_user_id}/picture")
