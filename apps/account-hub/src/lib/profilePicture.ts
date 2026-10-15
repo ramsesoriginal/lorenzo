@@ -3,7 +3,7 @@
 // `profile_picture_max_bytes` default; a server set differently still answers for itself.
 
 const PICTURE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
-const PICTURE_MAX_BYTES = 2_000_000;
+const PICTURE_MAX_BYTES = 10_000_000;
 
 // For an <input type="file" accept>: the four types, so a picker doesn't offer an SVG.
 export const PICTURE_ACCEPT = PICTURE_TYPES.join(',');
@@ -15,7 +15,7 @@ export function pictureProblem(file: { type: string; size: number }): string | n
   }
 
   if (file.size > PICTURE_MAX_BYTES) {
-    return 'That picture is over 2 MB. Choose a smaller one.';
+    return 'That picture is over 10 MB. Choose a smaller one.';
   }
 
   return null;

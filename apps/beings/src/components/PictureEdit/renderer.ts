@@ -1,5 +1,5 @@
 // The being's main picture (ADR 0237, 0272): choose a file and use it, or remove the one it has.
-// The same four types and 2 MB limit as the API's; it says so before uploading rather than after.
+// The same four types and 10 MB limit as the API's; it says so before uploading rather than after.
 
 import { client, unwrap } from '../../lib/api';
 import { errorMessage } from '../../lib/errorMessage';
@@ -9,12 +9,12 @@ import { requiredIn } from '../../lib/template';
 const required = requiredIn('Picture edit');
 
 const TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-const MAX_BYTES = 2_000_000;
+const MAX_BYTES = 10_000_000;
 
 /** Why this file can't be the picture, or null if it can. */
 export function pictureProblem(file: { type: string; size: number }): string | null {
   if (!TYPES.includes(file.type)) return "That file type won't work. Use a PNG, JPEG, WebP or GIF.";
-  if (file.size > MAX_BYTES) return 'That picture is over 2 MB. Choose a smaller one.';
+  if (file.size > MAX_BYTES) return 'That picture is over 10 MB. Choose a smaller one.';
   return null;
 }
 

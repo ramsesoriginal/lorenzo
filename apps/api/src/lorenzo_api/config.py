@@ -154,11 +154,11 @@ class Settings(BaseSettings):
     # Profile pictures (ADR 0056) - bytes are stored directly in Postgres
     # (matching payload_picture's own precedent, ADR 0017), so this caps
     # both the request body size and the row size, not a bucket quota.
-    profile_picture_max_bytes: int = 2_000_000
+    profile_picture_max_bytes: int = 10_000_000
 
     # Pictures on an entry's information (K8, ADR 0237): the same cap to start with, a setting of
     # its own because a cover or a map may want more than an avatar. Bytes in Postgres here too.
-    picture_max_bytes: int = 2_000_000
+    picture_max_bytes: int = 10_000_000
 
     # How many of a public repository's newest releases keep their document (RFC 0037 section 5,
     # ADR 0288): a setting, not a promise. The current release keeps its own whatever its age.
