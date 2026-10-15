@@ -126,3 +126,8 @@ depends_on = ["apps/api"]
 # Native Kotlin adapter consumes the REST contract; copied fonts and icons follow the brand.
 depends_on = ["apps/brand"]
 generated_from = ["apps/api"]
+
+# Its debug APK and unsigned release bundle (`mise run build`), a job beside the node's lint and tests
+# instead of a step after them: each is about 150 s of Gradle.
+[suites.mobile-build]
+node = "apps/inventory-mobile"

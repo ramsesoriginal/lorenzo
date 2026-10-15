@@ -63,6 +63,9 @@ jobs:
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
+      # Only the downloaded libraries help here: the build below runs every task again (see there).
+      - uses: gradle/actions/setup-gradle@v6
+        if: matrix.language == 'java-kotlin'
       - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
@@ -71,7 +74,9 @@ jobs:
       - name: Build Kotlin for CodeQL
         if: matrix.language == 'java-kotlin'
         working-directory: apps/inventory-mobile
-        run: mise exec -- ./gradlew --no-daemon --no-build-cache --rerun-tasks :app:assembleDebug :core:classes
+        # CodeQL watches the compiler run, so every task runs again (--rerun-tasks), and only the
+        # compilers' tasks are asked for: dexing and packaging an APK have no source for it to read.
+        run: mise exec -- ./gradlew --no-daemon --no-build-cache --rerun-tasks :app:compileDebugKotlin :app:compileDebugJavaWithJavac :core:classes
       - uses: github/codeql-action/analyze@v4
 
   dependency-review:
