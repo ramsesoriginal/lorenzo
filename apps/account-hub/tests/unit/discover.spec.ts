@@ -27,9 +27,12 @@ import {
   PAGE_SIZE,
   PAST_THE_END,
   pagerOf,
+  publishedByLine,
+  REPORT_LABEL,
   readDiscoverLocation,
   releaseGroups,
   releaseHeading,
+  reportHref,
   resultsLine,
   safeLink,
   showsDiscover,
@@ -59,6 +62,7 @@ function item(overrides: Partial<DiscoverItemOut> = {}): DiscoverItemOut {
     release: { label: '1.2', released_at: '2026-10-14T09:00:00Z' },
     entries: 309,
     stat_definitions: 12,
+    publishers: [{ display_name: 'Ada Author' }],
     ...overrides,
   };
 }
@@ -223,6 +227,7 @@ describe('a result', () => {
       name: 'Bestiary',
       summary: 'Every beast there is.',
       tags: ['monsters', 'srd'],
+      publishedBy: 'Published by Ada Author',
       meta: ['D&D 5e', 'Release 1.2', '309 entries'],
     });
   });
@@ -232,6 +237,25 @@ describe('a result', () => {
     expect(entriesLine(1)).toBe('1 entry');
     expect(entriesLine(0)).toBe('0 entries');
     expect(entriesLine(null)).toBeNull();
+  });
+
+  it('says who published it by the accounts of its Owners, and nothing where none is named', () => {
+    expect(publishedByLine([{ display_name: 'Ada' }, { display_name: 'Bob' }])).toBe(
+      'Published by Ada, Bob',
+    );
+    expect(publishedByLine([])).toBeNull();
+    expect(publishedByLine(undefined)).toBeNull();
+    expect(cardLines(item({ publishers: [] })).publishedBy).toBeNull();
+  });
+
+  it('links a report only to the address the API built, and only a mailto', () => {
+    expect(REPORT_LABEL).toBe('Report this repository');
+    expect(reportHref('mailto:reports@example.org?subject=Report')).toBe(
+      'mailto:reports@example.org?subject=Report',
+    );
+    expect(reportHref(null)).toBeNull();
+    expect(reportHref('https://example.org')).toBeNull();
+    expect(reportHref('javascript:alert(1)')).toBeNull();
   });
 
   it('says nothing of how often it was copied', () => {

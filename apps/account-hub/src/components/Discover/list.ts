@@ -181,6 +181,11 @@ export function createList(
           tags.hidden = lines.tags.length === 0;
           required<HTMLElement>(card, '[data-meta]').textContent = lines.meta.join(' · ');
 
+          const publishedBy = required<HTMLElement>(card, '[data-published-by]');
+
+          publishedBy.textContent = lines.publishedBy ?? '';
+          publishedBy.hidden = lines.publishedBy === null;
+
           showCover(
             required<HTMLImageElement>(card, '[data-picture]'),
             required<HTMLElement>(card, '[data-initial]'),

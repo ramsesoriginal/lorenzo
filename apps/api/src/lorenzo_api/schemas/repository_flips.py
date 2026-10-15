@@ -5,6 +5,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, field_validator
 
+from lorenzo_api.schemas.discover import PublisherOut
 from lorenzo_api.schemas.repositories import BuiltOnBehindOut, PublishRequest
 from lorenzo_api.schemas.repository_profiles import (
     SUMMARY_MAX,
@@ -28,10 +29,16 @@ class MakePublicRequest(PublishRequest):
     `notes`, `breaking`, `acknowledge_breaking`), and what the repository says about itself as
     it goes public. `summary` is kept if given (a repository must have one, here or already);
     `preview` is the Owner's switch for what a visitor may look at before copying (RFC 0038
-    section 5), `showcase` unless they choose."""
+    section 5), `showcase` unless they choose.
+
+    `accept_terms` is the terms line the Owner agrees to in the dialog, and it must be `true`
+    (`422 terms-not-accepted` otherwise; a client that does not send it is refused). Draft
+    wording, the maintainer's to approve: I have the right to publish this repository.
+    Publishing cannot be recalled: libraries that copied it keep their copies."""
 
     preview: Preview = "showcase"
     summary: Annotated[str, Field(max_length=2000)] | None = None
+    accept_terms: bool = False
 
     @field_validator("summary")
     @classmethod
@@ -77,6 +84,9 @@ class FlipCheckOut(BaseModel):
     public_dependents: list[PublicDependentOut]
     public_libraries: int
     invited_libraries: int
+    # The Owners' account names a storefront will say published it (ADR 0299): the dialog shows
+    # them, since the repository is published as them and nothing else.
+    publishers: list[PublisherOut]
     # Set while the platform's operators have the repository off Discover (ADR 0303): it cannot be
     # made public until they list it again. Owner only, like the rest of the check.
     delisted: DelistedOut | None = None

@@ -246,7 +246,7 @@ D6's parts are independent and may each land as their own change. The spikes com
 ## Open questions
 
 - **How many showcase entries, and whether items already in the public catalog count.** A cap keeps a showcase from becoming the whole repository. The item field `in_public_catalog` is a ready-made "featured" flag for items but not for beings.
-- **Limits.** The release interval, the entry quota, the picture quotas, the maximum page size and depth, the lengths of summary and tags, and the number of credits and tags are settings whose values come from measuring the seeded repositories and the Discover spike.
+- **Limits.** The release interval, the entry quota, the picture quotas, the maximum page size and depth, the lengths of summary and tags, and the number of credits and tags are settings whose values come from measuring the seeded repositories and the Discover spike. The entry quota and the two picture quotas are settled by [ADR 0298](../adr/0298-quotas-on-a-repository.md): 20,000 entries, 50 MB of pictures in all and 1 MB for one.
 - **What a delist does to libraries that already hold the repository.** The proposal is that the copies stay and update checks stop, since an update check serves the content again. The other reading is that updates continue and only discovery stops.
 - **Which repositories a suspension delists,** when the suspended user is one Owner of several.
 - **Who may see a private repository's picture.** Authentication alone is the decision; membership or a grant is stricter, and would also need the invite visitor to count.

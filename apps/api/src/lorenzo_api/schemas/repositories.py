@@ -51,6 +51,7 @@ __all__ = [
     "RepositoryStatGroupOut",
     "RepositorySummaryOut",
     "SubscriberOut",
+    "SubscribersSummaryOut",
     "SubscriptionOut",
 ]
 
@@ -285,10 +286,10 @@ class ReleasePreviewOut(BaseModel):
 
 
 class SubscriberOut(BaseModel):
-    """A tenant granted a repository or holding a copy of it, as its owners
-    see it - ADR 0118, 0204. `granted_at` is null for one whose invitation is
-    gone and whose copy stays; `copied_at` and `synced_at` are null until it
-    copies."""
+    """A tenant invited to a repository, or invited once and still holding a copy of it, as its
+    owners see it - ADR 0118, 0204. `granted_at` is null for one whose invitation is gone and
+    whose copy stays; `copied_at` and `synced_at` are null until it copies. A library that
+    copied a public repository by itself is never one of these (ADR 0299)."""
 
     tenant_id: uuid.UUID
     name: str
@@ -300,6 +301,16 @@ class SubscriberOut(BaseModel):
     # The release it last took: null before it copies, and for a copy made before releases
     # existed (ADR 0207).
     synced_release: ReleaseRefOut | None
+
+
+class SubscribersSummaryOut(BaseModel):
+    """How many libraries use a repository, for its members (ADR 0299, RFC 0038 section 6): the
+    ones `GET /subscribers` names, and, as one number, the ones that copied it by themselves from
+    Discover, whose names a repository never learns. `public_copies` also counts a copy that
+    outlived the grant a public repository going private revoked."""
+
+    named: int
+    public_copies: int
 
 
 class RepositorySummaryOut(BaseModel):

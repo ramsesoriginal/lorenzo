@@ -18,6 +18,7 @@ import {
 import {
   editRelease,
   getReleasePreview,
+  getSubscribersSummary,
   getUpdates,
   inviteLibrary,
   listLibraryRepositories,
@@ -37,6 +38,7 @@ import {
   builtOn,
   INVITE_HELP,
   libraryIdProblem,
+  publicCopiesLine,
   stopInvitingConfirmation,
   USING_LABEL,
   USING_PILL,
@@ -68,6 +70,7 @@ const AT_ONCE = 3;
 export function createUsing(root: HTMLElement, onChanged: () => void): Section {
   const section = required<HTMLElement>(root, '[data-using]');
   const summary = required<HTMLElement>(root, '[data-using-summary]');
+  const publicCopies = required<HTMLElement>(root, '[data-using-public]');
   const error = required<HTMLElement>(root, '[data-using-error]');
   const list = required<HTMLElement>(root, '[data-using-list]');
   const form = required<HTMLFormElement>(root, '[data-invite]');
@@ -80,11 +83,19 @@ export function createUsing(root: HTMLElement, onChanged: () => void): Section {
   let shown: TenantSummaryOut | null = null;
 
   async function repaint(repository: TenantSummaryOut, isCurrent: () => boolean): Promise<void> {
-    const rows = await listSubscribers(repository.id);
+    const [rows, counted] = await Promise.all([
+      listSubscribers(repository.id),
+      getSubscribersSummary(repository.id),
+    ]);
 
     if (!isCurrent()) return;
 
-    summary.textContent = usingSummary(rows);
+    summary.textContent = usingSummary(rows, counted.public_copies);
+
+    const publicLine = publicCopiesLine(counted.public_copies);
+
+    publicCopies.textContent = publicLine ?? '';
+    publicCopies.hidden = publicLine === null;
     list.replaceChildren(
       ...rows.map((row) => {
         const item = cloneRoot(root, '[data-using-template]');
@@ -152,6 +163,7 @@ export function createUsing(root: HTMLElement, onChanged: () => void): Section {
     clear() {
       shown = null;
       section.hidden = true;
+      publicCopies.hidden = true;
       list.replaceChildren();
       error.hidden = true;
       form.hidden = true;

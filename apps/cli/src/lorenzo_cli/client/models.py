@@ -785,6 +785,7 @@ class MakePublicRequest(BaseModel):
     acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
     preview: Preview | None = Field("showcase", title="Preview")
     summary: constr(max_length=2000) | None = Field(None, title="Summary")
+    accept_terms: bool | None = Field(False, title="Accept Terms")
 
 
 class ManagedCampaignOut(BaseModel):
@@ -1209,6 +1210,10 @@ class PublishRequest(BaseModel):
     acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
 
 
+class PublisherOut(BaseModel):
+    display_name: str = Field(..., title="Display Name")
+
+
 class ReleaseCountsOut(BaseModel):
     entities: KindCountsOut
     stat_groups: KindCountsOut
@@ -1493,6 +1498,11 @@ class SubscriberOut(BaseModel):
     synced_release: ReleaseRefOut | None
 
 
+class SubscribersSummaryOut(BaseModel):
+    named: int = Field(..., title="Named")
+    public_copies: int = Field(..., title="Public Copies")
+
+
 class SubscriptionOut(BaseModel):
     repository: RepositorySummaryOut
     granted_at: AwareDatetime | None = Field(..., title="Granted At")
@@ -1753,6 +1763,7 @@ class DiscoverItemOut(BaseModel):
     release: DiscoverReleaseOut
     entries: int | None = Field(..., title="Entries")
     stat_definitions: int | None = Field(..., title="Stat Definitions")
+    publishers: list[PublisherOut] = Field(..., title="Publishers")
 
 
 class DiscoverPageOut(BaseModel):
@@ -1780,6 +1791,7 @@ class FlipCheckOut(BaseModel):
     public_dependents: list[PublicDependentOut] = Field(..., title="Public Dependents")
     public_libraries: int = Field(..., title="Public Libraries")
     invited_libraries: int = Field(..., title="Invited Libraries")
+    publishers: list[PublisherOut] = Field(..., title="Publishers")
     delisted: DelistedOut | None = None
 
 
@@ -2230,6 +2242,7 @@ class StorefrontOut(BaseModel):
     item: DiscoverItemOut
     description: str = Field(..., title="Description")
     profile: RepositoryProfileOut
+    report_mailto: str | None = Field(..., title="Report Mailto")
 
 
 class SumFormulaBodyInput(BaseModel):

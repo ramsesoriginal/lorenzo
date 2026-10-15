@@ -102,6 +102,7 @@ import Preview from '../Preview/Preview.astro';
     <header class="stack-tight">
       <h2 data-name></h2>
       <p class="lede" data-summary></p>
+      <p class="campaign-meta" data-published-by hidden></p>
     </header>
 
     <ul class="discover-tags" aria-label="Tags" data-tags></ul>
@@ -155,6 +156,11 @@ import Preview from '../Preview/Preview.astro';
       <ul class="stack-tight" data-credits></ul>
     </section>
 
+    <!-- Where a report about this repository goes: only where the deployment sets an address (ADR 0299). -->
+    <p data-report-line hidden>
+      <a class="shelf-link" data-report></a>
+    </p>
+
     <p class="error-text" role="alert" data-part-error hidden></p>
 
     <section class="stack" data-release-section hidden>
@@ -181,8 +187,7 @@ import Preview from '../Preview/Preview.astro';
       <p class="caption" data-built-on-note hidden></p>
     </section>
 
-    <!-- What a visitor may look at before copying (RFC 0038 §5, ADR 0293). The publisher, the Report
-         link and the terms are D6's and not on screen yet. -->
+    <!-- What a visitor may look at before copying (RFC 0038 §5, ADR 0293). -->
     <Preview />
   </article>
 
@@ -199,6 +204,7 @@ import Preview from '../Preview/Preview.astro';
         <p data-summary></p>
         <ul class="discover-tags" aria-label="Tags" data-tags></ul>
         <p class="campaign-meta" data-meta></p>
+        <p class="campaign-meta" data-published-by hidden></p>
       </div>
     </li>
   </template>

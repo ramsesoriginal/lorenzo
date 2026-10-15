@@ -73,6 +73,7 @@ from lorenzo_api.repository_content import (
     stat_definition_snapshot,
     stat_group_snapshot,
 )
+from lorenzo_api.repository_quotas import check_rows
 from lorenzo_api.repository_upstream import is_public, load_upstream, upstream_copies
 
 CollisionKind = Literal["stat_group", "stat_definition", "slug"]
@@ -943,6 +944,7 @@ _LINKS = COPY_LINKS
 async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]]) -> None:
     """Inserts a plan's rows in dependency order. Shared with ADR 0121's
     updates, which add rows the same way."""
+    await check_rows(session, rows)
     for key, model in _TABLES:
         if rows.get(key):
             await session.execute(insert(model), rows[key])

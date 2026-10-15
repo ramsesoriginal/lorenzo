@@ -5,10 +5,9 @@
 
 import { fetchAllPages, LorenzoApiError, MAX_PAGE_SIZE } from '@lorenzo/api-client';
 import { client, unwrap } from './api';
-import { getAccessToken } from './auth';
 import { cached } from './cache';
-import { API_BASE_URL } from './config';
 import { type DiscoverQuery, listQuery } from './discover';
+import { fetchPictureUrl } from './pictureFetch';
 import type {
   DiscoverFacetsOut,
   DiscoverPageOut,
@@ -88,18 +87,7 @@ export function coverUrl(repositoryId: string): Promise<string> {
 
   if (known) return known;
 
-  const loading = (async () => {
-    const token = await getAccessToken();
-    const response = await fetch(`${API_BASE_URL}/repositories/${repositoryId}/profile/cover`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-
-    if (!response.ok) {
-      throw new LorenzoApiError(`Could not load a cover (${response.status}).`, response.status);
-    }
-
-    return URL.createObjectURL(await response.blob());
-  })();
+  const loading = fetchPictureUrl(`/repositories/${repositoryId}/profile/cover`);
 
   loading.catch(() => covers.delete(repositoryId));
   covers.set(repositoryId, loading);

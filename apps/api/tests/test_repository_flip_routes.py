@@ -50,7 +50,8 @@ async def test_a_deployment_without_public_repositories_refuses_the_flip_in_word
     try:
         assert (await _check(world))["available"] is False
         refused = await world.author.put(
-            f"/tenants/{world.repository}/public", json={"summary": "Every blade there is"}
+            f"/tenants/{world.repository}/public",
+            json={"accept_terms": True, "summary": "Every blade there is"},
         )
         assert refused.status_code == 422
         assert refused.json()["type"] == "public-repositories-not-available"
@@ -79,7 +80,12 @@ async def test_the_owner_makes_a_repository_public_with_its_first_public_release
         told = len(await _notices(world.gm))
         response = await world.author.put(
             f"/tenants/{world.repository}/public",
-            json={"label": "2.0", "summary": "Every blade there is", "preview": "off"},
+            json={
+                "accept_terms": True,
+                "label": "2.0",
+                "summary": "Every blade there is",
+                "preview": "off",
+            },
         )
         assert response.status_code == 200, response.text
         release = response.json()["release"]
@@ -115,7 +121,7 @@ async def test_a_repository_needs_a_summary_to_go_public_and_the_preview_default
     world = await release_world(raw_client, fake_jwks_server)
     try:
         url = f"/tenants/{world.repository}/public"
-        refused = await world.author.put(url, json={"summary": "   "})
+        refused = await world.author.put(url, json={"accept_terms": True, "summary": "   "})
         assert refused.status_code == 422
         assert refused.json()["type"] == "public-repository-summary-required"
         assert (await _profile(world.repository)).visibility == "private"
@@ -124,11 +130,13 @@ async def test_a_repository_needs_a_summary_to_go_public_and_the_preview_default
         await world.author.patch(
             f"/tenants/{world.repository}/profile", json={"summary": "Already said"}
         )
-        accepted = await world.author.put(url)
+        accepted = await world.author.put(url, json={"accept_terms": True})
         assert accepted.status_code == 200, accepted.text
         profile = await _profile(world.repository)
         assert (profile.summary, profile.preview) == ("Already said", "showcase")
-        assert (await world.author.put(url)).status_code == 409  # already public
+        assert (
+            await world.author.put(url, json={"accept_terms": True})
+        ).status_code == 409  # already public
     finally:
         await world.done()
 
@@ -144,7 +152,8 @@ async def test_a_repository_built_on_a_private_one_is_not_made_public_and_the_ch
             ("D&D 5e", True),
         ]
         refused = await stack.author.put(
-            f"/tenants/{stack.bridge}/public", json={"summary": "The 5e armoury"}
+            f"/tenants/{stack.bridge}/public",
+            json={"accept_terms": True, "summary": "The 5e armoury"},
         )
         assert refused.status_code == 409
         assert refused.json()["type"] == "built-on-not-public"
@@ -154,7 +163,7 @@ async def test_a_repository_built_on_a_private_one_is_not_made_public_and_the_ch
         # the bridge itself goes public.
         for upstream in (stack.equipment, stack.rules):
             made = await stack.author.put(
-                f"/tenants/{upstream}/public", json={"summary": "An upstream"}
+                f"/tenants/{upstream}/public", json={"accept_terms": True, "summary": "An upstream"}
             )
             assert made.status_code == 200, made.text
         behind = await stack.author.get(f"/tenants/{stack.bridge}/flip-check")
@@ -168,7 +177,8 @@ async def test_a_repository_built_on_a_private_one_is_not_made_public_and_the_ch
             )
             assert taken.status_code == 200, taken.text
         made = await stack.author.put(
-            f"/tenants/{stack.bridge}/public", json={"summary": "The 5e armoury"}
+            f"/tenants/{stack.bridge}/public",
+            json={"accept_terms": True, "summary": "The 5e armoury"},
         )
         assert made.status_code == 200, made.text
     finally:
@@ -202,7 +212,8 @@ async def test_only_the_owner_flips_a_repository(
 async def _public_world(raw_client: AsyncClient, jwks: FakeJwksServer) -> ReleaseWorld:
     world = await release_world(raw_client, jwks)
     made = await world.author.put(
-        f"/tenants/{world.repository}/public", json={"summary": "Every blade there is"}
+        f"/tenants/{world.repository}/public",
+        json={"accept_terms": True, "summary": "Every blade there is"},
     )
     assert made.status_code == 200, made.text
     return world
@@ -260,12 +271,14 @@ async def test_a_repository_a_public_one_is_built_on_is_not_made_private(
     try:
         for repository in (stack.equipment, stack.rules):
             made = await stack.author.put(
-                f"/tenants/{repository}/public", json={"summary": "An upstream"}
+                f"/tenants/{repository}/public",
+                json={"accept_terms": True, "summary": "An upstream"},
             )
             assert made.status_code == 200, made.text
         await publish_stack_taking_releases(stack)
         made = await stack.author.put(
-            f"/tenants/{stack.bridge}/public", json={"summary": "The 5e armoury"}
+            f"/tenants/{stack.bridge}/public",
+            json={"accept_terms": True, "summary": "The 5e armoury"},
         )
         assert made.status_code == 200, made.text
 

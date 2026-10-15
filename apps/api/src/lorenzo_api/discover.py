@@ -24,6 +24,7 @@ from lorenzo_api.schemas.discover import (
     DiscoverItemOut,
     DiscoverReleaseOut,
     DiscoverSort,
+    PublisherOut,
 )
 
 __all__ = [
@@ -65,7 +66,9 @@ def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
     )
 
 
-def item_out(profile: RepositoryProfile, tenant: Tenant) -> DiscoverItemOut:
+def item_out(
+    profile: RepositoryProfile, tenant: Tenant, publishers: list[PublisherOut]
+) -> DiscoverItemOut:
     assert profile.release_label is not None and profile.released_at is not None
     return DiscoverItemOut(
         id=tenant.id,
@@ -79,6 +82,7 @@ def item_out(profile: RepositoryProfile, tenant: Tenant) -> DiscoverItemOut:
         release=DiscoverReleaseOut(label=profile.release_label, released_at=profile.released_at),
         entries=profile.entry_count,
         stat_definitions=profile.stat_definition_count,
+        publishers=publishers,
     )
 
 

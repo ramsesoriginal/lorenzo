@@ -49,9 +49,13 @@ export function usingLine(row: SubscriberOut): string {
 }
 
 // The whole in a sentence: how many have an invitation or a copy, and how many of those copied it.
-export function usingSummary(rows: readonly SubscriberOut[]): string {
+// `publicCopies` is how many libraries copied it by themselves, from Discover: they are not in `rows`,
+// and are said apart by `publicCopiesLine`.
+export function usingSummary(rows: readonly SubscriberOut[], publicCopies = 0): string {
   if (rows.length === 0) {
-    return 'Nothing is using this repository yet: no library has been invited to it.';
+    return publicCopies === 0
+      ? 'Nothing is using this repository yet: no library has been invited to it.'
+      : 'No library is invited to it.';
   }
 
   const copied = rows.filter((row) => row.copied_at !== null).length;
@@ -61,6 +65,19 @@ export function usingSummary(rows: readonly SubscriberOut[]): string {
       : `${rows.length} libraries and repositories have`;
 
   return `${holders} an invitation or a copy. ${copied} of them ${copied === 1 ? 'has' : 'have'} copied it.`;
+}
+
+// The libraries that copied a public repository by themselves, as one number. Their names are not
+// shown to its Owners, and the line says so (RFC 0038 §6, ADR 0299). Null where there are none.
+export function publicCopiesLine(count: number): string | null {
+  if (count <= 0) return null;
+
+  const copied =
+    count === 1
+      ? '1 library copied it by itself from Discover.'
+      : `${count} libraries copied it by themselves from Discover.`;
+
+  return `${copied} Their names are not shown: you see how many, not which.`;
 }
 
 // A library's id as it can be pasted: what the API takes to invite one.

@@ -3,12 +3,16 @@ import uuid
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.dependencies import SessionDep, set_tenant_rls_context
+from lorenzo_api.dependencies import OptionalUser, SessionDep, set_tenant_rls_context
 from lorenzo_api.exceptions import ProfilePictureNotFoundError
 from lorenzo_api.models import (
     CampaignProfilePicture,
     ProfilePicture,
+    RepositoryProfile,
+    Tenant,
+    TenantKind,
     TenantProfilePicture,
     User,
     UserProfilePicture,
@@ -21,7 +25,9 @@ from lorenzo_api.profile_pictures import gravatar_url
 # itself requires `CurrentUser` - nesting a public route there would force
 # authentication regardless of that route's own signature, so these three
 # live here instead, deliberately public: a plain `<img src="...">` can't
-# send a Bearer token.
+# send a Bearer token. One exception since ADR 0300: a private repository's
+# picture (`get_tenant_picture`) is for a signed-in user, so an app fetches it
+# with the token and shows it from the response.
 router = APIRouter(tags=["pictures"])
 
 
@@ -45,16 +51,35 @@ async def get_user_picture(user_id: uuid.UUID, session: SessionDep) -> Response:
     raise ProfilePictureNotFoundError(detail=f"No profile picture for user {user_id}")
 
 
+async def _is_private_repository(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
+    """A repository tenant whose profile does not say `public` (the tenant context is set, so both
+    rows are readable). A play tenant is never private in this sense; a repository with no profile
+    row has said nothing, so it is private."""
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None or tenant.kind is not TenantKind.REPOSITORY:
+        return False
+    profile = await session.get(RepositoryProfile, tenant_id)
+    return profile is None or profile.visibility != "public"
+
+
 @router.get("/tenants/{tenant_id}/picture")
-async def get_tenant_picture(tenant_id: uuid.UUID, session: SessionDep) -> Response:
-    """No auth, no fallback - see module docstring and ADR 0056. A tenant
-    with no uploaded picture 404s the same way an unknown tenant_id does;
+async def get_tenant_picture(
+    tenant_id: uuid.UUID, session: SessionDep, user: OptionalUser
+) -> Response:
+    """Open, with no fallback - see module docstring and ADR 0056 - except for a private
+    repository's picture, which is for a signed-in user: any, a member or not (ADR 0300). A
+    request with no token for one gets the answer of a tenant with no picture, a `404`, so that
+    nothing tells a private repository from an unknown id or a play tenant without a picture; a
+    token that is sent is checked, and a bad one is a `401` for every tenant alike. A play
+    tenant's picture and a public repository's are served as ever.
+
+    A tenant with no uploaded picture 404s the same way an unknown tenant_id does;
     the only signal disclosed either way is whether a *picture* exists for
     this id, not bare tenant existence beyond that.
     """
     await set_tenant_rls_context(session, tenant_id)
     link = await session.get(TenantProfilePicture, tenant_id)
-    if link is None:
+    if link is None or (user is None and await _is_private_repository(session, tenant_id)):
         raise ProfilePictureNotFoundError(detail=f"No profile picture for tenant {tenant_id}")
     picture = await session.get_one(ProfilePicture, link.profile_picture_id)
     return Response(content=picture.data, media_type=picture.file_type)

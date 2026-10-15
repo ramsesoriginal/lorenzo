@@ -95,6 +95,27 @@ async def grant_repository_access(
     )
 
 
+async def _log_public_copy(
+    session: AsyncSession, *, repository_id: uuid.UUID, library_id: uuid.UUID
+) -> None:
+    """Writes `repository.copied_publicly` in the repository's own activity log, which is the
+    repository's to write, so under its context, and then puts the library's back. The entry
+    carries no actor and no target: a repository's members learn that a library copied it, and
+    never which, nor who in it (ADR 0299)."""
+    await session.flush()
+    await set_tenant_rls_context(session, repository_id)
+    await record_activity(
+        session,
+        tenant_id=repository_id,
+        actor_id=None,
+        action="repository.copied_publicly",
+        target_type="tenant",
+        target_id=None,
+    )
+    await session.flush()
+    await set_tenant_rls_context(session, library_id)
+
+
 async def subscribe_to_public(
     session: AsyncSession,
     *,
@@ -109,8 +130,9 @@ async def subscribe_to_public(
     library see that it is public; one that is not public and published is refused by the
     insert policy. The caller has checked that the library holds no grant to it yet (an
     invitation outranks this, and is left as it is), runs under the library's RLS context, and
-    commits. Nothing is said to the repository's Owner here: what they see of a public copy is
-    RFC 0038's section 6. Returns the ids written."""
+    commits. Nothing is said to the repository's Owner here beyond a line in its activity log
+    that a library copied it, with no name, no person and nothing to tell which (ADR 0299, RFC
+    0038 section 6); the library's own log keeps its own record. Returns the ids written."""
     written: list[uuid.UUID] = []
     for repository_id in repository_ids:
         async with reading_repository(session, repository_id) as readable:
@@ -135,4 +157,5 @@ async def subscribe_to_public(
             target_id=repository_id,
             detail="source=public",
         )
+        await _log_public_copy(session, repository_id=repository_id, library_id=tenant_id)
     return written

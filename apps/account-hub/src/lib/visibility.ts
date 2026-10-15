@@ -10,8 +10,9 @@
 // is GM only travels with a copy like every other text (ADR 0119, RFC 0038 §7); what a library copied
 // stays with it whatever happens to the repository (ADR 0289); and the libraries that copied it by
 // themselves are told and lose its updates when it goes private, while the ones invited keep theirs.
-// Nothing here says anything of the terms an Owner agrees to or the account shown as publisher: those
-// are RFC 0038 D6's, and the maintainer's words.
+// An Owner agrees to the terms line before the last button, and the dialog says which account names
+// are shown as the publisher (RFC 0038 §6, ADR 0299). The terms line is DRAFT WORDING, the
+// maintainer's to approve, and is kept here in one constant.
 
 import { DELISTED_CANNOT_BE_MADE_PUBLIC, DELISTED_PUBLIC_NOTE } from './delisting';
 import { type ComposerForm, composerProblem, publishBody } from './releases';
@@ -20,6 +21,7 @@ import type {
   BreakingRowOut,
   FlipCheckOut,
   MakePublicRequest,
+  PublisherOut,
   RepositoryProfileOut,
   TenantRole,
 } from './types';
@@ -163,6 +165,26 @@ export const PREVIEW_LEGEND = 'What can people look at before they copy it?';
 
 export const SUMMARY_HELP = `One or two lines that say what this repository is. People read it before they copy it. At most ${SUMMARY_MAX} characters.`;
 
+// The terms line the Owner ticks before a repository goes public. DRAFT WORDING, the maintainer's to
+// approve (RFC 0038 §6, ADR 0299): the only place it is written in the hub.
+export const TERMS_LINE =
+  'I have the right to publish this repository. Publishing cannot be recalled: libraries that copied it keep their copies.';
+
+export const TERMS_PROBLEM = 'Tick the box to agree before you make it public.';
+
+// Who a storefront will say published it, as the API reads their account names: what the dialog says
+// before the Owner agrees to it.
+export function publisherLine(publishers: readonly PublisherOut[]): string {
+  const names = publishers.map((publisher) => publisher.display_name);
+
+  if (names.length === 0) return 'People will see who published it, by the name of your account.';
+  if (names.length === 1) {
+    return `People will see who published it, by the name of your account: ${names[0]}. You can change it in your profile.`;
+  }
+
+  return `People will see who published it, by the names of the accounts of its Owners: ${names.join(', ')}. Each Owner can change theirs in their profile.`;
+}
+
 export function makePublicTitle(name: string): string {
   return `Make ${name} public`;
 }
@@ -173,12 +195,13 @@ export const MAKE_PUBLIC_DONE = 'Public. A release was published.';
 
 // What will happen, in order.
 export function makePublicLines(
-  check: Pick<FlipCheckOut, 'invited_libraries'>,
+  check: Pick<FlipCheckOut, 'invited_libraries' | 'publishers'>,
   name: string,
 ): string[] {
   const lines = [
     `Making ${name} public publishes a release of it, with the label and notes below. Anyone signed in to Lorenzo can then copy it into a library and take its updates.`,
     'A public repository is read from its releases: what you edit between two releases is not seen by a library until you publish the next one.',
+    publisherLine(check.publishers),
   ];
 
   if (check.invited_libraries > 0) {
@@ -201,6 +224,8 @@ export function makePublicWarnings(): string[] {
 export type MakePublicForm = ComposerForm & {
   summary: string;
   preview: PreviewChoice;
+  // Whether the Owner ticked the terms line.
+  terms: boolean;
 };
 
 // A summary on one line, as the API keeps it: whitespace of any kind runs together into one space.
@@ -224,20 +249,31 @@ export function summaryCount(summary: string): string {
   return `${oneLine(summary).length} of ${SUMMARY_MAX}`;
 }
 
-// Why the form cannot be sent yet, or null: the summary first, then what a release asks.
+// Why the form cannot be sent yet, or null: the summary first, then the terms, then what a release
+// asks.
 export function makePublicProblem(
   form: MakePublicForm,
   hits: readonly BreakingRowOut[],
 ): string | null {
-  return summaryProblem(form.summary) ?? composerProblem(form, hits);
+  return (
+    summaryProblem(form.summary) ??
+    (form.terms ? null : TERMS_PROBLEM) ??
+    composerProblem(form, hits)
+  );
 }
 
-// The body of `PUT .../public`: what a publish sends, and the summary and the choice of preview.
+// The body of `PUT .../public`: what a publish sends, the summary, the choice of preview and the
+// terms line agreed to.
 export function makePublicBody(
   form: MakePublicForm,
   hits: readonly BreakingRowOut[],
 ): MakePublicRequest {
-  return { ...publishBody(form, hits), summary: oneLine(form.summary), preview: form.preview };
+  return {
+    ...publishBody(form, hits),
+    summary: oneLine(form.summary),
+    preview: form.preview,
+    accept_terms: form.terms,
+  };
 }
 
 // ---------------------------------------------------------------------------------------------

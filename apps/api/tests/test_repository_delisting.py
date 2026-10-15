@@ -607,7 +607,9 @@ async def test_a_delisted_repository_cannot_be_made_public_and_the_check_says_wh
         assert check["delisted"]["reason"] == "Hateful content"
         assert set(check["delisted"]) == {"reason", "at"}
 
-        refused = await owner.put(f"/tenants/{r}/public", json={"summary": "Every blade"})
+        refused = await owner.put(
+            f"/tenants/{r}/public", json={"summary": "Every blade", "accept_terms": True}
+        )
         assert refused.status_code == 409
         assert refused.json()["type"] == "repository-delisted"
         assert "Hateful content" in refused.json()["detail"]
@@ -617,7 +619,9 @@ async def test_a_delisted_repository_cannot_be_made_public_and_the_check_says_wh
         assert (profile["visibility"], profile["summary"]) == ("private", "")
 
         await scene.relist()
-        made = await owner.put(f"/tenants/{r}/public", json={"summary": "Every blade"})
+        made = await owner.put(
+            f"/tenants/{r}/public", json={"summary": "Every blade", "accept_terms": True}
+        )
         assert made.status_code == 200, made.text
     finally:
         await scene.done()

@@ -99,6 +99,7 @@ ADMIN = {
     ("PUT", T + "/picture"),
     ("DELETE", T + "/picture"),
     ("GET", T + "/subscribers"),
+    ("GET", T + "/subscribers/summary"),
     ("DELETE", STAT_DEFINITION),
     ("DELETE", STAT_DEFINITION + "/enum-values/{enum_value_id}"),
     ("DELETE", STAT_GROUP),

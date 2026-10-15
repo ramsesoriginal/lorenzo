@@ -17,6 +17,7 @@ import type {
   DiscoverPageOut,
   LicenceOut,
   PublicDependencyOut,
+  PublisherOut,
   ReleaseOut,
   TenantSummaryOut,
 } from './types';
@@ -33,6 +34,7 @@ export const NOT_LISTED =
   'This repository is not listed. It may be private, it may not have a release yet, or it may not exist.';
 export const NO_LICENCE = 'No licence stated';
 export const PAST_THE_END = 'There is nothing on that page.';
+export const REPORT_LABEL = 'Report this repository';
 
 // ---------------------------------------------------------------------------------------------
 // The search, as an address.
@@ -217,9 +219,25 @@ export type CardLines = {
   name: string;
   summary: string;
   tags: string[];
+  // "Published by Ada, Bob": the Owners' accounts, or null where none is named.
+  publishedBy: string | null;
   // The system, the release and how many entries, as small print.
   meta: string[];
 };
+
+// Who published it, by the names of the Owners' accounts (RFC 0038 section 6, ADR 0299): never a
+// field the repository writes about itself. Null where the answer names nobody.
+export function publishedByLine(publishers: readonly PublisherOut[] | undefined): string | null {
+  const names = (publishers ?? []).map((publisher) => publisher.display_name);
+
+  return names.length === 0 ? null : `Published by ${names.join(', ')}`;
+}
+
+// The Report link of a page: the address the API built, only if it is a `mailto:`, so that nothing
+// else can ever be put in a link there. Null where the deployment sets no report address.
+export function reportHref(mailto: string | null | undefined): string | null {
+  return typeof mailto === 'string' && mailto.startsWith('mailto:') ? mailto : null;
+}
 
 // What a result says of a repository: its name and summary, its tags, and one line of small print.
 export function cardLines(item: DiscoverItemOut): CardLines {
@@ -227,6 +245,7 @@ export function cardLines(item: DiscoverItemOut): CardLines {
     name: item.name,
     summary: item.summary,
     tags: item.tags,
+    publishedBy: publishedByLine(item.publishers),
     meta: [item.system, releaseLine(item.release), entriesLine(item.entries)].filter(
       (part): part is string => part !== null && part !== '',
     ),

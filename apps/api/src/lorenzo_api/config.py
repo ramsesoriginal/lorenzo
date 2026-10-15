@@ -183,10 +183,30 @@ class Settings(BaseSettings):
     release_fanout_sweep_chunks: int = Field(default=20, ge=1)
     release_fanout_sweep_interval_seconds: int = Field(default=60, ge=0)
 
+    # Quotas on a repository (RFC 0038 section 6, ADR 0298), for every tenant of kind repository and
+    # no other: the most entries a repository holds, the most picture bytes it holds in all (the
+    # pictures on its entries, not its cover), and the most bytes in one such picture. Set well
+    # above the seeded repositories and the 20,000-entry repository of RFC 0037's scale spike;
+    # `0` takes a limit off. A repository over a limit lowered later is never blocked from
+    # changing or shrinking, only from growing.
+    repository_max_entries: int = 20_000
+    repository_max_picture_bytes: int = 50_000_000
+    repository_picture_max_bytes: int = 1_000_000
+
     # Whether a repository can be made public (RFC 0038 section 1, ADR 0290). Off until the gates
     # that come before a public repository are in (D3 to D6) and the deployment says so: the flip
     # routes exist and answer `public-repositories-not-available` while it is off.
     public_repositories_enabled: bool = False
+
+    # Where a report about a public repository goes (RFC 0038 section 6, ADR 0299): an email
+    # address, `REPORT_ADDRESS`. A storefront carries a `mailto:` to it, with the repository's name
+    # and id in the subject, only when it is set; there is no report inbox in Lorenzo.
+    report_address: str | None = None
+
+    @field_validator("report_address")
+    @classmethod
+    def _blank_report_address_is_unset(cls, v: str | None) -> str | None:
+        return (v or "").strip() or None
 
     @field_validator("database_url", "migrations_database_url")
     @classmethod

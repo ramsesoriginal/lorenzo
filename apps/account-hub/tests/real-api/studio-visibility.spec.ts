@@ -18,6 +18,9 @@ const dialog = (page: Page) => page.locator('[data-visibility-dialog]');
 const card = (page: Page) => page.locator('[data-visibility]');
 const state = (page: Page) => page.locator('[data-visibility-state]');
 const summary = (page: Page) => dialog(page).getByRole('textbox', { name: /^Summary/ });
+// The terms line the Owner ticks (draft wording, RFC 0038 section 6, ADR 0299).
+const terms = (page: Page) =>
+  dialog(page).getByRole('checkbox', { name: /^I have the right to publish this repository./ });
 
 async function overview(page: Page, slug: string) {
   await page.goto(`/studio/?repository=${slug}`);
@@ -62,6 +65,7 @@ async function world() {
 
 test('a repository goes public through the dialog, and private again', async ({ browser }) => {
   const { owner, repository } = await world();
+  await ok(owner.api.PATCH('/me', { body: { display_name: 'Ada Author' } }));
   const { page, context } = await signedInPage(browser, owner.subject);
 
   await overview(page, repository.slug);
@@ -83,6 +87,14 @@ test('a repository goes public through the dialog, and private again', async ({ 
   await expect(dialog(page)).toContainText('includes text marked GM only');
   await expect(dialog(page)).toContainText(
     'Libraries that copy it keep their copies, whatever you do to this repository later.',
+  );
+  // Whose name is shown as the publisher, and the terms line to agree to.
+  await expect(dialog(page)).toContainText(
+    'People will see who published it, by the name of your account: Ada Author.',
+  );
+  await expect(terms(page)).not.toBeChecked();
+  await expect(dialog(page)).toContainText(
+    'I have the right to publish this repository. Publishing cannot be recalled: libraries that copied it keep their copies.',
   );
   expect(await dialog(page).innerText()).not.toMatch(/tenant|grant|subscri/i);
 
@@ -106,6 +118,15 @@ test('a repository goes public through the dialog, and private again', async ({ 
   await dialog(page)
     .getByRole('textbox', { name: /^Label/ })
     .fill('First public');
+
+  // The terms line is agreed to before it goes: asked for, and nothing is changed.
+  await dialog(page).getByRole('button', { name: 'Make public and publish release' }).click();
+  await expect(dialog(page).locator('[data-vis-error]')).toContainText(
+    'Tick the box to agree before you make it public.',
+  );
+  expect((await profileOf(owner.api, repository.id)).visibility).toBe('private');
+
+  await terms(page).check();
   await dialog(page).getByRole('button', { name: 'Make public and publish release' }).click();
 
   await expect(dialog(page)).toBeHidden();
@@ -131,6 +152,18 @@ test('a repository goes public through the dialog, and private again', async ({ 
   );
 
   expect(releases.items.map((release) => release.label)).toContain('First public');
+
+  // That the terms were agreed to is in the repository's log, with who and no wording.
+  const log = await ok(
+    owner.api.GET('/tenants/{tenant_id}/activity-log', {
+      params: { path: { tenant_id: repository.id } },
+    }),
+  );
+  const agreed = log.items.filter((entry) => entry.action === 'repository.terms_accepted');
+
+  expect(agreed).toHaveLength(1);
+  expect(agreed[0]?.actor_id).toBe(owner.me.id);
+  expect(agreed[0]?.detail).toBeNull();
 
   // And back: nobody copied it by itself, so nobody loses anything and nothing is asked.
   await card(page).getByRole('button', { name: 'Make private…' }).click();
@@ -268,6 +301,7 @@ test('a repository that is behind what it is built on is told to take the releas
     owner.api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: core.id } },
       body: {
+        accept_terms: true,
         summary: 'The core rules',
         preview: 'showcase',
         breaking: false,
@@ -302,6 +336,7 @@ test('going private says how many libraries lose its updates, and asks first', a
     owner.api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: repository.id } },
       body: {
+        accept_terms: true,
         summary: 'Every beast',
         preview: 'showcase',
         breaking: false,
@@ -360,6 +395,7 @@ test('a repository that public ones are built on cannot be made private, and the
     owner.api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: repository.id } },
       body: {
+        accept_terms: true,
         summary: 'Every beast',
         preview: 'showcase',
         breaking: false,
@@ -378,6 +414,7 @@ test('a repository that public ones are built on cannot be made private, and the
     other.api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: theirs.id } },
       body: {
+        accept_terms: true,
         summary: 'Theirs',
         preview: 'showcase',
         breaking: false,
@@ -389,6 +426,7 @@ test('a repository that public ones are built on cannot be made private, and the
     owner.api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: bridge.id } },
       body: {
+        accept_terms: true,
         summary: 'The bridge',
         preview: 'showcase',
         breaking: false,
@@ -519,6 +557,8 @@ test('on a phone, both dialogs fit and everything pressed is big enough', async 
     dialog(page).getByRole('button', { name: 'Make public and publish release' }),
   ).toBeInViewport();
   await summary(page).fill('Every beast there is.');
+  await terms(page).scrollIntoViewIfNeeded();
+  await terms(page).check();
   await dialog(page).getByRole('button', { name: 'Make public and publish release' }).click();
   await expect(state(page)).toHaveText('Public');
 
@@ -546,6 +586,7 @@ test('if it became public under an open page, Unpublish is refused in the API’
     owner.api.PUT('/tenants/{tenant_id}/public', {
       params: { path: { tenant_id: repository.id } },
       body: {
+        accept_terms: true,
         summary: 'Every beast',
         preview: 'showcase',
         breaking: false,

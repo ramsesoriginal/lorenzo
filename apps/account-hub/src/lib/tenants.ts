@@ -2,6 +2,7 @@ import { etagOf } from '@lorenzo/api-client';
 import { client, pictureUpload, unwrap } from './api';
 import { cached } from './cache';
 import { API_BASE_URL } from './config';
+import { fetchPictureUrl } from './pictureFetch';
 import type {
   AuditLogEntryOut,
   BulkMembershipResultItem,
@@ -43,13 +44,34 @@ export async function listMyTenants(
   );
 }
 
-// ADR 0085 - TenantSummaryOut/TenantOut carry no picture_url field (unlike
-// MeOut, ADR 0056/0060), so the client constructs the URL itself; GET
-// .../picture has no fallback for a tenant with nothing uploaded (a plain
-// 404, unlike a user's Gravatar redirect), which the PictureUpload component's <img
-// onerror> handles.
-export function tenantPictureUrl(tenantId: string): string {
-  return `${API_BASE_URL}/tenants/${tenantId}/picture`;
+// ADR 0085 - TenantSummaryOut/TenantOut carry no picture_url field (unlike MeOut, ADR 0056/0060), so
+// the client builds the address itself; GET .../picture has no fallback for a tenant with nothing
+// uploaded (a plain 404, unlike a user's Gravatar redirect), which the pages leave out.
+//
+// A private repository's picture is for a signed-in user (ADR 0300) and an <img src> cannot send
+// the token, so it is fetched with it and shown from a `blob:` address. Once for each tenant until
+// its picture is changed; a failure is not kept.
+const tenantPictures = new Map<string, Promise<string>>();
+
+export function tenantPictureUrl(tenantId: string): Promise<string> {
+  const known = tenantPictures.get(tenantId);
+
+  if (known) return known;
+
+  const loading = fetchPictureUrl(`/tenants/${tenantId}/picture`);
+
+  loading.catch(() => tenantPictures.delete(tenantId));
+  tenantPictures.set(tenantId, loading);
+
+  return loading;
+}
+
+// What was changed is asked for afresh the next time.
+function forgetTenantPicture(tenantId: string): void {
+  const known = tenantPictures.get(tenantId);
+
+  tenantPictures.delete(tenantId);
+  known?.then((url) => URL.revokeObjectURL(url)).catch(() => {});
 }
 
 export async function uploadTenantPicture(tenantId: string, file: File): Promise<void> {
@@ -59,6 +81,7 @@ export async function uploadTenantPicture(tenantId: string, file: File): Promise
       ...pictureUpload(file),
     }),
   );
+  forgetTenantPicture(tenantId);
 }
 
 export async function deleteTenantPicture(tenantId: string): Promise<void> {
@@ -67,6 +90,7 @@ export async function deleteTenantPicture(tenantId: string): Promise<void> {
       params: { path: { tenant_id: tenantId } },
     }),
   );
+  forgetTenantPicture(tenantId);
 }
 
 export async function listTenantCampaigns(tenantId: string): Promise<Page<CampaignSummaryOut>> {
