@@ -710,8 +710,14 @@ export interface paths {
         };
         /**
          * Get Tenant Picture
-         * @description No auth, no fallback - see module docstring and ADR 0056. A tenant
-         *     with no uploaded picture 404s the same way an unknown tenant_id does;
+         * @description Open, with no fallback - see module docstring and ADR 0056 - except for a private
+         *     repository's picture, which is for a signed-in user: any, a member or not (ADR 0300). A
+         *     request with no token for one gets the answer of a tenant with no picture, a `404`, so that
+         *     nothing tells a private repository from an unknown id or a play tenant without a picture; a
+         *     token that is sent is checked, and a bad one is a `401` for every tenant alike. A play
+         *     tenant's picture and a public repository's are served as ever.
+         *
+         *     A tenant with no uploaded picture 404s the same way an unknown tenant_id does;
          *     the only signal disclosed either way is whether a *picture* exists for
          *     this id, not bare tenant existence beyond that.
          */
@@ -2074,6 +2080,8 @@ export interface paths {
          *     and picture and the role, Author or Organizer; for a library link the repository's name and
          *     picture. Nothing else: no ids but those in a picture's address, no roster, no members. Does
          *     an indexed read and never writes, and a dead link is the same 404 whatever the kind.
+         *     A repository's picture address answers a request with no token only for a public repository
+         *     (ADR 0300): the page of someone who is logged in fetches it with the token.
          */
         get: operations["preview_invite"];
         put?: never;

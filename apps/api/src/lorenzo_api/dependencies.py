@@ -5,7 +5,7 @@ from typing import Annotated, Any
 import httpx
 import jwt
 import structlog
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi_pagination import Params
@@ -40,6 +40,7 @@ from lorenzo_api.personal_tokens import find_live_token, is_personal_token, touc
 __all__ = [
     "CurrentUser",
     "InteractiveUser",
+    "OptionalUser",
     "ParamsDep",
     "PublicReader",
     "SessionDep",
@@ -47,6 +48,7 @@ __all__ = [
     "get_current_user",
     "get_entity_or_404",
     "get_jwks_client",
+    "get_optional_user",
     "get_public_reader",
     "get_tenant_admin_context",
     "get_tenant_context",
@@ -318,6 +320,33 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_optional_user(
+    request: Request,
+    session: SessionDep,
+    jwks_client: JwksClientDep,
+    userinfo_url: UserinfoUrlDep,
+) -> User | None:
+    """The caller if the request carries a bearer token, `None` if it carries none (ADR 0300).
+
+    For the one kind of route whose answer depends on whether someone is signed in, not on who:
+    a picture that is open for some tenants and for a signed-in user only for others. A token that
+    is there is checked exactly as `get_current_user` checks it, so a bad, expired or revoked one
+    is the usual 401 and a suspended account the usual 403, whatever the route would have said.
+    Read from the header and not through `HTTPBearer`, so that it adds nothing to the route in
+    the OpenAPI document: the route asks for nothing, it only accepts a token.
+    """
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    token = token.strip()
+    if scheme.lower() != "bearer" or not token:
+        return None
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    claims = await verify_token(credentials, jwks_client)
+    return await get_current_user(claims, session, credentials, userinfo_url)
+
+
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 
 
 async def _personal_token_user(session: AsyncSession, secret: str) -> User:
