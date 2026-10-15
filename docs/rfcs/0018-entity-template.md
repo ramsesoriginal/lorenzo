@@ -1,6 +1,6 @@
 # RFC: `entity_template` — a curated, ordered composite of information and stats
 
-Status: proposed
+Status: closed as superseded by [RFC 0041 §10](0041-entity-kinds-and-author-freedom.md#10-rfc-0018-is-closed), decided with the maintainer on 2026-10-07. Parents carry authored defaults; the proposal below is retained as history. An ordered, curated read-side projection that parents cannot cover would require its own RFC.
 
 ## Context
 

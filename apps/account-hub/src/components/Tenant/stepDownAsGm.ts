@@ -22,8 +22,11 @@ export function bindStepDownAsGm(
   const button = required<HTMLButtonElement>(root, '[data-step-down]');
   const status = required<HTMLElement>(root, '[data-step-down-status]');
 
+  // What this campaign calls its game master (ADR 0294), written with no article.
+  button.textContent = `Step down as ${campaign.gm_title}`;
+
   button.addEventListener('click', async () => {
-    if (!window.confirm(stepDownConfirmation(campaign.name))) return;
+    if (!window.confirm(stepDownConfirmation(campaign.name, campaign.gm_title))) return;
 
     button.disabled = true;
     say(status, 'Stepping down…');

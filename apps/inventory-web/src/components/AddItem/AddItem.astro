@@ -26,13 +26,11 @@ import Combobox from '../Combobox/Combobox.astro';
       <button type="button" class="btn btn-secondary" data-not-listed-open>
         Not in the list? Add it as an unsorted item
       </button>
-      <p class="field-note">
-        Your GM matches it to a catalog item later. Your name and notes stay.
-      </p>
+      <p class="field-note" data-matched-later></p>
     </div>
 
     <p class="field-note" data-no-unsorted hidden>
-      This library can't take unsorted items yet. Ask your GM to run
+      This library can't take unsorted items yet. Ask your <span data-gm-title></span> to run
       <code>lorenzo seed --layer core</code>.
     </p>
 

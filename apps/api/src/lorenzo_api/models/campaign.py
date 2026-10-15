@@ -61,6 +61,10 @@ class Campaign(Base):
     # from the public catalog (RFC 0034, ADR 0185); a player's own
     # `self_service` overrides it. Nothing reads it yet.
     player_self_service: Mapped[bool] = mapped_column(server_default=true(), default=True)
+    # What this table calls its game master (ADR 0294): both null for the default, "GM" and "GMs",
+    # both set otherwise. The API fills the default in on every read.
+    gm_title: Mapped[str | None] = mapped_column(default=None)
+    gm_title_plural: Mapped[str | None] = mapped_column(default=None)
     # A dedicated Entity, not a class-table-inheritance PK+FK the way
     # item/being extend entity - campaign keeps its own surrogate id, this
     # is a plain reference column so every other FK to campaign.id is

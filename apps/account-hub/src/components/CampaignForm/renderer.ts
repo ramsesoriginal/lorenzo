@@ -3,6 +3,13 @@
 // sent, and it may also say whether its players can make their own items (ADR 0185, 0188, which
 // the create call has no field for).
 
+import { ApiError } from '../../lib/apiError';
+import {
+  GM_TITLE_INVALID_MESSAGE,
+  gmTitleFields,
+  gmTitlePatch,
+  isGmTitleRefusal,
+} from '../../lib/gmTitle';
 import { createDescriptionEditor } from '../../lib/lorenzoScript';
 import { say, sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
@@ -28,10 +35,13 @@ export function renderCampaignForm(root: HTMLElement, options: CampaignFormOptio
   const descriptionInput = required<HTMLTextAreaElement>(form, '[data-description]');
   const secretInput = required<HTMLInputElement>(form, '[data-secret]');
   const selfServiceInput = required<HTMLInputElement>(form, '[data-self-service]');
+  const gmTitleInput = required<HTMLInputElement>(form, '[data-gm-title]');
+  const gmTitlePluralInput = required<HTMLInputElement>(form, '[data-gm-title-plural]');
   const status = required<HTMLElement>(form, '[data-status]');
 
   const editing = options.mode === 'edit';
 
+  required<HTMLElement>(form, '[data-gm-title-field]').hidden = !editing;
   required<HTMLElement>(form, '[data-heading]').hidden = editing;
   required<HTMLElement>(form, '[data-self-service-field]').hidden = !editing;
   required<HTMLElement>(form, '[data-cancel]').hidden = !editing;
@@ -48,6 +58,11 @@ export function renderCampaignForm(root: HTMLElement, options: CampaignFormOptio
     descriptionInput.value = campaign.description;
     secretInput.checked = campaign.secret;
     selfServiceInput.checked = campaign.player_self_service;
+    // A title equal to the default is the unset state: empty boxes, the default as placeholders.
+    const fields = gmTitleFields(campaign);
+
+    gmTitleInput.value = fields.title;
+    gmTitlePluralInput.value = fields.plural;
 
     required<HTMLButtonElement>(form, '[data-cancel]').addEventListener('click', onDone);
   }
@@ -98,6 +113,20 @@ export function renderCampaignForm(root: HTMLElement, options: CampaignFormOptio
       patch.player_self_service = selfServiceInput.checked;
     }
 
+    // Both texts or neither (ADR 0294): the pair is sent when either box changed, empty for the default.
+    const gmTitle = gmTitlePatch(campaign, {
+      title: gmTitleInput.value,
+      plural: gmTitlePluralInput.value,
+    });
+
+    if (gmTitle !== null && 'error' in gmTitle) {
+      say(status, gmTitle.error, true);
+
+      return;
+    }
+
+    if (gmTitle !== null) Object.assign(patch, gmTitle);
+
     if (Object.keys(patch).length === 0) {
       onDone();
 
@@ -110,7 +139,12 @@ export function renderCampaignForm(root: HTMLElement, options: CampaignFormOptio
       await updateCampaign(tenant.id, campaign.id, patch);
       onDone();
     } catch (e) {
-      sayError(status, e);
+      // The API's own refusal of a title is said in the words the field uses.
+      if (e instanceof ApiError && isGmTitleRefusal(e.problemType)) {
+        say(status, GM_TITLE_INVALID_MESSAGE, true);
+      } else {
+        sayError(status, e);
+      }
     }
   });
 }

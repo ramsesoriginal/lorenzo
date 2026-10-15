@@ -66,10 +66,18 @@ The `ssl=require` row is doing real work: Neon's connection strings default to l
 
 ### The pipeline: commit to live revision
 
-Triggered by `.github/workflows/deploy-loot-bot.yml`, on any push to `main` touching `apps/loot-bot/**` (or manually via `workflow_dispatch`) - the same six-step shape as `apps/api`'s own pipeline above, with one deliberate deviation: the migration step runs `pnpm exec tsx src/migrate.ts` directly rather than through `mise run db-migrate`, since that task's own script hardcodes `--env-file=.env`, which errors when the file doesn't exist - true in this checkout, since `.env` is gitignored.
+Triggered by `.github/workflows/deploy-loot-bot.yml`, on any push to `main` touching `apps/loot-bot/**` or `packages/api-client/**` (or manually via `workflow_dispatch`) - the same six-step shape as `apps/api`'s own pipeline above, with one deliberate deviation: the migration step runs `pnpm exec tsx src/migrate.ts` directly rather than through `mise run db-migrate`, since that task's own script hardcodes `--env-file=.env`, which errors when the file doesn't exist - true in this checkout, since `.env` is gitignored.
 
 See [docs/operations/deployment-setup.md](../operations/deployment-setup.md#appsloot-bot-adr-0053) for the one-time setup this depends on, including the real chicken-and-egg step (`LOOT_BOT_PUBLIC_BASE_URL` isn't known until after the first deploy creates the service), and [deployment topology](diagrams/deployment.md#appsloot-bot) for this as a diagram.
 
 ## apps/inventory-web and apps/account-hub
 
 Both are plain static builds (`astro build` → `dist/`) — no container, no database, no GitHub Actions deploy step at all, per [ADR 0004](../adr/0004-static-astro-frontend.md) and [ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload). Each has its own Cloudflare Pages project wired to **Cloudflare's own Git integration**, which builds and redeploys directly on every push to `main` that touches the app — `ci.yml`'s auto-discovered matrix still covers `mise run lint`/`test` for both on every PR, but nothing in `.github/workflows/` triggers or gates the Cloudflare deploy itself. See [docs/operations/deployment-setup.md](../operations/deployment-setup.md#cloudflare-pages-appsaccount-hub) for the one-time Cloudflare/Authgear setup for both apps.
+
+## Bench, Beings and the brand site
+
+`apps/bench` and `apps/beings` are static Astro builds, using the same Cloudflare Pages Git-integration approach. Bench's stack and deployment decision is [ADR 0210](../adr/0210-bench-app-stack-and-workbench-shell.md); Beings has its own [setup runbook](../operations/beings-setup.md), with hosting configuration still a placeholder until that setup is completed. `apps/brand` is the static shared-brand preview; other apps bundle its assets through `packages/brand` ([ADR 0098](../adr/0098-branding-css-app-and-package.md)).
+
+## Inventory mobile
+
+`apps/inventory-mobile` is a native Kotlin/Compose Android app, distributed in this slice by installing a locally built debug APK. It calls the same REST API and connects through account hub's device-code flow or a personal access token. There is no mobile deployment workflow, store publishing or release-signing setup in this slice; see its [README](../../apps/inventory-mobile/README.md) and [ADR 0291](../adr/0291-inventory-mobile-native-android-app.md).

@@ -8,7 +8,7 @@ A concrete, small version of this: a Discord bot and a mobile app that, together
 
 - **Players** see what they have and where they have it — stats and notes, but only the ones the GM chose to make visible to them (see [visibility](entities-knowledge-and-visibility.md)).
 - The **Discord bot** helps with mechanical tasks like splitting loot among a party.
-- The **GM** gets a web view across every player and their possessions, including secret notes/stats players never see.
+- The **GM** gets a web view across every player and their possessions, including secret notes/stats players never see. "GM" is the game master, whatever a table calls them: a campaign may name its own ([ADR 0294](../adr/0294-the-gms-title-per-campaign.md), "Storyteller", "DM", "Narrator"), and the apps say that name wherever one campaign is in play.
 
 ## Why this matters for app boundaries
 

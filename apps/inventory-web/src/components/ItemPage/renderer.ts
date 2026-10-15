@@ -50,6 +50,9 @@ export function renderItemPage(options: ItemPageOptions): RenderedItemPage {
   // Who writes here, and the character that reads a private note (ADR 0113).
   let viewerIsGm = false;
   let reader: Reader | null = null;
+  // The being that holds the item, if any: its campaigns say what its game masters are called
+  // (ADR 0294).
+  let ownerId: string | null = null;
 
   function current(): ItemBase {
     if (!shown) throw new Error('Nothing is shown yet.');
@@ -66,7 +69,11 @@ export function renderItemPage(options: ItemPageOptions): RenderedItemPage {
     if (!isInstance) return;
 
     notesSection.hidden = false;
-    void notes.load(current().entity_id, { canWrite: viewerIsGm || reader !== null, reader });
+    void notes.load(current().entity_id, {
+      canWrite: viewerIsGm || reader !== null,
+      reader,
+      ownerId,
+    });
   }
 
   function showInformation() {
@@ -198,6 +205,7 @@ export function renderItemPage(options: ItemPageOptions): RenderedItemPage {
       // GMs write here (ADR 0108, 0112, 0113); a player writes notes on what their character
       // owns. The API still decides.
       const owner = 'owner_entity_id' in found.item ? found.item.owner_entity_id : null;
+      ownerId = owner ?? null;
       const [gm, mine] = await Promise.all([
         isCampaignGm(tenantId).catch(() => false),
         owner
