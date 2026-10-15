@@ -288,15 +288,19 @@ def stat_edit(
 def sheet_settings(
     ctx: typer.Context,
     tenant: str,
+    being_stat_group: str | None = None,
+    clear_being_stat_group: bool = False,
     weapon_stat_group: str | None = None,
     clear_weapon_stat_group: bool = False,
     ability_information_type: str | None = None,
     clear_ability_information_type: bool = False,
     as_json: Json = False,
 ) -> None:
-    """Read the sheet settings, or set or clear either one."""
+    """Read the tenant sheet settings, or set or clear individual selections."""
     writes = any(
         (
+            being_stat_group is not None,
+            clear_being_stat_group,
             weapon_stat_group is not None,
             clear_weapon_stat_group,
             ability_information_type is not None,
@@ -310,6 +314,12 @@ def sheet_settings(
             if weapon_stat_group is not None
             else None
         )
+        being_gid = (
+            resolve(vocabulary(client, tid, groups=True), being_stat_group, "stat group")
+            if being_stat_group is not None
+            else None
+        )
+        nullable(data, "being_stat_group_id", being_gid, clear_being_stat_group)
         nullable(data, "weapon_stat_group_id", gid, clear_weapon_stat_group)
         nullable(
             data,
@@ -326,6 +336,9 @@ def sheet_settings(
             typer.echo(
                 json.dumps(
                     {
+                        "being_stat_group_id": str(found.being_stat_group_id)
+                        if found.being_stat_group_id
+                        else None,
                         "weapon_stat_group_id": str(found.weapon_stat_group_id)
                         if found.weapon_stat_group_id
                         else None,
@@ -339,6 +352,7 @@ def sheet_settings(
 
             _out.print(
                 Text(
+                    f"Being stat group: {found.being_stat_group_id or 'not set'}\n"
                     f"Weapon stat group: {found.weapon_stat_group_id or 'not set'}\n"
                     f"Ability information type: {found.ability_information_type or 'not set'}"
                 )

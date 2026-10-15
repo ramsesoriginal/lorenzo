@@ -213,6 +213,7 @@ async def get_being_sheet(
         abilities = [InformationOut.from_information(row, request) for row in rows]
 
     return SheetOut(
+        being_stat_group_id=tenant.being_stat_group_id,
         weapons_configured=tenant.weapon_stat_group_id is not None,
         abilities_configured=tenant.ability_information_type is not None,
         weapons=weapons,

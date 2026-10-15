@@ -194,6 +194,7 @@ def test_settings_set_clear_and_read_are_one_document(tmp_path):
     )
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout) == {
+        "being_stat_group_id": None,
         "weapon_stat_group_id": str(G),
         "ability_information_type": "ability",
     }
@@ -255,3 +256,59 @@ def test_lists_and_invalid_values(tmp_path):
         "",
     )
     assert result.exit_code == 1 and not world.writes
+
+
+def test_being_group_uses_names_or_ids_and_sends_only_its_setting(tmp_path):
+    world = VocabularyWorld()
+    for reference in ("Vitals", str(G)):
+        result = invoke(
+            world,
+            tmp_path,
+            "tenant",
+            "sheet-settings",
+            "table-one",
+            "--being-stat-group",
+            reference,
+            "--json",
+        )
+        assert result.exit_code == 0, result.output
+        assert world.writes[-1][1] == {"being_stat_group_id": str(G)}
+        assert json.loads(result.stdout)["being_stat_group_id"] == str(G)
+    cleared = invoke(
+        world,
+        tmp_path,
+        "tenant",
+        "sheet-settings",
+        "table-one",
+        "--clear-being-stat-group",
+        "--json",
+    )
+    assert cleared.exit_code == 0, cleared.output
+    assert world.writes[-1][1] == {"being_stat_group_id": None}
+    assert json.loads(cleared.stdout)["being_stat_group_id"] is None
+    before = len(world.writes)
+    conflicting = invoke(
+        world,
+        tmp_path,
+        "tenant",
+        "sheet-settings",
+        "table-one",
+        "--being-stat-group",
+        "Vitals",
+        "--clear-being-stat-group",
+    )
+    assert conflicting.exit_code == 1 and len(world.writes) == before
+
+
+def test_being_group_selection_refuses_ambiguous_names_and_permissions(tmp_path):
+    world = VocabularyWorld()
+    world.groups.append(group("vitals", UUID(int=41)))
+    ambiguous = invoke(
+        world, tmp_path, "tenant", "sheet-settings", "table-one", "--being-stat-group", "VITALS"
+    )
+    assert ambiguous.exit_code == 1 and not world.writes
+    world.deny = True
+    denied = invoke(
+        world, tmp_path, "tenant", "sheet-settings", "table-one", "--being-stat-group", str(G)
+    )
+    assert denied.exit_code == 1 and "HTTP 403" in denied.output

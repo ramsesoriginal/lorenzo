@@ -57,6 +57,8 @@ class SheetOut(BaseModel):
     """GET /tenants/{id}/beings/{id}/sheet (ADR 0281): the datasheet's weapons and abilities in
     one read. A section whose setting the library has not made is empty and says so."""
 
+    # ADR 0296: tenant selection only; campaign overrides are not applied yet.
+    being_stat_group_id: uuid.UUID | None = None
     weapons_configured: bool
     abilities_configured: bool
     weapons: list[SheetWeaponOut]

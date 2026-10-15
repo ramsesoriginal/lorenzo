@@ -65,3 +65,9 @@ See [docs/architecture/observability.md](../../docs/architecture/observability.m
 Google Cloud Run + Neon, continuously — see [ADR 0011](../../docs/adr/0011-deploy-target-cloud-run-neon.md). `.github/workflows/deploy-api.yml` builds, migrates, and deploys on every push to `main` that touches this directory. Confirmed working end to end (2026-09-09): the full domain model, the RLS-restricted role, and production Authgear Cloud ([ADR 0027](../../docs/adr/0027-authgear-cloud-not-self-hosted.md)) all verified together against the live deployed service — a real login, a real token, a real `GET /me` round-trip — see [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md).
 
 See [docs/architecture/deployment.md](../../docs/architecture/deployment.md) for how the pieces connect, and [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md) for the one-time setup.
+
+## Sheet settings
+
+`PATCH /tenants/{id}` accepts nullable `being_stat_group_id`, alongside `weapon_stat_group_id` and `ability_information_type`. A group must belong to that tenant; omitting a field preserves it and sending null clears it. Tenant administrators configure these settings. Deleting the selected group clears its reference while preserving the tenant.
+
+The tenant detail and `GET /tenants/{id}/beings/{id}/sheet` return `being_stat_group_id`. The sheet's optional `campaign_id` must name a campaign in that tenant that the caller may read; it does not override the tenant setting yet. The setting does not filter stat reads or change frontend display ([ADR 0296](../../docs/adr/0296-being-stat-group.md)).

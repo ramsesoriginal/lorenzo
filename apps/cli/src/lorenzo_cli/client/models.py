@@ -1509,6 +1509,7 @@ class TenantOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
     ability_information_type: str | None = Field(..., title="Ability Information Type")
     created_by: UUID | None = Field(..., title="Created By")
@@ -1539,6 +1540,7 @@ class TenantUpdate(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(None, title="Weapon Stat Group Id")
     ability_information_type: constr(min_length=1, max_length=100) | None = Field(
         None, title="Ability Information Type"
@@ -2481,6 +2483,7 @@ class PublishedOut(BaseModel):
         description="Whether every GM of the library reads the GM-only text of the entries no campaign owns: the beings that are in no campaign, and what a copy of a repository brought, such as its catalog items. On (the default), every GM reads them; off, only the GMs who wrote an entry, or who share a campaign with whoever did, read it. An entry a campaign owns, because one of its characters holds it or stands in it, is read only by that campaign's GMs either way. Owners and Organizers read everything.",
         title="Npcs Shared With Gms",
     )
+    being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
     ability_information_type: str | None = Field(..., title="Ability Information Type")
     created_by: UUID | None = Field(..., title="Created By")
@@ -2489,6 +2492,7 @@ class PublishedOut(BaseModel):
 
 
 class SheetOut(BaseModel):
+    being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapons_configured: bool = Field(..., title="Weapons Configured")
     abilities_configured: bool = Field(..., title="Abilities Configured")
     weapons: list[SheetWeaponOut] = Field(..., title="Weapons")

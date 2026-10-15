@@ -160,7 +160,11 @@ def test_vocabulary_settings_hints_and_all_three_entry_reads(stack: Stack, tmp_p
             "--json",
         ).stdout
     )
-    assert cleared == {"weapon_stat_group_id": None, "ability_information_type": None}
+    assert cleared == {
+        "being_stat_group_id": None,
+        "weapon_stat_group_id": None,
+        "ability_information_type": None,
+    }
 
 
 def test_api_rejects_invalid_hints_and_player_writes_and_hides_secret_notes(
@@ -237,3 +241,53 @@ def test_api_rejects_invalid_hints_and_player_writes_and_hides_secret_notes(
     manager = cli(gm, "item", "show", rope["entity_id"], "-t", tenant)
     assert manager.exit_code == 0, manager.output
     assert "The secret must stay hidden" in manager.stdout
+
+
+def test_the_cli_sets_and_clears_the_tenant_being_group(stack: Stack, tmp_path: Path) -> None:
+    token = stack.creator_token(f"being-group-{uuid.uuid4().hex[:8]}")
+    slug = f"being-group-{uuid.uuid4().hex[:10]}"
+    with stack.api(token) as api:
+        response = api.post("/tenants", json={"name": slug, "slug": slug, "kind": "play"})
+        assert response.status_code == 201, response.text
+        tid = response.json()["id"]
+        character = api.post(f"/tenants/{tid}/characters", json={"name": "Reader"})
+        assert character.status_code == 201, character.text
+        being_id = character.json()["entity_id"]
+    made = run_cli(stack, token, tmp_path, "stat-group", "create", "Vitals", "-t", slug, "--json")
+    assert made.exit_code == 0, made.output
+    group_id = json.loads(made.stdout)["id"]
+    set_group = run_cli(
+        stack,
+        token,
+        tmp_path,
+        "tenant",
+        "sheet-settings",
+        slug,
+        "--being-stat-group",
+        "Vitals",
+        "--json",
+    )
+    assert set_group.exit_code == 0, set_group.output
+    assert json.loads(set_group.stdout)["being_stat_group_id"] == group_id
+    with stack.api(token) as api:
+        sheet = api.get(f"/tenants/{tid}/beings/{being_id}/sheet")
+        assert sheet.status_code == 200, sheet.text
+        assert sheet.json()["being_stat_group_id"] == group_id
+    read = run_cli(stack, token, tmp_path, "tenant", "sheet-settings", slug, "--json")
+    assert read.exit_code == 0 and json.loads(read.stdout)["being_stat_group_id"] == group_id
+    cleared = run_cli(
+        stack,
+        token,
+        tmp_path,
+        "tenant",
+        "sheet-settings",
+        slug,
+        "--clear-being-stat-group",
+        "--json",
+    )
+    assert cleared.exit_code == 0, cleared.output
+    assert json.loads(cleared.stdout)["being_stat_group_id"] is None
+    with stack.api(token) as api:
+        assert (
+            api.get(f"/tenants/{tid}/beings/{being_id}/sheet").json()["being_stat_group_id"] is None
+        )
