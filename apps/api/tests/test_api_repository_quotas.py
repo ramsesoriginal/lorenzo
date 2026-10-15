@@ -410,7 +410,7 @@ async def test_a_repositorys_cover_is_not_one_of_its_entries_pictures(
         await cleanup([repository], [owner])
 
 
-# --- Copies and updates into a repository -------------------------------------------------
+# --- Copies and updates into a repository: exempt -------------------------------------------
 
 
 async def _source(owner: Actor, repository: uuid.UUID, entries: int, picture: int = 0) -> None:
@@ -451,42 +451,39 @@ async def _share(owner: Actor, repository: uuid.UUID, *subscribers: uuid.UUID) -
     assert (await owner.put(f"/tenants/{repository}/published")).status_code == 200
 
 
-async def test_a_copy_that_would_go_past_a_repositorys_entry_limit_is_refused_whole(
+async def test_a_copy_into_a_repository_is_never_refused_but_adding_by_hand_past_the_limit_is(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     author = await make_actor(raw_client, fake_jwks_server, "author")
     builder = await make_actor(raw_client, fake_jwks_server, "builder")
-    gm = await make_actor(raw_client, fake_jwks_server, "gm")
     source = await author.create_tenant("Armoury", kind="repository")
     bridge = await builder.create_tenant("Bridge", kind="repository")
-    table = await gm.create_tenant("My Table")
     try:
         await _source(author, source, 5)
-        await _share(author, source, bridge, table)
+        await _share(author, source, bridge)
         await _made(builder, bridge, "Own")
 
-        _limits(monkeypatch, entries=5)
-        refused = await builder.post(f"/tenants/{bridge}/repositories/{source}/copy")
-
-        assert refused.status_code == 422, refused.text
-        assert refused.json()["type"] == "repository-entry-limit"
-        assert refused.json()["detail"] == (
-            "This would make 6 entries in this repository, and a repository can have 5 at "
-            "most. It holds 1."
-        )
-        assert await _entries(bridge) == 1
-
-        # The same copy into a play library is not limited, and a roomier repository takes it.
-        assert (await gm.post(f"/tenants/{table}/repositories/{source}/copy")).status_code == 201
-        _limits(monkeypatch, entries=6)
+        # The copy brings 5 entries to a repository that can have 3: the engine is exempt.
+        _limits(monkeypatch, entries=3)
         copied = await builder.post(f"/tenants/{bridge}/repositories/{source}/copy")
+
         assert copied.status_code == 201, copied.text
         assert await _entries(bridge) == 6
+        # What it brought counts when somebody adds by hand: the repository is over, so one more
+        # is refused, in words that say what it holds.
+        by_hand = await _entry(builder, bridge, "By hand")
+        assert by_hand.status_code == 422, by_hand.text
+        assert by_hand.json()["type"] == "repository-entry-limit"
+        assert by_hand.json()["detail"] == (
+            "This would make 7 entries in this repository, and a repository can have 3 at "
+            "most. It holds 6."
+        )
+        assert await _entries(bridge) == 6
     finally:
-        await cleanup([source, bridge, table], [author, builder, gm])
+        await cleanup([source, bridge], [author, builder])
 
 
-async def test_a_copy_that_would_go_past_the_picture_limits_is_refused_whole(
+async def test_a_copy_past_the_picture_limits_is_not_refused_and_its_pictures_count_by_hand(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     author = await make_actor(raw_client, fake_jwks_server, "author")
@@ -497,27 +494,25 @@ async def test_a_copy_that_would_go_past_the_picture_limits_is_refused_whole(
         await _source(author, source, 2, picture=800)
         await _share(author, source, bridge)
 
-        _limits(monkeypatch, single=500)
-        too_large = await builder.post(f"/tenants/{bridge}/repositories/{source}/copy")
-        _limits(monkeypatch, total=700)
-        past_total = await builder.post(f"/tenants/{bridge}/repositories/{source}/copy")
+        # 800 bytes is over a single limit of 500 and a total of 700: the engine is exempt.
+        _limits(monkeypatch, total=700, single=500)
+        copied = await builder.post(f"/tenants/{bridge}/repositories/{source}/copy")
 
-        assert too_large.status_code == 413, too_large.text
-        assert past_total.status_code == 422, past_total.text
-        assert past_total.json()["type"] == "repository-picture-total-limit"
-        assert await _entries(bridge) == 0
-        assert await _pictures(bridge) == 0
-
-        _limits(monkeypatch, total=800, single=800)
-        assert (
-            await builder.post(f"/tenants/{bridge}/repositories/{source}/copy")
-        ).status_code == 201
+        assert copied.status_code == 201, copied.text
         assert await _pictures(bridge) == 1
+        async with admin_session_factory() as session:
+            assert await session.run_sync(lambda s: picture_bytes_held(s, bridge)) == 800
+        # By hand the same picture is refused, and so is a small one: the total is over.
+        entry = await _made(builder, bridge, "Mine")
+        assert (await _set_picture(builder, bridge, entry, _picture(800))).status_code == 413
+        small = await _set_picture(builder, bridge, entry, _picture(100))
+        assert small.status_code == 422, small.text
+        assert small.json()["type"] == "repository-picture-total-limit"
     finally:
         await cleanup([source, bridge], [author, builder])
 
 
-async def test_an_update_that_adds_entries_is_held_to_a_repositorys_limit(
+async def test_an_update_that_adds_entries_to_a_repository_is_not_refused(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     author = await make_actor(raw_client, fake_jwks_server, "author")
@@ -537,16 +532,31 @@ async def test_an_update_that_adds_entries_is_held_to_a_repositorys_limit(
         action = {"kind": "entity", "source_id": added[0]["source_id"], "action": "add"}
 
         _limits(monkeypatch, entries=2)
-        refused = await builder.post(url, json={"actions": [action]})
-        _limits(monkeypatch, entries=3)
         taken = await builder.post(url, json={"actions": [action]})
 
-        assert refused.status_code == 422, refused.text
-        assert refused.json()["type"] == "repository-entry-limit"
         assert taken.status_code == 200, taken.text
         assert await _entries(bridge) == 3
+        assert (await _entry(builder, bridge, "By hand")).status_code == 422
     finally:
         await cleanup([source, bridge], [author, builder])
+
+
+async def test_a_copy_into_a_play_library_is_not_limited(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    author = await make_actor(raw_client, fake_jwks_server, "author")
+    gm = await make_actor(raw_client, fake_jwks_server, "gm")
+    source = await author.create_tenant("Armoury", kind="repository")
+    table = await gm.create_tenant("My Table")
+    try:
+        await _source(author, source, 5)
+        await _share(author, source, table)
+        _limits(monkeypatch, entries=1)
+
+        assert (await gm.post(f"/tenants/{table}/repositories/{source}/copy")).status_code == 201
+        assert await _entries(table) == 5
+    finally:
+        await cleanup([source, table], [author, gm])
 
 
 # --- A play library's own checks stay as they were ----------------------------------------
@@ -584,7 +594,7 @@ def test_sizes_are_read_in_words_people_use() -> None:
     assert shown_size(250_400) == "250 kB"
     assert shown_size(1_000_000) == "1 MB"
     assert shown_size(1_400_000) == "1.4 MB"
-    assert shown_size(50_000_000) == "50 MB"
+    assert shown_size(20_000_000) == "20 MB"
     assert shown_size(999_999) == "1 MB"
 
 
@@ -605,8 +615,8 @@ async def test_the_check_counts_the_tenants_entries(
 
 def test_no_core_insert_of_an_entry_or_a_picture_goes_round_the_check() -> None:
     """The flush hook sees ORM rows; a Core `insert(Entity)` or `insert(PayloadPicture)` would
-    not be seen, so the copy engine's `write_rows` (which calls `check_rows`) is the only place
-    one may be."""
+    not be seen. The copy and update engines are exempt on purpose and insert through the generic
+    `insert(model)` of `write_rows`, so no other place names them."""
     import re
     from pathlib import Path
 
@@ -621,3 +631,14 @@ def test_no_core_insert_of_an_entry_or_a_picture_goes_round_the_check() -> None:
     }
 
     assert found == set(), found
+
+
+def test_the_defaults_are_what_the_adr_says() -> None:
+    from lorenzo_api.config import Settings
+
+    fields = Settings.model_fields
+    assert fields["repository_max_entries"].default == 30_000
+    assert fields["repository_max_picture_bytes"].default == 20_000_000
+    assert fields["repository_picture_max_bytes"].default == 10_000_000
+    # By default a picture in a repository is no stricter than the cap for every tenant.
+    assert fields["repository_picture_max_bytes"].default == fields["picture_max_bytes"].default
