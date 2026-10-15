@@ -21,6 +21,7 @@ __all__ = [
     "DelistedOut",
     "LicenceIn",
     "LicenceOut",
+    "MemberProfileOut",
     "RepositoryProfileOut",
     "RepositoryProfileUpdate",
 ]
@@ -216,9 +217,7 @@ class DelistedOut(BaseModel):
 
 class RepositoryProfileOut(BaseModel):
     """A repository's profile: what the Owner says of it, and whether it has a cover (the
-    picture is `GET .../profile/cover`). `delisted` is set only in what the repository's own
-    members read, while the platform's operators have it off Discover; a visitor's and a
-    holder's view never carry it (they cannot read a delisted repository at all)."""
+    picture is `GET .../profile/cover`)."""
 
     visibility: Visibility
     preview: Preview
@@ -230,4 +229,12 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str]
     has_cover: bool
     updated_at: datetime
+
+
+class MemberProfileOut(RepositoryProfileOut):
+    """What the repository's own members read of its profile (ADR 0297): the profile, and
+    `delisted` while the platform's operators have it off Discover (`null` while it is listed).
+    A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
+    they cannot read a delisted repository."""
+
     delisted: DelistedOut | None = None

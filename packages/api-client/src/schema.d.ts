@@ -7674,6 +7674,44 @@ export interface components {
             self_service_effective: boolean;
         };
         /**
+         * MemberProfileOut
+         * @description What the repository's own members read of its profile (ADR 0297): the profile, and
+         *     `delisted` while the platform's operators have it off Discover (`null` while it is listed).
+         *     A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
+         *     they cannot read a delisted repository.
+         */
+        MemberProfileOut: {
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "public";
+            /**
+             * Preview
+             * @enum {string}
+             */
+            preview: "off" | "showcase" | "public";
+            /** Summary */
+            summary: string;
+            licence: components["schemas"]["LicenceOut"] | null;
+            /** Credits */
+            credits: components["schemas"]["CreditOut"][];
+            /** Tags */
+            tags: string[];
+            /** System */
+            system: string | null;
+            /** Languages */
+            languages: string[];
+            /** Has Cover */
+            has_cover: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            delisted?: components["schemas"]["DelistedOut"] | null;
+        };
+        /**
          * MembershipCreate
          * @description POST /tenants/{id}/memberships - ADR 0036/RFC 0007. user_id must
          *     already be a real app_user row - as with PlayerCreate, this API has no
@@ -9208,9 +9246,7 @@ export interface components {
         /**
          * RepositoryProfileOut
          * @description A repository's profile: what the Owner says of it, and whether it has a cover (the
-         *     picture is `GET .../profile/cover`). `delisted` is set only in what the repository's own
-         *     members read, while the platform's operators have it off Discover; a visitor's and a
-         *     holder's view never carry it (they cannot read a delisted repository at all).
+         *     picture is `GET .../profile/cover`).
          */
         RepositoryProfileOut: {
             /**
@@ -9241,7 +9277,6 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            delisted?: components["schemas"]["DelistedOut"] | null;
         };
         /**
          * RepositoryProfileUpdate
@@ -14651,7 +14686,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                    "application/json": components["schemas"]["MemberProfileOut"];
                 };
             };
             /** @description Validation Error */
@@ -14720,7 +14755,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                    "application/json": components["schemas"]["MemberProfileOut"];
                 };
             };
             /** @description Validation Error */

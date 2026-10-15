@@ -384,7 +384,8 @@ async def test_members_read_and_edit_a_delisted_repository_and_see_that_it_is(
             await scene.visitor.get(f"/discover/repositories/{scene.repository}"),
         ):
             assert reader.status_code == 200
-            assert "delisted" not in str(reader.json()) or reader.json().get("delisted") is None
+            # Nothing in what a visitor or a library reads says the word, delisted or not.
+            assert "delisted" not in str(reader.json())
         assert (await scene.world.author.get(profile_url)).json()["delisted"] is None
     finally:
         await scene.done()

@@ -12,11 +12,13 @@ from lorenzo_api.schemas.repository_profiles import (
     CreditOut,
     DelistedOut,
     LicenceOut,
+    MemberProfileOut,
     RepositoryProfileOut,
 )
 
 __all__ = [
     "delete_repository_cover",
+    "member_profile_out",
     "profile_out",
     "profile_of",
     "set_repository_cover",
@@ -37,15 +39,10 @@ async def profile_of(session: AsyncSession, tenant_id: uuid.UUID) -> RepositoryP
 
 
 def profile_out(
-    profile: RepositoryProfile | None,
-    *,
-    stamp: datetime | None = None,
-    delisted: DelistedOut | None = None,
+    profile: RepositoryProfile | None, *, stamp: datetime | None = None
 ) -> RepositoryProfileOut:
     """What a client reads. `None` is a repository with no row yet, read through the gated read,
-    which cannot make one: it reads as the defaults, stamped as `stamp`. `delisted` is what the
-    repository's own members are told of it being off Discover (ADR 0297), and is never passed for
-    any other reader."""
+    which cannot make one: it reads as the defaults, stamped as `stamp`."""
     profile = profile or RepositoryProfile(
         visibility="private",
         preview="showcase",
@@ -72,8 +69,15 @@ def profile_out(
         languages=list(profile.languages),
         has_cover=profile.cover_picture_id is not None,
         updated_at=profile.updated_at,
-        delisted=delisted,
     )
+
+
+def member_profile_out(
+    profile: RepositoryProfile, *, delisted: DelistedOut | None
+) -> MemberProfileOut:
+    """What the repository's own members read: the profile, and what they are told of it being off
+    Discover (ADR 0297), which no other reader is."""
+    return MemberProfileOut(**profile_out(profile).model_dump(), delisted=delisted)
 
 
 async def set_repository_cover(

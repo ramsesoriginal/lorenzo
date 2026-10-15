@@ -813,6 +813,20 @@ class MePlayerOut(BaseModel):
     self_service_effective: bool = Field(..., title="Self Service Effective")
 
 
+class MemberProfileOut(BaseModel):
+    visibility: Visibility = Field(..., title="Visibility")
+    preview: Preview = Field(..., title="Preview")
+    summary: str = Field(..., title="Summary")
+    licence: LicenceOut | None
+    credits: list[CreditOut] = Field(..., title="Credits")
+    tags: list[str] = Field(..., title="Tags")
+    system: str | None = Field(..., title="System")
+    languages: list[str] = Field(..., title="Languages")
+    has_cover: bool = Field(..., title="Has Cover")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    delisted: DelistedOut | None = None
+
+
 class MembershipCreate(BaseModel):
     user_id: UUID = Field(..., title="User Id")
     role: Role = Field(..., title="Role")
@@ -1265,7 +1279,6 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
-    delisted: DelistedOut | None = None
 
 
 class RepositoryProfileUpdate(BaseModel):

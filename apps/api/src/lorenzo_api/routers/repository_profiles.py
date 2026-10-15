@@ -29,12 +29,17 @@ from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_delisting import delisted_out
 from lorenzo_api.repository_profiles import (
     delete_repository_cover,
+    member_profile_out,
     profile_of,
     profile_out,
     set_repository_cover,
 )
 from lorenzo_api.routers.repositories import _require_owner, _require_repository
-from lorenzo_api.schemas.repository_profiles import RepositoryProfileOut, RepositoryProfileUpdate
+from lorenzo_api.schemas.repository_profiles import (
+    MemberProfileOut,
+    RepositoryProfileOut,
+    RepositoryProfileUpdate,
+)
 
 router = APIRouter(prefix="/tenants/{tenant_id}", tags=["repositories"])
 
@@ -58,11 +63,13 @@ def _cover_response(picture: ProfilePicture) -> Response:
 @router.get("/profile")
 async def get_profile(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)], session: SessionDep
-) -> RepositoryProfileOut:
+) -> MemberProfileOut:
     """What the repository says about itself, for any of its members: private, with the preview at
     `showcase` and nothing else said, until its Owner says more."""
     repository = await _require_repository(session, tenant_id)
-    return profile_out(await profile_of(session, tenant_id), delisted=delisted_out(repository))
+    return member_profile_out(
+        await profile_of(session, tenant_id), delisted=delisted_out(repository)
+    )
 
 
 @router.patch("/profile")
@@ -71,7 +78,7 @@ async def update_profile(
     body: RepositoryProfileUpdate,
     session: SessionDep,
     user: CurrentUser,
-) -> RepositoryProfileOut:
+) -> MemberProfileOut:
     """An Owner changes what the profile says; only the fields named are touched. A `visibility`
     other than the repository's own is refused, in the same request as everything else in it (so
     nothing is kept): a flip makes a release, tells libraries and revokes grants, so it is `PUT`
@@ -109,7 +116,7 @@ async def update_profile(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     await session.refresh(profile)
-    return profile_out(profile, delisted=delisted_out(repository))
+    return member_profile_out(profile, delisted=delisted_out(repository))
 
 
 @router.get("/profile/cover")
