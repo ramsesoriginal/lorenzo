@@ -235,7 +235,11 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
 
 
 async def require_deletable(
-    session: AsyncSession, *, tenant_id: uuid.UUID, entity_id: uuid.UUID
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    allow_character: bool = False,
 ) -> set[str]:
     """The guards of every kind the entry has, composed (RFC 0041 section 2), and the kinds it
     has, so a delete can say what went with it. An inventory item is deleted through its own
@@ -249,7 +253,7 @@ async def require_deletable(
             detail=f"Entry {entity_id} is an inventory item: delete it with "
             f"DELETE /tenants/{tenant_id}/item-instances/{entity_id}"
         )
-    if "character" in kinds:
+    if "character" in kinds and not allow_character:
         raise EntityKindInUseError(
             detail=f"Entry {entity_id} is a character: demote it with "
             f"DELETE /tenants/{tenant_id}/characters/{entity_id} before deleting the entry"

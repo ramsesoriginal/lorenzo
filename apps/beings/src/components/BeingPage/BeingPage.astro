@@ -1,6 +1,7 @@
 ---
 import BeingNotes from '../BeingNotes/BeingNotes.astro';
 import Datasheet from '../Datasheet/Datasheet.astro';
+import DeleteBeing from '../DeleteBeing/DeleteBeing.astro';
 import DescriptionEdit from '../DescriptionEdit/DescriptionEdit.astro';
 import HandOver from '../HandOver/HandOver.astro';
 import InventorySummary from '../InventorySummary/InventorySummary.astro';
@@ -155,6 +156,10 @@ import TagEditor from '../TagEditor/TagEditor.astro';
         </div>
       </aside>
     </div>
+  </div>
+
+  <div class="card" data-only-in="edit" hidden>
+    <DeleteBeing />
   </div>
 
   <div class="visually-hidden" data-live role="status" aria-live="polite"></div>

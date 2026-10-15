@@ -17,6 +17,7 @@ import type { Character, EntityDetail } from '../../lib/types';
 import { renderBeingNotes } from '../BeingNotes/renderer';
 import { renderBeingView } from '../BeingView/renderer';
 import { renderDatasheet } from '../Datasheet/renderer';
+import { renderDeleteBeing } from '../DeleteBeing/renderer';
 import { renderDescriptionEdit } from '../DescriptionEdit/renderer';
 import { renderHandOver } from '../HandOver/renderer';
 import { renderInventorySummary } from '../InventorySummary/renderer';
@@ -75,6 +76,13 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
 
     return shown;
   };
+
+  const deletion = renderDeleteBeing({
+    root: required<HTMLElement>(root, '[data-delete-being]'),
+    tenantId,
+    current,
+    onDeleted: () => window.location.assign(back.href),
+  });
 
   // Reads the being again after a change and shows it.
   async function refresh() {
@@ -224,6 +232,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       const runsTheTable = gmCampaigns.length > 0 || member;
 
       canEdit = runsTheTable || mine.has(entityId);
+      deletion.allow(canEdit);
 
       const notes = renderBeingNotes(required<HTMLElement>(root, '[data-being-notes]'), {
         tenantId,
