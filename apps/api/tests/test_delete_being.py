@@ -371,3 +371,52 @@ async def test_repository_author_keeps_existing_entry_deletion_guard(
     async with admin_session_factory() as session:
         assert (await session.get(Entity, victim) is not None) == inherited
     await delete_tenant(tenant)
+
+
+async def test_audit_and_inventory_feed_survive_the_deleted_character(
+    client: AsyncClient,
+    test_user_id: uuid.UUID,
+):
+    from lorenzo_api.models import AuditLog, EntityChange
+
+    tenant = await make_tenant(test_user_id)
+    async with admin_session_factory() as session:
+        recipient = User(authgear_subject_id=f"deletion-feed-{uuid.uuid4()}")
+        session.add(recipient)
+        await session.flush()
+        campaign = await make_campaign(session, tenant_id=tenant)
+        seat = Player(tenant_id=tenant, campaign_id=campaign.id, user_id=recipient.id)
+        session.add(seat)
+        await session.flush()
+        victim = (
+            await make_character(session, tenant_id=tenant, owner_player_id=seat.id)
+        ).entity_id
+        session.add(
+            CharacterPlayer(tenant_id=tenant, character_entity_id=victim, player_id=seat.id)
+        )
+        removed = await _instance(session, tenant, "Deleted sword", owner=victim, container=victim)
+        kept = await _instance(session, tenant, "Stored shield", owner=victim)
+        recipient_id = recipient.id
+        await session.commit()
+    response = await client.delete(f"/tenants/{tenant}/beings/{victim}")
+    assert response.status_code == 204, response.text
+    async with admin_session_factory() as session:
+        events = list(
+            await session.scalars(
+                select(EntityChange).where(
+                    EntityChange.tenant_id == tenant, EntityChange.user_id == recipient_id
+                )
+            )
+        )
+        assert {(event.entity_id, event.kind) for event in events} == {
+            (removed, "deleted"),
+            (kept, "given_away"),
+        }
+        assert all(
+            event.character_entity_id == victim and not event.actor_visible for event in events
+        )
+        actions = set(
+            await session.scalars(select(AuditLog.action).where(AuditLog.tenant_id == tenant))
+        )
+        assert {"being.deleted", "item_instance.deleted"} <= actions
+    await delete_tenant(tenant)
