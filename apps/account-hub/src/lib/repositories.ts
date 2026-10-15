@@ -14,6 +14,7 @@ import type {
   FlipCheckOut,
   MadePrivateOut,
   MakePublicRequest,
+  MemberProfileOut,
   Page,
   PublishRequest,
   ReleaseAuthoredOut,
@@ -292,7 +293,7 @@ export async function editRelease(
 export async function getRepositoryProfile(
   repositoryId: string,
   { fresh = false }: { fresh?: boolean } = {},
-): Promise<RepositoryProfileOut> {
+): Promise<MemberProfileOut> {
   return cached(
     `repository-profile:${repositoryId}`,
     async () =>
@@ -355,7 +356,7 @@ export async function makePrivate(
 export async function setPreviewChoice(
   repositoryId: string,
   preview: RepositoryProfileOut['preview'],
-): Promise<RepositoryProfileOut> {
+): Promise<MemberProfileOut> {
   return unwrap(
     await client.PATCH('/tenants/{tenant_id}/profile', {
       params: { path: { tenant_id: repositoryId } },

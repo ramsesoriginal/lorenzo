@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DELISTED_CANNOT_BE_MADE_PUBLIC, DELISTED_PUBLIC_NOTE } from '../../src/lib/delisting';
 import type { FlipCheckOut } from '../../src/lib/types';
 import {
   changedUnderTheDialog,
@@ -82,6 +83,8 @@ function words(): string {
     ]),
     madePrivateDone(2),
     ...PREVIEW_CHOICES.map((choice) => choice.label),
+    DELISTED_CANNOT_BE_MADE_PUBLIC,
+    DELISTED_PUBLIC_NOTE,
   ].join('\n');
 }
 
@@ -116,6 +119,37 @@ describe('the card', () => {
     expect(visibilityCard(check(), 'author')).toBeNull();
     expect(visibilityCard(check({ visibility: 'public' }), 'orga')).toBeNull();
     expect(visibilityCard(null, 'owner')).toBeNull();
+  });
+});
+
+describe('the card of a repository that is off Discover', () => {
+  const delisted = { reason: 'It copies another publisher', at: '2026-10-15T09:00:00Z' };
+
+  it('says so beside a button that cannot be pressed, while it is private', () => {
+    const card = visibilityCard(check({ delisted }), 'owner');
+
+    expect(card?.button).toBe('Make public…');
+    expect(card?.disabled).toBe(true);
+    expect(card?.note).toBe(DELISTED_CANNOT_BE_MADE_PUBLIC);
+  });
+
+  it('leaves "Make private…" pressable while it is public, and says it is off Discover', () => {
+    const card = visibilityCard(check({ visibility: 'public', delisted }), 'owner');
+
+    expect(card?.button).toBe('Make private…');
+    expect(card?.disabled).toBe(false);
+    expect(card?.note).toBe(DELISTED_PUBLIC_NOTE);
+  });
+
+  it('is hidden as before where the deployment has no public repositories', () => {
+    expect(visibilityCard(check({ available: false, delisted }), 'owner')).toBeNull();
+  });
+
+  it('is as it was for a repository that is listed', () => {
+    const card = visibilityCard(check(), 'owner');
+
+    expect(card?.disabled).toBe(false);
+    expect(card?.note).toBeNull();
   });
 });
 
@@ -370,6 +404,7 @@ describe('a refusal that changes what the dialog says', () => {
   it('is one the API gives when something changed under it', () => {
     expect(changedUnderTheDialog('built-on-not-public')).toBe(true);
     expect(changedUnderTheDialog('public-copies-would-be-cut-off')).toBe(true);
+    expect(changedUnderTheDialog('repository-delisted')).toBe(true);
     expect(changedUnderTheDialog('public-repository-summary-required')).toBe(false);
     expect(changedUnderTheDialog(undefined)).toBe(false);
   });

@@ -66,6 +66,15 @@ import ReleaseComposer from './ReleaseComposer.astro';
 
     <div class="stack" role="tabpanel">
       <section class="stack" data-overview hidden>
+        <!-- Off Discover by the platform's operators (ADR 0297): every member reads it. -->
+        <div class="card card-body stack-tight" role="status" data-delisted hidden>
+          <p class="row">
+            <span class="pill pill-warning" data-delisted-pill></span>
+            <strong data-delisted-title></strong>
+          </p>
+          <p data-delisted-reason></p>
+          <p data-delisted-effect></p>
+        </div>
         <h3>State</h3>
         <p class="row">
           <span data-state></span>
@@ -105,6 +114,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <div class="row">
             <button type="button" class="btn btn-secondary" data-visibility-button></button>
           </div>
+          <p class="caption" data-visibility-note hidden></p>
           <p class="status-text" role="status" data-visibility-status hidden></p>
         </div>
         <!-- What people can look at before copying, and the entries featured (ADR 0293): an Owner's, for any repository. -->
