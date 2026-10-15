@@ -246,7 +246,7 @@ async def require_deletable(
     route (it moves what it holds back out, ADR 0128), a character is demoted before its entry
     goes, a catalog item is not deleted while an inventory item inherits from it, and a
     campaign's own entry stays with the campaign. A being that is no character, an item and a
-    bare entry go."""
+    bare entry go. The permanent being-deletion route explicitly allows a character here."""
     kinds = await kinds_of_entry(session, entity_id)
     if "item_instance" in kinds:
         raise InventoryItemKindError(
