@@ -2,7 +2,7 @@ import json
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -168,6 +168,20 @@ class Settings(BaseSettings):
     # a document is immutable, so one decoded is exact for as long as it is kept. A release larger
     # than this is not kept; 0 keeps none.
     release_cache_entries: int = 10_000
+
+    # The interval between two releases of a public repository, in seconds (ADR 0301, RFC 0038
+    # section 6): a release is announced to every library that holds the repository, and a
+    # stranger can copy it; a private one is not held back. 0 turns it off. A rollback and the
+    # release made by the flip to public are never refused by it.
+    release_cooldown_seconds: int = Field(default=300, ge=0)
+
+    # The fan-out of a release announcement (ADR 0301): how many libraries one chunk of a drain
+    # tells, in one transaction; how many chunks one sweep writes before it leaves the rest for
+    # the next; and the least time between two sweeps a process starts on an authenticated
+    # request.
+    release_fanout_chunk_size: int = Field(default=250, ge=1)
+    release_fanout_sweep_chunks: int = Field(default=20, ge=1)
+    release_fanout_sweep_interval_seconds: int = Field(default=60, ge=0)
 
     # Whether a repository can be made public (RFC 0038 section 1, ADR 0290). Off until the gates
     # that come before a public repository are in (D3 to D6) and the deployment says so: the flip

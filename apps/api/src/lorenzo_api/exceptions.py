@@ -112,6 +112,7 @@ __all__ = [
     "RepositoryUpdateNeedsChoicesError",
     "PublicRepositoriesNotAvailableError",
     "ReleaseLabelTakenError",
+    "ReleaseCooldownError",
     "ReleaseHasBreakingChangesError",
     "EntityKindInUseError",
     "InvalidKindRequestError",
@@ -1073,6 +1074,17 @@ class UpdateNeedsConfirmationError(ConflictProblem):
     without `confirm` - ADR 0208. Carries `unconfirmed`: each such row and why."""
 
     title = "Some changes are marked breaking"
+
+
+class ReleaseCooldownError(StatusProblem):
+    """Publishing a release of a public repository inside the interval after its newest release
+    (`release_cooldown_seconds`) - ADR 0301, RFC 0038 section 6. `429` with `Retry-After`; carries
+    `allowed_at`, the time the next release is possible, and `interval_seconds`, the interval.
+    fastapi_problem has no named 429 base, so this subclasses StatusProblem directly, as
+    TooManyRequestsError does."""
+
+    status = 429
+    title = "This repository released a moment ago"
 
 
 class ReleaseNotFoundError(NotFoundProblem):

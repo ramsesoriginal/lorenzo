@@ -10,7 +10,7 @@ does not accept public repositories (`public_repositories_enabled`) `PUT` is ref
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy import func, select
 
 from lorenzo_api.config import get_settings
@@ -25,6 +25,7 @@ from lorenzo_api.exceptions import (
     PublicRepositorySummaryRequiredError,
 )
 from lorenzo_api.models import RepositorySubscription, Tenant
+from lorenzo_api.release_fanout import drain_after_response
 from lorenzo_api.repository_built_on import (
     built_on_behind,
     built_on_not_public,
@@ -92,6 +93,7 @@ async def make_repository_public(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     session: SessionDep,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     body: MakePublicRequest | None = None,
 ) -> PublishedOut:
     """Makes the repository public and makes its first public release, together or not at all
@@ -132,6 +134,7 @@ async def make_repository_public(
     )
     release_out = _authored(published.release, current=True, kept=True)
     await session.commit()
+    drain_after_response(background_tasks, session)
     await set_tenant_rls_context(session, tenant_id)
     return PublishedOut(
         **TenantOut.model_validate(await session.get_one(Tenant, tenant_id)).model_dump(),
@@ -144,6 +147,7 @@ async def make_repository_private(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     session: SessionDep,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     acknowledge_revokes: bool = False,
 ) -> MadePrivateOut:
     """Makes the repository private. `409 public-repositories-built-on-it` while a public
@@ -156,4 +160,5 @@ async def make_repository_private(
         session, repository=tenant, user_id=user.id, acknowledge_revokes=acknowledge_revokes
     )
     await session.commit()
+    drain_after_response(background_tasks, session)
     return MadePrivateOut(revoked=made.revoked)

@@ -22,9 +22,9 @@ from lorenzo_api.exceptions import (
     RepositoryAlreadyPublicError,
 )
 from lorenzo_api.models import RepositorySubscription, Tenant
+from lorenzo_api.release_fanout import announce
 from lorenzo_api.repository_built_on import built_on_not_public, public_dependents
 from lorenzo_api.repository_delisting import refuse_if_delisted
-from lorenzo_api.repository_grants import notify_tenant_admins
 from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishing import Published, publish_release
 from lorenzo_api.repository_releases import lock_repository
@@ -154,12 +154,12 @@ async def make_private(
         target_id=repository.id,
         detail=f"revoked={len(libraries)}",
     )
-    # One notice a library, here and now: past a few hundred libraries this is the asynchronous
-    # fan-out of RFC 0038 section 6 (D6), which takes this loop over.
-    await notify_tenant_admins(
+    # The libraries whose grants were just deleted, as read above: the snapshot of the
+    # announcement is what tells them, since the grants are no longer there to be read (ADR 0301).
+    await announce(
         session,
-        recipient_tenant_ids=libraries,
-        current_tenant_id=repository.id,
+        repository_id=repository.id,
+        release_id=None,
         type="repository_revoked",
         title=f"{repository.name} is no longer shared with your library",
         body=(
@@ -167,5 +167,6 @@ async def make_private(
             "will not get updates from it unless it is invited again."
         ),
         created_by=user_id,
+        recipients=libraries,
     )
     return MadePrivate(len(libraries))

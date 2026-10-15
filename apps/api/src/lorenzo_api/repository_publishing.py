@@ -7,9 +7,10 @@ exactly the same steps, in the same transaction. No commit here: the caller comm
 refusal anywhere leaves nothing written.
 """
 
+import math
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,14 +20,15 @@ from lorenzo_api.config import get_settings
 from lorenzo_api.entity_kinds import unpublishable_sentence
 from lorenzo_api.exceptions import (
     BuiltOnBehindError,
+    ReleaseCooldownError,
     ReleaseHasBreakingChangesError,
     RepositoryHasUnprovenKindsError,
 )
 from lorenzo_api.models import RepositoryRelease, RepositorySubscription, Tenant
 from lorenzo_api.release_document_store import prune_release_documents, store_release_document
+from lorenzo_api.release_fanout import announce
 from lorenzo_api.repository_built_on import built_on_behind
 from lorenzo_api.repository_digest import assess, replace_stored_rows
-from lorenzo_api.repository_grants import notify_tenant_admins
 from lorenzo_api.repository_listing import set_listing_facts
 from lorenzo_api.repository_releases import (
     lock_repository,
@@ -49,6 +51,48 @@ class Published:
     was_published: bool
 
 
+def interval_in_words(seconds: int) -> str:
+    """`300` as "5 minutes", `90` as "90 seconds": how long releases of a public repository are
+    held apart, as the refusal says it."""
+    if seconds % 60 == 0:
+        minutes = seconds // 60
+        return f"{minutes} minute" if minutes == 1 else f"{minutes} minutes"
+    return f"{seconds} second" if seconds == 1 else f"{seconds} seconds"
+
+
+async def refuse_inside_cooldown(session: AsyncSession, repository_id: uuid.UUID) -> None:
+    """`429 release-cooldown` if the repository's newest release was made less than
+    `release_cooldown_seconds` ago (ADR 0301): one indexed read of the newest release, after the
+    repository's row is locked, so two releases at once are taken one after the other. For a
+    public repository's releases only, which the caller decides; never for the release made by the
+    flip to public, nor for making an earlier release current, which is not a release made here.
+    0 turns it off."""
+    interval = get_settings().release_cooldown_seconds
+    if interval <= 0:
+        return
+    newest = await session.scalar(
+        select(RepositoryRelease.created_at)
+        .where(RepositoryRelease.tenant_id == repository_id)
+        .order_by(RepositoryRelease.number.desc())
+        .limit(1)
+    )
+    if newest is None:
+        return
+    allowed_at = newest + timedelta(seconds=interval)
+    now = datetime.now(UTC)
+    if now >= allowed_at:
+        return
+    raise ReleaseCooldownError(
+        detail=(
+            f"This repository can make its next release at {allowed_at:%H:%M} UTC. "
+            f"Releases of a public repository are at least {interval_in_words(interval)} apart."
+        ),
+        headers={"Retry-After": str(max(1, math.ceil((allowed_at - now).total_seconds())))},
+        allowed_at=allowed_at.isoformat(),
+        interval_seconds=interval,
+    )
+
+
 async def publish_release(
     session: AsyncSession,
     *,
@@ -67,6 +111,9 @@ async def publish_release(
     tenant_id = repository.id
     was_published = repository.published_at is not None
     await lock_repository(session, tenant_id)
+    public = await is_public(session, tenant_id)
+    if public and not flipped:
+        await refuse_inside_cooldown(session, tenant_id)
     assessed = await assess(session, tenant_id)
     if assessed.unproven_kinds:
         raise RepositoryHasUnprovenKindsError(
@@ -76,7 +123,6 @@ async def publish_release(
                 for e in assessed.unproven_kinds
             ],
         )
-    public = await is_public(session, tenant_id)
     if public:
         behind = await built_on_behind(session, tenant_id)
         if behind:
@@ -156,13 +202,14 @@ async def publish_release(
         first=not was_published,
         flipped=flipped,
     )
-    await notify_tenant_admins(
+    await announce(
         session,
-        recipient_tenant_ids=subscribers,
-        current_tenant_id=tenant_id,
+        repository_id=tenant_id,
+        release_id=release.id,
         type="repository_updated" if was_published else "repository_published",
         title=title,
         body=notice,
         created_by=user_id,
+        recipients=subscribers,
     )
     return Published(release, public, was_published)

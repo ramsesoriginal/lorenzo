@@ -5,7 +5,7 @@ from typing import Annotated, Any
 import httpx
 import jwt
 import structlog
-from fastapi import Depends
+from fastapi import BackgroundTasks, Depends
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi_pagination import Params
@@ -238,6 +238,25 @@ async def _sync_email_from_claims(
 
 
 async def get_current_user(
+    claims: TokenClaimsDep,
+    session: SessionDep,
+    credentials: BearerCredentialsDep,
+    userinfo_url: UserinfoUrlDep,
+    background_tasks: BackgroundTasks,
+) -> User:
+    """The caller, as `_current_user` finds them, and then a sweep of the announcements that
+    stopped half way, after the response, if this process has not swept in the last minute
+    (ADR 0301). Only here: a request that is not authenticated, a health check, costs nothing.
+    """
+    user = await _current_user(claims, session, credentials, userinfo_url)
+    # Imported here: the sweep writes through `set_tenant_rls_context`, which is in this module.
+    from lorenzo_api.release_fanout import schedule_sweep
+
+    schedule_sweep(background_tasks)
+    return user
+
+
+async def _current_user(
     claims: TokenClaimsDep,
     session: SessionDep,
     credentials: BearerCredentialsDep,

@@ -13,7 +13,7 @@ import uuid
 from collections.abc import Callable, Sequence
 from typing import Annotated, Any, Literal, cast
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Response
 from fastapi_pagination import Page, Params, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import func, select
@@ -65,6 +65,7 @@ from lorenzo_api.release_current import make_release_current
 from lorenzo_api.release_document_store import (
     kept_documents,
 )
+from lorenzo_api.release_fanout import announce, drain_after_response
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_built_on import built_on_behind
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
@@ -206,6 +207,7 @@ async def publish_repository(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     session: SessionDep,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     body: PublishRequest | None = None,
 ) -> PublishedOut:
     """Publishes a repository, or announces an update to one already
@@ -227,6 +229,7 @@ async def publish_repository(
     )
     release_out = _authored(published.release, current=True, kept=published.public)
     await session.commit()
+    drain_after_response(background_tasks, session)
     await set_tenant_rls_context(session, tenant_id)
     return PublishedOut(
         **TenantOut.model_validate(await session.get_one(Tenant, tenant_id)).model_dump(),
@@ -402,6 +405,7 @@ async def make_release_current_route(
     release_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     body: MakeCurrentRequest | None = None,
 ) -> ReleaseAuthoredOut:
     """Makes an earlier release the one libraries read, the rollback of a bad release (ADR 0288,
@@ -444,17 +448,19 @@ async def make_release_current_route(
             ).all()
         )
         title, notice = current_notice(repository_name=tenant.name, release=release)
-        await notify_tenant_admins(
+        await announce(
             session,
-            recipient_tenant_ids=subscribers,
-            current_tenant_id=tenant_id,
+            repository_id=tenant_id,
+            release_id=release.id,
             type="repository_updated",
             title=title,
             body=notice,
             created_by=user.id,
+            recipients=subscribers,
         )
     out = _authored(release, current=True, kept=True)
     await session.commit()
+    drain_after_response(background_tasks, session)
     return out
 
 
