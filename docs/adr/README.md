@@ -300,3 +300,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0295 - The CLI's stat vocabulary, sheet settings and terminal entry reads](0295-cli-vocabulary-sheet-settings-and-reads.md)
 - [0296 - The tenant's being stat group](0296-being-stat-group.md)
 - [0297 - Beings shows the being group and valued stats](0297-beings-stat-selection.md)
+- [0302 - Deleting a being and settling its inventory](0302-deleting-a-being.md) — permanent deletion with destructive character guards, inventory settlement and a confirmed button in Beings
