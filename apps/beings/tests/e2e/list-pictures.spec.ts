@@ -12,12 +12,12 @@ async function portrait(world: World, id: string, isPublic = true) {
     world.gm.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/picture', {
       params: {
         path: { tenant_id: world.tenantId, entity_id: id },
-        query: { is_public: isPublic },
       },
-      body: { file: 'portrait.png' },
+      body: { file: 'portrait.png', is_public: isPublic },
       bodySerializer() {
         const data = new FormData();
         data.append('file', new File([PNG], 'portrait.png', { type: 'image/png' }));
+        data.append('is_public', String(isPublic));
         return data;
       },
     }),
