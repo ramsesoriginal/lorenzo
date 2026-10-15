@@ -51,3 +51,7 @@ When a user has no uploaded picture: if `email` is set, 302-redirect (not 301 - 
 - New migration (`profile_picture` + three link tables + RLS on the tenant/campaign-scoped two); `models/profile_picture.py` and three link models.
 - `exceptions.py`: `InvalidProfilePictureError`, `ProfilePictureNotFoundError`. `config.py`: `profile_picture_max_bytes`.
 - `routers/users.py` (`PUT`/`DELETE /me/picture`, `delete_me` cleanup), `routers/tenants.py` (`PUT`/`DELETE /tenants/{id}/picture`), `routers/campaigns.py` (`PUT`/`DELETE .../campaigns/{id}/picture`, `delete_campaign` cleanup), new `routers/pictures.py` (the three public `GET` routes).
+
+## Addendum: a private repository's picture is no longer open
+
+[ADR 0300](0300-authentication-on-a-private-repositorys-picture.md): `GET /tenants/{tenant_id}/picture` now answers a request with no token for a private repository as for a tenant with no picture, and gives it to any signed-in user. A play tenant's picture, a public repository's, a campaign's and a user's are served as described above.
