@@ -96,7 +96,7 @@ class Tenant(Base):
     # A repository's draft/published state (ADR 0118): null while it's a
     # draft, invisible to every subscriber. Always null for a play tenant.
     published_at: Mapped[datetime | None]
-    # ADR 0297: a repository the platform's operators took off Discover - when, which operator and
+    # ADR 0303: a repository the platform's operators took off Discover - when, which operator and
     # why. All three or none, and only a repository has them. A delisted repository reads as
     # unpublished to everyone but its own members and the operators; the operator's account may
     # be gone, the time and the reason are kept. They sit here, beside `published_at`, because

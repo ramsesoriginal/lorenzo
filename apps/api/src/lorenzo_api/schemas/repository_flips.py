@@ -77,7 +77,7 @@ class FlipCheckOut(BaseModel):
     public_dependents: list[PublicDependentOut]
     public_libraries: int
     invited_libraries: int
-    # Set while the platform's operators have the repository off Discover (ADR 0297): it cannot be
+    # Set while the platform's operators have the repository off Discover (ADR 0303): it cannot be
     # made public until they list it again. Owner only, like the rest of the check.
     delisted: DelistedOut | None = None
 

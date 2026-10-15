@@ -36,7 +36,7 @@ _DEFAULTS = {
     "system": None,
     "languages": [],
     "has_cover": False,
-    # What the repository's own members read: listed, so nothing to say (ADR 0297).
+    # What the repository's own members read: listed, so nothing to say (ADR 0303).
     "delisted": None,
 }
 

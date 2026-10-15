@@ -197,7 +197,7 @@ async def _step(
         tenant_id is not None
         and (await session.get(RepositorySubscription, (repository_id, tenant_id))) is not None
     )
-    # A delisted repository reads as unpublished to everyone but its own members (ADR 0297).
+    # A delisted repository reads as unpublished to everyone but its own members (ADR 0303).
     published = bool(
         repository
         and repository.kind is TenantKind.REPOSITORY

@@ -51,7 +51,7 @@ class Listed:
 
 def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
     """The repositories that are listed: public, published, with a release and not delisted by the
-    platform's operators (ADR 0297). Deprecated ones leave when that state exists (RFC 0038 D8)."""
+    platform's operators (ADR 0303). Deprecated ones leave when that state exists (RFC 0038 D8)."""
     return (
         select(RepositoryProfile, Tenant)
         .join(Tenant, Tenant.id == RepositoryProfile.tenant_id)

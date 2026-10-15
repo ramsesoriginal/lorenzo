@@ -90,6 +90,10 @@ jobs:
         uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
+      # Gradle's dependencies and the transforms of them (dexing the libraries) are restored from main's
+      # last run, not fetched and built again by every one (ADR 0148, addendum of 2026-10-15).
+      - uses: gradle/actions/setup-gradle@v6
+        if: contains(format(' {0} ', matrix.apps), ' apps/inventory-mobile ')
       # A node split over several runners (`shards` in .github/ci-graph.toml) lints once, on the first.
       # A leg of several nodes (`batch` in the same file) runs them one after the other and runs every
       # one, so a failure in the first doesn't hide the rest.
@@ -156,9 +160,26 @@ jobs:
           AUTHGEAR_CLIENT_SECRET: ci-placeholder-secret
           LOOT_BOT_TOKEN_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
 
-      - name: Build Android APK and release bundle
-        if: contains(format(' {0} ', matrix.apps), ' apps/inventory-mobile ')
-        run: mise run build
+  # apps/inventory-mobile's installable debug APK and unsigned release bundle. The `mobile-build` suite in
+  # .github/ci-graph.toml: it runs when the app or what it depends on changes, beside the node's lint and
+  # tests (the `test` job above) and not after them: each takes about 150 s (ADR 0148, addendum of
+  # 2026-10-15).
+  mobile-build:
+    name: mobile-build
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'mobile-build')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v6
+      - run: mise run build
         working-directory: apps/inventory-mobile
 
   # Not matrixed over discover's output like `test` is: an OpenAPI schema
@@ -522,7 +543,7 @@ jobs:
   # in `needs` without naming them: skipped is fine, failed or cancelled is not. A job that gates a
   # merge must be listed in `needs`, or nothing will ever wait for it.
   ci-summary:
-    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-bench, account-hub-real-api, cli-e2e]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-bench, account-hub-real-api, cli-e2e, mobile-build]
     if: always()
     runs-on: ubuntu-latest
     steps:

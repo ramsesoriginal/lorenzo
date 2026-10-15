@@ -1,4 +1,4 @@
-"""an operator can delist a repository (ADR 0297)
+"""an operator can delist a repository (ADR 0303)
 
 `tenant` gains `delisted_at`, `delisted_by` and `delist_reason`: a repository the platform's
 operators have taken off Discover (RFC 0038 section 6). A delisted repository leaves the

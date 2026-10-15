@@ -1,4 +1,4 @@
-"""ADR 0297: the delisting in the database, as the restricted app role with RLS in force. The gate
+"""ADR 0303: the delisting in the database, as the restricted app role with RLS in force. The gate
 (`repository_read_tenant_id()`), the profile's own read, `discover_read` and the insert policy of
 `repository_subscription` each leave out a delisted repository, for a library that holds a grant,
 for one that does not and for a request in none; its own members read it as ever; and the columns

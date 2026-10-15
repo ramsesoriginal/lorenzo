@@ -1,5 +1,5 @@
 // What Studio says when the platform's operators have taken a repository off Discover (RFC 0038 §6,
-// ADR 0297), as plain functions over what the API returns: the notice on the Overview, which every
+// ADR 0303), as plain functions over what the API returns: the notice on the Overview, which every
 // member of the repository reads, and the sentence on the visibility card. No DOM and nothing but
 // ./types, so they run under Node in the unit tests. The words are those of identity.md §14.3:
 // library, repository, copy, update; never "tenant", "grant" or "subscription". The operators are

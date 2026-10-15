@@ -14,7 +14,7 @@ export type Tile = {
   id: string;
   name: string;
   label: string;
-  /** Null for a stat the being has no value for, which only an editor is shown. */
+  /** Null for an unset stat in the selected being group. */
   value: number | string | null;
   numeric: boolean;
   valueType: StatDefinition['value_type'];
@@ -84,7 +84,7 @@ const plainValue = (stat: StatValue | undefined): number | string | null =>
 export function bandOf(
   vocabulary: readonly VocabularyEntry[],
   entity: Pick<EntityDetail, 'stats'>,
-  options: { includeUnset?: boolean } = {},
+  options: { beingStatGroupId?: string | null } = {},
 ): BandGroup[] {
   const byName = new Map(vocabulary.map((entry) => [entry.definition.name, entry]));
   const byId = new Map(vocabulary.map((entry) => [entry.definition.id, entry]));
@@ -162,10 +162,14 @@ export function bandOf(
     if (typeof stat.value !== 'boolean') place(tileOf(stat.name, stat.value, stat));
   }
 
-  // An editor is also shown the ones it could set.
-  if (options.includeUnset) {
+  // The primary being group stays present even before its values are filled (ADR 0297).
+  if (options.beingStatGroupId) {
     for (const entry of vocabulary) {
-      if (entry.definition.value_type !== 'bool' && !stats.has(entry.definition.name)) {
+      if (
+        entry.groupId === options.beingStatGroupId &&
+        entry.definition.value_type !== 'bool' &&
+        !stats.has(entry.definition.name)
+      ) {
         place(tileOf(entry.definition.name, null, undefined));
       }
     }
