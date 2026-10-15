@@ -1374,3 +1374,11 @@ class RepositoryPictureTooLargeError(StatusProblem):
 
     status = 413
     title = "That picture is too large for a repository"
+
+
+class RepositoryDelistedError(ConflictProblem):
+    """Making a repository public while the platform's operators have it delisted: it would be
+    public and listed nowhere, and closed to every library. Carries the reason in `detail` - ADR
+    0303, RFC 0038 section 6. The Owner makes it public again after an operator lists it."""
+
+    title = "This repository was taken off Discover"

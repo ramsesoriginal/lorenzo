@@ -904,8 +904,16 @@ describe('pictures', () => {
   it('shows what the server said when it refuses', async () => {
     const { bench } = setup();
     await bench.loadEntries();
-    await bench.pictures.set('a', file('image/png', 3_000_000));
+    await bench.pictures.set('a', file('image/png', 10_000_001));
     expect(bench.pictures.problem('a')).toMatch(/size limit/);
+  });
+
+  it('accepts a picture at the 10 MB limit', async () => {
+    const { bench, server } = setup();
+    await bench.loadEntries();
+    await bench.pictures.set('a', file('image/png', 10_000_000));
+    expect(server.pictureWrites).toEqual(['set:a']);
+    expect(bench.pictures.problem('a')).toBeNull();
   });
 
   it('says it needs a connection, and keeps what it had', async () => {

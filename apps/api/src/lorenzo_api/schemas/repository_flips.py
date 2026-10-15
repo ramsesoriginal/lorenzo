@@ -6,7 +6,13 @@ from typing import Annotated
 from pydantic import BaseModel, Field, field_validator
 
 from lorenzo_api.schemas.repositories import BuiltOnBehindOut, PublishRequest
-from lorenzo_api.schemas.repository_profiles import SUMMARY_MAX, Preview, Visibility, _words
+from lorenzo_api.schemas.repository_profiles import (
+    SUMMARY_MAX,
+    DelistedOut,
+    Preview,
+    Visibility,
+    _words,
+)
 
 __all__ = [
     "BuiltOnPublicOut",
@@ -71,6 +77,9 @@ class FlipCheckOut(BaseModel):
     public_dependents: list[PublicDependentOut]
     public_libraries: int
     invited_libraries: int
+    # Set while the platform's operators have the repository off Discover (ADR 0303): it cannot be
+    # made public until they list it again. Owner only, like the rest of the check.
+    delisted: DelistedOut | None = None
 
 
 class MadePrivateOut(BaseModel):

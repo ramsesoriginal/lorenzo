@@ -48,6 +48,9 @@ async def test_require_platform_operator_role_checks_the_claim_directly() -> Non
         ("PUT", "/admin/users/00000000-0000-0000-0000-000000000000/suspend"),
         ("DELETE", "/admin/users/00000000-0000-0000-0000-000000000000/suspend"),
         ("POST", "/admin/notifications"),
+        ("GET", "/admin/repositories/delisted"),
+        ("PUT", "/admin/repositories/00000000-0000-0000-0000-000000000000/delist"),
+        ("DELETE", "/admin/repositories/00000000-0000-0000-0000-000000000000/delist"),
     ],
 )
 async def test_admin_routes_403_without_the_platform_operator_role(

@@ -20,6 +20,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.etag import matches_if_none_match
 from lorenzo_api.exceptions import InvalidExportCursorError
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Tenant
@@ -64,18 +65,6 @@ def export_token(revision: int, visibility: InformationVisibility) -> str:
 
 def etag_header(token: str) -> str:
     return f'W/"{token}"'
-
-
-def matches_if_none_match(if_none_match: str | None, token: str) -> bool:
-    """Whether `If-None-Match` names this token (weak comparison, RFC 9110: `W/` is ignored), or
-    is `*`."""
-    if if_none_match is None:
-        return False
-    for candidate in if_none_match.split(","):
-        candidate = candidate.strip()
-        if candidate == "*" or candidate.removeprefix("W/").strip('"') == token:
-            return True
-    return False
 
 
 def encode_cursor(token: str, after: uuid.UUID) -> str:

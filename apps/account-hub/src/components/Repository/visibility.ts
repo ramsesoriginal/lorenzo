@@ -71,6 +71,7 @@ export function createVisibilityControls(
   const explanation = required<HTMLElement>(card, '[data-visibility-explanation]');
   const button = required<HTMLButtonElement>(card, '[data-visibility-button]');
   const status = required<HTMLElement>(card, '[data-visibility-status]');
+  const note = required<HTMLElement>(card, '[data-visibility-note]');
 
   const dialog = required<HTMLDialogElement>(root, '[data-visibility-dialog]');
   const form = required<HTMLFormElement>(dialog, '[data-visibility-form]');
@@ -119,6 +120,9 @@ export function createVisibilityControls(
   // What the dialog was last read to say: what it decides is sent against.
   let check: FlipCheckOut | null = null;
   let pending: string | null = null;
+  // Whether the card's button cannot be pressed at all (the repository is off Discover): the dialog
+  // leaves it so when it is done.
+  let cardDisabled = false;
 
   function item(text: string): HTMLElement {
     const li = document.createElement('li');
@@ -241,7 +245,7 @@ export function createVisibilityControls(
     } catch (cause) {
       sayError(status, cause);
     } finally {
-      button.disabled = false;
+      button.disabled = cardDisabled;
     }
   }
 
@@ -353,6 +357,10 @@ export function createVisibilityControls(
     state.textContent = content.label;
     explanation.textContent = content.sentence;
     button.textContent = content.button;
+    cardDisabled = content.disabled;
+    button.disabled = content.disabled;
+    note.textContent = content.note ?? '';
+    note.hidden = content.note === null;
 
     if (pending) {
       say(status, pending);

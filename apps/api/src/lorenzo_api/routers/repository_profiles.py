@@ -26,14 +26,20 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.models import ProfilePicture, RepositoryProfile, Tenant
 from lorenzo_api.profile_pictures import read_and_validate_upload
 from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_delisting import delisted_out
 from lorenzo_api.repository_profiles import (
     delete_repository_cover,
+    member_profile_out,
     profile_of,
     profile_out,
     set_repository_cover,
 )
 from lorenzo_api.routers.repositories import _require_owner, _require_repository
-from lorenzo_api.schemas.repository_profiles import RepositoryProfileOut, RepositoryProfileUpdate
+from lorenzo_api.schemas.repository_profiles import (
+    MemberProfileOut,
+    RepositoryProfileOut,
+    RepositoryProfileUpdate,
+)
 
 router = APIRouter(prefix="/tenants/{tenant_id}", tags=["repositories"])
 
@@ -57,11 +63,13 @@ def _cover_response(picture: ProfilePicture) -> Response:
 @router.get("/profile")
 async def get_profile(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)], session: SessionDep
-) -> RepositoryProfileOut:
+) -> MemberProfileOut:
     """What the repository says about itself, for any of its members: private, with the preview at
     `showcase` and nothing else said, until its Owner says more."""
-    await _require_repository(session, tenant_id)
-    return profile_out(await profile_of(session, tenant_id))
+    repository = await _require_repository(session, tenant_id)
+    return member_profile_out(
+        await profile_of(session, tenant_id), delisted=delisted_out(repository)
+    )
 
 
 @router.patch("/profile")
@@ -70,13 +78,13 @@ async def update_profile(
     body: RepositoryProfileUpdate,
     session: SessionDep,
     user: CurrentUser,
-) -> RepositoryProfileOut:
+) -> MemberProfileOut:
     """An Owner changes what the profile says; only the fields named are touched. A `visibility`
     other than the repository's own is refused, in the same request as everything else in it (so
     nothing is kept): a flip makes a release, tells libraries and revokes grants, so it is `PUT`
     and `DELETE` on `/public` (ADR 0290)."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
-    await _require_repository(session, tenant_id)
+    repository = await _require_repository(session, tenant_id)
     profile = await profile_of(session, tenant_id)
     if body.visibility is not None and body.visibility != profile.visibility:
         raise VisibilityHasItsOwnRouteError(
@@ -108,7 +116,7 @@ async def update_profile(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     await session.refresh(profile)
-    return profile_out(profile)
+    return member_profile_out(profile, delisted=delisted_out(repository))
 
 
 @router.get("/profile/cover")

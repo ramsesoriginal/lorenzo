@@ -121,7 +121,8 @@ export interface paths {
          * Suspend User
          * @description Idempotent - re-suspending an already-suspended account updates the
          *     reason/operator but doesn't error, mirroring `grant_campaign_gm`'s own
-         *     idempotent-PUT precedent. See ADR 0057: the target's *next* request,
+         *     idempotent-PUT precedent. Every repository the account is an Owner of is delisted with it
+         *     (ADR 0303). See ADR 0057: the target's *next* request,
          *     anywhere in the API, is rejected by `dependencies.get_current_user`.
          */
         put: operations["suspend_user"];
@@ -154,6 +155,56 @@ export interface paths {
          */
         post: operations["create_platform_notification_route"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/repositories/delisted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Delisted Repositories
+         * @description The repositories the platform's operators have taken off Discover, the latest first: id,
+         *     name, the reason, when and by whom (ADR 0303).
+         */
+        get: operations["list_delisted_repositories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/repositories/{repository_id}/delist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Delist Repository Route
+         * @description Takes a repository off Discover: it closes to new copies and to every library and visitor
+         *     reading it from outside (they read it as unpublished, so an update check stops too), and
+         *     its own members still read and edit it and are told. Libraries that copied it keep their
+         *     copies. Idempotent: delisting a delisted repository updates the reason, and the Owners are
+         *     told once, the first time. `404` for an id that is not a repository (ADR 0303).
+         */
+        put: operations["delist_repository_route"];
+        post?: never;
+        /**
+         * Relist Repository Route
+         * @description Lists a repository again. A no-op, still `200` with `relisted: false`, if it was not
+         *     delisted. Its Owners are told when it was (ADR 0303).
+         */
+        delete: operations["relist_repository_route"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2454,6 +2505,29 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/beings/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Being
+         * @description Permanently delete a being, its entry and its owned-and-carried inventory (ADR 0302).
+         *
+         *     Other carried items survive; owned items elsewhere become unowned and uncarried.
+         *     Unlike DELETE /characters/{id}, this removes the entry rather than demoting it.
+         */
+        delete: operations["delete_being"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5921,6 +5995,59 @@ export interface components {
             url: string | null;
         };
         /**
+         * DelistRepositoryRequest
+         * @description PUT /admin/repositories/{id}/delist body - ADR 0303: why, in 1 to 500 characters. The
+         *     repository's Owners read it, in the notice and on their repository's page.
+         */
+        DelistRepositoryRequest: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * DelistedOut
+         * @description That the platform's operators took a repository off Discover, and why: read by the
+         *     repository's own members and by nobody else (ADR 0303). Never who: the operators are the
+         *     platform's, not a person.
+         */
+        DelistedOut: {
+            /** Reason */
+            reason: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /**
+         * DelistedRepositoryOut
+         * @description A repository the platform's operators have off Discover: GET /admin/repositories/delisted
+         *     and PUT /admin/repositories/{id}/delist - ADR 0303. `delisted_by` is the operator's account,
+         *     which only operators read (`delisted_by_nickname` its nickname, where it has one); the
+         *     repository's own members read the reason and the time and never who.
+         */
+        DelistedRepositoryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Delisted At
+             * Format: date-time
+             */
+            delisted_at: string;
+            /** Delisted By */
+            delisted_by: string | null;
+            /** Delisted By Nickname */
+            delisted_by_nickname: string | null;
+        };
+        /**
          * DescriptionOut
          * @description Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
          *     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
@@ -6510,6 +6637,7 @@ export interface components {
             public_libraries: number;
             /** Invited Libraries */
             invited_libraries: number;
+            delisted?: components["schemas"]["DelistedOut"] | null;
         };
         /**
          * GiveContentsRequest
@@ -7569,6 +7697,44 @@ export interface components {
             self_service_effective: boolean;
         };
         /**
+         * MemberProfileOut
+         * @description What the repository's own members read of its profile (ADR 0303): the profile, and
+         *     `delisted` while the platform's operators have it off Discover (`null` while it is listed).
+         *     A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
+         *     they cannot read a delisted repository.
+         */
+        MemberProfileOut: {
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "public";
+            /**
+             * Preview
+             * @enum {string}
+             */
+            preview: "off" | "showcase" | "public";
+            /** Summary */
+            summary: string;
+            licence: components["schemas"]["LicenceOut"] | null;
+            /** Credits */
+            credits: components["schemas"]["CreditOut"][];
+            /** Tags */
+            tags: string[];
+            /** System */
+            system: string | null;
+            /** Languages */
+            languages: string[];
+            /** Has Cover */
+            has_cover: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            delisted?: components["schemas"]["DelistedOut"] | null;
+        };
+        /**
          * MembershipCreate
          * @description POST /tenants/{id}/memberships - ADR 0036/RFC 0007. user_id must
          *     already be a real app_user row - as with PlayerCreate, this API has no
@@ -7908,6 +8074,19 @@ export interface components {
         Page_ContributionOut_: {
             /** Items */
             items: components["schemas"]["ContributionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[DelistedRepositoryOut] */
+        Page_DelistedRepositoryOut_: {
+            /** Items */
+            items: components["schemas"]["DelistedRepositoryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -9028,6 +9207,22 @@ export interface components {
             label?: string | null;
             /** Notes */
             notes?: string | null;
+        };
+        /**
+         * RelistedRepositoryOut
+         * @description DELETE /admin/repositories/{id}/delist: `relisted` says whether it had been delisted
+         *     (a repository that was not is left as it is) - ADR 0303.
+         */
+        RelistedRepositoryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Relisted */
+            relisted: boolean;
         };
         /**
          * RepositoryDependencyOut
@@ -10636,6 +10831,206 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_delisted_repositories: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_DelistedRepositoryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delist_repository_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DelistRepositoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DelistedRepositoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    relist_repository_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelistedRepositoryOut"];
                 };
             };
             /** @description Validation Error */
@@ -14314,7 +14709,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                    "application/json": components["schemas"]["MemberProfileOut"];
                 };
             };
             /** @description Validation Error */
@@ -14383,7 +14778,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RepositoryProfileOut"];
+                    "application/json": components["schemas"]["MemberProfileOut"];
                 };
             };
             /** @description Validation Error */
@@ -18736,10 +19131,78 @@ export interface operations {
             };
         };
     };
+    delete_being: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                entity_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     payload_content: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "if-none-match"?: string | null;
+            };
             path: {
                 tenant_id: string;
                 payload_id: string;
@@ -18756,6 +19219,13 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+            /** @description The picture is unchanged; reuse the cached bytes. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
