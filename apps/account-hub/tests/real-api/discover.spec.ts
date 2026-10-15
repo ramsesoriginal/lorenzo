@@ -472,7 +472,9 @@ test('there is no link to Discover where the deployment has no public repositori
       json: { ...real, enabled: false, tags: [], systems: [], languages: [] },
     });
   });
-  // What the header held from the sign-in is not asked again for a while.
+  // What the header held from the sign-in is not asked again for a while. A request of that
+  // sign-in still on its way would write it back after the clear, so it is let finish first.
+  await page.waitForLoadState('networkidle');
   await page.evaluate(() => sessionStorage.clear());
   await page.goto('/profile/');
   await expect(
