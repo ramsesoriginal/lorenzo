@@ -31,7 +31,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lorenzo_cli import rawapi, repo_report, repos
+from lorenzo_cli import entry_commands, rawapi, repo_report, repos, vocabulary_commands
 from lorenzo_cli.auth import store as credentials
 from lorenzo_cli.auth.device import DeviceLoginError, run_device_login
 from lorenzo_cli.auth.login import LoginError, run_login
@@ -2319,3 +2319,8 @@ def inventory_export(
         return
     output.write_text(text, encoding="utf-8")
     _out.print(f"Wrote {output}.", highlight=False)
+
+
+# Register the vocabulary and read surfaces separately from the import workflows.
+vocabulary_commands.register(app, tenant_app)
+entry_commands.register(app, item_app)

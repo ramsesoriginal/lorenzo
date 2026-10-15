@@ -386,3 +386,43 @@ Environment: `LORENZO_API_URL` (the API base URL), `LORENZO_TOKEN`, `LORENZO_TEN
 ## Tests
 
 `mise run test` runs the unit tests, with coverage. `mise run test-e2e` runs `tests/e2e/`, which starts the real `apps/api` on a fresh database behind a fake Authgear and runs the CLI against it; it takes minutes, needs Postgres (`docker compose -f infra/docker-compose.yml up -d`, or CI's service), and skips without it. It runs on `E2E_WORKERS` parallel workers, four by default and `E2E_WORKERS=0` for one process (a single test, a debugger), each with its own API process and a database of its own, cloned from a migrated template and dropped at the end, so the Postgres user needs to be able to create databases, as the compose one can. The tests of what the importer does with a seeded tenant start from a copy of one seeded repository that the run builds once per worker; the tests of the seed itself run it. `LORENZO_REQUIRE_E2E=1` makes a missing stack a failure instead, as CI does, and `TEST_SHARD=2/3` runs one third of the test files (CI splits them over three runners, ADR 0148). `mise run check` does not include `test-e2e`, like inventory-web's.
+
+## Authoring the stat vocabulary and reading entries
+
+These commands use the existing API and its permissions ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md)). `--tenant` accepts a library's or repository's id or slug, and can come from `LORENZO_TENANT`. Stat and group references accept an id or an exact name, ignoring case; ambiguous names are refused with candidate ids.
+
+```bash
+lorenzo stat-group list -t my-library
+lorenzo stat-group create Vitals -t my-library --priority 10 --position 0
+lorenzo stat-group edit Vitals -t my-library --name Health --mandatory
+lorenzo stat-definition create maximum -t my-library --group Health --type int
+lorenzo stat-definition create stress -t my-library --group Health --type int --max-hint maximum --adjustable-in-play --pin
+lorenzo stat-definition edit stress -t my-library --unit points --no-pin --position 1
+lorenzo stat-definition list -t my-library --json
+```
+
+A new definition takes `--type int|float|text|bool|enum`, a required `--group`, and, for an enum, repeated `--enum-value` options. Its optional display fields are `--unit`, `--adjustable-in-play`, `--pin`, `--signed` and `--position`. Hints are `--max-hint`, `--min-hint` and `--resolved-hint`, naming another definition of the same tenant. A maximum or minimum hint must be numeric; hints are clues, not limits on values.
+
+`edit` changes only the options you name. Boolean flags have negative forms (`--no-pin`, `--no-signed`, `--no-adjustable-in-play`, and a group's `--no-mandatory`). Use `--clear-unit`, `--clear-max-hint`, `--clear-min-hint` or `--clear-resolved-hint` to clear a nullable field; setting and clearing it together is refused. A definition's name, type and group cannot be edited by the API. Groups can edit their name, priority, mandatory flag and position. Priority decides inheritance ties; position decides display order. Vocabulary writes require the API's administrator permissions.
+
+The library's weapon stat group and ability information type use one command. With no setting options it reads them; with options it changes only those named. The ability type is free text, not a separately created vocabulary row.
+
+```bash
+lorenzo tenant sheet-settings my-library
+lorenzo tenant sheet-settings my-library --weapon-stat-group Weapons --ability-information-type ability
+lorenzo tenant sheet-settings my-library --clear-weapon-stat-group --clear-ability-information-type
+```
+
+Read an item, an instance or a being by id, link name or exact name/title:
+
+```bash
+lorenzo item show sword -t my-library
+lorenzo item-instance show <instance-id> -t my-library
+lorenzo being show 'Ashfang' -t my-library
+```
+
+The terminal shows resolved stats in vocabulary order with units, hints and where they came from, inheritance, containment and the notes you can read, with their authors. Items include inherited descriptions; instances also show their owner and binding. A being adds its equipped weapons and abilities from the library's settings. The API decides what you may see. `--json` on any new command prints one unrendered document; a `show` document has `entry` and `item`, `item_instance` or `sheet`.
+
+Descriptions and notes are drawn as LorenzoScript, using the same parser as the web apps. Headings, emphasis, nested lists, quotes, tables, code, tasks, footnotes, dates, entity links and `{stat-name}` work in the terminal. Links resolve as your signed-in account, including `my/` in the entry's context; unresolved references stay readable as text. Pictures use their alternate text without downloading media, math is shown as its source, world-calendar dates stay as written, and CSS classes have no terminal appearance. Code stays literal. Authored terminal control characters are stripped. There is no terminal play editor.
+
+The parser is bundled in the wheel, so installing and running the CLI does not require Node. After changing `packages/lorenzoscript/src`, regenerate it with `mise run //apps/cli:bundle-lorenzoscript` (the repository's JavaScript dependencies must be installed). A source-digest test catches a stale bundle, and CI tracks the CLI's dependency on LorenzoScript.
