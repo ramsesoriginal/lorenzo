@@ -25,7 +25,13 @@ export default defineConfig({
       timeout: 300_000,
       // Public repositories are off by default (ADR 0290): Studio's visibility switch is tested on a
       // deployment that has them, and it is shown only to an Owner of a repository.
-      env: { E2E_DATABASE: 'lorenzo_account_hub_e2e', PUBLIC_REPOSITORIES_ENABLED: 'true' },
+      // Its specs release the same repository again and again within seconds, so releases are not held
+      // apart (ADR 0301); studio-release-cooldown.spec.ts runs once more with the API's own default.
+      env: {
+        E2E_DATABASE: 'lorenzo_account_hub_e2e',
+        PUBLIC_REPOSITORIES_ENABLED: 'true',
+        RELEASE_COOLDOWN_SECONDS: process.env.E2E_RELEASE_COOLDOWN_SECONDS ?? '0',
+      },
     },
     { command: 'node tests/real-api/site-server.ts', url: SITE_URL, timeout: 300_000 },
   ],

@@ -11,7 +11,7 @@ import {
   publishButtons,
   publishFacts,
 } from '../../lib/publishing';
-import { composerProblem, publishBody } from '../../lib/releases';
+import { composerProblem, cooldownRefusal, publishBody } from '../../lib/releases';
 import {
   getReleasePreview,
   listLibraryRepositories,
@@ -157,7 +157,12 @@ export function createPublishControls(root: HTMLElement, onDone: () => void): Pu
 
         // What the preview did not see: the API names the rows, and they have to be acknowledged.
         composer.refused(cause);
-        sayError(error, cause);
+
+        // A public repository's releases are held apart: said with the time the next is possible.
+        const tooSoon = cooldownRefusal(cause);
+
+        if (tooSoon) say(error, tooSoon, true);
+        else sayError(error, cause);
       }
     })();
   });

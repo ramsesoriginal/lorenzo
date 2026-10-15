@@ -463,6 +463,16 @@ jobs:
           UV_NO_DEV: 1
           E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
           E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
+      # The launcher above holds no releases apart (ADR 0301), since its specs release one repository
+      # again and again; this one spec runs once, on a launcher at the API's own default of 300 s.
+      - run: pnpm exec playwright test --config playwright.real-api.config.ts tests/real-api/studio-release-cooldown.spec.ts
+        if: matrix.shard == '1/2'
+        working-directory: apps/account-hub
+        env:
+          UV_NO_DEV: 1
+          E2E_RELEASE_COOLDOWN_SECONDS: 300
+          E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
+          E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

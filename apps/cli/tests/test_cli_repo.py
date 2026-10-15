@@ -1276,6 +1276,27 @@ def test_a_publish_the_api_refuses_for_breaking_changes_says_which_and_how_to_go
     assert "--acknowledge-breaking" in text
 
 
+def test_a_publish_inside_the_cooldown_prints_the_apis_words_and_the_status(
+    tmp_path: Path,
+) -> None:
+    world = World()
+    world.publish_answer = problem(
+        429,
+        "release-cooldown",
+        "This repository can make its next release at 14:05 UTC. Releases of a public "
+        "repository are at least 5 minutes apart.",
+        allowed_at="2026-10-15T14:05:00+00:00",
+        interval_seconds=300,
+    )
+    result = run(tmp_path, world, "publish", "-t", "sunken-vale")
+
+    assert result.exit_code == 1
+    text = said(result)
+    assert "can make its next release at 14:05 UTC" in text
+    assert "at least 5 minutes apart" in text
+    assert "HTTP 429" in text
+
+
 def test_acknowledging_breaking_changes_is_sent(tmp_path: Path) -> None:
     world = World()
     result = run(tmp_path, world, "publish", "-t", "sunken-vale", "--acknowledge-breaking")
