@@ -1347,3 +1347,30 @@ class CampaignGmTitleInvalidError(UnprocessableProblem):
     plain text - ADR 0294."""
 
     title = "That title for the GM cannot be kept"
+
+
+class RepositoryEntryLimitError(UnprocessableProblem):
+    """A write that would give a repository more entries than a repository can have
+    (`Settings.repository_max_entries`) - ADR 0298, RFC 0038 section 6. Carries `quota`
+    (`entries`), `limit`, `holds` and `adding`; `detail` says it in words. Nothing is written."""
+
+    title = "A repository cannot hold more entries"
+
+
+class RepositoryPictureTotalLimitError(UnprocessableProblem):
+    """A picture that would take the pictures of a repository past the most a repository can
+    hold (`Settings.repository_max_picture_bytes`) - ADR 0298. Carries `quota`
+    (`picture_total`), `limit`, `holds` and `adding`, all in bytes."""
+
+    title = "A repository cannot hold more pictures"
+
+
+class RepositoryPictureTooLargeError(StatusProblem):
+    """One picture larger than a picture in a repository can be
+    (`Settings.repository_picture_max_bytes`) - ADR 0298. A `413`: the picture itself is the
+    problem, not the repository's room. Carries `quota` (`picture_size`), `limit` and `size`, in
+    bytes. fastapi_problem has no named 413 base, so this subclasses StatusProblem directly, as
+    PreconditionFailedError does for 412."""
+
+    status = 413
+    title = "That picture is too large for a repository"
