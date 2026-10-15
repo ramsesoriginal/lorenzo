@@ -34,7 +34,7 @@ export function renderDeleteBeing(options: {
     button.disabled = true;
     say(status, 'Deleting…');
     try {
-      unwrap(
+      await unwrap(
         await client.DELETE('/tenants/{tenant_id}/beings/{entity_id}', {
           params: { path: { tenant_id: tenantId, entity_id: entity.id } },
           headers: { 'if-match': `W/"${entity.updated_at}"` },
