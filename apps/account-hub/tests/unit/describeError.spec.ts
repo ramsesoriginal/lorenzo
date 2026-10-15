@@ -27,6 +27,26 @@ function validation(errors: { loc: (string | number)[]; msg: string; type?: stri
 }
 
 describe('describeError: what the API said', () => {
+  it('says a repository is full in the words of the API, for an entry limit and a picture', () => {
+    const entries = problem(422, {
+      type: 'repository-entry-limit',
+      title: 'A repository cannot hold more entries',
+      detail: 'This repository holds 20,000 entries, which is the most a repository can have.',
+    });
+    const picture = problem(413, {
+      type: 'repository-picture-too-large',
+      title: 'That picture is too large for a repository',
+      detail: 'This picture is 1.4 MB, and a picture in a repository can be 1 MB at most.',
+    });
+
+    expect(describeError(entries)).toBe(
+      'This repository holds 20,000 entries, which is the most a repository can have.',
+    );
+    expect(describeError(picture)).toBe(
+      'This picture is 1.4 MB, and a picture in a repository can be 1 MB at most.',
+    );
+  });
+
   it("prefers the problem's detail", () => {
     const error = problem(409, { title: 'Slug already in use', detail: "Slug 'north' is taken" });
     expect(describeError(error)).toBe("Slug 'north' is taken");

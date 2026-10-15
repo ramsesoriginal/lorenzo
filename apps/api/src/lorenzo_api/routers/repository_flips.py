@@ -13,6 +13,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 
+from lorenzo_api.activity_log import record_activity
 from lorenzo_api.config import get_settings
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -23,6 +24,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     PublicRepositoriesNotAvailableError,
     PublicRepositorySummaryRequiredError,
+    TermsNotAcceptedError,
 )
 from lorenzo_api.models import RepositorySubscription, Tenant
 from lorenzo_api.repository_built_on import (
@@ -30,8 +32,10 @@ from lorenzo_api.repository_built_on import (
     built_on_not_public,
     public_dependents,
 )
+from lorenzo_api.repository_delisting import delisted_out, refuse_if_delisted
 from lorenzo_api.repository_flips import count_public_grants, make_private, make_public
 from lorenzo_api.repository_profiles import profile_of
+from lorenzo_api.repository_publishers import publishers_of
 from lorenzo_api.routers.repositories import _authored, _require_owner, _require_repository
 from lorenzo_api.schemas.repositories import BuiltOnBehindOut, PublishedOut, PublishRequest
 from lorenzo_api.schemas.repository_flips import (
@@ -58,7 +62,7 @@ async def check_flip(
     grant they gave themselves by copying it and how many it invited. Owner only; writes
     nothing."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
-    await _require_repository(session, tenant_id)
+    repository = await _require_repository(session, tenant_id)
     profile = await profile_of(session, tenant_id)
     invited = await session.scalar(
         select(func.count())
@@ -82,6 +86,10 @@ async def check_flip(
         ],
         public_libraries=await count_public_grants(session, tenant_id),
         invited_libraries=invited or 0,
+        publishers=(await publishers_of(session, [tenant_id], current_tenant_id=tenant_id))[
+            tenant_id
+        ],
+        delisted=delisted_out(repository),
     )
 
 
@@ -97,16 +105,24 @@ async def make_repository_public(
     Needs a summary, given here or already on the profile (`422
     public-repository-summary-required`), every repository it is built on public (`409
     built-on-not-public`) and up to date (`409 built-on-behind`), and says what a visitor may
-    look at before copying (`preview`, the default `showcase`). Owner only; `422
-    public-repositories-not-available` while the deployment does not accept public
-    repositories."""
+    look at before copying (`preview`, the default `showcase`) and the terms line agreed to
+    (`accept_terms: true`, else `422 terms-not-accepted`; the agreement is logged in the
+    repository's activity log as `repository.terms_accepted`, with the user and no wording).
+    Owner only; `422 public-repositories-not-available` while the deployment does not accept
+    public repositories."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
     tenant = await _require_repository(session, tenant_id)
     if not get_settings().public_repositories_enabled:
         raise PublicRepositoriesNotAvailableError(
             detail="Public repositories are not available yet. This repository stays private."
         )
+    refuse_if_delisted(tenant)
     body = body or MakePublicRequest()
+    if not body.accept_terms:
+        raise TermsNotAcceptedError(
+            detail="Agree to the terms to make this repository public: that you have the right to "
+            "publish it, and that publishing cannot be recalled."
+        )
     profile = await profile_of(session, tenant_id)
     if body.summary is not None:
         profile.summary = body.summary
@@ -126,6 +142,14 @@ async def make_repository_public(
             breaking=body.breaking,
             acknowledge_breaking=body.acknowledge_breaking,
         ),
+    )
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="repository.terms_accepted",
+        target_type="tenant",
+        target_id=tenant_id,
     )
     release_out = _authored(published.release, current=True, kept=True)
     await session.commit()

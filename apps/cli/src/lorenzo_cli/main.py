@@ -1662,16 +1662,18 @@ def repo_revoke(
 def repo_subscribers(
     ctx: typer.Context, tenant: RepositoryTenant, as_json: JsonOption = False
 ) -> None:
-    """List the tenants a repository is granted to, with each one's id."""
+    """List the tenants a repository is granted to, with each one's id, and say how many copied it
+    by themselves from Discover: their names are never shown to a repository."""
     runtime: Runtime = ctx.obj
     with _reporting_errors(), _client(runtime) as client:
         repository = resolve_tenant(client, tenant)
         repos.require_repository_tenant(repository, what="granted")
         rows = repos.list_subscribers(client, repository.id)
+        public_copies = repos.subscribers_summary(client, repository.id).public_copies
     if as_json:
         _echo_json([row.model_dump(mode="json") for row in rows])
         return
-    repo_report.print_subscribers(_out, rows)
+    repo_report.print_subscribers(_out, rows, public_copies=public_copies)
 
 
 @repo_app.command("contents")

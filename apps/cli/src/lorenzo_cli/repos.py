@@ -32,6 +32,7 @@ from lorenzo_cli.client.models import (
     ResolutionIn,
     RowChangeOut,
     SubscriberOut,
+    SubscribersSummaryOut,
     SubscriptionOut,
     TenantKind,
     TenantOut,
@@ -47,6 +48,7 @@ from lorenzo_cli.client.ops import (
     LIST_REPOSITORY_UPDATES,
     LIST_SUBSCRIBERS,
     LIST_TENANTS,
+    SUBSCRIBERS_SUMMARY,
 )
 from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
@@ -80,6 +82,12 @@ def list_subscribers(client: LorenzoClient, repository_id: UUID) -> list[Subscri
     return list(
         all_items(client, LIST_SUBSCRIBERS, path={"tenant_id": repository_id}, of=SubscriberOut)
     )
+
+
+def subscribers_summary(client: LorenzoClient, repository_id: UUID) -> SubscribersSummaryOut:
+    """How many libraries the list names, and how many copied the repository by themselves: the
+    only thing a repository learns of those (ADR 0299)."""
+    return client.call(SUBSCRIBERS_SUMMARY, path={"tenant_id": repository_id}).value
 
 
 def list_repositories(client: LorenzoClient, tenant_id: UUID) -> list[SubscriptionOut]:

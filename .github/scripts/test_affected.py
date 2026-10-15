@@ -294,6 +294,17 @@ class ThisRepository(unittest.TestCase):
         self.assertIn("cli-e2e", result.suites)
         self.assertEqual(affected.affected(self.graph, ["apps/cli/src/x.py"]).suites, {"cli-e2e"})
 
+    def test_the_mobile_build_is_a_job_beside_the_mobile_tests(self) -> None:
+        """Lint and tests (`test`) and the APK and bundle (`mobile-build`) are about 150 s each."""
+        for change in ("apps/inventory-mobile/app/src/Main.kt", "apps/brand/fonts/x.woff2"):
+            result = affected.affected(self.graph, [change])
+            self.assertIn("apps/inventory-mobile", result.tests, change)
+            self.assertIn("mobile-build", result.suites, change)
+        api = affected.affected(self.graph, ["apps/api/a.py"])
+        self.assertNotIn("apps/inventory-mobile", api.tests)
+        self.assertNotIn("mobile-build", api.suites)
+        self.assertIn("apps/inventory-mobile", api.drift)
+
 
 if __name__ == "__main__":
     unittest.main()

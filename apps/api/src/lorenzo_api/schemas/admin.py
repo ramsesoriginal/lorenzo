@@ -1,12 +1,18 @@
 import uuid
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 
 from lorenzo_api.models import User
 
-__all__ = ["AdminUserOut", "SuspendUserRequest"]
+__all__ = [
+    "AdminUserOut",
+    "DelistRepositoryRequest",
+    "DelistedRepositoryOut",
+    "RelistedRepositoryOut",
+    "SuspendUserRequest",
+]
 
 
 class AdminUserOut(BaseModel):
@@ -49,3 +55,39 @@ class SuspendUserRequest(BaseModel):
     """PUT /admin/users/{id}/suspend body - see ADR 0057."""
 
     reason: str | None = None
+
+
+DELIST_REASON_MAX = 500
+
+
+class DelistRepositoryRequest(BaseModel):
+    """PUT /admin/repositories/{id}/delist body - ADR 0303: why, in 1 to 500 characters. The
+    repository's Owners read it, in the notice and on their repository's page."""
+
+    reason: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=DELIST_REASON_MAX)
+    ]
+
+
+class DelistedRepositoryOut(BaseModel):
+    """A repository the platform's operators have off Discover: GET /admin/repositories/delisted
+    and PUT /admin/repositories/{id}/delist - ADR 0303. `delisted_by` is the operator's account,
+    which only operators read (`delisted_by_nickname` its nickname, where it has one); the
+    repository's own members read the reason and the time and never who."""
+
+    id: uuid.UUID
+    name: str
+    slug: str
+    reason: str
+    delisted_at: datetime
+    delisted_by: uuid.UUID | None
+    delisted_by_nickname: str | None
+
+
+class RelistedRepositoryOut(BaseModel):
+    """DELETE /admin/repositories/{id}/delist: `relisted` says whether it had been delisted
+    (a repository that was not is left as it is) - ADR 0303."""
+
+    id: uuid.UUID
+    name: str
+    relisted: bool

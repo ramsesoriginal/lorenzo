@@ -154,11 +154,11 @@ class Settings(BaseSettings):
     # Profile pictures (ADR 0056) - bytes are stored directly in Postgres
     # (matching payload_picture's own precedent, ADR 0017), so this caps
     # both the request body size and the row size, not a bucket quota.
-    profile_picture_max_bytes: int = 2_000_000
+    profile_picture_max_bytes: int = 10_000_000
 
     # Pictures on an entry's information (K8, ADR 0237): the same cap to start with, a setting of
     # its own because a cover or a map may want more than an avatar. Bytes in Postgres here too.
-    picture_max_bytes: int = 2_000_000
+    picture_max_bytes: int = 10_000_000
 
     # How many of a public repository's newest releases keep their document (RFC 0037 section 5,
     # ADR 0288): a setting, not a promise. The current release keeps its own whatever its age.
@@ -169,10 +169,30 @@ class Settings(BaseSettings):
     # than this is not kept; 0 keeps none.
     release_cache_entries: int = 10_000
 
+    # Quotas on a repository (RFC 0038 section 6, ADR 0298), for every tenant of kind repository and
+    # no other: the most entries a repository holds, the most picture bytes it holds in all (the
+    # pictures on its entries, not its cover), and the most bytes in one such picture. Set well
+    # above the seeded repositories and the 20,000-entry repository of RFC 0037's scale spike;
+    # `0` takes a limit off. A repository over a limit lowered later is never blocked from
+    # changing or shrinking, only from growing.
+    repository_max_entries: int = 20_000
+    repository_max_picture_bytes: int = 50_000_000
+    repository_picture_max_bytes: int = 1_000_000
+
     # Whether a repository can be made public (RFC 0038 section 1, ADR 0290). Off until the gates
     # that come before a public repository are in (D3 to D6) and the deployment says so: the flip
     # routes exist and answer `public-repositories-not-available` while it is off.
     public_repositories_enabled: bool = False
+
+    # Where a report about a public repository goes (RFC 0038 section 6, ADR 0299): an email
+    # address, `REPORT_ADDRESS`. A storefront carries a `mailto:` to it, with the repository's name
+    # and id in the subject, only when it is set; there is no report inbox in Lorenzo.
+    report_address: str | None = None
+
+    @field_validator("report_address")
+    @classmethod
+    def _blank_report_address_is_unset(cls, v: str | None) -> str | None:
+        return (v or "").strip() or None
 
     @field_validator("database_url", "migrations_database_url")
     @classmethod

@@ -250,6 +250,17 @@ def test_subscribers_say_who_copied_it_and_who_kept_a_copy_without_an_invitation
     assert "2026-10-03" in kept
 
 
+def test_subscribers_say_how_many_copied_it_by_themselves_and_never_who(tmp_path: Path) -> None:
+    result = run(tmp_path, World(granted=True, public_copies=3), "subscribers", "-t", "sunken-vale")
+
+    assert result.exit_code == 0, result.output
+    assert "table-one" in result.output
+    assert "3 libraries copied it by themselves from Discover" in said(result)
+    only = run(tmp_path, World(granted=False, public_copies=1), "subscribers", "-t", "sunken-vale")
+    assert "isn't granted to any tenant" not in said(only)
+    assert "1 library copied it by itself from Discover" in said(only)
+
+
 def test_subscribers_json_is_an_array(tmp_path: Path) -> None:
     result = run(tmp_path, World(granted=True), "subscribers", "-t", "sunken-vale", "--json")
 

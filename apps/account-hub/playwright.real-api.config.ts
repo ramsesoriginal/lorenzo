@@ -25,7 +25,15 @@ export default defineConfig({
       timeout: 300_000,
       // Public repositories are off by default (ADR 0290): Studio's visibility switch is tested on a
       // deployment that has them, and it is shown only to an Owner of a repository.
-      env: { E2E_DATABASE: 'lorenzo_account_hub_e2e', PUBLIC_REPOSITORIES_ENABLED: 'true' },
+      // A repository holds at most 50 entries here (ADR 0298), so a spec can reach the limit with a
+      // handful of requests; no other spec comes near it.
+      env: {
+        E2E_DATABASE: 'lorenzo_account_hub_e2e',
+        PUBLIC_REPOSITORIES_ENABLED: 'true',
+        // Where a storefront's Report link goes (ADR 0299).
+        REPORT_ADDRESS: 'reports@example.test',
+        REPOSITORY_MAX_ENTRIES: '50',
+      },
     },
     { command: 'node tests/real-api/site-server.ts', url: SITE_URL, timeout: 300_000 },
   ],

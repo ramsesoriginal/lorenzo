@@ -24,6 +24,7 @@ from lorenzo_api.schemas.discover import (
     DiscoverItemOut,
     DiscoverReleaseOut,
     DiscoverSort,
+    PublisherOut,
 )
 
 __all__ = [
@@ -50,8 +51,8 @@ class Listed:
 
 
 def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
-    """The repositories that are listed: public, published and with a release. Delisted and
-    deprecated ones leave when those states exist (RFC 0038 D6, D8)."""
+    """The repositories that are listed: public, published, with a release and not delisted by the
+    platform's operators (ADR 0303). Deprecated ones leave when that state exists (RFC 0038 D8)."""
     return (
         select(RepositoryProfile, Tenant)
         .join(Tenant, Tenant.id == RepositoryProfile.tenant_id)
@@ -60,11 +61,14 @@ def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
             RepositoryProfile.release_label.is_not(None),
             Tenant.kind == TenantKind.REPOSITORY,
             Tenant.published_at.is_not(None),
+            Tenant.delisted_at.is_(None),
         )
     )
 
 
-def item_out(profile: RepositoryProfile, tenant: Tenant) -> DiscoverItemOut:
+def item_out(
+    profile: RepositoryProfile, tenant: Tenant, publishers: list[PublisherOut]
+) -> DiscoverItemOut:
     assert profile.release_label is not None and profile.released_at is not None
     return DiscoverItemOut(
         id=tenant.id,
@@ -78,6 +82,7 @@ def item_out(profile: RepositoryProfile, tenant: Tenant) -> DiscoverItemOut:
         release=DiscoverReleaseOut(label=profile.release_label, released_at=profile.released_at),
         entries=profile.entry_count,
         stat_definitions=profile.stat_definition_count,
+        publishers=publishers,
     )
 
 
@@ -137,7 +142,7 @@ async def search(
 _LISTED_SQL = (
     "FROM repository_profile p JOIN tenant t ON t.id = p.tenant_id "
     "WHERE p.visibility = 'public' AND p.release_label IS NOT NULL "
-    "AND t.kind = 'repository' AND t.published_at IS NOT NULL"
+    "AND t.kind = 'repository' AND t.published_at IS NOT NULL AND t.delisted_at IS NULL"
 )
 
 
