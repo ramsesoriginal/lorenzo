@@ -12,8 +12,8 @@ currently expose identity independently of information.
 ## Decision
 
 A `fact` marker gives an entry its kind, through the existing kind API. The initial slice
-supports standalone facts; combinations with mechanical kinds are not enabled until their
-semantics and repository matrix are proven. Facts carry ordinary information, text and pictures.
+proves standalone facts in the repository matrix; combinations remain draft-only until their
+semantics and repository matrix are proven, following the existing kind discipline. Facts carry ordinary information, text and pictures.
 `fact_about(fact_entity_id, subject_entity_id, tenant_id)` is an optional many-to-many relation,
 independent of LorenzoScript links. An entry may concern several subjects, and need concern none.
 
@@ -29,17 +29,18 @@ containment and aggregate effects need the later decision already named in RFC 0
 
 ### Enforcement and roles
 
-Entry reads use a restrictive SELECT policy in addition to tenant isolation. It preserves the
-existing resource gates and filters before SQL pagination/counts. Information and payload reads
+Entry reads use a shared SQL visibility clause alongside existing tenant RLS and resource
+authorization. It filters before SQL pagination/counts, using the same resolved caller sets
+as information visibility. Direct reads use the equivalent shared check. Information and payload reads
 also require a visible containing entry, including binary content and cache revalidation.
 A restricted entry is readable through explicit grants, by its applicable GMs, or by library
 Owners/Organizers who have not opted out. Authors read facts as authored world content, alongside
 the catalog; repository Authors continue to read all authored content. Group grants follow current
 membership; Player grants keep the existing tenant-wide union of campaign seats.
 
-The SQL rule is security-invoker and does not bypass tenant RLS. Tests compare its behavior
-against the established role/knower cases. Request-local user context is restored alongside
-tenant context after a commit. All new tables force RLS and use composite same-tenant references.
+The rule does not change existing tables' RLS policies or introduce a second role resolver.
+Tests compare its SQL and direct-read behavior against the established role/knower cases.
+All new tables force tenant RLS and use composite same-tenant references.
 
 The gated repository content read remains available to the copy engine. Public previews and
 release-document reads that present entries to visitors filter the outer audience explicitly;
