@@ -12,8 +12,10 @@ currently expose identity independently of information.
 ## Decision
 
 A `fact` marker gives an entry its kind, through the existing kind API. The initial slice
-proves standalone facts in the repository matrix; combinations remain draft-only until their
-semantics and repository matrix are proven, following the existing kind discipline. Facts carry ordinary information, text and pictures.
+supports standalone facts in the repository matrix. The API does not yet combine a fact with
+physical kinds or use one as a group or container: those interactions belong to the later gate
+rollout. Ancestry remains available, with inaccessible parent identities filtered from reads.
+Facts carry ordinary information, text and pictures.
 `fact_about(fact_entity_id, subject_entity_id, tenant_id)` is an optional many-to-many relation,
 independent of LorenzoScript links. An entry may concern several subjects, and need concern none.
 
@@ -75,3 +77,11 @@ Concealment is an entry-level rule, not a collection of UI exceptions. Existing 
 and all inner audiences remain unchanged unless an explicit outer gate is introduced. Facts
 reuse entity identity, notes, links and pictures without implementing epistemic judgments,
 confidence, temporal learning or campaign relevance.
+
+### Initial anchor boundary
+
+The first fact slice creates standalone anchors. Giving one an item/being kind, using it as a
+physical container, or giving it group members waits for the separately scoped mechanics rollout.
+Ordinary prototype links remain available; hidden parent ids, names and provenance are filtered.
+An editor must make the outer audience public before removing the fact kind, so removing a marker
+does not silently publish an entry that was concealed.
