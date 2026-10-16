@@ -67,6 +67,7 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
       mount.replaceChildren(
         renderInfoForm(root, {
           initial: descriptionDraft(info, title),
+          information: info ?? undefined,
           renderer: at(options.renderer, entityId),
           titleLabel: 'Display title',
           textLabel: 'Description',

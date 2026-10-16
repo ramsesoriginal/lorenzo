@@ -132,3 +132,39 @@ test('says why a second description is refused', async ({ world, as }) => {
   await information.getByRole('button', { name: 'Save' }).click();
   await expect(information.getByRole('status').filter({ hasText: /description/i })).toBeVisible();
 });
+
+test('a description keeps text and a picture in order when read through an instance', async ({
+  world,
+  as,
+}) => {
+  const item = await world.item('A folded map');
+  const instance = await world.instance(item, { owner: world.pia });
+  const page = await gmOn(as, world, item);
+  const png = await page.screenshot();
+  await page.getByRole('button', { name: 'Write a description' }).click();
+  const form = page.locator('[data-description-edit] form');
+  await form
+    .getByRole('textbox', { name: 'Description', exact: true })
+    .fill('Ink marks the river.');
+  await form
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'map.png', mimeType: 'image/png', buffer: png });
+  await form.getByRole('button', { name: 'Add text' }).click();
+  await form.getByLabel('Text 2', { exact: true }).fill('A path continues north.');
+  await form.getByLabel('Players can read this').check();
+  await form.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await expect(page.locator('[data-item-view] [data-descriptions] img')).toBeVisible();
+  const pia = await as(world.pia);
+  await pia.goto(`/item/?tenant=${world.tenantId}&id=${instance}`);
+  const description = pia.locator('[data-item-view] [data-descriptions]');
+  await expect(description.getByText('Ink marks the river.')).toBeVisible();
+  await expect(description.getByText('A path continues north.')).toBeVisible();
+  await expect(description.locator('img')).toBeVisible();
+  await expect(pia.locator('[data-item-view] [data-pictures] img')).toHaveCount(0);
+  const parts = description.locator('.stack-tight > div');
+  await expect(parts).toHaveCount(3);
+  await expect(parts.nth(0)).toHaveText('Ink marks the river.');
+  await expect(parts.nth(1).locator('img')).toBeVisible();
+  await expect(parts.nth(2)).toHaveText('A path continues north.');
+});

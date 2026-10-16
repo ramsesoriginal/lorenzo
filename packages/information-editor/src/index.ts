@@ -200,3 +200,17 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
   });
   return details;
 }
+
+export {
+  type BundleFields,
+  type BundleReceipt,
+  type DraftPayload,
+  INITIAL_TEXT,
+  type Information,
+  initialText,
+  type Payload,
+  sameBundle,
+  saveInformationBundle,
+} from './bundles';
+
+export { renderBundleEditor, renderInformationPayloads } from './payloads';

@@ -183,7 +183,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     });
     pictureEdit.load(entity.id, pictureOf(entity) !== undefined);
 
-    datasheet.show({ id: entity.id, name: entity.name, description: descriptionOf(entity) });
+    datasheet.show({ id: entity.id, name: entity.name, information: entity.information });
     redrawStats(entity);
   }
 

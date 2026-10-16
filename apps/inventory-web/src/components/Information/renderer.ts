@@ -1,5 +1,5 @@
-import { renderAudienceControl } from '@lorenzo/information-editor';
-import { client } from '../../lib/api';
+import { renderAudienceControl, renderInformationPayloads } from '@lorenzo/information-editor';
+import { blobUrl, client } from '../../lib/api';
 // An entity's information (ADR 0112): every piece of it, rendered, with adding, editing and
 // deleting (ADR 0101, 0109). The item page's Information section for GMs is the whole list;
 // Notes (ADR 0113) are the same list narrowed to one type, with their own words.
@@ -164,16 +164,16 @@ export function renderInformation(
   function renderRow(shown: NonNullable<typeof session>, info: Information): HTMLLIElement {
     const { kind } = shown;
     const row = cloneTemplate<HTMLLIElement>(rowTemplates[kind.rowHeading], 'li');
-    const content = textOf(info)?.content;
 
     required<HTMLElement>(row, '[data-heading]').textContent = info.title || '(untitled)';
     required<HTMLElement>(row, '[data-describe]').textContent = kind.describe(info);
 
-    if (content) {
-      void showDescriptions(required<HTMLElement>(row, '[data-text]'), renderer, [
-        { text: content, home: shown.entityId },
-      ]);
-    }
+    renderInformationPayloads(required<HTMLElement>(row, '[data-text]'), {
+      information: info,
+      loadFile: (payload) => blobUrl(payload.url),
+      renderText: (host, text) =>
+        showDescriptions(host, renderer, [{ text, home: shown.entityId }]),
+    });
 
     const actions = required<HTMLElement>(row, '[data-actions]');
 
@@ -200,6 +200,7 @@ export function renderInformation(
         renderInfoForm(root, {
           ...formOptions(kind, shown.entityId),
           initial: draftOf(info),
+          information: info,
           onSubmit: async (draft) => {
             needsTitle(draft);
             await updateInformation(tenantId, info, draft);
@@ -255,9 +256,9 @@ export function renderInformation(
           try {
             await kind.afterSave?.({ id: created.id, isPublic: draft.isPublic }, null);
           } catch (error) {
-            // Kept, it could be something its author can't read.
-            await deleteInformation(tenantId, created).catch(() => {});
-            throw new Error(`It wasn't kept: ${saveError(error)}`);
+            throw new Error(
+              `The note was saved, but its audience wasn't changed. Your draft is here so you can try again: ${saveError(error)}`,
+            );
           }
 
           saved = true;

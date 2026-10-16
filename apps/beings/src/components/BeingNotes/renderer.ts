@@ -1,5 +1,5 @@
-import { renderAudienceControl } from '@lorenzo/information-editor';
-import { client } from '../../lib/api';
+import { renderAudienceControl, renderInformationPayloads } from '@lorenzo/information-editor';
+import { blobUrl, client } from '../../lib/api';
 // Notes on a being (ADR 0271), the way inventory-web has them on items (ADR 0113) but with the four
 // audiences (GM only, Everyone, Some characters, Player note) and an order the writer sets (ADR
 // 0237). Anyone who can see a note reads it; whoever may write, adds, edits, reorders and deletes.
@@ -175,7 +175,6 @@ export function renderBeingNotes(
   function drawRow(row: Row, index: number): HTMLLIElement {
     const { info, knowers } = row;
     const item = cloneTemplate<HTMLLIElement>(rowTemplate, 'li');
-    const content = textOf(info)?.content;
 
     required<HTMLElement>(item, '[data-heading]').textContent = info.title || 'Note';
     required<HTMLElement>(item, '[data-audience]').textContent = audienceLabel(
@@ -183,11 +182,12 @@ export function renderBeingNotes(
       options.words,
     );
 
-    if (content) {
-      void showDescriptions(required<HTMLElement>(item, '[data-text]'), options.renderer, [
-        { text: content, home: beingId },
-      ]);
-    }
+    renderInformationPayloads(required<HTMLElement>(item, '[data-text]'), {
+      information: info,
+      loadFile: (payload) => blobUrl(payload.url),
+      renderText: (host, text) =>
+        showDescriptions(host, options.renderer, [{ text, home: beingId }]),
+    });
 
     // Who wrote it: shown exactly when the note is (ADR 0277).
     const author = required<HTMLElement>(item, '[data-author]');
@@ -241,6 +241,7 @@ export function renderBeingNotes(
         renderInfoForm(root, {
           renderer: at(options.renderer, beingId),
           initial: draftOf(info),
+          information: info,
           titleLabel: 'Label',
           textLabel: 'Note',
           showVisibility: false,
@@ -329,9 +330,9 @@ export function renderBeingNotes(
           try {
             await applyKnowers(tenantId, created.id, plan);
           } catch (error) {
-            // Kept, it could be something its author can't read.
-            await deleteInformation(tenantId, created).catch(() => {});
-            throw new Error(`It wasn't kept: ${saveError(error)}`);
+            throw new Error(
+              `The note was saved, but its audience wasn't changed. Your draft is here so you can try again: ${saveError(error)}`,
+            );
           }
 
           saved = true;

@@ -346,3 +346,74 @@ test('an information editor shares a note with a group through the audience cont
   );
   expect(await notesSeenBy(world.pia.api, world.tenantId, target)).toEqual([]);
 });
+
+test('an information bundle retries a lost image response without duplicating its parts', async ({
+  world,
+  as,
+}) => {
+  const target = world.pia.character.entity_id;
+  const page = await as(world.gm);
+  await page.goto(url(world, target));
+  await enterMode(page, 'Edit');
+  const png = await page.screenshot();
+  await page.getByRole('button', { name: 'Add a note' }).click();
+  const form = page.locator('[data-add-mount] form');
+  await form.getByLabel('Label').fill('A map and its reading');
+  await form.getByLabel('Note', { exact: true }).fill('The western door.');
+  await form.getByLabel('Everyone', { exact: true }).check();
+  await form
+    .locator('input[type=file]')
+    .setInputFiles({ name: 'map.png', mimeType: 'image/png', buffer: png });
+  await form.getByRole('button', { name: 'Add text' }).click();
+  await form.getByLabel('Text 2', { exact: true }).fill('A second passage.');
+  let lost = false;
+  await page.route('**/information/*/payloads', async (route) => {
+    if (route.request().method() === 'POST' && !lost) {
+      lost = true;
+      const response = await route.fetch();
+      expect(response.status()).toBe(201);
+      await route.abort('failed');
+    } else await route.continue();
+  });
+  await form.getByRole('button', { name: 'Save' }).click();
+  await expect(form.locator('[data-status]')).not.toHaveText('Saving…');
+  expect(lost).toBe(true);
+  await expect(form.getByLabel('Text 2', { exact: true })).toHaveValue('A second passage.');
+  await form.getByRole('button', { name: 'Save' }).click();
+  await expect(form).toHaveCount(0);
+  const row = page.locator('[data-being-notes] ul > li', { hasText: 'A map and its reading' });
+  await expect(row.locator('[data-text] > div')).toHaveCount(3);
+  await expect(row.locator('img')).toBeVisible();
+  await row.getByRole('button', { name: 'Edit', exact: true }).click();
+  const edit = page.locator('[data-being-notes] form');
+  await expect(edit.getByLabel('Note', { exact: true })).toHaveValue('The western door.');
+  await expect(edit.getByLabel('Text 2', { exact: true })).toHaveValue('A second passage.');
+  await edit.getByRole('button', { name: 'Move this part up' }).nth(2).click();
+  let lostOrder = false;
+  await page.route('**/information/*/payloads/order', async (route) => {
+    if (route.request().method() === 'PUT' && !lostOrder) {
+      lostOrder = true;
+      expect((await route.fetch()).status()).toBe(200);
+      await route.abort('failed');
+    } else await route.continue();
+  });
+  await edit.getByRole('button', { name: 'Save' }).click();
+  await expect(edit.locator('[data-status]')).not.toHaveText('Saving…');
+  expect(lostOrder).toBe(true);
+  await edit.getByRole('button', { name: 'Save' }).click();
+  await expect(edit).toHaveCount(0);
+  const infos = await ok(
+    world.oskar.api.GET('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      params: { path: { tenant_id: world.tenantId, entity_id: target }, query: { type: ['note'] } },
+    }),
+  );
+  const info = infos.items.find((info) => info.title === 'A map and its reading');
+  expect(info?.payloads.map((p) => p.kind)).toEqual(['description', 'description', 'picture']);
+  expect(info?.payloads.filter((p) => p.kind === 'description').map((p) => p.content)).toEqual([
+    'The western door.',
+    'A second passage.',
+  ]);
+  await page.reload();
+  await expect(page.locator('[data-being-notes] img')).toBeVisible();
+  await page.screenshot({ path: 'test-results/information-bundle.png', fullPage: true });
+});

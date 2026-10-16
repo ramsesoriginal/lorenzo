@@ -1,3 +1,4 @@
+import { type BundleFields, saveInformationBundle } from '@lorenzo/information-editor';
 // An entity's information, read and written (ADR 0101, 0109) for the item
 // page and Manage items (ADR 0112): its descriptions, notes, and the rest.
 
@@ -10,7 +11,12 @@ type Payload = Information['payloads'][number];
 export type TextPayload = Extract<Payload, { kind: 'description' }>;
 
 /** What a form edits: the information's title, type and visibility, and its text. */
-export type InformationDraft = { title: string; type: string; isPublic: boolean; content: string };
+export type InformationDraft = {
+  title: string;
+  type: string;
+  isPublic: boolean;
+  content: string;
+} & Partial<BundleFields>;
 
 /** If-Match for a row read from a response body: its JSON `updated_at` (ADR 0108). */
 const ifMatch = (row: { updated_at: string }) => ({ 'if-match': `W/"${row.updated_at}"` });
@@ -60,6 +66,14 @@ export async function createInformation(
   draft: InformationDraft,
 ): Promise<Information> {
   const [locale = 'en-US'] = await viewerLocales();
+  if (draft.payloads && draft.receipt)
+    return saveInformationBundle({
+      client,
+      tenantId,
+      entityId,
+      locale,
+      draft: { ...draft, payloads: draft.payloads, receipt: draft.receipt },
+    });
   return unwrap(
     await client.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
       params: { path: { tenant_id: tenantId, entity_id: entityId } },
@@ -84,6 +98,15 @@ export async function updateInformation(
   info: Information,
   draft: InformationDraft,
 ): Promise<void> {
+  if (draft.payloads && draft.receipt) {
+    await saveInformationBundle({
+      client,
+      tenantId,
+      original: info,
+      draft: { ...draft, payloads: draft.payloads, receipt: draft.receipt },
+    });
+    return;
+  }
   const text = textOf(info);
   const textChanged = draft.content !== (text?.content ?? '');
   if (textChanged && !text) throw new Error('This information has no text to change.');
@@ -169,5 +192,10 @@ export async function saveDescription(
 ): Promise<void> {
   if (info) return updateInformation(tenantId, info, draft);
   const titled = draft.title !== '' && draft.title !== name;
-  if (draft.content.trim() || titled) await createInformation(tenantId, entityId, draft);
+  if (
+    draft.content.trim() ||
+    titled ||
+    draft.payloads?.some((p) => p.kind !== 'description' || p.content.trim())
+  )
+    await createInformation(tenantId, entityId, draft);
 }
