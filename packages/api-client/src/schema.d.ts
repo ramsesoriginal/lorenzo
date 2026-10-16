@@ -2614,10 +2614,11 @@ export interface paths {
         post?: never;
         /**
          * Delete Payload
-         * @description Removes a picture from its information (ADR 0237, K8 of RFC 0041). Same gate as editing
-         *     the information (sight of the row 404, standing over its entry 403). Only a picture can be
-         *     removed (409): a description is edited, and numbers and documents are not authored through
-         *     the API yet. The entry's `main_picture` goes with its one picture, since it is nothing
+         * @description Removes text or a picture from its information (ADR 0306). Same gate as editing
+         *     the information (sight of the row 404, standing over its entry 403). Text removal requires
+         *     the payload ETag. Existing picture callers may omit it for compatibility.
+         *     Numbers and documents are not authored through this editor yet.
+         *     The entry's `main_picture` goes with its one picture, since it is nothing
          *     without it. Logged, with the payload's id only (ADR 0084).
          */
         delete: operations["delete_payload"];
@@ -3635,6 +3636,40 @@ export interface paths {
         get: operations["get_information_audience"];
         /** Replace Information Audience */
         put: operations["replace_information_audience"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/texts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Append Information Text */
+        post: operations["append_information_text"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/payloads/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder Information Payloads */
+        put: operations["reorder_information_payloads"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4957,6 +4992,8 @@ export interface components {
         Body_add_information_picture: {
             /** File */
             file: string;
+            /** Payload Id */
+            payload_id?: string | null;
         };
         /** Body_set_cover */
         Body_set_cover: {
@@ -8511,6 +8548,11 @@ export interface components {
             /** Value */
             value: string;
         };
+        /** PayloadOrderRequest */
+        PayloadOrderRequest: {
+            /** Payload Ids */
+            payload_ids: string[];
+        };
         /** PayloadPictureOut */
         PayloadPictureOut: {
             /**
@@ -8534,6 +8576,18 @@ export interface components {
             url: string;
             /** File Type */
             file_type: string;
+        };
+        /** PayloadTextCreate */
+        PayloadTextCreate: {
+            /** Id */
+            id?: string | null;
+            /** Content */
+            content: string;
+            /**
+             * Locale
+             * @default en-US
+             */
+            locale: string;
         };
         /**
          * PersonalTokenIssuedOut
@@ -19448,7 +19502,9 @@ export interface operations {
     delete_payload: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
             path: {
                 tenant_id: string;
                 payload_id: string;
@@ -22676,7 +22732,9 @@ export interface operations {
     add_information_picture: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
             path: {
                 tenant_id: string;
                 information_id: string;
@@ -23168,6 +23226,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InformationAudience"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    append_information_text: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayloadTextCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayloadDescriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reorder_information_payloads: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayloadOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
                 };
             };
             /** @description Validation Error */

@@ -91,7 +91,7 @@ async def test_upload_to_an_unknown_information_is_404(
     await delete_tenant(tenant_id)
 
 
-async def test_delete_a_picture_payload_but_not_a_description(
+async def test_delete_a_picture_payload_and_require_a_version_for_text(
     client: AsyncClient, test_user_id: uuid.UUID
 ) -> None:
     tenant_id = await make_tenant(test_user_id)
@@ -109,7 +109,7 @@ async def test_delete_a_picture_payload_but_not_a_description(
     removed = await client.delete(f"/tenants/{tenant_id}/payloads/{picture['id']}")
     gone = await client.get(f"/tenants/{tenant_id}/payloads/{picture['id']}/content")
 
-    assert refused.status_code == 409
+    assert refused.status_code == 428
     assert removed.status_code == 204
     assert gone.status_code == 404
     await delete_tenant(tenant_id)

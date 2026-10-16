@@ -71,3 +71,13 @@ See [docs/architecture/deployment.md](../../docs/architecture/deployment.md) for
 `PATCH /tenants/{id}` accepts nullable `being_stat_group_id`, alongside `weapon_stat_group_id` and `ability_information_type`. A group must belong to that tenant; omitting a field preserves it and sending null clears it. Tenant administrators configure these settings. Deleting the selected group clears its reference while preserving the tenant.
 
 The tenant detail and `GET /tenants/{id}/beings/{id}/sheet` return `being_stat_group_id`. The sheet's optional `campaign_id` must name a campaign in that tenant that the caller may read; it does not override the tenant setting yet. The setting does not filter stat reads or change frontend display ([ADR 0296](../../docs/adr/0296-being-stat-group.md)).
+
+
+## Information bundles
+
+Information holds ordered text (LorenzoScript) and picture payloads under one audience.
+`POST .../information/{id}/texts` appends text; `PUT .../information/{id}/payloads/order`
+replaces the complete order. Both require the information ETag as `If-Match`. Text/picture
+appends accept a stable payload id for retry-safe delivery. Text removal requires its own
+payload ETag; picture callers may supply it too. Bytes are for tenant participants who can
+read the information, with authorization repeated before a cached 304 ([ADR 0306](../../docs/adr/0306-information-bundles-and-their-editors.md)).

@@ -12,8 +12,8 @@ from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
     CurrentUser,
     SessionDep,
-    get_tenant_context,
     get_tenant_or_404,
+    require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.description_payloads import write_description
@@ -23,20 +23,21 @@ from lorenzo_api.exceptions import (
     PayloadKindNotEditableError,
     PayloadNotFoundError,
     PayloadNotRemovableError,
+    PayloadPreconditionRequiredError,
 )
+from lorenzo_api.information_bundles import touch_bundle
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Information, Payload
 from lorenzo_api.routers.entities import authorize_information_edit
+from lorenzo_api.routers.information import locked_information
 from lorenzo_api.schemas.payloads import (
     PayloadDescriptionOut,
     PayloadDescriptionUpdate,
     description_payload_out,
 )
 
-# get_tenant_or_404 at the router level, get_tenant_context on the content
-# read only (ADR 0101). The read always needed a tenant Membership (ADR
-# 0020); the description PATCH uses self-or-managed plus sight of the row
-# instead, like routers/information.py, so it must not.
+# The content read admits tenant participants, then checks the information's audience
+# (ADR 0306). Writes use self-or-managed standing and sight/authorship (ADR 0101).
 router = APIRouter(
     prefix="/tenants/{tenant_id}/payloads",
     tags=["payloads"],
@@ -60,7 +61,6 @@ def _content_disposition(disposition_type: str, filename: str) -> str:
     "/{payload_id}/content",
     name="payload_content",
     responses={304: {"description": "The picture is unchanged; reuse the cached bytes."}},
-    dependencies=[Depends(get_tenant_context)],
 )
 async def get_payload_content(
     tenant_id: uuid.UUID,
@@ -81,6 +81,7 @@ async def get_payload_content(
     (ADR 0023) of not letting a caller distinguish "not found" from
     "found, but not for you."
     """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     stmt = (
         select(Payload)
         .where(Payload.id == payload_id, Payload.tenant_id == tenant_id)
@@ -150,11 +151,13 @@ async def delete_payload(
     payload_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
 ) -> None:
-    """Removes a picture from its information (ADR 0237, K8 of RFC 0041). Same gate as editing
-    the information (sight of the row 404, standing over its entry 403). Only a picture can be
-    removed (409): a description is edited, and numbers and documents are not authored through
-    the API yet. The entry's `main_picture` goes with its one picture, since it is nothing
+    """Removes text or a picture from its information (ADR 0306). Same gate as editing
+    the information (sight of the row 404, standing over its entry 403). Text removal requires
+    the payload ETag. Existing picture callers may omit it for compatibility.
+    Numbers and documents are not authored through this editor yet.
+    The entry's `main_picture` goes with its one picture, since it is nothing
     without it. Logged, with the payload's id only (ADR 0084).
     """
     stmt = (
@@ -162,22 +165,38 @@ async def delete_payload(
         .where(Payload.id == payload_id, Payload.tenant_id == tenant_id)
         .options(
             selectinload(Payload.picture),
+            selectinload(Payload.description),
             selectinload(Payload.information).selectinload(Information.knowledge_links),
         )
     )
     payload = (await session.execute(stmt)).scalar_one_or_none()
     if payload is None:
         raise PayloadNotFoundError(detail=f"No payload with id {payload_id} in tenant {tenant_id}")
-    information = payload.information
+    information = await locked_information(session, payload.information_id, tenant_id)
     await authorize_information_edit(
         session, tenant_id=tenant_id, user=user, information=information
     )
-    if payload.picture is None:
-        raise PayloadNotRemovableError(detail=f"Payload {payload_id} is not a picture")
+    if payload.picture is None and payload.description is None:
+        raise PayloadNotRemovableError(
+            detail="Only text and pictures can be removed through this editor."
+        )
+    # Reload its own version after acquiring the entry lock: a concurrent text edit or
+    # reorder must not let a stale editor remove content it has never read.
+    current_version = await session.scalar(
+        select(Payload.updated_at).where(Payload.id == payload_id, Payload.tenant_id == tenant_id)
+    )
+    if current_version is None:
+        raise PayloadNotFoundError(detail=f"No payload with id {payload_id} in tenant {tenant_id}")
+    if payload.description is not None and if_match is None:
+        raise PayloadPreconditionRequiredError(
+            detail="Send the payload ETag as If-Match before removing text."
+        )
+    check_if_match(if_match, updated_at=current_version)
 
     if information.type == "main_picture":
         await session.delete(information)
     else:
+        touch_bundle(information)
         await session.delete(payload)
     await record_activity(
         session,
@@ -212,6 +231,8 @@ async def update_payload(
     write path for it; `content` is stored as given. Not logged (ADR 0084:
     descriptive content).
     """
+    payload = await _get_payload_for_edit_or_404(session, payload_id, tenant_id)
+    await locked_information(session, payload.information_id, tenant_id)
     payload = await _get_payload_for_edit_or_404(session, payload_id, tenant_id)
     await authorize_information_edit(
         session, tenant_id=tenant_id, user=user, information=payload.information

@@ -2,24 +2,33 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Form, Header, Request, Response, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.client_ids import insert_with_client_id
 from lorenzo_api.dependencies import (
     CurrentUser,
     SessionDep,
     get_tenant_or_404,
     set_tenant_rls_context,
 )
+from lorenzo_api.description_payloads import write_description
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     AudiencePreconditionRequiredError,
     EntityNotFoundError,
     InvalidAudienceRecipientError,
     MainPictureThroughEntityError,
+    PayloadReplayConflictError,
     PlayerNotFoundError,
+)
+from lorenzo_api.information_bundles import (
+    payload_replay,
+    replace_payload_order,
+    require_bundle_version,
+    touch_bundle,
 )
 from lorenzo_api.models import Entity, Information, Knowledge, Payload, Player, User
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
@@ -33,7 +42,13 @@ from lorenzo_api.routers.entities import (
 )
 from lorenzo_api.schemas.entities import InformationOut, InformationUpdate, KnowerOut
 from lorenzo_api.schemas.knowledge import InformationAudience
-from lorenzo_api.schemas.payloads import PayloadPictureOut, payload_to_schema
+from lorenzo_api.schemas.payloads import (
+    PayloadDescriptionOut,
+    PayloadOrderRequest,
+    PayloadPictureOut,
+    PayloadTextCreate,
+    payload_to_schema,
+)
 
 # get_tenant_or_404, not get_tenant_context (ADR 0038/RFC 0011, matching
 # routers/entities.py's identical revision): GET here is gated by the
@@ -195,6 +210,9 @@ async def add_information_picture(
     session: SessionDep,
     user: CurrentUser,
     file: UploadFile,
+    response: Response,
+    payload_id: Annotated[uuid.UUID | None, Form()] = None,
+    if_match: Annotated[str | None, Header()] = None,
 ) -> PayloadPictureOut:
     """Adds a picture to the information, as one more payload after the ones it has (ADR 0237,
     K8 of RFC 0041). A multipart upload of a PNG, JPEG, WebP or GIF of at most
@@ -203,7 +221,7 @@ async def add_information_picture(
     it is one picture, set with PUT .../entities/{id}/picture. Logged, with the information's id
     only (ADR 0084).
     """
-    information = await get_information_or_404(session, information_id, tenant_id)
+    information = await locked_information(session, information_id, tenant_id)
     await authorize_information_edit(
         session, tenant_id=tenant_id, user=user, information=information
     )
@@ -213,10 +231,33 @@ async def add_information_picture(
         )
     data, file_type = await read_picture_upload(file)
 
-    await lock_entity_information(session, entity_id=information.entity_id, tenant_id=tenant_id)
-    payload = await add_picture_payload(
-        session, tenant_id=tenant_id, information_id=information_id, data=data, file_type=file_type
+    replay = await payload_replay(
+        session, tenant_id=tenant_id, information_id=information_id, payload_id=payload_id
     )
+    if replay is not None:
+        if (
+            replay.picture is None
+            or replay.picture.data != data
+            or replay.picture.file_type != file_type
+        ):
+            raise PayloadReplayConflictError(
+                detail="Choose a new payload id for different content."
+            )
+        response.status_code = 200
+        response.headers["ETag"] = etag_for(information.updated_at)
+        out = payload_to_schema(replay, request)
+        assert isinstance(out, PayloadPictureOut)
+        return out
+    check_if_match(if_match, updated_at=information.updated_at)
+    payload = await add_picture_payload(
+        session,
+        tenant_id=tenant_id,
+        information_id=information_id,
+        data=data,
+        file_type=file_type,
+        payload_id=payload_id,
+    )
+    touch_bundle(information)
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -242,6 +283,7 @@ async def add_information_picture(
     stored = (await session.execute(stmt)).scalar_one()
     out = payload_to_schema(stored, request)
     assert isinstance(out, PayloadPictureOut)
+    response.headers["ETag"] = etag_for(information.updated_at)
     return out
 
 
@@ -661,3 +703,91 @@ async def replace_information_audience(
         await session.refresh(information, ["updated_at", "is_public"])
     response.headers["ETag"] = etag_for(information.updated_at)
     return await audience_of(session, information)
+
+
+@router.post("/{information_id}/texts", status_code=201)
+async def append_information_text(
+    tenant_id: uuid.UUID,
+    information_id: uuid.UUID,
+    body: PayloadTextCreate,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> PayloadDescriptionOut:
+    information = await locked_information(session, information_id, tenant_id)
+    await authorize_information_edit(
+        session, tenant_id=tenant_id, user=user, information=information
+    )
+    if information.type == "main_picture":
+        raise MainPictureThroughEntityError(
+            detail="The main picture has its own single-picture editor."
+        )
+    replay = await payload_replay(
+        session, tenant_id=tenant_id, information_id=information_id, payload_id=body.id
+    )
+    if replay is not None:
+        if (
+            replay.description is None
+            or replay.description.content != body.content
+            or replay.description.locale != body.locale
+        ):
+            raise PayloadReplayConflictError(
+                detail="Choose a new payload id for different content."
+            )
+        response.status_code = 200
+        response.headers["ETag"] = etag_for(information.updated_at)
+        out = payload_to_schema(replay, request)
+        assert isinstance(out, PayloadDescriptionOut)
+        return out
+    require_bundle_version(information, if_match)
+    payload = Payload(tenant_id=tenant_id, information_id=information_id)
+    if body.id is not None:
+        payload.id = body.id
+    await write_description(session, payload=payload, content=body.content, locale=body.locale)
+    if body.id is not None:
+        await insert_with_client_id(session, payload)
+    else:
+        await session.flush()
+    touch_bundle(information)
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    stored = await payload_replay(
+        session, tenant_id=tenant_id, information_id=information_id, payload_id=payload.id
+    )
+    assert stored is not None
+    response.headers["ETag"] = etag_for(information.updated_at)
+    out = payload_to_schema(stored, request)
+    assert isinstance(out, PayloadDescriptionOut)
+    return out
+
+
+@router.put("/{information_id}/payloads/order")
+async def reorder_information_payloads(
+    tenant_id: uuid.UUID,
+    information_id: uuid.UUID,
+    body: PayloadOrderRequest,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> InformationOut:
+    information = await locked_information(session, information_id, tenant_id)
+    await authorize_information_edit(
+        session, tenant_id=tenant_id, user=user, information=information
+    )
+    if information.type == "main_picture":
+        raise MainPictureThroughEntityError(
+            detail="The main picture has its own single-picture editor."
+        )
+    require_bundle_version(information, if_match)
+    if await replace_payload_order(session, information=information, wanted=body.payload_ids):
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await information_out_or_404(
+        tenant_id, information_id, request, session, user=user, require_visible=False
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out

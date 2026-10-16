@@ -106,6 +106,7 @@ class BodyAddInformationPicture(BaseModel):
     file: str = Field(
         ..., json_schema_extra={"contentMediaType": "application/octet-stream"}, title="File"
     )
+    payload_id: UUID | None = Field(None, title="Payload Id")
 
 
 class BodySetCover(BaseModel):
@@ -1040,6 +1041,10 @@ class PayloadNumberOut(BaseModel):
     value: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") = Field(..., title="Value")
 
 
+class PayloadOrderRequest(BaseModel):
+    payload_ids: list[UUID] = Field(..., title="Payload Ids")
+
+
 class PayloadPictureOut(BaseModel):
     id: UUID = Field(..., title="Id")
     order: int = Field(..., title="Order")
@@ -1047,6 +1052,12 @@ class PayloadPictureOut(BaseModel):
     kind: Literal["picture"] = Field("picture", title="Kind")
     url: str = Field(..., title="Url")
     file_type: str = Field(..., title="File Type")
+
+
+class PayloadTextCreate(BaseModel):
+    id: UUID | None = Field(None, title="Id")
+    content: str = Field(..., title="Content")
+    locale: str | None = Field("en-US", title="Locale")
 
 
 class PersonalTokenIssuedOut(BaseModel):

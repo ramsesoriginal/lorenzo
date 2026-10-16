@@ -9,6 +9,7 @@ import uuid
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.client_ids import insert_with_client_id
 from lorenzo_api.config import get_settings
 from lorenzo_api.exceptions import InvalidPictureError
 from lorenzo_api.models import Payload, PayloadPicture
@@ -41,12 +42,17 @@ async def add_picture_payload(
     information_id: uuid.UUID,
     data: bytes,
     file_type: str,
+    payload_id: uuid.UUID | None = None,
 ) -> Payload:
     """A picture payload at the end of the information's payloads (its `order` is appended by the
     database's trigger, under the entry's information lock the caller holds)."""
     payload = Payload(tenant_id=tenant_id, information_id=information_id)
-    session.add(payload)
-    await session.flush()
+    if payload_id is None:
+        session.add(payload)
+        await session.flush()
+    else:
+        payload.id = payload_id
+        await insert_with_client_id(session, payload)
     session.add(
         PayloadPicture(payload_id=payload.id, tenant_id=tenant_id, data=data, file_type=file_type)
     )

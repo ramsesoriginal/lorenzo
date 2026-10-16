@@ -52,7 +52,6 @@ AUTHORING = {
     ("GET", T + "/profile/cover"),
     ("GET", REPOSITORY + "/profile"),
     ("GET", REPOSITORY + "/profile/cover"),
-    ("GET", T + "/payloads/{payload_id}/content"),
     ("GET", T + "/release-preview"),
     ("GET", T + "/releases"),
     ("GET", T + "/attachments"),
