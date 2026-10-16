@@ -35,7 +35,6 @@ knowledge model is needed. Beings and inventory-web replace request chains with 
 Bench and Android consume it in their respective slices. SQL filtering and byte reads continue
 to use the common visibility resolver.
 
-
 ## Web controls
 
 `packages/information-editor` holds the small framework-free audience control used by Beings
