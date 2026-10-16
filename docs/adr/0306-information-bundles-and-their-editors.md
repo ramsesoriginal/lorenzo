@@ -20,9 +20,11 @@ on Information. `main_picture` keeps its existing singleton path and meaning.
 
 Keep the existing one-text create and text PATCH contracts. Add text append and complete payload
 order replacement on Information; allow removal of text as well as pictures. Structural changes
-lock the containing entry then Information, advance its version, and honor the information ETag.
-New bundle controls send that precondition. Existing picture callers may omit it for compatibility;
-text append and order replacement require it. Text edits keep their own payload ETag.
+lock the containing entry then Information and advance its version. Append and order replacement
+honor the information ETag; text append and order replacement require it. Payload edits and
+removal use that payload's own ETag, so a stale removal cannot discard a newer text edit.
+Existing picture callers may omit their precondition for compatibility. New bundle controls
+always send the applicable precondition.
 
 A client may choose a stable payload id for text and picture append. A retry returns the existing
 payload only when it belongs to the same information and its kind/content match. Authorization
@@ -34,7 +36,9 @@ text. Reordering requires each existing payload exactly once and leaves no parti
 
 Uploads keep the configured byte cap and PNG/JPEG/WebP/GIF allow-list. New image acquisition
 validates/decodes the image and bounds dimensions before staging; authenticated content reads
-continue to authorize before returning bytes or 304. No OCR, object store or new media service.
+continue to authorize before returning bytes or 304. Content reads admit tenant participants
+and then check the containing information, replacing the old author-membership-only gate so a
+player can see a picture they have been told. No OCR, object store or new media service.
 
 ### Beings and inventory-web
 
