@@ -250,3 +250,53 @@ async def test_an_author_of_a_private_note_can_read_it_for_editing(
         assert editing.headers["etag"]
     finally:
         await delete_tenant(tenant)
+
+
+async def test_picture_conditional_reads_recheck_both_fact_audiences(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    from lorenzo_api.models import EntityAudience
+
+    tenant, _, _ = await bundle(client, test_user_id)
+    try:
+        fact = await client.post(
+            f"/tenants/{tenant}/entities", json={"name": "The map's meaning", "kinds": ["fact"]}
+        )
+        assert fact.status_code == 201, fact.text
+        entry_id = fact.json()["id"]
+        information = await client.post(
+            f"/tenants/{tenant}/entities/{entry_id}/information",
+            json={
+                "title": "Map",
+                "type": "note",
+                "content": "The secret route.",
+                "is_public": True,
+            },
+        )
+        assert information.status_code == 201, information.text
+        info_id = information.json()["id"]
+        picture = await client.post(
+            f"/tenants/{tenant}/information/{info_id}/payloads",
+            files={"file": ("map.png", b"map bytes", "image/png")},
+        )
+        assert picture.status_code == 201, picture.text
+        content_url = f"/tenants/{tenant}/payloads/{picture.json()['id']}/content"
+        original = await client.get(content_url)
+        assert original.status_code == 200
+        conditional = {"If-None-Match": original.headers["etag"]}
+        async with admin_session_factory() as session:
+            campaign = await make_campaign(session, tenant_id=tenant)
+            session.add(Player(tenant_id=tenant, user_id=test_user_id, campaign_id=campaign.id))
+            await session.delete(await session.get_one(Membership, (tenant, test_user_id)))
+            await session.commit()
+        for outer, inner in [(False, True), (True, False), (False, False), (True, True)]:
+            async with admin_session_factory() as session:
+                (await session.get_one(EntityAudience, uuid.UUID(entry_id))).is_public = outer
+                (await session.get_one(Information, uuid.UUID(info_id))).is_public = inner
+                await session.commit()
+            plain = await client.get(content_url)
+            cached = await client.get(content_url, headers=conditional)
+            assert plain.status_code == (200 if outer and inner else 404), plain.text
+            assert cached.status_code == (304 if outer and inner else 404), cached.text
+    finally:
+        await delete_tenant(tenant)
