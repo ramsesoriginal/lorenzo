@@ -20,6 +20,8 @@ from fastapi_problem.error import (
 )
 
 __all__ = [
+    "AudiencePreconditionRequiredError",
+    "InvalidAudienceRecipientError",
     "AccountSuspendedError",
     "CampaignAdminOptOutRequiresAdminError",
     "CampaignManagementForbiddenError",
@@ -1403,3 +1405,12 @@ class RepositoryDelistedError(ConflictProblem):
     0303, RFC 0038 section 6. The Owner makes it public again after an operator lists it."""
 
     title = "This repository was taken off Discover"
+
+
+class AudiencePreconditionRequiredError(StatusProblem):
+    status = 428
+    title = "Read the audience before changing it"
+
+
+class InvalidAudienceRecipientError(UnprocessableProblem):
+    title = "An audience recipient is not available in this library"

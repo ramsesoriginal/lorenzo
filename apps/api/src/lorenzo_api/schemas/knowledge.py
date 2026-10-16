@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-__all__ = ["KnowledgeEntryOut"]
+__all__ = ["InformationAudience", "KnowledgeEntryOut"]
 
 
 class KnowledgeEntryOut(BaseModel):
@@ -22,3 +22,11 @@ class KnowledgeEntryOut(BaseModel):
     knower_entity_id: uuid.UUID | None
     knower_player_id: uuid.UUID | None
     created_at: datetime
+
+
+class InformationAudience(BaseModel):
+    """The explicit audience; privileged access is resolved separately (ADR 0304)."""
+
+    is_public: bool
+    entity_ids: list[uuid.UUID] = Field(default_factory=list, max_length=1000)
+    player_ids: list[uuid.UUID] = Field(default_factory=list, max_length=1000)

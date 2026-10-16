@@ -641,6 +641,12 @@ class GroupUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
 
 
+class InformationAudience(BaseModel):
+    is_public: bool = Field(..., title="Is Public")
+    entity_ids: list[UUID] | None = Field(None, max_length=1000, title="Entity Ids")
+    player_ids: list[UUID] | None = Field(None, max_length=1000, title="Player Ids")
+
+
 class InformationCreate(BaseModel):
     id: UUID | None = Field(None, title="Id")
     title: str = Field(..., title="Title")
