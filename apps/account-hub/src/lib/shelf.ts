@@ -253,6 +253,8 @@ export function kindLabel(kind: RepositoryEntityOut['kinds'][number]): string {
       return 'Being';
     case 'character':
       return 'Character';
+    case 'fact':
+      return 'Fact';
   }
 }
 
