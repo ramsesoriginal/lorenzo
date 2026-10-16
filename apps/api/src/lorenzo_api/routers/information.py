@@ -791,3 +791,23 @@ async def reorder_information_payloads(
     )
     response.headers["ETag"] = etag_for(out.updated_at)
     return out
+
+
+@router.get("/{information_id}/editor")
+async def get_information_editor_snapshot(
+    tenant_id: uuid.UUID,
+    information_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> InformationOut:
+    """The current bundle for an authorized editor, including a new private note awaiting grants.
+    Ordinary GET retains its reader gate; this has exactly the existing edit/authorship gate.
+    """
+    information = await locked_information(session, information_id, tenant_id)
+    await authorize_information_edit(
+        session, tenant_id=tenant_id, user=user, information=information
+    )
+    response.headers["ETag"] = etag_for(information.updated_at)
+    return InformationOut.from_information(information, request)

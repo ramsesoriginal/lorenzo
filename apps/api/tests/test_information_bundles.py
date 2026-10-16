@@ -7,7 +7,7 @@ from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_tenant
 from httpx import AsyncClient
 
-from lorenzo_api.models import Entity, Membership, Player
+from lorenzo_api.models import Entity, Information, Membership, Player
 
 
 async def bundle(client: AsyncClient, user: uuid.UUID) -> tuple[uuid.UUID, str, dict]:
@@ -207,5 +207,46 @@ async def test_a_participant_can_read_a_shared_picture_without_author_membership
         content = await client.get(f"/tenants/{tenant}/payloads/{picture.json()['id']}/content")
         assert content.status_code == 200, content.text
         assert content.content == b"picture"
+    finally:
+        await delete_tenant(tenant)
+
+
+async def test_an_author_of_a_private_note_can_read_it_for_editing(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    from conftest import make_character
+
+    from lorenzo_api.models import CharacterPlayer, Ownership
+
+    tenant, base, _ = await bundle(client, test_user_id)
+    try:
+        async with admin_session_factory() as session:
+            campaign = await make_campaign(session, tenant_id=tenant)
+            seat = Player(tenant_id=tenant, campaign_id=campaign.id, user_id=test_user_id)
+            session.add(seat)
+            await session.flush()
+            character = await make_character(session, tenant_id=tenant, owner_player_id=seat.id)
+            entry_id = (
+                await session.get_one(Information, uuid.UUID(base.rsplit("/", 1)[1]))
+            ).entity_id
+            session.add_all(
+                [
+                    CharacterPlayer(
+                        tenant_id=tenant, character_entity_id=character.entity_id, player_id=seat.id
+                    ),
+                    Ownership(
+                        tenant_id=tenant,
+                        owned_entity_id=entry_id,
+                        owner_character_id=character.entity_id,
+                    ),
+                ]
+            )
+            await session.delete(await session.get_one(Membership, (tenant, test_user_id)))
+            await session.commit()
+        assert (await client.get(base)).status_code == 404
+        editing = await client.get(base + "/editor")
+        assert editing.status_code == 200, editing.text
+        assert editing.json()["payloads"][0]["content"] == "First text."
+        assert editing.headers["etag"]
     finally:
         await delete_tenant(tenant)
