@@ -334,6 +334,7 @@ async def _current_user(
 
     await session.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user.id)})
     roles = claims.get(_AUTHGEAR_ROLES_CLAIM)
+    session.info["entry_reader_user_id"] = user.id
     user.authgear_roles = frozenset(roles) if isinstance(roles, list) else frozenset()
     return user
 
@@ -389,6 +390,7 @@ async def _personal_token_user(session: AsyncSession, secret: str) -> User:
     await session.execute(text("SELECT set_config('app.user_id', :u, true)"), {"u": str(user.id)})
     creator_key = get_settings().tenant_creator_role_key
     user.authgear_roles = frozenset(r for r in user.last_seen_roles if r == creator_key)
+    session.info["entry_reader_user_id"] = user.id
     user.via_personal_token = token
     return user
 
@@ -612,6 +614,9 @@ async def get_entity_or_404(
     # WHERE tenant_id = ... in the query itself, not a Python-level check
     # after a plain session.get() - ADR 0020's own explicit rule, matching
     # every route's own eager-loaded lookup.
+    from lorenzo_api.entry_visibility import require_visible_entry
+
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id)
     stmt = select(Entity).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
     entity = (await session.execute(stmt)).scalar_one_or_none()
     if entity is None:

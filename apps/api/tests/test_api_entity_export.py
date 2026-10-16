@@ -765,6 +765,10 @@ async def test_every_table_the_export_reads_has_a_trigger() -> None:
             ).scalars()
         )
     assert triggered == {
+        "fact",
+        "entity_audience",
+        "entity_knowledge",
+        "fact_about",
         "entity",
         "item",
         "item_instance",

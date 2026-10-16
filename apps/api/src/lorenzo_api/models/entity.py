@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.entity_slug import EntitySlug
     from lorenzo_api.models.entity_stat import EntityStat
     from lorenzo_api.models.entity_stat_group import EntityStatGroup
+    from lorenzo_api.models.fact import Fact
     from lorenzo_api.models.group_member import GroupMember
     from lorenzo_api.models.information import Information
     from lorenzo_api.models.item import Item
@@ -104,6 +105,13 @@ class Entity(Base):
     )
     item_instance: Mapped[ItemInstance | None] = relationship(
         foreign_keys="ItemInstance.entity_id",
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    fact: Mapped[Fact | None] = relationship(
+        foreign_keys="Fact.entity_id",
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",

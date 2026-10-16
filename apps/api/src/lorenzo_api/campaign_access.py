@@ -122,11 +122,18 @@ async def entry_in_author_reach(
             )
             is not None
         )
-    return (
-        await session.scalar(
-            select(Item.entity_id).where(Item.entity_id == entity_id, Item.tenant_id == tenant_id)
-        )
-        is not None
+    from lorenzo_api.models import Fact
+
+    return any(
+        [
+            await session.scalar(
+                select(model.entity_id).where(
+                    model.entity_id == entity_id, model.tenant_id == tenant_id
+                )
+            )
+            is not None
+            for model in (Item, Fact)
+        ]
     )
 
 

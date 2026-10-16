@@ -41,10 +41,10 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
-from sqlalchemy import ColumnElement, exists, false, or_, select, true
+from sqlalchemy import ColumnElement, exists, false, or_, select, true, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import (
@@ -63,6 +63,8 @@ from lorenzo_api.entity_access import (
 from lorenzo_api.models import (
     CampaignGm,
     CharacterPlayer,
+    EntityAudience,
+    Fact,
     GroupMember,
     Information,
     Item,
@@ -93,6 +95,11 @@ class InformationVisibility:
     author_sees_all: bool = False
     author_entry_ids: frozenset[uuid.UUID] = frozenset()
 
+    hidden_entry_ids: frozenset[uuid.UUID] = frozenset()
+
+    def can_see_entry(self, entity_id: uuid.UUID) -> bool:
+        return entity_id not in self.hidden_entry_ids
+
     def can_see(self, info: Information) -> bool:
         """info.knowledge_links must already be eager-loaded (raise_on_sql,
         ADR 0018). Reads only the plain knower_entity_id/knower_player_id
@@ -115,6 +122,8 @@ class InformationVisibility:
         loaded column, no eager-load chain needed for this check the way
         knowledge_links needs one.
         """
+        if info.entity_id in self.hidden_entry_ids:
+            return False
         if self.is_admin or self.author_sees_all or info.is_public:
             return True
         if info.entity_id in self.gm_reachable_entity_ids:
@@ -135,12 +144,17 @@ class InformationReader(Protocol):
 
     def can_see(self, info: Information) -> bool: ...
 
+    def can_see_entry(self, entity_id: uuid.UUID) -> bool: ...
+
 
 @dataclass(frozen=True, slots=True)
 class SeesEverything:
     """A reader of rows that nothing hides from them: an admin's, or any caller's of rows that
     are all public. It is not InformationVisibility's `is_admin=True`: it carries none of the sets
     (the GM's reach, the knowers) that a read of the inventory tier or an export uses."""
+
+    def can_see_entry(self, entity_id: uuid.UUID) -> bool:
+        return True
 
     def can_see(self, info: Information) -> bool:
         return True
@@ -175,7 +189,9 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
         clauses.append(
             exists().where(Knowledge.information_id == Information.id, or_(*knower_matches))
         )
-    return or_(false(), *clauses)
+    from lorenzo_api.entry_visibility import visible_entry_clause
+
+    return or_(false(), *clauses) & visible_entry_clause(vis, Information.entity_id)
 
 
 async def _administrative_tier(
@@ -207,6 +223,7 @@ async def resolve_information_reader(
     user_id: uuid.UUID,
     tenant_id: uuid.UUID,
     information: Iterable[Information],
+    entry_ids: Iterable[uuid.UUID] = (),
 ) -> InformationReader:
     """Who may read these Information rows, resolved with as little as `can_see` needs (ADR
     0285): for a read that asks nothing of the caller but `can_see` over the rows it has loaded.
@@ -219,7 +236,22 @@ async def resolve_information_reader(
 
     The rows are those whose `can_see` the caller will ask: an item's own and its ancestors'.
     """
-    if all(row.is_public for row in information):
+    rows = list(information)
+    ids = set(entry_ids) | {row.entity_id for row in rows}
+    gated = (
+        bool(ids)
+        and await session.scalar(
+            select(EntityAudience.entity_id)
+            .where(
+                EntityAudience.entity_id.in_(ids),
+                EntityAudience.tenant_id == tenant_id,
+                EntityAudience.is_public.is_(False),
+            )
+            .limit(1)
+        )
+        is not None
+    )
+    if not gated and all(row.is_public for row in rows):
         return SEES_EVERYTHING
     tier = await _administrative_tier(session, user_id=user_id, tenant_id=tenant_id)
     if tier[1]:
@@ -401,12 +433,19 @@ async def resolve_information_visibility(
             author_sees_all = True
         else:
             author_entry_ids = frozenset(
-                (await session.execute(select(Item.entity_id).where(Item.tenant_id == tenant_id)))
+                (
+                    await session.execute(
+                        union_all(
+                            select(Item.entity_id).where(Item.tenant_id == tenant_id),
+                            select(Fact.entity_id).where(Fact.tenant_id == tenant_id),
+                        )
+                    )
+                )
                 .scalars()
                 .all()
             )
 
-    return InformationVisibility(
+    vis = InformationVisibility(
         is_orga=is_orga,
         is_admin=is_admin,
         player_ids=frozenset(player_ids),
@@ -415,3 +454,22 @@ async def resolve_information_visibility(
         author_sees_all=author_sees_all,
         author_entry_ids=author_entry_ids,
     )
+
+    from sqlalchemy.orm import aliased
+
+    from lorenzo_api.entry_visibility import visible_entry_clause
+
+    gates = aliased(EntityAudience)
+    hidden = (
+        frozenset(
+            await session.scalars(
+                select(gates.entity_id).where(
+                    gates.tenant_id == tenant_id,
+                    ~visible_entry_clause(vis, gates.entity_id),
+                )
+            )
+        )
+        if not (vis.is_admin or vis.author_sees_all)
+        else frozenset()
+    )
+    return replace(vis, hidden_entry_ids=hidden)

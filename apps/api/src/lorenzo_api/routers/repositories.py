@@ -16,7 +16,7 @@ from typing import Annotated, Any, Literal, cast
 from fastapi import APIRouter, BackgroundTasks, Depends, Response
 from fastapi_pagination import Page, Params, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -47,7 +47,9 @@ from lorenzo_api.models import (
     Being,
     Character,
     Entity,
+    EntityAudience,
     EntityPrototype,
+    Fact,
     Item,
     ItemInstance,
     RepositoryCopy,
@@ -1052,7 +1054,7 @@ async def entities_page(
         if await is_public(session, repository_id):
             rules = rules_for(await preview_of(session, repository_id), holder=holder)
             content = await read_content(session, repository_id)
-            rows = entity_rows(content, q)
+            rows = entity_rows(content, q, public_only=True)
             if rules.names == "none":
                 rows = []
             elif rules.names == "showcase":
@@ -1070,7 +1072,12 @@ async def entities_page(
                     params,
                 ),
             )
-        stmt = select(Entity).where(Entity.tenant_id == repository_id)
+        stmt = select(Entity).where(
+            Entity.tenant_id == repository_id,
+            ~exists().where(
+                EntityAudience.entity_id == Entity.id, EntityAudience.is_public.is_(False)
+            ),
+        )
         if q is not None:
             stmt = stmt.where(Entity.name.ilike(f"%{q}%"))
         stmt = stmt.order_by(Entity.name, Entity.id)
@@ -1079,12 +1086,13 @@ async def entities_page(
             ids = [e.id for e in entities]
             kinds: dict[uuid.UUID, list[EntityKindName]] = {i: [] for i in ids}
             kind_tables: list[
-                tuple[EntityKindName, type[Item | ItemInstance | Being | Character]]
+                tuple[EntityKindName, type[Item | ItemInstance | Being | Character | Fact]]
             ] = [
                 ("item", Item),
                 ("item_instance", ItemInstance),
                 ("being", Being),
                 ("character", Character),
+                ("fact", Fact),
             ]
             for name, model in kind_tables:
                 for entity_id in await session.scalars(
@@ -1099,6 +1107,10 @@ async def entities_page(
                 .where(
                     EntityPrototype.entity_id.in_(ids),
                     EntityPrototype.tenant_id == repository_id,
+                    ~exists().where(
+                        EntityAudience.entity_id == EntityPrototype.prototype_id,
+                        EntityAudience.is_public.is_(False),
+                    ),
                 )
                 .order_by(EntityPrototype.position, EntityPrototype.prototype_id)
             ):

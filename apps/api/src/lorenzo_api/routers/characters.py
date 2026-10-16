@@ -26,6 +26,7 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.entity_access import controlled_character_entity_ids
+from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import (
     CharacterManagementForbiddenError,
@@ -33,6 +34,7 @@ from lorenzo_api.exceptions import (
     InvalidUserError,
     PlayerNotFoundError,
 )
+from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Being,
     Character,
@@ -174,9 +176,11 @@ async def list_character_groups(
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     await _get_character_or_404(tenant_id, character_id, session)
 
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     stmt = (
         select(Entity)
         .join(GroupMember, GroupMember.group_entity_id == Entity.id)
+        .where(visible_entry_clause(visibility, Entity.id))
         .where(GroupMember.character_entity_id == character_id, GroupMember.tenant_id == tenant_id)
         .order_by(Entity.id)
     )

@@ -18,6 +18,7 @@ from lorenzo_api.dependencies import (
     get_tenant_or_404,
     require_tenant_participant,
 )
+from lorenzo_api.entry_visibility import require_visible_entry
 from lorenzo_api.exceptions import EntityNotFoundError
 from lorenzo_api.information_visibility import (
     InformationVisibility,
@@ -87,6 +88,7 @@ async def get_entity_preview(
     """The card for one entry: name, kinds, link name, main picture, a few stats chosen by the
     entry's kind, and the start of the description. Only what the caller may read is in it."""
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     entity = await session.scalar(
         select(Entity)
         .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
@@ -110,6 +112,7 @@ async def get_entity_preview(
             .load_only(PayloadPicture.payload_id, PayloadPicture.file_type),
             selectinload(Entity.information).selectinload(Information.knowledge_links),
             selectinload(Entity.slug),
+            selectinload(Entity.fact),
             selectinload(Entity.item),
             selectinload(Entity.item_instance),
             selectinload(Entity.being).selectinload(Being.character),
@@ -125,7 +128,7 @@ async def get_entity_preview(
     sources = [entity]
     if template.inherits:
         sources += await ancestors_of(session, tenant_id=tenant_id, entity_id=entity.id)
-    values = {stat.name: stat.value for stat in _stats_out(entity)}
+    values = {stat.name: stat.value for stat in _stats_out(entity, visibility)}
     return LinkPreviewOut(
         entity_id=entity.id,
         name=entity.name,

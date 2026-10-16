@@ -21,10 +21,14 @@ from lorenzo_api.models import (
     Containment,
     ContentReference,
     Entity,
+    EntityAudience,
+    EntityKnowledge,
     EntityPrototype,
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    Fact,
+    FactAbout,
     GroupMember,
     Information,
     Item,
@@ -74,9 +78,24 @@ async def seed_every_content_table(
         entity("Harpers"),
         entity("Elminster"),
     )
+    fact = entity("The blade belongs to Elminster")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     await session.flush()
+
+    session.add_all(
+        [
+            Fact(entity_id=fact.id, tenant_id=tenant_id),
+            EntityAudience(entity_id=fact.id, tenant_id=tenant_id, is_public=False),
+        ]
+    )
+    await session.flush()
+    session.add_all(
+        [
+            FactAbout(fact_entity_id=fact.id, subject_entity_id=blade.id, tenant_id=tenant_id),
+            EntityKnowledge(entity_id=fact.id, knower_entity_id=guild.id, tenant_id=tenant_id),
+        ]
+    )
 
     strength = StatDefinition(
         tenant_id=tenant_id, stat_group_id=group.id, name="Strength", value_type=StatValueType.INT

@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 1
+FORMAT = 2
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -377,6 +377,9 @@ _CONTENT = _dataclass(
         "information": _id_map(_INFORMATION),
         "payloads": _id_map(_PAYLOAD),
         "knowledge": _pairs(_ID, _ID),
+        "entry_audiences": _id_map(_PLAIN),
+        "entry_knowledge": _pairs(_ID, _ID),
+        "fact_about": _pairs(_ID, _ID),
         "links": _LINKS,
     },
 )
@@ -393,13 +396,20 @@ def encode(content: Content) -> tuple[Document, Files]:
 
 
 def _read_v1(document: Document, files: Mapping[str, bytes]) -> Content:
+    # V1 predates fact audiences and subjects. Do not mutate a cached document.
+    return _read_v2(
+        {**document, "entry_audiences": {}, "entry_knowledge": [], "fact_about": []}, files
+    )
+
+
+def _read_v2(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
 
 # Every version this code can read. A change to `Content` or to the format above that changes
 # what a document holds is a new version and a new reader; the old reader stays.
-READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {1: _read_v1}
+READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {1: _read_v1, 2: _read_v2}
 
 
 def decode(document: Document, files: Mapping[str, bytes], *, format: int = FORMAT) -> Content:  # noqa: A002

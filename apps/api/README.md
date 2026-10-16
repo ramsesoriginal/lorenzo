@@ -81,3 +81,12 @@ replaces the complete order. Both require the information ETag as `If-Match`. Te
 appends accept a stable payload id for retry-safe delivery. Text removal requires its own
 payload ETag; picture callers may supply it too. Bytes are for tenant participants who can
 read the information, with authorization repeated before a cached 304 ([ADR 0306](../../docs/adr/0306-information-bundles-and-their-editors.md)).
+
+## Facts and their audiences
+
+`fact` is an entry kind for a tenant-wide information anchor. New facts have a restricted
+outer audience, controlling existence and name together. `GET`/`PUT .../entities/{id}/audience`
+inspect and atomically replace it under `If-Match`. Information audiences are independent:
+reading requires both gates. `.../entities/{fact}/about` lists explicit subjects; `PUT`/`DELETE`
+on `about/{subject}` manage each edge, and `.../entities/{subject}/facts` lists visible facts.
+Ancestry and LorenzoScript links remain independent of About ([ADR 0305](../../docs/adr/0305-facts-and-entry-audiences.md)).

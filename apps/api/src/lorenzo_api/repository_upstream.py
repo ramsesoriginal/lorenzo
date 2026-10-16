@@ -41,7 +41,7 @@ __all__ = [
 ]
 
 # The order a browse names an entry's kinds in, as `GET .../entities` has always answered.
-_KIND_ORDER: tuple[EntityKindName, ...] = ("item", "item_instance", "being", "character")
+_KIND_ORDER: tuple[EntityKindName, ...] = ("item", "item_instance", "being", "character", "fact")
 
 
 @dataclass(frozen=True)
@@ -146,14 +146,17 @@ class StatGroupRow:
     definitions: list[StatDefinitionRow]
 
 
-def entity_rows(content: Content, q: str | None = None) -> list[EntityRow]:
+def entity_rows(
+    content: Content, q: str | None = None, *, public_only: bool = False
+) -> list[EntityRow]:
     """The entries of a `Content` as a browse lists them: by name and then id, `q` a
     case-insensitive part of the name, kinds in the order the live browse gives them, and
     parents in each entry's own order. What the live browse reads from the tables, from the
     document."""
     prototypes: dict[uuid.UUID, list[uuid.UUID]] = {}
     for entity_id, prototype_id in content.prototypes:
-        prototypes.setdefault(entity_id, []).append(prototype_id)
+        if not public_only or content.entry_audiences.get(prototype_id, True):
+            prototypes.setdefault(entity_id, []).append(prototype_id)
     needle = q.casefold() if q is not None else None
     return [
         EntityRow(
@@ -163,7 +166,8 @@ def entity_rows(content: Content, q: str | None = None) -> list[EntityRow]:
             prototype_ids=prototypes.get(entity_id, []),
         )
         for entity_id, name in sorted(content.entities.items(), key=lambda e: (e[1], str(e[0])))
-        if needle is None or needle in name.casefold()
+        if (needle is None or needle in name.casefold())
+        and (not public_only or content.entry_audiences.get(entity_id, True))
     ]
 
 

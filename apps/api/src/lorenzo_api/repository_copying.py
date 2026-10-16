@@ -61,6 +61,7 @@ from lorenzo_api.models import (
     Tenant,
     TenantKind,
 )
+from lorenzo_api.models.fact import EntityKnowledge, FactAbout
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
     Content,
@@ -592,6 +593,16 @@ class _Planner:
                         "updated_by": user_id,
                     }
                 )
+            if "fact" in kinds:
+                self.rows["fact"].append({"entity_id": new, "tenant_id": tenant_id})
+            if e in c.entry_audiences or "fact" in kinds:
+                self.rows["entity_audience"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "is_public": c.entry_audiences.get(e, False),
+                    }
+                )
             slug = c.slugs.get(e)
             if slug is not None and slug in self.slugs:
                 choice = self._resolve(step, "slug", e, slug, None, ["rename", "skip"])
@@ -804,6 +815,32 @@ class _Planner:
                             "kind": kind,
                             "hint": hint,
                             "target": target_text,
+                        }
+                    )
+        for e, knower in c.entry_knowledge:
+            if copies("entity", e):
+                target = self._local(c, "entity", knower)
+                if target is None:
+                    drop("entity_knowledge", e, "its knower wasn't copied")
+                else:
+                    self.rows["entity_knowledge"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "entity_id": self.local["entity"][e],
+                            "knower_entity_id": target,
+                        }
+                    )
+        for e, subject in c.fact_about:
+            if copies("entity", e):
+                target = self._local(c, "entity", subject)
+                if target is None:
+                    drop("fact_about", e, "its subject wasn't copied")
+                else:
+                    self.rows["fact_about"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "fact_entity_id": self.local["entity"][e],
+                            "subject_entity_id": target,
                         }
                     )
         for info_id, knower in c.knowledge:
@@ -1267,6 +1304,20 @@ async def forget_copy(
                 GroupMember.tenant_id == t,
                 GroupMember.character_entity_id.in_(entities),
                 GroupMember.group_entity_id.not_in(entities),
+            ),
+            "entity_knowledge": await _count(
+                session,
+                EntityKnowledge,
+                EntityKnowledge.tenant_id == t,
+                EntityKnowledge.knower_entity_id.in_(entities),
+                EntityKnowledge.entity_id.not_in(entities),
+            ),
+            "fact_about": await _count(
+                session,
+                FactAbout,
+                FactAbout.tenant_id == t,
+                FactAbout.subject_entity_id.in_(entities),
+                FactAbout.fact_entity_id.not_in(entities),
             ),
             "knowledge": await _count(
                 session,

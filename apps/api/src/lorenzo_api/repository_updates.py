@@ -58,6 +58,7 @@ from lorenzo_api.models import (
     StatValueType,
     Tenant,
 )
+from lorenzo_api.models.fact import EntityAudience, Fact
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
     Content,
@@ -111,7 +112,7 @@ _NOT_APPLICABLE = {"value_type"}
 
 # The markers an update may add or remove: an inventory item and a character are made in the
 # library, not by an update.
-_MARKER_MODELS: dict[str, Any] = {"item": Item, "being": Being}
+_MARKER_MODELS: dict[str, Any] = {"item": Item, "being": Being, "fact": Fact}
 
 _LINK_MODELS: dict[str, Any] = {
     "entity": (RepositoryCopyLinkEntity, RepositoryCopyLinkEntity.entity_id),
@@ -912,6 +913,8 @@ class _Applier:
                 if kind == "item":
                     values["in_public_catalog"] = bool(row.upstream.get("in_public_catalog"))
                 await s.execute(insert(_MARKER_MODELS[kind]).values(**values))
+                if kind == "fact" and await s.get(EntityAudience, e) is None:
+                    s.add(EntityAudience(entity_id=e, tenant_id=t, is_public=False))
         return ok
 
     # stat group -------------------------------------------------------------

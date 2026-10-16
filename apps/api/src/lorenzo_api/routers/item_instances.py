@@ -77,6 +77,7 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    Fact,
     Item,
     ItemInstance,
     Ownership,
@@ -971,6 +972,7 @@ async def _item_instance_out(
         session,
         user_id=user.id,
         tenant_id=tenant_id,
+        entry_ids=[view.entity_id, *(a.id for a in ancestors)],
         information=[
             information
             for entity in (view.entity, *ancestors)
@@ -1242,6 +1244,8 @@ async def create_item_instance(
                 detail=f"Slug {body.slug!r} is already in use in tenant {tenant_id}"
             )
 
+    if body.container_entity_id is not None:
+        await require_physical_container(session, body.container_entity_id)
     # Created inside something is put there: capacity counts (ADR 0128).
     check = (
         None
@@ -2043,6 +2047,7 @@ async def _contain(
     """Puts entity_id into container_entity_id and finishes the move's started
     checks - _perform_set_container's and _HandOver's shared tail, so the two
     can't drift."""
+    await require_physical_container(session, container_entity_id)
     if existing is not None:
         existing.parent_entity_id = container_entity_id
     else:
@@ -3048,3 +3053,12 @@ async def bulk_move_item_instances(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return results
+
+
+async def require_physical_container(session: SessionDep, entity_id: uuid.UUID) -> None:
+    if await session.get(Fact, entity_id) is not None:
+        from lorenzo_api.exceptions import InvalidKindRequestError
+
+        raise InvalidKindRequestError(
+            detail="A fact holds information. Choose an entry that can contain physical things."
+        )

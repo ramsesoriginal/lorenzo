@@ -85,6 +85,7 @@ class Kind1(StrEnum):
     item_instance = "item_instance"
     being = "being"
     character = "character"
+    fact = "fact"
 
 
 class BacklinkOut(BaseModel):
@@ -522,6 +523,7 @@ class EntityChangeOut(BaseModel):
 class Kind7(StrEnum):
     item = "item"
     being = "being"
+    fact = "fact"
 
 
 class EntityCreate(BaseModel):
@@ -540,6 +542,7 @@ class Kind8(StrEnum):
     item_instance = "item_instance"
     being = "being"
     character = "character"
+    fact = "fact"
 
 
 class EntityExportStatOut(BaseModel):
@@ -764,6 +767,7 @@ class Kind13(StrEnum):
     item_instance = "item_instance"
     being = "being"
     character = "character"
+    fact = "fact"
 
 
 class LinkPreviewStatOut(BaseModel):
@@ -1349,6 +1353,7 @@ class Kind17(StrEnum):
     item_instance = "item_instance"
     being = "being"
     character = "character"
+    fact = "fact"
 
 
 class ResolvedSlugOut(BaseModel):
