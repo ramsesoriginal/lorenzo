@@ -31,7 +31,7 @@ from lorenzo_api.exceptions import (
     InvalidStatValueTypeError,
     StatDefinitionNotFoundError,
 )
-from lorenzo_api.information_visibility import resolve_information_reader
+from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     ComputedStat,
     Entity,
@@ -44,7 +44,7 @@ from lorenzo_api.models import (
     VEffectiveStat,
     formula_load_options,
 )
-from lorenzo_api.routers.entities import get_entity_detail_or_404
+from lorenzo_api.routers.entities import entity_detail_reader, get_entity_detail_or_404
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.computed_stats import (
     ContentsExplanationOut,
@@ -292,8 +292,8 @@ async def _entity_detail(
     user: CurrentUser,
 ) -> EntityDetailOut:
     detail_entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
-    reader = await resolve_information_reader(
-        session, user_id=user.id, tenant_id=tenant_id, information=detail_entity.information
+    reader = await entity_detail_reader(
+        session, entity=detail_entity, user_id=user.id, tenant_id=tenant_id
     )
     return EntityDetailOut.from_entity(detail_entity, request, visibility=reader)
 
@@ -649,6 +649,7 @@ async def explain_entity_stat(
                 )
             )
         }
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     own = winner.source_entity_id == entity_id
     return StatExplanationOut(
         stat_definition_id=definition.id,
@@ -656,7 +657,9 @@ async def explain_entity_stat(
         value=values[definition.id],
         own=own,
         computed=winner.computed_entity_id is not None,
-        from_entity=None if own else EntitySummary.from_entity(winner.source_entity),
+        from_entity=None
+        if own or not visibility.can_see_entry(winner.source_entity_id)
+        else EntitySummary.from_entity(winner.source_entity),
         formula=None if formula is None else formula_body_of(formula),
         inputs=[]
         if formula is None or isinstance(formula, ContentsFormula)

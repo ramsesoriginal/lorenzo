@@ -24,6 +24,7 @@ from lorenzo_api.models.entity_prototype import EntityPrototype
 from lorenzo_api.models.entity_slug import EntitySlug
 from lorenzo_api.models.entity_stat import EntityStat
 from lorenzo_api.models.entity_stat_group import EntityStatGroup
+from lorenzo_api.models.fact import EntityAudience, EntityKnowledge, Fact, FactAbout
 from lorenzo_api.models.group_member import GroupMember
 from lorenzo_api.models.information import Information
 from lorenzo_api.models.information_type import SINGLETON_INFORMATION_TYPES, InformationType
@@ -71,6 +72,10 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "EntityAudience",
+    "EntityKnowledge",
+    "Fact",
+    "FactAbout",
     "AuditLog",
     "Being",
     "Campaign",

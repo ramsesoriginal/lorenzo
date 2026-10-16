@@ -20,6 +20,7 @@ from lorenzo_api.client_ids import insert_with_client_id
 from lorenzo_api.exceptions import (
     EntityKindInUseError,
     EntitySlugConflictError,
+    InvalidKindRequestError,
     InvalidPrototypeError,
     InventoryItemKindError,
     ItemPrototypeInUseError,
@@ -29,14 +30,16 @@ from lorenzo_api.models import (
     Campaign,
     Character,
     Entity,
+    EntityAudience,
     EntityPrototype,
     EntitySlug,
+    Fact,
     Item,
     ItemInstance,
 )
 
 # The kinds a route may add or remove.
-Kind = Literal["item", "being"]
+Kind = Literal["item", "being", "fact"]
 
 # The combinations of kinds a repository may be published with, each as its kinds in the order
 # `entity_snapshot` writes them (alphabetical). A draft repository may hold any combination the
@@ -49,6 +52,7 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
     {
         (),
         ("item",),
+        ("fact",),
         ("being",),
         ("being", "item"),
         ("item_instance",),
@@ -82,6 +86,10 @@ async def create_entry(
             raise EntitySlugConflictError(
                 detail=f"Slug {slug!r} is already in use in tenant {tenant_id}"
             )
+    if "fact" in kinds and set(kinds) != {"fact"}:
+        raise InvalidKindRequestError(
+            detail="A fact is an information anchor; other kinds are a later slice."
+        )
     wanted = set(parents)
     if wanted:
         found = set(
@@ -112,6 +120,9 @@ async def create_entry(
         )
     if "being" in kinds:
         session.add(Being(entity_id=entity.id, tenant_id=tenant_id))
+    if "fact" in kinds:
+        session.add(Fact(entity_id=entity.id, tenant_id=tenant_id))
+        session.add(EntityAudience(entity_id=entity.id, tenant_id=tenant_id, is_public=False))
     for position, parent_id in enumerate(dict.fromkeys(parents)):
         session.add(
             EntityPrototype(
@@ -136,6 +147,13 @@ async def add_kind(
     (`updated_by`, and `updated_at`, so its ETag moves) only then. An inventory item never takes
     `item`; it may take `being`."""
     entity_id = entity.id
+    existing_kinds = await kinds_of_entry(session, entity_id)
+    if (kind == "fact" and existing_kinds - {"fact"}) or (
+        kind != "fact" and "fact" in existing_kinds
+    ):
+        raise InvalidKindRequestError(
+            detail="A fact is an information anchor; other kinds are a later slice."
+        )
     result: Literal["created", "changed", "unchanged"] = "unchanged"
     if kind == "item":
         if await session.get(ItemInstance, entity_id) is not None:
@@ -156,10 +174,19 @@ async def add_kind(
         elif in_public_catalog is not None and item.in_public_catalog != in_public_catalog:
             item.in_public_catalog = in_public_catalog
             result = "changed"
+    elif kind == "fact":
+        if await session.get(Fact, entity_id) is None:
+            session.add(Fact(entity_id=entity_id, tenant_id=tenant_id))
+            if await session.get(EntityAudience, entity_id) is None:
+                session.add(
+                    EntityAudience(entity_id=entity_id, tenant_id=tenant_id, is_public=False)
+                )
+            result = "created"
     elif await session.get(Being, entity_id) is None:
         session.add(Being(entity_id=entity_id, tenant_id=tenant_id))
         result = "created"
     if result != "unchanged":
+        session.info.pop("visible_entry_checks", None)
         _touch(entity, user_id)
         await session.flush()
     return result
@@ -184,7 +211,7 @@ async def remove_kind(
                 detail=f"Entry {entity_id} is still a direct prototype of at least one "
                 "inventory item"
             )
-        marker: type[Item | Being] = Item
+        marker: type[Item | Being | Fact] = Item
     else:
         if await session.get(Character, entity_id) is not None:
             raise EntityKindInUseError(
@@ -192,12 +219,22 @@ async def remove_kind(
                 f"DELETE /tenants/{tenant_id}/characters/{entity_id} before it stops being a being"
             )
         marker = Being
+    if kind == "fact":
+        marker = Fact
+        audience = await session.get(EntityAudience, entity_id)
+        if audience is not None:
+            if not audience.is_public:
+                raise InvalidKindRequestError(
+                    detail="Make the entry audience public before removing its fact kind."
+                )
+            await session.delete(audience)
     removed = await session.scalar(
         delete(marker)
         .where(marker.entity_id == entity_id, marker.tenant_id == tenant_id)
         .returning(marker.entity_id)
     )
     if removed is not None:
+        session.info.pop("visible_entry_checks", None)
         _touch(entity, user_id)
         await session.flush()
     return removed is not None
@@ -226,6 +263,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
         kind
         for kind, model in (
             ("item", Item),
+            ("fact", Fact),
             ("item_instance", ItemInstance),
             ("being", Being),
             ("character", Character),
@@ -272,6 +310,7 @@ async def require_deletable(
 
 
 KIND_WORDS = {
+    "fact": "fact",
     "item": "item",
     "item_instance": "inventory item",
     "being": "being",

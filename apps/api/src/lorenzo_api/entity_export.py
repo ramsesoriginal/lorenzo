@@ -45,7 +45,7 @@ async def read_revision(session: AsyncSession, tenant_id: uuid.UUID) -> int:
 
 def _visibility_digest(visibility: InformationVisibility) -> str:
     parts = [
-        f"admin={visibility.is_admin}",
+        f"admin={visibility.is_admin};author={visibility.author_sees_all}",
         *(f"{name}={sorted(map(str, ids))}" for name, ids in _id_sets(visibility)),
     ]
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:12]
@@ -56,6 +56,8 @@ def _id_sets(visibility: InformationVisibility) -> list[tuple[str, frozenset[uui
         ("players", visibility.player_ids),
         ("knowers", visibility.knower_entity_ids),
         ("gm", visibility.gm_reachable_entity_ids),
+        ("hidden_entries", visibility.hidden_entry_ids),
+        ("author_entries", visibility.author_entry_ids),
     ]
 
 

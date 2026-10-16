@@ -35,7 +35,11 @@ _MAX_CONTAINMENT_DEPTH = 50
 
 
 def entity_id_among(
-    column: InstrumentedAttribute[uuid.UUID] | ColumnElement[uuid.UUID], ids: Collection[uuid.UUID]
+    column: InstrumentedAttribute[uuid.UUID]
+    | InstrumentedAttribute[uuid.UUID | None]
+    | ColumnElement[uuid.UUID]
+    | ColumnElement[uuid.UUID | None],
+    ids: Collection[uuid.UUID],
 ) -> ColumnElement[bool]:
     """`column IN ids`, with ids bound as one array parameter. A reach can be a
     whole library (ADR 0200: a copy puts thousands of entries in a GM's), and

@@ -31,10 +31,14 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     Containment,
     Entity,
+    EntityAudience,
+    EntityKnowledge,
     EntityPrototype,
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    Fact,
+    FactAbout,
     GroupMember,
     Information,
     Item,
@@ -56,7 +60,7 @@ from lorenzo_api.models import (
     StatGroup,
 )
 
-KINDS = ("item", "item_instance", "being", "character")
+KINDS = ("item", "item_instance", "being", "character", "fact")
 
 
 @dataclass
@@ -160,6 +164,9 @@ class Content:
     information: dict[uuid.UUID, InformationData] = field(default_factory=dict)
     payloads: dict[uuid.UUID, PayloadData] = field(default_factory=dict)
     knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
+    entry_knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    fact_about: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     links: Links = field(default_factory=Links)
 
     def origin(self, kind: str, local_id: uuid.UUID) -> uuid.UUID:
@@ -234,6 +241,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("item_instance", ItemInstance),
         ("being", Being),
         ("character", Character),
+        ("fact", Fact),
     ):
         for (entity_id,) in await rows(model.entity_id, where=model.tenant_id == t):
             c.kinds[entity_id].add(kind)
@@ -469,6 +477,25 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         if pid in kinds_by_payload:
             kind, fields = kinds_by_payload[pid]
             c.payloads[pid] = PayloadData(info_id, order, kind, fields)
+    c.entry_audiences = dict(
+        await rows(
+            EntityAudience.entity_id, EntityAudience.is_public, where=EntityAudience.tenant_id == t
+        )
+    )
+    c.entry_knowledge = [
+        (e, k)
+        for e, k in await rows(
+            EntityKnowledge.entity_id,
+            EntityKnowledge.knower_entity_id,
+            where=(EntityKnowledge.tenant_id == t) & EntityKnowledge.knower_entity_id.is_not(None),
+        )
+    ]
+    c.fact_about = [
+        (f, subject)
+        for f, subject in await rows(
+            FactAbout.fact_entity_id, FactAbout.subject_entity_id, where=FactAbout.tenant_id == t
+        )
+    ]
     c.knowledge = [
         (info_id, knower)
         for info_id, knower in await rows(

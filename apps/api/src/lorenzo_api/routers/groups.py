@@ -21,6 +21,7 @@ from lorenzo_api.dependencies import (
     require_tenant_participant,
     set_tenant_rls_context,
 )
+from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     CharacterManagementForbiddenError,
@@ -28,7 +29,8 @@ from lorenzo_api.exceptions import (
     InvalidGroupMemberError,
     InvalidUserError,
 )
-from lorenzo_api.models import Character, Entity, GroupMember, User
+from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.models import Character, Entity, Fact, GroupMember, User
 from lorenzo_api.notifications import create_group_notification
 from lorenzo_api.schemas.common import EntitySummary, ProblemOut
 from lorenzo_api.schemas.groups import (
@@ -61,9 +63,11 @@ async def list_groups(
     way, an accepted consequence of that data model, not a new gap.
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     stmt = (
         select(Entity)
         .join(GroupMember, GroupMember.group_entity_id == Entity.id)
+        .where(visible_entry_clause(visibility, Entity.id))
         .where(Entity.tenant_id == tenant_id)
         .distinct()
         .order_by(Entity.id)
@@ -144,6 +148,10 @@ async def _require_can_manage_group(
     deleting, removing a member, and duplicating (see duplicate_group's
     own docstring for why that one needs no separate per-member check).
     """
+    if await session.get(Fact, group_entity_id) is not None:
+        raise InvalidGroupMemberError(
+            detail="Choose a group to hold members; a fact is an information anchor."
+        )
     member_ids = (
         await session.execute(
             select(GroupMember.character_entity_id).where(
@@ -552,6 +560,10 @@ async def duplicate_group(
     await _require_can_manage_group(
         session, tenant_id=tenant_id, user=user, group_entity_id=group_entity_id
     )
+    if await session.get(Fact, group_entity_id) is not None:
+        raise InvalidGroupMemberError(
+            detail="Choose a group to hold members; a fact is an information anchor."
+        )
     member_ids = (
         (
             await session.execute(

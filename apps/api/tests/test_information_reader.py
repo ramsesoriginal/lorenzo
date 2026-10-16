@@ -68,8 +68,8 @@ async def _remove(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         await session.commit()
 
 
-async def test_rows_that_are_all_public_resolve_nothing() -> None:
-    """Not even a query: `can_see` is true of a public row for anyone, however little they are."""
+async def test_public_rows_only_check_for_an_outer_gate() -> None:
+    """Public rows need one indexed entry-gate query and no role/knower resolution."""
     tenant_id, user_id = await _tenant_and_user(None)
     try:
         async with admin_session_factory() as session:
@@ -81,7 +81,8 @@ async def test_rows_that_are_all_public_resolve_nothing() -> None:
                     information=[_row(public=True), _row(public=True)],
                 )
             assert reader is SEES_EVERYTHING
-            assert seen == []
+            assert len(seen) == 1
+            assert "entity_audience" in seen[0]
             assert reader.can_see(_row(public=True))
     finally:
         await _remove(tenant_id, user_id)
@@ -116,7 +117,7 @@ async def test_an_admin_resolves_their_tier_and_nothing_else() -> None:
                 )
             assert reader is SEES_EVERYTHING
             assert reader.can_see(_row(public=False))
-            assert len(seen) <= 3, seen
+            assert len(seen) <= 4, seen
     finally:
         await _remove(tenant_id, user_id)
 
