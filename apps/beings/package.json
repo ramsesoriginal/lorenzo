@@ -26,7 +26,8 @@
     "@lorenzo/lorenzoscript": "workspace:*",
     "@lorenzo/lorenzoscript-editor": "workspace:*",
     "@lorenzo/stat-values": "workspace:*",
-    "astro": "^7.3.5"
+    "astro": "^7.3.5",
+    "@lorenzo/information-editor": "workspace:*"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",

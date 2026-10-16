@@ -1,3 +1,5 @@
+import { renderAudienceControl } from '@lorenzo/information-editor';
+import { client } from '../../lib/api';
 // Notes on a being (ADR 0271), the way inventory-web has them on items (ADR 0113) but with the four
 // audiences (GM only, Everyone, Some characters, Player note) and an order the writer sets (ADR
 // 0237). Anyone who can see a note reads it; whoever may write, adds, edits, reorders and deletes.
@@ -210,6 +212,10 @@ export function renderBeingNotes(
       return item;
     }
 
+    actions.append(
+      renderAudienceControl({ client, tenantId, informationId: info.id, onSaved: afterWrite }),
+    );
+
     const up = required<HTMLButtonElement>(item, '[data-up]');
     const down = required<HTMLButtonElement>(item, '[data-down]');
     const remove = required<HTMLButtonElement>(item, '[data-delete]');
@@ -248,7 +254,7 @@ export function renderBeingNotes(
               ...draft,
               title: draft.title || 'Note',
               type: 'note',
-              isPublic: plan.isPublic,
+              isPublic: info.is_public,
             });
             saved = true;
 
@@ -317,7 +323,7 @@ export function renderBeingNotes(
             ...draft,
             title: draft.title || 'Note',
             type: 'note',
-            isPublic: plan.isPublic,
+            isPublic: false,
           });
 
           try {

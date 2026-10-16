@@ -178,3 +178,7 @@ run; stop them to pick up a changed build. CI runs these tests in its `e2e` job.
 Cloudflare Pages, via its own Git integration (no GitHub Actions step) — see
 [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md#cloudflare-pages-appsinventory-web)
 for the one-time setup.
+
+Editable descriptions and notes include **Who can read this**, with explicit character and group
+recipients and the existing Player grants. Audience changes are atomic and versioned (ADR 0304);
+a stale form asks the editor to review the current audience before saving again.

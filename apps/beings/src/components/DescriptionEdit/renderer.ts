@@ -1,3 +1,5 @@
+import { renderAudienceControl } from '@lorenzo/information-editor';
+import { client } from '../../lib/api';
 // The description of a being, written in an InfoForm under the button that opens it (ADR 0272). Its
 // information's title is the being's shown name too (ADR 0019), so the form keeps it.
 
@@ -31,6 +33,23 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
 
   let being: { entityId: string; name: string; hasDescription: boolean } | null = null;
 
+  let canWrite = false;
+  let audience: HTMLDetailsElement | null = null;
+  function showAudience() {
+    audience?.remove();
+    audience = null;
+    if (!being?.hasDescription) return;
+    audience = renderAudienceControl({
+      client,
+      tenantId,
+      informationId: async () =>
+        being ? ((await getDescription(tenantId, being.entityId))?.id ?? null) : null,
+      onSaved: options.onSaved,
+    });
+    audience.hidden = !canWrite;
+    root.append(audience);
+  }
+
   edit.addEventListener('click', async () => {
     if (!being) return;
 
@@ -43,6 +62,7 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
       let saved = false;
 
       edit.hidden = true;
+      if (audience) audience.hidden = true;
       mount.replaceChildren(
         renderInfoForm(root, {
           initial: descriptionDraft(info, title),
@@ -59,6 +79,7 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
           onClose: () => {
             mount.replaceChildren();
             edit.hidden = false;
+            showAudience();
 
             if (saved) options.onSaved();
           },
@@ -74,11 +95,14 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
   return {
     show(shown) {
       being = shown;
+      showAudience();
       edit.textContent = shown.hasDescription ? 'Edit description' : 'Write a description';
     },
 
-    allow(canWrite) {
-      edit.hidden = !canWrite;
+    allow(allowed) {
+      canWrite = allowed;
+      edit.hidden = !allowed;
+      if (audience) audience.hidden = !allowed;
     },
   };
 }

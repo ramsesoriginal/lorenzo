@@ -23,7 +23,8 @@
     "@lorenzo/api-client": "workspace:*",
     "@lorenzo/brand": "workspace:*",
     "@lorenzo/lorenzoscript": "workspace:*",
-    "astro": "^7.3.5"
+    "astro": "^7.3.5",
+    "@lorenzo/information-editor": "workspace:*"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",

@@ -122,35 +122,23 @@ export async function listKnowers(
 /** Makes the note readable by the plan's characters: the adds and removes of knowers (idempotent). */
 export async function applyKnowers(tenantId: string, informationId: string, plan: Plan) {
   const path = { tenant_id: tenantId, information_id: informationId };
-
-  for (const id of plan.add) {
-    await unwrap(
-      await client.PUT(
-        '/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}',
-        {
-          params: { path: { ...path, knower_entity_id: id } },
-        },
-      ),
-    );
-  }
-
-  for (const id of plan.remove) {
-    await unwrap(
-      await client.DELETE(
-        '/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}',
-        { params: { path: { ...path, knower_entity_id: id } } },
-      ),
-    );
-  }
-
-  for (const id of plan.removePlayers) {
-    await unwrap(
-      await client.DELETE(
-        '/tenants/{tenant_id}/information/{information_id}/player-knowers/{player_id}',
-        { params: { path: { ...path, player_id: id } } },
-      ),
-    );
-  }
+  const current = await client.GET('/tenants/{tenant_id}/information/{information_id}/audience', {
+    params: { path },
+  });
+  const before = await unwrap(current);
+  const entities = new Set(before.entity_ids);
+  const players = new Set(before.player_ids);
+  for (const id of plan.add) entities.add(id);
+  for (const id of plan.remove) entities.delete(id);
+  for (const id of plan.removePlayers) players.delete(id);
+  const version = current.response.headers.get('etag');
+  if (!version) throw new Error('The audience version is missing. Reload and try again.');
+  await unwrap(
+    await client.PUT('/tenants/{tenant_id}/information/{information_id}/audience', {
+      params: { path, header: { 'if-match': version } },
+      body: { is_public: plan.isPublic, entity_ids: [...entities], player_ids: [...players] },
+    }),
+  );
 }
 
 /** The ids of every piece of information of the entity the viewer can see, in order (not just notes). */

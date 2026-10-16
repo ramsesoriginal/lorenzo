@@ -1,3 +1,5 @@
+import { renderAudienceControl } from '@lorenzo/information-editor';
+import { client } from '../../lib/api';
 // An entity's information (ADR 0112): every piece of it, rendered, with adding, editing and
 // deleting (ADR 0101, 0109). The item page's Information section for GMs is the whole list;
 // Notes (ADR 0113) are the same list narrowed to one type, with their own words.
@@ -179,6 +181,15 @@ export function renderInformation(
       actions.remove();
       return row;
     }
+
+    actions.append(
+      renderAudienceControl({
+        client,
+        tenantId,
+        informationId: info.id,
+        onSaved: () => afterWrite(shown),
+      }),
+    );
 
     const remove = required<HTMLButtonElement>(row, '[data-delete]');
 
