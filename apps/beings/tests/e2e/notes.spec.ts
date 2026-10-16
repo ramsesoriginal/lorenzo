@@ -305,3 +305,44 @@ test('a being no campaign holds says GM, whatever its campaigns call theirs', as
   await page.goto(url(world, owl.entity_id));
   await expect(page.locator('[data-being-notes] [data-audience]')).toHaveText('GM only');
 });
+
+test('an information editor shares a note with a group through the audience control', async ({
+  world,
+  as,
+}) => {
+  const target = world.pia.character.entity_id;
+  await world.note(target, 'A map for the Harpers', 'Follow the river.');
+  const group = await ok(
+    world.gm.api.POST('/tenants/{tenant_id}/groups', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'Harpers', member_character_ids: [target] },
+    }),
+  );
+  const page = await as(world.gm);
+  await page.goto(url(world, target));
+  await enterMode(page, 'Edit');
+  const row = page.locator('[data-being-notes] ul > li', { hasText: 'A map for the Harpers' });
+  await row.getByText('Who can read this', { exact: true }).click();
+  await row.getByLabel('Harpers (group)', { exact: true }).check();
+  await page.screenshot({ path: test.info().outputPath('audience.png') });
+  await row.getByRole('button', { name: 'Save audience', exact: true }).click();
+  await expect
+    .poll(() => notesSeenBy(world.pia.api, world.tenantId, target))
+    .toEqual(['A map for the Harpers']);
+  expect(await notesSeenBy(world.oskar.api, world.tenantId, target)).toEqual([]);
+  await ok(
+    world.gm.api.DELETE(
+      '/tenants/{tenant_id}/groups/{group_entity_id}/members/{character_entity_id}',
+      {
+        params: {
+          path: {
+            tenant_id: world.tenantId,
+            group_entity_id: group.id,
+            character_entity_id: target,
+          },
+        },
+      },
+    ),
+  );
+  expect(await notesSeenBy(world.pia.api, world.tenantId, target)).toEqual([]);
+});

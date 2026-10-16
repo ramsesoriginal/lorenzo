@@ -64,6 +64,10 @@
     "apps/inventory-mobile": {
       "release-type": "simple",
       "component": "inventory-mobile"
+    },
+    "packages/information-editor": {
+      "release-type": "node",
+      "component": "information-editor"
     }
   }
 }

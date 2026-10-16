@@ -32,3 +32,7 @@ The end-to-end tests start a fake Authgear (4410), the real API on a fresh datab
 ## Shape
 
 `src/pages/` has the pages; `src/components/<Name>/` is a `<Name>.astro` of markup and `data-*` hooks with a `renderer.ts` that finds them; `src/lib/` is the API reads and writes and the pure rules, each with a `.test.ts` where it has logic. The stat logic is `packages/stat-values`, shared with inventory-web.
+
+Editable descriptions and notes include **Who can read this**, with explicit character and group
+recipients and the existing Player grants. Audience changes are atomic and versioned (ADR 0304);
+a stale form asks the editor to review the current audience before saving again.
