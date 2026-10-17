@@ -135,3 +135,10 @@ node = "apps/inventory-mobile"
 
 [nodes."packages/information-editor"]
 batch = "packages"
+
+[nodes."apps/inventory-ios"]
+depends_on = ["apps/brand"]
+generated_from = ["apps/api"]
+
+[suites.ios-build]
+node = "apps/inventory-ios"

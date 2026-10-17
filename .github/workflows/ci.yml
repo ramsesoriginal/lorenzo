@@ -60,7 +60,7 @@ jobs:
     name: test (${{ matrix.label }})
     needs: discover
     if: needs.discover.outputs.test_matrix != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.app == 'apps/inventory-ios' && 'macos-15' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -556,8 +556,26 @@ jobs:
   # runs, so it is meaningful even when a matrix is empty or a job is skipped, and it covers every job
   # in `needs` without naming them: skipped is fine, failed or cancelled is not. A job that gates a
   # merge must be listed in `needs`, or nothing will ever wait for it.
+
+  ios-build:
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'ios-build')
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: mise run build
+        working-directory: apps/inventory-ios
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Lorenzo-Inventory-iOS
+          path: apps/inventory-ios/build/Lorenzo-Inventory.ipa
+          retention-days: 7
+
   ci-summary:
-    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-bench, account-hub-real-api, cli-e2e, mobile-build]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-bench, account-hub-real-api, cli-e2e, mobile-build, ios-build]
     if: always()
     runs-on: ubuntu-latest
     steps:
