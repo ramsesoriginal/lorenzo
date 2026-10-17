@@ -27,6 +27,7 @@ struct RootView: View {
     @EnvironmentObject var store: InventoryStore
     @State private var token = ""
     @State private var confirmSignOut = false
+    @State private var composer: Draft?
     var body: some View {
         NavigationStack {
             Group {
@@ -49,6 +50,8 @@ struct RootView: View {
             }
         }
         .tint(Lorenzo.teal)
+        .sheet(item: $composer) { NoteComposer(initial: $0) }
+        .onChange(of: store.signedIn) { _, connected in if !connected { composer = nil } }
         .confirmationDialog("Sign out and clear downloaded information and drafts?", isPresented:$confirmSignOut, titleVisibility:.visible) {
             Button("Sign out", role:.destructive) { Task { await store.signOut() } }
         }
@@ -91,6 +94,7 @@ struct RootView: View {
                             Text(draft.title)
                             Text(draft.queued ? (draft.problem ?? "Pending upload") : "Draft").font(.caption).foregroundStyle(.secondary)
                             if draft.queued { Button("Retry") { Task { await store.retry(draft.id) } } }
+                            else { Button("Continue note") { composer = draft } }
                         }
                     }
                 }
@@ -153,6 +157,10 @@ struct ItemView: View {
                         Section("Stats and tags") { ForEach(Array(item.stats.enumerated()),id:\.offset) { _,stat in LabeledContent(stat.name,value:stat.value?.display ?? "Not set") } }
                     }
                     Section("Notes") {
+                        if let snapshot = store.noteSnapshot(character,itemId) {
+                            Text("Downloaded \(snapshot.downloaded.formatted(date:.abbreviated,time:.shortened))")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         ForEach(store.noteSnapshot(character,itemId)?.value ?? []) { note in
                             VStack(alignment:.leading,spacing:10) {
                                 Text(note.title).font(.headline)
@@ -240,6 +248,7 @@ struct NoteComposer: View {
     @State private var loadingImage = false
     @State private var persistence: Task<Void,Never>?
     @State private var saveError = ""
+    @State private var confirmDiscard = false
     init(initial:Draft) { _draft=State(initialValue:initial) }
     var body: some View {
         NavigationStack {
@@ -247,8 +256,21 @@ struct NoteComposer: View {
                 partsSection
                 audienceSection
                 if !saveError.isEmpty { Text(saveError).foregroundStyle(.red) }
+                Section { Button("Discard draft", role: .destructive) { confirmDiscard = true } }
             }
             .disabled(saving || loadingImage)
+            .confirmationDialog("Discard this draft and its pictures?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+                Button("Discard draft", role: .destructive) {
+                    saving = true
+                    Task {
+                        await persistence?.value
+                        do { try await store.discardDraft(draft.id); dismiss() }
+                        catch { saveError = error.localizedDescription }
+                        saving = false
+                    }
+                }
+            }
+            .onChange(of: store.signedIn) { _, connected in if !connected { dismiss() } }
             .navigationTitle("Note")
             .interactiveDismissDisabled(saving || loadingImage || !saveError.isEmpty)
             .toolbar {

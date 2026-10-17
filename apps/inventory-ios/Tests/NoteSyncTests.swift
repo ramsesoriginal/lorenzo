@@ -48,7 +48,7 @@ actor NoteServer: Transport {
             if !parts.contains(where: { $0["id"] as? String == id }) { parts.append(["id":id,"kind":"picture","order":parts.count,"updated_at":"v1"]) }
             note!["payloads"] = parts
             picture = Data([1,2,3])
-            if failPictureResponse { failPictureResponse = false; throw URLError(\.networkConnectionLost) }
+            if failPictureResponse { failPictureResponse = false; throw URLError(.networkConnectionLost) }
         } else if path.hasSuffix("/content") {
             ordinaryPictureReads += 1
             status = 403
