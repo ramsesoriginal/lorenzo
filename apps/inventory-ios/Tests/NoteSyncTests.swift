@@ -88,6 +88,8 @@ final class NoteSyncTests: XCTestCase {
         let server=NoteServer();await server.configureAudienceDrift()
         do { try await NoteSync.send(draft(),api:API(transport:server),checkpoint:{_ in},checkSession:{});XCTFail() }
         catch { XCTAssertTrue(error is SyncConflict) }
+        let reads = await server.audienceReads
+        XCTAssertGreaterThan(reads, 1)
     }
     func testImageOnlyDraftRemovesOnlyItsEmptyBootstrapText() async throws {
         let server=NoteServer();var d=draft();d.parts=[d.parts[1]]

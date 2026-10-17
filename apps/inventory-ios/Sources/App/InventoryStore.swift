@@ -23,6 +23,7 @@ import Network
     private var api: API?
     private var session = UUID()
     private var cacheEpoch = UUID()
+    private var readTickets: [String: UUID] = [:]
     private var syncTask: Task<Void, Never>?
     private var loginTask: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
@@ -88,7 +89,7 @@ import Network
         do { try await vault.clear() } catch { status = "Local data could not be cleared. Please try signing out again." }
     }
     private func resetContent() {
-        me = nil; characters = []; inventories = [:]; notes = [:]; drafts = []; pictures = [:]; status = ""
+        me = nil; characters = []; inventories = [:]; notes = [:]; drafts = []; pictures = [:]; readTickets = [:]; status = ""
     }
     func beginLogin() {
         cancelLogin()
@@ -137,15 +138,19 @@ import Network
         try check(generation)
         guard cacheEpoch == epoch else { throw CancellationError() }
     }
-    private func cache<T: Encodable>(_ value: T, name: String, generation: UUID, epoch: UUID) async throws {
+    private func checkRead(_ generation: UUID, _ epoch: UUID, _ name: String, _ ticket: UUID) throws {
         try checkCache(generation, epoch)
-        try await vault.writeCache(value, name: name, session: generation, epoch: epoch)
-        try checkCache(generation, epoch)
+        guard readTickets[name] == ticket else { throw CancellationError() }
+    }
+    private func cache<T: Encodable>(_ value: T, name: String, generation: UUID, epoch: UUID, ticket: UUID) async throws {
+        try checkRead(generation, epoch, name, ticket)
+        try await vault.writeCache(value, name: name, session: generation, epoch: epoch, ticket: ticket)
+        try checkRead(generation, epoch, name, ticket)
     }
     private func purgeCache(session generation: UUID) async throws {
         try check(generation)
         cacheEpoch = UUID()
-        inventories = [:]; notes = [:]; pictures = [:]
+        inventories = [:]; notes = [:]; pictures = [:]; readTickets = [:]
         do { try await vault.purgeCache(session: generation, epoch: cacheEpoch) }
         catch { await signOut(); throw error }
     }
@@ -162,67 +167,75 @@ import Network
     func loadInventory(_ character: Character) async {
         guard let api, characters.contains(where: { $0.id == character.id }) else { return }
         let generation = session; let epoch = cacheEpoch; let name = "inventory/" + character.id
+        let ticket = UUID(); readTickets[name] = ticket
         do {
+            try await vault.beginCacheRead(name: name, session: generation, epoch: epoch, ticket: ticket)
             if inventories[character.id] == nil {
                 let saved = try await vault.read(Snapshot<Inventory>.self, name: name, session: generation)
-                try checkCache(generation, epoch); inventories[character.id] = saved
+                try checkRead(generation, epoch, name, ticket); inventories[character.id] = saved
             }
-            let value = Snapshot(try await api.inventory(character)); try checkCache(generation, epoch)
-            try await cache(value, name: name, generation: generation, epoch: epoch)
-            try checkCache(generation, epoch); inventories[character.id] = value
-        } catch { await handle(error, generation: generation) }
+            let value = Snapshot(try await api.inventory(character)); try checkRead(generation, epoch, name, ticket)
+            try await cache(value, name: name, generation: generation, epoch: epoch, ticket: ticket)
+            try checkRead(generation, epoch, name, ticket); inventories[character.id] = value
+        } catch { if readTickets[name] == ticket { await handle(error, generation: generation) } }
     }
     func loadNotes(_ character: Character, itemId: String) async {
         guard let api, characters.contains(where: { $0.id == character.id }) else { return }
-        let generation = session; let epoch = cacheEpoch; let name = "notes/" + character.id + "/" + itemId
+        let generation = session; let epoch = cacheEpoch; let name = "notes/" + character.tenantId + "/" + itemId
+        let ticket = UUID(); readTickets[name] = ticket
         do {
+            try await vault.beginCacheRead(name: name, session: generation, epoch: epoch, ticket: ticket)
             if notes[name] == nil {
                 let saved = try await vault.read(Snapshot<[Information]>.self, name: name, session: generation)
-                try checkCache(generation, epoch); notes[name] = saved
+                try checkRead(generation, epoch, name, ticket); notes[name] = saved
                 for payload in saved?.value.flatMap(\.payloads) ?? [] where payload.kind == "picture" {
-                    let pictureName = "picture/" + character.id + "/" + payload.id
+                    let pictureName = "picture/" + character.tenantId + "/" + payload.id
                     let bytes = try await vault.read(Data.self, name: pictureName, session: generation)
-                    try checkCache(generation, epoch); pictures[pictureName] = bytes
+                    try checkRead(generation, epoch, name, ticket); pictures[pictureName] = bytes
                 }
             }
-            let value = Snapshot(try await api.notes(character.tenantId, itemId)); try checkCache(generation, epoch)
-            try await cache(value, name: name, generation: generation, epoch: epoch)
-            try checkCache(generation, epoch); notes[name] = value
+            let value = Snapshot(try await api.notes(character.tenantId, itemId)); try checkRead(generation, epoch, name, ticket)
+            try await cache(value, name: name, generation: generation, epoch: epoch, ticket: ticket)
+            try checkRead(generation, epoch, name, ticket); notes[name] = value
             for payload in value.value.flatMap(\.payloads) where payload.kind == "picture" {
                 await loadPicture(character, payload: payload.id)
             }
-        } catch { await handle(error, generation: generation) }
+        } catch { if readTickets[name] == ticket { await handle(error, generation: generation) } }
     }
     func noteSnapshot(_ character: Character, _ item: String) -> Snapshot<[Information]>? {
-        notes["notes/" + character.id + "/" + item]
+        notes["notes/" + character.tenantId + "/" + item]
     }
     func recipients(_ character: Character) async -> [Recipient] {
         guard let api else { return [] }
         let generation = session; let epoch = cacheEpoch; let name = "recipients/" + character.tenantId
+        let ticket = UUID(); readTickets[name] = ticket
         do {
-            let result = try await api.recipients(character.tenantId); try checkCache(generation, epoch)
-            try await cache(result, name: name, generation: generation, epoch: epoch)
+            try await vault.beginCacheRead(name: name, session: generation, epoch: epoch, ticket: ticket)
+            let result = try await api.recipients(character.tenantId); try checkRead(generation, epoch, name, ticket)
+            try await cache(result, name: name, generation: generation, epoch: epoch, ticket: ticket)
             return result
         } catch {
-            await handle(error, generation: generation)
-            guard signedIn, session == generation else { return [] }
+            if readTickets[name] == ticket { await handle(error, generation: generation) }
+            guard signedIn, session == generation, cacheEpoch == epoch, readTickets[name] == ticket else { return [] }
             return (try? await vault.read([Recipient].self, name: name, session: generation)) ?? []
         }
     }
     func loadPicture(_ character: Character, payload: String) async {
         guard let api else { return }
-        let generation = session; let epoch = cacheEpoch; let name = "picture/" + character.id + "/" + payload
+        let generation = session; let epoch = cacheEpoch; let name = "picture/" + character.tenantId + "/" + payload
+        let ticket = UUID(); readTickets[name] = ticket
         do {
+            try await vault.beginCacheRead(name: name, session: generation, epoch: epoch, ticket: ticket)
             if pictures[name] == nil {
                 let saved = try await vault.read(Data.self, name: name, session: generation)
-                try checkCache(generation, epoch); pictures[name] = saved
+                try checkRead(generation, epoch, name, ticket); pictures[name] = saved
             }
-            let data = try await api.picture(character.tenantId, payload); try checkCache(generation, epoch)
-            try await cache(data, name: name, generation: generation, epoch: epoch)
-            try checkCache(generation, epoch); pictures[name] = data
-        } catch { await handle(error, generation: generation) }
+            let data = try await api.picture(character.tenantId, payload); try checkRead(generation, epoch, name, ticket)
+            try await cache(data, name: name, generation: generation, epoch: epoch, ticket: ticket)
+            try checkRead(generation, epoch, name, ticket); pictures[name] = data
+        } catch { if readTickets[name] == ticket { await handle(error, generation: generation) } }
     }
-    func picture(_ character: Character, _ id: String) -> Data? { pictures["picture/" + character.id + "/" + id] }
+    func picture(_ character: Character, _ id: String) -> Data? { pictures["picture/" + character.tenantId + "/" + id] }
     func newDraft(_ character: Character, itemId: String) -> Draft {
         var draft = Draft(character: character, itemId: itemId, locale: locales.first ?? "en")
         draft.sessionId = session

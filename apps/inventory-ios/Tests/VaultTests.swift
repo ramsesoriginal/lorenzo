@@ -47,4 +47,18 @@ final class VaultTests: XCTestCase {
         try await vault.clear()
     }
 
+    func testNewerReadPreventsAnOlderResponseFromOverwritingItsCache() async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let vault=Vault(directory:root,service:"lorenzo-tests."+UUID().uuidString)
+        let session=UUID(), old=UUID(), latest=UUID()
+        try await vault.connect(token:"token",session:session)
+        try await vault.beginCacheRead(name:"notes",session:session,epoch:session,ticket:old)
+        try await vault.beginCacheRead(name:"notes",session:session,epoch:session,ticket:latest)
+        try await vault.writeCache("current",name:"notes",session:session,epoch:session,ticket:latest)
+        do { try await vault.writeCache("stale",name:"notes",session:session,epoch:session,ticket:old);XCTFail() } catch {}
+        let value=try await vault.read(String.self,name:"notes",session:session)
+        XCTAssertEqual(value,"current")
+        try await vault.clear()
+    }
+
 }

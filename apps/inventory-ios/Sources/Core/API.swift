@@ -108,7 +108,7 @@ public struct API: Sendable {
     public func upload(_ tenant: String, _ info: String, part: DraftPart, etag: String) async throws {
         guard let image = part.image, image.count <= 10 * 1024 * 1024 else { throw URLError(.dataLengthExceedsMaximum) }
         let boundary = "Lorenzo-" + UUID().uuidString
-        var data = Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"payload_id\"\r\n\r\n(part.id)\r\n--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"picture.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8)
+        var data = Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"payload_id\"\r\n\r\n\(part.id)\r\n--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"picture.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8)
         data.append(image); data.append(Data("\r\n--\(boundary)--\r\n".utf8))
         _ = try await request(information(tenant, info) + ["payloads"], method: "POST", body: data, etag: etag, mime: "multipart/form-data; boundary=" + boundary)
     }

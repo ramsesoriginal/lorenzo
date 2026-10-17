@@ -8,6 +8,7 @@ public actor Vault {
     private var key: SymmetricKey?
     private var active: UUID?
     private var cacheEpoch: UUID?
+    private var cacheReads: [String: UUID] = [:]
     public init(directory: URL? = nil, service: String = Bundle.main.bundleIdentifier ?? "io.lorenzo.inventory.ios") {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Lorenzo", isDirectory: true)
         self.service = service
@@ -68,8 +69,13 @@ public actor Vault {
         guard active == session else { throw VaultError.stale }
         if FileManager.default.fileExists(atPath: file(name).path) { try FileManager.default.removeItem(at: file(name)) }
     }
-    public func writeCache<T: Encodable>(_ value: T, name: String, session: UUID, epoch: UUID) throws {
+    public func beginCacheRead(name: String, session: UUID, epoch: UUID, ticket: UUID) throws {
+        guard active == session, cacheEpoch == epoch else { throw VaultError.stale }
+        cacheReads[name] = ticket
+    }
+    public func writeCache<T: Encodable>(_ value: T, name: String, session: UUID, epoch: UUID, ticket: UUID? = nil) throws {
         guard cacheEpoch == epoch else { throw VaultError.stale }
+        if let ticket, cacheReads[name] != ticket { throw VaultError.stale }
         var names = Set(try read([String].self, name: "cache-index", session: session) ?? [])
         names.insert(name)
         // Register first: a crash can leave an absent entry, never an untracked private file.
@@ -78,7 +84,7 @@ public actor Vault {
     }
     public func purgeCache(session: UUID, epoch: UUID) throws {
         guard active == session else { throw VaultError.stale }
-        cacheEpoch = epoch
+        cacheEpoch = epoch; cacheReads = [:]
         for name in try read([String].self, name: "cache-index", session: session) ?? [] {
             try remove(name, session: session)
         }
@@ -94,7 +100,7 @@ public actor Vault {
         return values
     }
     public func clear() throws {
-        active = nil; key = nil; cacheEpoch = nil
+        active = nil; key = nil; cacheEpoch = nil; cacheReads = [:]
         for name in ["key", "token"] {
             let status = SecItemDelete(query(name) as CFDictionary)
             guard status == errSecSuccess || status == errSecItemNotFound else { throw VaultError.keychain }
