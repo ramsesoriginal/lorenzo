@@ -24,8 +24,10 @@ case "$1" in
    ;;
  ui-test)
    destination=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for a in d["devices"].values() for x in a if x["name"].startswith("iPhone")))')
+   xcrun simctl boot "$destination" 2>/dev/null || true
+   xcrun simctl bootstatus "$destination" -b
    status=0
-   xcodebuild -project LorenzoInventory.xcodeproj -scheme LorenzoInventory -destination "platform=iOS Simulator,id=$destination" -derivedDataPath build/simulator -resultBundlePath build/UITests.xcresult CODE_SIGNING_ALLOWED=NO test > build-uitest.log 2>&1 || status=$?
+   xcodebuild -project LorenzoInventory.xcodeproj -scheme LorenzoInventory -destination "platform=iOS Simulator,id=$destination" -derivedDataPath build/simulator -resultBundlePath build/UITests.xcresult -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test > build-uitest.log 2>&1 || status=$?
    if [ -d build/UITests.xcresult ]; then
      xcrun xcresulttool export attachments --path build/UITests.xcresult --output-path build/screenshots || true
    fi

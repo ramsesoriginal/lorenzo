@@ -195,8 +195,17 @@ import Network
                 }
             }
             let value = Snapshot(try await api.notes(character.tenantId, itemId)); try checkRead(generation, epoch, name, ticket)
+            let previousPictures = Set((notes[name]?.value.flatMap(\.payloads) ?? []).filter { $0.kind == "picture" }.map(\.id))
+            let currentPictures = Set(value.value.flatMap(\.payloads).filter { $0.kind == "picture" }.map(\.id))
             try await cache(value, name: name, generation: generation, epoch: epoch, ticket: ticket)
             try checkRead(generation, epoch, name, ticket); notes[name] = value
+            for id in previousPictures.subtracting(currentPictures) {
+                let pictureName = "picture/" + character.tenantId + "/" + id
+                let invalidation = UUID(); readTickets[pictureName] = invalidation
+                try await vault.beginCacheRead(name: pictureName, session: generation, epoch: epoch, ticket: invalidation)
+                try await vault.remove(pictureName, session: generation)
+                try checkRead(generation, epoch, name, ticket); pictures[pictureName] = nil
+            }
             for payload in value.value.flatMap(\.payloads) where payload.kind == "picture" {
                 await loadPicture(character, payload: payload.id)
             }

@@ -3,7 +3,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from urllib.parse import urlparse
 note = None
-offline = False
 audience = {"is_public": False, "entity_ids": [], "player_ids": []}
 character = "11111111-1111-4111-8111-111111111111"
 item = "22222222-2222-4222-8222-222222222222"
@@ -18,12 +17,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("ETag",'W/"2026-10-17T00:00:00Z"')
         self.end_headers(); self.wfile.write(data)
     def do_GET(self):
-        global offline
         path=urlparse(self.path).path
-        if path == "/__offline":
-            offline = True
-            return self.reply({})
-        if offline: return self.reply({"title":"Offline fixture"},503)
         if path == "/me":
             return self.reply({"id":"user","locales":["en"],"players":[{"tenant_id":library,"characters":[{"entity_id":character,"name":"Brisk"}]}]})
         if "/held-by/" in path:

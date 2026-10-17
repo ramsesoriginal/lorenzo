@@ -19,17 +19,18 @@ public actor Vault {
         var value: CFTypeRef?
         let status = SecItemCopyMatching(q as CFDictionary, &value)
         if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess else { throw VaultError.keychain }
+        guard status == errSecSuccess else { throw VaultError.keychain(status) }
         return value as? Data
     }
     private func setSecret(_ account: String, _ data: Data) throws {
         var q = query(account)
         let status = SecItemUpdate(q as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecSuccess { return }
-        guard status == errSecItemNotFound else { throw VaultError.keychain }
+        guard status == errSecItemNotFound else { throw VaultError.keychain(status) }
         q[kSecValueData as String] = data
         q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        guard SecItemAdd(q as CFDictionary, nil) == errSecSuccess else { throw VaultError.keychain }
+        let added = SecItemAdd(q as CFDictionary, nil)
+        guard added == errSecSuccess else { throw VaultError.keychain(added) }
     }
     public func restore(session: UUID) throws -> String? {
         guard let data = try secret("token"), let keyData = try secret("key"), let token = String(data: data, encoding: .utf8) else { return nil }
@@ -103,9 +104,17 @@ public actor Vault {
         active = nil; key = nil; cacheEpoch = nil; cacheReads = [:]
         for name in ["key", "token"] {
             let status = SecItemDelete(query(name) as CFDictionary)
-            guard status == errSecSuccess || status == errSecItemNotFound else { throw VaultError.keychain }
+            guard status == errSecSuccess || status == errSecItemNotFound else { throw VaultError.keychain(status) }
         }
         if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
     }
 }
-public enum VaultError: Error { case keychain, stale }
+public enum VaultError: Error, LocalizedError {
+    case keychain(OSStatus), stale
+    public var errorDescription: String? {
+        switch self {
+        case .keychain: return "This device could not securely save the connection. Please try again."
+        case .stale: return "This connection changed. Reopen your note before saving."
+        }
+    }
+}

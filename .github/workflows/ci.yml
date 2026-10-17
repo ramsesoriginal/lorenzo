@@ -165,10 +165,13 @@ jobs:
         with:
           name: iOS-simulator-results
           path: |
-            apps/inventory-ios/build/screenshots
-            apps/inventory-ios/build/UITests.xcresult
+            apps/inventory-ios/build/screenshots/*.png
+            apps/inventory-ios/build/screenshots/*.jpg
+            apps/inventory-ios/build/screenshots/*.jpeg
+            apps/inventory-ios/build/screenshots/*.txt
+            apps/inventory-ios/build/screenshots/manifest.json
             apps/inventory-ios/build-uitest.log
-          retention-days: 7
+          retention-days: 1
 
   # apps/inventory-mobile's installable debug APK and unsigned release bundle. The `mobile-build` suite in
   # .github/ci-graph.toml: it runs when the app or what it depends on changes, beside the node's lint and
@@ -593,7 +596,7 @@ jobs:
           path: |
             apps/inventory-ios/build/Lorenzo-Inventory.ipa
             apps/inventory-ios/build/swift-format.patch
-          retention-days: 7
+          retention-days: 1
 
   ci-summary:
     needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-bench, account-hub-real-api, cli-e2e, mobile-build, ios-build]
