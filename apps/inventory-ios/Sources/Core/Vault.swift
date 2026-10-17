@@ -7,6 +7,7 @@ public actor Vault {
     private let service: String
     private var key: SymmetricKey?
     private var active: UUID?
+    private var cacheEpoch: UUID?
     public init(directory: URL? = nil, service: String = Bundle.main.bundleIdentifier ?? "io.lorenzo.inventory.ios") {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Lorenzo", isDirectory: true)
         self.service = service
@@ -31,7 +32,7 @@ public actor Vault {
     }
     public func restore(session: UUID) throws -> String? {
         guard let data = try secret("token"), let keyData = try secret("key"), let token = String(data: data, encoding: .utf8) else { return nil }
-        key = SymmetricKey(data: keyData); active = session
+        key = SymmetricKey(data: keyData); active = session; cacheEpoch = session
         return token
     }
     public func connect(token: String, session: UUID) throws {
@@ -39,7 +40,7 @@ public actor Vault {
         let new = SymmetricKey(size: .bits256)
         try setSecret("key", new.withUnsafeBytes { Data($0) })
         try setSecret("token", Data(token.utf8))
-        key = new; active = session
+        key = new; active = session; cacheEpoch = session
     }
     private func file(_ name: String) -> URL {
         directory.appendingPathComponent(SHA256.hash(data: Data(name.utf8)).map { String(format: "%02x", $0) }.joined())
@@ -67,6 +68,22 @@ public actor Vault {
         guard active == session else { throw VaultError.stale }
         if FileManager.default.fileExists(atPath: file(name).path) { try FileManager.default.removeItem(at: file(name)) }
     }
+    public func writeCache<T: Encodable>(_ value: T, name: String, session: UUID, epoch: UUID) throws {
+        guard cacheEpoch == epoch else { throw VaultError.stale }
+        var names = Set(try read([String].self, name: "cache-index", session: session) ?? [])
+        names.insert(name)
+        // Register first: a crash can leave an absent entry, never an untracked private file.
+        try write(Array(names), name: "cache-index", session: session)
+        try write(value, name: name, session: session)
+    }
+    public func purgeCache(session: UUID, epoch: UUID) throws {
+        guard active == session else { throw VaultError.stale }
+        cacheEpoch = epoch
+        for name in try read([String].self, name: "cache-index", session: session) ?? [] {
+            try remove(name, session: session)
+        }
+        try write([String](), name: "cache-index", session: session)
+    }
     public func updateDraft(_ draft: Draft?, removing id: String? = nil, session: UUID) throws -> [Draft] {
         var values = try read([Draft].self, name: "drafts", session: session) ?? []
         if let draft {
@@ -77,7 +94,7 @@ public actor Vault {
         return values
     }
     public func clear() throws {
-        active = nil; key = nil
+        active = nil; key = nil; cacheEpoch = nil
         for name in ["key", "token"] {
             let status = SecItemDelete(query(name) as CFDictionary)
             guard status == errSecSuccess || status == errSecItemNotFound else { throw VaultError.keychain }

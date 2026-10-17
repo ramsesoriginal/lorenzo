@@ -275,6 +275,7 @@ struct NoteComposer: View {
                 }
                 if !saveError.isEmpty { Text(saveError).foregroundStyle(.red) }
             }
+            .disabled(saving || loadingImage)
             .navigationTitle("Note")
             .interactiveDismissDisabled(saving || loadingImage || !saveError.isEmpty)
             .toolbar {

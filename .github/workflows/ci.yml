@@ -160,9 +160,6 @@ jobs:
           AUTHGEAR_CLIENT_SECRET: ci-placeholder-secret
           LOOT_BOT_TOKEN_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
 
-  # apps/inventory-mobile's installable debug APK and unsigned release bundle. The `mobile-build` suite in
-  # .github/ci-graph.toml: it runs when the app or what it depends on changes, beside the node's lint and
-  # tests (the `test` job above) and not after them: each takes about 150 s (ADR 0148, addendum of
       - uses: actions/upload-artifact@v7
         if: always() && matrix.app == 'apps/inventory-ios'
         with:
@@ -171,6 +168,10 @@ jobs:
             apps/inventory-ios/build/UITests.xcresult
             apps/inventory-ios/build-uitest.log
           retention-days: 7
+
+  # apps/inventory-mobile's installable debug APK and unsigned release bundle. The `mobile-build` suite in
+  # .github/ci-graph.toml: it runs when the app or what it depends on changes, beside the node's lint and
+  # tests (the `test` job above) and not after them: each takes about 150 s (ADR 0148, addendum of
 
   # 2026-10-15).
   mobile-build:

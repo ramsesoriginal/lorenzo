@@ -34,4 +34,17 @@ final class VaultTests: XCTestCase {
         do { let _:String?=try await vault.read(String.self,name:"note",session:session);XCTFail() } catch {}
         try await vault.clear()
     }
+    func testRevocationFencesInflightCacheWrites() async throws {
+        let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let vault=Vault(directory:root,service:"lorenzo-tests."+UUID().uuidString)
+        let session=UUID()
+        try await vault.connect(token:"token",session:session)
+        try await vault.writeCache("private",name:"image",session:session,epoch:session)
+        try await vault.purgeCache(session:session,epoch:UUID())
+        do { try await vault.writeCache("stale",name:"image",session:session,epoch:session);XCTFail() } catch {}
+        let image=try await vault.read(String.self,name:"image",session:session)
+        XCTAssertNil(image)
+        try await vault.clear()
+    }
+
 }
