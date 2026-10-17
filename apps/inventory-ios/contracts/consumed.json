@@ -1,0 +1,670 @@
+{
+  "api_version": "0.7.0",
+  "schemas": {
+    "MeOut": {
+      "fields": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "players": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/MePlayerOut"
+          }
+        },
+        "locales": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "locales",
+        "players"
+      ]
+    },
+    "MePlayerOut": {
+      "fields": {
+        "tenant_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "characters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/CharacterSummaryOut"
+          }
+        }
+      },
+      "required": [
+        "tenant_id",
+        "characters"
+      ]
+    },
+    "CharacterSummaryOut": {
+      "fields": {
+        "entity_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id",
+        "name"
+      ]
+    },
+    "HeldByResponse": {
+      "fields": {
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/HeldGroupOut"
+          }
+        },
+        "owners": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/EntitySummary"
+          }
+        }
+      },
+      "required": [
+        "groups",
+        "owners"
+      ]
+    },
+    "HeldGroupOut": {
+      "fields": {
+        "container": {
+          "$ref": "#/components/schemas/EntitySummary"
+        },
+        "carried": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/EntitySummary"
+          }
+        },
+        "item_instances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/ItemInstanceOut"
+          }
+        }
+      },
+      "required": [
+        "container",
+        "path",
+        "carried",
+        "item_instances"
+      ]
+    },
+    "EntitySummary": {
+      "fields": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "ItemInstanceOut": {
+      "fields": {
+        "entity_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "owner_entity_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_container": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bound": {
+          "type": "boolean"
+        },
+        "descriptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/DescriptionOut"
+          }
+        },
+        "physical_stats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/StatValueOut"
+          }
+        },
+        "economic_stats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/StatValueOut"
+          }
+        },
+        "destroyable_stats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/StatValueOut"
+          }
+        },
+        "damaging_stats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/StatValueOut"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/TagValueOut"
+          }
+        }
+      },
+      "required": [
+        "entity_id",
+        "title",
+        "quantity",
+        "is_container",
+        "descriptions",
+        "physical_stats",
+        "economic_stats",
+        "destroyable_stats",
+        "damaging_stats",
+        "tags",
+        "owner_entity_id",
+        "bound"
+      ]
+    },
+    "DescriptionOut": {
+      "fields": {
+        "content": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "from_entity": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/EntitySummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "content",
+        "locale",
+        "from_entity"
+      ]
+    },
+    "StatValueOut": {
+      "fields": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "TagValueOut": {
+      "fields": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "InformationOut": {
+      "fields": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "is_public": {
+          "type": "boolean"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_by_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payloads": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PayloadDescriptionOut"
+              },
+              {
+                "$ref": "#/components/schemas/PayloadNumberOut"
+              },
+              {
+                "$ref": "#/components/schemas/PayloadPictureOut"
+              },
+              {
+                "$ref": "#/components/schemas/PayloadDocumentOut"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "type",
+        "is_public",
+        "updated_at",
+        "payloads"
+      ]
+    },
+    "PayloadDescriptionOut": {
+      "fields": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "content": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "order",
+        "updated_at",
+        "content",
+        "locale"
+      ]
+    },
+    "DeviceCodeOut": {
+      "fields": {
+        "device_code": {
+          "type": "string"
+        },
+        "user_code": {
+          "type": "string"
+        },
+        "verification_uri_complete": {
+          "type": "string"
+        },
+        "interval": {
+          "type": "integer"
+        },
+        "expires_in": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "device_code",
+        "user_code",
+        "verification_uri_complete",
+        "interval",
+        "expires_in"
+      ]
+    },
+    "PersonalTokenIssuedOut": {
+      "fields": {
+        "access_token": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "access_token"
+      ]
+    },
+    "InformationCreate": {
+      "fields": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "is_public": {
+          "type": "boolean"
+        },
+        "content": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "type",
+        "content"
+      ]
+    },
+    "DeviceCodeCreate": {
+      "fields": {
+        "client_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": []
+    },
+    "DeviceTokenRequest": {
+      "fields": {
+        "device_code": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "device_code"
+      ]
+    },
+    "PayloadPictureOut": {
+      "fields": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "file_type": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "order",
+        "updated_at",
+        "file_type",
+        "url"
+      ]
+    },
+    "InformationAudience": {
+      "fields": {
+        "is_public": {
+          "type": "boolean"
+        },
+        "entity_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "player_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "required": [
+        "is_public"
+      ]
+    },
+    "PayloadTextCreate": {
+      "fields": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "content": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "PayloadOrderRequest": {
+      "fields": {
+        "payload_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "required": [
+        "payload_ids"
+      ]
+    },
+    "CharacterOut": {
+      "fields": {
+        "entity_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id",
+        "name"
+      ]
+    }
+  },
+  "paths": {
+    "/me": {
+      "get": null
+    },
+    "/device-codes": {
+      "post": {
+        "$ref": "#/components/schemas/DeviceCodeCreate"
+      }
+    },
+    "/device-codes/token": {
+      "post": {
+        "$ref": "#/components/schemas/DeviceTokenRequest"
+      }
+    },
+    "/tenants/{tenant_id}/item-instances/held-by/{entity_id}": {
+      "get": null
+    },
+    "/tenants/{tenant_id}/entities/{entity_id}/information": {
+      "get": null,
+      "post": {
+        "$ref": "#/components/schemas/InformationCreate"
+      }
+    },
+    "/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}": {
+      "put": null
+    },
+    "/tenants/{tenant_id}/information/{information_id}/editor": {
+      "get": null
+    },
+    "/tenants/{tenant_id}/information/{information_id}/audience": {
+      "get": null,
+      "put": {
+        "$ref": "#/components/schemas/InformationAudience"
+      }
+    },
+    "/tenants/{tenant_id}/information/{information_id}/texts": {
+      "post": {
+        "$ref": "#/components/schemas/PayloadTextCreate"
+      }
+    },
+    "/tenants/{tenant_id}/information/{information_id}/payloads": {
+      "post": null
+    },
+    "/tenants/{tenant_id}/information/{information_id}/payloads/order": {
+      "put": {
+        "$ref": "#/components/schemas/PayloadOrderRequest"
+      }
+    },
+    "/tenants/{tenant_id}/payloads/{payload_id}": {
+      "delete": null
+    },
+    "/tenants/{tenant_id}/payloads/{payload_id}/content": {
+      "get": null
+    },
+    "/tenants/{tenant_id}/characters": {
+      "get": null
+    },
+    "/tenants/{tenant_id}/groups": {
+      "get": null
+    }
+  },
+  "multipart": {
+    "/tenants/{tenant_id}/information/{information_id}/payloads": {
+      "post": {
+        "fields": {
+          "file": {
+            "type": "string"
+          },
+          "payload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    }
+  }
+}

@@ -60,7 +60,7 @@ jobs:
     name: test (${{ matrix.label }})
     needs: discover
     if: needs.discover.outputs.test_matrix != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.app == 'apps/inventory-ios' && 'macos-15' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -160,9 +160,23 @@ jobs:
           AUTHGEAR_CLIENT_SECRET: ci-placeholder-secret
           LOOT_BOT_TOKEN_ENCRYPTION_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
 
+      - uses: actions/upload-artifact@v7
+        if: always() && matrix.app == 'apps/inventory-ios'
+        with:
+          name: iOS-simulator-results
+          path: |
+            apps/inventory-ios/build/screenshots/*.png
+            apps/inventory-ios/build/screenshots/*.jpg
+            apps/inventory-ios/build/screenshots/*.jpeg
+            apps/inventory-ios/build/screenshots/*.txt
+            apps/inventory-ios/build/screenshots/manifest.json
+            apps/inventory-ios/build-uitest.log
+          retention-days: 1
+
   # apps/inventory-mobile's installable debug APK and unsigned release bundle. The `mobile-build` suite in
   # .github/ci-graph.toml: it runs when the app or what it depends on changes, beside the node's lint and
   # tests (the `test` job above) and not after them: each takes about 150 s (ADR 0148, addendum of
+
   # 2026-10-15).
   mobile-build:
     name: mobile-build
@@ -556,8 +570,36 @@ jobs:
   # runs, so it is meaningful even when a matrix is empty or a job is skipped, and it covers every job
   # in `needs` without naming them: skipped is fine, failed or cancelled is not. A job that gates a
   # merge must be listed in `needs`, or nothing will ever wait for it.
+
+  ios-build:
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'ios-build')
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: mise run build
+        working-directory: apps/inventory-ios
+      - name: Prepare Swift formatting patch
+        if: always()
+        working-directory: apps/inventory-ios
+        run: |
+          mkdir -p build
+          swift format format --in-place --recursive Sources Tests StateTests UITests
+          git diff -- Sources Tests StateTests UITests > build/swift-format.patch
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: Lorenzo-Inventory-iOS
+          path: |
+            apps/inventory-ios/build/Lorenzo-Inventory.ipa
+            apps/inventory-ios/build/swift-format.patch
+          retention-days: 1
+
   ci-summary:
-    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-bench, account-hub-real-api, cli-e2e, mobile-build]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-bench, account-hub-real-api, cli-e2e, mobile-build, ios-build]
     if: always()
     runs-on: ubuntu-latest
     steps:
