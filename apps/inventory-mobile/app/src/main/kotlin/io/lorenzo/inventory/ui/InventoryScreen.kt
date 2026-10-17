@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -15,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -29,6 +27,7 @@ import java.util.Date
 @Composable
 fun InventoryScreen(state: UiState, vm: InventoryViewModel) {
     var signOut by remember { mutableStateOf(false) }
+    val acquirePicture = rememberNoteAcquisition(state, vm)
     BackHandler(enabled = state.character != null) { vm.back() }
     Scaffold(
         topBar = {
@@ -97,7 +96,7 @@ fun InventoryScreen(state: UiState, vm: InventoryViewModel) {
                     modifier = Modifier.weight(1f),
                 ) {
                     when {
-                        state.item != null -> ItemScreen(state, vm)
+                        state.item != null -> ItemScreen(state, vm, acquirePicture)
                         state.character != null -> InventoryList(state, vm)
                         else -> CharacterList(state, vm)
                     }
@@ -394,11 +393,10 @@ private fun InventoryList(state: UiState, vm: InventoryViewModel) {
 }
 
 @Composable
-private fun ItemScreen(state: UiState, vm: InventoryViewModel) {
+private fun ItemScreen(state: UiState, vm: InventoryViewModel, acquirePicture: (Boolean) -> Unit) {
     val item = state.item ?: return
     var editor by rememberSaveable(item.entityId) { mutableStateOf(false) }
-    var draft by rememberSaveable(item.entityId) { mutableStateOf("") }
-    var public by rememberSaveable(item.entityId) { mutableStateOf(false) }
+    LaunchedEffect(state.composer?.id) { if (state.composer != null) editor = true }
     val queued =
         state.queued.filter {
             it.draft.character.key == state.character?.key && it.draft.itemId == item.entityId
@@ -462,62 +460,17 @@ private fun ItemScreen(state: UiState, vm: InventoryViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SectionTitle("Notes")
-                TextButton(onClick = { editor = !editor }) {
+                TextButton(
+                    onClick = {
+                        editor = !editor
+                        if (editor) vm.startNote()
+                    }
+                ) {
                     Text(if (editor) "Close editor" else "Add note")
                 }
             }
         }
-        if (editor)
-            item {
-                Card {
-                    Column(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        OutlinedTextField(
-                            draft,
-                            { draft = it },
-                            Modifier.fillMaxWidth(),
-                            label = { Text("Your note") },
-                            minLines = 4,
-                        )
-                        Row(
-                            modifier =
-                                Modifier.fillMaxWidth()
-                                    .toggleable(
-                                        value = public,
-                                        role = Role.Checkbox,
-                                        onValueChange = { public = it },
-                                    ),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Checkbox(public, onCheckedChange = null)
-                            Text("Everyone can read this")
-                        }
-                        Text(
-                            "Otherwise only this character's players and the campaign's GMs and library administrators can read it.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Text(
-                            "Notes queue on this phone if you're offline. Keep the app signed in until they sync.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Button(
-                            onClick = {
-                                vm.addNote(draft, public) {
-                                    draft = ""
-                                    public = false
-                                    editor = false
-                                }
-                            },
-                            enabled = draft.isNotBlank() && !state.submitting,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(if (state.submitting) "Keeping note…" else "Add note")
-                        }
-                    }
-                }
-            }
+        if (editor) item { InformationComposer(state, vm, acquirePicture) { editor = false } }
         items(queued, key = { "pending/${it.id}" }) { note ->
             OutlinedCard {
                 Column(
@@ -529,7 +482,15 @@ private fun ItemScreen(state: UiState, vm: InventoryViewModel) {
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                     )
-                    Narrative(note.draft.request.content)
+                    if (note.draft.bundle == null) Narrative(note.draft.request.content)
+                    else
+                        note.draft.bundle.parts.forEach { part ->
+                            if (part.kind == "description") Narrative(part.text)
+                            else
+                                part.mediaId?.let { id ->
+                                    NotePicture("pending/$id") { vm.stagedPicture(id) }
+                                }
+                        }
                     note.error?.let {
                         Text(it, color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = { vm.retryNote(note.id) }) { Text("Retry") }
@@ -552,13 +513,28 @@ private fun ItemScreen(state: UiState, vm: InventoryViewModel) {
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(note.title, style = MaterialTheme.typography.titleMedium)
-                    note.payloads
-                        .filter { it.kind == "description" }
-                        .forEach { Narrative(it.content.orEmpty()) }
+                    note.payloads.forEach { payload ->
+                        when (payload.kind) {
+                            "description" -> Narrative(payload.content.orEmpty())
+                            "picture" ->
+                                state.character?.let { character ->
+                                    NotePicture(
+                                        "${character.tenantId}/${payload.id}/${payload.updatedAt}"
+                                    ) {
+                                        vm.picture(character.tenantId, payload)
+                                    }
+                                }
+                            else ->
+                                Text(
+                                    "${payload.kind} payload",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                        }
+                    }
                     Text(
                         listOfNotNull(
                                 note.author,
-                                if (note.isPublic) "Public" else "Character players, GMs & admins",
+                                if (note.isPublic) "Public" else "Restricted audience",
                             )
                             .joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,

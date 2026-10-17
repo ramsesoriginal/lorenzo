@@ -5,12 +5,16 @@ import androidx.room.Room
 import androidx.work.*
 import io.lorenzo.inventory.data.*
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collectLatest
 
 class InventoryApplication : Application() {
     private val cipher by lazy { DeviceCipher() }
     val secrets by lazy { SecretStore(this, cipher) }
     private val database by lazy {
-        Room.databaseBuilder(this, InventoryDatabase::class.java, "inventory.db").build()
+        Room.databaseBuilder(this, InventoryDatabase::class.java, "inventory.db")
+            .addMigrations(InventoryMigration1To2)
+            .build()
     }
     val repository by lazy {
         InventoryRepository(
@@ -27,6 +31,15 @@ class InventoryApplication : Application() {
         super.onCreate()
         // Recover the crash window between persisting a draft and enqueuing work.
         if (secrets.token.value != null) scheduleNotes()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            secrets.token.collectLatest { token ->
+                if (token == null) NotePictures.clean(this@InventoryApplication)
+                else
+                    repository.observeCapture().collectLatest { binding ->
+                        NotePictures.clean(this@InventoryApplication, binding?.id)
+                    }
+            }
+        }
     }
 
     private fun scheduleNotes() {

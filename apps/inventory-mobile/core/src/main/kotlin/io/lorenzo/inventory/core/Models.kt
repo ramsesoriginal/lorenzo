@@ -105,7 +105,16 @@ data class Item(
 }
 
 @Serializable
-data class Payload(val kind: String, val content: String? = null, val locale: String? = null)
+data class Payload(
+    val kind: String,
+    val content: String? = null,
+    val locale: String? = null,
+    val id: String = "",
+    val order: Int = 0,
+    @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("file_type") val fileType: String? = null,
+    val url: String? = null,
+)
 
 @Serializable
 data class Information(
@@ -147,3 +156,23 @@ data class Problem(
     val title: String = "Request failed",
     val detail: String? = null,
 )
+
+@Serializable
+data class Audience(
+    @SerialName("is_public") val isPublic: Boolean = false,
+    @SerialName("entity_ids") val entityIds: List<String> = emptyList(),
+    @SerialName("player_ids") val playerIds: List<String> = emptyList(),
+) {
+    fun normalized() =
+        copy(entityIds = entityIds.distinct().sorted(), playerIds = playerIds.distinct().sorted())
+}
+
+@Serializable data class TextAppend(val id: String, val content: String, val locale: String)
+
+@Serializable data class PayloadOrder(@SerialName("payload_ids") val payloadIds: List<String>)
+
+@Serializable data class Recipient(@SerialName("entity_id") val entityId: String, val name: String)
+
+data class Versioned<T>(val value: T, val etag: String)
+
+data class PictureBytes(val bytes: ByteArray, val mime: String)

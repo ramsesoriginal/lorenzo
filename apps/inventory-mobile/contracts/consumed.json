@@ -347,8 +347,19 @@
     },
     "PayloadDescriptionOut": {
       "fields": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
         "kind": {
           "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
         },
         "content": {
           "type": "string"
@@ -358,6 +369,9 @@
         }
       },
       "required": [
+        "id",
+        "order",
+        "updated_at",
         "content",
         "locale"
       ]
@@ -457,6 +471,114 @@
       "required": [
         "device_code"
       ]
+    },
+    "PayloadPictureOut": {
+      "fields": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "file_type": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "order",
+        "updated_at",
+        "file_type",
+        "url"
+      ]
+    },
+    "InformationAudience": {
+      "fields": {
+        "is_public": {
+          "type": "boolean"
+        },
+        "entity_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "player_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "required": [
+        "is_public"
+      ]
+    },
+    "PayloadTextCreate": {
+      "fields": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "content": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "PayloadOrderRequest": {
+      "fields": {
+        "payload_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "required": [
+        "payload_ids"
+      ]
+    },
+    "CharacterOut": {
+      "fields": {
+        "entity_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity_id",
+        "name"
+      ]
     }
   },
   "paths": {
@@ -484,6 +606,40 @@
     },
     "/tenants/{tenant_id}/information/{information_id}/knowers/{knower_entity_id}": {
       "put": null
+    },
+    "/tenants/{tenant_id}/information/{information_id}/editor": {
+      "get": null
+    },
+    "/tenants/{tenant_id}/information/{information_id}/audience": {
+      "get": null,
+      "put": {
+        "$ref": "#/components/schemas/InformationAudience"
+      }
+    },
+    "/tenants/{tenant_id}/information/{information_id}/texts": {
+      "post": {
+        "$ref": "#/components/schemas/PayloadTextCreate"
+      }
+    },
+    "/tenants/{tenant_id}/information/{information_id}/payloads": {
+      "post": null
+    },
+    "/tenants/{tenant_id}/information/{information_id}/payloads/order": {
+      "put": {
+        "$ref": "#/components/schemas/PayloadOrderRequest"
+      }
+    },
+    "/tenants/{tenant_id}/payloads/{payload_id}": {
+      "delete": null
+    },
+    "/tenants/{tenant_id}/payloads/{payload_id}/content": {
+      "get": null
+    },
+    "/tenants/{tenant_id}/characters": {
+      "get": null
+    },
+    "/tenants/{tenant_id}/groups": {
+      "get": null
     }
   }
 }

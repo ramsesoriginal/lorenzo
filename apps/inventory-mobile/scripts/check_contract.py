@@ -28,7 +28,10 @@ def check(schema_file):
                 errors.append(f"{name}.{field} changed its wire shape")
         if not set(contract["required"]).issubset(model.get("required", [])):
             errors.append(f"{name}: a consumed required response field became optional")
-        if name in ("InformationCreate", "DeviceCodeCreate", "DeviceTokenRequest"):
+        requests = {body.get("$ref", "").split("/")[-1]
+                    for methods in expected["paths"].values() for body in methods.values()
+                    if isinstance(body, dict)}
+        if name in requests:
             if set(model.get("required", [])) - set(contract["fields"]):
                 errors.append(f"{name}: new required request field")
     for path, methods in expected["paths"].items():
