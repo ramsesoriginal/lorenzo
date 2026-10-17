@@ -252,7 +252,7 @@ class ThisRepository(unittest.TestCase):
         result = affected.affected(self.graph, ["apps/api/src/lorenzo_api/main.py"])
         self.assertEqual(result.tests, {"apps/api"})
         self.assertEqual(result.drift, {"apps/cli", "packages/api-client", "apps/inventory-mobile"})
-        self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e", "account-hub-real-api", "beings-e2e"})
+        self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e", "account-hub-real-api", "beings-e2e", "bench-e2e"})
         self.assertTrue(result.openapi_diff)
 
     def test_a_hub_change_runs_the_hubs_real_api_suite(self) -> None:
