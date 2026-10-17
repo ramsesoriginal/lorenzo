@@ -183,7 +183,6 @@ Editable descriptions and notes include **Who can read this**, with explicit cha
 recipients and the existing Player grants. Audience changes are atomic and versioned (ADR 0304);
 a stale form asks the editor to review the current audience before saving again.
 
-
 Descriptions and notes may hold several LorenzoScript texts and pictures, kept in one ordered
 bundle with one audience (ADR 0306). **Add picture** and **Add text** extend the existing editor;
 move/remove controls keep each part in order. A failed save keeps the draft and stable attachment
