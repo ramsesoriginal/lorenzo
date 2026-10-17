@@ -67,6 +67,15 @@ public actor Vault {
         guard active == session else { throw VaultError.stale }
         if FileManager.default.fileExists(atPath: file(name).path) { try FileManager.default.removeItem(at: file(name)) }
     }
+    public func updateDraft(_ draft: Draft?, removing id: String? = nil, session: UUID) throws -> [Draft] {
+        var values = try read([Draft].self, name: "drafts", session: session) ?? []
+        if let draft {
+            if let i = values.firstIndex(where: { $0.id == draft.id }) { values[i] = draft } else { values.append(draft) }
+        }
+        if let id { values.removeAll { $0.id == id } }
+        try write(values, name: "drafts", session: session)
+        return values
+    }
     public func clear() throws {
         active = nil; key = nil
         for name in ["key", "token"] {

@@ -251,7 +251,7 @@ class ThisRepository(unittest.TestCase):
     def test_an_api_change_does_not_retest_the_typescript_apps(self) -> None:
         result = affected.affected(self.graph, ["apps/api/src/lorenzo_api/main.py"])
         self.assertEqual(result.tests, {"apps/api"})
-        self.assertEqual(result.drift, {"apps/cli", "packages/api-client", "apps/inventory-mobile"})
+        self.assertEqual(result.drift, {"apps/cli", "packages/api-client", "apps/inventory-mobile", "apps/inventory-ios"})
         self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e", "account-hub-real-api", "beings-e2e", "bench-e2e"})
         self.assertTrue(result.openapi_diff)
 
@@ -278,13 +278,13 @@ class ThisRepository(unittest.TestCase):
         alone = sorted(leg["label"] for leg in legs if not leg["label"].startswith("batch "))
         self.assertEqual(
             alone,
-            ["apps/api 1/2", "apps/api 2/2", "apps/inventory-mobile", "apps/loot-bot"],
+            ["apps/api 1/2", "apps/api 2/2", "apps/inventory-ios", "apps/inventory-mobile", "apps/loot-bot"],
         )
         self.assertEqual(len(batched), 4)
         # every other node is in exactly one batch
         in_batches = " ".join(leg["apps"] for leg in batched).split()
         self.assertEqual(sorted(in_batches), sorted(set(in_batches)))
-        self.assertEqual(set(in_batches) | {"apps/api", "apps/inventory-mobile", "apps/loot-bot"}, set(self.graph.nodes))
+        self.assertEqual(set(in_batches) | {"apps/api", "apps/inventory-mobile", "apps/inventory-ios", "apps/loot-bot"}, set(self.graph.nodes))
         for leg in batched:
             self.assertEqual((leg["shard"], leg["postgres"]), ("", False))
 

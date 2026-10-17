@@ -14,7 +14,7 @@ actor Stub: Transport {
 final class ContractTests: XCTestCase {
     func testRosterDeduplicatesAcrossSeatsButNotLibraries() throws {
         let me = try Wire.decoder.decode(Me.self, from: Data(#"{"id":"u","players":[{"tenant_id":"a","characters":[{"entity_id":"c","name":"Brisk"}]},{"tenant_id":"a","characters":[{"entity_id":"c","name":"Brisk"}]},{"tenant_id":"b","characters":[{"entity_id":"c","name":"Ashfang"}]}]}"#.utf8))
-        XCTAssertEqual(me.characters.map(.id), ["b/c", "a/c"])
+        XCTAssertEqual(me.characters.map(\.id), ["b/c", "a/c"])
     }
     func testInventoryRetainsZeroAndUnknownFields() throws {
         let data = Data(#"{"groups":[{"container":{"id":"c","name":"Equipped"},"carried":true,"item_instances":[{"entity_id":"i","title":"Book","quantity":0,"physical_stats":[{"name":"Weight","value":0}],"new_field":true}]}]}"#.utf8)
@@ -26,7 +26,7 @@ final class ContractTests: XCTestCase {
         let stub = Stub([(200, #"{"items":[{"id":"one","title":"Note","type":"note","is_public":false,"updated_at":"v","payloads":[]}],"total":2}"#, [:]), (200, #"{"items":[{"id":"two","title":"Note","type":"note","is_public":false,"updated_at":"v","payloads":[]}],"total":2}"#, [:])])
         let api = API(token: "test-token", transport: stub)
         let notes = try await api.notes("library", "item")
-        XCTAssertEqual(notes.map(.id), ["one", "two"])
+        XCTAssertEqual(notes.map(\.id), ["one", "two"])
         let requests = await stub.requests
         XCTAssertTrue(requests[1].url!.absoluteString.contains("page=2"))
         XCTAssertEqual(requests[0].value(forHTTPHeaderField: "Authorization"), "Bearer test-token")
@@ -44,8 +44,8 @@ final class ContractTests: XCTestCase {
         try await API(transport: stub).upload("t", "i", part: part, etag: #""v1""#)
         let request = await stub.requests[0]
         let body = String(decoding: request.httpBody!, as: UTF8.self)
-        XCTAssertTrue(body.contains("name="file""))
-        XCTAssertTrue(body.contains("name="payload_id""))
+        XCTAssertTrue(body.contains(#"name="file""#))
+        XCTAssertTrue(body.contains(#"name="payload_id""#))
         XCTAssertTrue(body.contains("stable-id"))
         XCTAssertEqual(request.value(forHTTPHeaderField: "If-Match"), #""v1""#)
     }

@@ -18,11 +18,11 @@ public final class HTTPTransport: NSObject, Transport, URLSessionTaskDelegate, @
     }()
     public func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let (bytes, response) = try await session.bytes(for: request)
-        guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
-        guard response.expectedContentLength <= 10 * 1024 * 1024 else { throw URLError(.dataLengthExceedsMaximum) }
+        guard let response = response as? HTTPURLResponse else { throw URLError(\.badServerResponse) }
+        guard response.expectedContentLength <= 10 * 1024 * 1024 else { throw URLError(\.dataLengthExceedsMaximum) }
         var data = Data()
         for try await byte in bytes {
-            guard data.count < 10 * 1024 * 1024 else { throw URLError(.dataLengthExceedsMaximum) }
+            guard data.count < 10 * 1024 * 1024 else { throw URLError(\.dataLengthExceedsMaximum) }
             data.append(byte)
         }
         return (data, response)
@@ -41,7 +41,7 @@ public struct API: Sendable {
     }
     public func request(_ path: [String], method: String = "GET", body: Data? = nil, query: [URLQueryItem] = [], etag: String? = nil, mime: String = "application/json") async throws -> Reply {
         guard base.scheme == "https" || (base.scheme == "http" && ["localhost", "127.0.0.1"].contains(base.host ?? "")),
-              path.allSatisfy({ !$0.isEmpty && !$0.contains("/") && $0 != "." && $0 != ".." }) else { throw URLError(.badURL) }
+              path.allSatisfy({ !$0.isEmpty && !$0.contains("/") && $0 != "." && $0 != ".." }) else { throw URLError(\.badURL) }
         var url = base
         for part in path { url.appendPathComponent(part) }
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
@@ -53,14 +53,14 @@ public struct API: Sendable {
         if body != nil { req.setValue(mime, forHTTPHeaderField: "Content-Type") }
         if let etag { req.setValue(etag, forHTTPHeaderField: "If-Match") }
         let (data, response) = try await transport.send(req)
-        guard (200..<300).contains(response.statusCode) else {
+        guard (200..<300).contains\(response.statusCode) else {
             let p = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-            throw APIError(status: response.statusCode, kind: p?["type"] as? String ?? "", message: p?["detail"] as? String ?? p?["title"] as? String ?? "Request failed ((response.statusCode)).")
+            throw APIError(status: response.statusCode, kind: p?["type"] as? String ?? "", message: p?["detail"] as? String ?? p?["title"] as? String ?? "Request failed (\(response.statusCode)).")
         }
         return Reply(data: data, etag: response.value(forHTTPHeaderField: "ETag") ?? "", mime: response.mimeType ?? "")
     }
     public func get<T: Decodable>(_ path: [String], as type: T.Type = T.self) async throws -> T {
-        try Wire.decoder.decode(type, from: await request(path).data)
+        try Wire.decoder.decode(type, from: await request\(path).data)
     }
     public func json<T: Encodable>(_ value: T) throws -> Data { try Wire.encoder.encode(value) }
     public func me() async throws -> Me { try await get(["me"]) }
@@ -95,24 +95,14 @@ public struct API: Sendable {
     }
     public func picture(_ tenant: String, _ id: String) async throws -> Data {
         let reply = try await request(["tenants", tenant, "payloads", id, "content"])
-        guard ["image/jpeg", "image/png", "image/webp", "image/gif"].contains(reply.mime) else { throw URLError(.cannotDecodeContentData) }
+        guard ["image/jpeg", "image/png", "image/webp", "image/gif"].contains(reply.mime) else { throw URLError(\.cannotDecodeContentData) }
         return reply.data
     }
     public func upload(_ tenant: String, _ info: String, part: DraftPart, etag: String) async throws {
-        guard let image = part.image, image.count <= 10 * 1024 * 1024 else { throw URLError(.dataLengthExceedsMaximum) }
+        guard let image = part.image, image.count <= 10 * 1024 * 1024 else { throw URLError(\.dataLengthExceedsMaximum) }
         let boundary = "Lorenzo-" + UUID().uuidString
-        var data = Data("--(boundary)
-Content-Disposition: form-data; name="payload_id"
-
-(part.id)
---(boundary)
-Content-Disposition: form-data; name="file"; filename="picture.jpg"
-Content-Type: image/jpeg
-
-".utf8)
-        data.append(image); data.append(Data("
---(boundary)--
-".utf8))
+        var data = Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"payload_id\"\r\n\r\n\(part.id)\r\n--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"picture.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8)
+        data.append(image); data.append(Data("\r\n--\(boundary)--\r\n".utf8))
         _ = try await request(information(tenant, info) + ["payloads"], method: "POST", body: data, etag: etag, mime: "multipart/form-data; boundary=" + boundary)
     }
 }

@@ -80,7 +80,7 @@ import Network
                 let client = API()
                 let code = try await client.beginDevice()
                 try Task.checkCancellation()
-                guard let uri = URL(string: code.verificationUriComplete), uri.scheme == "https" else { throw URLError(.badURL) }
+                guard let uri = URL(string: code.verificationUriComplete), uri.scheme == "https" else { throw URLError(\.badURL) }
                 deviceCode = code
                 let expires = Date().addingTimeInterval(TimeInterval(code.expiresIn))
                 var interval = max(1, code.interval)
@@ -107,7 +107,7 @@ import Network
         let generation = session
         do {
             let value = try await api.me(); try check(generation)
-            let removed = Set(characters.map(.id)).subtracting(value.characters.map(.id))
+            let removed = Set(characters.map(\.id)).subtracting(value.characters.map(\.id))
             if !removed.isEmpty { try await purgeCache(session: generation) }
             me = value; characters = value.characters
             try await vault.write(value, name: "roster", session: generation)
@@ -163,7 +163,7 @@ import Network
             let value = Snapshot(try await api.notes(character.tenantId, itemId)); try check(generation)
             try await cache(value, name: name, generation: generation)
             try check(generation); notes[name] = value
-            for payload in value.value.flatMap(.payloads) where payload.kind == "picture" {
+            for payload in value.value.flatMap(\.payloads) where payload.kind == "picture" {
                 await loadPicture(character, payload: payload.id)
             }
         } catch { await handle(error, generation: generation) }
@@ -200,16 +200,13 @@ import Network
     func picture(_ character: Character, _ id: String) -> Data? { pictures["picture/" + character.id + "/" + id] }
     func saveDraft(_ draft: Draft) async throws {
         let generation = session; try check(generation)
-        var next = drafts
-        if let index = next.firstIndex(where: { $0.id == draft.id }) { next[index] = draft } else { next.append(draft) }
-        try await vault.write(next, name: "drafts", session: generation)
+        let next = try await vault.updateDraft(draft, session: generation)
         try check(generation); drafts = next
     }
     func discardDraft(_ id: String) async throws {
         let generation = session; try check(generation)
         guard !drafts.contains(where: { $0.id == id && $0.queued }) else { throw SyncConflict() }
-        let next = drafts.filter { $0.id != id }
-        try await vault.write(next, name: "drafts", session: generation)
+        let next = try await vault.updateDraft(nil, removing: id, session: generation)
         try check(generation); drafts = next
     }
     func submit(_ value: Draft) async throws {
@@ -230,7 +227,7 @@ import Network
             await self?.synchronize(generation)
             guard let self, session == generation else { return }
             syncTask = nil
-            let wake = drafts.filter { $0.queued && $0.problem == nil }.compactMap(.retryAt).min()
+            let wake = drafts.filter { $0.queued && $0.problem == nil }.compactMap(\.retryAt).min()
             if let wake {
                 retryTask?.cancel()
                 retryTask = Task { [weak self] in
@@ -258,8 +255,7 @@ import Network
                     guard let self else { throw CancellationError() }; try await self.check(generation)
                 })
                 try check(generation)
-                let next = drafts.filter { $0.id != draft.id }
-                try await vault.write(next, name: "drafts", session: generation)
+                let next = try await vault.updateDraft(nil, removing: draft.id, session: generation)
                 try check(generation); drafts = next
                 await loadNotes(draft.character, itemId: draft.itemId)
             } catch {

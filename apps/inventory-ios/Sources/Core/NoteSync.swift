@@ -61,7 +61,7 @@ public struct NoteSync {
             try validate(current.0, complete: false)
         }
         if first == nil, let placeholder = current.0.payloads.first(where: { $0.id == draft.firstPayloadId }) {
-            _ = try await api.request(["tenants", tenant, "payloads", placeholder.id], method: "DELETE", etag: "W/"(placeholder.updatedAt ?? "")"")
+            _ = try await api.request(["tenants", tenant, "payloads", placeholder.id], method: "DELETE", etag: "W/\"\(placeholder.updatedAt ?? "")\"")
             current = try await editor()
         }
         let wanted = draft.parts.map(serverId)
@@ -69,7 +69,7 @@ public struct NoteSync {
             draft.orderBase = (first == nil ? [] : [draft.firstPayloadId!]) + draft.parts.filter { $0.id != first?.id }.map(serverId)
             try await checkpoint(draft)
         }
-        let actual = current.0.ordered.map(.id)
+        let actual = current.0.ordered.map(\.id)
         if actual != wanted {
             guard actual == draft.orderBase else { throw SyncConflict() }
             _ = try await api.request(path + ["payloads", "order"], method: "PUT", body: api.json(["payload_ids": wanted]), etag: current.1)
@@ -82,7 +82,7 @@ public struct NoteSync {
         }
         let confirmed = try await editor().0
         try validate(confirmed, complete: true)
-        guard confirmed.ordered.map(.id) == wanted else { throw SyncConflict() }
+        guard confirmed.ordered.map(\.id) == wanted else { throw SyncConflict() }
         let readback: Audience = try await api.get(path + ["audience"])
         guard readback.matches(draft.audience) else { throw SyncConflict() }
         for part in draft.parts where part.kind == "image" {

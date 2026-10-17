@@ -3,7 +3,7 @@ import BackgroundTasks
 
 @main @MainActor struct LorenzoInventoryApp: App {
     @StateObject private var store: InventoryStore
-    @Environment(.scenePhase) private var phase
+    @Environment(\.scenePhase) private var phase
     init() {
         let value=InventoryStore()
         _store=StateObject(wrappedValue:value)
