@@ -19,7 +19,12 @@ import BackgroundTasks
         WindowGroup {
             RootView().environmentObject(store)
                 .font(.custom("Geist-Regular",size:17,relativeTo:.body))
-                .task { await store.restore() }
+                 .task {
+                    #if DEBUG && targetEnvironment(simulator)
+                    if ProcessInfo.processInfo.environment["LORENZO_TEST_RESET"] == "1" { await store.signOut() }
+                    #endif
+                    await store.restore()
+                }
                 .onChange(of:phase) { _,phase in
                     if phase == .active { Task { await store.refreshRoster() };store.startSync() }
                     if phase == .background {

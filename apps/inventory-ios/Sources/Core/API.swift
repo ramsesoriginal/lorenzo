@@ -18,11 +18,11 @@ public final class HTTPTransport: NSObject, Transport, URLSessionTaskDelegate, @
     }()
     public func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let (bytes, response) = try await session.bytes(for: request)
-        guard let response = response as? HTTPURLResponse else { throw URLError(\.badServerResponse) }
-        guard response.expectedContentLength <= 10 * 1024 * 1024 else { throw URLError(\.dataLengthExceedsMaximum) }
+        guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard response.expectedContentLength <= 10 * 1024 * 1024 else { throw URLError(.dataLengthExceedsMaximum) }
         var data = Data()
         for try await byte in bytes {
-            guard data.count < 10 * 1024 * 1024 else { throw URLError(\.dataLengthExceedsMaximum) }
+            guard data.count < 10 * 1024 * 1024 else { throw URLError(.dataLengthExceedsMaximum) }
             data.append(byte)
         }
         return (data, response)
@@ -41,7 +41,7 @@ public struct API: Sendable {
     }
     public func request(_ path: [String], method: String = "GET", body: Data? = nil, query: [URLQueryItem] = [], etag: String? = nil, mime: String = "application/json") async throws -> Reply {
         guard base.scheme == "https" || (base.scheme == "http" && ["localhost", "127.0.0.1"].contains(base.host ?? "")),
-              path.allSatisfy({ !$0.isEmpty && !$0.contains("/") && $0 != "." && $0 != ".." }) else { throw URLError(\.badURL) }
+              path.allSatisfy({ !$0.isEmpty && !$0.contains("/") && $0 != "." && $0 != ".." }) else { throw URLError(.badURL) }
         var url = base
         for part in path { url.appendPathComponent(part) }
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
@@ -95,11 +95,11 @@ public struct API: Sendable {
     }
     public func picture(_ tenant: String, _ id: String) async throws -> Data {
         let reply = try await request(["tenants", tenant, "payloads", id, "content"])
-        guard ["image/jpeg", "image/png", "image/webp", "image/gif"].contains(reply.mime) else { throw URLError(\.cannotDecodeContentData) }
+        guard ["image/jpeg", "image/png", "image/webp", "image/gif"].contains(reply.mime) else { throw URLError(.cannotDecodeContentData) }
         return reply.data
     }
     public func upload(_ tenant: String, _ info: String, part: DraftPart, etag: String) async throws {
-        guard let image = part.image, image.count <= 10 * 1024 * 1024 else { throw URLError(\.dataLengthExceedsMaximum) }
+        guard let image = part.image, image.count <= 10 * 1024 * 1024 else { throw URLError(.dataLengthExceedsMaximum) }
         let boundary = "Lorenzo-" + UUID().uuidString
         var data = Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"payload_id\"\r\n\r\n\(part.id)\r\n--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"picture.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8)
         data.append(image); data.append(Data("\r\n--\(boundary)--\r\n".utf8))

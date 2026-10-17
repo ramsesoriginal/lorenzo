@@ -13,6 +13,7 @@ import Network
     @Published var busy = false
     @Published var deviceCode: DeviceCode?
     @Published var pictures: [String: Data] = [:]
+    private let base: URL
     private let vault: Vault
     private var api: API?
     private var session = UUID()
@@ -23,6 +24,13 @@ import Network
     private let monitor = NWPathMonitor()
     init(vault: Vault = Vault()) {
         self.vault = vault
+        #if DEBUG && targetEnvironment(simulator)
+        if let raw = ProcessInfo.processInfo.environment["LORENZO_TEST_API"],
+           let url = URL(string: raw), url.host == "127.0.0.1", url.scheme == "http" { base = url }
+        else { base = API.production }
+        #else
+        base = API.production
+        #endif
         monitor.pathUpdateHandler = { [weak self] path in
             if path.status == .satisfied { Task { @MainActor [weak self] in self?.startSync() } }
         }
@@ -37,7 +45,7 @@ import Network
         do {
             guard let token = try await vault.restore(session: generation) else { return }
             guard session == generation else { return }
-            api = API(token: token); signedIn = true
+            api = API(base: base, token: token); signedIn = true
             cacheNames = Set(try await vault.read([String].self, name: "cache-index", session: generation) ?? [])
             me = try await vault.read(Me.self, name: "roster", session: generation)
             characters = me?.characters ?? []
@@ -51,7 +59,7 @@ import Network
         do {
             let clean = token.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !clean.isEmpty else { return }
-            let candidate = API(token: clean)
+            let candidate = API(base: base, token: clean)
             let value = try await candidate.me()
             cancelLogin()
             syncTask?.cancel(); retryTask?.cancel()
@@ -77,10 +85,10 @@ import Network
         loginTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let client = API()
+                let client = API(base: base)
                 let code = try await client.beginDevice()
                 try Task.checkCancellation()
-                guard let uri = URL(string: code.verificationUriComplete), uri.scheme == "https" else { throw URLError(\.badURL) }
+                guard let uri = URL(string: code.verificationUriComplete), uri.scheme == "https" else { throw URLError(.badURL) }
                 deviceCode = code
                 let expires = Date().addingTimeInterval(TimeInterval(code.expiresIn))
                 var interval = max(1, code.interval)

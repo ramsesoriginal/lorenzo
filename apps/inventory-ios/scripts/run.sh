@@ -8,7 +8,13 @@ python3 scripts/project.py
 case "$1" in
  lint) swiftc -parse Sources/Core/*.swift Sources/App/*.swift
        python3 -m unittest discover -s scripts -p 'test_*.py' ;;
- test) swift test ;;
+ test)
+   swift test
+   python3 scripts/ui_server.py > build-ui-server.log 2>&1 &
+   fixture_pid=$!
+   trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+   bash scripts/run.sh ui-test
+   ;;
  build)
    xcodebuild -project LorenzoInventory.xcodeproj -scheme LorenzoInventory -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/device CODE_SIGNING_ALLOWED=NO build > build-device.log 2>&1 || { tail -n 100 build-device.log; exit 1; }
    mkdir -p build/ipa/Payload

@@ -43,7 +43,7 @@ struct RootView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 if !store.status.isEmpty {
-                    Text(store.status).font(\.footnote).padding().frame(maxWidth:.infinity).background(\.regularMaterial)
+                    Text(store.status).font(.footnote).padding().frame(maxWidth:.infinity).background(.regularMaterial)
                         .accessibilityIdentifier("status")
                 }
             }
@@ -61,18 +61,18 @@ struct RootView: View {
             }
             Section {
                 if let code = store.deviceCode {
-                    Text(code.userCode).font(.title.monospaced()).textSelection(\.enabled)
+                    Text(code.userCode).font(.title.monospaced()).textSelection(.enabled)
                     if let url = URL(string: code.verificationUriComplete) { Link("Open account hub",destination:url) }
-                    Text("Approve this code in account hub, then return here.").font(\.footnote)
+                    Text("Approve this code in account hub, then return here.").font(.footnote)
                     Button("Cancel connection") { store.cancelLogin() }
                 } else { Button("Connect with account hub") { store.beginLogin() } }
             }
             Section("Or use a personal access token") {
-                SecureField("Personal access token",text:$token).textInputAutocapitalization(\.never).autocorrectionDisabled()
+                SecureField("Personal access token",text:$token).textInputAutocapitalization(.never).autocorrectionDisabled()
                     .accessibilityIdentifier("token")
                 Button("Connect") { let value=token;token="";Task { await store.connect(value) } }
                     .disabled(store.busy || token.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty)
-                Text("A connection acts with your account’s permissions. Revoke it in account hub when you no longer need it.").font(\.footnote)
+                Text("A connection acts with your account’s permissions. Revoke it in account hub when you no longer need it.").font(.footnote)
             }
         }
     }
@@ -81,7 +81,7 @@ struct RootView: View {
             if store.characters.isEmpty { ContentUnavailableView("No characters yet",systemImage:"person.text.rectangle",description:Text("Your campaign’s characters will appear here once you play them.")) }
             ForEach(store.characters) { character in
                 NavigationLink(value:character) {
-                    VStack(alignment:.leading) { Text(character.name).font(\.headline); Text("Inventory").font(\.caption).foregroundStyle(\.secondary) }
+                    VStack(alignment:.leading) { Text(character.name).font(.headline); Text("Inventory").font(.caption).foregroundStyle(.secondary) }
                 }
             }
             if !store.drafts.isEmpty {
@@ -89,7 +89,7 @@ struct RootView: View {
                     ForEach(store.drafts) { draft in
                         VStack(alignment:.leading) {
                             Text(draft.title)
-                            Text(draft.queued ? (draft.problem ?? "Pending upload") : "Draft").font(\.caption).foregroundStyle(\.secondary)
+                            Text(draft.queued ? (draft.problem ?? "Pending upload") : "Draft").font(.caption).foregroundStyle(.secondary)
                             if draft.queued { Button("Retry") { Task { await store.retry(draft.id) } } }
                         }
                     }
@@ -107,21 +107,21 @@ struct InventoryView: View {
     var body: some View {
         List {
             if let snapshot = store.inventories[character.id] {
-                Text("Downloaded \(snapshot.downloaded.formatted(date:.abbreviated,time:.shortened))").font(\.caption).foregroundStyle(\.secondary)
+                Text("Downloaded \(snapshot.downloaded.formatted(date:.abbreviated,time:.shortened))").font(.caption).foregroundStyle(.secondary)
                 ForEach(snapshot.value.groups) { group in
                     Section {
                         ForEach(group.itemInstances.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) || ($0.tags ?? []).contains(where: { $0.name.localizedCaseInsensitiveContains(search) }) }) { item in
                             NavigationLink {
                                 ItemView(character:character,itemId:item.id)
                             } label: {
-                                HStack { Text(item.title); Spacer(); if let q=item.quantity { Text("×\(q)").foregroundStyle(\.secondary) } }
+                                HStack { Text(item.title); Spacer(); if let q=item.quantity { Text("×\(q)").foregroundStyle(.secondary) } }
                             }
                         }
                     } header: {
-                        VStack(alignment:.leading) { Text(group.container.name); if !group.carried { Text("Held elsewhere").font(\.caption) } }
+                        VStack(alignment:.leading) { Text(group.container.name); if !group.carried { Text("Held elsewhere").font(.caption) } }
                     }
                 }
-            } else { Text("No downloaded inventory. Pull to refresh when connected.").foregroundStyle(\.secondary) }
+            } else { Text("No downloaded inventory. Pull to refresh when connected.").foregroundStyle(.secondary) }
         }
         .navigationTitle(character.name)
         .searchable(text:$search,prompt:"Search inventory or tags")
@@ -144,7 +144,7 @@ struct ItemView: View {
                     Section("Description") {
                         ForEach(Array(item.preferredDescriptions(store.locales).enumerated()),id:\.offset) { _,description in
                             VStack(alignment:.leading) {
-                                if let source=description.fromEntity { Text("From \(source.name)").font(\.caption).foregroundStyle(\.secondary) }
+                                if let source=description.fromEntity { Text("From \(source.name)").font(.caption).foregroundStyle(.secondary) }
                                 MarkdownText(content:description.content)
                             }
                         }
@@ -155,21 +155,21 @@ struct ItemView: View {
                     Section("Notes") {
                         ForEach(store.noteSnapshot(character,itemId)?.value ?? []) { note in
                             VStack(alignment:.leading,spacing:10) {
-                                Text(note.title).font(\.headline)
-                                Text(note.isPublic ? "Everyone can read this" : "Private").font(\.caption).foregroundStyle(\.secondary)
-                                if let author=note.createdByName { Text("By \(author)").font(\.caption).foregroundStyle(\.secondary) }
+                                Text(note.title).font(.headline)
+                                Text(note.isPublic ? "Everyone can read this" : "Private").font(.caption).foregroundStyle(.secondary)
+                                if let author=note.createdByName { Text("By \(author)").font(.caption).foregroundStyle(.secondary) }
                                 ForEach(note.ordered) { payload in
                                     if payload.kind == "description" { MarkdownText(content:payload.content ?? "") }
                                     else if payload.kind == "picture" { ProtectedPicture(data:store.picture(character,payload.id)) }
-                                    else { Text("Attachment: \(payload.kind)").font(\.caption) }
+                                    else { Text("Attachment: \(payload.kind)").font(.caption) }
                                 }
-                            }.padding(\.vertical,4)
+                            }.padding(.vertical,4)
                         }
-                        if store.noteSnapshot(character,itemId)?.value.isEmpty == true { Text("No notes yet.").foregroundStyle(\.secondary) }
+                        if store.noteSnapshot(character,itemId)?.value.isEmpty == true { Text("No notes yet.").foregroundStyle(.secondary) }
                         ForEach(store.drafts.filter { $0.character.id == character.id && $0.itemId == itemId }) { draft in
                             VStack(alignment:.leading) {
-                                Text(draft.title).font(\.headline)
-                                Text(draft.queued ? (draft.problem ?? "Pending upload") : "Draft").font(\.caption)
+                                Text(draft.title).font(.headline)
+                                Text(draft.queued ? (draft.problem ?? "Pending upload") : "Draft").font(.caption)
                                 if draft.queued { Button("Retry upload") { Task { await store.retry(draft.id) } } }
                                 else { Button("Continue note") { composer=draft } }
                             }
@@ -191,7 +191,7 @@ struct MarkdownText: View {
     let content: String
     var body: some View {
         Text((try? AttributedString(markdown:content,options:.init(interpretedSyntax:.inlineOnlyPreservingWhitespace))) ?? AttributedString(content))
-            .textSelection(\.enabled)
+            .textSelection(.enabled)
             .environment(\.openURL,OpenURLAction { url in
                 ["https","http","mailto"].contains(url.scheme ?? "") ? .systemAction : .discarded
             })
@@ -205,7 +205,7 @@ struct ProtectedPicture: View {
             Button { zoom=true } label: { Image(uiImage:image).resizable().scaledToFit().frame(maxHeight:300) }
                 .accessibilityLabel("Open picture")
                 .sheet(isPresented:$zoom) { NavigationStack { ZoomPicture(image:image).toolbar { Button("Done") { zoom=false } } } }
-        } else { Label("Picture not downloaded",systemImage:"photo").foregroundStyle(\.secondary) }
+        } else { Label("Picture not downloaded",systemImage:"photo").foregroundStyle(.secondary) }
     }
 }
 struct ZoomPicture: UIViewRepresentable {
@@ -240,19 +240,19 @@ struct NoteComposer: View {
                         VStack(alignment:.leading) {
                             if part.kind == "text" {
                                 TextEditor(text:$part.text).frame(minHeight:120).accessibilityLabel("Text")
-                                TextField("Language",text:$part.locale).textInputAutocapitalization(\.never).font(\.caption)
+                                TextField("Language",text:$part.locale).textInputAutocapitalization(.never).font(.caption)
                             } else { ProtectedPicture(data:part.image) }
                             HStack {
-                                Button("Move up",systemImage:"arrow.up") { move(part.id,-1) }.labelStyle(\.iconOnly)
-                                Button("Move down",systemImage:"arrow.down") { move(part.id,1) }.labelStyle(\.iconOnly)
+                                Button("Move up",systemImage:"arrow.up") { move(part.id,-1) }.labelStyle(.iconOnly)
+                                Button("Move down",systemImage:"arrow.down") { move(part.id,1) }.labelStyle(.iconOnly)
                                 Spacer()
                                 Button("Remove",role:.destructive) { draft.parts.removeAll { $0.id == part.id } }
-                            }.buttonStyle(\.borderless)
+                            }.buttonStyle(.borderless)
                         }
                     }
                     Button("Add text",systemImage:"text.badge.plus") { draft.parts.append(DraftPart(locale:store.locales.first ?? "en")) }
                     PhotosPicker(selection:$selection,matching:.images,preferredItemEncoding:.current) { Label("Choose a picture",systemImage:"photo") }
-                    if UIImagePickerController.isSourceTypeAvailable(\.camera) {
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
                         Button("Take a photo",systemImage:"camera") { camera=true }
                     }
                     if loadingImage { ProgressView("Keeping picture with your draft…") }
@@ -260,7 +260,7 @@ struct NoteComposer: View {
                 Section {
                     DisclosureGroup("Who can read this") {
                         Toggle("Everyone can read this",isOn:$draft.audience.isPublic)
-                        Text("Library administrators and the campaign’s GMs retain their existing access. Selected characters’ players and group members can read this note.").font(\.footnote)
+                        Text("Library administrators and the campaign’s GMs retain their existing access. Selected characters’ players and group members can read this note.").font(.footnote)
                         ForEach(readers) { reader in
                             Toggle(reader.name,isOn:Binding(get:{ draft.audience.entityIds.contains(reader.entityId) },set:{ selected in
                                 draft.audience.entityIds.removeAll { $0 == reader.entityId };if selected { draft.audience.entityIds.append(reader.entityId) }
@@ -270,10 +270,10 @@ struct NoteComposer: View {
                         ForEach(Array(missing).sorted(),id:\.self) { id in
                             Toggle("Selected reader \(id)",isOn:Binding(get:{true},set:{ _ in draft.audience.entityIds.removeAll { $0 == id } }))
                         }
-                        if readers.isEmpty { Text("Connect to load more characters and groups. Saved selections are kept.").font(\.footnote) }
+                        if readers.isEmpty { Text("Connect to load more characters and groups. Saved selections are kept.").font(.footnote) }
                     }
                 }
-                if !saveError.isEmpty { Text(saveError).foregroundStyle(\.red) }
+                if !saveError.isEmpty { Text(saveError).foregroundStyle(.red) }
             }
             .navigationTitle("Note")
             .interactiveDismissDisabled(saving || loadingImage || !saveError.isEmpty)
@@ -298,7 +298,7 @@ struct NoteComposer: View {
                 loadingImage=true
                 Task {
                     do {
-                        guard let data=try await value.loadTransferable(type:Data.self) else { throw URLError(\.cannotDecodeContentData) }
+                        guard let data=try await value.loadTransferable(type:Data.self) else { throw URLError(.cannotDecodeContentData) }
                         let bytes=try await Task.detached(priority:.userInitiated) { try PhotoNormalizer.jpeg(data) }.value
                         await appendPicture(bytes)
                     } catch { saveError="This picture could not be kept: \(error.localizedDescription)" }
@@ -311,7 +311,7 @@ struct NoteComposer: View {
                 loadingImage=true
                 Task {
                     do {
-                        guard let data=image.jpegData(compressionQuality:0.95) else { throw URLError(\.cannotDecodeContentData) }
+                        guard let data=image.jpegData(compressionQuality:0.95) else { throw URLError(.cannotDecodeContentData) }
                         let bytes=try await Task.detached(priority:.userInitiated) { try PhotoNormalizer.jpeg(data) }.value
                         await appendPicture(bytes)
                     } catch { saveError=error.localizedDescription }
@@ -352,7 +352,7 @@ enum PhotoNormalizer {
               let height=properties[kCGImagePropertyPixelHeight] as? Int,
               width > 0,height > 0,width <= 20000,height <= 20000,width*height <= 80_000_000,
               let cg=CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceCreateThumbnailWithTransform:true,kCGImageSourceThumbnailMaxPixelSize:4096] as CFDictionary),
-              let image=UIImage(cgImage:cg).jpegData(compressionQuality:0.9),image.count <= 10*1024*1024 else { throw URLError(\.cannotDecodeContentData) }
+              let image=UIImage(cgImage:cg).jpegData(compressionQuality:0.9),image.count <= 10*1024*1024 else { throw URLError(.cannotDecodeContentData) }
         return image
     }
 }
