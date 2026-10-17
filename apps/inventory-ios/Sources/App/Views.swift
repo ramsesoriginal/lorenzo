@@ -82,7 +82,7 @@ struct RootView: View {
             ForEach(store.characters) { character in
                 NavigationLink(value:character) {
                     VStack(alignment:.leading) { Text(character.name).font(.headline); Text("Inventory").font(.caption).foregroundStyle(.secondary) }
-                }
+                }.accessibilityIdentifier("character-" + character.entityId)
             }
             if !store.drafts.isEmpty {
                 Section("Saved notes") {
@@ -115,7 +115,7 @@ struct InventoryView: View {
                                 ItemView(character:character,itemId:item.id)
                             } label: {
                                 HStack { Text(item.title); Spacer(); if let q=item.quantity { Text("×\(q)").foregroundStyle(.secondary) } }
-                            }
+                            }.accessibilityIdentifier("item-" + item.id)
                         }
                     } header: {
                         VStack(alignment:.leading) { Text(group.container.name); if !group.carried { Text("Held elsewhere").font(.caption) } }
@@ -211,13 +211,22 @@ struct ProtectedPicture: View {
 struct ZoomPicture: UIViewRepresentable {
     let image: UIImage
     func makeUIView(context:Context) -> UIScrollView {
-        let scroll=UIScrollView();scroll.minimumZoomScale=1;scroll.maximumZoomScale=6;scroll.delegate=context.coordinator
+        let scroll=PictureScrollView();scroll.minimumZoomScale=1;scroll.maximumZoomScale=6;scroll.delegate=context.coordinator
         let view=UIImageView(image:image);view.contentMode = .scaleAspectFit;view.tag=1
         scroll.addSubview(view);return scroll
     }
     func updateUIView(_ scroll:UIScrollView,context:Context) { scroll.viewWithTag(1)?.frame=scroll.bounds }
     func makeCoordinator() -> Coordinator { Coordinator() }
     final class Coordinator: NSObject,UIScrollViewDelegate { func viewForZooming(in scrollView:UIScrollView)->UIView? { scrollView.viewWithTag(1) } }
+}
+final class PictureScrollView: UIScrollView {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if zoomScale == 1 {
+            viewWithTag(1)?.frame = bounds
+            contentSize = bounds.size
+        }
+    }
 }
 struct NoteComposer: View {
     @EnvironmentObject var store: InventoryStore
@@ -342,19 +351,6 @@ struct NoteComposer: View {
         saving=true;await persistence?.value
         do { try await store.saveDraft(draft);dismiss() } catch { saveError=error.localizedDescription }
         saving=false
-    }
-}
-enum PhotoNormalizer {
-    static func jpeg(_ data:Data) throws -> Data {
-        guard data.count <= 30*1024*1024,
-              let source=CGImageSourceCreateWithData(data as CFData,nil),
-              let properties=CGImageSourceCopyPropertiesAtIndex(source,0,nil) as? [CFString:Any],
-              let width=properties[kCGImagePropertyPixelWidth] as? Int,
-              let height=properties[kCGImagePropertyPixelHeight] as? Int,
-              width > 0,height > 0,width <= 20000,height <= 20000,width*height <= 80_000_000,
-              let cg=CGImageSourceCreateThumbnailAtIndex(source,0,[kCGImageSourceCreateThumbnailFromImageAlways:true,kCGImageSourceCreateThumbnailWithTransform:true,kCGImageSourceThumbnailMaxPixelSize:4096] as CFDictionary),
-              let image=UIImage(cgImage:cg).jpegData(compressionQuality:0.9),image.count <= 10*1024*1024 else { throw URLError(.cannotDecodeContentData) }
-        return image
     }
 }
 struct CameraPicker: UIViewControllerRepresentable {

@@ -3,3 +3,4 @@ build/
 *.xcodeproj/
 .swiftpm/
 *.log
+Resources/Assets.xcassets/AppIcon.appiconset/Icon.png

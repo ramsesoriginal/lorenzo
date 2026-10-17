@@ -10,9 +10,9 @@ final class InventoryFlows: XCTestCase {
         XCTAssertTrue(token.waitForExistence(timeout:15))
         token.tap();token.typeText("local-ui-token")
         app.buttons["Connect"].tap()
-        XCTAssertTrue(app.buttons["Brisk"].waitForExistence(timeout:15))
-        app.buttons["Brisk"].tap()
-        let item=app.buttons.containing(.staticText,identifier:"Ornate Spellbook").firstMatch
+        XCTAssertTrue(app.buttons["character-11111111-1111-4111-8111-111111111111"].waitForExistence(timeout:15))
+        app.buttons["character-11111111-1111-4111-8111-111111111111"].tap()
+        let item=app.buttons["item-22222222-2222-4222-8222-222222222222"]
         XCTAssertTrue(item.waitForExistence(timeout:15));item.tap()
         XCTAssertTrue(app.staticTexts["Pages bound between two covers."].waitForExistence(timeout:15))
         let screenshot=XCTAttachment(screenshot:app.screenshot());screenshot.name="Inventory detail";screenshot.lifetime = .keepAlways;add(screenshot)
@@ -24,9 +24,14 @@ final class InventoryFlows: XCTestCase {
         app.buttons["Save note"].tap()
         XCTAssertTrue(app.staticTexts["Smoke stains on the map."].waitForExistence(timeout:20))
         XCTAssertTrue(app.staticTexts["Private"].exists)
+        let offline=expectation(description:"fixture offline")
+        URLSession.shared.dataTask(with:URL(string:"http://127.0.0.1:8874/__offline")!) { _,_,_ in offline.fulfill() }.resume()
+        wait(for:[offline],timeout:5)
         app.terminate()
         app.launchEnvironment["LORENZO_TEST_RESET"]="0"
         app.launch()
-        XCTAssertTrue(app.buttons["Brisk"].waitForExistence(timeout:15))
+        XCTAssertTrue(app.buttons["character-11111111-1111-4111-8111-111111111111"].waitForExistence(timeout:15))
+        app.buttons["character-11111111-1111-4111-8111-111111111111"].tap()
+        XCTAssertTrue(app.buttons["item-22222222-2222-4222-8222-222222222222"].waitForExistence(timeout:15))
     }
 }

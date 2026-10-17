@@ -578,10 +578,20 @@ jobs:
           version: ${{ env.MISE_VERSION }}
       - run: mise run build
         working-directory: apps/inventory-ios
+      - name: Prepare Swift formatting patch
+        if: always()
+        working-directory: apps/inventory-ios
+        run: |
+          mkdir -p build
+          swift format format --in-place --recursive Sources Tests UITests
+          git diff -- Sources Tests UITests > build/swift-format.patch
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
           name: Lorenzo-Inventory-iOS
-          path: apps/inventory-ios/build/Lorenzo-Inventory.ipa
+          path: |
+            apps/inventory-ios/build/Lorenzo-Inventory.ipa
+            apps/inventory-ios/build/swift-format.patch
           retention-days: 7
 
   ci-summary:

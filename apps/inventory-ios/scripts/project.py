@@ -27,7 +27,7 @@ def configs(name, extra):
     cs=[obj(name+c,isa="XCBuildConfiguration",name=c,buildSettings={**common,"SWIFT_OPTIMIZATION_LEVEL":"-Onone" if c=="Debug" else "-O"}) for c in ["Debug","Release"]]
     return obj(name+"list",isa="XCConfigurationList",buildConfigurations=cs,defaultConfigurationIsVisible=0,defaultConfigurationName="Release")
 version=(root/"version.txt").read_text().strip()
-appconfig=configs("app",{"PRODUCT_BUNDLE_IDENTIFIER":"io.lorenzo.inventory.ios","PRODUCT_NAME":"LorenzoInventory","MARKETING_VERSION":version,"CURRENT_PROJECT_VERSION":"1","INFOPLIST_FILE":"Info.plist","GENERATE_INFOPLIST_FILE":"NO"})
+appconfig=configs("app",{"PRODUCT_BUNDLE_IDENTIFIER":"io.lorenzo.inventory.ios","PRODUCT_NAME":"LorenzoInventory","MARKETING_VERSION":version,"CURRENT_PROJECT_VERSION":"1","ASSETCATALOG_COMPILER_APPICON_NAME":"AppIcon","INFOPLIST_FILE":"Info.plist","GENERATE_INFOPLIST_FILE":"NO"})
 app=obj("app",isa="PBXNativeTarget",name="LorenzoInventory",productName="LorenzoInventory",productReference=appProduct,productType="com.apple.product-type.application",buildConfigurationList=appconfig,buildPhases=[sources,res],buildRules=[],dependencies=[])
 proxy=obj("proxy",isa="PBXContainerItemProxy",containerPortal=ident("project"),proxyType=1,remoteGlobalIDString=app,remoteInfo="LorenzoInventory")
 dep=obj("dependency",isa="PBXTargetDependency",target=app,targetProxy=proxy)

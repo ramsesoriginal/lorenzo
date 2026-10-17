@@ -4,6 +4,7 @@ if [ "$(uname)" != Darwin ]; then
   echo "Native iOS checks require Xcode on macOS (the public CI runner supplies it)." >&2
   exit 1
 fi
+swift scripts/icon.swift
 python3 scripts/project.py
 case "$1" in
  lint) swiftc -parse Sources/Core/*.swift Sources/App/*.swift
