@@ -31,6 +31,10 @@ payload only when it belongs to the same information and its kind/content match.
 precedes replay handling; an id collision elsewhere is the same generic 409 as ADR 0222. Replay
 of an already accepted append precedes the version check, so a lost response does not make a
 second attachment or strand a durable mobile draft. A mismatched replay is a conflict.
+An edit-gated `GET /information/{id}/editor` returns the whole bundle to an authorized editor,
+including an author who has not added a reader grant yet. Ordinary reads and protected bytes
+continue to enforce the audiences; the editing snapshot does not grant reader access.
+
 The new APIs preserve the payload list rather than treating a save as replacement of its first
 text. Reordering requires each existing payload exactly once and leaves no partial order.
 
