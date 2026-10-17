@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.1.0...inventory-web-v1.2.0) (2026-10-17)
+
+
+### Features
+
+* a GM's title per campaign (ADR 0294) ([5f71cae](https://github.com/ramsesoriginal/lorenzo/commit/5f71caeba76e0795e781017e0a6c281a896c72b8))
+* **account-hub:** People with Authors and a panel for invite links (ADR 0212) ([945570b](https://github.com/ramsesoriginal/lorenzo/commit/945570b30ea5c58d9cdfcf036c72c8e5007542a3))
+* **api:** stat definition display fields, order and PATCH ([e32ed57](https://github.com/ramsesoriginal/lorenzo/commit/e32ed570b62c4dd116c3060c43f3042b814575d1))
+* **api:** the device-code flow sends devices to the hub the app-links registry names ([abd9410](https://github.com/ramsesoriginal/lorenzo/commit/abd94102b1500fd8b58512df65ef994f44ab512d))
+* **beings:** Lorenzo Beings, a new app for characters and NPCs (ADR 0270-0272) ([26f7b8f](https://github.com/ramsesoriginal/lorenzo/commit/26f7b8f63eef01898a6ff14dc7c58129aca5e71c))
+* **bench:** author facts and targeted information bundles ([b50b2c7](https://github.com/ramsesoriginal/lorenzo/commit/b50b2c75eb498e49c100b285fad74ee499a567b9))
+* **bench:** keyboard moves for tabs (11 of 12) ([9ff4392](https://github.com/ramsesoriginal/lorenzo/commit/9ff4392b7781676e0311bf4288e32840c41971e0))
+* **bench:** the main picture - show, choose, replace, remove (B8) ([c19d639](https://github.com/ramsesoriginal/lorenzo/commit/c19d6391da96ed3c44fb6928b309dfd21fb58004))
+* **information-editor:** edit ordered text and picture bundles ([ba65c9f](https://github.com/ramsesoriginal/lorenzo/commit/ba65c9fdf26d9048d1491ab55944f0bab7379559))
+* **information-editor:** share information with characters and groups ([e962983](https://github.com/ramsesoriginal/lorenzo/commit/e962983ca059949438efc88e66f877bf1d824890))
+* **inventory-mobile:** keep ordered picture notes and audiences ([b0e7251](https://github.com/ramsesoriginal/lorenzo/commit/b0e72517454ed5fca4352939a03d8087bb73ed1b))
+* **inventory-web:** a campaign's title for its game master (ADR 0294) ([ce144e0](https://github.com/ramsesoriginal/lorenzo/commit/ce144e0264d6aef89ddcd48aaca37e2b936601ef))
+* **inventory-web:** a notification bell in the header (ADR 0265) ([0f5265e](https://github.com/ramsesoriginal/lorenzo/commit/0f5265e4d6d61d66b7d64d7eb702da746b5a4dd1))
+* **inventory-web:** edit an item's stat values ([3ec929a](https://github.com/ramsesoriginal/lorenzo/commit/3ec929a96bd80fac962a40790d427638271868c4))
+* **inventory-web:** edit an item's stat values ([43084a2](https://github.com/ramsesoriginal/lorenzo/commit/43084a215eb5c327832bed88c418ec3aaf184ac3))
+* **inventory-web:** hover, focus and tap previews on links in texts ([5d0fdb7](https://github.com/ramsesoriginal/lorenzo/commit/5d0fdb735ebcd60bb2f82d9467e846f1223672cc))
+* **inventory-web:** the bell's See all link comes from the app-links registry ([b9476db](https://github.com/ramsesoriginal/lorenzo/commit/b9476dbe59a592ac1e9eaa82c92ff010b0bb5168))
+* **lorenzoscript:** a stat in a text, {weight} ([3bccede](https://github.com/ramsesoriginal/lorenzo/commit/3bccede76447f031ce553bd60e92bf5acda0a513))
+* stack fact API above information audience controls ([e22f9cd](https://github.com/ramsesoriginal/lorenzo/commit/e22f9cda972aac168e200c504781766f408e168a))
+
+
+### Bug Fixes
+
+* **inventory-web:** a tap on a link opens its card and does not follow, focus does not pre-empt it ([889af93](https://github.com/ramsesoriginal/lorenzo/commit/889af93fdf025c22555123142a5199bbac505ddd))
+* **inventory-web:** Escape closes the bell wherever the focus is ([06f551e](https://github.com/ramsesoriginal/lorenzo/commit/06f551e11b2a01ca371b22b64975d70e03b6a1a4))
+* **inventory-web:** say GM when a campaign of the being can't be listed (ADR 0294) ([0ebcd4e](https://github.com/ramsesoriginal/lorenzo/commit/0ebcd4e3dc928e1b31c09a16cadff389d62cd620))
+* take HTML comments out of the wording scans one span at a time ([19066bc](https://github.com/ramsesoriginal/lorenzo/commit/19066bc80f182ef2c28f5553757fa6c87bef4913)), closes [#733](https://github.com/ramsesoriginal/lorenzo/issues/733)
+
 ## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.0.0...inventory-web-v1.1.0) (2026-09-23)
 
 

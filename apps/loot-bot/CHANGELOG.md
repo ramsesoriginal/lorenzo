@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.4.0...loot-bot-v0.5.0) (2026-10-17)
+
+
+### Features
+
+* a GM's title per campaign (ADR 0294) ([5f71cae](https://github.com/ramsesoriginal/lorenzo/commit/5f71caeba76e0795e781017e0a6c281a896c72b8))
+* **account-hub:** People with Authors and a panel for invite links (ADR 0212) ([945570b](https://github.com/ramsesoriginal/lorenzo/commit/945570b30ea5c58d9cdfcf036c72c8e5007542a3))
+* **bench:** the main picture - show, choose, replace, remove (B8) ([c19d639](https://github.com/ramsesoriginal/lorenzo/commit/c19d6391da96ed3c44fb6928b309dfd21fb58004))
+* **loot-bot:** /whoami names the GM with the campaigns' title (ADR 0294) ([831071d](https://github.com/ramsesoriginal/lorenzo/commit/831071d3b9cc6cd3aab9cccb5f877865cdbc62cb))
+
 ## [0.4.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.3.0...loot-bot-v0.4.0) (2026-09-23)
 
 
