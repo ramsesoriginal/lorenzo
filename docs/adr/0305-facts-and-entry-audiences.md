@@ -85,3 +85,11 @@ physical container, or giving it group members waits for the separately scoped m
 Ordinary prototype links remain available; hidden parent ids, names and provenance are filtered.
 An editor must make the outer audience public before removing the fact kind, so removing a marker
 does not silently publish an entry that was concealed.
+
+## Client compatibility
+
+Adding `fact` widens the closed `kinds` response enum on entries, repository previews and the
+routes returning an entry. This is an accepted breaking response-contract addition: generated
+clients and kind labels are updated in this feature. Record its exact oasdiff findings in the
+API's accepted-breaks file and use a `BREAKING CHANGE` commit footer so release versioning sees
+it. Existing kinds retain their meaning; this does not open the enum to arbitrary strings.
