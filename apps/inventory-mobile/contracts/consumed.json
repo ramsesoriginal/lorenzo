@@ -641,5 +641,30 @@
     "/tenants/{tenant_id}/groups": {
       "get": null
     }
+  },
+  "multipart": {
+    "/tenants/{tenant_id}/information/{information_id}/payloads": {
+      "post": {
+        "fields": {
+          "file": {
+            "type": "string"
+          },
+          "payload_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "file"
+        ]
+      }
+    }
   }
 }

@@ -41,6 +41,18 @@ def check(schema_file):
                 errors.append(f"Missing {method.upper()} {path}")
             elif operation.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema") != request:
                 errors.append(f"Request changed: {method.upper()} {path}")
+    for path, methods in expected.get("multipart", {}).items():
+        for method, contract in methods.items():
+            body = actual.get("paths", {}).get(path, {}).get(method, {}).get("requestBody", {})
+            model = body.get("content", {}).get("multipart/form-data", {}).get("schema", {})
+            if "$ref" in model:
+                model = actual["components"]["schemas"].get(model["$ref"].split("/")[-1], {})
+            for field, field_shape in contract["fields"].items():
+                found = model.get("properties", {}).get(field)
+                if found is None or shape(found) != field_shape:
+                    errors.append(f"Multipart {method.upper()} {path}: {field} changed")
+            if set(model.get("required", [])) != set(contract["required"]):
+                errors.append(f"Multipart {method.upper()} {path}: required fields changed")
     if errors:
         raise SystemExit("\n".join(errors))
     print(f"Mobile contracts match API {actual['info']['version']} ({len(expected['schemas'])} schemas).")
