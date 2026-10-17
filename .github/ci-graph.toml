@@ -131,3 +131,6 @@ generated_from = ["apps/api"]
 # instead of a step after them: each is about 150 s of Gradle.
 [suites.mobile-build]
 node = "apps/inventory-mobile"
+
+[nodes."packages/information-editor"]
+batch = "packages"
