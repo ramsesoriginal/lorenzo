@@ -511,4 +511,26 @@ class InventoryRepositoryTest {
             assertTrue(dao.media.isEmpty())
         }
     }
+
+    @Test
+    fun `signing in again with the same token cannot revive a response from before logout`() =
+        runBlocking {
+            MockWebServer().use { server ->
+                val (repo, dao) = signedIn(server)
+                server.enqueue(
+                    MockResponse()
+                        .setBody("""{"groups":[],"owners":[]}""")
+                        .setBodyDelay(400, TimeUnit.MILLISECONDS)
+                )
+                val old = launch(Dispatchers.Default) { repo.refreshInventory(character) }
+                server.takeRequest()
+                repo.logout()
+                server.enqueue(MockResponse().setBody("""{"id":"user","players":[]}"""))
+                repo.login("lor_pat_test")
+                server.takeRequest()
+                old.join()
+                assertTrue(dao.snapshots.value.keys.none { "/inventory/" in it })
+                assertTrue(repo.observeMe().first()!!.value.characters().isEmpty())
+            }
+        }
 }

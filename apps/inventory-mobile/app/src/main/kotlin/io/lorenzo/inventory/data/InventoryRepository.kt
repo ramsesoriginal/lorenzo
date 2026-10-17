@@ -38,6 +38,7 @@ class InventoryRepository(
     // Only session transitions and persistence serialize. Network work never holds
     // this mutex: saving a local draft does not wait for a slow inventory request.
     private val lock = Mutex()
+    private var sessionGeneration = 0L
     private val syncLock = Mutex()
     private val composerLock = Mutex()
     private val noteRevisions = mutableMapOf<String, Long>()
@@ -51,7 +52,7 @@ class InventoryRepository(
             ((noteRevisions[key] ?: 0) + 1).also { noteRevisions[key] = it }
         }
 
-    private data class Session(val token: String) {
+    private data class Session(val token: String, val generation: Long) {
         val key: String =
             MessageDigest.getInstance("SHA-256").digest(token.toByteArray()).joinToString("") {
                 "%02x".format(it)
@@ -60,11 +61,12 @@ class InventoryRepository(
         fun key(suffix: String) = "$key/$suffix"
     }
 
-    private fun currentSession() = secrets.token.value?.let(::Session)
+    private fun currentSession() = secrets.token.value?.let { Session(it, sessionGeneration) }
 
     private suspend fun session() = lock.withLock { requireNotNull(currentSession()) }
 
-    private fun sameSession(session: Session) = secrets.token.value == session.token
+    private fun sameSession(session: Session) =
+        secrets.token.value == session.token && session.generation == sessionGeneration
 
     private fun key(suffix: String) = currentSession()?.key(suffix) ?: "signed-out/$suffix"
 
@@ -120,9 +122,10 @@ class InventoryRepository(
 
     suspend fun login(token: String) {
         val me = LorenzoApi(apiUrl, token).me()
-        val next = Session(token)
+        val next = Session(token, sessionGeneration + 1)
         val row = snapshot(next, "me", me)
         lock.withLock {
+            sessionGeneration++
             cancelNotes()
             dao.clearNotes()
             dao.clearDrafts()
@@ -137,6 +140,7 @@ class InventoryRepository(
 
     private suspend fun clearSession() =
         withContext(NonCancellable) {
+            sessionGeneration++
             cancelNotes()
             noteRevisions.clear()
             pictureEpoch++
