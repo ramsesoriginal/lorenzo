@@ -179,6 +179,11 @@ import Network
             if notes[name] == nil {
                 let saved = try await vault.read(Snapshot<[Information]>.self, name: name, session: generation)
                 try checkCache(generation, epoch); notes[name] = saved
+                for payload in saved?.value.flatMap(\.payloads) ?? [] where payload.kind == "picture" {
+                    let pictureName = "picture/" + character.id + "/" + payload.id
+                    let bytes = try await vault.read(Data.self, name: pictureName, session: generation)
+                    try checkCache(generation, epoch); pictures[pictureName] = bytes
+                }
             }
             let value = Snapshot(try await api.notes(character.tenantId, itemId)); try checkCache(generation, epoch)
             try await cache(value, name: name, generation: generation, epoch: epoch)

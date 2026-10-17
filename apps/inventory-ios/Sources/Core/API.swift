@@ -2,6 +2,7 @@ import Foundation
 
 public struct APIError: Error, LocalizedError, Sendable {
     public var status: Int; public var kind: String; public var message: String
+    public init(status: Int, kind: String, message: String) { self.status = status; self.kind = kind; self.message = message }
     public var errorDescription: String? { message }
     public var transient: Bool { status == 408 || status == 429 || status >= 500 }
 }

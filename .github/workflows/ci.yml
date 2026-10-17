@@ -165,6 +165,7 @@ jobs:
         with:
           name: iOS-simulator-results
           path: |
+            apps/inventory-ios/build/screenshots
             apps/inventory-ios/build/UITests.xcresult
             apps/inventory-ios/build-uitest.log
           retention-days: 7

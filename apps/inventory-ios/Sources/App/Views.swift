@@ -56,7 +56,7 @@ struct RootView: View {
     var signIn: some View {
         Form {
             Section {
-                HStack { MasterMark().fill(Lorenzo.gold,style:FillStyle(eoFill:true)).frame(width:44,height:44); Text("Keep your inventory close.").font(.custom("Newsreader-Regular",size:26,relativeTo:.title2)) }
+                HStack { MasterMark().fill(Lorenzo.gold,style:FillStyle(eoFill:true)).frame(width:44,height:44); Text("Keep your inventory close.").font(.custom("Newsreader16pt-Regular",size:26,relativeTo:.title2)) }
                 Text("Connect to read your characters’ inventories and keep notes at the table.")
             }
             Section {
@@ -201,7 +201,8 @@ struct ProtectedPicture: View {
     let data: Data?
     @State private var zoom = false
     var body: some View {
-        if let data, let image=UIImage(data:data) {
+        if let data, let cg = try? PhotoNormalizer.thumbnail(data) {
+            let image = UIImage(cgImage: cg)
             Button { zoom=true } label: { Image(uiImage:image).resizable().scaledToFit().frame(maxHeight:300) }
                 .accessibilityLabel("Open picture")
                 .sheet(isPresented:$zoom) { NavigationStack { ZoomPicture(image:image).toolbar { Button("Done") { zoom=false } } } }
@@ -243,45 +244,8 @@ struct NoteComposer: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Title",text:$draft.title)
-                    ForEach($draft.parts) { $part in
-                        VStack(alignment:.leading) {
-                            if part.kind == "text" {
-                                TextEditor(text:$part.text).frame(minHeight:120).accessibilityLabel("Text")
-                                TextField("Language",text:$part.locale).textInputAutocapitalization(.never).font(.caption)
-                            } else { ProtectedPicture(data:part.image) }
-                            HStack {
-                                Button("Move up",systemImage:"arrow.up") { move(part.id,-1) }.labelStyle(.iconOnly)
-                                Button("Move down",systemImage:"arrow.down") { move(part.id,1) }.labelStyle(.iconOnly)
-                                Spacer()
-                                Button("Remove",role:.destructive) { draft.parts.removeAll { $0.id == part.id } }
-                            }.buttonStyle(.borderless)
-                        }
-                    }
-                    Button("Add text",systemImage:"text.badge.plus") { draft.parts.append(DraftPart(locale:store.locales.first ?? "en")) }
-                    PhotosPicker(selection:$selection,matching:.images,preferredItemEncoding:.current) { Label("Choose a picture",systemImage:"photo") }
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        Button("Take a photo",systemImage:"camera") { camera=true }
-                    }
-                    if loadingImage { ProgressView("Keeping picture with your draft…") }
-                }
-                Section {
-                    DisclosureGroup("Who can read this") {
-                        Toggle("Everyone can read this",isOn:$draft.audience.isPublic)
-                        Text("Library administrators and the campaign’s GMs retain their existing access. Selected characters’ players and group members can read this note.").font(.footnote)
-                        ForEach(readers) { reader in
-                            Toggle(reader.name,isOn:Binding(get:{ draft.audience.entityIds.contains(reader.entityId) },set:{ selected in
-                                draft.audience.entityIds.removeAll { $0 == reader.entityId };if selected { draft.audience.entityIds.append(reader.entityId) }
-                            }))
-                        }
-                        let missing=Set(draft.audience.entityIds).subtracting(readers.map(\.entityId))
-                        ForEach(Array(missing).sorted(),id:\.self) { id in
-                            Toggle("Selected reader \(id)",isOn:Binding(get:{true},set:{ _ in draft.audience.entityIds.removeAll { $0 == id } }))
-                        }
-                        if readers.isEmpty { Text("Connect to load more characters and groups. Saved selections are kept.").font(.footnote) }
-                    }
-                }
+                partsSection
+                audienceSection
                 if !saveError.isEmpty { Text(saveError).foregroundStyle(.red) }
             }
             .disabled(saving || loadingImage)
@@ -330,6 +294,49 @@ struct NoteComposer: View {
             } }
             .task { readers=await store.recipients(draft.character) }
         }
+    }
+    var partsSection: some View {
+                Section {
+                    TextField("Title",text:$draft.title)
+                    ForEach($draft.parts) { $part in
+                        VStack(alignment:.leading) {
+                            if part.kind == "text" {
+                                TextEditor(text:$part.text).frame(minHeight:120).accessibilityLabel("Text")
+                                TextField("Language",text:$part.locale).textInputAutocapitalization(.never).font(.caption)
+                            } else { ProtectedPicture(data:part.image) }
+                            HStack {
+                                Button("Move up",systemImage:"arrow.up") { move(part.id,-1) }.labelStyle(.iconOnly)
+                                Button("Move down",systemImage:"arrow.down") { move(part.id,1) }.labelStyle(.iconOnly)
+                                Spacer()
+                                Button("Remove",role:.destructive) { draft.parts.removeAll { $0.id == part.id } }
+                            }.buttonStyle(.borderless)
+                        }
+                    }
+                    Button("Add text",systemImage:"text.badge.plus") { draft.parts.append(DraftPart(locale:store.locales.first ?? "en")) }
+                    PhotosPicker(selection:$selection,matching:.images,preferredItemEncoding:.current) { Label("Choose a picture",systemImage:"photo") }
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        Button("Take a photo",systemImage:"camera") { camera=true }
+                    }
+                    if loadingImage { ProgressView("Keeping picture with your draft…") }
+                }
+    }
+    var audienceSection: some View {
+                Section {
+                    DisclosureGroup("Who can read this") {
+                        Toggle("Everyone can read this",isOn:$draft.audience.isPublic)
+                        Text("Library administrators and the campaign’s GMs retain their existing access. Selected characters’ players and group members can read this note.").font(.footnote)
+                        ForEach(readers) { reader in
+                            Toggle(reader.name,isOn:Binding(get:{ draft.audience.entityIds.contains(reader.entityId) },set:{ selected in
+                                draft.audience.entityIds.removeAll { $0 == reader.entityId };if selected { draft.audience.entityIds.append(reader.entityId) }
+                            }))
+                        }
+                        let missing=Set(draft.audience.entityIds).subtracting(readers.map(\.entityId))
+                        ForEach(Array(missing).sorted(),id:\.self) { id in
+                            Toggle("Selected reader \(id)",isOn:Binding(get:{true},set:{ _ in draft.audience.entityIds.removeAll { $0 == id } }))
+                        }
+                        if readers.isEmpty { Text("Connect to load more characters and groups. Saved selections are kept.").font(.footnote) }
+                    }
+                }
     }
     func move(_ id:String,_ offset:Int) {
         guard let i=draft.parts.firstIndex(where:{$0.id == id}),draft.parts.indices.contains(i+offset) else { return }

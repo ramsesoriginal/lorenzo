@@ -2,6 +2,7 @@ import Foundation
 import CryptoKit
 
 public struct SyncConflict: Error, LocalizedError {
+    public init() {}
     public var errorDescription: String? { "This note changed elsewhere. Your draft is kept for review." }
 }
 public struct NoteSync {
