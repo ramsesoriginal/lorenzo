@@ -29,6 +29,9 @@ export function beingPageHref(
 /** A being's board in inventory-web, or null if nothing says where that is (ADR 0273). */
 export const inventoryBoardHref = boardUrl;
 
+export const factPageHref = (tenant: string, id: string): string =>
+  `/fact/?tenant=${encodeURIComponent(tenant)}&id=${encodeURIComponent(id)}`;
+
 const beingPage: View['href'] = (t, id) => beingPageHref(t, { entity_id: id });
 // An item has no page here: inventory-web has, when something says where it is (ADR 0270, 0273).
 const itemPage: View['href'] = itemUrl;
@@ -37,6 +40,7 @@ const itemPage: View['href'] = itemUrl;
 // page is listed only when inventory-web's address is known, which is decided when it is asked.
 function views(): View[] {
   return [
+    { kind: 'fact', page: 'its fact page', href: factPageHref },
     { kind: 'character', page: 'its page', href: beingPage },
     { kind: 'being', page: 'its page', href: beingPage },
     ...(itemUrl('', '') === null

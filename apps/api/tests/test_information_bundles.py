@@ -220,6 +220,13 @@ async def test_an_author_of_a_private_note_can_read_it_for_editing(
 
     tenant, base, _ = await bundle(client, test_user_id)
     try:
+        fact = await client.post(
+            f"/tenants/{tenant}/entities", json={"name": "A concealed recipient", "kinds": ["fact"]}
+        )
+        assert fact.status_code == 201, fact.text
+        fact_id = fact.json()["id"]
+        grant = await client.put(base + "/knowers/" + fact_id)
+        assert grant.status_code == 200, grant.text
         async with admin_session_factory() as session:
             campaign = await make_campaign(session, tenant_id=tenant)
             seat = Player(tenant_id=tenant, campaign_id=campaign.id, user_id=test_user_id)
@@ -248,6 +255,10 @@ async def test_an_author_of_a_private_note_can_read_it_for_editing(
         assert editing.status_code == 200, editing.text
         assert editing.json()["payloads"][0]["content"] == "First text."
         assert editing.headers["etag"]
+        knowers = await client.get(base + "/knowers")
+        assert knowers.status_code == 200, knowers.text
+        assert knowers.json()[0]["knower_entity_id"] == fact_id
+        assert knowers.json()[0]["name"] is None
     finally:
         await delete_tenant(tenant)
 

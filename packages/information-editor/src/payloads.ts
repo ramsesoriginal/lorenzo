@@ -20,6 +20,30 @@ const image = (alt: string) => {
   return node;
 };
 
+/** Decode and bound acquired images before staging or sending their bytes. */
+export async function validatePicture(file: File, preview?: HTMLImageElement): Promise<void> {
+  const picture = preview ?? image(file.name);
+  const url = preview ? null : URL.createObjectURL(file);
+  try {
+    if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type))
+      throw new Error('Choose a PNG, JPEG, WebP or GIF image.');
+    if (!file.size) throw new Error('This image is empty.');
+    if (url) picture.src = url;
+    await picture.decode();
+    if (
+      picture.naturalWidth * picture.naturalHeight > 100_000_000 ||
+      Math.max(picture.naturalWidth, picture.naturalHeight) > 32768
+    )
+      throw new Error('This image is too large to display. Choose a smaller copy.');
+  } catch (error) {
+    if (error instanceof Error && error.name === 'EncodingError')
+      throw new Error('This file could not be read as an image.');
+    throw error;
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+  }
+}
+
 /** Read every payload in order; protected bytes use the app's existing authenticated loader. */
 export function renderInformationPayloads(
   host: HTMLElement,
@@ -140,16 +164,8 @@ export function renderBundleEditor(options: {
       row.revoke = () => URL.revokeObjectURL(url);
       row.validation = (async () => {
         try {
-          if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type))
-            throw new Error('Choose a PNG, JPEG, WebP or GIF image.');
-          if (!file.size) throw new Error('This image is empty.');
           picture.src = url;
-          await picture.decode();
-          if (
-            picture.naturalWidth * picture.naturalHeight > 100_000_000 ||
-            Math.max(picture.naturalWidth, picture.naturalHeight) > 32768
-          )
-            throw new Error('This image is too large to display. Choose a smaller copy.');
+          await validatePicture(file, picture);
         } catch (error) {
           row.error =
             error instanceof Error && error.name !== 'EncodingError'

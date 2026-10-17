@@ -284,3 +284,51 @@ async def test_outer_group_access_tracks_current_membership(
         ] == 0
     finally:
         await delete_tenant(tenant)
+
+
+async def test_fact_editor_can_rename_and_inspect_explicit_outer_recipients(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    tenant = await make_tenant(test_user_id)
+    try:
+        fact = await make_fact(client, tenant)
+        base = f"/tenants/{tenant}/entities/{fact}"
+        original = await client.get(base)
+        renamed = await client.patch(
+            base, json={"name": "The weapon's bond"}, headers={"If-Match": original.headers["etag"]}
+        )
+        assert renamed.status_code == 200, renamed.text
+        assert renamed.json()["name"] == "The weapon's bond"
+        stale = await client.patch(
+            base, json={"name": "Old draft"}, headers={"If-Match": original.headers["etag"]}
+        )
+        assert stale.status_code == 412, stale.text
+        seat = await reader_seat(tenant, test_user_id)
+        audience = await client.get(base + "/audience")
+        granted = await client.put(
+            base + "/audience",
+            json={"is_public": False, "player_ids": [str(seat)]},
+            headers={"If-Match": audience.headers["etag"]},
+        )
+        assert granted.status_code == 200, granted.text
+        recipients = await client.get(base + "/knowers")
+        assert recipients.status_code == 200, recipients.text
+        assert recipients.json()[0]["player_id"] == str(seat)
+        assert "granted_at" not in recipients.json()[0]
+        async with admin_session_factory() as session:
+            await session.delete(await session.get_one(Membership, (tenant, test_user_id)))
+            await session.commit()
+        assert (await client.get(base)).status_code == 200
+        assert (await client.get(base + "/knowers")).status_code == 403
+        assert (
+            await client.patch(base, json={"name": "A reader cannot rename"})
+        ).status_code == 403
+        async with admin_session_factory() as session:
+            await session.execute(
+                delete(EntityKnowledge).where(EntityKnowledge.entity_id == uuid.UUID(fact))
+            )
+            await session.commit()
+        assert (await client.get(base + "/knowers")).status_code == 404
+        assert (await client.patch(base, json={"name": "An unknown name"})).status_code == 404
+    finally:
+        await delete_tenant(tenant)

@@ -88,6 +88,7 @@ from lorenzo_api.models import (
     Payload,
     Player,
     StatDefinition,
+    User,
     VEffectiveStat,
     formula_load_options,
 )
@@ -111,6 +112,8 @@ from lorenzo_api.schemas.entities import (
     EntityParentsRequest,
     EntitySlugOut,
     EntitySlugUpdate,
+    EntryKnowerOut,
+    FactUpdate,
     InformationCreate,
     InformationOrderRequest,
     InformationOut,
@@ -1615,6 +1618,86 @@ async def entry_audience_of(session: SessionDep, audience: EntityAudience) -> In
         entity_ids=sorted((e for e, _ in links if e is not None), key=str),
         player_ids=sorted((p for _, p in links if p is not None), key=str),
     )
+
+
+@router.patch("/{entity_id}")
+async def update_fact(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: FactUpdate,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Rename a fact (ADR 0305); physical kinds retain their existing write routes."""
+    await editable_fact_audience(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
+    entity = await session.scalar(
+        select(Entity)
+        .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+        .execution_options(populate_existing=True)
+    )
+    assert entity is not None
+    check_if_match(if_match, updated_at=entity.updated_at)
+    if entity.name != body.name:
+        entity.name = body.name
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.renamed",
+            target_type="entity",
+            target_id=entity_id,
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.get("/{entity_id}/knowers")
+async def list_entry_knowers(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[EntryKnowerOut]:
+    """Outer recipients are visible only to an editor, just like inner recipients."""
+    await editable_fact_audience(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
+    rows = (
+        await session.execute(
+            select(
+                EntityKnowledge.knower_entity_id,
+                EntityKnowledge.knower_player_id,
+                Entity.name.label("entity_name"),
+                User.display_name,
+                User.nickname,
+            )
+            .outerjoin(Entity, Entity.id == EntityKnowledge.knower_entity_id)
+            .outerjoin(Player, Player.id == EntityKnowledge.knower_player_id)
+            .outerjoin(User, User.id == Player.user_id)
+            .where(EntityKnowledge.entity_id == entity_id, EntityKnowledge.tenant_id == tenant_id)
+            .order_by(EntityKnowledge.knower_entity_id, EntityKnowledge.knower_player_id)
+        )
+    ).all()
+    reader = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    return [
+        EntryKnowerOut(
+            kind="player" if row.knower_player_id is not None else "entity",
+            knower_entity_id=row.knower_entity_id,
+            player_id=row.knower_player_id,
+            name=(row.display_name or row.nickname)
+            if row.knower_player_id is not None
+            else row.entity_name
+            if reader.can_see_entry(row.knower_entity_id)
+            else None,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/{entity_id}/audience")

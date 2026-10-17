@@ -2789,7 +2789,11 @@ export interface paths {
         delete: operations["delete_entity"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Fact
+         * @description Rename a fact (ADR 0305); physical kinds retain their existing write routes.
+         */
+        patch: operations["update_fact"];
         trace?: never;
     };
     "/tenants/{tenant_id}/entities/resolve": {
@@ -3012,6 +3016,26 @@ export interface paths {
          *     whether or not it had one. Same gate as setting it. Logged when something was removed.
          */
         delete: operations["clear_entity_picture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/knowers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Entry Knowers
+         * @description Outer recipients are visible only to an editor, just like inner recipients.
+         */
+        get: operations["list_entry_knowers"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6762,6 +6786,31 @@ export interface components {
             name: string;
             /** Quantity */
             quantity?: number | null;
+        };
+        /**
+         * EntryKnowerOut
+         * @description An explicit outer recipient, without inventing a grant date.
+         */
+        EntryKnowerOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "player";
+            /** Knower Entity Id */
+            knower_entity_id?: string | null;
+            /** Player Id */
+            player_id?: string | null;
+            /** Name */
+            name: string | null;
+        };
+        /**
+         * FactUpdate
+         * @description The name of a canonical fact; information and audiences have their own writes.
+         */
+        FactUpdate: {
+            /** Name */
+            name: string;
         };
         /**
          * FieldChangeOut
@@ -20283,6 +20332,78 @@ export interface operations {
             };
         };
     };
+    update_fact: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     resolve_slugs: {
         parameters: {
             query: {
@@ -20994,6 +21115,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_entry_knowers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryKnowerOut"][];
+                };
             };
             /** @description Validation Error */
             422: {

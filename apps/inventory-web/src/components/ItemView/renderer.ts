@@ -1,5 +1,6 @@
 import { renderInformationPayloads } from '@lorenzo/information-editor';
 import { listInformation } from '../../lib/information';
+import { renderFactsAbout } from '../Facts/renderer';
 // One rendering of an item for the dialog and the item page (ADR 0112): its stat groups, tags,
 // pictures, and descriptions, its own and those it inherits from its prototypes (ADR 0111).
 
@@ -55,9 +56,14 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
   }
 
   let turn = 0;
+  let facts: HTMLElement | null = null;
   return {
     show(item) {
       const mine = ++turn;
+      facts?.remove();
+      facts = document.createElement('section');
+      root.append(facts);
+      renderFactsAbout(facts, options.tenantId, item.entity_id);
       descriptions.replaceChildren();
       pictures.replaceChildren();
       pictures.hidden = true;

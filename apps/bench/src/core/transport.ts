@@ -1,3 +1,4 @@
+import type { Information } from '@lorenzo/information-editor';
 // What the command layer needs from a server, as a small interface. The real one is built on the
 // typed client (lib/transport.ts); the sample one keeps everything in memory (core/sample.ts).
 
@@ -10,11 +11,13 @@ export interface EntrySummary {
 }
 
 /** The kinds an author can give or take away so far; the others are made by their own routes. */
-export type EditableKind = 'item' | 'being';
-export const EDITABLE_KINDS: readonly EditableKind[] = ['item', 'being'];
+export type EditableKind = 'item' | 'being' | 'fact';
+export const EDITABLE_KINDS: readonly EditableKind[] = ['item', 'being', 'fact'];
 
 /** A piece of text on an entry: its description, or a note. LorenzoScript, kept as written. */
 export interface TextDoc {
+  /** The whole ordered bundle; legacy/sample mirrors may contain only the first text. */
+  information?: Information;
   /** The information's id (made by the client for a new one, ADR 0222). */
   id: string;
   /** The payload that holds the text, which is what an edit writes to. */
@@ -101,8 +104,17 @@ export interface StatValue {
 /** Whether a stat of this type can be written from Bench: every type can. */
 export const canEditStat = (_type: StatType): boolean => true;
 
+/** Fields whose base is read only when their editor opens or a command is sent. */
+export type EntryFieldTarget =
+  | { kind: 'information-audience' | 'entry-audience' | 'payload-order'; id: string }
+  | { kind: 'fact-about'; id: string; subjectId: string };
+export type FieldSnapshot = { value: string | boolean; version: string | null };
+export const fieldKey = (target: EntryFieldTarget): string =>
+  `${target.kind}:${target.id}${target.kind === 'fact-about' ? `:${target.subjectId}` : ''}`;
+
 /** An entry as the server last said it was. `etag` is what `If-Match` wants on a write. */
 export interface EntryState {
+  fieldSnapshots?: Record<string, FieldSnapshot>;
   id: string;
   name: string;
   kinds: string[];
@@ -147,13 +159,22 @@ export interface NewEntry {
 }
 
 /** Only an item has a name that can be changed so far. */
-export const canRename = (kinds: readonly string[]): boolean => kinds.includes('item');
+export const canRename = (kinds: readonly string[]): boolean =>
+  kinds.includes('item') || kinds.includes('fact');
 
 /** An inventory item's one parent changes through its own route, not here. */
 export const canSetParents = (kinds: readonly string[]): boolean =>
   !kinds.includes('item_instance');
 
 export interface Transport {
+  readField?(target: EntryFieldTarget): Promise<FieldSnapshot>;
+  writeField?(
+    entryId: string,
+    target: EntryFieldTarget,
+    value: string | boolean,
+    version: string | null,
+  ): Promise<EntryState>;
+
   listEntries(): Promise<EntrySummary[]>;
   listStatDefinitions(): Promise<StatDef[]>;
   /**
@@ -228,6 +249,21 @@ export interface Transport {
   setKind(id: string, kind: EditableKind, on: boolean, etag: string | null): Promise<EntryState>;
   /** Makes a description or a note on the entry under its own id, or finds it already there. */
   createText(entryId: string, text: NewText): Promise<void>;
+  removePicturePayload?(payloadId: string, version: string): Promise<void>;
+  payloadFile?(payloadId: string, version: string): Promise<string>;
+  appendPicture?(
+    informationId: string,
+    payloadId: string,
+    file: File,
+    version: string,
+  ): Promise<void>;
+  /** Appends the first text to an information that previously held images only. */
+  appendText?(
+    informationId: string,
+    payloadId: string,
+    text: string,
+    version: string,
+  ): Promise<void>;
   /** Replaces the text of a payload. `version` is its `If-Match`. */
   setText(payloadId: string, text: string, version: string | null): Promise<void>;
 }

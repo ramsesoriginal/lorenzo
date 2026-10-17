@@ -21,9 +21,28 @@ mise run //apps/bench:dev        # dev server
 mise run //apps/bench:lint       # Biome, Astro and Prettier checks
 mise run //apps/bench:test       # unit tests of workspace, commands and editor logic
 mise run //apps/bench:test-e2e   # Playwright; E2E_CHROMIUM selects an installed browser
+mise run //apps/bench:test-e2e-api # real API, needs Postgres
 mise run //apps/bench:build      # static site in dist/
 ```
 
 Keyboard: on a focused tab, Alt+Left/Right reorders, Alt+Shift+arrows splits it to that side, Alt+F floats it, Ctrl+Alt+arrows move it into the group beside, Alt+D docks it back; the palette lists them ([ADR 0257](../../docs/adr/0257-bench-keyboard-moves-for-tabs.md)).
 
 Layout rules live in `src/workspace/` as pure functions; `src/shell/` is the DOM over them.
+
+## Facts and information bundles
+
+Facts are entries with an optional explicit About list and a separate audience for knowing the
+entry exists (ADR 0305). Their descriptions and notes each keep their own audience; passing the
+outer gate does not grant the contents. The collapsed controls show and replace explicit readers.
+Audience and About changes use the existing command/conflict/undo flow.
+
+Descriptions and notes retain ordered text and picture payloads (ADR 0306). Each text is edited
+where it is drawn. Drop a picture onto its information, paste while editing its text, or use the
+quiet Add picture button. Pending text is flushed first and the picture is appended last. Picture
+controls move it or remove it with confirmation; deleting bytes cannot be undone. Failed uploads
+retain their file and stable id for Retry while this page remains open. They participate in the
+unsent-changes warning, but are not durable offline drafts.
+
+The real-API browser suite exercises Fact creation, separate audiences, About, targeted picture
+uploads, lost-response retry, paste/drop, ordering, removal and reload. It reuses the Beings test
+auth/API launchers with a separate database; the original sample browser suite stays independent.

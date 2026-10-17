@@ -3,13 +3,28 @@ from datetime import datetime
 from typing import Literal
 
 from fastapi import Request
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from lorenzo_api.information_visibility import InformationReader
 from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 from lorenzo_api.stat_evaluation import evaluate
+
+
+class FactUpdate(BaseModel):
+    """The name of a canonical fact; information and audiences have their own writes."""
+
+    name: str = Field(min_length=1)
+
+
+class EntryKnowerOut(BaseModel):
+    """An explicit outer recipient, without inventing a grant date."""
+
+    kind: Literal["entity", "player"]
+    knower_entity_id: uuid.UUID | None = None
+    player_id: uuid.UUID | None = None
+    name: str | None
 
 
 class EntitySlugUpdate(BaseModel):

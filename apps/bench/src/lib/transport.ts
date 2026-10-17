@@ -12,8 +12,11 @@ import { fromBody, toBody } from '../core/formulas';
 import {
   decimalText,
   type EditableKind,
+  type EntryFieldTarget,
   type EntryState,
   type EntrySummary,
+  type FieldSnapshot,
+  fieldKey,
   type NewEntry,
   type NewText,
   OfflineError,
@@ -44,6 +47,8 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
 
   // The stat vocabulary, read once: an entry names its stats, and a write needs their ids.
   let definitions: Promise<StatDef[]> | null = null;
+  const kinds = new Map<string, string[]>();
+  const files = new Map<string, Promise<string>>();
   const loadDefinitions = (): Promise<StatDef[]> => {
     definitions ??= fetchAllPages(async (page) =>
       unwrap(
@@ -71,21 +76,22 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
     entry: EntityDetail,
     etag: string | null,
   ): Promise<EntryState> {
+    kinds.set(id, [...entry.kinds]);
     const defs = await loadDefinitions();
     const docs = (type: string): TextDoc[] =>
       entry.information
         .filter((info) => info.type === type)
         .flatMap((info) => {
           const text = info.payloads.find((p) => p.kind === 'description');
-          if (!text || text.kind !== 'description') return [];
           return [
             {
               id: info.id,
-              payloadId: text.id,
+              payloadId: text?.id ?? '',
               title: info.title,
-              text: text.content,
+              text: text?.kind === 'description' ? text.content : '',
               // The payload's own `updated_at`, as a weak ETag (ADR 0108).
-              version: `W/"${text.updated_at}"`,
+              version: text ? `W/"${text.updated_at}"` : null,
+              information: info,
               // Everyone's, or GM only (the row's `is_public`).
               isPublic: info.is_public,
             },
@@ -115,6 +121,44 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
     return toState(id, await unwrap(res), res.response.headers.get('etag'));
   }
 
+  const audienceText = (value: Schema<'InformationAudience'>) =>
+    JSON.stringify({
+      is_public: value.is_public,
+      entity_ids: [...(value.entity_ids ?? [])].sort(),
+      player_ids: [...(value.player_ids ?? [])].sort(),
+    });
+  async function readField(target: EntryFieldTarget): Promise<FieldSnapshot> {
+    if (target.kind === 'fact-about') {
+      const rows = await unwrap(
+        await client.GET('/tenants/{tenant_id}/entities/{entity_id}/about', {
+          params: { path: { ...path, entity_id: target.id } },
+        }),
+      );
+      return { value: rows.some((row) => row.id === target.subjectId), version: null };
+    }
+    if (target.kind === 'payload-order') {
+      const result = await client.GET('/tenants/{tenant_id}/information/{information_id}/editor', {
+        params: { path: { ...path, information_id: target.id } },
+      });
+      return {
+        value: JSON.stringify((await unwrap(result)).payloads.map((p) => p.id)),
+        version: result.response.headers.get('etag'),
+      };
+    }
+    const result =
+      target.kind === 'entry-audience'
+        ? await client.GET('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+            params: { path: { ...path, entity_id: target.id } },
+          })
+        : await client.GET('/tenants/{tenant_id}/information/{information_id}/audience', {
+            params: { path: { ...path, information_id: target.id } },
+          });
+    return {
+      value: audienceText(await unwrap(result)),
+      version: result.response.headers.get('etag'),
+    };
+  }
+
   const guarded = async <T>(work: () => Promise<T>): Promise<T> => {
     try {
       return await work();
@@ -126,6 +170,49 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
   const ifMatch = (etag: string | null) => ({ 'if-match': etag });
 
   return {
+    readField: (target) => guarded(() => readField(target)),
+    writeField: (entryId, target, value, version) =>
+      guarded(async () => {
+        if (target.kind === 'fact-about') {
+          const params = { path: { ...path, entity_id: target.id, subject_id: target.subjectId } };
+          await unwrap(
+            value === true
+              ? await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/about/{subject_id}', {
+                  params,
+                })
+              : await client.DELETE(
+                  '/tenants/{tenant_id}/entities/{entity_id}/about/{subject_id}',
+                  { params },
+                ),
+          );
+        } else if (target.kind === 'payload-order') {
+          await unwrap(
+            await client.PUT('/tenants/{tenant_id}/information/{information_id}/payloads/order', {
+              params: { path: { ...path, information_id: target.id }, header: ifMatch(version) },
+              body: { payload_ids: JSON.parse(String(value)) as string[] },
+            }),
+          );
+        } else {
+          const body = JSON.parse(String(value)) as Schema<'InformationAudience'>;
+          await unwrap(
+            target.kind === 'entry-audience'
+              ? await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+                  params: { path: { ...path, entity_id: target.id }, header: ifMatch(version) },
+                  body,
+                })
+              : await client.PUT('/tenants/{tenant_id}/information/{information_id}/audience', {
+                  params: {
+                    path: { ...path, information_id: target.id },
+                    header: ifMatch(version),
+                  },
+                  body,
+                }),
+          );
+        }
+        const state = await read(entryId);
+        state.fieldSnapshots = { [fieldKey(target)]: await readField(target) };
+        return state;
+      }),
     listEntries: () =>
       guarded(async (): Promise<EntrySummary[]> => {
         const rows = await fetchAllPages(async (page) =>
@@ -455,7 +542,8 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
                 id: entry.id,
                 name: entry.name,
                 kinds: entry.kinds.filter(
-                  (k): k is 'item' | 'being' => k === 'item' || k === 'being',
+                  (k): k is 'item' | 'being' | 'fact' =>
+                    k === 'item' || k === 'being' || k === 'fact',
                 ),
                 parents: entry.parents,
                 ...(slug ? { slug } : {}),
@@ -529,10 +617,15 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
     setName: (id, name, etag) =>
       guarded(async () => {
         await unwrap(
-          await client.PATCH('/tenants/{tenant_id}/items/{entity_id}', {
-            params: { path: { ...path, entity_id: id }, header: ifMatch(etag) },
-            body: { name },
-          }),
+          await client.PATCH(
+            kinds.get(id)?.includes('fact')
+              ? '/tenants/{tenant_id}/entities/{entity_id}'
+              : '/tenants/{tenant_id}/items/{entity_id}',
+            {
+              params: { path: { ...path, entity_id: id }, header: ifMatch(etag) },
+              body: { name },
+            },
+          ),
         );
         return read(id);
       }),
@@ -549,6 +642,60 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
               type: text.type,
               is_public: false,
               content: text.text,
+              locale: typeof navigator === 'undefined' ? 'en-US' : navigator.language || 'en-US',
+            },
+          }),
+        );
+      }),
+
+    removePicturePayload: (payloadId, version) =>
+      guarded(async () => {
+        await unwrap(
+          await client.DELETE('/tenants/{tenant_id}/payloads/{payload_id}', {
+            params: { path: { ...path, payload_id: payloadId }, header: ifMatch(version) },
+          }),
+        );
+      }),
+    payloadFile: (payloadId, version) => {
+      const key = `${payloadId}:${version}`;
+      let loaded = files.get(key);
+      if (!loaded) {
+        loaded = guarded(async () => {
+          const result = await client.GET('/tenants/{tenant_id}/payloads/{payload_id}/content', {
+            params: { path: { ...path, payload_id: payloadId } },
+            parseAs: 'blob',
+          });
+          return URL.createObjectURL(await unwrap(result));
+        });
+        files.set(key, loaded);
+        loaded.catch(() => files.delete(key));
+      }
+      return loaded;
+    },
+    appendPicture: (informationId, payloadId, file, version) =>
+      guarded(async () => {
+        await unwrap(
+          await client.POST('/tenants/{tenant_id}/information/{information_id}/payloads', {
+            params: { path: { ...path, information_id: informationId }, header: ifMatch(version) },
+            body: { file: file.name, payload_id: payloadId },
+            bodySerializer: () => {
+              const data = new FormData();
+              data.append('file', file);
+              data.append('payload_id', payloadId);
+              return data;
+            },
+          }),
+        );
+      }),
+
+    appendText: (informationId, payloadId, text, version) =>
+      guarded(async () => {
+        await unwrap(
+          await client.POST('/tenants/{tenant_id}/information/{information_id}/texts', {
+            params: { path: { ...path, information_id: informationId }, header: ifMatch(version) },
+            body: {
+              id: payloadId,
+              content: text,
               locale: typeof navigator === 'undefined' ? 'en-US' : navigator.language || 'en-US',
             },
           }),

@@ -42,3 +42,10 @@ Descriptions and notes may hold several LorenzoScript texts and pictures, kept i
 bundle with one audience (ADR 0306). **Add picture** and **Add text** extend the existing editor;
 move/remove controls keep each part in order. A failed save keeps the draft and stable attachment
 IDs for retry. Read mode includes every part; protected pictures use authenticated requests.
+
+## Facts about an entry
+
+An entry lists the Facts explicitly about it when the reader can see their existence/name.
+The Fact page renders its visible information bundles and About subjects. LorenzoScript links
+resolve to that page. The Fact's outer audience and each information audience are independent;
+hidden Facts produce the same unavailable view as missing entries (ADR 0305, RFC 0044).

@@ -16,7 +16,8 @@
     "format": "biome check --write . && prettier --write \"**/*.astro\"",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "build-branding-package": "pnpm --filter @lorenzo/brand run build"
+    "build-branding-package": "pnpm --filter @lorenzo/brand run build",
+    "test:e2e-api": "playwright test --config playwright.api.config.ts"
   },
   "dependencies": {
     "@authgear/web": "^6.0.0",

@@ -30,6 +30,7 @@ from lorenzo_api.information_bundles import (
     require_bundle_version,
     touch_bundle,
 )
+from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import Entity, Information, Knowledge, Payload, Player, User
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
 from lorenzo_api.routers.entities import (
@@ -564,6 +565,7 @@ async def list_information_knowers(
         .where(Knowledge.information_id == information_id, Knowledge.tenant_id == tenant_id)
         .order_by(Knowledge.created_at, Knowledge.id)
     )
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     knowers: list[KnowerOut] = []
     for row in (await session.execute(stmt)).all():
         if row.knower_player_id is not None:
@@ -580,7 +582,9 @@ async def list_information_knowers(
                 KnowerOut(
                     kind="entity",
                     knower_entity_id=row.knower_entity_id,
-                    name=row.entity_name,
+                    name=row.entity_name
+                    if visibility.can_see_entry(row.knower_entity_id)
+                    else None,
                     granted_at=row.created_at,
                 )
             )

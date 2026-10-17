@@ -31,3 +31,5 @@ playwright-report/
 test-results/
 playwright-report/
 dist-auth/
+
+dist-real-api/

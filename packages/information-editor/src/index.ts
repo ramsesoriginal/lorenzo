@@ -24,7 +24,15 @@ export function audienceWithRecipients(
 type Options = {
   client: LorenzoClient;
   tenantId: string;
-  informationId: string | (() => Promise<string | null>);
+  informationId?: string | (() => Promise<string | null>);
+  entityId?: string;
+  /** An app with a command layer may send the replacement through it. */
+  replace?: (
+    next: Audience,
+    previous: Audience,
+    version: string,
+  ) => Promise<{ audience: Audience; version: string | null }>;
+
   onSaved?: () => void | Promise<void>;
 };
 
@@ -35,7 +43,7 @@ const message = (error: unknown) =>
 export function renderAudienceControl(options: Options): HTMLDetailsElement {
   const details = document.createElement('details');
   const summary = document.createElement('summary');
-  summary.textContent = 'Who can read this';
+  summary.textContent = options.entityId ? 'Who knows this exists' : 'Who can read this';
   const body = document.createElement('div');
   body.className = 'stack-tight';
   details.append(summary, body);
@@ -48,28 +56,40 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
     body.textContent = 'Loading audience…';
     try {
       const id =
-        typeof options.informationId === 'string'
-          ? options.informationId
-          : await options.informationId();
+        options.entityId ??
+        (typeof options.informationId === 'function'
+          ? await options.informationId()
+          : options.informationId);
       if (!id) {
         body.textContent = 'Save the information before choosing its readers.';
         return;
       }
       const path = { tenant_id: options.tenantId, information_id: id };
-      const result = await options.client.GET(
-        '/tenants/{tenant_id}/information/{information_id}/audience',
-        { params: { path } },
-      );
+      const entryPath = { tenant_id: options.tenantId, entity_id: id };
+      const result = options.entityId
+        ? await options.client.GET('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+            params: { path: entryPath },
+          })
+        : await options.client.GET('/tenants/{tenant_id}/information/{information_id}/audience', {
+            params: { path },
+          });
       let audience = await unwrap(result);
       let version = result.response.headers.get('etag');
       if (!version)
         throw new Error('The audience version is missing. Reopen this section to try again.');
       const [knowers, characters, groups] = await Promise.all([
-        unwrap(
-          await options.client.GET('/tenants/{tenant_id}/information/{information_id}/knowers', {
-            params: { path },
-          }),
-        ),
+        options.entityId
+          ? unwrap(
+              await options.client.GET('/tenants/{tenant_id}/entities/{entity_id}/knowers', {
+                params: { path: entryPath },
+              }),
+            )
+          : unwrap(
+              await options.client.GET(
+                '/tenants/{tenant_id}/information/{information_id}/knowers',
+                { params: { path } },
+              ),
+            ),
         fetchAllPages(async (page) =>
           unwrap(
             await options.client.GET('/tenants/{tenant_id}/characters', {
@@ -102,8 +122,9 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
       publicLabel.append(isPublic, ' Everyone with access to the library');
       const hint = document.createElement('p');
       hint.className = 'caption';
-      hint.textContent =
-        'Applicable GMs, library administrators and authors can also have access through their roles. An entry’s own audience still applies.';
+      hint.textContent = options.entityId
+        ? 'This audience controls both the fact’s existence and its name. Each piece of information has its own audience as well. Applicable role access still applies.'
+        : 'Applicable GMs, library administrators and authors can also have access through their roles. An entry’s own audience still applies.';
       const field = document.createElement('fieldset');
       const legend = document.createElement('legend');
       legend.textContent = 'Characters and groups';
@@ -158,6 +179,9 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
       status.setAttribute('role', 'status');
       status.className = 'caption';
       save.addEventListener('click', async () => {
+        const inputs = Array.from(body.querySelectorAll<HTMLInputElement>('input'));
+        const disabled = inputs.map((input) => input.disabled);
+        for (const input of inputs) input.disabled = true;
         save.disabled = true;
         status.textContent = 'Saving…';
         try {
@@ -166,15 +190,24 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
             entities,
             players,
           );
-          const saved = await options.client.PUT(
-            '/tenants/{tenant_id}/information/{information_id}/audience',
-            {
-              params: { path, header: { 'if-match': version } },
-              body: replacement,
-            },
-          );
-          audience = await unwrap(saved);
-          version = saved.response.headers.get('etag');
+          if (!version) throw new Error('Reopen this audience to read its current version.');
+          if (options.replace) {
+            const saved = await options.replace(replacement, audience, version);
+            audience = saved.audience;
+            version = saved.version;
+          } else {
+            const saved = options.entityId
+              ? await options.client.PUT('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+                  params: { path: entryPath, header: { 'if-match': version } },
+                  body: replacement,
+                })
+              : await options.client.PUT(
+                  '/tenants/{tenant_id}/information/{information_id}/audience',
+                  { params: { path, header: { 'if-match': version } }, body: replacement },
+                );
+            audience = await unwrap(saved);
+            version = saved.response.headers.get('etag');
+          }
           status.textContent = 'Audience saved.';
           await options.onSaved?.();
         } catch (error) {
@@ -185,6 +218,9 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
           } else status.textContent = message(error);
         } finally {
           save.disabled = false;
+          inputs.forEach((input, index) => {
+            input.disabled = disabled[index] ?? false;
+          });
         }
       });
       const actions = document.createElement('div');
@@ -213,4 +249,4 @@ export {
   saveInformationBundle,
 } from './bundles';
 
-export { renderBundleEditor, renderInformationPayloads } from './payloads';
+export { renderBundleEditor, renderInformationPayloads, validatePicture } from './payloads';

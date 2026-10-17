@@ -4,16 +4,21 @@
 
 import type {
   EditableKind,
+  EntryFieldTarget,
   EntryState,
   StatScalar,
   StatType,
   TextDoc,
   Transport,
 } from './transport';
+import { fieldKey } from './transport';
 
 /** `null` is no value of its own, for a stat: the entry inherits. */
 export type Value = StatScalar | string[] | null;
 export type CommandType =
+  | 'audience.set'
+  | 'fact.set-about'
+  | 'information.set-payload-order'
   | 'entry.create'
   | 'entry.set-name'
   | 'entry.set-parents'
@@ -53,6 +58,9 @@ export interface Command {
    * there yet, and for a new note, an id the client made (ADR 0222).
    */
   textId?: string;
+  /** A specific text part; absent keeps the original first-text command contract. */
+  payloadId?: string;
+  fieldTarget?: EntryFieldTarget;
   /** For a kind: which one. The value is whether the entry has it. */
   kind?: EditableKind;
   /** For a stat: which one, and its type, which decides how it is sent. */
@@ -84,24 +92,47 @@ const sent = (): Promise<EntryState> => Promise.reject(new Error('This is sent b
 
 /** The text of a piece of information on the entry, or '' when it is not there. */
 export function docOf(entry: EntryState, c: Command): TextDoc | undefined {
-  return c.type === 'description.set-text'
-    ? (entry.description ?? undefined)
-    : entry.notes.find((n) => n.id === c.textId);
+  const doc =
+    c.type === 'description.set-text'
+      ? (entry.description ?? undefined)
+      : entry.notes.find((n) => n.id === c.textId);
+  if (!c.payloadId || !doc) return doc;
+  const payload = doc.information?.payloads.find((p) => p.id === c.payloadId);
+  if (payload?.kind !== 'description') return undefined;
+  return {
+    ...doc,
+    payloadId: payload.id,
+    text: payload.content,
+    version: `W/"${payload.updated_at}"`,
+  };
 }
 
-const withText = (doc: TextDoc | undefined, c: Command, text: string, title: string): TextDoc => ({
-  id: doc?.id ?? (c.textId as string),
-  payloadId: doc?.payloadId ?? '',
-  title: doc?.title ?? title,
-  text,
-  version: doc?.version ?? null,
-  // What is written here is GM only until someone says otherwise (RFC 0038 section 5).
-  isPublic: doc?.isPublic ?? false,
-});
+const withText = (doc: TextDoc | undefined, c: Command, text: string, title: string): TextDoc => {
+  const payloadId = c.payloadId ?? doc?.payloadId;
+  const information = doc?.information
+    ? {
+        ...doc.information,
+        payloads: doc.information.payloads.map((p) =>
+          p.id === payloadId && p.kind === 'description' ? { ...p, content: text } : p,
+        ),
+      }
+    : undefined;
+  const first = information?.payloads.find((p) => p.kind === 'description');
+  return {
+    ...doc,
+    id: doc?.id ?? (c.textId as string),
+    payloadId: doc?.payloadId ?? '',
+    title: doc?.title ?? title,
+    text: first?.kind === 'description' ? first.content : text,
+    version: doc?.version ?? null,
+    isPublic: doc?.isPublic ?? false,
+    ...(information && { information }),
+  };
+};
 
 const descriptionDef: Definition = {
   label: 'description',
-  read: (entry) => entry.description?.text ?? '',
+  read: (entry, c) => docOf(entry, c)?.text ?? '',
   apply: (entry, value, c) => ({
     ...entry,
     description: withText(entry.description ?? undefined, c, value as string, 'Description'),
@@ -110,22 +141,26 @@ const descriptionDef: Definition = {
 };
 const noteAddDef: Definition = {
   label: 'note',
-  read: (entry, c) => entry.notes.find((n) => n.id === c.textId)?.text ?? '',
+  read: (entry, c) => docOf(entry, c)?.text ?? '',
   apply: (entry, value, c) =>
     entry.notes.some((n) => n.id === c.textId)
       ? {
           ...entry,
-          notes: entry.notes.map((n) => (n.id === c.textId ? { ...n, text: value as string } : n)),
+          notes: entry.notes.map((n) =>
+            n.id === c.textId ? withText(n, c, value as string, n.title) : n,
+          ),
         }
       : { ...entry, notes: [...entry.notes, withText(undefined, c, value as string, 'Note')] },
   send: sent,
 };
 const noteSetDef: Definition = {
   label: 'note',
-  read: (entry, c) => entry.notes.find((n) => n.id === c.textId)?.text ?? '',
+  read: (entry, c) => docOf(entry, c)?.text ?? '',
   apply: (entry, value, c) => ({
     ...entry,
-    notes: entry.notes.map((n) => (n.id === c.textId ? { ...n, text: value as string } : n)),
+    notes: entry.notes.map((n) =>
+      n.id === c.textId ? withText(n, c, value as string, n.title) : n,
+    ),
   }),
   send: sent,
 };
@@ -208,7 +243,7 @@ const noteOrderDef: Definition = {
   send: (t, entry, value) => t.setNoteOrder(entry.id, String(value).split(',')),
 };
 
-const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
+const KIND_ORDER = ['item', 'item_instance', 'being', 'character', 'fact'];
 
 const kindDef: Definition = {
   label: 'kind',
@@ -222,7 +257,68 @@ const kindDef: Definition = {
     t.setKind(entry.id, c.kind as EditableKind, value === true, entry.etag),
 };
 
+const fieldDefinition = (label: string): Definition => ({
+  label,
+  read: (entry, c) =>
+    c.fieldTarget ? (entry.fieldSnapshots?.[fieldKey(c.fieldTarget)]?.value ?? '') : '',
+  apply: (entry, value, c) => {
+    const target = c.fieldTarget;
+    if (!target) return entry;
+    const update = (doc: TextDoc | null): TextDoc | null => {
+      if (!doc || doc.id !== target.id) return doc;
+      if (target.kind === 'information-audience') {
+        const audience = JSON.parse(String(value)) as { is_public: boolean };
+        return {
+          ...doc,
+          isPublic: audience.is_public,
+          ...(doc.information && {
+            information: { ...doc.information, is_public: audience.is_public },
+          }),
+        };
+      }
+      if (target.kind === 'payload-order' && doc.information) {
+        const ids = JSON.parse(String(value)) as string[];
+        const payloads = doc.information.payloads;
+        const reordered = ids.flatMap((id, index) => {
+          const payload = payloads.find((payload) => payload.id === id);
+          return payload ? [{ ...payload, order: payloads[index]?.order ?? index }] : [];
+        });
+        // Preserve an unfamiliar part rather than dropping it from a local view.
+        return {
+          ...doc,
+          information: {
+            ...doc.information,
+            payloads: [...reordered, ...payloads.filter((payload) => !ids.includes(payload.id))],
+          },
+        };
+      }
+      return doc;
+    };
+    return {
+      ...entry,
+      description: update(entry.description),
+      notes: entry.notes.map((doc) => update(doc) as TextDoc),
+      fieldSnapshots: {
+        ...entry.fieldSnapshots,
+        [fieldKey(target)]: { value: value as string | boolean, version: null },
+      },
+    };
+  },
+  send: (transport, entry, value, c) => {
+    if (!c.fieldTarget || !transport.writeField) throw new Error('This field is unavailable here.');
+    return transport.writeField(
+      entry.id,
+      c.fieldTarget,
+      value as string | boolean,
+      entry.fieldSnapshots?.[fieldKey(c.fieldTarget)]?.version ?? null,
+    );
+  },
+});
+
 export const REGISTRY: Record<CommandType, Definition> = {
+  'audience.set': fieldDefinition('audience'),
+  'fact.set-about': fieldDefinition('what the fact is about'),
+  'information.set-payload-order': fieldDefinition('order of the information’s parts'),
   'description.set-text': descriptionDef,
   'note.add': noteAddDef,
   'note.set-text': noteSetDef,
@@ -264,7 +360,10 @@ export function compare(base: Value, mine: Value, theirs: Value): Verdict {
 /** The command that puts back what this one changed (a create has none: nothing is deleted here). */
 export function inverseOf(
   c: Command,
-): Pick<Command, 'type' | 'entryId' | 'base' | 'mine' | 'textId' | 'stat' | 'kind'> | null {
+): Pick<
+  Command,
+  'type' | 'entryId' | 'base' | 'mine' | 'textId' | 'payloadId' | 'fieldTarget' | 'stat' | 'kind'
+> | null {
   if (c.type === 'entry.create' || c.type === 'note.add') return null;
   return {
     type: c.type,
@@ -272,6 +371,8 @@ export function inverseOf(
     base: c.mine,
     mine: c.base,
     textId: c.textId,
+    payloadId: c.payloadId,
+    fieldTarget: c.fieldTarget,
     stat: c.stat,
     kind: c.kind,
   };

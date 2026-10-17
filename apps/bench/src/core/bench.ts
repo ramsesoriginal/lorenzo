@@ -24,8 +24,11 @@ import {
   type Backlink,
   canEditStat,
   type EditableKind,
+  type EntryFieldTarget,
   type EntryState,
   type EntrySummary,
+  type FieldSnapshot,
+  fieldKey,
   type HeldFormula,
   OfflineError,
   RefusedError,
@@ -47,6 +50,20 @@ export interface Connections {
   /** The texts these were made from. */
   stamp: string;
 }
+
+type InformationUpload = {
+  entryId: string;
+  informationId: string | null;
+  type: 'description' | 'note';
+  payloadId: string;
+  file: File;
+  text: string;
+  busy: boolean;
+  problem: string | null;
+  createsInformation: boolean;
+  createPending: boolean;
+  task?: Promise<void>;
+};
 
 export class Bench {
   /** The server's list of entries, as last read. */
@@ -386,10 +403,24 @@ export class Bench {
   private childIndex = new Map<string, string[]>();
   private childIndexFor: EntrySummary[] | null = null;
 
+  get hasUnsent(): boolean {
+    return this.outbox.length > 0 || this.informationUploads.size > 0;
+  }
+
+  /** Send queued field changes, then retry the pictures still held by this tab. */
+  async sendUnsent(): Promise<void> {
+    await this.run();
+    await Promise.all(
+      [...this.informationUploads].map((upload) => this.sendInformationPicture(upload)),
+    );
+  }
+
   /** What has not been sent, by entry: the changes that are only here until they are. */
   unsent(): { id: string; name: string; count: number }[] {
     const counts = new Map<string, number>();
     for (const c of this.outbox) counts.set(c.entryId, (counts.get(c.entryId) ?? 0) + 1);
+    for (const upload of this.informationUploads)
+      counts.set(upload.entryId, (counts.get(upload.entryId) ?? 0) + 1);
     return [...counts].map(([id, count]) => ({ id, name: this.displayName(id), count }));
   }
 
@@ -397,6 +428,8 @@ export class Bench {
   async discardUnsent(): Promise<void> {
     this.outbox = this.outbox.filter((c) => c.state === 'sending');
     if (this.current) await this.current;
+    await Promise.all([...this.informationUploads].map((upload) => upload.task));
+    this.informationUploads.clear();
     this.outbox = [];
     this.emit();
   }
@@ -410,6 +443,8 @@ export class Bench {
     if (cs.some((c) => c.state === 'attention')) return 'attention';
     if (cs.some((c) => c.state === 'conflict')) return 'conflict';
     if (cs.length) return this.offline ? 'offline' : 'waiting';
+    const uploads = [...this.informationUploads].filter((upload) => upload.entryId === id);
+    if (uploads.length) return uploads.some((upload) => upload.problem) ? 'attention' : 'waiting';
     return 'synced';
   }
 
@@ -446,6 +481,7 @@ export class Bench {
     entryId: string,
     mine: Value,
     ref?: string,
+    payloadId?: string,
   ): Command | null {
     const entry = this.view(entryId);
     if (!entry) return null;
@@ -458,6 +494,7 @@ export class Bench {
       mine,
       state: 'waiting',
     };
+    if (payloadId) command.payloadId = payloadId;
     if (type === 'description.set-text') {
       // A description not there yet is made under an id of the client's own (ADR 0222).
       command.textId = entry.description?.id ?? this.makeId();
@@ -465,7 +502,7 @@ export class Bench {
       if (!ref || !entry.notes.some((n) => n.id === ref)) return null;
       command.textId = ref;
     } else if (type === 'entry.set-kind') {
-      if (ref !== 'item' && ref !== 'being') return null;
+      if (ref !== 'item' && ref !== 'being' && ref !== 'fact') return null;
       command.kind = ref;
     } else if (type === 'stat.set') {
       const def = this.statDefs.find((d) => d.id === ref);
@@ -481,14 +518,208 @@ export class Bench {
     return command;
   }
 
+  async removeInformationPicture(
+    entryId: string,
+    payloadId: string,
+    version: string,
+  ): Promise<void> {
+    if (!this.transport.removePicturePayload)
+      throw new RefusedError('Picture attachments need a connected repository.');
+    await this.run();
+    if (this.commandsFor(entryId).length)
+      throw new RefusedError('Resolve this entry’s changes before removing a picture.');
+    try {
+      await this.transport.removePicturePayload(payloadId, version);
+    } catch (error) {
+      // A lost successful response is recoverable only by an authorized fresh read.
+      const current = await this.transport.getEntry(entryId);
+      if (
+        [current.description, ...current.notes].some((doc) =>
+          doc?.information?.payloads.some((payload) => payload.id === payloadId),
+        )
+      )
+        throw error;
+    }
+    this.mirror.set(entryId, await this.transport.getEntry(entryId));
+    this.emitLater();
+  }
+
+  // Bytes stay in this tab only, as with main pictures. A retry reuses both stable ids.
+  private informationUploads = new Set<InformationUpload>();
+  informationUpload(entryId: string, informationId: string | null, type: 'description' | 'note') {
+    return [...this.informationUploads].find(
+      (upload) =>
+        upload.entryId === entryId &&
+        (upload.informationId === informationId ||
+          (informationId === null &&
+            upload.createsInformation &&
+            ![this.view(entryId)?.description, ...(this.view(entryId)?.notes ?? [])].some(
+              (doc) => doc?.id === upload.informationId,
+            ))) &&
+        upload.type === type,
+    );
+  }
+  async addInformationPicture(
+    entryId: string,
+    informationId: string | null,
+    type: 'description' | 'note',
+    file: File,
+    text = '',
+  ): Promise<string | null> {
+    const pending = this.informationUpload(entryId, informationId, type);
+    if (pending) throw new RefusedError('Retry the pending picture before adding another one.');
+    const upload: InformationUpload = {
+      entryId,
+      informationId,
+      type,
+      file,
+      text,
+      payloadId: this.makeId(),
+      busy: false,
+      problem: null,
+      createsInformation: informationId === null,
+      createPending: false,
+    };
+    this.informationUploads.add(upload);
+    await this.sendInformationPicture(upload);
+    return upload.informationId;
+  }
+  async retryInformationPicture(
+    entryId: string,
+    informationId: string | null,
+    type: 'description' | 'note',
+  ): Promise<void> {
+    const upload = this.informationUpload(entryId, informationId, type);
+    if (upload && !upload.busy) await this.sendInformationPicture(upload);
+  }
+  dismissInformationPicture(
+    entryId: string,
+    informationId: string | null,
+    type: 'description' | 'note',
+  ) {
+    const upload = this.informationUpload(entryId, informationId, type);
+    if (upload && !upload.busy) {
+      this.informationUploads.delete(upload);
+      this.emitLater();
+    }
+  }
+  private sendInformationPicture(upload: InformationUpload): Promise<void> {
+    if (upload.task) return upload.task;
+    const task = this.writeInformationPicture(upload);
+    upload.task = task;
+    return task.finally(() => {
+      upload.task = undefined;
+    });
+  }
+  private async writeInformationPicture(upload: InformationUpload): Promise<void> {
+    upload.busy = true;
+    upload.problem = null;
+    this.emitLater();
+    try {
+      if (!this.transport.appendPicture)
+        throw new RefusedError('Picture attachments need a connected repository.');
+      await this.run();
+      if (this.commandsFor(upload.entryId).length)
+        throw new RefusedError(
+          'Finish syncing or resolve this entry’s changes before adding a picture.',
+        );
+      let server = await this.transport.getEntry(upload.entryId);
+      if (!upload.informationId && upload.type === 'description' && server.description)
+        upload.informationId = server.description.id;
+      if (!upload.informationId) {
+        upload.informationId = this.makeId();
+        upload.createPending = true;
+        await this.transport.createText(upload.entryId, {
+          id: upload.informationId,
+          type: upload.type,
+          title: upload.type === 'note' ? 'Note' : 'Description',
+          text: upload.text,
+        });
+        server = await this.transport.getEntry(upload.entryId);
+        this.mirror.set(upload.entryId, server);
+        this.emitLater();
+      }
+      if (
+        upload.createPending &&
+        ![server.description, ...server.notes].some((doc) => doc?.id === upload.informationId)
+      ) {
+        await this.transport.createText(upload.entryId, {
+          id: upload.informationId,
+          type: upload.type,
+          title: upload.type === 'note' ? 'Note' : 'Description',
+          text: upload.text,
+        });
+        server = await this.transport.getEntry(upload.entryId);
+      }
+      const doc = [server.description, ...server.notes].find(
+        (doc) => doc?.id === upload.informationId,
+      );
+      if (doc) upload.createPending = false;
+      if (!doc?.information) throw new RefusedError('This information is no longer available.');
+      await this.transport.appendPicture(
+        upload.informationId,
+        upload.payloadId,
+        upload.file,
+        `W/"${doc.information.updated_at}"`,
+      );
+      server = await this.transport.getEntry(upload.entryId);
+      const saved = [server.description, ...server.notes].find(
+        (doc) => doc?.id === upload.informationId,
+      );
+      if (!saved?.information?.payloads.some((payload) => payload.id === upload.payloadId))
+        throw new RefusedError('The picture could not be read back. Try again.');
+      this.mirror.set(upload.entryId, server);
+      this.informationUploads.delete(upload);
+    } catch (error) {
+      upload.problem =
+        error instanceof OfflineError
+          ? 'Pictures need a connection. Keep this tab open and try again.'
+          : error instanceof Error
+            ? error.message
+            : 'The picture could not be saved.';
+    } finally {
+      upload.busy = false;
+      this.emitLater();
+    }
+  }
+
+  /** Audience, About edge or payload order, with the base the editor actually showed. */
+  setField(
+    entryId: string,
+    target: EntryFieldTarget,
+    base: FieldSnapshot,
+    mine: string | boolean,
+  ): Command | null {
+    if (sameValue(base.value, mine)) return null;
+    const command: Command = {
+      id: this.nextId++,
+      version: 1,
+      entryId,
+      fieldTarget: target,
+      type:
+        target.kind === 'fact-about'
+          ? 'fact.set-about'
+          : target.kind === 'payload-order'
+            ? 'information.set-payload-order'
+            : 'audience.set',
+      base: base.value,
+      mine,
+      state: 'waiting',
+    };
+    this.outbox.push(command);
+    this.emit();
+    queueMicrotask(() => void this.run());
+    return command;
+  }
+
   /** Changes the text of the entry's description, making the description if there is none. */
-  setDescription(entryId: string, text: string): Command | null {
-    return this.change('description.set-text', entryId, text);
+  setDescription(entryId: string, text: string, payloadId?: string): Command | null {
+    return this.change('description.set-text', entryId, text, undefined, payloadId);
   }
 
   /** Changes the text of one of the entry's notes. */
-  setNoteText(entryId: string, noteId: string, text: string): Command | null {
-    return this.change('note.set-text', entryId, text, noteId);
+  setNoteText(entryId: string, noteId: string, text: string, payloadId?: string): Command | null {
+    return this.change('note.set-text', entryId, text, noteId, payloadId);
   }
 
   /**
@@ -572,7 +803,21 @@ export class Bench {
     const inv = last && inverseOf(last);
     if (!last || !inv || inv.type === 'entry.create' || inv.type === 'note.add') return false;
     this.history.splice(this.history.indexOf(last), 1);
-    this.change(inv.type, inv.entryId, inv.mine, inv.textId ?? inv.stat?.id ?? inv.kind);
+    if (inv.fieldTarget)
+      this.setField(
+        inv.entryId,
+        inv.fieldTarget,
+        { value: inv.base as string | boolean, version: null },
+        inv.mine as string | boolean,
+      );
+    else
+      this.change(
+        inv.type,
+        inv.entryId,
+        inv.mine,
+        inv.textId ?? inv.stat?.id ?? inv.kind,
+        inv.payloadId,
+      );
     return true;
   }
 
@@ -733,8 +978,18 @@ export class Bench {
   /** Sends a change of text: the three-way compare, then a write of the payload or a create. */
   private async writeText(c: Command, server: EntryState): Promise<void> {
     const doc = docOf(server, c);
-    if (doc) {
+    if (doc?.payloadId) {
       await this.transport.setText(doc.payloadId, c.mine as string, doc.version);
+    } else if (doc?.information && this.transport.appendText) {
+      c.payloadId ??= this.makeId();
+      await this.transport.appendText(
+        doc.id,
+        c.payloadId,
+        c.mine as string,
+        `W/"${doc.information.updated_at}"`,
+      );
+    } else if (c.payloadId) {
+      throw new RefusedError('That text part is no longer there.');
     } else if (c.type === 'description.set-text') {
       await this.transport.createText(c.entryId, {
         id: c.textId as string,
@@ -753,6 +1008,13 @@ export class Bench {
     const isText = c.type === 'description.set-text' || c.type === 'note.set-text';
     for (let attempt = 0; attempt < 2; attempt++) {
       const server = await this.transport.getEntry(c.entryId);
+      if (c.fieldTarget) {
+        if (!this.transport.readField) throw new RefusedError('This field is unavailable here.');
+        server.fieldSnapshots = {
+          ...server.fieldSnapshots,
+          [fieldKey(c.fieldTarget)]: await this.transport.readField(c.fieldTarget),
+        };
+      }
       this.mirror.set(c.entryId, server);
       if ((c.type === 'note.set-text' || c.type === 'note.set-public') && !docOf(server, c))
         throw new RefusedError('That note is no longer there.');

@@ -126,6 +126,7 @@ describe('apiTransport', () => {
       childIds: [T],
       description: {
         id: 'i1',
+        information: entry.information[0],
         payloadId: 'p1',
         title: 'Description',
         text: 'Hunts in packs.',
@@ -135,6 +136,7 @@ describe('apiTransport', () => {
       notes: [
         {
           id: 'i2',
+          information: entry.information[1],
           payloadId: 'p2',
           title: 'Note',
           text: 'A ranger note.',

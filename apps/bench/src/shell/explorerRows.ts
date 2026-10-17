@@ -37,6 +37,7 @@ const byName = (a: EntrySummary, b: EntrySummary) =>
 const KIND_GROUPS: { kind: string | null; label: string }[] = [
   { kind: 'item', label: 'Items' },
   { kind: 'being', label: 'Beings' },
+  { kind: 'fact', label: 'Facts' },
   { kind: 'item_instance', label: 'Inventory items' },
   { kind: 'character', label: 'Characters' },
   { kind: null, label: 'Bare entries' },

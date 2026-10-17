@@ -107,7 +107,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
     window.history.replaceState(window.history.state, '', url);
   }
 
-  const view = renderBeingView(root, { renderer });
+  const view = renderBeingView(root, { renderer, tenantId });
   const people = renderPeople(required<HTMLElement>(root, '[data-people]'));
   const inventory = renderInventorySummary(required<HTMLElement>(root, '[data-inventory]'));
   const description = renderDescriptionEdit({
