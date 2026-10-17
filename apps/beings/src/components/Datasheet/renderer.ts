@@ -1,3 +1,5 @@
+import { renderInformationPayloads } from '@lorenzo/information-editor';
+import { blobUrl } from '../../lib/api';
 // A being as a datasheet (RFC 0043): the stat lines are drawn by the stat band, which owns what
 // changing a number means; this draws what the datasheet adds to them from the API's sheet read
 // (ADR 0281): the equipped weapons as a table, and the abilities with the notes. A library that has
@@ -6,7 +8,7 @@
 import { getOwned } from '../../lib/being';
 import { type Renderer, showDescriptions } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
-import { type Information, listInformation, textOf } from '../../lib/information';
+import { type Information, listInformation } from '../../lib/information';
 import { getSheet } from '../../lib/sheet';
 import { say } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
@@ -23,7 +25,7 @@ export type DatasheetOptions = {
 
 export type RenderedDatasheet = {
   /** Draws the parts that are about the being itself: its name and description. */
-  show(entity: { id: string; name: string; description: string }): void;
+  show(entity: { id: string; name: string; information: Information[] }): void;
   /** Reads the sheet and the notes and draws them; asked for when the datasheet is wanted. */
   load(entityId: string): Promise<void>;
   /** Whether the stat lines had anything to show. */
@@ -90,7 +92,6 @@ export function renderDatasheet(options: DatasheetOptions): RenderedDatasheet {
     const side = document.createElement('div');
     const title = document.createElement('strong');
     const text = document.createElement('div');
-    const content = textOf(info)?.content;
 
     box.className = 'ds-note';
     title.textContent = info.title || 'Note';
@@ -109,7 +110,12 @@ export function renderDatasheet(options: DatasheetOptions): RenderedDatasheet {
     text.className = 'ls-content';
     box.append(side, text);
 
-    if (content) void showDescriptions(text, renderer, [{ text: content, home: beingId }]);
+    renderInformationPayloads(text, {
+      information: info,
+      loadFile: (payload) => blobUrl(payload.url, payload.updated_at),
+      renderText: (host, content) =>
+        showDescriptions(host, renderer, [{ text: content, home: beingId }]),
+    });
 
     if (info.created_by_name) {
       const author = document.createElement('p');
@@ -125,11 +131,17 @@ export function renderDatasheet(options: DatasheetOptions): RenderedDatasheet {
   return {
     show(entity) {
       aboutTitle.textContent = `About ${entity.name.split(' ')[0]}`;
-      void showDescriptions(
-        description,
-        renderer,
-        entity.description ? [{ text: entity.description, home: entity.id }] : [],
-      );
+      description.replaceChildren();
+      for (const info of entity.information.filter((info) => info.type === 'description')) {
+        const mount = document.createElement('div');
+        description.append(mount);
+        renderInformationPayloads(mount, {
+          information: info,
+          loadFile: (payload) => blobUrl(payload.url, payload.updated_at),
+          renderText: (host, content) =>
+            showDescriptions(host, renderer, [{ text: content, home: entity.id }]),
+        });
+      }
     },
     setHasStats(has) {
       empty.hidden = has;

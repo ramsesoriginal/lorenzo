@@ -1,3 +1,6 @@
+import { validatePicture } from '@lorenzo/information-editor';
+import type { EntryControls } from './entryControls';
+import { informationBody } from './informationBody';
 // The entry pane and the parents pane: what a person sees and edits of one entry, every change
 // going through the command layer (core/bench.ts).
 
@@ -10,7 +13,6 @@ import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
 import { openLink } from './entryPickerText';
 import { icon, iconButton, kindIcon, statusIcon } from './icons';
-import { liveEditor } from './liveEditor';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
 export const redraw = { active: false };
@@ -50,6 +52,7 @@ export function renderEntry(
   bench: Bench,
   id: string | null,
   go: (id: string) => void,
+  controls?: EntryControls,
 ): HTMLElement {
   const c = el('div', 'pane pane-entry');
   if (bench.loadError && !bench.entries.length) {
@@ -82,7 +85,7 @@ export function renderEntry(
   name.value = item.name;
   if (!canRename(item.kinds)) {
     name.disabled = true;
-    name.title = 'Only an item can be renamed so far.';
+    name.title = 'Items and facts can be renamed here.';
   }
   name.dataset.key = `name:${id}`;
   name.setAttribute('aria-label', 'Name');
@@ -115,19 +118,17 @@ export function renderEntry(
     else if (cmd.state === 'attention') c.append(attentionRow(bench, cmd));
   }
 
+  if (item.kinds.includes('fact') && controls && bench.onServer(id))
+    c.append(controls.audience(id), controls.about(id, go));
+
   // The description, with the picture beside it.
   const main = el('div', 'entry-main');
   main.append(
-    textEditor(bench, go, {
-      key: `description:${id}`,
-      home: id,
-      label: 'Description',
-      placeholder: 'Write a description…',
-      text: item.description?.text ?? '',
-      onChange: (text) => bench.setDescription(id, text),
-    }),
+    informationBody(bench, id, item.description, 'description', go),
     pictureSection(bench, id),
   );
+  if (item.description && controls && bench.onServer(id))
+    main.append(controls.audience(id, item.description.id));
   c.append(main);
 
   // What is around the text: where it inherits from and its notes. In Write, which is for writing,
@@ -141,13 +142,7 @@ export function renderEntry(
   extra.append(el('h2', 'section', 'Notes'));
   item.notes.forEach((note, i) => {
     const row = el('div', 'note-row');
-    const editor = textEditor(bench, go, {
-      key: `note:${note.id}`,
-      home: id,
-      label: `Note: ${note.title}`,
-      text: note.text,
-      onChange: (text) => bench.setNoteText(id, note.id, text),
-    });
+    const editor = informationBody(bench, id, note, 'note', go);
     const order = el('div', 'note-order');
     for (const [label, by, disabled] of [
       ['Move note up', -1, i === 0],
@@ -165,6 +160,7 @@ export function renderEntry(
       order.append(b);
     }
     row.append(order, editor, noteAudience(bench, id, note));
+    if (controls && bench.onServer(id)) row.append(controls.audience(id, note.id));
     extra.append(row);
   });
   extra.append(newNote(bench, id));
@@ -241,6 +237,11 @@ function linkNameField(bench: Bench, id: string, name: string, slug: string | nu
 const KIND_CHOICES: { kind: EditableKind; label: string; help: string }[] = [
   { kind: 'item', label: 'Item', help: 'Something you can hold, carry or give.' },
   { kind: 'being', label: 'Being', help: 'Someone or something that acts: a person, a creature.' },
+  {
+    kind: 'fact',
+    label: 'Fact',
+    help: 'A true statement about the world, with information attached.',
+  },
 ];
 
 /** What an entry is: item, being, both or neither (a bare entry, which is what a group is). */
@@ -254,6 +255,11 @@ function kindsEditor(bench: Bench, id: string, kinds: readonly string[]): HTMLEl
     const input = el('input', 'sr-only');
     input.type = 'checkbox';
     input.checked = kinds.includes(choice.kind);
+    if (
+      (kinds.includes('fact') && choice.kind !== 'fact') ||
+      (choice.kind === 'fact' && kinds.some((kind) => kind !== 'fact'))
+    )
+      input.disabled = true;
     input.dataset.key = `kind:${id}:${choice.kind}`;
     // An inventory item is of the inventory, not of the catalog.
     if (choice.kind === 'item' && kinds.includes('item_instance')) {
@@ -320,22 +326,6 @@ export function pictureSection(bench: Bench, id: string): HTMLElement {
   return box;
 }
 
-function textEditor(
-  bench: Bench,
-  go: (id: string) => void,
-  o: {
-    key: string;
-    /** The entry the text belongs to: what `my/` links are held by. */
-    home: string;
-    label: string;
-    text: string;
-    placeholder?: string;
-    onChange: (text: string) => void;
-  },
-): HTMLElement {
-  return liveEditor({ bench, go, ...o });
-}
-
 /** Buttons that start a link or a picture at the caret, for whoever does not know to type `[[`. */
 function linkToolbar(area: HTMLTextAreaElement): HTMLElement {
   const bar = el('div', 'text-toolbar');
@@ -371,6 +361,87 @@ function newNote(bench: Bench, entryId: string): HTMLElement {
   const add = el('button', 'btn', 'Add note');
   add.type = 'submit';
   form.append(linkToolbar(area), area, add);
+  if (bench.transport.appendPicture) {
+    const file = el('input');
+    file.type = 'file';
+    file.hidden = true;
+    file.accept = 'image/png,image/jpeg,image/webp,image/gif';
+    const choose = button('+', () => file.click(), 'btn quiet picture-at-caret');
+    choose.setAttribute('aria-label', 'Add a picture to the new note');
+    choose.addEventListener('mousedown', (event) => event.preventDefault());
+    const status = el('p', 'muted');
+    status.hidden = true;
+    const attach = async (picture: File) => {
+      try {
+        await validatePicture(picture);
+        const informationId = await bench.addInformationPicture(
+          entryId,
+          null,
+          'note',
+          picture,
+          area.value,
+        );
+        if (informationId && bench.view(entryId)?.notes.some((note) => note.id === informationId))
+          area.value = '';
+      } catch (error) {
+        status.hidden = false;
+        status.setAttribute('role', 'status');
+        status.textContent =
+          error instanceof Error ? error.message : 'The picture could not be added.';
+      }
+    };
+    file.addEventListener('change', () => {
+      const picture = file.files?.[0];
+      if (picture) void attach(picture);
+      file.value = '';
+    });
+    form.addEventListener('paste', (event) => {
+      const picture = Array.from(event.clipboardData?.items ?? [])
+        .find((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        ?.getAsFile();
+      if (picture) {
+        event.preventDefault();
+        event.stopPropagation();
+        void attach(picture);
+      }
+    });
+    form.addEventListener('dragover', (event) => {
+      if (event.dataTransfer?.types.includes('Files')) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
+    form.addEventListener('drop', (event) => {
+      const picture = Array.from(event.dataTransfer?.files ?? []).find((file) =>
+        file.type.startsWith('image/'),
+      );
+      if (picture) {
+        event.preventDefault();
+        event.stopPropagation();
+        void attach(picture);
+      }
+    });
+    form.append(choose, file, status);
+    const upload = bench.informationUpload(entryId, null, 'note');
+    if (upload) {
+      status.hidden = false;
+      status.setAttribute('role', 'status');
+      status.textContent = upload.busy ? 'Adding picture…' : upload.problem;
+      if (!upload.busy)
+        form.append(
+          button(
+            'Retry picture',
+            () => void bench.retryInformationPicture(entryId, null, 'note'),
+            'btn quiet',
+          ),
+          button(
+            'Dismiss upload error',
+            () => bench.dismissInformationPicture(entryId, null, 'note'),
+            'btn quiet',
+          ),
+        );
+    }
+  }
   form.addEventListener('submit', (ev) => {
     ev.preventDefault();
     if (bench.addNote(entryId, area.value)) area.value = '';
@@ -383,6 +454,25 @@ export const kindsText = (kinds: readonly string[]): string =>
   kinds.length ? kinds.map((k) => k.replace('_', ' ')).join(' and ') : 'bare entry';
 
 export const showValue = (v: unknown, bench: Bench, cmd?: Command): string => {
+  if (cmd?.type === 'audience.set' && typeof v === 'string') {
+    try {
+      const value = JSON.parse(v) as {
+        is_public: boolean;
+        entity_ids: string[];
+        player_ids: string[];
+      };
+      return value.is_public
+        ? 'Everyone with access to the library'
+        : [
+            ...value.entity_ids.map((id) => bench.displayName(id)),
+            ...value.player_ids.map(() => 'a Player'),
+          ].join(', ') || 'Role access only';
+    } catch {
+      return 'an audience';
+    }
+  }
+  if (cmd?.type === 'fact.set-about') return v === true ? 'a subject' : 'not a subject';
+  if (cmd?.type === 'information.set-payload-order') return 'another order of the parts';
   if (cmd?.type === 'notes.set-order') return 'another order';
   if (cmd?.type === 'note.set-public') return v === true ? 'Everyone' : 'GM only';
   if (cmd?.type === 'entry.set-slug' && v === null) return 'no link name';
@@ -396,6 +486,9 @@ export const showValue = (v: unknown, bench: Bench, cmd?: Command): string => {
 export function fieldLabel(cmd: Command): string {
   return (
     cmd.stat?.name ??
+    (cmd.type === 'audience.set' ? 'audience' : undefined) ??
+    (cmd.type === 'fact.set-about' ? 'subject of the fact' : undefined) ??
+    (cmd.type === 'information.set-payload-order' ? 'order of the parts' : undefined) ??
     (cmd.type === 'entry.set-slug' ? 'link name' : undefined) ??
     (cmd.type === 'notes.set-order' ? 'order of the notes' : undefined) ??
     (cmd.type === 'note.set-public' ? 'audience of the note' : undefined) ??

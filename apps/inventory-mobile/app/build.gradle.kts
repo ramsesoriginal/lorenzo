@@ -30,6 +30,7 @@ android {
     defaultConfig {
         applicationId = "io.lorenzo.inventory"
         minSdk = 28
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = 37
         versionCode = androidVersionCode.toInt()
         versionName = releaseVersion
@@ -81,6 +82,13 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.markwon.core)
     implementation(libs.markwon.strikethrough)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.android.test.runner)
+    androidTestImplementation(libs.android.test.junit)
+    androidTestImplementation(libs.compose.test)
+    // Compose's transitive Espresso predates the API 37 input manager change.
+    androidTestImplementation(libs.espresso)
+    debugImplementation(libs.compose.test.manifest)
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)
     testImplementation(libs.coroutines.test)

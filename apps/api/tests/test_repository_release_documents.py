@@ -340,7 +340,7 @@ async def test_a_document_in_a_format_nobody_reads_is_refused() -> None:
             await session.execute(
                 update(RepositoryReleaseDocument)
                 .where(RepositoryReleaseDocument.release_id == release)
-                .values(format=2)
+                .values(format=99)
             )
             await session.execute(
                 text("ALTER TABLE repository_release_document ENABLE TRIGGER USER")

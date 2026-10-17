@@ -109,7 +109,8 @@ depends_on = ["apps/api"]
 
 [suites.bench-e2e]
 node = "apps/bench"
-# Playwright against the built page; no API yet (ADR 0210).
+# Sample workbench and real information editing. API/Authgear fixtures are beings-owned.
+depends_on = ["apps/api", "apps/beings"]
 
 [suites.account-hub-real-api]
 node = "apps/account-hub"
@@ -131,3 +132,6 @@ generated_from = ["apps/api"]
 # instead of a step after them: each is about 150 s of Gradle.
 [suites.mobile-build]
 node = "apps/inventory-mobile"
+
+[nodes."packages/information-editor"]
+batch = "packages"

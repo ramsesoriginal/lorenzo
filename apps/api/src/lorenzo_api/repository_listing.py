@@ -27,6 +27,6 @@ async def set_listing_facts(
     profile = await profile_of(session, repository_id)
     profile.release_label = release.label
     profile.released_at = release.created_at
-    profile.entry_count = len(content.entities)
+    profile.entry_count = sum(content.entry_audiences.get(e, True) for e in content.entities)
     profile.stat_definition_count = len(content.definitions)
     await session.flush()

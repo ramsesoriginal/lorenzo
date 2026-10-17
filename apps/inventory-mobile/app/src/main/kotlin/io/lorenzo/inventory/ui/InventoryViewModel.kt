@@ -20,6 +20,9 @@ data class UiState(
     val item: Item? = null,
     val notes: List<Information> = emptyList(),
     val queued: List<QueuedNote> = emptyList(),
+    val composer: InformationDraft? = null,
+    val capture: CaptureBinding? = null,
+    val recipients: List<Recipient> = emptyList(),
     val updatedAt: Long? = null,
     val busy: Boolean = false,
     val submitting: Boolean = false,
@@ -52,6 +55,11 @@ class InventoryViewModel(
                 mutable.value = UiState(signedIn = token != null)
                 if (token != null) {
                     sessionJob = launch {
+                        launch {
+                            repository.observeCapture().collect { capture ->
+                                mutable.update { it.copy(capture = capture) }
+                            }
+                        }
                         launch {
                             repository.observeMe().collect { cached ->
                                 mutable.update {
@@ -93,6 +101,7 @@ class InventoryViewModel(
                 it.copy(
                     error =
                         when (e) {
+                            is PictureImportException -> e.message.orEmpty()
                             is ApiException ->
                                 when (e.status) {
                                     401 -> "Your sign-in expired or was revoked. Connect again."
@@ -212,9 +221,28 @@ class InventoryViewModel(
         val character = mutable.value.character ?: return
         noteJob?.cancel()
         saved["item"] = item.entityId
-        mutable.update { it.copy(item = item, notes = emptyList(), error = null) }
+        mutable.update {
+            it.copy(
+                item = item,
+                notes = emptyList(),
+                composer = null,
+                recipients = emptyList(),
+                error = null,
+            )
+        }
         noteJob =
             viewModelScope.launch {
+                launch {
+                    repository.observeComposer(character, item.entityId).collect { draft ->
+                        mutable.update { it.copy(composer = draft) }
+                    }
+                }
+                launch {
+                    attempt {
+                        val readers = repository.recipients(character)
+                        mutable.update { it.copy(recipients = readers) }
+                    }
+                }
                 launch {
                     repository.observeNotes(character, item.entityId).collect { cached ->
                         mutable.update { it.copy(notes = cached?.value.orEmpty()) }
@@ -285,6 +313,148 @@ class InventoryViewModel(
                 }
             }
     }
+
+    fun startNote() {
+        val snapshot = mutable.value
+        val character = snapshot.character ?: return
+        val item = snapshot.item ?: return
+        viewModelScope.launch {
+            attempt {
+                repository.startComposer(
+                    character,
+                    item.entityId,
+                    snapshot.locales.firstOrNull() ?: "en-US",
+                )
+            }
+        }
+    }
+
+    fun changeNote(change: (InformationDraft) -> InformationDraft) {
+        val snapshot = mutable.value
+        val character = snapshot.character ?: return
+        val item = snapshot.item ?: return
+        viewModelScope.launch {
+            attempt { repository.changeComposer(character, item.entityId, change) }
+        }
+    }
+
+    fun discardNote() {
+        val snapshot = mutable.value
+        val character = snapshot.character ?: return
+        val item = snapshot.item ?: return
+        viewModelScope.launch { attempt { repository.discardComposer(character, item.entityId) } }
+    }
+
+    fun queueNote(onQueued: () -> Unit) {
+        val snapshot = mutable.value
+        val character = snapshot.character ?: return
+        val item = snapshot.item ?: return
+        if (snapshot.submitting) return
+        viewModelScope.launch {
+            mutable.update { it.copy(submitting = true) }
+            try {
+                attempt {
+                    repository.queueComposer(character, item.entityId)
+                    onQueued()
+                }
+            } finally {
+                mutable.update { it.copy(submitting = false) }
+            }
+        }
+    }
+
+    fun preparePicture(camera: Boolean) {
+        val snapshot = mutable.value
+        val character = snapshot.character ?: return
+        val item = snapshot.item ?: return
+        viewModelScope.launch {
+            attempt { repository.beginCapture(character, item.entityId, camera) }
+        }
+    }
+
+    fun launchPicture(
+        context: android.content.Context,
+        id: String,
+        launch: (android.net.Uri?) -> Unit,
+    ) {
+        viewModelScope.launch {
+            attempt {
+                val binding = repository.markCaptureLaunched(id) ?: return@attempt
+                try {
+                    val uri =
+                        withContext(Dispatchers.IO) {
+                            if (binding.camera) NotePictures.captureUri(context, binding.id)
+                            else null
+                        }
+                    check(repository.capture()?.id == binding.id) {
+                        "Picture selection was cancelled"
+                    }
+                    launch(uri)
+                } catch (e: Exception) {
+                    withContext(NonCancellable) {
+                        runCatching { repository.finishCapture(binding, null) }
+                        withContext(Dispatchers.IO) {
+                            NotePictures.removeCapture(context, binding.id)
+                        }
+                    }
+                    throw e
+                }
+            }
+        }
+    }
+
+    fun receivePicture(
+        context: android.content.Context,
+        uri: android.net.Uri?,
+        camera: Boolean,
+        accepted: Boolean = true,
+        expectedId: String,
+    ) {
+        viewModelScope.launch {
+            attempt {
+                val binding = repository.capture() ?: return@attempt
+                if (binding.camera != camera || binding.id != expectedId) return@attempt
+                try {
+                    val source =
+                        if (!accepted) null
+                        else if (camera) NotePictures.captureUri(context, binding.id) else uri
+                    val bytes =
+                        source?.let {
+                            try {
+                                NotePictures.normalize(context, it)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                                throw PictureImportException()
+                            }
+                        }
+                    repository.finishCapture(binding, bytes)
+                } finally {
+                    withContext(NonCancellable) {
+                        runCatching { repository.finishCapture(binding, null) }
+                        withContext(Dispatchers.IO) {
+                            NotePictures.removeCapture(context, binding.id)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun cancelPicture(context: android.content.Context) {
+        viewModelScope.launch {
+            attempt {
+                val binding = repository.capture() ?: return@attempt
+                repository.finishCapture(binding, null)
+                withContext(Dispatchers.IO) { NotePictures.removeCapture(context, binding.id) }
+            }
+        }
+    }
+
+    suspend fun picture(tenantId: String, payload: Payload) =
+        repository.protectedPicture(tenantId, payload)
+
+    suspend fun stagedPicture(id: String) = repository.stagedPicture(id)
 
     fun addNote(text: String, public: Boolean, onQueued: () -> Unit) {
         val snapshot = mutable.value

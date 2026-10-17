@@ -1,3 +1,6 @@
+import { renderInformationPayloads } from '@lorenzo/information-editor';
+import { listInformation } from '../../lib/information';
+import { renderFactsAbout } from '../Facts/renderer';
 // One rendering of an item for the dialog and the item page (ADR 0112): its stat groups, tags,
 // pictures, and descriptions, its own and those it inherits from its prototypes (ADR 0111).
 
@@ -52,8 +55,18 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
     return label;
   }
 
+  let turn = 0;
+  let facts: HTMLElement | null = null;
   return {
     show(item) {
+      const mine = ++turn;
+      facts?.remove();
+      facts = document.createElement('section');
+      root.append(facts);
+      renderFactsAbout(facts, options.tenantId, item.entity_id);
+      descriptions.replaceChildren();
+      pictures.replaceChildren();
+      pictures.hidden = true;
       groups.replaceChildren(
         ...GROUPS.flatMap(([heading, key]) => {
           const set = item[key].filter((stat) => stat.value !== null);
@@ -92,46 +105,89 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
         }),
       );
 
-      pictures.hidden = item.pictures.length === 0;
-      pictures.replaceChildren(
-        ...item.pictures.map((picture) => {
-          const figure = required<HTMLElement>(
-            fromTemplate(root, '[data-picture-template]'),
-            'figure',
-          );
-          const image = required<HTMLImageElement>(figure, '[data-image]');
-          const caption = required<HTMLElement>(figure, '[data-caption]');
-
-          image.alt = picture.from_entity
-            ? `Picture of ${picture.from_entity.name}`
-            : `Picture of ${item.title}`;
-          blobUrl(picture.url).then(
-            (src) => {
-              image.src = src;
-            },
-            () => figure.remove(),
-          );
-
-          if (picture.from_entity) {
-            fillSource(caption, picture.from_entity);
-            caption.hidden = false;
-          } else {
-            caption.remove();
-          }
-
-          return figure;
-        }),
-      );
-
-      void showDescriptions(
-        descriptions,
-        options.renderer,
-        item.descriptions.map((description) => ({
-          text: description.content,
-          label: sourceLabel(description.from_entity),
-          home: description.from_entity?.id ?? item.entity_id,
+      const fallback = () =>
+        showDescriptions(
+          descriptions,
+          options.renderer,
+          item.descriptions.map((description) => ({
+            text: description.content,
+            label: sourceLabel(description.from_entity),
+            home: description.from_entity?.id ?? item.entity_id,
+          })),
+        );
+      // The item read retains its flat text/picture contract. Read each visible source's
+      // description bundles for their shared order, including image-only descriptions.
+      const sources = new Map<string, Source>([[item.entity_id, null]]);
+      for (const part of [...item.descriptions, ...item.pictures])
+        if (part.from_entity) sources.set(part.from_entity.id, part.from_entity);
+      void Promise.all(
+        [...sources].map(async ([id, source]) => ({
+          id,
+          source,
+          infos: await listInformation(options.tenantId, id, ['description']),
         })),
-      );
+      )
+        .then((found) => {
+          if (mine !== turn) return;
+          const bundledUrls = new Set(
+            found.flatMap(({ infos }) =>
+              infos.flatMap((info) =>
+                info.payloads.filter((p) => p.kind === 'picture').map((p) => p.url),
+              ),
+            ),
+          );
+          descriptions.replaceChildren();
+          for (const { id, source, infos } of found) {
+            for (const info of infos) {
+              const mount = document.createElement('div');
+              const label = sourceLabel(source);
+              if (label) descriptions.append(label);
+              descriptions.append(mount);
+              renderInformationPayloads(mount, {
+                information: info,
+                loadFile: (payload) => blobUrl(payload.url),
+                renderText: (host, text) =>
+                  showDescriptions(host, options.renderer, [{ text, home: id }]),
+              });
+            }
+          }
+          const remainingPictures = item.pictures.filter(
+            (picture) => !bundledUrls.has(picture.url),
+          );
+          pictures.hidden = remainingPictures.length === 0;
+          pictures.replaceChildren(
+            ...remainingPictures.map((picture) => {
+              const figure = required<HTMLElement>(
+                fromTemplate(root, '[data-picture-template]'),
+                'figure',
+              );
+              const image = required<HTMLImageElement>(figure, '[data-image]');
+              const caption = required<HTMLElement>(figure, '[data-caption]');
+
+              image.alt = picture.from_entity
+                ? `Picture of ${picture.from_entity.name}`
+                : `Picture of ${item.title}`;
+              blobUrl(picture.url).then(
+                (src) => {
+                  image.src = src;
+                },
+                () => figure.remove(),
+              );
+
+              if (picture.from_entity) {
+                fillSource(caption, picture.from_entity);
+                caption.hidden = false;
+              } else {
+                caption.remove();
+              }
+
+              return figure;
+            }),
+          );
+        })
+        .catch(() => {
+          if (mine === turn) void fallback();
+        });
     },
   };
 }

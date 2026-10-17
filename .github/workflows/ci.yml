@@ -386,8 +386,8 @@ jobs:
             apps/beings/test-results/
           retention-days: 7
 
-  # apps/bench's browser tests (ADR 0210): the built static page in a browser, with no API or
-  # database yet. The `bench-e2e` suite in .github/ci-graph.toml: it runs when bench or anything it
+  # apps/bench's browser tests: the sample workbench and real information editing.
+  # The real-API suite reuses beings' API/Authgear launchers. The `bench-e2e` suite in .github/ci-graph.toml: it runs when bench or anything it
   # depends on is affected.
   e2e-bench:
     name: e2e (bench)
@@ -395,6 +395,11 @@ jobs:
     if: contains(fromJson(needs.discover.outputs.suites), 'bench-e2e')
     runs-on: ubuntu-latest
     steps:
+      - name: Start Postgres
+        run: |
+          docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
+            postgres:17-alpine
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
         with:
@@ -417,6 +422,15 @@ jobs:
         working-directory: apps/bench
       - run: pnpm exec playwright test
         working-directory: apps/bench
+      - name: Real information editing
+        run: |
+          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done'
+          pnpm run test:e2e-api
+        working-directory: apps/bench
+        env:
+          UV_NO_DEV: 1
+          E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
+          E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

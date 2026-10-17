@@ -1,8 +1,10 @@
+import { renderFactsAbout } from '../Facts/renderer';
 // What a being's page says about it (ADR 0271): its picture, its description as LorenzoScript. Read-only;
 // the editors are separate, and the numbers and tags are the stat band's (RFC 0043).
 
+import { renderInformationPayloads } from '@lorenzo/information-editor';
 import { blobUrl } from '../../lib/api';
-import { descriptionOf, pictureOf } from '../../lib/being';
+import { pictureOf } from '../../lib/being';
 import { type Renderer, showDescriptions } from '../../lib/descriptions';
 import { requiredIn } from '../../lib/template';
 import type { EntityDetail } from '../../lib/types';
@@ -16,7 +18,7 @@ export const initialsOf = (name: string): string =>
     .map((word) => word.charAt(0).toUpperCase())
     .join('');
 
-export type BeingViewOptions = { renderer: Renderer };
+export type BeingViewOptions = { renderer: Renderer; tenantId: string };
 
 export type RenderedBeingView = {
   /** Shows `entity`, replacing what was shown. */
@@ -35,10 +37,14 @@ export function renderBeingView(root: HTMLElement, options: BeingViewOptions): R
 
   // The picture shown, so an unrelated change does not fetch it again.
   let pictureId: string | null = null;
+  const facts = document.createElement('section');
+  root.append(facts);
 
   return {
     show(entity) {
-      const text = descriptionOf(entity);
+      facts.replaceChildren();
+      renderFactsAbout(facts, options.tenantId, entity.id);
+      const infos = entity.information.filter((info) => info.type === 'description');
       const main = pictureOf(entity);
 
       if (main?.kind !== 'picture') {
@@ -64,9 +70,19 @@ export function renderBeingView(root: HTMLElement, options: BeingViewOptions): R
       picture.alt = `Picture of ${entity.name}`;
       portrait.textContent = initialsOf(entity.name);
 
-      void showDescriptions(description, options.renderer, text ? [{ text, home: entity.id }] : []);
+      description.replaceChildren();
+      for (const info of infos) {
+        const mount = document.createElement('div');
+        description.append(mount);
+        renderInformationPayloads(mount, {
+          information: info,
+          loadFile: (payload) => blobUrl(payload.url, payload.updated_at),
+          renderText: (host, text) =>
+            showDescriptions(host, options.renderer, [{ text, home: entity.id }]),
+        });
+      }
 
-      nothing.hidden = Boolean(text) || main !== undefined;
+      nothing.hidden = infos.some((info) => info.payloads.length) || main !== undefined;
     },
   };
 }

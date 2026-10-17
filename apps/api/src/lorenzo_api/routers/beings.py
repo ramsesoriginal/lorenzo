@@ -188,7 +188,7 @@ async def get_being_sheet(
         )
         await attach_contents(session, [view.entity for view in views], tenant_id=tenant_id)
         for view in views:
-            stats = [s for s in _stats_out(view.entity) if s.name in names]
+            stats = [s for s in _stats_out(view.entity, visibility) if s.name in names]
             if stats:
                 weapons.append(
                     SheetWeaponOut(

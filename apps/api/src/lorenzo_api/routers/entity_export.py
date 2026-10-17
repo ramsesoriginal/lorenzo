@@ -29,6 +29,7 @@ from lorenzo_api.entity_export import (
     matches_if_none_match,
     read_revision,
 )
+from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.exceptions import ExportChangedError
 from lorenzo_api.information_visibility import (
     resolve_information_visibility,
@@ -151,7 +152,7 @@ async def export_entities(
 
     stmt = (
         select(Entity)
-        .where(Entity.tenant_id == tenant_id)
+        .where(Entity.tenant_id == tenant_id, visible_entry_clause(visibility, Entity.id))
         .order_by(Entity.id)
         .limit(limit + 1)
         .options(selectinload(Entity.slug))
@@ -163,7 +164,7 @@ async def export_entities(
     ids = [entity.id for entity in entities]
 
     kinds = await kinds_of(session, ids)
-    parents = await parents_of(session, ids)
+    parents = await parents_of(session, ids, visibility)
     information = await _information_of(
         session,
         request,

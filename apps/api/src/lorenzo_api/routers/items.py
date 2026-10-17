@@ -28,6 +28,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entity_access import prototype_descendants_cte
 from lorenzo_api.entity_parents import replace_parents
+from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     ClientIdUnavailableError,
@@ -38,7 +39,10 @@ from lorenzo_api.exceptions import (
     ItemNotFoundError,
     ItemPrototypeInUseError,
 )
-from lorenzo_api.information_visibility import resolve_information_reader
+from lorenzo_api.information_visibility import (
+    resolve_information_reader,
+    resolve_information_visibility,
+)
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.models import (
     Entity,
@@ -254,6 +258,8 @@ async def list_items(
             session,
             user_id=user.id,
             tenant_id=tenant_id,
+            entry_ids=[item.entity_id for item in items]
+            + [a.id for ancestors in ancestry.values() for a in ancestors],
             information=_information_read(
                 [
                     *(item.entity for item in items),
@@ -306,6 +312,7 @@ async def _item_read(
         user_id=user.id,
         tenant_id=view.tenant_id,
         information=_information_read([view.entity, *ancestors]),
+        entry_ids=[view.entity_id, *(a.id for a in ancestors)],
     )
     if response is not None:
         response.headers["ETag"] = etag_for(view.entity.updated_at)
@@ -566,6 +573,8 @@ async def get_item_prototype_ancestry(
         .options(selectinload(Entity.prototype_links))
         .order_by(Entity.name, Entity.id)
     )
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    stmt = stmt.where(visible_entry_clause(visibility, Entity.id))
     ancestors = (await session.execute(stmt)).scalars().all()
     return [
         PrototypeAncestorOut(
@@ -574,7 +583,14 @@ async def get_item_prototype_ancestry(
             # Always a subset of the returned ancestor set itself (a direct
             # prototype of an ancestor is transitively an ancestor too), so
             # no filtering against ancestor_ids is needed here.
-            prototype_ids=sorted((link.prototype_id for link in ancestor.prototype_links), key=str),
+            prototype_ids=sorted(
+                (
+                    link.prototype_id
+                    for link in ancestor.prototype_links
+                    if visibility.can_see_entry(link.prototype_id)
+                ),
+                key=str,
+            ),
         )
         for ancestor in ancestors
     ]

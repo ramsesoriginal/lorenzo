@@ -17,7 +17,7 @@ const changes = (n: number) => `${n} ${n === 1 ? 'change' : 'changes'}`;
 
 /** Signs out, after asking if there is something to lose. */
 export function requestSignOut(bench: Bench, signOut: () => void | Promise<void>): void {
-  if (!bench.outbox.length) {
+  if (!bench.hasUnsent) {
     void signOut();
     return;
   }
@@ -71,7 +71,7 @@ export function requestSignOut(bench: Bench, signOut: () => void | Promise<void>
     send.addEventListener('click', async () => {
       busy = true;
       draw();
-      await bench.run();
+      await bench.sendUnsent();
       busy = false;
       draw();
     });
@@ -120,6 +120,6 @@ export function requestSignOut(bench: Bench, signOut: () => void | Promise<void>
 /** Closing the page with changes not sent asks first (the browser words it itself). */
 export function guardUnsent(bench: () => Bench): void {
   window.addEventListener('beforeunload', (ev) => {
-    if (bench().outbox.length) ev.preventDefault();
+    if (bench().hasUnsent) ev.preventDefault();
   });
 }

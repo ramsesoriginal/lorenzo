@@ -350,3 +350,27 @@ GET /tenants/{tenant_id}/campaigns/{campaign_id}/invites response property `item
 GET /tenants/{tenant_id}/campaigns/{campaign_id}/invites response property `items/items/role` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
 POST /tenants/{tenant_id}/campaigns/{campaign_id}/invites response property `campaign_id` list-of-types was widened by adding types `null` to media type `application/json` of response `201`
 POST /tenants/{tenant_id}/campaigns/{campaign_id}/invites response property `role` list-of-types was widened by adding types `null` to media type `application/json` of response `201`
+
+# ADR 0305: canonical Facts add a first-class entry kind to closed response enums.
+DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+GET /repositories/{repository_id}/entities added the new `fact` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /repositories/{repository_id}/entities/{entity_id} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+GET /repositories/{repository_id}/preview added the new `fact` enum value to the `entries/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities added the new `fact` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/by-slug/{slug} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/export added the new `fact` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/resolve added the new `fact` enum value to the `items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/backlinks added the new `fact` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/preview added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/entities added the new `fact` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/entities/{entity_id} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/preview added the new `fact` enum value to the `entries/items/kinds/items/` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/entities added the new `fact` enum value to the `kinds/items/` response property for the response status `201`
+PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `fact` enum value to the `kinds/items/` response property for the response status `200`

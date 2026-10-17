@@ -1,3 +1,4 @@
+import type { EntryControls } from './entryControls';
 // The workbench shell: draws a Workspace (workspace/model.ts) and turns pointer and keyboard
 // input into changes to it. The layout rules live in the model; this file is the DOM.
 
@@ -177,6 +178,7 @@ export class Shell {
   extra: Command[] = [];
 
   private unsubscribe: (() => void) | null = null;
+  private entryControls: EntryControls | undefined;
 
   constructor(
     root: HTMLElement,
@@ -230,7 +232,8 @@ export class Shell {
   }
 
   /** Hands the shell the bench to show, once the session has said which repository it is. */
-  use(bench: Bench) {
+  use(bench: Bench, controls?: EntryControls) {
+    this.entryControls = controls;
     this.unsubscribe?.();
     this.unsubscribePictures?.();
     this.unsubscribeConnections?.();
@@ -629,6 +632,7 @@ export class Shell {
     add.setAttribute('aria-expanded', String(this.newOpen));
     add.addEventListener('click', () => {
       this.newOpen = !this.newOpen;
+      if (!this.newOpen) this.newEntryDraft = null;
       this.render();
     });
     head.append(add);
@@ -806,7 +810,8 @@ export class Shell {
 
   private paneEl(id: string): HTMLElement {
     const bench = this.bench;
-    if (id === 'entry') return renderEntry(bench, this.selected, (x) => this.select(x));
+    if (id === 'entry')
+      return renderEntry(bench, this.selected, (x) => this.select(x), this.entryControls);
     if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
     if (id === 'ancestry') return renderAncestry(bench, this.selected, (x) => this.select(x));
@@ -842,12 +847,19 @@ export class Shell {
   }
 
   /** Name, kind and parent of an entry to make; it shows in the list at once. */
+  private newEntryDraft: { name: string; kind: string; parent: string } | null = null;
   private newEntryForm(): HTMLElement {
+    this.newEntryDraft ??= { name: '', kind: 'item', parent: this.selected ?? '' };
+    const draft = this.newEntryDraft;
     const bench = this.bench;
     const form = el('form', 'new-entry');
     const name = el('input');
     name.type = 'text';
     name.placeholder = 'New entry';
+    name.value = draft.name;
+    name.addEventListener('input', () => {
+      draft.name = name.value;
+    });
     name.dataset.key = 'new-entry-name';
     name.setAttribute('aria-label', 'Name of the new entry');
     const kind = el('select');
@@ -855,15 +867,24 @@ export class Shell {
     for (const [value, label] of [
       ['item', 'Item'],
       ['being', 'Being'],
+      ['fact', 'Fact'],
       ['item,being', 'Item and being'],
       ['', 'Bare entry'],
     ] as const)
       kind.append(new Option(label, value));
+    kind.value = draft.kind;
+    kind.addEventListener('change', () => {
+      draft.kind = kind.value;
+    });
     const parent = el('select');
     parent.setAttribute('aria-label', 'Parent of the new entry');
     parent.append(new Option('No parent', ''));
     for (const e of bench.listing())
-      parent.append(new Option(e.name, e.id, false, e.id === this.selected));
+      parent.append(new Option(e.name, e.id, false, e.id === draft.parent));
+    parent.value = draft.parent;
+    parent.addEventListener('change', () => {
+      draft.parent = parent.value;
+    });
     const add = el('button', 'btn', 'Add');
     add.type = 'submit';
     form.append(name, kind, parent, add);
@@ -871,12 +892,14 @@ export class Shell {
       ev.preventDefault();
       const text = name.value.trim();
       if (!text) return;
+      this.newEntryDraft = null;
       const id = bench.create({
         name: text,
         kinds: kind.value ? kind.value.split(',') : [],
         parents: parent.value ? [parent.value] : [],
       });
       name.value = '';
+      this.newEntryDraft = null;
       this.select(id);
     });
     return form;

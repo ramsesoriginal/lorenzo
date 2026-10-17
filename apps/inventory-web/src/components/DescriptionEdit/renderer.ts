@@ -1,3 +1,5 @@
+import { renderAudienceControl } from '@lorenzo/information-editor';
+import { client } from '../../lib/api';
 // The description of an item with its display title, the item's shown name (ADR 0019, 0112),
 // written in an InfoForm under the button that opens it.
 
@@ -32,6 +34,23 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
 
   let item: ItemBase | null = null;
 
+  let canWrite = false;
+  let audience: HTMLDetailsElement | null = null;
+  function showAudience() {
+    audience?.remove();
+    audience = null;
+    if (!item?.descriptions.some((description) => !description.from_entity)) return;
+    audience = renderAudienceControl({
+      client,
+      tenantId,
+      informationId: async () =>
+        item ? ((await getDescription(tenantId, item.entity_id))?.id ?? null) : null,
+      onSaved: options.onSaved,
+    });
+    audience.hidden = !canWrite;
+    root.append(audience);
+  }
+
   edit.addEventListener('click', async () => {
     if (!item) return;
 
@@ -44,9 +63,11 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
       let saved = false;
 
       edit.hidden = true;
+      if (audience) audience.hidden = true;
       mount.replaceChildren(
         renderInfoForm(root, {
           initial: descriptionDraft(info, title),
+          information: info ?? undefined,
           renderer: at(options.renderer, entityId),
           titleLabel: 'Display title',
           textLabel: 'Description',
@@ -60,6 +81,7 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
           onClose: () => {
             mount.replaceChildren();
             edit.hidden = false;
+            showAudience();
 
             if (saved) options.onSaved();
           },
@@ -75,13 +97,16 @@ export function renderDescriptionEdit(options: DescriptionEditOptions): Rendered
   return {
     show(shown) {
       item = shown;
+      showAudience();
       edit.textContent = shown.descriptions.some((description) => !description.from_entity)
         ? 'Edit description'
         : 'Write a description';
     },
 
-    allow(canWrite) {
-      edit.hidden = !canWrite;
+    allow(allowed) {
+      canWrite = allowed;
+      edit.hidden = !allowed;
+      if (audience) audience.hidden = !allowed;
     },
   };
 }

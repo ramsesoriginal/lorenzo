@@ -24,12 +24,16 @@ export function itemPageHref(
   return `/item/?tenant=${encodeURIComponent(tenant)}&${named}`;
 }
 
+export const factPageHref = (tenant: string, id: string): string =>
+  `/fact/?tenant=${encodeURIComponent(tenant)}&id=${encodeURIComponent(id)}`;
+
 const itemPage: View['href'] = (t, id) => itemPageHref(t, { entity_id: id });
 const board: View['href'] = (t, id) => `/board/?tenant=${t}&character=${id}`;
 
 // The pages an entity can open in, in the order a link without a usable
 // hint tries them. A plain being has none here.
 const VIEWS: View[] = [
+  { kind: 'fact', page: 'its fact page', href: factPageHref },
   { kind: 'item_instance', page: 'its item page', href: itemPage },
   { kind: 'item', page: 'its item page', href: itemPage },
   { kind: 'character', page: 'the board', href: board },

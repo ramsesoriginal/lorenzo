@@ -32,3 +32,19 @@ The end-to-end tests start a fake Authgear (4410), the real API on a fresh datab
 ## Shape
 
 `src/pages/` has the pages; `src/components/<Name>/` is a `<Name>.astro` of markup and `data-*` hooks with a `renderer.ts` that finds them; `src/lib/` is the API reads and writes and the pure rules, each with a `.test.ts` where it has logic. The stat logic is `packages/stat-values`, shared with inventory-web.
+
+Editable descriptions and notes include **Who can read this**, with explicit character and group
+recipients and the existing Player grants. Audience changes are atomic and versioned (ADR 0304);
+a stale form asks the editor to review the current audience before saving again.
+
+Descriptions and notes may hold several LorenzoScript texts and pictures, kept in one ordered
+bundle with one audience (ADR 0306). **Add picture** and **Add text** extend the existing editor;
+move/remove controls keep each part in order. A failed save keeps the draft and stable attachment
+IDs for retry. Read mode includes every part; protected pictures use authenticated requests.
+
+## Facts about an entry
+
+An entry lists the Facts explicitly about it when the reader can see their existence/name.
+The Fact page renders its visible information bundles and About subjects. LorenzoScript links
+resolve to that page. The Fact's outer audience and each information audience are independent;
+hidden Facts produce the same unavailable view as missing entries (ADR 0305, RFC 0044).

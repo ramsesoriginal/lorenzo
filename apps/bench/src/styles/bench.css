@@ -1891,3 +1891,38 @@ table.grid {
 [data-layout="write"] .pane-entry .entry-extra {
   display: none;
 }
+
+.information-picture {
+  max-width: 100%;
+  max-height: 36rem;
+  object-fit: contain;
+}
+.information-body {
+  min-width: 0;
+}
+.picture-drop-target {
+  outline: 1px dashed var(--accent);
+  outline-offset: 3px;
+}
+.picture-at-caret {
+  opacity: 0.35;
+}
+.text-editor:focus-within .picture-at-caret,
+.picture-at-caret:hover,
+.picture-at-caret:focus-visible {
+  opacity: 1;
+}
+.entry-audience {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.picture-part-actions {
+  opacity: 0.35;
+  font-size: 0.85rem;
+}
+.picture-part-actions:hover,
+.picture-part-actions:focus-within,
+.picture-part-actions[open] {
+  opacity: 1;
+}

@@ -11,8 +11,10 @@ import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 
@@ -49,12 +51,16 @@ class LorenzoApi(
             }
         }
 
-    private suspend fun request(
+    private data class Reply(val text: String, val etag: String, val picture: PictureBytes? = null)
+
+    private suspend fun exchange(
         path: List<String>,
         method: String = "GET",
-        body: String? = null,
+        body: RequestBody? = null,
         query: Map<String, String> = emptyMap(),
-    ): String {
+        ifMatch: String? = null,
+        binary: Boolean = false,
+    ): Reply {
         val url =
             base
                 .newBuilder()
@@ -66,11 +72,11 @@ class LorenzoApi(
         val request =
             Request.Builder()
                 .url(url)
-                .header("Accept", "application/json")
+                .header("Accept", if (binary) "image/*" else "application/json")
                 .apply {
                     token?.let { header("Authorization", "Bearer $it") }
-                    if (method != "GET")
-                        method(method, body?.toRequestBody("application/json".toMediaType()))
+                    ifMatch?.let { header("If-Match", it) }
+                    if (method != "GET") method(method, body)
                 }
                 .build()
         return suspendCancellableCoroutine { continuation ->
@@ -85,24 +91,169 @@ class LorenzoApi(
                     override fun onResponse(call: Call, response: Response) {
                         try {
                             response.use {
-                                val text = it.body.string()
-                                if (it.isSuccessful) continuation.resume(text)
-                                else {
+                                val bytes =
+                                    it.body.byteStream().use { stream ->
+                                        val output = java.io.ByteArrayOutputStream()
+                                        val buffer = ByteArray(16384)
+                                        while (true) {
+                                            val count = stream.read(buffer)
+                                            if (count < 0) break
+                                            if (output.size() + count > 10 * 1024 * 1024)
+                                                throw IOException(
+                                                    "Response exceeds the image limit"
+                                                )
+                                            output.write(buffer, 0, count)
+                                        }
+                                        output.toByteArray()
+                                    }
+                                if (!it.isSuccessful) {
                                     val problem =
-                                        runCatching { LorenzoJson.decodeFromString<Problem>(text) }
+                                        runCatching {
+                                                LorenzoJson.decodeFromString<Problem>(
+                                                    bytes.decodeToString()
+                                                )
+                                            }
                                             .getOrElse {
                                                 Problem(title = "Request failed (${response.code})")
                                             }
-                                    continuation.resumeWithException(ApiException(it.code, problem))
+                                    throw ApiException(it.code, problem)
                                 }
+                                val mime =
+                                    it.body
+                                        .contentType()
+                                        ?.toString()
+                                        ?.substringBefore(';')
+                                        .orEmpty()
+                                if (
+                                    binary &&
+                                        mime !in
+                                            listOf(
+                                                "image/png",
+                                                "image/jpeg",
+                                                "image/webp",
+                                                "image/gif",
+                                            )
+                                )
+                                    throw IOException("This payload is not a supported picture")
+                                if (!continuation.isCancelled)
+                                    continuation.resume(
+                                        Reply(
+                                            if (binary) "" else bytes.decodeToString(),
+                                            it.header("ETag").orEmpty(),
+                                            if (binary) PictureBytes(bytes, mime) else null,
+                                        )
+                                    )
                             }
-                        } catch (error: IOException) {
+                        } catch (error: Exception) {
                             if (!continuation.isCancelled) continuation.resumeWithException(error)
                         }
                     }
                 }
             )
         }
+    }
+
+    private suspend fun request(
+        path: List<String>,
+        method: String = "GET",
+        body: String? = null,
+        query: Map<String, String> = emptyMap(),
+    ): String =
+        exchange(path, method, body?.toRequestBody("application/json".toMediaType()), query).text
+
+    private fun info(tenantId: String, id: String) = listOf("tenants", tenantId, "information", id)
+
+    private fun jsonBody(value: String) = value.toRequestBody("application/json".toMediaType())
+
+    suspend fun editor(tenantId: String, id: String): Versioned<Information> {
+        val reply = exchange(info(tenantId, id) + "editor")
+        return Versioned(LorenzoJson.decodeFromString(reply.text), reply.etag)
+    }
+
+    suspend fun audience(tenantId: String, id: String): Versioned<Audience> {
+        val reply = exchange(info(tenantId, id) + "audience")
+        return Versioned(LorenzoJson.decodeFromString(reply.text), reply.etag)
+    }
+
+    suspend fun setAudience(tenantId: String, id: String, audience: Audience, etag: String) {
+        exchange(
+            info(tenantId, id) + "audience",
+            "PUT",
+            jsonBody(LorenzoJson.encodeToString(audience)),
+            ifMatch = etag,
+        )
+    }
+
+    suspend fun appendText(tenantId: String, id: String, text: TextAppend, etag: String) {
+        exchange(
+            info(tenantId, id) + "texts",
+            "POST",
+            jsonBody(LorenzoJson.encodeToString(text)),
+            ifMatch = etag,
+        )
+    }
+
+    suspend fun appendPicture(
+        tenantId: String,
+        id: String,
+        payloadId: String,
+        bytes: ByteArray,
+        etag: String,
+    ) {
+        val body =
+            MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("payload_id", payloadId)
+                .addFormDataPart(
+                    "file",
+                    "picture.jpg",
+                    bytes.toRequestBody("image/jpeg".toMediaType()),
+                )
+                .build()
+        exchange(info(tenantId, id) + "payloads", "POST", body, ifMatch = etag)
+    }
+
+    suspend fun order(tenantId: String, id: String, ids: List<String>, etag: String) {
+        exchange(
+            info(tenantId, id) + listOf("payloads", "order"),
+            "PUT",
+            jsonBody(LorenzoJson.encodeToString(PayloadOrder(ids))),
+            ifMatch = etag,
+        )
+    }
+
+    suspend fun removePayload(tenantId: String, payloadId: String, etag: String) {
+        exchange(listOf("tenants", tenantId, "payloads", payloadId), "DELETE", ifMatch = etag)
+    }
+
+    suspend fun picture(tenantId: String, payloadId: String): PictureBytes =
+        requireNotNull(
+            exchange(listOf("tenants", tenantId, "payloads", payloadId, "content"), binary = true)
+                .picture
+        )
+
+    suspend fun recipients(tenantId: String): List<Recipient> {
+        val all = mutableListOf<Recipient>()
+        for (kind in listOf("characters", "groups")) {
+            var page = 1
+            var count = 0
+            do {
+                val text =
+                    request(
+                        listOf("tenants", tenantId, kind),
+                        query = mapOf("page" to (page++).toString(), "size" to "100"),
+                    )
+                val result =
+                    if (kind == "groups") {
+                        val groups = LorenzoJson.decodeFromString<Page<EntityRef>>(text)
+                        Page(groups.items.map { Recipient(it.id, it.name) }, groups.total)
+                    } else LorenzoJson.decodeFromString<Page<Recipient>>(text)
+                all += result.items
+                count += result.items.size
+                if (count >= result.total || result.items.isEmpty()) break
+            } while (true)
+        }
+        return all.distinctBy { it.entityId }.sortedBy { it.name.lowercase() }
     }
 
     suspend fun me(): Me = LorenzoJson.decodeFromString(request(listOf("me")))

@@ -1,0 +1,49 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Fact — Lorenzo">
+  <p id="fact-status" role="status">
+    Loading…
+  </p>
+  <article class="stack" data-fact-page hidden></article>
+  <script>
+    import { renderFactPage } from '../../components/FactPage/renderer';
+    import { addressedTenant, isId } from '../../lib/addresses';
+    import { client, unwrap } from '../../lib/api';
+    import { isAuthenticated } from '../../lib/auth';
+    import { descriptionRenderer } from '../../lib/descriptions';
+    const status = document.querySelector<HTMLElement>('#fact-status');
+    const root = document.querySelector<HTMLElement>('[data-fact-page]');
+    if (status && root) {
+      try {
+        if (!(await isAuthenticated()))
+          throw new Error("You're not logged in. Log in to continue.");
+        const params = new URLSearchParams(location.search);
+        const tenant = await addressedTenant(params.get('tenant'));
+        if (tenant.problem) throw new Error(tenant.problem);
+        if (!tenant.id) throw new Error('This link is missing a library.');
+        let id = params.get('id');
+        const slug = params.get('slug') ?? (id && !isId(id) ? id : null);
+        if (slug) {
+          const found = await unwrap(
+            await client.GET('/tenants/{tenant_id}/entities/resolve', {
+              params: { path: { tenant_id: tenant.id }, query: { slug: [slug] } },
+            }),
+          );
+          id = found.find((entry) => entry.kinds.includes('fact'))?.entity_id ?? null;
+        }
+        if (!id) throw new Error('This fact is not available.');
+        await renderFactPage(root, tenant.id, id, descriptionRenderer(tenant.id));
+        status.textContent = '';
+      } catch (error) {
+        root.replaceChildren();
+        root.hidden = true;
+        status.textContent =
+          error instanceof Error && !('status' in error)
+            ? error.message
+            : 'This fact is not available.';
+      }
+    }
+  </script>
+</Base>

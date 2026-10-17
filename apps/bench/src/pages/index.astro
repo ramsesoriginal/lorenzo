@@ -44,6 +44,7 @@ import '../styles/bench.css';
       import { chooseRepository, loadSession, signOut } from '../shell/session';
       import { guardUnsent, requestSignOut } from '../shell/signOutDialog';
       import { Shell } from '../shell/shell';
+      import { createEntryControls, type EntryControls } from '../shell/entryControls';
       import { SAMPLE_ENTRIES, SAMPLE_STATS } from '../shell/stub';
       import { openStartScreen, showWelcome } from '../shell/repositories';
       import { decorateTopBar } from '../shell/topbar';
@@ -75,7 +76,12 @@ import '../styles/bench.css';
         }
 
         const bench = new Bench(transport);
-        shell.use(bench);
+        let controls: EntryControls | undefined;
+        if (session.kind === 'signed-in' && session.current) {
+          const { client } = await import('../lib/api');
+          controls = createEntryControls(bench, client, session.current.id);
+        }
+        shell.use(bench, controls);
         const leave = () => requestSignOut(bench, signOut);
         guardUnsent(() => bench);
         renderTitleBar(bar, session, () => location.reload(), leave);

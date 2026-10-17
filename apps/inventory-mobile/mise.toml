@@ -28,3 +28,7 @@ run = "./gradlew formatKotlin"
 [tasks.check-format]
 description = "Verify Kotlin formatting"
 run = "./gradlew checkKotlinFormat"
+
+[tasks.test-instrumented]
+description = "Native picture, migration and composer tests on an emulator"
+run = "./gradlew :app:connectedDebugAndroidTest"

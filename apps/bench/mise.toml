@@ -34,3 +34,9 @@ run = "pnpm run build"
 description = "Browser tests of the built page (Playwright)"
 depends = ["install"]
 run = "pnpm run test:e2e"
+
+
+[tasks.test-e2e-api]
+description = "Browser tests against the real API (needs Postgres)"
+depends = ["install"]
+run = "pnpm run test:e2e-api"

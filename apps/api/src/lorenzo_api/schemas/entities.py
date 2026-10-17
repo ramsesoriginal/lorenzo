@@ -3,13 +3,28 @@ from datetime import datetime
 from typing import Literal
 
 from fastapi import Request
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from lorenzo_api.information_visibility import InformationReader
 from lorenzo_api.models import Entity, Information, VEffectiveStat
 from lorenzo_api.schemas.common import EntitySummary, Slug
 from lorenzo_api.schemas.payloads import PayloadOut, payload_to_schema
 from lorenzo_api.stat_evaluation import evaluate
+
+
+class FactUpdate(BaseModel):
+    """The name of a canonical fact; information and audiences have their own writes."""
+
+    name: str = Field(min_length=1)
+
+
+class EntryKnowerOut(BaseModel):
+    """An explicit outer recipient, without inventing a grant date."""
+
+    kind: Literal["entity", "player"]
+    knower_entity_id: uuid.UUID | None = None
+    player_id: uuid.UUID | None = None
+    name: str | None
 
 
 class EntitySlugUpdate(BaseModel):
@@ -23,7 +38,7 @@ class EntitySlugOut(BaseModel):
     slug: str
 
 
-EntityKind = Literal["item", "item_instance", "being", "character"]
+EntityKind = Literal["item", "item_instance", "being", "character", "fact"]
 
 
 class ResolvedSlugOut(BaseModel):
@@ -47,7 +62,7 @@ class EntityCreate(BaseModel):
     id: uuid.UUID | None = None
     name: str
     slug: Slug | None = None
-    kinds: list[Literal["item", "being"]] = []
+    kinds: list[Literal["item", "being", "fact"]] = []
     parents: list[uuid.UUID] = []
     in_public_catalog: bool | None = None
 
@@ -220,7 +235,7 @@ def stat_display_key(stat: VEffectiveStat) -> tuple[int, str, int, str]:
     )
 
 
-def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
+def _stats_out(entity: Entity, visibility: InformationReader) -> list[EntityStatValueOut]:
     """Every effective stat with a value, computed ones evaluated (ADR
     0104). A computed stat whose inputs don't resolve is left out, like an
     unset stat. Needs each stat's `source_entity` loaded: the view names the
@@ -236,6 +251,7 @@ def _stats_out(entity: Entity) -> list[EntityStatValueOut]:
             from_entity=(
                 None
                 if stat.source_entity_id == entity.id
+                or not visibility.can_see_entry(stat.source_entity_id)
                 else EntitySummary.from_entity(stat.source_entity)
             ),
             computed=stat.computed_entity_id is not None,
@@ -264,6 +280,8 @@ class KnowerOut(BaseModel):
 def _kinds_out(entity: Entity) -> list[EntityKind]:
     """Needs entity.item, item_instance and being loaded, and being.character."""
     kinds: list[EntityKind] = []
+    if entity.fact is not None:
+        kinds.append("fact")
     if entity.item is not None:
         kinds.append("item")
     if entity.item_instance is not None:
@@ -310,7 +328,7 @@ class EntityDetailOut(BaseModel):
             created_at=entity.created_at,
             updated_at=entity.updated_at,
             kinds=_kinds_out(entity),
-            stats=_stats_out(entity),
+            stats=_stats_out(entity, visibility),
             # entity.stat_groups is list[StatGroup], not list[Entity] - built
             # directly rather than through EntitySummary.from_entity (which
             # is typed for Entity specifically), reusing EntitySummary only
@@ -332,8 +350,16 @@ class EntityDetailOut(BaseModel):
             # "how many" doesn't apply; defaulting it to 1 there would
             # assert a fact about a relationship that has no such concept,
             # not correctly describe one that happens to be singular.
-            prototypes=[EntitySummary.from_entity(e) for e in entity.prototypes],
-            instances=[EntitySummary.from_entity(e) for e in entity.instances],
+            prototypes=[
+                EntitySummary.from_entity(e)
+                for e in entity.prototypes
+                if visibility.can_see_entry(e.id)
+            ],
+            instances=[
+                EntitySummary.from_entity(e)
+                for e in entity.instances
+                if visibility.can_see_entry(e.id)
+            ],
             # ADR 0041: entity.containment (the scalar Containment row for
             # this entity's own edge), not entity.parent - only the former
             # carries quantity alongside the parent entity. parent/quantity
@@ -349,15 +375,20 @@ class EntityDetailOut(BaseModel):
                     entity.containment.parent, quantity=entity.containment.quantity
                 )
                 if entity.containment is not None
+                and visibility.can_see_entry(entity.containment.parent_entity_id)
                 else None
             ),
-            quantity=entity.containment.quantity if entity.containment is not None else None,
+            quantity=entity.containment.quantity
+            if entity.containment is not None
+            and visibility.can_see_entry(entity.containment.parent_entity_id)
+            else None,
             # entity.contained_links (the Containment association-object
             # list), not entity.children (the bare Entity list) - only the
             # former carries each child's own quantity within this entity.
             children=[
                 EntitySummary.from_entity(link.child, quantity=link.quantity)
                 for link in entity.contained_links
+                if visibility.can_see_entry(link.child_entity_id)
             ],
         )
 

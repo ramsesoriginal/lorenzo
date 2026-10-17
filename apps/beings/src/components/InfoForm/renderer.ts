@@ -1,17 +1,19 @@
+import { type BundleReceipt, renderBundleEditor } from '@lorenzo/information-editor';
 // The fields a piece of information is written with (ADR 0112): its title, type, who can read
 // it, and its LorenzoScript text in the editor (ADR 0106), with notes on links readers won't be
 // able to follow, in a form of its own with Save, Cancel and a line saying what happened.
 
-import { LorenzoApiError } from '../../lib/api';
+import { blobUrl, LorenzoApiError } from '../../lib/api';
 import type { Renderer } from '../../lib/descriptions';
 import { errorMessage } from '../../lib/errorMessage';
-import type { InformationDraft } from '../../lib/information';
+import type { Information, InformationDraft } from '../../lib/information';
 import { say } from '../../lib/statusLine';
 import { cloneTemplate, requiredIn } from '../../lib/template';
 import { renderDescriptionEditor } from '../DescriptionEditor/renderer';
 
 export type InfoFormOptions = {
   initial: InformationDraft;
+  information?: Information;
   renderer: Renderer;
   // "Title" unless given; a description's is "Display title", the item's shown name.
   titleLabel?: string;
@@ -51,7 +53,6 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
   const title = required<HTMLInputElement>(form, '[data-title]');
   const type = required<HTMLInputElement>(form, '[data-type]');
   const isPublic = required<HTMLInputElement>(form, '[data-public]');
-  const save = required<HTMLButtonElement>(form, '[data-save]');
   const status = required<HTMLElement>(form, '[data-status]');
 
   required<HTMLElement>(form, '[data-title-label]').textContent = options.titleLabel ?? 'Title';
@@ -74,18 +75,36 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
     isPublic.setAttribute('aria-describedby', note.id);
   }
 
-  const editor = renderDescriptionEditor(form, {
-    renderer: options.renderer,
-    label: options.textLabel ?? 'Text',
+  const field = required<HTMLElement>(form, '[data-description-editor]');
+  const prototype = field.cloneNode(true) as HTMLElement;
+  const editor = renderBundleEditor({
+    initial: options.information?.payloads,
     content: initial.content,
+    textLabel: options.textLabel ?? 'Text',
+    loadFile: (payload) => blobUrl(payload.url),
+    createTextEditor: (host, label, content) => {
+      const mount = prototype.cloneNode(true) as HTMLElement;
+      host.append(mount);
+      return renderDescriptionEditor(mount, { renderer: options.renderer, label, content });
+    },
   });
+  field.replaceWith(editor.element);
+  const receipt: BundleReceipt = {
+    id: options.information?.id ?? crypto.randomUUID(),
+    information: options.information,
+  };
 
   const read = (): InformationDraft => ({
     title: title.value.trim(),
     type: type.value.trim() || initial.type,
     isPublic: isPublic.checked,
-    content: editor.value(),
+    content: editor.read().find((p) => p.kind === 'description')?.content ?? '',
+    payloads: editor.read(),
+    receipt,
   });
+
+  const fingerprint = () => JSON.stringify({ ...read(), receipt: undefined });
+  const started = fingerprint();
 
   function close() {
     editor.destroy();
@@ -93,10 +112,7 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
   }
 
   required<HTMLButtonElement>(form, '[data-cancel]').addEventListener('click', () => {
-    if (
-      JSON.stringify(read()) !== JSON.stringify(initial) &&
-      !window.confirm('Discard your changes?')
-    ) {
+    if (fingerprint() !== started && !window.confirm('Discard your changes?')) {
       return;
     }
 
@@ -105,16 +121,25 @@ export function renderInfoForm(templates: ParentNode, options: InfoFormOptions):
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    save.disabled = true;
+    const controls = Array.from(
+      form.querySelectorAll<
+        HTMLInputElement | HTMLTextAreaElement | HTMLButtonElement | HTMLSelectElement
+      >('input, textarea, button, select'),
+    );
+    const disabled = controls.map((control) => control.disabled);
+    for (const control of controls) control.disabled = true;
     say(status, 'Saving…');
 
     try {
+      await editor.ready();
       await options.onSubmit(read());
       close();
     } catch (error) {
       say(status, saveError(error), true);
     } finally {
-      save.disabled = false;
+      controls.forEach((control, index) => {
+        control.disabled = disabled[index] ?? false;
+      });
     }
   });
 

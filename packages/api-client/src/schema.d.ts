@@ -2614,10 +2614,11 @@ export interface paths {
         post?: never;
         /**
          * Delete Payload
-         * @description Removes a picture from its information (ADR 0237, K8 of RFC 0041). Same gate as editing
-         *     the information (sight of the row 404, standing over its entry 403). Only a picture can be
-         *     removed (409): a description is edited, and numbers and documents are not authored through
-         *     the API yet. The entry's `main_picture` goes with its one picture, since it is nothing
+         * @description Removes text or a picture from its information (ADR 0306). Same gate as editing
+         *     the information (sight of the row 404, standing over its entry 403). Text removal requires
+         *     the payload ETag. Existing picture callers may omit it for compatibility.
+         *     Numbers and documents are not authored through this editor yet.
+         *     The entry's `main_picture` goes with its one picture, since it is nothing
          *     without it. Logged, with the payload's id only (ADR 0084).
          */
         delete: operations["delete_payload"];
@@ -2788,7 +2789,11 @@ export interface paths {
         delete: operations["delete_entity"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Fact
+         * @description Rename a fact (ADR 0305); physical kinds retain their existing write routes.
+         */
+        patch: operations["update_fact"];
         trace?: never;
     };
     "/tenants/{tenant_id}/entities/resolve": {
@@ -3011,6 +3016,96 @@ export interface paths {
          *     whether or not it had one. Same gate as setting it. Logged when something was removed.
          */
         delete: operations["clear_entity_picture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/knowers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Entry Knowers
+         * @description Outer recipients are visible only to an editor, just like inner recipients.
+         */
+        get: operations["list_entry_knowers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entry Audience */
+        get: operations["get_entry_audience"];
+        /** Replace Entry Audience */
+        put: operations["replace_entry_audience"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/about": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Fact Subjects */
+        get: operations["list_fact_subjects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/about/{subject_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Add Fact Subject */
+        put: operations["add_fact_subject"];
+        post?: never;
+        /** Remove Fact Subject */
+        delete: operations["remove_fact_subject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Facts About */
+        get: operations["list_facts_about"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3616,6 +3711,79 @@ export interface paths {
          *     grants.
          */
         get: operations["list_information_knowers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Information Audience */
+        get: operations["get_information_audience"];
+        /** Replace Information Audience */
+        put: operations["replace_information_audience"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/texts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Append Information Text */
+        post: operations["append_information_text"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/payloads/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder Information Payloads */
+        put: operations["reorder_information_payloads"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/information/{information_id}/editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Information Editor Snapshot
+         * @description The current bundle for an authorized editor, including a new private note awaiting grants.
+         *     Ordinary GET retains its reader gate; this has exactly the existing edit/authorship gate.
+         */
+        get: operations["get_information_editor_snapshot"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4896,7 +5064,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
             /**
              * Information Id
              * Format: uuid
@@ -4939,6 +5107,8 @@ export interface components {
         Body_add_information_picture: {
             /** File */
             file: string;
+            /** Payload Id */
+            payload_id?: string | null;
         };
         /** Body_set_cover */
         Body_set_cover: {
@@ -6331,7 +6501,7 @@ export interface components {
              * Kinds
              * @default []
              */
-            kinds: ("item" | "being")[];
+            kinds: ("item" | "being" | "fact")[];
             /**
              * Parents
              * @default []
@@ -6374,7 +6544,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -6404,7 +6574,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
             /** Parent Ids */
             parent_ids: string[];
             /** Stat Group Ids */
@@ -6486,7 +6656,7 @@ export interface components {
             /** Quantity */
             quantity?: number | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
             /** Parent Ids */
             parent_ids: string[];
         };
@@ -6577,7 +6747,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -6616,6 +6786,31 @@ export interface components {
             name: string;
             /** Quantity */
             quantity?: number | null;
+        };
+        /**
+         * EntryKnowerOut
+         * @description An explicit outer recipient, without inventing a grant date.
+         */
+        EntryKnowerOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "entity" | "player";
+            /** Knower Entity Id */
+            knower_entity_id?: string | null;
+            /** Player Id */
+            player_id?: string | null;
+            /** Name */
+            name: string | null;
+        };
+        /**
+         * FactUpdate
+         * @description The name of a canonical fact; information and audiences have their own writes.
+         */
+        FactUpdate: {
+            /** Name */
+            name: string;
         };
         /**
          * FieldChangeOut
@@ -6879,6 +7074,18 @@ export interface components {
             carried: boolean;
             /** Item Instances */
             item_instances: components["schemas"]["ItemInstanceOut"][];
+        };
+        /**
+         * InformationAudience
+         * @description The explicit audience; privileged access is resolved separately (ADR 0304).
+         */
+        InformationAudience: {
+            /** Is Public */
+            is_public: boolean;
+            /** Entity Ids */
+            entity_ids?: string[];
+            /** Player Ids */
+            player_ids?: string[];
         };
         /**
          * InformationCreate
@@ -7530,7 +7737,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
             /** Template */
             template: string;
             /** Picture Url */
@@ -8481,6 +8688,11 @@ export interface components {
             /** Value */
             value: string;
         };
+        /** PayloadOrderRequest */
+        PayloadOrderRequest: {
+            /** Payload Ids */
+            payload_ids: string[];
+        };
         /** PayloadPictureOut */
         PayloadPictureOut: {
             /**
@@ -8504,6 +8716,18 @@ export interface components {
             url: string;
             /** File Type */
             file_type: string;
+        };
+        /** PayloadTextCreate */
+        PayloadTextCreate: {
+            /** Id */
+            id?: string | null;
+            /** Content */
+            content: string;
+            /**
+             * Locale
+             * @default en-US
+             */
+            locale: string;
         };
         /**
          * PersonalTokenIssuedOut
@@ -8793,7 +9017,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
             /** Parents */
             parents: components["schemas"]["PreviewParentOut"][];
             /** Featured */
@@ -9325,7 +9549,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
             /** Prototype Ids */
             prototype_ids: string[];
         };
@@ -9481,7 +9705,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
         };
         /**
          * RoundMode
@@ -19418,7 +19642,9 @@ export interface operations {
     delete_payload: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
             path: {
                 tenant_id: string;
                 payload_id: string;
@@ -19693,7 +19919,7 @@ export interface operations {
                 /** @description Case-insensitive substring match against the entry's name. */
                 q?: string | null;
                 /** @description Only entries of these kinds (repeatable): any of them, not all. */
-                kind?: ("item" | "item_instance" | "being" | "character")[] | null;
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact")[] | null;
                 /** @description Only entries that have this entry as a parent. */
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
@@ -19841,7 +20067,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being";
+                kind: "item" | "being" | "fact";
             };
             cookie?: never;
         };
@@ -19914,7 +20140,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being";
+                kind: "item" | "being" | "fact";
             };
             cookie?: never;
         };
@@ -20060,6 +20286,78 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_fact: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDetailOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -20817,6 +21115,475 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_entry_knowers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryKnowerOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_entry_audience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationAudience"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_entry_audience: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InformationAudience"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationAudience"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_fact_subjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    add_fact_subject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_fact_subject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_facts_about: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EntityListOut_"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -22646,7 +23413,9 @@ export interface operations {
     add_information_picture: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
             path: {
                 tenant_id: string;
                 information_id: string;
@@ -23000,6 +23769,354 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowerOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_information_audience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationAudience"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_information_audience: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InformationAudience"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationAudience"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    append_information_text: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayloadTextCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayloadDescriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reorder_information_payloads: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PayloadOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_information_editor_snapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                information_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformationOut"];
                 };
             };
             /** @description Validation Error */

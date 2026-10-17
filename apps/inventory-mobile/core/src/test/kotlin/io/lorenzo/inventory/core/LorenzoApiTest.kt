@@ -165,6 +165,80 @@ class LorenzoApiTest {
         }
     }
 
+    @Test
+    fun `bundle writes send stable ids and the correct concurrency token`() = runBlocking {
+        MockWebServer().use { server ->
+            val api = LorenzoApi(server.url("/").toString(), "secret")
+            repeat(4) { server.enqueue(MockResponse().setBody("{}")) }
+            api.appendPicture(
+                "library",
+                "note",
+                "picture-id",
+                byteArrayOf(1, 2, 3),
+                "W/\"info-v1\"",
+            )
+            api.appendText(
+                "library",
+                "note",
+                TextAppend("text-id", "Words", "en-US"),
+                "W/\"info-v2\"",
+            )
+            api.order("library", "note", listOf("picture-id", "text-id"), "W/\"info-v3\"")
+            api.setAudience(
+                "library",
+                "note",
+                Audience(entityIds = listOf("group")),
+                "W/\"info-v4\"",
+            )
+            val picture = server.takeRequest()
+            assertEquals("/tenants/library/information/note/payloads", picture.path)
+            assertEquals("W/\"info-v1\"", picture.getHeader("If-Match"))
+            val multipart = picture.body.readUtf8()
+            assertTrue(multipart.contains("name=\"payload_id\""))
+            assertTrue(multipart.contains("picture-id"))
+            assertTrue(multipart.contains("image/jpeg"))
+            val text = server.takeRequest()
+            assertEquals("W/\"info-v2\"", text.getHeader("If-Match"))
+            assertTrue(text.body.readUtf8().contains("text-id"))
+            assertTrue(server.takeRequest().body.readUtf8().contains("payload_ids"))
+            val audience = server.takeRequest()
+            assertEquals("W/\"info-v4\"", audience.getHeader("If-Match"))
+            assertTrue(audience.body.readUtf8().contains("group"))
+        }
+    }
+
+    @Test
+    fun `protected pictures use the fixed API route and refuse wrong MIME and redirects`() =
+        runBlocking {
+            MockWebServer().use { server ->
+                val api = LorenzoApi(server.url("/").toString(), "secret")
+                server.enqueue(
+                    MockResponse().setHeader("Content-Type", "image/jpeg").setBody("picture")
+                )
+                assertEquals("picture", api.picture("library", "payload").bytes.decodeToString())
+                val request = server.takeRequest()
+                assertEquals("/tenants/library/payloads/payload/content", request.path)
+                assertEquals("Bearer secret", request.getHeader("Authorization"))
+                server.enqueue(MockResponse().setHeader("Content-Type", "text/html").setBody("bad"))
+                try {
+                    api.picture("library", "payload")
+                    fail("Expected MIME refusal")
+                } catch (_: java.io.IOException) {}
+                server.enqueue(
+                    MockResponse()
+                        .setResponseCode(302)
+                        .setHeader("Location", server.url("/elsewhere"))
+                )
+                try {
+                    api.picture("library", "payload")
+                    fail("Expected redirect refusal")
+                } catch (e: ApiException) {
+                    assertEquals(302, e.status)
+                }
+                assertEquals(3, server.requestCount)
+            }
+        }
+
     private fun note(id: String) =
         """{"id":"$id","title":"Note","type":"note","is_public":false,"updated_at":"2026-10-13T00:00:00Z","payloads":[{"kind":"future","other":123}]}"""
 }

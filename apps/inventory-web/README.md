@@ -178,3 +178,19 @@ run; stop them to pick up a changed build. CI runs these tests in its `e2e` job.
 Cloudflare Pages, via its own Git integration (no GitHub Actions step) — see
 [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md#cloudflare-pages-appsinventory-web)
 for the one-time setup.
+
+Editable descriptions and notes include **Who can read this**, with explicit character and group
+recipients and the existing Player grants. Audience changes are atomic and versioned (ADR 0304);
+a stale form asks the editor to review the current audience before saving again.
+
+Descriptions and notes may hold several LorenzoScript texts and pictures, kept in one ordered
+bundle with one audience (ADR 0306). **Add picture** and **Add text** extend the existing editor;
+move/remove controls keep each part in order. A failed save keeps the draft and stable attachment
+IDs for retry. Read mode includes every part; protected pictures use authenticated requests.
+
+## Facts about an entry
+
+An entry lists the Facts explicitly about it when the reader can see their existence/name.
+The Fact page renders its visible information bundles and About subjects. LorenzoScript links
+resolve to that page. The Fact's outer audience and each information audience are independent;
+hidden Facts produce the same unavailable view as missing entries (ADR 0305, RFC 0044).

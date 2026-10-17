@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, Form, Header, Query, Request, Response, UploadFile
@@ -42,8 +43,10 @@ from lorenzo_api.entity_kinds import (
     require_deletable,
 )
 from lorenzo_api.entity_parents import replace_parents
+from lorenzo_api.entry_visibility import require_visible_entry, visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    AudiencePreconditionRequiredError,
     ClientIdUnavailableError,
     EntityNotFoundError,
     EntitySlugConflictError,
@@ -54,10 +57,12 @@ from lorenzo_api.exceptions import (
     InformationNotFoundError,
     InformationOrderConflictError,
     InformationOrderListError,
+    InvalidAudienceRecipientError,
     InvalidKindRequestError,
     InventoryItemParentsError,
 )
 from lorenzo_api.information_visibility import (
+    InformationReader,
     InformationVisibility,
     resolve_information_reader,
     resolve_information_visibility,
@@ -69,15 +74,21 @@ from lorenzo_api.models import (
     Containment,
     ContentReference,
     Entity,
+    EntityAudience,
+    EntityKnowledge,
     EntityPrototype,
     EntitySlug,
+    Fact,
+    FactAbout,
     Information,
     InformationType,
     Item,
     ItemInstance,
     Ownership,
     Payload,
+    Player,
     StatDefinition,
+    User,
     VEffectiveStat,
     formula_load_options,
 )
@@ -90,6 +101,7 @@ from lorenzo_api.my_links import (
 )
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
 from lorenzo_api.routers.item_instances import caller_reach
+from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import (
     BacklinkOut,
     EntityCreate,
@@ -100,11 +112,14 @@ from lorenzo_api.schemas.entities import (
     EntityParentsRequest,
     EntitySlugOut,
     EntitySlugUpdate,
+    EntryKnowerOut,
+    FactUpdate,
     InformationCreate,
     InformationOrderRequest,
     InformationOut,
     ResolvedSlugOut,
 )
+from lorenzo_api.schemas.knowledge import InformationAudience
 from lorenzo_api.stat_contents import attach_contents
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0038/RFC 0011,
@@ -125,16 +140,19 @@ router = APIRouter(
 
 
 # What an entry is: the marker rows it has (ADR 0012), in this order.
-_KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character]], ...] = (
+_KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character | Fact]], ...] = (
     ("item", Item),
     ("item_instance", ItemInstance),
     ("being", Being),
     ("character", Character),
+    ("fact", Fact),
 )
 
 
 async def parents_of(
-    session: SessionDep, entity_ids: Sequence[uuid.UUID]
+    session: SessionDep,
+    entity_ids: Sequence[uuid.UUID],
+    visibility: InformationVisibility | None = None,
 ) -> dict[uuid.UUID, list[uuid.UUID]]:
     """The direct parents of each of entity_ids, in their order (ADR 0266, ties by id), one query
     for all of them (ADR 0229): an entry with none has an empty list."""
@@ -150,7 +168,8 @@ async def parents_of(
             )
         )
         for entity_id, parent_id in (await session.execute(edges)).tuples():
-            found[entity_id].append(parent_id)
+            if visibility is None or visibility.can_see_entry(parent_id):
+                found[entity_id].append(parent_id)
     return found
 
 
@@ -214,7 +233,12 @@ async def list_entities(
     `recursive` do on GET /items (an unknown id, or one of another tenant, is a 404).
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    stmt = select(Entity).where(Entity.tenant_id == tenant_id).order_by(Entity.name, Entity.id)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    stmt = (
+        select(Entity)
+        .where(Entity.tenant_id == tenant_id, visible_entry_clause(visibility, Entity.id))
+        .order_by(Entity.name, Entity.id)
+    )
     if q is not None:
         stmt = stmt.where(Entity.name.icontains(q, autoescape=True))
     if kind:
@@ -245,7 +269,7 @@ async def list_entities(
     async def _rows(entities: Sequence[Entity]) -> list[EntityListOut]:
         ids = [entity.id for entity in entities]
         kinds = await kinds_of(session, ids)
-        parents = await parents_of(session, ids)
+        parents = await parents_of(session, ids, visibility)
         return [
             EntityListOut(
                 id=entity.id,
@@ -284,9 +308,12 @@ async def create_entity(
         body.id is not None
         and (await existing_in_tenant(session, Entity, body.id, tenant_id)) is not None
     ):
-        out = await entity_detail_out(
-            session, request, tenant_id=tenant_id, entity_id=body.id, user=user
-        )
+        try:
+            out = await entity_detail_out(
+                session, request, tenant_id=tenant_id, entity_id=body.id, user=user
+            )
+        except EntityNotFoundError:
+            raise ClientIdUnavailableError(detail="That id is not available.") from None
         response.status_code = 200
         response.headers["Location"] = str(
             request.url_for("get_entity", tenant_id=tenant_id, entity_id=body.id)
@@ -306,6 +333,15 @@ async def create_entity(
         in_public_catalog=bool(body.in_public_catalog),
         entity_id=body.id,
     )
+    if "fact" in kinds:
+        try:
+            await require_visible_entry(
+                session, entity_id=entity.id, tenant_id=tenant_id, user_id=user.id
+            )
+        except EntityNotFoundError:
+            raise InformationManagementForbiddenError(
+                detail="A new fact starts restricted; your current roles do not let you read it."
+            ) from None
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -469,6 +505,7 @@ async def get_entity_detail_or_404(
     404 check below covers exactly what that helper covers (missing id, or
     an id that belongs to a different tenant).
     """
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id)
     stmt = (
         select(Entity)
         .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
@@ -511,6 +548,7 @@ async def get_entity_detail_or_404(
             selectinload(Entity.contained_links).joinedload(Containment.child),
             joinedload(Entity.slug),
             # What the entry is (ADR 0217).
+            joinedload(Entity.fact),
             joinedload(Entity.item),
             joinedload(Entity.item_instance),
             joinedload(Entity.being).joinedload(Being.character),
@@ -524,6 +562,27 @@ async def get_entity_detail_or_404(
     return entity
 
 
+async def entity_detail_reader(
+    session: SessionDep, *, entity: Entity, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> InformationReader:
+    related = {
+        entity.id,
+        *(e.id for e in entity.prototypes),
+        *(e.id for e in entity.instances),
+        *(link.child_entity_id for link in entity.contained_links),
+        *(stat.source_entity_id for stat in entity.effective_stats),
+    }
+    if entity.containment is not None:
+        related.add(entity.containment.parent_entity_id)
+    return await resolve_information_reader(
+        session,
+        user_id=user_id,
+        tenant_id=tenant_id,
+        information=entity.information,
+        entry_ids=related,
+    )
+
+
 async def entity_detail_out(
     session: SessionDep,
     request: Request,
@@ -534,10 +593,11 @@ async def entity_detail_out(
 ) -> EntityDetailOut:
     """What GET /{entity_id} and GET /by-slug/{slug} both return, the caller
     already past require_tenant_participant."""
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     entity = await get_entity_detail_or_404(session, entity_id, tenant_id)
     # Who may read the entity's information, as far as `can_see` needs it (ADR 0285).
-    reader = await resolve_information_reader(
-        session, user_id=user.id, tenant_id=tenant_id, information=entity.information
+    reader = await entity_detail_reader(
+        session, entity=entity, user_id=user.id, tenant_id=tenant_id
     )
     return EntityDetailOut.from_entity(entity, request, visibility=reader)
 
@@ -610,8 +670,11 @@ async def resolve_slugs(
     if not stands_for:
         return []
     kinds = [exists().where(model.entity_id == Entity.id).label(kind) for kind, model in _KINDS]
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     stmt = select(Entity.id, Entity.name, *kinds).where(
-        Entity.tenant_id == tenant_id, Entity.id.in_(set(stands_for.values()))
+        Entity.tenant_id == tenant_id,
+        Entity.id.in_(set(stands_for.values())),
+        visible_entry_clause(visibility, Entity.id),
     )
     found = {row["id"]: row for row in (await session.execute(stmt)).mappings()}
     return [
@@ -622,7 +685,7 @@ async def resolve_slugs(
             kinds=[kind for kind, _ in _KINDS if found[entity_id][kind]],
         )
         for name in asked
-        if (entity_id := stands_for.get(name)) is not None
+        if (entity_id := stands_for.get(name)) is not None and entity_id in found
     ]
 
 
@@ -966,6 +1029,7 @@ async def list_entity_information(
     see.
     """
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
     if (await session.execute(entity_stmt)).first() is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
@@ -1134,6 +1198,7 @@ async def create_information(
     the write itself. The description text goes through
     description_payloads.write_description, the one write path for it.
     """
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
     if (await session.execute(entity_stmt)).first() is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
@@ -1230,6 +1295,7 @@ async def reorder_entity_information(
     Same gate as creating information (404 for an unknown entry, 403). Not logged: order is
     descriptive (ADR 0084).
     """
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
     if (await session.execute(entity_stmt)).first() is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
@@ -1301,6 +1367,7 @@ async def set_entity_picture(
     what it was. Same gate as creating information (404, 403). Logged with the entry's id only
     (ADR 0084).
     """
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
     if (await session.execute(entity_stmt)).first() is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
@@ -1381,6 +1448,7 @@ async def clear_entity_picture(
     """Removes the entry's main picture, with its information (ADR 0237, K8 of RFC 0041): `204`
     whether or not it had one. Same gate as setting it. Logged when something was removed.
     """
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
     entity_stmt = select(Entity.id).where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
     if (await session.execute(entity_stmt)).first() is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
@@ -1460,6 +1528,14 @@ async def information_out_or_404(
     these routes either.
     """
     information = await get_information_or_404(session, information_id, tenant_id)
+    try:
+        await require_visible_entry(
+            session, entity_id=information.entity_id, tenant_id=tenant_id, user_id=user.id
+        )
+    except EntityNotFoundError:
+        raise InformationNotFoundError(
+            detail=f"No information with id {information_id} in tenant {tenant_id}"
+        ) from None
     if require_visible:
         reader = await resolve_information_reader(
             session, user_id=user.id, tenant_id=tenant_id, information=[information]
@@ -1488,6 +1564,14 @@ async def authorize_information_edit(
     `information.knowledge_links` must be loaded (get_information_or_404
     does).
     """
+    try:
+        await require_visible_entry(
+            session, entity_id=information.entity_id, tenant_id=tenant_id, user_id=user.id
+        )
+    except EntityNotFoundError:
+        raise InformationNotFoundError(
+            detail=f"No information with id {information.id} in tenant {tenant_id}"
+        ) from None
     if information.created_by != user.id:
         reader = await resolve_information_reader(
             session, user_id=user.id, tenant_id=tenant_id, information=[information]
@@ -1499,3 +1583,313 @@ async def authorize_information_edit(
     await authorize_entity_write(
         session, tenant_id=tenant_id, user=user, entity_id=information.entity_id
     )
+
+
+async def editable_fact_audience(
+    session: SessionDep, *, entity_id: uuid.UUID, tenant_id: uuid.UUID, user: CurrentUser
+) -> EntityAudience:
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    await authorize_entity_write(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
+    await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
+    if await session.get(Fact, entity_id) is None:
+        raise InvalidKindRequestError(detail="An outer audience is currently available for facts.")
+    audience = await session.scalar(
+        select(EntityAudience)
+        .where(EntityAudience.entity_id == entity_id, EntityAudience.tenant_id == tenant_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    assert audience is not None
+    return audience
+
+
+async def entry_audience_of(session: SessionDep, audience: EntityAudience) -> InformationAudience:
+    links = (
+        await session.execute(
+            select(EntityKnowledge.knower_entity_id, EntityKnowledge.knower_player_id).where(
+                EntityKnowledge.entity_id == audience.entity_id,
+                EntityKnowledge.tenant_id == audience.tenant_id,
+            )
+        )
+    ).all()
+    return InformationAudience(
+        is_public=audience.is_public,
+        entity_ids=sorted((e for e, _ in links if e is not None), key=str),
+        player_ids=sorted((p for _, p in links if p is not None), key=str),
+    )
+
+
+@router.patch("/{entity_id}")
+async def update_fact(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: FactUpdate,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> EntityDetailOut:
+    """Rename a fact (ADR 0305); physical kinds retain their existing write routes."""
+    await editable_fact_audience(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
+    entity = await session.scalar(
+        select(Entity)
+        .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+        .execution_options(populate_existing=True)
+    )
+    assert entity is not None
+    check_if_match(if_match, updated_at=entity.updated_at)
+    if entity.name != body.name:
+        entity.name = body.name
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.renamed",
+            target_type="entity",
+            target_id=entity_id,
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    out = await entity_detail_out(
+        session, request, tenant_id=tenant_id, entity_id=entity_id, user=user
+    )
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.get("/{entity_id}/knowers")
+async def list_entry_knowers(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> list[EntryKnowerOut]:
+    """Outer recipients are visible only to an editor, just like inner recipients."""
+    await editable_fact_audience(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
+    rows = (
+        await session.execute(
+            select(
+                EntityKnowledge.knower_entity_id,
+                EntityKnowledge.knower_player_id,
+                Entity.name.label("entity_name"),
+                User.display_name,
+                User.nickname,
+            )
+            .outerjoin(Entity, Entity.id == EntityKnowledge.knower_entity_id)
+            .outerjoin(Player, Player.id == EntityKnowledge.knower_player_id)
+            .outerjoin(User, User.id == Player.user_id)
+            .where(EntityKnowledge.entity_id == entity_id, EntityKnowledge.tenant_id == tenant_id)
+            .order_by(EntityKnowledge.knower_entity_id, EntityKnowledge.knower_player_id)
+        )
+    ).all()
+    reader = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    return [
+        EntryKnowerOut(
+            kind="player" if row.knower_player_id is not None else "entity",
+            knower_entity_id=row.knower_entity_id,
+            player_id=row.knower_player_id,
+            name=(row.display_name or row.nickname)
+            if row.knower_player_id is not None
+            else row.entity_name
+            if reader.can_see_entry(row.knower_entity_id)
+            else None,
+        )
+        for row in rows
+    ]
+
+
+@router.get("/{entity_id}/audience")
+async def get_entry_audience(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> InformationAudience:
+    audience = await editable_fact_audience(
+        session, entity_id=entity_id, tenant_id=tenant_id, user=user
+    )
+    response.headers["ETag"] = etag_for(audience.updated_at)
+    return await entry_audience_of(session, audience)
+
+
+@router.put("/{entity_id}/audience")
+async def replace_entry_audience(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: InformationAudience,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> InformationAudience:
+    audience = await editable_fact_audience(
+        session, entity_id=entity_id, tenant_id=tenant_id, user=user
+    )
+    if if_match is None:
+        raise AudiencePreconditionRequiredError(
+            detail="Read the audience and send its ETag as If-Match."
+        )
+    check_if_match(if_match, updated_at=audience.updated_at)
+    entities, players = set(body.entity_ids), set(body.player_ids)
+    for model, wanted in ((Entity, entities), (Player, players)):
+        if wanted:
+            found = set(
+                await session.scalars(
+                    select(model.id).where(model.tenant_id == tenant_id, model.id.in_(wanted))
+                )
+            )
+            if found != wanted:
+                raise InvalidAudienceRecipientError(detail="Choose recipients from this library.")
+    previous = await entry_audience_of(session, audience)
+    if (
+        previous.is_public != body.is_public
+        or set(previous.entity_ids) != entities
+        or set(previous.player_ids) != players
+    ):
+        await session.execute(
+            delete(EntityKnowledge).where(
+                EntityKnowledge.entity_id == entity_id, EntityKnowledge.tenant_id == tenant_id
+            )
+        )
+        for recipient in entities:
+            session.add(
+                EntityKnowledge(
+                    tenant_id=tenant_id, entity_id=entity_id, knower_entity_id=recipient
+                )
+            )
+        for recipient in players:
+            session.add(
+                EntityKnowledge(
+                    tenant_id=tenant_id, entity_id=entity_id, knower_player_id=recipient
+                )
+            )
+        session.info.pop("visible_entry_checks", None)
+        audience.is_public = body.is_public
+        audience.updated_at = datetime.now(UTC)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="entity.visibility_changed",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"public={body.is_public}; entities={len(entities)}; players={len(players)}",
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+        await session.refresh(audience)
+    response.headers["ETag"] = etag_for(audience.updated_at)
+    return await entry_audience_of(session, audience)
+
+
+@router.get("/{entity_id}/about")
+async def list_fact_subjects(
+    tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> list[EntitySummary]:
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
+    if await session.get(Fact, entity_id) is None:
+        raise EntityNotFoundError(detail=f"No fact with id {entity_id} in tenant {tenant_id}")
+    vis = await resolve_information_visibility(session, tenant_id=tenant_id, user_id=user.id)
+    rows = await session.scalars(
+        select(Entity)
+        .join(FactAbout, FactAbout.subject_entity_id == Entity.id)
+        .where(
+            FactAbout.fact_entity_id == entity_id,
+            FactAbout.tenant_id == tenant_id,
+            visible_entry_clause(vis, Entity.id),
+        )
+        .order_by(Entity.name, Entity.id)
+    )
+    return [EntitySummary(id=row.id, name=row.name) for row in rows]
+
+
+@router.put("/{entity_id}/about/{subject_id}", status_code=204)
+async def add_fact_subject(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    subject_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    await editable_fact_audience(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
+    await require_visible_entry(session, entity_id=subject_id, tenant_id=tenant_id, user_id=user.id)
+    await get_entity_or_404(session, subject_id, tenant_id)
+    if await session.get(FactAbout, (entity_id, subject_id)) is None:
+        session.add(
+            FactAbout(tenant_id=tenant_id, fact_entity_id=entity_id, subject_entity_id=subject_id)
+        )
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="fact.subject_added",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"subject={subject_id}",
+        )
+        await session.commit()
+
+
+@router.delete("/{entity_id}/about/{subject_id}", status_code=204)
+async def remove_fact_subject(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    subject_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
+    await editable_fact_audience(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
+    await require_visible_entry(session, entity_id=subject_id, tenant_id=tenant_id, user_id=user.id)
+    await get_entity_or_404(session, subject_id, tenant_id)
+    edge = await session.get(FactAbout, (entity_id, subject_id))
+    if edge is not None:
+        await session.delete(edge)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="fact.subject_removed",
+            target_type="entity",
+            target_id=entity_id,
+            detail=f"subject={subject_id}",
+        )
+        await session.commit()
+
+
+@router.get("/{entity_id}/facts")
+async def list_facts_about(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    params: ParamsDep,
+    session: SessionDep,
+    user: CurrentUser,
+) -> Page[EntityListOut]:
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await require_visible_entry(session, entity_id=entity_id, tenant_id=tenant_id, user_id=user.id)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    vis = await resolve_information_visibility(session, tenant_id=tenant_id, user_id=user.id)
+    stmt = (
+        select(Entity)
+        .join(FactAbout, FactAbout.fact_entity_id == Entity.id)
+        .where(
+            FactAbout.subject_entity_id == entity_id,
+            FactAbout.tenant_id == tenant_id,
+            visible_entry_clause(vis, Entity.id),
+        )
+        .order_by(Entity.name, Entity.id)
+    )
+
+    async def rows(entries: Sequence[Entity]) -> list[EntityListOut]:
+        ids = [e.id for e in entries]
+        kinds = await kinds_of(session, ids)
+        parents = await parents_of(session, ids, vis)
+        return [
+            EntityListOut(id=e.id, name=e.name, kinds=kinds[e.id], parent_ids=parents[e.id])
+            for e in entries
+        ]
+
+    return cast(Page[EntityListOut], await apaginate(session, stmt, params, transformer=rows))

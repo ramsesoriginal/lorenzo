@@ -54,6 +54,7 @@ export interface LiveOptions {
   /** Said where the text is empty. */
   placeholder?: string;
   onChange: (text: string) => void;
+  onPicture?: (file: File) => Promise<void>;
   go: (id: string) => void;
 }
 
@@ -215,7 +216,7 @@ export function liveEditor(o: LiveOptions): HTMLElement {
     focusSource();
   };
 
-  const commit = () => {
+  const commit = (immediate = false) => {
     state.blocks = state.blocks.filter((b) => b.trim() !== '');
     if (!state.blocks.length) state.blocks = [''];
     const text = joinBlocks(state.blocks);
@@ -224,7 +225,8 @@ export function liveEditor(o: LiveOptions): HTMLElement {
       state.dirty = false;
       // After the focus has moved on: writing it down draws the page again, which puts the focus
       // back where it was a moment ago, and that is not where the person went (a link, say).
-      setTimeout(() => o.onChange(text), 0);
+      if (immediate) o.onChange(text);
+      else setTimeout(() => o.onChange(text), 0);
     }
     state.dirty = false;
   };
@@ -359,6 +361,8 @@ export function liveEditor(o: LiveOptions): HTMLElement {
     };
   });
 
+  wrap.addEventListener('information-flush', () => commit(true));
+
   // ---- the buttons over the text --------------------------------------------------------------
 
   const bar = el('div', 'text-toolbar');
@@ -387,6 +391,58 @@ export function liveEditor(o: LiveOptions): HTMLElement {
     bar.append(b);
   }
 
+  if (o.onPicture) {
+    const picker = el('input');
+    picker.type = 'file';
+    picker.accept = 'image/png,image/jpeg,image/webp,image/gif';
+    picker.hidden = true;
+    const add = el('button', 'btn quiet picture-at-caret', '+');
+    add.type = 'button';
+    add.title = 'Add a picture to this information';
+    add.setAttribute('aria-label', 'Add a picture to this information');
+    add.addEventListener('mousedown', (event) => event.preventDefault());
+    add.addEventListener('click', () => picker.click());
+    const attach = async (file: File) => {
+      // Commit synchronously: a delayed blur must not race the picture's sync barrier.
+      await o.onPicture?.(file);
+    };
+    picker.addEventListener('change', () => {
+      const file = picker.files?.[0];
+      if (file) void attach(file);
+      picker.value = '';
+    });
+    wrap.addEventListener('paste', (event) => {
+      const file = Array.from(event.clipboardData?.items ?? [])
+        .find((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        ?.getAsFile();
+      if (file) {
+        event.preventDefault();
+        event.stopPropagation();
+        void attach(file);
+      }
+    });
+    wrap.addEventListener('dragover', (event) => {
+      if (event.dataTransfer?.types.includes('Files')) {
+        event.preventDefault();
+        event.stopPropagation();
+        wrap.classList.add('picture-drop-target');
+      }
+    });
+    wrap.addEventListener('dragleave', () => wrap.classList.remove('picture-drop-target'));
+    wrap.addEventListener('drop', (event) => {
+      wrap.classList.remove('picture-drop-target');
+      const file = Array.from(event.dataTransfer?.files ?? []).find((file) =>
+        file.type.startsWith('image/'),
+      );
+      if (file) {
+        event.preventDefault();
+        event.stopPropagation();
+        void attach(file);
+      }
+    });
+    wrap.append(picker);
+    bar.append(add);
+  }
   draw();
   wrap.append(bar, doc, notes);
   void paint();

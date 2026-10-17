@@ -229,13 +229,13 @@ class ItemUpdate(BaseModel):
     in_public_catalog: bool | None = None
 
 
-def _prototype_ids_out(entity: Entity) -> list[uuid.UUID]:
+def _prototype_ids_out(entity: Entity, visibility: InformationReader) -> list[uuid.UUID]:
     """entity.prototype_links (ADR 0015) - this entity's own direct
     prototypes, as bare ids, in their order (`position`, ADR 0266), ties by id so the response
     is deterministic.
     """
     links = sorted(entity.prototype_links, key=lambda link: (link.position, str(link.prototype_id)))
-    return [link.prototype_id for link in links]
+    return [link.prototype_id for link in links if visibility.can_see_entry(link.prototype_id)]
 
 
 def _named_number(view: VItem | VItemInstance, name: str, column: int | None) -> int | float | None:
@@ -273,7 +273,7 @@ def _common_item_fields(
         armor=_named_number(view, "armor", view.armor),
         container_entity_id=view.container_entity_id,
         quantity=view.quantity,
-        prototype_ids=_prototype_ids_out(view.entity),
+        prototype_ids=_prototype_ids_out(view.entity, visibility),
         is_container=_is_container_out(view.tags, has_children=bool(view.entity.contained_links)),
         **_described_out(view, request, visibility, ancestors),
         physical_stats=_stats_out(view.physical_stats),

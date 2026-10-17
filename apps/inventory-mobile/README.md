@@ -32,8 +32,11 @@ Tokens are full-as-you, as defined by Lorenzo ADR 0268. Sign out clears the phon
 - All characters in `/me.players[].characters`, including co-piloted characters, across libraries. Deduplicated by library and entity ID; GM status and tenant-wide membership are not required.
 - Inventory comes from `GET /tenants/{tenant_id}/item-instances/held-by/{entity_id}`. Equipped items, nested carried containers and items held elsewhere retain the API's grouping and quantities. Search matches names and tags locally.
 - Item details open immediately from that inventory snapshot: descriptions from every visible source in the preferred language, physical/economic/combat stats, tags and ownership. Notes are fetched separately with full pagination. All inventory operations are read-only.
-- Notes are the sole write. They default to private: selected character players, campaign GMs and library administrators can read them. The public checkbox changes that audience explicitly.
-- Submitted notes persist as encrypted drafts before network work starts. WorkManager retries transient failures with network constraints and exponential backoff. The stable UUID supplied to the API makes POST replay safe; adding the character reader is an idempotent PUT. Until both writes and a readback succeed, the note remains visibly pending. Permanent rejections retain the draft with Retry.
+- Notes are the sole write. One information note can hold ordered LorenzoScript text and pictures. Add text, choose a picture from the system gallery picker, or take a photo; move/remove parts within the existing note editor.
+- **Who can read this** starts with the selected character explicitly checked. Choose other characters or groups, or make the information public. GMs and library administrators retain role access; groups follow current membership. Text and images share this audience. Offline choices retain their IDs and use downloaded recipient names; rejected selections never become public automatically.
+- Composers, selected/captured pictures and submitted notes persist encrypted before network work starts. Closing an editor retains its draft; Discard removes it. Capture requests stay bound to their original note across navigation and recreation. A canceled or late result cannot attach to a newer request.
+- WorkManager retries transient failures with network constraints and exponential backoff. Stable information/payload IDs recover lost responses; text, payload ordering and explicit audiences are checked before completion. Until the complete bundle and audience are read back, the note remains visibly pending. Conflicts/permanent rejections retain the draft with Retry.
+- Attached pictures render natively through authenticated API reads, with encrypted offline copies. Tap to enlarge and zoom. Gallery/camera images are decoded with orientation, bounded to 4,096 pixels on the long edge and roughly eight megapixels, and re-encoded as JPEG up to 2 MiB without changing the original. Camera output is a temporary private file, removed after staging/cancellation or sign-out; no camera/storage permission or OCR is added.
 - Cached screens remain available offline and refresh on navigation or pull-to-refresh. The roster prefetches the first three character inventories, which include descriptions and stats. Download time is displayed. Notes cache when the item is opened.
 - Dark/light follows the system. Material components provide touch targets, semantics, insets and font scaling; Lorenzo's actual master mark, Geist, Newsreader and palette provide the identity. Gold is reserved for the mark.
 
@@ -45,9 +48,9 @@ This is one narrow deployable app, not a speculative multi-feature architecture.
 
 The native adapter mirrors the same endpoints as `packages/api-client` without importing TypeScript into Android. `contracts/consumed.json` records consumed wire shapes from deployed API 0.7.0, checked against main `126e959` (2026-10-14). Compatible extra response fields are ignored, including future payload types. The contract checker rejects removed fields, incompatible types, missing routes and new required write fields.
 
-Markdown descriptions and notes render natively through Markwon. Unsupported LorenzoScript extensions (live stat formulas, entity preview links, editor blocks, protected images) remain visible as source rather than guessed results. The TypeScript LorenzoScript engine is not embedded: a full native implementation is a separate compatibility slice. Notes send the entered text with outer whitespace trimmed.
+Markdown descriptions and notes render natively through Markwon. Unsupported LorenzoScript extensions (live stat formulas, entity preview links, editor blocks, inline remote images) remain visible as source rather than guessed results. The TypeScript LorenzoScript engine is not embedded: a full native implementation is a separate compatibility slice. Bundle text preserves what was entered. Attached picture payloads use the native protected-image viewer.
 
-No WebView, telemetry, advertising, analytics, HTTP logging or remote font fetches. Authenticated requests never follow redirects. Room snapshot/draft payloads and credentials use AES-GCM with fresh nonces and an Android Keystore key. Backup/device transfer is disabled. Cache keys are credential-scoped; session-checked persistence prevent a prior session response from repopulating a signed-out cache. A detected 401 clears local access; roster changes and 403/404 remove stale snapshots. Previously downloaded information remains readable while offline until the device learns about a revocation.
+No WebView, telemetry, advertising, analytics, HTTP logging or remote font fetches. Authenticated requests never follow redirects. Room snapshot/draft payloads, chunked media and credentials use AES-GCM with fresh nonces and an Android Keystore key. Backup/device transfer is disabled. Cache keys are credential-scoped; session-checked persistence prevent a prior session response from repopulating a signed-out cache. A detected 401 clears local access; roster changes and 403/404 remove stale snapshots. Previously downloaded information remains readable while offline until the device learns about a revocation.
 
 ## Versioning and distribution
 
@@ -59,9 +62,21 @@ Current distribution is local installation of the debug APK. `mise run //apps/in
 
 ```sh
 ./gradlew :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest # emulator: orientation, Room migration, native composer
 python3 scripts/check_contract.py ../api/openapi.json
 # In Lorenzo, generate the current schema and check it:
 mise run //apps/inventory-mobile:check-schema
 ```
 
 Repository tests cover non-blocking local note persistence, logout during a request, replay after a failed reader write, and retaining permanently rejected drafts. HTTP tests exercise real requests against MockWebServer: roster deduplication, locale selection, unknown fields, zero values, actual inventory route, note pagination, stable note IDs/private defaults/reader calls, error parsing and redirect credential protection. No account token is needed. A real-account smoke test remains necessary to verify your character roster and notes against production; automated tests never write to production.
+
+The Room 1→2 migration preserves existing snapshots and queued notes, and adds encrypted composer
+metadata and media chunks. Each encrypted chunk holds at most 64 KiB of plaintext, keeping large
+pictures out of a single Room cursor row. Existing plain-text queued notes remain readable and
+sync through their original contract.
+
+Native recovery tests cover lost upload/order/audience responses, conflicting readers or order,
+original capture targeting after recreation, cancellation, logout, and learned image revocation
+including an older download arriving afterward. Emulator tests verify EXIF rotation, unchanged
+original bytes, the actual FileProvider, the Room upgrade, and the mixed note UI. They use local
+fixtures and never sign into a real account or invoke a physical camera.

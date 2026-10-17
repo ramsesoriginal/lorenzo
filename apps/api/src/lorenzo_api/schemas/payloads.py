@@ -101,3 +101,13 @@ def payload_to_schema(payload: Payload, request: Request) -> PayloadOut:
             file_type=payload.document.file_type,
         )
     raise ValueError(f"Payload {payload.id} has no populated concrete kind")
+
+
+class PayloadTextCreate(BaseModel):
+    id: uuid.UUID | None = None
+    content: str
+    locale: str = "en-US"
+
+
+class PayloadOrderRequest(BaseModel):
+    payload_ids: list[uuid.UUID]

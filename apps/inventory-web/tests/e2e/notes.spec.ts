@@ -78,7 +78,11 @@ readOnly(
     const pia = await as(world.pia);
     const asked: string[] = [];
     pia.on('request', (request) => {
-      if (request.url().includes(`/entities/${spellbook}/information`)) asked.push(request.url());
+      if (
+        request.url().includes(`/entities/${spellbook}/information`) &&
+        new URL(request.url()).searchParams.getAll('type').includes('note')
+      )
+        asked.push(request.url());
     });
     await pia.goto(`/board/?tenant=${world.tenantId}&character=${world.pia.character.entity_id}`);
     const card = pia
@@ -149,18 +153,26 @@ test("a GM's private note is for the GMs", async ({ world, as }) => {
   await expect(notes(pia).getByText('No notes yet.')).toBeVisible();
 });
 
-test("keeps no note its reader couldn't be given", async ({ world, as }) => {
+test('keeps a failed audience draft so its reader can be given it on retry', async ({
+  world,
+  as,
+}) => {
   const { spellbook } = await packed(world, world.pia);
   const pia = await as(world.pia);
-  await pia.route(`${API_URL}/tenants/*/information/*/knowers/*`, (route) =>
-    route.fulfill({ status: 503, json: { detail: 'The knowers are asleep.' } }),
-  );
+  let refused = false;
+  await pia.route(`${API_URL}/tenants/*/information/*/knowers/*`, (route) => {
+    if (!refused) {
+      refused = true;
+      return route.fulfill({ status: 503, json: { detail: 'The knowers are asleep.' } });
+    }
+    return route.continue();
+  });
   await pia.goto(itemPage(world, spellbook));
 
   await addNote(pia, 'Nobody will read this.');
-  await expect(notes(pia).getByRole('status').filter({ hasText: "It wasn't kept" })).toContainText(
-    'The knowers are asleep.',
-  );
+  await expect(
+    notes(pia).getByRole('status').filter({ hasText: "its audience wasn't changed" }),
+  ).toContainText('The knowers are asleep.');
   const left = await ok(
     world.gm.api.GET('/tenants/{tenant_id}/entities/{entity_id}/information', {
       params: {
@@ -169,7 +181,21 @@ test("keeps no note its reader couldn't be given", async ({ world, as }) => {
       },
     }),
   );
-  expect(left.items).toEqual([]);
+  expect(left.items).toHaveLength(1);
+  const id = left.items[0]?.id;
+  expect(left.items[0]?.is_public).toBe(false);
+  await notes(pia).getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(notes(pia).locator('form')).toHaveCount(0);
+  await expect(notes(pia).getByText('Nobody will read this.')).toBeVisible();
+  const recovered = await ok(
+    world.pia.api.GET('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      params: {
+        path: { tenant_id: world.tenantId, entity_id: spellbook },
+        query: { type: ['note'] },
+      },
+    }),
+  );
+  expect(recovered.items.map((info) => info.id)).toEqual([id]);
 });
 
 readOnly('catalog items have no notes section', async ({ world, scene, as }) => {
