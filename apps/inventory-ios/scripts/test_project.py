@@ -7,3 +7,7 @@ class ProjectTests(unittest.TestCase):
         project=plistlib.loads((root/"LorenzoInventory.xcodeproj/project.pbxproj").read_bytes())
         targets=[x for x in project["objects"].values() if x["isa"]=="PBXNativeTarget"]
         self.assertEqual({x["name"] for x in targets},{"LorenzoInventory","InventoryUITests"})
+        for config in project["objects"].values():
+            if config["isa"] == "XCBuildConfiguration":
+                self.assertEqual(config["buildSettings"]["SWIFT_ACTIVE_COMPILATION_CONDITIONS"],
+                                 "DEBUG" if config["name"] == "Debug" else "")

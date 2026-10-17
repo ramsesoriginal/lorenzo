@@ -9,6 +9,7 @@ actor NoteServer: Transport {
     var corruptAudience = false
     var audienceReads = 0
     var pictureIds: [String] = []
+    var ordinaryPictureReads = 0
     func configureLostPicture() { failPictureResponse = true }
     func configureAudienceDrift() { corruptAudience = true }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
@@ -49,7 +50,8 @@ actor NoteServer: Transport {
             picture = Data([1,2,3])
             if failPictureResponse { failPictureResponse = false; throw URLError(\.networkConnectionLost) }
         } else if path.hasSuffix("/content") {
-            raw = picture
+            ordinaryPictureReads += 1
+            status = 403
         } else if method == "DELETE" {
             var parts = note!["payloads"] as! [[String: Any]]
             parts.removeAll { $0["id"] as? String == path.components(separatedBy:"/").last }
@@ -99,4 +101,14 @@ final class NoteSyncTests: XCTestCase {
         let note=await server.note
         XCTAssertNil(note)
     }
+    func testExplicitAudienceCanExcludeTheEditorWithoutOrdinaryPictureAccess() async throws {
+        let server=NoteServer()
+        var d=draft();d.audience=Audience(entityIds:["another-character"])
+        try await NoteSync.send(d,api:API(transport:server),checkpoint:{_ in},checkSession:{})
+        let reads=await server.ordinaryPictureReads
+        XCTAssertEqual(reads,0)
+        let audience=await server.audience
+        XCTAssertEqual(audience["entity_ids"] as? [String],["another-character"])
+    }
+
 }

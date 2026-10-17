@@ -10,13 +10,21 @@ public struct Reply: Sendable { public var data: Data; public var etag: String; 
 public protocol Transport: Sendable {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse)
 }
-public final class HTTPTransport: NSObject, Transport, URLSessionTaskDelegate, @unchecked Sendable {
-    private lazy var session: URLSession = {
+private final class NoRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    static let shared = NoRedirects()
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
+}
+public final class HTTPTransport: Transport, @unchecked Sendable {
+    private let session: URLSession
+    public init() {
         let c = URLSessionConfiguration.ephemeral
         c.timeoutIntervalForRequest = 30; c.timeoutIntervalForResource = 45
         c.urlCache = nil; c.httpCookieStorage = nil
-        return URLSession(configuration: c, delegate: self, delegateQueue: nil)
-    }()
+        session = URLSession(configuration: c, delegate: NoRedirects.shared, delegateQueue: nil)
+    }
+    deinit { session.invalidateAndCancel() }
     public func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let (bytes, response) = try await session.bytes(for: request)
         guard let response = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
@@ -28,9 +36,7 @@ public final class HTTPTransport: NSObject, Transport, URLSessionTaskDelegate, @
         }
         return (data, response)
     }
-    public func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(nil)
-    }
+
 }
 public struct API: Sendable {
     public static let production = URL(string: "https://lorenzo-api-100817212329.europe-west1.run.app/")!

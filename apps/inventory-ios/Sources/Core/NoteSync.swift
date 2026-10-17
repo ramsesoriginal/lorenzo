@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 
 public struct SyncConflict: Error, LocalizedError {
     public init() {}
@@ -86,10 +85,8 @@ public struct NoteSync {
         guard confirmed.ordered.map(\.id) == wanted else { throw SyncConflict() }
         let readback: Audience = try await api.get(path + ["audience"])
         guard readback.matches(draft.audience) else { throw SyncConflict() }
-        for part in draft.parts where part.kind == "image" {
-            let bytes = try await api.picture(tenant, serverId(part))
-            guard SHA256.hash(data: bytes) == SHA256.hash(data: part.image ?? Data()) else { throw SyncConflict() }
-        }
+        // Each picture append above is replayed with its bytes; the API verifies identity.
+        // An editor may deliberately choose readers that exclude themselves.
         try await checkSession()
     }
 }

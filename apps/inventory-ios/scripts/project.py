@@ -24,7 +24,7 @@ group=obj("mainGroup",isa="PBXGroup",children=[ident(str(p.relative_to(root))) f
 def configs(name, extra):
     common={"SWIFT_VERSION":"5.0","IPHONEOS_DEPLOYMENT_TARGET":"17.0","SDKROOT":"iphoneos","SUPPORTED_PLATFORMS":"iphoneos iphonesimulator","TARGETED_DEVICE_FAMILY":"1,2","CODE_SIGN_STYLE":"Automatic","GENERATE_INFOPLIST_FILE":"YES","CLANG_ENABLE_MODULES":"YES","SWIFT_EMIT_LOC_STRINGS":"NO"}
     common.update(extra)
-    cs=[obj(name+c,isa="XCBuildConfiguration",name=c,buildSettings={**common,"SWIFT_OPTIMIZATION_LEVEL":"-Onone" if c=="Debug" else "-O"}) for c in ["Debug","Release"]]
+    cs=[obj(name+c,isa="XCBuildConfiguration",name=c,buildSettings={**common,"SWIFT_OPTIMIZATION_LEVEL":"-Onone" if c=="Debug" else "-O","SWIFT_ACTIVE_COMPILATION_CONDITIONS":"DEBUG" if c=="Debug" else ""}) for c in ["Debug","Release"]]
     return obj(name+"list",isa="XCConfigurationList",buildConfigurations=cs,defaultConfigurationIsVisible=0,defaultConfigurationName="Release")
 version=(root/"version.txt").read_text().strip()
 appconfig=configs("app",{"PRODUCT_BUNDLE_IDENTIFIER":"io.lorenzo.inventory.ios","PRODUCT_NAME":"LorenzoInventory","MARKETING_VERSION":version,"CURRENT_PROJECT_VERSION":"1","ASSETCATALOG_COMPILER_APPICON_NAME":"AppIcon","INFOPLIST_FILE":"Info.plist","GENERATE_INFOPLIST_FILE":"NO"})
