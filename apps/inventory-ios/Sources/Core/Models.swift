@@ -76,7 +76,14 @@ public struct Item: Codable, Identifiable, Sendable {
     public var physicalStats: [Stat]?; public var economicStats: [Stat]?
     public var destroyableStats: [Stat]?; public var damagingStats: [Stat]?; public var tags: [Stat]?
     public var id: String { entityId }
-    public var stats: [Stat] { (physicalStats ?? []) + (economicStats ?? []) + (destroyableStats ?? []) + (damagingStats ?? []) + (tags ?? []) }
+    public var stats: [Stat] {
+        var result = physicalStats ?? []
+        result.append(contentsOf: economicStats ?? [])
+        result.append(contentsOf: destroyableStats ?? [])
+        result.append(contentsOf: damagingStats ?? [])
+        result.append(contentsOf: tags ?? [])
+        return result
+    }
     public func preferredDescriptions(_ locales: [String]) -> [Description] {
         var groups: [[Description]] = []
         for d in descriptions ?? [] {
