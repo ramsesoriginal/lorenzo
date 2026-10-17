@@ -1,5 +1,116 @@
 # Changelog
 
+## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.7.0...api-v1.0.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** Entry kind responses can include fact, as accepted in ADR 0305. Closed-enum consumers must support this kind.
+
+### Features
+
+* a GM's title per campaign (ADR 0294) ([5f71cae](https://github.com/ramsesoriginal/lorenzo/commit/5f71caeba76e0795e781017e0a6c281a896c72b8))
+* **account-hub:** People with Authors and a panel for invite links (ADR 0212) ([945570b](https://github.com/ramsesoriginal/lorenzo/commit/945570b30ea5c58d9cdfcf036c72c8e5007542a3))
+* **account-hub:** Studio's visibility switch (ADR 0290) ([ff4fca1](https://github.com/ramsesoriginal/lorenzo/commit/ff4fca102a6a934bedcb482fa0fd4b1d1b4440d3))
+* **api,cli:** display fields in repository copy, updates and seed ([d7c00a1](https://github.com/ramsesoriginal/lorenzo/commit/d7c00a182e5952ea8700871678a78e5aa8627cbf))
+* **api:** a GM's title per campaign (ADR 0294) ([1fad9bc](https://github.com/ramsesoriginal/lorenzo/commit/1fad9bc8d11e664422e53b7f4e7290aa6f11f88e)), closes [#733](https://github.com/ramsesoriginal/lorenzo/issues/733)
+* **api:** a public repository is made private and not unpublished; dependents say whether the caller owns them ([c91ad45](https://github.com/ramsesoriginal/lorenzo/commit/c91ad45c674a29619a4c815207df82e31128c710))
+* **api:** add canonical facts with explicit outer audiences and subjects ([b81a0c1](https://github.com/ramsesoriginal/lorenzo/commit/b81a0c1d66199b66b8b25fd829a6fba6829558c4))
+* **api:** add tenant being stat group and CLI settings ([767b25a](https://github.com/ramsesoriginal/lorenzo/commit/767b25a36c851dc04520f2ce6a2c921769c2bdd8))
+* **api:** an Author's reach over the entry, profile and vocabulary routes main added ([0d88e6e](https://github.com/ramsesoriginal/lorenzo/commit/0d88e6e2381de58141adaa9d73d44f6e35d8fad2))
+* **api:** announce a release through a table with a cursor, and hold a public repository's releases apart ([eab17b6](https://github.com/ramsesoriginal/lorenzo/commit/eab17b60c38b99f45a5f54ce5321cbb96837060d))
+* **api:** ask a signed-in user for a private repository's picture ([ed20b42](https://github.com/ramsesoriginal/lorenzo/commit/ed20b42cca1f731097e762298166f9f08589fa13))
+* **api:** break a stat tie by the entry's own parent order ([9827312](https://github.com/ramsesoriginal/lorenzo/commit/9827312314eead21b5b1ff355275c17c3ecd46fd))
+* **api:** bulk entity export with cursor pages, gzip and a per-tenant revision ETag ([3065130](https://github.com/ramsesoriginal/lorenzo/commit/3065130b6f90066510be1b6a3154d8927e40f397))
+* **api:** count the libraries that copied a repository, name its publishers, add the report link and the terms line ([e84470b](https://github.com/ramsesoriginal/lorenzo/commit/e84470b5a327a8cf50d43326d5c3f3fe6c8e7365))
+* **api:** declare canonical fact response compatibility ([e0cf960](https://github.com/ramsesoriginal/lorenzo/commit/e0cf96032a926a51eaf692b4ac52d4744c4246a7))
+* **api:** Discover, the listing and the storefront (ADR 0292) ([186c195](https://github.com/ramsesoriginal/lorenzo/commit/186c195581e9c2098fde00e922c841c0b3e6529b)), closes [#725](https://github.com/ramsesoriginal/lorenzo/issues/725)
+* **api:** edit ordered information bundles with retry-safe payloads ([ab79dd0](https://github.com/ramsesoriginal/lorenzo/commit/ab79dd0fb469e109e32fccabf979586e10528620))
+* **api:** GET /app-links, the registry of app links (ADR 0273) ([73da22c](https://github.com/ramsesoriginal/lorenzo/commit/73da22c00048e43e9b02d6842b9131fbe1947529))
+* **api:** information shows who wrote it ([8aa11d5](https://github.com/ramsesoriginal/lorenzo/commit/8aa11d55f9d009914c8b15233ceb82a59c326b0b))
+* **api:** link preview endpoint with per-kind templates in a registry ([168ba0f](https://github.com/ramsesoriginal/lorenzo/commit/168ba0f1a3dfc79f9e916163d5e93d9ed47fa8bd))
+* **api:** operators delist a repository, and suspending an account delists what it owns ([4e3e084](https://github.com/ramsesoriginal/lorenzo/commit/4e3e0843a3a88d680b4eaafd5fea84c7966514e9))
+* **api:** personal access tokens and the device-code flow ([704cb8e](https://github.com/ramsesoriginal/lorenzo/commit/704cb8e2f45340f78652aa20085cd30e2ee8e31a))
+* **api:** quotas on a repository ([c2f3426](https://github.com/ramsesoriginal/lorenzo/commit/c2f34264be29d2bd694095056f9eefe15036467c))
+* **api:** read private bundles through their existing edit gate ([b036ad5](https://github.com/ramsesoriginal/lorenzo/commit/b036ad56b213c14f4d3b07a77bfa6fa132a462b1))
+* **api:** replace information audiences atomically with version guards ([2f2209a](https://github.com/ramsesoriginal/lorenzo/commit/2f2209a94092c276c3610a4369bb00dfdf880bb1))
+* **api:** retention and making a release current (ADR 0288) ([d3750a8](https://github.com/ramsesoriginal/lorenzo/commit/d3750a86fdf196e88d80fc22ae884a6f51ae5016)), closes [#710](https://github.com/ramsesoriginal/lorenzo/issues/710)
+* **api:** sheet settings and the being sheet read ([12a72c9](https://github.com/ramsesoriginal/lorenzo/commit/12a72c945a0be534eacb9deaf13113cd0f6971ac))
+* **api:** stat definition display fields, order and PATCH ([e32ed57](https://github.com/ramsesoriginal/lorenzo/commit/e32ed570b62c4dd116c3060c43f3042b814575d1))
+* **api:** stat hints ([bf2304c](https://github.com/ramsesoriginal/lorenzo/commit/bf2304cfdc481f5d84e959e38a2e42a8f7ac264d))
+* **api:** tenant being stat group and CLI settings ([3f6cf10](https://github.com/ramsesoriginal/lorenzo/commit/3f6cf10890563eefee197bb6e8a3ebcaf593eeec))
+* **api:** the device-code flow sends devices to the hub the app-links registry names ([abd9410](https://github.com/ramsesoriginal/lorenzo/commit/abd94102b1500fd8b58512df65ef994f44ab512d))
+* **api:** the flip rules and the bridge-skew gate (ADR 0289) ([956fbf0](https://github.com/ramsesoriginal/lorenzo/commit/956fbf0586997e18595924f6f5054c8af7ef63f6))
+* **api:** the flip rules and the bridge-skew gate (ADR 0289) ([7f83b56](https://github.com/ramsesoriginal/lorenzo/commit/7f83b56f500155d9d862c2e34bc2a822ec11396d)), closes [#711](https://github.com/ramsesoriginal/lorenzo/issues/711)
+* **api:** the flips as routes (ADR 0290) ([f576dbf](https://github.com/ramsesoriginal/lorenzo/commit/f576dbf6b4aac96ad98250c7ba9dba572c2be248))
+* **api:** the flips as routes (ADR 0290) ([88a5248](https://github.com/ramsesoriginal/lorenzo/commit/88a524842773779c3ea8adc40568410bcb4d57b7)), closes [#718](https://github.com/ramsesoriginal/lorenzo/issues/718)
+* **api:** the maintainer's quota numbers, and the copy engines are exempt ([56cb4dd](https://github.com/ramsesoriginal/lorenzo/commit/56cb4dd9f4692d9c7d07eb30d2ef85885bbbf23a))
+* **api:** the preview (ADR 0293) ([6cd28ec](https://github.com/ramsesoriginal/lorenzo/commit/6cd28ec3f620ab646aa3369ff88b836f0e3a65c3))
+* **api:** the preview (ADR 0293) ([5244d35](https://github.com/ramsesoriginal/lorenzo/commit/5244d35d203b88cb2706e2fe417a566ce1965e5f)), closes [#726](https://github.com/ramsesoriginal/lorenzo/issues/726)
+* **api:** the read switch for public repositories (ADR 0286) ([61897d6](https://github.com/ramsesoriginal/lorenzo/commit/61897d671b2301eed489dc89a7bf0bc57c1ce681))
+* **api:** the read switch for public repositories (ADR 0286) ([acaa100](https://github.com/ramsesoriginal/lorenzo/commit/acaa10097566a5c5e38e16506aa7bfbc027a29b7)), closes [#701](https://github.com/ramsesoriginal/lorenzo/issues/701)
+* **api:** the release fan-out as a table, and a cooldown between releases (ADR 0301) ([e78a1b2](https://github.com/ramsesoriginal/lorenzo/commit/e78a1b2ea51230c0dcc6b636b813c8a74c408e86))
+* **api:** the stat vocabulary is readable by every participant ([a501961](https://github.com/ramsesoriginal/lorenzo/commit/a501961b73ad4c01c003bd99e7b427501babb4ad))
+* **api:** where a stat value comes from, and why ([4e1f892](https://github.com/ramsesoriginal/lorenzo/commit/4e1f89219bb1eca3bb91109e0a86c60e83432880))
+* **api:** who may read a public repository (ADR 0287) ([574108a](https://github.com/ramsesoriginal/lorenzo/commit/574108acc8dcd75c1621cec57d7b26682bd42e38))
+* **api:** who may read a public repository (ADR 0287) ([15869f2](https://github.com/ramsesoriginal/lorenzo/commit/15869f2a6d2fae77df6de21edd73e23d3afd6fc8)), closes [#702](https://github.com/ramsesoriginal/lorenzo/issues/702)
+* **beings:** delete beings and settle their inventory ([49e000d](https://github.com/ramsesoriginal/lorenzo/commit/49e000df9beae15a84d09bf3f29fab95dfe90eef))
+* **beings:** delete beings and settle their inventory ([46ad48e](https://github.com/ramsesoriginal/lorenzo/commit/46ad48e4b8397ef2a9974aa7d57329ee6cda879e))
+* **beings:** Lorenzo Beings, a new app for characters and NPCs (ADR 0270-0272) ([26f7b8f](https://github.com/ramsesoriginal/lorenzo/commit/26f7b8f63eef01898a6ff14dc7c58129aca5e71c))
+* **bench:** author facts and targeted information bundles ([b50b2c7](https://github.com/ramsesoriginal/lorenzo/commit/b50b2c75eb498e49c100b285fad74ee499a567b9))
+* **bench:** keyboard moves for tabs (11 of 12) ([9ff4392](https://github.com/ramsesoriginal/lorenzo/commit/9ff4392b7781676e0311bf4288e32840c41971e0))
+* **bench:** the main picture - show, choose, replace, remove (B8) ([c19d639](https://github.com/ramsesoriginal/lorenzo/commit/c19d6391da96ed3c44fb6928b309dfd21fb58004))
+* **cli:** author stat vocabulary and render entry sheets ([c00a635](https://github.com/ramsesoriginal/lorenzo/commit/c00a635e5fbdccf3cd2c1cab6bfa5b53643537b6))
+* **inventory-mobile:** keep ordered picture notes and audiences ([b0e7251](https://github.com/ramsesoriginal/lorenzo/commit/b0e72517454ed5fca4352939a03d8087bb73ed1b))
+* **inventory-web:** edit an item's stat values ([3ec929a](https://github.com/ramsesoriginal/lorenzo/commit/3ec929a96bd80fac962a40790d427638271868c4))
+* **lorenzoscript:** a stat in a text, {weight} ([3bccede](https://github.com/ramsesoriginal/lorenzo/commit/3bccede76447f031ce553bd60e92bf5acda0a513))
+* merge canonical facts beneath information bundles ([957fd1f](https://github.com/ramsesoriginal/lorenzo/commit/957fd1f5901e8ba2b198cd9a0b3e486f1dfc970b))
+
+
+### Bug Fixes
+
+* **api:** load inherited weapon stat sources for being sheets ([0e1e182](https://github.com/ramsesoriginal/lorenzo/commit/0e1e18260889ccd2b2bcc24d3312fd447389821a))
+* **api:** only a repository's members read delisted on its profile ([c619b66](https://github.com/ramsesoriginal/lorenzo/commit/c619b66aaf814815f7319dc0bd9a6f17c0fa5a3a))
+* **api:** the invite table is the registry's invite, and the vocabulary gate reads well ([5f6a2c1](https://github.com/ramsesoriginal/lorenzo/commit/5f6a2c1f03bc1b010a44ffbd5eb2922ee4a93758))
+* **api:** the parent-order migration runs on a database that has parents ([a40b879](https://github.com/ramsesoriginal/lorenzo/commit/a40b87974b464d93a3110bcdfecab28c9e5697f9))
+* **api:** the profile migration follows main's latest ([8fc4953](https://github.com/ramsesoriginal/lorenzo/commit/8fc4953c035b47e82f1275eb238f33126af11f6f))
+* **api:** the release document carries a stat definition's display fields ([370c47e](https://github.com/ramsesoriginal/lorenzo/commit/370c47e2af71c604fccdfcd88008c628c8489a83))
+* **api:** write https URLs behind a proxy that speaks http to the API ([83193e6](https://github.com/ramsesoriginal/lorenzo/commit/83193e6babc82ec6719e8b299be31e4032ecb4fb))
+* **api:** write https URLs behind a proxy that speaks http to the API ([a604890](https://github.com/ramsesoriginal/lorenzo/commit/a60489054aaf93ae0fcbb760c54631550041daea))
+* **beings:** keep empty rows compact and cache picture bytes ([38fe9ed](https://github.com/ramsesoriginal/lorenzo/commit/38fe9ed168c302a1aa642581b47eda62eef1944e))
+* **beings:** keep empty rows compact and cache picture bytes ([054b6e2](https://github.com/ramsesoriginal/lorenzo/commit/054b6e2553b60f9b1e6dce8a1ddeb88b2f1d7d36))
+* D6d's optional user does not start a sweep, and D6e's tests accept the terms ([e4e13b3](https://github.com/ramsesoriginal/lorenzo/commit/e4e13b3f5f58053eb98469601e25c772618e4b68)), closes [#748](https://github.com/ramsesoriginal/lorenzo/issues/748)
+* increase picture upload limits to 10 MB ([e787b11](https://github.com/ramsesoriginal/lorenzo/commit/e787b11095956f3a66d8d066cfebc0a99caf0912))
+* increase picture upload limits to 10 MB ([e27de26](https://github.com/ramsesoriginal/lorenzo/commit/e27de26af7b92d60d8a00877a78e3ec484e89b25))
+* the app-links registry avoids two patterns CodeQL flags ([6f18465](https://github.com/ramsesoriginal/lorenzo/commit/6f18465f3809ed5b8fa8fb86dbba125af96edd31))
+
+
+### Performance Improvements
+
+* **api:** an item read in half the statements: one query for the prototype chain, joined to-one loads, and visibility only as far as it is read ([1c55c7c](https://github.com/ramsesoriginal/lorenzo/commit/1c55c7c7b6a14d2be56c42fb9321a29143dbd422))
+* **api:** an item read in half the statements: one query for the prototype chain, joined to-one loads, and visibility only as far as it is read ([9edff0b](https://github.com/ramsesoriginal/lorenzo/commit/9edff0b25bc45d5808dc5e2107b2019f6c9cb973))
+* **api:** an item read loads what it reads with the row, and resolves who may read it as far as it needs ([ac0873a](https://github.com/ramsesoriginal/lorenzo/commit/ac0873a6e63c507907e872c4f160d2f717bdf4c5))
+* **api:** ask the database once per request for the tenant and the caller's membership ([5149927](https://github.com/ramsesoriginal/lorenzo/commit/514992716368a12afb01d583378a237088d039b0))
+* **api:** item reads cost what they read: entity-scoped stat views and no JIT ([3aae810](https://github.com/ramsesoriginal/lorenzo/commit/3aae8106ff6635f140501058fef7cf608d5ecfd3))
+* **api:** the app role runs without JIT ([4f35337](https://github.com/ramsesoriginal/lorenzo/commit/4f353372e9bcb7fd94dd5d23b1fa5461916fbb71))
+* **api:** the prototype chain of an item is one recursive query ([458dae9](https://github.com/ramsesoriginal/lorenzo/commit/458dae9705020f68951d492187f4608502d2c47c))
+* **api:** the update engine inverts the entity links once, not per attachment end ([42913b6](https://github.com/ramsesoriginal/lorenzo/commit/42913b646306365e6d565328f86c3e2bad6e790a))
+* **api:** the update engine inverts the entity links once, not per attachment end ([4901e6c](https://github.com/ramsesoriginal/lorenzo/commit/4901e6cc84fa3bd3fa486ff2a6ca29270fa45fec)), closes [#716](https://github.com/ramsesoriginal/lorenzo/issues/716)
+* **api:** v_effective_stat, v_item and v_item_instance resolve per entity ([c3a9b3a](https://github.com/ramsesoriginal/lorenzo/commit/c3a9b3a5aca11fea50be4da8d5a6ed1397f5a874))
+* **api:** write routes answer with the reader, and join to-one relationships ([91f80c6](https://github.com/ramsesoriginal/lorenzo/commit/91f80c6477eec22eb911baf15179de1f527ee983))
+* **api:** write routes cost what they write ([0d47c97](https://github.com/ramsesoriginal/lorenzo/commit/0d47c97b26bec7f15493b64462bb3fe9bed6d17b))
+
+
+### Documentation
+
+* **adr:** the Author role is ADR 0219 ([9e6533c](https://github.com/ramsesoriginal/lorenzo/commit/9e6533cbe4d5c48d39a196c443a2b400a4ffc9fa))
+* **beings:** describe permanent being deletion ([eb5de00](https://github.com/ramsesoriginal/lorenzo/commit/eb5de004ee310cddd57d2e99399b675659234289))
+* **operations:** going public, the edge rule for Discover and copying, and the deploy variables ([f20eceb](https://github.com/ramsesoriginal/lorenzo/commit/f20eceb3b7feafe6d6d86b81c85924158131454d))
+* **operations:** going public, the edge rule for Discover and copying, and the deploy variables ([451454f](https://github.com/ramsesoriginal/lorenzo/commit/451454f3d97dc5d9d96447068453b37828f403b7)), closes [#497](https://github.com/ramsesoriginal/lorenzo/issues/497)
+* refresh repository documentation and reconcile tracking checklists ([1cb303c](https://github.com/ramsesoriginal/lorenzo/commit/1cb303c7f8754e4d55bcf4db78c6133ed863664c))
+* refresh shipped capabilities and repository guidance ([95e7bb8](https://github.com/ramsesoriginal/lorenzo/commit/95e7bb841a554cec4faaa385898311cefd2f78bc))
+* the being sheet as built ([782ac03](https://github.com/ramsesoriginal/lorenzo/commit/782ac0332cba4b2b92d315ede0b82951804558db))
+
 ## [0.7.0](https://github.com/ramsesoriginal/lorenzo/compare/api-v0.6.0...api-v0.7.0) (2026-09-23)
 
 

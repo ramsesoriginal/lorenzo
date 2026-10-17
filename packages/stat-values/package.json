@@ -2,7 +2,7 @@
   "name": "@lorenzo/stat-values",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Reading and writing an entry's stat values through apps/api, and parsing what a person types for one. Shared by inventory-web and beings. See ADR 0272.",
   "exports": {
     ".": "./src/index.ts"
