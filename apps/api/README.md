@@ -72,7 +72,6 @@ See [docs/architecture/deployment.md](../../docs/architecture/deployment.md) for
 
 The tenant detail and `GET /tenants/{id}/beings/{id}/sheet` return `being_stat_group_id`. The sheet's optional `campaign_id` must name a campaign in that tenant that the caller may read; it does not override the tenant setting yet. The setting does not filter stat reads or change frontend display ([ADR 0296](../../docs/adr/0296-being-stat-group.md)).
 
-
 ## Information bundles
 
 Information holds ordered text (LorenzoScript) and picture payloads under one audience.

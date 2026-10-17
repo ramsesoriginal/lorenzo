@@ -29,7 +29,6 @@ This split is what lets one entity have a public description, a GM's secret note
 
 The current system records which characters, players or groups may read a piece of information, alongside public and GM-only audiences ([ADR 0028](../adr/0028-knowledge-and-group-membership.md), [ADR 0109](../adr/0109-player-knowers-knower-listing-and-information-list.md)). It does not yet record a story-time history of when someone learned it. That temporal model is proposed in [RFC 0028](../rfcs/0028-time-causality-and-calendars.md); it remains undecided.
 
-
 ## Canonical facts are information anchors
 
 A canonical fact is a true statement about the world, kept as an entry of its own rather than
