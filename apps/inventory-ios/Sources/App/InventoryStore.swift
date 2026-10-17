@@ -1,3 +1,7 @@
+#if SWIFT_PACKAGE
+import InventoryCore
+typealias Character = InventoryCore.Character
+#endif
 import Foundation
 import SwiftUI
 import Network
@@ -13,6 +17,7 @@ import Network
     @Published var busy = false
     @Published var deviceCode: DeviceCode?
     @Published var pictures: [String: Data] = [:]
+    private let transport: any Transport
     private let base: URL
     private let vault: Vault
     private var api: API?
@@ -22,14 +27,15 @@ import Network
     private var loginTask: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
     private let monitor = NWPathMonitor()
-    init(vault: Vault = Vault()) {
+    init(vault: Vault = Vault(), transport: any Transport = HTTPTransport(), base overrideBase: URL? = nil) {
         self.vault = vault
+        self.transport = transport
         #if DEBUG && targetEnvironment(simulator)
         if let raw = ProcessInfo.processInfo.environment["LORENZO_TEST_API"],
            let url = URL(string: raw), url.host == "127.0.0.1", url.scheme == "http" { base = url }
-        else { base = API.production }
+        else { base = overrideBase ?? API.production }
         #else
-        base = API.production
+        base = overrideBase ?? API.production
         #endif
         monitor.pathUpdateHandler = { [weak self] path in
             if path.status == .satisfied { Task { @MainActor [weak self] in self?.startSync() } }
@@ -45,13 +51,13 @@ import Network
         do {
             guard let token = try await vault.restore(session: generation) else { return }
             guard session == generation else { return }
-            api = API(base: base, token: token); signedIn = true
+            api = API(base: base, token: token, transport: transport); signedIn = true
             cacheEpoch = generation
             let savedMe = try await vault.read(Me.self, name: "roster", session: generation)
             try check(generation); me = savedMe
             characters = me?.characters ?? []
             let savedDrafts = try await vault.read([Draft].self, name: "drafts", session: generation) ?? []
-            try check(generation); drafts = savedDrafts
+            try check(generation); drafts = savedDrafts.map { var d = $0; d.sessionId = generation; return d }
             await refreshRoster()
         } catch { status = "The saved connection could not be opened. Connect again." }
     }
@@ -62,7 +68,7 @@ import Network
         do {
             let clean = token.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !clean.isEmpty else { return }
-            let candidate = API(base: base, token: clean)
+            let candidate = API(base: base, token: clean, transport: transport)
             let value = try await candidate.me()
             guard session == attempt, !Task.isCancelled else { throw CancellationError() }
             cancelLogin()
@@ -89,7 +95,7 @@ import Network
         loginTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let client = API(base: base)
+                let client = API(base: base, transport: transport)
                 let code = try await client.beginDevice()
                 try Task.checkCancellation()
                 guard let uri = URL(string: code.verificationUriComplete), uri.scheme == "https" else { throw URLError(.badURL) }
@@ -140,7 +146,8 @@ import Network
         try check(generation)
         cacheEpoch = UUID()
         inventories = [:]; notes = [:]; pictures = [:]
-        try await vault.purgeCache(session: generation, epoch: cacheEpoch)
+        do { try await vault.purgeCache(session: generation, epoch: cacheEpoch) }
+        catch { await signOut(); throw error }
     }
     private func handle(_ error: Error, generation: UUID) async {
         guard session == generation, !(error is CancellationError) else { return }
@@ -211,8 +218,14 @@ import Network
         } catch { await handle(error, generation: generation) }
     }
     func picture(_ character: Character, _ id: String) -> Data? { pictures["picture/" + character.id + "/" + id] }
+    func newDraft(_ character: Character, itemId: String) -> Draft {
+        var draft = Draft(character: character, itemId: itemId, locale: locales.first ?? "en")
+        draft.sessionId = session
+        return draft
+    }
     func saveDraft(_ draft: Draft) async throws {
         let generation = session; try check(generation)
+        guard draft.sessionId == generation else { throw CancellationError() }
         let next = try await vault.updateDraft(draft, session: generation)
         try check(generation); drafts = next
     }

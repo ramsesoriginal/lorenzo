@@ -175,7 +175,7 @@ struct ItemView: View {
                             }
                         }
                         Button("Add a note",systemImage:"square.and.pencil") {
-                            let draft=Draft(character:character,itemId:itemId,locale:store.locales.first ?? "en")
+                            let draft=store.newDraft(character,itemId:itemId)
                             Task { do { try await store.saveDraft(draft);composer=draft } catch { store.status=error.localizedDescription } }
                         }.accessibilityIdentifier("add-note")
                     }

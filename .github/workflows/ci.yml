@@ -583,8 +583,8 @@ jobs:
         working-directory: apps/inventory-ios
         run: |
           mkdir -p build
-          swift format format --in-place --recursive Sources Tests UITests
-          git diff -- Sources Tests UITests > build/swift-format.patch
+          swift format format --in-place --recursive Sources Tests StateTests UITests
+          git diff -- Sources Tests StateTests UITests > build/swift-format.patch
       - uses: actions/upload-artifact@v7
         if: always()
         with:

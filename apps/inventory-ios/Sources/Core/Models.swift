@@ -147,6 +147,7 @@ public struct Draft: Codable, Equatable, Identifiable, Sendable {
     public var id: String = UUID().uuidString.lowercased()
     public var character: Character; public var itemId: String; public var title: String = "Note"
     public var parts: [DraftPart]; public var audience: Audience
+    public var sessionId: UUID?
     public var firstPayloadId: String?; public var orderBase: [String]?
     public var queued = false; public var problem: String?; public var attempts = 0
     public var retryAt: Date?; public var created = Date()
