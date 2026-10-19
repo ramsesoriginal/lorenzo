@@ -24,7 +24,7 @@ The IPA contains an unsigned arm64 device app, not a simulator build; local sign
 
 ## Build and test
 
-On macOS with Xcode 16.4+ and an installed iOS simulator runtime:
+On macOS with Xcode 16.4 (pinned in CI) and an installed iOS simulator runtime:
 
     mise run lint
     mise run test

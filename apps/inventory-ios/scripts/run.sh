@@ -7,7 +7,8 @@ fi
 swift scripts/icon.swift
 python3 scripts/project.py
 case "$1" in
- lint) swiftc -parse Sources/Core/*.swift Sources/App/*.swift
+ lint) swift format lint --strict --recursive Sources Tests StateTests UITests
+       swiftc -parse Sources/Core/*.swift Sources/App/*.swift
        python3 -m unittest discover -s scripts -p 'test_*.py' ;;
  test)
    swift test
@@ -34,6 +35,12 @@ case "$1" in
    if [ "$status" -ne 0 ]; then tail -n 120 build-uitest.log; exit "$status"; fi
    ;;
  dev)
-   echo "Open LorenzoInventory.xcodeproj in Xcode, select a simulator and Run." ;;
+   destination=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for a in d["devices"].values() for x in a if x["name"].startswith("iPhone")))')
+   xcrun simctl boot "$destination" 2>/dev/null || true
+   xcrun simctl bootstatus "$destination" -b
+   xcodebuild -project LorenzoInventory.xcodeproj -scheme LorenzoInventory -configuration Debug -sdk iphonesimulator -destination "platform=iOS Simulator,id=$destination" -derivedDataPath build/simulator CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build
+   xcrun simctl install "$destination" build/simulator/Build/Products/Debug-iphonesimulator/LorenzoInventory.app
+   xcrun simctl launch "$destination" io.lorenzo.inventory.ios
+   ;;
  *) exit 2 ;;
 esac

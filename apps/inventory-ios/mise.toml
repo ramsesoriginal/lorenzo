@@ -17,3 +17,7 @@ run = "bash scripts/run.sh build"
 [tasks.check-schema]
 description = "Check native REST contracts against current OpenAPI"
 run = ["mise run //apps/api:openapi-schema", "python3 scripts/check_contract.py ../api/openapi.json"]
+
+[tasks.format]
+description = "Format native Swift sources and tests"
+run = "swift format format --in-place --recursive Sources Tests StateTests UITests"
