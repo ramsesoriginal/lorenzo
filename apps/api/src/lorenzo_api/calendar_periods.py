@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import uuid
 
-from lorenzo_calendar import CalendarDate, CalendarDefinition, segment_for
+from lorenzo_calendar import (
+    CalendarDate,
+    CalendarDefinition,
+    RecurrenceRule,
+    segment_for,
+    validate_recurrence,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.exceptions import CalendarDefinitionInUseError
-from lorenzo_api.models import CalendarPeriod
+from lorenzo_api.models import CalendarObservance, CalendarPeriod
 
 
 async def validate_materialized_periods(
@@ -38,3 +44,20 @@ async def validate_materialized_periods(
                     detail="This definition would invalidate a recorded calendar period. "
                     "Resolve its references first."
                 ) from None
+
+    rules = (
+        await session.scalars(
+            select(CalendarObservance).where(
+                CalendarObservance.tenant_id == tenant_id,
+                CalendarObservance.calendar_entity_id == calendar_id,
+            )
+        )
+    ).all()
+    for observance in rules:
+        try:
+            validate_recurrence(definition, RecurrenceRule.model_validate(observance.rule))
+        except ValueError:
+            raise CalendarDefinitionInUseError(
+                detail="This definition would invalidate a recurring observance. "
+                "Resolve its rule first."
+            ) from None

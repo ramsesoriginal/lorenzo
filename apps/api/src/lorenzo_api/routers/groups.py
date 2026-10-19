@@ -32,6 +32,7 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     Calendar,
+    CalendarObservance,
     CalendarPeriod,
     Character,
     Entity,
@@ -162,7 +163,7 @@ async def _require_can_manage_group(
             or_(
                 *(
                     exists().where(model.entity_id == group_entity_id)
-                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent)
+                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance)
                 )
             )
         )
@@ -583,7 +584,7 @@ async def duplicate_group(
             or_(
                 *(
                     exists().where(model.entity_id == group_entity_id)
-                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent)
+                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance)
                 )
             )
         )

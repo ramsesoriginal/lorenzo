@@ -12,6 +12,7 @@ from lorenzo_api import release_document
 from lorenzo_api.models import (
     Being,
     Calendar,
+    CalendarObservance,
     CalendarPeriod,
     Character,
     ComputedStat,
@@ -85,6 +86,7 @@ async def seed_every_content_table(
     calendar = entity("Fixture calendar")
     period = entity("Fixture year")
     event = entity("Fixture event")
+    observance = entity("Fixture observance")
     fact = entity("The blade belongs to Elminster")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
@@ -114,6 +116,13 @@ async def seed_every_content_table(
 
     session.add_all(
         [
+            CalendarObservance(
+                entity_id=observance.id,
+                tenant_id=tenant_id,
+                calendar_entity_id=calendar.id,
+                rule={"segment": "month", "day": 1, "when": {"every": 1, "offset": 0}},
+            ),
+            EntityAudience(entity_id=observance.id, tenant_id=tenant_id, is_public=False),
             StoryEvent(entity_id=event.id, tenant_id=tenant_id),
             CalendarPeriod(
                 entity_id=period.id,

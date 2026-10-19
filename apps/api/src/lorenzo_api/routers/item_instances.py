@@ -3056,14 +3056,14 @@ async def bulk_move_item_instances(
 
 
 async def require_physical_container(session: SessionDep, entity_id: uuid.UUID) -> None:
-    from lorenzo_api.models import Calendar, CalendarPeriod, StoryEvent
+    from lorenzo_api.models import Calendar, CalendarObservance, CalendarPeriod, StoryEvent
 
     if await session.scalar(
         select(
             or_(
                 *(
                     exists().where(model.entity_id == entity_id)
-                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent)
+                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance)
                 )
             )
         )

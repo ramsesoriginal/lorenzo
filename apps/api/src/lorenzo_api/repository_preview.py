@@ -68,6 +68,7 @@ _KIND_ORDER: tuple[EntityKindName, ...] = (
     "calendar",
     "calendar_period",
     "event",
+    "observance",
 )
 
 Reach = Literal["none", "showcase", "all"]

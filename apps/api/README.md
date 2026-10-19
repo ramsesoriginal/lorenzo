@@ -103,3 +103,10 @@ assert no interval, chronology or historical truth ([ADR 0309](../../docs/adr/03
 Definition changes that erase recorded periods and deletion of referenced periods/calendars
 are refused. Copies preserve local identities and remap structural/date links; definition
 updates remain explicit and validate local periods.
+
+Recurring observances are entries with one calendar-bound segment/day rule and optional
+periodic years ([ADR 0310](../../docs/adr/0310-recurring-calendar-observances.md)). Occurrence reads calculate
+visible results for a year, optionally filtered to a segment, without creating periods or
+Events. Missing dates skip. Rule edits require the observance entry's ETag; definition edits
+validate its rules too. Copied rule updates are explicit review fields. Release format 5
+preserves rules and keeps formats 1–4 readable.

@@ -99,10 +99,11 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 4
+    assert rd.FORMAT == 5
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
+        "observances": {},
         "calendar_periods": {},
         "entry_dates": [],
         "entry_audiences": {},
@@ -111,7 +112,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
     }
 
 
-@pytest.mark.parametrize("format_", [0, 5, 99])
+@pytest.mark.parametrize("format_", [0, 6, 99])
 def test_a_version_nobody_knows_is_refused(format_: int) -> None:
     document, files = rd.encode(full_content())
 

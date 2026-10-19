@@ -22,6 +22,7 @@ from lorenzo_api.routers.activity_log import router as activity_log_router
 from lorenzo_api.routers.admin import router as admin_router
 from lorenzo_api.routers.app_links import router as app_links_router
 from lorenzo_api.routers.beings import router as beings_router
+from lorenzo_api.routers.calendar_observances import router as calendar_observances_router
 from lorenzo_api.routers.calendar_periods import router as calendar_periods_router
 from lorenzo_api.routers.calendars import router as calendars_router
 from lorenzo_api.routers.campaign_invites import router as campaign_invites_router
@@ -135,6 +136,7 @@ def create_app() -> FastAPI:
     app.include_router(beings_router)
     app.include_router(calendars_router)
     app.include_router(calendar_periods_router)
+    app.include_router(calendar_observances_router)
     app.include_router(payloads_router)
     app.include_router(pictures_router)
     # Before entities_router: its /{entity_id} would take "export" (ADR 0262).

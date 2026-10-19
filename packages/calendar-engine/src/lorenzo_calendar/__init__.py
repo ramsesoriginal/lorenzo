@@ -227,3 +227,28 @@ def preview_year(definition: CalendarDefinition, year: int) -> YearPreview:
             )
         )
     return YearPreview(year=year, segments=segments)
+
+
+class RecurrenceRule(Value):
+    segment: Key
+    day: Positive
+    when: Periodic = Periodic(every=1)
+
+
+def validate_recurrence(definition: CalendarDefinition, rule: RecurrenceRule) -> None:
+    if not any(s.key == rule.segment and rule.day <= s.days for s in definition.segments):
+        raise ValueError("The recurrence needs an existing segment and day")
+
+
+def occurrence(
+    definition: CalendarDefinition, rule: RecurrenceRule, year: int
+) -> CalendarDate | None:
+    validate_recurrence(definition, rule)
+    if not rule.when.includes(year):
+        return None
+    date = CalendarDate(year=year, segment=rule.segment, day=rule.day)
+    try:
+        segment_for(definition, date)
+    except ValueError:
+        return None
+    return date

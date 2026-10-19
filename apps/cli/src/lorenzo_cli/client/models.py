@@ -98,6 +98,7 @@ class Kind1(StrEnum):
     calendar = "calendar"
     calendar_period = "calendar_period"
     event = "event"
+    observance = "observance"
 
 
 class BacklinkOut(BaseModel):
@@ -588,6 +589,7 @@ class Kind8(StrEnum):
     calendar = "calendar"
     calendar_period = "calendar_period"
     event = "event"
+    observance = "observance"
 
 
 class EntityExportStatOut(BaseModel):
@@ -827,6 +829,7 @@ class Kind14(StrEnum):
     calendar = "calendar"
     calendar_period = "calendar_period"
     event = "event"
+    observance = "observance"
 
 
 class LinkPreviewStatOut(BaseModel):
@@ -994,6 +997,12 @@ class NotificationOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class OccurrenceOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    date: CalendarDate
+
+
 class PageAdminUserOut(BaseModel):
     items: list[AdminUserOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1116,6 +1125,14 @@ class PageKnowledgeEntryOut(BaseModel):
 
 class PageNotificationOut(BaseModel):
     items: list[NotificationOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageOccurrenceOut(BaseModel):
+    items: list[OccurrenceOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -1389,6 +1406,15 @@ class PublisherOut(BaseModel):
     display_name: str = Field(..., title="Display Name")
 
 
+class RecurrenceRule(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    segment: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Segment")
+    day: conint(ge=1, le=1000) = Field(..., title="Day")
+    when: Periodic | None = Field({"every": 1, "offset": 0}, validate_default=True)
+
+
 class ReleaseCountsOut(BaseModel):
     entities: KindCountsOut
     stat_groups: KindCountsOut
@@ -1511,6 +1537,7 @@ class Kind18(StrEnum):
     calendar = "calendar"
     calendar_period = "calendar_period"
     event = "event"
+    observance = "observance"
 
 
 class ResolvedSlugOut(BaseModel):
@@ -2263,6 +2290,26 @@ class MeOut(BaseModel):
     capabilities: MeCapabilitiesOut
 
 
+class ObservanceCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    rule: RecurrenceRule
+    is_public: bool | None = Field(False, title="Is Public")
+
+
+class ObservanceOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    name: str = Field(..., title="Name")
+    rule: RecurrenceRule
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
 class OwnedGroupOut(BaseModel):
     container: EntitySummary | None
     item_instances: list[ItemInstanceOut] = Field(..., title="Item Instances")
@@ -2315,6 +2362,14 @@ class PageItemInstanceOut(BaseModel):
 
 class PageItemOut(BaseModel):
     items: list[ItemOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageObservanceOut(BaseModel):
+    items: list[ObservanceOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")

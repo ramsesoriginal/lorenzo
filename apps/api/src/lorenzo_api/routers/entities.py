@@ -71,6 +71,7 @@ from lorenzo_api.information_visibility import (
 from lorenzo_api.models import (
     Being,
     Calendar,
+    CalendarObservance,
     CalendarPeriod,
     Character,
     Containment,
@@ -147,7 +148,15 @@ _KINDS: tuple[
     tuple[
         EntityKind,
         type[
-            Item | ItemInstance | Being | Character | Fact | Calendar | CalendarPeriod | StoryEvent
+            Item
+            | ItemInstance
+            | Being
+            | Character
+            | Fact
+            | Calendar
+            | CalendarPeriod
+            | StoryEvent
+            | CalendarObservance
         ],
     ],
     ...,
@@ -160,6 +169,7 @@ _KINDS: tuple[
     ("calendar", Calendar),
     ("calendar_period", CalendarPeriod),
     ("event", StoryEvent),
+    ("observance", CalendarObservance),
 )
 
 
@@ -565,6 +575,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.fact),
             joinedload(Entity.calendar),
             joinedload(Entity.calendar_period),
+            joinedload(Entity.calendar_observance),
             joinedload(Entity.story_event),
             joinedload(Entity.item),
             joinedload(Entity.item_instance),
@@ -1612,7 +1623,7 @@ async def editable_fact_audience(
     if not any(
         [
             await session.get(model, entity_id) is not None
-            for model in (Fact, Calendar, CalendarPeriod, StoryEvent)
+            for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance)
         ]
     ):
         raise InvalidKindRequestError(

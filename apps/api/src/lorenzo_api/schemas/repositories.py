@@ -56,7 +56,15 @@ __all__ = [
 ]
 
 EntityKindName = Literal[
-    "item", "item_instance", "being", "character", "fact", "calendar", "calendar_period", "event"
+    "item",
+    "item_instance",
+    "being",
+    "character",
+    "fact",
+    "calendar",
+    "calendar_period",
+    "event",
+    "observance",
 ]
 
 # A release's words (ADR 0207). The label is free text, never parsed as a version.

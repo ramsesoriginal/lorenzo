@@ -10,6 +10,7 @@ from lorenzo_api.db import Base, CreatedAt, CreatedBy, TenantFk, UpdatedAt, Upda
 if TYPE_CHECKING:
     from lorenzo_api.models.being import Being
     from lorenzo_api.models.calendar import Calendar
+    from lorenzo_api.models.calendar_observance import CalendarObservance
     from lorenzo_api.models.calendar_period import CalendarPeriod, StoryEvent
     from lorenzo_api.models.campaign import Campaign
     from lorenzo_api.models.containment import Containment
@@ -114,6 +115,13 @@ class Entity(Base):
     )
     fact: Mapped[Fact | None] = relationship(
         foreign_keys="Fact.entity_id",
+        lazy="raise_on_sql",
+        back_populates="entity",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    calendar_observance: Mapped[CalendarObservance | None] = relationship(
+        foreign_keys="CalendarObservance.entity_id",
         lazy="raise_on_sql",
         back_populates="entity",
         cascade="all, delete-orphan",

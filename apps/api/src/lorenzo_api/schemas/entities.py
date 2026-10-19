@@ -39,7 +39,15 @@ class EntitySlugOut(BaseModel):
 
 
 EntityKind = Literal[
-    "item", "item_instance", "being", "character", "fact", "calendar", "calendar_period", "event"
+    "item",
+    "item_instance",
+    "being",
+    "character",
+    "fact",
+    "calendar",
+    "calendar_period",
+    "event",
+    "observance",
 ]
 
 
@@ -282,6 +290,8 @@ class KnowerOut(BaseModel):
 def _kinds_out(entity: Entity) -> list[EntityKind]:
     """Needs entity.item, item_instance and being loaded, and being.character."""
     kinds: list[EntityKind] = []
+    if entity.calendar_observance is not None:
+        kinds.append("observance")
     if entity.calendar_period is not None:
         kinds.append("calendar_period")
     if entity.story_event is not None:

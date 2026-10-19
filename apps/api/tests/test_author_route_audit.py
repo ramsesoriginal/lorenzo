@@ -32,6 +32,7 @@ REPOSITORY = T + "/repositories/{repository_id}"
 
 # Any member, an Author too: editing content, and the reads that editing and checking need.
 AUTHORING = {
+    ("POST", T + "/calendars/{calendar_id}/observances"),
     ("POST", T + "/calendars"),
     ("GET", ENTITY_COMPUTED),
     ("DELETE", ENTITY_COMPUTED + "/{stat_definition_id}"),

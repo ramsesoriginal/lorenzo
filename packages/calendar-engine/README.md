@@ -8,3 +8,7 @@ and calendar-relative day numbers; `preview_year` returns bounded month/festival
 weekdays and moon phases. References are calculation anchors, not story timestamps.
 
 Run `mise run //packages/calendar-engine:test` and `:lint`.
+
+`RecurrenceRule`, `validate_recurrence` and `occurrence` calculate scheduled observances.
+Every-N-years/offset rules use signed years. A date missing in a year returns no occurrence;
+it never shifts to a neighbouring date. Calculation creates no entries and records no event.

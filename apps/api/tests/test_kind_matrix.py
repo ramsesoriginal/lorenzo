@@ -48,6 +48,7 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("calendar",): None,
     ("calendar_period",): None,
     ("event",): None,
+    ("observance",): None,
     ("being",): "item",
     ("being", "item"): "being",
     ("item_instance",): None,
@@ -62,6 +63,7 @@ _ORDER = [
     "calendar",
     "calendar_period",
     "event",
+    "observance",
 ]
 
 
@@ -149,6 +151,39 @@ async def _make(
         )
         assert response.status_code == 201, response.text
         entity_id = response.json()["entity_id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("observance",):
+        calendars = await scene_author.get(f"/tenants/{repository}/calendars")
+        calendar_id = next(
+            (
+                c["entity_id"]
+                for c in calendars.json()["items"]
+                if c["name"] == "Observance matrix calendar"
+            ),
+            None,
+        )
+        if calendar_id is None:
+            calendar = await scene_author.post(
+                f"/tenants/{repository}/calendars",
+                json={
+                    "name": "Observance matrix calendar",
+                    "is_public": True,
+                    "definition": {"segments": [{"key": "month", "name": "Month", "days": 30}]},
+                },
+            )
+            assert calendar.status_code == 201, calendar.text
+            calendar_id = calendar.json()["entity_id"]
+        made = await scene_author.post(
+            f"/tenants/{repository}/calendars/{calendar_id}/observances",
+            json={"name": name, "rule": {"segment": "month", "day": 1}, "is_public": True},
+        )
+        assert made.status_code == 201, made.text
+        entity_id = made.json()["entity_id"]
         response = await scene_author.put(
             f"/tenants/{repository}/entities/{entity_id}/parents",
             json={"parent_ids": [str(p) for p in parents]},

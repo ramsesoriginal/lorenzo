@@ -36,6 +36,8 @@ from lorenzo_api.exceptions import (
     RepositoryNotFoundError,
 )
 from lorenzo_api.models import (
+    Calendar,
+    CalendarObservance,
     CalendarPeriod,
     ComputedStat,
     ComputedStatComparison,
@@ -611,6 +613,7 @@ class _Planner:
                 or "calendar" in kinds
                 or "calendar_period" in kinds
                 or "event" in kinds
+                or "observance" in kinds
             ):
                 self.rows["entity_audience"].append(
                     {
@@ -883,6 +886,21 @@ class _Planner:
                         "parent_entity_id": parent_id,
                     }
                 )
+        for e, observance in c.observances.items():
+            if copies("entity", e):
+                calendar_id = self._local(c, "entity", observance["calendar"])
+                if calendar_id is None:
+                    raise InvalidRepositoryUpdateError(
+                        detail="Copy the calendar before its observance."
+                    )
+                self.rows["calendar_observance"].append(
+                    {
+                        "entity_id": self.local["entity"][e],
+                        "tenant_id": tenant_id,
+                        "calendar_entity_id": calendar_id,
+                        "rule": observance["rule"],
+                    }
+                )
         for e, period_id in c.entry_dates:
             if copies("entity", e):
                 target = self._local(c, "entity", period_id)
@@ -1033,6 +1051,14 @@ _LINKS = COPY_LINKS
 async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]]) -> None:
     """Inserts a plan's rows in dependency order. Shared with ADR 0121's
     updates, which add rows the same way."""
+    bound_rows = rows.get("calendar_period", []) + rows.get("calendar_observance", [])
+    calendars = {(r["tenant_id"], r["calendar_entity_id"]) for r in bound_rows}
+    for tenant_id, calendar_id in sorted(calendars, key=lambda pair: (str(pair[0]), str(pair[1]))):
+        await session.execute(
+            select(Entity.id)
+            .where(Entity.id == calendar_id, Entity.tenant_id == tenant_id)
+            .with_for_update()
+        )
     # Not held to the quotas of ADR 0298: a bridge's size is its upstream's (see there).
     for key, model in _TABLES:
         if rows.get(key):
@@ -1047,6 +1073,21 @@ async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]
                     )
                     .values({k: v for k, v in hint.items() if k.endswith("_hint_id")})
                 )
+    if calendars:
+        from lorenzo_calendar import CalendarDefinition
+
+        from lorenzo_api.calendar_periods import validate_materialized_periods
+
+        for tenant_id, calendar_id in calendars:
+            definition = await session.scalar(
+                select(Calendar.definition).where(
+                    Calendar.entity_id == calendar_id, Calendar.tenant_id == tenant_id
+                )
+            )
+            assert definition is not None
+            await validate_materialized_periods(
+                session, tenant_id, calendar_id, CalendarDefinition.model_validate(definition)
+            )
     for key, model, local in _LINKS:
         if rows.get(key):
             await session.execute(
@@ -1277,7 +1318,16 @@ async def forget_copy(
                 )
             )
         )
-        if local_period or local_date:
+        local_rule = await session.scalar(
+            select(
+                exists().where(
+                    CalendarObservance.tenant_id == t,
+                    CalendarObservance.entity_id.not_in(entities),
+                    CalendarObservance.calendar_entity_id.in_(entities),
+                )
+            )
+        )
+        if local_period or local_date or local_rule:
             raise EntityKindInUseError(
                 detail="Local dated material still references this copy. Resolve it before purging."
             )

@@ -255,6 +255,8 @@ export function kindLabel(kind: RepositoryEntityOut['kinds'][number]): string {
       return 'Character';
     case 'calendar_period':
       return 'Calendar period';
+    case 'observance':
+      return 'Observance';
     case 'event':
       return 'Event';
     case 'calendar':

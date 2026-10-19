@@ -28,6 +28,7 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.models import (
     Being,
     Calendar,
+    CalendarObservance,
     CalendarPeriod,
     Campaign,
     Character,
@@ -60,6 +61,7 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("calendar",),
         ("calendar_period",),
         ("event",),
+        ("observance",),
         ("being",),
         ("being", "item"),
         ("item_instance",),
@@ -162,7 +164,12 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
-    if "calendar_period" in existing_kinds or "event" in existing_kinds or kind == "event":
+    if (
+        "calendar_period" in existing_kinds
+        or "observance" in existing_kinds
+        or "event" in existing_kinds
+        or kind == "event"
+    ):
         raise InvalidKindRequestError(
             detail="Use the Event creation route; "
             "temporal entries do not combine kinds in this slice."
@@ -291,6 +298,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("fact", Fact),
             ("calendar", Calendar),
             ("calendar_period", CalendarPeriod),
+            ("observance", CalendarObservance),
             ("event", StoryEvent),
             ("item_instance", ItemInstance),
             ("being", Being),
@@ -314,14 +322,17 @@ async def require_deletable(
     campaign's own entry stays with the campaign. A being that is no character, an item and a
     bare entry go. The permanent being-deletion route explicitly allows a character here."""
     kinds = await kinds_of_entry(session, entity_id)
-    if "calendar" in kinds or "calendar_period" in kinds:
+    if "calendar" in kinds or "calendar_period" in kinds or "observance" in kinds:
         await session.execute(
             select(Entity.id)
             .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
             .with_for_update()
         )
-    if "calendar" in kinds and await session.scalar(
-        select(exists().where(CalendarPeriod.calendar_entity_id == entity_id))
+    if "calendar" in kinds and (
+        await session.scalar(select(exists().where(CalendarPeriod.calendar_entity_id == entity_id)))
+        or await session.scalar(
+            select(exists().where(CalendarObservance.calendar_entity_id == entity_id))
+        )
     ):
         raise EntityKindInUseError(
             detail="This calendar has recorded periods. Resolve them before deleting it."
@@ -363,6 +374,7 @@ KIND_WORDS = {
     "calendar": "calendar",
     "calendar_period": "calendar period",
     "event": "event",
+    "observance": "observance",
     "item": "item",
     "item_instance": "inventory item",
     "being": "being",
