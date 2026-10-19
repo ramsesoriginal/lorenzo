@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import ColumnElement, exists, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.orm import InstrumentedAttribute, aliased
 
 from lorenzo_api.entity_access import entity_id_among
 from lorenzo_api.models import CalendarPeriod, EntityAudience, EntityKnowledge
@@ -43,10 +43,13 @@ def visible_entry_clause(
     vis: InformationVisibility,
     entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
 ) -> ColumnElement[bool]:
+    if vis.is_admin or vis.author_sees_all:
+        return true()
+    period = aliased(CalendarPeriod)
     own = _own_visible_entry_clause(vis, entity_id)
     return own & ~exists().where(
-        CalendarPeriod.entity_id == entity_id,
-        ~_own_visible_entry_clause(vis, CalendarPeriod.calendar_entity_id),
+        period.entity_id == entity_id,
+        ~_own_visible_entry_clause(vis, period.calendar_entity_id),
     )
 
 

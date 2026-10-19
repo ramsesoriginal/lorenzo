@@ -273,3 +273,20 @@ async def test_period_event_copy_release_and_local_definition_protection(
         ).status_code == 200
     finally:
         await cleanup([library, repository], [author, keeper])
+
+
+async def test_public_period_list_for_a_player_uses_calendar_visibility(client, test_user_id):
+    tenant = await make_tenant(test_user_id)
+    try:
+        calendar = (await make_calendar(client, tenant, is_public=True)).json()["entity_id"]
+        await period(client, tenant, calendar, year=1, segment="first", day=2, is_public=True)
+        async with admin_session_factory() as session:
+            campaign = await make_campaign(session, tenant_id=tenant)
+            session.add(Player(tenant_id=tenant, campaign_id=campaign.id, user_id=test_user_id))
+            await session.execute(delete(Membership).where(Membership.tenant_id == tenant))
+            await session.commit()
+        listed = await client.get(f"/tenants/{tenant}/calendars/{calendar}/periods")
+        assert listed.status_code == 200, listed.text
+        assert listed.json()["total"] == 3
+    finally:
+        await delete_tenant(tenant)
