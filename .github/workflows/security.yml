@@ -38,6 +38,9 @@ jobs:
           if find apps/inventory-mobile -name '*.kt' -not -path '*/build/*' | grep -q .; then
             langs=$(echo "$langs" | jq -c '. + ["java-kotlin"]')
           fi
+          if find apps/inventory-ios -name '*.swift' -not -path '*/build/*' -not -path '*/.build/*' | grep -q .; then
+            langs=$(echo "$langs" | jq -c '. + ["swift"]')
+          fi
           echo "Discovered languages: $langs"
           echo "languages=$langs" >> "$GITHUB_OUTPUT"
           # Add csharp/ruby detection here once an app in that
@@ -47,7 +50,9 @@ jobs:
   codeql:
     needs: discover
     if: needs.discover.outputs.languages != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.language == 'swift' && 'macos-15' || 'ubuntu-latest' }}
+    env:
+      DEVELOPER_DIR: ${{ matrix.language == 'swift' && '/Applications/Xcode_16.4.app/Contents/Developer' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -55,7 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
-        if: matrix.language == 'java-kotlin'
+        if: matrix.language == 'java-kotlin' || matrix.language == 'swift'
         with:
           version: ${{ env.MISE_VERSION }}
       - name: Set up Android SDK
@@ -70,13 +75,17 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           config-file: ./.github/codeql/codeql-config.yml
-          build-mode: ${{ matrix.language == 'java-kotlin' && 'manual' || 'none' }}
+          build-mode: ${{ (matrix.language == 'java-kotlin' || matrix.language == 'swift') && 'manual' || 'none' }}
       - name: Build Kotlin for CodeQL
         if: matrix.language == 'java-kotlin'
         working-directory: apps/inventory-mobile
         # CodeQL watches the compiler run, so every task runs again (--rerun-tasks), and only the
         # compilers' tasks are asked for: dexing and packaging an APK have no source for it to read.
         run: mise exec -- ./gradlew --no-daemon --no-build-cache --rerun-tasks :app:compileDebugKotlin :app:compileDebugJavaWithJavac :core:classes
+      - name: Build Swift for CodeQL
+        if: matrix.language == 'swift'
+        working-directory: apps/inventory-ios
+        run: mise run build
       - uses: github/codeql-action/analyze@v4
 
   dependency-review:

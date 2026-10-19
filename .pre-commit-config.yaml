@@ -238,3 +238,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^apps/inventory-mobile/.*\.(kt|kts)$
+
+  - repo: local
+    hooks:
+      - id: inventory-ios-parse
+        name: inventory-ios Swift parse (macOS)
+        entry: python3 apps/inventory-ios/scripts/precommit.py
+        language: system
+        pass_filenames: false
+        files: ^apps/inventory-ios/.*\.swift$

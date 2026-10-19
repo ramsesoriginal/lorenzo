@@ -1,0 +1,23 @@
+[tasks.dev]
+description = "Build and launch the inventory app on an iOS simulator"
+run = "bash scripts/run.sh dev"
+
+[tasks.lint]
+description = "Parse Swift and validate project/configuration"
+run = "bash scripts/run.sh lint"
+
+[tasks.test]
+description = "Run native contract and repository tests"
+run = "bash scripts/run.sh test"
+
+[tasks.build]
+description = "Build an unsigned device IPA for AltStore Classic"
+run = "bash scripts/run.sh build"
+
+[tasks.check-schema]
+description = "Check native REST contracts against current OpenAPI"
+run = ["mise run //apps/api:openapi-schema", "python3 scripts/check_contract.py ../api/openapi.json"]
+
+[tasks.format]
+description = "Format native Swift sources and tests"
+run = "swift format format --in-place --recursive Sources Tests StateTests UITests"

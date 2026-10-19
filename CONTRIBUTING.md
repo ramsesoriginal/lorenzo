@@ -15,6 +15,8 @@ docker compose -f infra/docker-compose.yml up -d    # Postgres, for apps/api
 
 See [docs/guides/getting-started.md](docs/guides/getting-started.md) for the full from-clone walkthrough. Root checks also include the native Android app: install its JDK and Android SDK as described in [inventory-mobile's setup](apps/inventory-mobile/README.md#install-or-run) before running them.
 
+Native iOS tasks require macOS with Xcode; the standard macOS CI runner supplies it for Windows/Linux contributors. See [inventory-ios](apps/inventory-ios/README.md) for native checks and free AltStore Classic testing.
+
 ## Git strategy ([ADR 0005](docs/adr/0005-git-branching-and-merge-strategy.md))
 
 - Branch off `main`: `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `docs/<slug>`.
