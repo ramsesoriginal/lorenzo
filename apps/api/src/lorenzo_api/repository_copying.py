@@ -593,9 +593,13 @@ class _Planner:
                         "updated_by": user_id,
                     }
                 )
+            if "calendar" in kinds:
+                self.rows["calendar"].append(
+                    {"entity_id": new, "tenant_id": tenant_id, "definition": c.calendars[e]}
+                )
             if "fact" in kinds:
                 self.rows["fact"].append({"entity_id": new, "tenant_id": tenant_id})
-            if e in c.entry_audiences or "fact" in kinds:
+            if e in c.entry_audiences or "fact" in kinds or "calendar" in kinds:
                 self.rows["entity_audience"].append(
                     {
                         "entity_id": new,

@@ -16,5 +16,6 @@
   "packages/stat-values": "0.0.0",
   "apps/inventory-mobile": "0.1.0",
   "packages/information-editor": "0.0.0",
-  "apps/inventory-ios": "0.1.0"
+  "apps/inventory-ios": "0.1.0",
+  "packages/calendar-engine": "0.0.0"
 }

@@ -27,6 +27,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.models import (
     Being,
+    Calendar,
     Campaign,
     Character,
     Entity,
@@ -53,6 +54,7 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         (),
         ("item",),
         ("fact",),
+        ("calendar",),
         ("being",),
         ("being", "item"),
         ("item_instance",),
@@ -148,6 +150,10 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
+    if "calendar" in existing_kinds:
+        raise InvalidKindRequestError(
+            detail="A calendar does not combine with physical kinds in this slice."
+        )
     if (kind == "fact" and existing_kinds - {"fact"}) or (
         kind != "fact" and "fact" in existing_kinds
     ):
@@ -264,6 +270,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
         for kind, model in (
             ("item", Item),
             ("fact", Fact),
+            ("calendar", Calendar),
             ("item_instance", ItemInstance),
             ("being", Being),
             ("character", Character),
@@ -311,6 +318,7 @@ async def require_deletable(
 
 KIND_WORDS = {
     "fact": "fact",
+    "calendar": "calendar",
     "item": "item",
     "item_instance": "inventory item",
     "being": "being",

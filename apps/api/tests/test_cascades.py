@@ -3,6 +3,7 @@ from sqlalchemy import text
 
 from lorenzo_api.models import (
     Being,
+    Calendar,
     Character,
     Containment,
     Entity,
@@ -22,6 +23,7 @@ from lorenzo_api.models import (
 
 _CASCADE_TABLES = (
     "entity",
+    "calendar",
     "stat_group",
     "stat_definition",
     "entity_stat",
@@ -51,6 +53,18 @@ async def test_deleting_tenant_cascades_through_every_table() -> None:
         a = Entity(tenant_id=tenant_id, name="A")
         b = Entity(tenant_id=tenant_id, name="B")
         session.add_all([a, b])
+        await session.flush()
+
+        session.add(
+            Calendar(
+                entity_id=a.id,
+                tenant_id=tenant_id,
+                definition={
+                    "format": "lorenzo.calendar/1",
+                    "segments": [{"key": "month", "name": "Month", "days": 30}],
+                },
+            )
+        )
         await session.flush()
 
         stat_group = StatGroup(tenant_id=tenant_id, name="physical")

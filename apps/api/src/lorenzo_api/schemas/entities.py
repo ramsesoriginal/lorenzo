@@ -38,7 +38,7 @@ class EntitySlugOut(BaseModel):
     slug: str
 
 
-EntityKind = Literal["item", "item_instance", "being", "character", "fact"]
+EntityKind = Literal["item", "item_instance", "being", "character", "fact", "calendar"]
 
 
 class ResolvedSlugOut(BaseModel):
@@ -280,6 +280,8 @@ class KnowerOut(BaseModel):
 def _kinds_out(entity: Entity) -> list[EntityKind]:
     """Needs entity.item, item_instance and being loaded, and being.character."""
     kinds: list[EntityKind] = []
+    if entity.calendar is not None:
+        kinds.append("calendar")
     if entity.fact is not None:
         kinds.append("fact")
     if entity.item is not None:

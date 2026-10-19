@@ -122,7 +122,7 @@ async def entry_in_author_reach(
             )
             is not None
         )
-    from lorenzo_api.models import Fact
+    from lorenzo_api.models import Calendar, Fact
 
     return any(
         [
@@ -132,7 +132,7 @@ async def entry_in_author_reach(
                 )
             )
             is not None
-            for model in (Item, Fact)
+            for model in (Item, Fact, Calendar)
         ]
     )
 

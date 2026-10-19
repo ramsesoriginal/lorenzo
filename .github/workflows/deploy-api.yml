@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/api/**'
+      - 'packages/calendar-engine/**'
   workflow_dispatch:
 
 concurrency:
@@ -79,7 +80,8 @@ jobs:
 
       - uses: docker/build-push-action@v7
         with:
-          context: apps/api
+          context: .
+          file: apps/api/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.image }}
 

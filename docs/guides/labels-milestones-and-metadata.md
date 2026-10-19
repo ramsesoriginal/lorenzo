@@ -61,6 +61,8 @@ How to choose them:
 
 `dependencies`, `github_actions`, `python:uv`, `docker`, `javascript` (Dependabot) and `autorelease: pending` / `autorelease: tagged` (release-please) are created and applied by the bots. Don't rename or delete them; renaming makes the bot recreate the original. Do add the scope label (`app:loot-bot` for a loot-bot bump) and the assignee when you touch one.
 
+The calendar engine uses `pkg:calendar-engine` (`packages/calendar-engine`, colour `2E7D32`).
+
 ## Assignee
 
 Assign yourself (`--assignee @me`) on every issue and PR you open, and on bot PRs you handle. With more people on the project, assign whoever is actually responsible.

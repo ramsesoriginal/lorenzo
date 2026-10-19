@@ -45,12 +45,13 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     (): "item",
     ("item",): "being",
     ("fact",): None,
+    ("calendar",): None,
     ("being",): "item",
     ("being", "item"): "being",
     ("item_instance",): None,
     ("being", "character"): None,
 }
-_ORDER = ["item", "item_instance", "being", "character", "fact"]
+_ORDER = ["item", "item_instance", "being", "character", "fact", "calendar"]
 
 
 def test_the_matrix_holds_exactly_the_combinations_publishing_allows() -> None:
@@ -123,6 +124,26 @@ async def _make(
 ) -> uuid.UUID:
     """An entry of those kinds in a repository: through the route where one exists, and straight
     in the database for an inventory item and a character, which no route makes this way."""
+    if kinds == ("calendar",):
+        response = await scene_author.post(
+            f"/tenants/{repository}/calendars",
+            json={
+                "name": name,
+                "is_public": True,
+                "definition": {
+                    "format": "lorenzo.calendar/1",
+                    "segments": [{"key": "month", "name": "Month", "days": 30}],
+                },
+            },
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["entity_id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
     if set(kinds) <= {"item", "being", "fact"}:
         response = await scene_author.post(
             f"/tenants/{repository}/entities",

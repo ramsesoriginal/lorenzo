@@ -18,7 +18,7 @@ run = "uv run pytest --cov -n ${TEST_WORKERS:-4}"
 
 [tasks.build]
 description = "Build the container image"
-run = "docker build -t lorenzo-api ."
+run = "docker build -f Dockerfile -t lorenzo-api ../.."
 
 [tasks.dev-token]
 description = "Get a real Authgear access token for local testing (see docs/operations/local-authgear-setup.md)"

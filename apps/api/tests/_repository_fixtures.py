@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lorenzo_api import release_document
 from lorenzo_api.models import (
     Being,
+    Calendar,
     Character,
     ComputedStat,
     ComputedStatComparison,
@@ -78,6 +79,7 @@ async def seed_every_content_table(
         entity("Harpers"),
         entity("Elminster"),
     )
+    calendar = entity("Fixture calendar")
     fact = entity("The blade belongs to Elminster")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
@@ -85,6 +87,14 @@ async def seed_every_content_table(
 
     session.add_all(
         [
+            Calendar(
+                entity_id=calendar.id,
+                tenant_id=tenant_id,
+                definition={
+                    "format": "lorenzo.calendar/1",
+                    "segments": [{"key": "month", "name": "Month", "days": 30}],
+                },
+            ),
             Fact(entity_id=fact.id, tenant_id=tenant_id),
             EntityAudience(entity_id=fact.id, tenant_id=tenant_id, is_public=False),
         ]

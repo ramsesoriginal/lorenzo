@@ -25,6 +25,7 @@ from lorenzo_api.db import Base
 from lorenzo_api.models import (
     AuditLog,
     Being,
+    Calendar,
     Campaign,
     CampaignGm,
     CampaignProfilePicture,
@@ -135,6 +136,7 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(StatDefinitionEnumValue, "stat_definition_enum_value", carried_by="stat_definition"),
     _rows(Entity, "entity"),
     _rows(Fact, "fact", carried_by="entity"),
+    _rows(Calendar, "calendar", carried_by="entity"),
     _rows(EntityAudience, "entity_audience", carried_by="entity"),
     _rows(EntityKnowledge, "entity_knowledge", counted_on_purge=True),
     _rows(FactAbout, "fact_about", counted_on_purge=True),

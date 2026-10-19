@@ -58,6 +58,7 @@ from lorenzo_api.models import (
     StatValueType,
     Tenant,
 )
+from lorenzo_api.models.calendar import Calendar
 from lorenzo_api.models.fact import EntityAudience, Fact
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
@@ -689,6 +690,27 @@ class _Applier:
     async def _entity(self, row: RowChange, change: FieldChange) -> bool:
         e, t, s = row.local_id, self.tenant_id, self.session
         name = change.field
+        if name == "calendar_definition":
+            from lorenzo_calendar import CalendarDefinition
+
+            calendar_definition = CalendarDefinition.model_validate(change.upstream).model_dump(
+                mode="json"
+            )
+            calendar = await s.scalar(
+                select(Calendar)
+                .where(Calendar.entity_id == e, Calendar.tenant_id == t)
+                .with_for_update()
+            )
+            if calendar is None:
+                self.skip(row, name, "The local entry is no longer a calendar")
+                return False
+            calendar.definition = calendar_definition
+            await s.execute(
+                update(Entity)
+                .where(Entity.id == e, Entity.tenant_id == t)
+                .values(updated_at=func.now())
+            )
+            return True
         if name == "name":
             await s.execute(
                 update(Entity)

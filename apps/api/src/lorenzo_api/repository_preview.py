@@ -59,7 +59,14 @@ __all__ = [
 # How many entries an Owner may feature (RFC 0038 section 5, the cap its open question asks for).
 SHOWCASE_MAX = 12
 
-_KIND_ORDER: tuple[EntityKindName, ...] = ("item", "item_instance", "being", "character", "fact")
+_KIND_ORDER: tuple[EntityKindName, ...] = (
+    "item",
+    "item_instance",
+    "being",
+    "character",
+    "fact",
+    "calendar",
+)
 
 Reach = Literal["none", "showcase", "all"]
 

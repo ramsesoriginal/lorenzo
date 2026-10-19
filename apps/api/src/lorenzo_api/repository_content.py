@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.models import (
     Being,
+    Calendar,
     Character,
     ComputedStat,
     ComputedStatComparison,
@@ -60,7 +61,7 @@ from lorenzo_api.models import (
     StatGroup,
 )
 
-KINDS = ("item", "item_instance", "being", "character", "fact")
+KINDS = ("item", "item_instance", "being", "character", "fact", "calendar")
 
 
 @dataclass
@@ -164,6 +165,7 @@ class Content:
     information: dict[uuid.UUID, InformationData] = field(default_factory=dict)
     payloads: dict[uuid.UUID, PayloadData] = field(default_factory=dict)
     knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
     entry_knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     fact_about: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
@@ -242,6 +244,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("being", Being),
         ("character", Character),
         ("fact", Fact),
+        ("calendar", Calendar),
     ):
         for (entity_id,) in await rows(model.entity_id, where=model.tenant_id == t):
             c.kinds[entity_id].add(kind)
@@ -477,6 +480,9 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         if pid in kinds_by_payload:
             kind, fields = kinds_by_payload[pid]
             c.payloads[pid] = PayloadData(info_id, order, kind, fields)
+    c.calendars = dict(
+        await rows(Calendar.entity_id, Calendar.definition, where=Calendar.tenant_id == t)
+    )
     c.entry_audiences = dict(
         await rows(
             EntityAudience.entity_id, EntityAudience.is_public, where=EntityAudience.tenant_id == t
@@ -644,6 +650,11 @@ def entity_snapshot(
 ) -> dict[str, Any]:
     """What a copy link records for an entity (ADR 0119/0121)."""
     return {
+        **(
+            {"calendar_definition": content.calendars[entity_id]}
+            if entity_id in content.calendars
+            else {}
+        ),
         "name": content.entities[entity_id],
         "kinds": sorted(content.kinds.get(entity_id, ())),
         "in_public_catalog": content.in_public_catalog.get(entity_id),

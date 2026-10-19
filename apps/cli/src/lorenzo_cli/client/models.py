@@ -5,7 +5,16 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel, conint, constr
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    confloat,
+    conint,
+    constr,
+)
 
 
 class Kind(StrEnum):
@@ -86,6 +95,7 @@ class Kind1(StrEnum):
     being = "being"
     character = "character"
     fact = "fact"
+    calendar = "calendar"
 
 
 class BacklinkOut(BaseModel):
@@ -209,6 +219,21 @@ class BulkReparentPrototypeRequest(BaseModel):
     from_prototype_id: UUID = Field(..., title="From Prototype Id")
     to_prototype_id: UUID = Field(..., title="To Prototype Id")
     item_ids: list[UUID] | None = Field(None, title="Item Ids")
+
+
+class CalendarDate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    year: conint(ge=-1000000, le=1000000) = Field(..., title="Year")
+    segment: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Segment")
+    day: conint(ge=1, le=1000) = Field(..., title="Day")
+
+
+class CalendarSummary(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
 
 
 class CampaignCreate(BaseModel):
@@ -434,6 +459,15 @@ class CreditOut(BaseModel):
     url: str | None = Field(..., title="Url")
 
 
+class DayPreview(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    date: CalendarDate
+    weekday: int | None = Field(..., title="Weekday")
+    moons: dict[str, int] = Field(..., title="Moons")
+
+
 class DelistRepositoryRequest(BaseModel):
     reason: constr(min_length=1, max_length=500) = Field(..., title="Reason")
 
@@ -543,6 +577,7 @@ class Kind8(StrEnum):
     being = "being"
     character = "character"
     fact = "fact"
+    calendar = "calendar"
 
 
 class EntityExportStatOut(BaseModel):
@@ -779,6 +814,7 @@ class Kind14(StrEnum):
     being = "being"
     character = "character"
     fact = "fact"
+    calendar = "calendar"
 
 
 class LinkPreviewStatOut(BaseModel):
@@ -879,6 +915,43 @@ class MergeItemInstanceRequest(BaseModel):
     into_entity_id: UUID = Field(..., title="Into Entity Id")
 
 
+class MoonInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        regex_engine="python-re",
+    )
+    key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    period: confloat(le=1000000.0, gt=0.0) | constr(
+        pattern=r"^(?!^[-+.]*$)[+-]?0*(?:\d{0,10}|(?=[\d.]{1,21}0*$)\d{0,10}\.\d{0,10}0*$)"
+    ) = Field(..., title="Period")
+    reference: CalendarDate
+    offset: (
+        float
+        | constr(
+            pattern=r"^(?!^[-+.]*$)[+-]?0*(?:\d{0,10}|(?=[\d.]{1,21}0*$)\d{0,10}\.\d{0,10}0*$)"
+        )
+        | None
+    ) = Field("0", title="Offset")
+
+
+class MoonOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        regex_engine="python-re",
+    )
+    key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    period: constr(
+        pattern=r"^(?!^[-+.]*$)[+-]?0*(?:\d{0,10}|(?=[\d.]{1,21}0*$)\d{0,10}\.\d{0,10}0*$)"
+    ) = Field(..., title="Period")
+    reference: CalendarDate
+    offset: (
+        constr(pattern=r"^(?!^[-+.]*$)[+-]?0*(?:\d{0,10}|(?=[\d.]{1,21}0*$)\d{0,10}\.\d{0,10}0*$)")
+        | None
+    ) = Field("0", title="Offset")
+
+
 class NotAppliedOut(BaseModel):
     kind: str = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
@@ -943,6 +1016,14 @@ class PageBacklinkOut(BaseModel):
 
 class PageBeingSummaryOut(BaseModel):
     items: list[BeingSummaryOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageCalendarSummary(BaseModel):
+    items: list[CalendarSummary] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -1073,6 +1154,14 @@ class PayloadTextCreate(BaseModel):
     id: UUID | None = Field(None, title="Id")
     content: str = Field(..., title="Content")
     locale: str | None = Field("en-US", title="Locale")
+
+
+class Periodic(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    every: conint(ge=1, le=1000) = Field(..., title="Every")
+    offset: conint(ge=-1000000, le=1000000) | None = Field(0, title="Offset")
 
 
 class PersonalTokenIssuedOut(BaseModel):
@@ -1365,6 +1454,7 @@ class Kind18(StrEnum):
     being = "being"
     character = "character"
     fact = "fact"
+    calendar = "calendar"
 
 
 class ResolvedSlugOut(BaseModel):
@@ -1412,6 +1502,34 @@ class Kind21(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
+
+
+class Kind22(StrEnum):
+    month = "month"
+    festival = "festival"
+
+
+class Segment(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    days: conint(ge=1, le=1000) = Field(..., title="Days")
+    kind: Kind22 | None = Field("month", title="Kind")
+    in_week: bool | None = Field(True, title="In Week")
+    when: Periodic | None = None
+
+
+class SegmentPreview(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    key: str = Field(..., title="Key")
+    name: str = Field(..., title="Name")
+    kind: Kind22 = Field(..., title="Kind")
+    month_ordinal: int | None = Field(..., title="Month Ordinal")
+    days: list[DayPreview] = Field(..., title="Days")
 
 
 class SetContainerRequest(BaseModel):
@@ -1643,6 +1761,12 @@ class UnprovenKindOut(BaseModel):
     kinds: list[str] = Field(..., title="Kinds")
 
 
+class Kind24(StrEnum):
+    entity = "entity"
+    stat_group = "stat_group"
+    stat_definition = "stat_definition"
+
+
 class Action1(StrEnum):
     apply = "apply"
     add = "add"
@@ -1672,6 +1796,30 @@ class ValidationError(BaseModel):
     type: str = Field(..., title="Error Type")
     input: Any | None = Field(None, title="Input")
     ctx: dict[str, Any] | None = Field(None, title="Context")
+
+
+class Reset(StrEnum):
+    never = "never"
+    segment = "segment"
+
+
+class Week(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    length: conint(ge=1, le=100) = Field(..., title="Length")
+    names: list[constr(min_length=1, max_length=200)] | None = Field(None, title="Names")
+    reset: Reset | None = Field("never", title="Reset")
+    reference: CalendarDate
+    weekday: conint(ge=0, le=99) | None = Field(0, title="Weekday")
+
+
+class YearPreview(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    year: conint(ge=-1000000, le=1000000) = Field(..., title="Year")
+    segments: list[SegmentPreview] = Field(..., title="Segments")
 
 
 class Problem(BaseModel):
@@ -1730,6 +1878,33 @@ class BulkMoveContainerRequest(BaseModel):
     override: bool | None = Field(False, title="Override")
     lift_binding: bool | None = Field(False, title="Lift Binding")
     merge_identical: bool | None = Field(False, title="Merge Identical")
+
+
+class CalendarDefinitionInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    format: Literal["lorenzo.calendar/1"] = Field("lorenzo.calendar/1", title="Format")
+    segments: list[Segment] = Field(..., max_length=128, min_length=1, title="Segments")
+    week: Week | None = None
+    moons: list[MoonInput] | None = Field([], max_length=32, title="Moons", validate_default=True)
+
+
+class CalendarDefinitionOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    format: Literal["lorenzo.calendar/1"] = Field("lorenzo.calendar/1", title="Format")
+    segments: list[Segment] = Field(..., max_length=128, min_length=1, title="Segments")
+    week: Week | None = None
+    moons: list[MoonOutput] | None = Field([], max_length=32, title="Moons", validate_default=True)
+
+
+class CalendarOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    definition: CalendarDefinitionOutput
+    updated_at: AwareDatetime = Field(..., title="Updated At")
 
 
 class CharacterOut(BaseModel):
@@ -2308,7 +2483,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind21 = Field(..., title="Kind")
+    kind: Kind24 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
@@ -2392,6 +2567,19 @@ class BulkReparentResultItem(BaseModel):
     status: Status = Field(..., title="Status")
     item: ItemOut | None = None
     problem: ProblemOut | None = None
+
+
+class CalendarCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    definition: CalendarDefinitionInput
+    is_public: bool | None = Field(False, title="Is Public")
 
 
 class ComputedStatOut(BaseModel):

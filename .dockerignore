@@ -1,0 +1,10 @@
+**/.venv
+**/node_modules
+.git
+**/dist
+**/.pytest_cache
+**/__pycache__
+**/.env
+**/.env.*
+**/build
+**/.gradle

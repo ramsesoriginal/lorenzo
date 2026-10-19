@@ -61,6 +61,7 @@ from lorenzo_api.entity_access import (
     reachable_entity_ids,
 )
 from lorenzo_api.models import (
+    Calendar,
     CampaignGm,
     CharacterPlayer,
     EntityAudience,
@@ -438,6 +439,7 @@ async def resolve_information_visibility(
                         union_all(
                             select(Item.entity_id).where(Item.tenant_id == tenant_id),
                             select(Fact.entity_id).where(Fact.tenant_id == tenant_id),
+                            select(Calendar.entity_id).where(Calendar.tenant_id == tenant_id),
                         )
                     )
                 )

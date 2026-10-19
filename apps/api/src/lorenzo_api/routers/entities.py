@@ -70,6 +70,7 @@ from lorenzo_api.information_visibility import (
 )
 from lorenzo_api.models import (
     Being,
+    Calendar,
     Character,
     Containment,
     ContentReference,
@@ -140,12 +141,15 @@ router = APIRouter(
 
 
 # What an entry is: the marker rows it has (ADR 0012), in this order.
-_KINDS: tuple[tuple[EntityKind, type[Item | ItemInstance | Being | Character | Fact]], ...] = (
+_KINDS: tuple[
+    tuple[EntityKind, type[Item | ItemInstance | Being | Character | Fact | Calendar]], ...
+] = (
     ("item", Item),
     ("item_instance", ItemInstance),
     ("being", Being),
     ("character", Character),
     ("fact", Fact),
+    ("calendar", Calendar),
 )
 
 
@@ -549,6 +553,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.slug),
             # What the entry is (ADR 0217).
             joinedload(Entity.fact),
+            joinedload(Entity.calendar),
             joinedload(Entity.item),
             joinedload(Entity.item_instance),
             joinedload(Entity.being).joinedload(Being.character),
@@ -1592,8 +1597,13 @@ async def editable_fact_audience(
     await get_entity_or_404(session, entity_id, tenant_id)
     await authorize_entity_write(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
     await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
-    if await session.get(Fact, entity_id) is None:
-        raise InvalidKindRequestError(detail="An outer audience is currently available for facts.")
+    if (
+        await session.get(Fact, entity_id) is None
+        and await session.get(Calendar, entity_id) is None
+    ):
+        raise InvalidKindRequestError(
+            detail="An outer audience is available for facts and calendars."
+        )
     audience = await session.scalar(
         select(EntityAudience)
         .where(EntityAudience.entity_id == entity_id, EntityAudience.tenant_id == tenant_id)
@@ -1815,6 +1825,8 @@ async def add_fact_subject(
     session: SessionDep,
     user: CurrentUser,
 ) -> None:
+    if await session.get(Fact, entity_id) is None:
+        raise EntityNotFoundError(detail="No fact with that id in this library")
     await editable_fact_audience(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
     await require_visible_entry(session, entity_id=subject_id, tenant_id=tenant_id, user_id=user.id)
     await get_entity_or_404(session, subject_id, tenant_id)
@@ -1842,6 +1854,8 @@ async def remove_fact_subject(
     session: SessionDep,
     user: CurrentUser,
 ) -> None:
+    if await session.get(Fact, entity_id) is None:
+        raise EntityNotFoundError(detail="No fact with that id in this library")
     await editable_fact_audience(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
     await require_visible_entry(session, entity_id=subject_id, tenant_id=tenant_id, user_id=user.id)
     await get_entity_or_404(session, subject_id, tenant_id)

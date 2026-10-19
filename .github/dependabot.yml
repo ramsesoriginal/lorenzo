@@ -162,3 +162,17 @@ updates:
       swift-major:
         update-types: ["major"]
         patterns: ["*"]
+
+  - package-ecosystem: "uv"
+    directory: "/packages/calendar-engine"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      uv-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      uv-major:
+        update-types: ["major"]
+        patterns: ["*"]
