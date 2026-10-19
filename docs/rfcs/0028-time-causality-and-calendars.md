@@ -2,7 +2,6 @@
 
 Status: partially accepted — calendar/date-association slice accepted 2026-10-19; causal and historical Decision open
 
-
 ## Accepted calendar slice (2026-10-19)
 
 The maintainer accepted [ADR 0308](../adr/0308-authored-calendars-and-calculation.md) to
