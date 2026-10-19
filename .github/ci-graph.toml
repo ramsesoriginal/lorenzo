@@ -142,3 +142,6 @@ generated_from = ["apps/api"]
 
 [suites.ios-build]
 node = "apps/inventory-ios"
+
+[nodes."packages/calendar-engine"]
+batch = "cli"

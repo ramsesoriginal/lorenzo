@@ -398,3 +398,5 @@ PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `calend
 PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `calendar` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `calendar` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `calendar` enum value to the `kinds/items/` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id} added the new `calendar` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/facts added the new `calendar` enum value to the `items/items/kinds/items/` response property for the response status `200`
