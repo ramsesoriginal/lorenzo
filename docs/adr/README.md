@@ -310,3 +310,7 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0305 - Facts, their subjects and an entry's outer audience](0305-facts-and-entry-audiences.md) — tenant-wide fact anchors, optional about relations and concealed existence/name
 - [0306 - Information bundles and their editors](0306-information-bundles-and-their-editors.md) — ordered text/images, retry-safe appends and quiet web, Bench and native editors
 - [0307 - Inventory on iOS and AltStore testing](0307-inventory-ios-and-altstore-testing.md) — native SwiftUI inventory companion, encrypted offline notes and free macOS CI/AltStore distribution
+- [0308 - Authored calendars and their calculation](0308-authored-calendars-and-calculation.md)
+- [0309 - Calendar period entries, minimal Events and date associations](0309-calendar-periods-events-and-date-associations.md)
+- [0310 - Recurring calendar observances](0310-recurring-calendar-observances.md)
+- [0311 - Calendar documents, donjon import and the calendar app](0311-calendar-documents-import-and-app.md)
