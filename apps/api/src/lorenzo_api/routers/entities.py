@@ -71,6 +71,7 @@ from lorenzo_api.information_visibility import (
 from lorenzo_api.models import (
     Being,
     Calendar,
+    CalendarPeriod,
     Character,
     Containment,
     ContentReference,
@@ -89,6 +90,7 @@ from lorenzo_api.models import (
     Payload,
     Player,
     StatDefinition,
+    StoryEvent,
     User,
     VEffectiveStat,
     formula_load_options,
@@ -142,7 +144,13 @@ router = APIRouter(
 
 # What an entry is: the marker rows it has (ADR 0012), in this order.
 _KINDS: tuple[
-    tuple[EntityKind, type[Item | ItemInstance | Being | Character | Fact | Calendar]], ...
+    tuple[
+        EntityKind,
+        type[
+            Item | ItemInstance | Being | Character | Fact | Calendar | CalendarPeriod | StoryEvent
+        ],
+    ],
+    ...,
 ] = (
     ("item", Item),
     ("item_instance", ItemInstance),
@@ -150,6 +158,8 @@ _KINDS: tuple[
     ("character", Character),
     ("fact", Fact),
     ("calendar", Calendar),
+    ("calendar_period", CalendarPeriod),
+    ("event", StoryEvent),
 )
 
 
@@ -337,7 +347,7 @@ async def create_entity(
         in_public_catalog=bool(body.in_public_catalog),
         entity_id=body.id,
     )
-    if "fact" in kinds:
+    if "fact" in kinds or "event" in kinds:
         try:
             await require_visible_entry(
                 session, entity_id=entity.id, tenant_id=tenant_id, user_id=user.id
@@ -554,6 +564,8 @@ async def get_entity_detail_or_404(
             # What the entry is (ADR 0217).
             joinedload(Entity.fact),
             joinedload(Entity.calendar),
+            joinedload(Entity.calendar_period),
+            joinedload(Entity.story_event),
             joinedload(Entity.item),
             joinedload(Entity.item_instance),
             joinedload(Entity.being).joinedload(Being.character),
@@ -1597,12 +1609,14 @@ async def editable_fact_audience(
     await get_entity_or_404(session, entity_id, tenant_id)
     await authorize_entity_write(session, entity_id=entity_id, tenant_id=tenant_id, user=user)
     await lock_entity_information(session, entity_id=entity_id, tenant_id=tenant_id)
-    if (
-        await session.get(Fact, entity_id) is None
-        and await session.get(Calendar, entity_id) is None
+    if not any(
+        [
+            await session.get(model, entity_id) is not None
+            for model in (Fact, Calendar, CalendarPeriod, StoryEvent)
+        ]
     ):
         raise InvalidKindRequestError(
-            detail="An outer audience is available for facts and calendars."
+            detail="An outer audience is available for facts and calendar entries."
         )
     audience = await session.scalar(
         select(EntityAudience)

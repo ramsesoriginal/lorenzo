@@ -24,7 +24,7 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.models import EntityPrototype, Tenant, TenantKind
 
 # The kinds an Author gives to an entry of a library: the catalog's.
-LIBRARY_AUTHOR_KINDS = frozenset({"item", "fact", "calendar"})
+LIBRARY_AUTHOR_KINDS = frozenset({"item", "fact", "calendar", "calendar_period", "event"})
 
 
 async def _is_library(session: AsyncSession, tenant_id: uuid.UUID) -> bool:

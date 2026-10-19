@@ -28,19 +28,22 @@ from lorenzo_api.exceptions import (
 from lorenzo_api.models import (
     Being,
     Calendar,
+    CalendarPeriod,
     Campaign,
     Character,
     Entity,
     EntityAudience,
     EntityPrototype,
     EntitySlug,
+    EntryCalendarPeriod,
     Fact,
     Item,
     ItemInstance,
+    StoryEvent,
 )
 
 # The kinds a route may add or remove.
-Kind = Literal["item", "being", "fact"]
+Kind = Literal["item", "being", "fact", "event"]
 
 # The combinations of kinds a repository may be published with, each as its kinds in the order
 # `entity_snapshot` writes them (alphabetical). A draft repository may hold any combination the
@@ -55,6 +58,8 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("item",),
         ("fact",),
         ("calendar",),
+        ("calendar_period",),
+        ("event",),
         ("being",),
         ("being", "item"),
         ("item_instance",),
@@ -88,6 +93,10 @@ async def create_entry(
             raise EntitySlugConflictError(
                 detail=f"Slug {slug!r} is already in use in tenant {tenant_id}"
             )
+    if "event" in kinds and set(kinds) != {"event"}:
+        raise InvalidKindRequestError(
+            detail="An Event does not combine with other kinds in this slice."
+        )
     if "fact" in kinds and set(kinds) != {"fact"}:
         raise InvalidKindRequestError(
             detail="A fact is an information anchor; other kinds are a later slice."
@@ -125,6 +134,9 @@ async def create_entry(
     if "fact" in kinds:
         session.add(Fact(entity_id=entity.id, tenant_id=tenant_id))
         session.add(EntityAudience(entity_id=entity.id, tenant_id=tenant_id, is_public=False))
+    if "event" in kinds:
+        session.add(StoryEvent(entity_id=entity.id, tenant_id=tenant_id))
+        session.add(EntityAudience(entity_id=entity.id, tenant_id=tenant_id, is_public=False))
     for position, parent_id in enumerate(dict.fromkeys(parents)):
         session.add(
             EntityPrototype(
@@ -150,6 +162,11 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
+    if "calendar_period" in existing_kinds or "event" in existing_kinds or kind == "event":
+        raise InvalidKindRequestError(
+            detail="Use the Event creation route; "
+            "temporal entries do not combine kinds in this slice."
+        )
     if "calendar" in existing_kinds:
         raise InvalidKindRequestError(
             detail="A calendar does not combine with physical kinds in this slice."
@@ -211,6 +228,8 @@ async def remove_kind(
     (ADR 0032), and `being` while the entry is a character, whose key would cascade away with it:
     demote it first (ADR 0036)."""
     entity_id = entity.id
+    if kind == "event":
+        raise EntityKindInUseError(detail="Delete the Event entry instead of removing its kind.")
     if kind == "item":
         if await inventory_items_inherit(session, tenant_id=tenant_id, entity_id=entity_id):
             raise ItemPrototypeInUseError(
@@ -271,6 +290,8 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("item", Item),
             ("fact", Fact),
             ("calendar", Calendar),
+            ("calendar_period", CalendarPeriod),
+            ("event", StoryEvent),
             ("item_instance", ItemInstance),
             ("being", Being),
             ("character", Character),
@@ -293,6 +314,27 @@ async def require_deletable(
     campaign's own entry stays with the campaign. A being that is no character, an item and a
     bare entry go. The permanent being-deletion route explicitly allows a character here."""
     kinds = await kinds_of_entry(session, entity_id)
+    if "calendar" in kinds or "calendar_period" in kinds:
+        await session.execute(
+            select(Entity.id)
+            .where(Entity.id == entity_id, Entity.tenant_id == tenant_id)
+            .with_for_update()
+        )
+    if "calendar" in kinds and await session.scalar(
+        select(exists().where(CalendarPeriod.calendar_entity_id == entity_id))
+    ):
+        raise EntityKindInUseError(
+            detail="This calendar has recorded periods. Resolve them before deleting it."
+        )
+    if "calendar_period" in kinds and (
+        await session.scalar(select(exists().where(CalendarPeriod.parent_entity_id == entity_id)))
+        or await session.scalar(
+            select(exists().where(EntryCalendarPeriod.period_entity_id == entity_id))
+        )
+    ):
+        raise EntityKindInUseError(
+            detail="This period has references. Resolve them before deleting it."
+        )
     if "item_instance" in kinds:
         raise InventoryItemKindError(
             detail=f"Entry {entity_id} is an inventory item: delete it with "
@@ -319,6 +361,8 @@ async def require_deletable(
 KIND_WORDS = {
     "fact": "fact",
     "calendar": "calendar",
+    "calendar_period": "calendar period",
+    "event": "event",
     "item": "item",
     "item_instance": "inventory item",
     "being": "being",

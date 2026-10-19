@@ -12,6 +12,7 @@ from lorenzo_api import release_document
 from lorenzo_api.models import (
     Being,
     Calendar,
+    CalendarPeriod,
     Character,
     ComputedStat,
     ComputedStatComparison,
@@ -28,6 +29,7 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    EntryCalendarPeriod,
     Fact,
     FactAbout,
     GroupMember,
@@ -54,6 +56,7 @@ from lorenzo_api.models import (
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
+    StoryEvent,
 )
 from lorenzo_api.repository_content import Content
 
@@ -80,6 +83,8 @@ async def seed_every_content_table(
         entity("Elminster"),
     )
     calendar = entity("Fixture calendar")
+    period = entity("Fixture year")
+    event = entity("Fixture event")
     fact = entity("The blade belongs to Elminster")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
@@ -105,6 +110,27 @@ async def seed_every_content_table(
             FactAbout(fact_entity_id=fact.id, subject_entity_id=blade.id, tenant_id=tenant_id),
             EntityKnowledge(entity_id=fact.id, knower_entity_id=guild.id, tenant_id=tenant_id),
         ]
+    )
+
+    session.add_all(
+        [
+            StoryEvent(entity_id=event.id, tenant_id=tenant_id),
+            CalendarPeriod(
+                entity_id=period.id,
+                tenant_id=tenant_id,
+                calendar_entity_id=calendar.id,
+                year=0,
+                segment=None,
+                day=None,
+                parent_entity_id=None,
+            ),
+            EntityAudience(entity_id=event.id, tenant_id=tenant_id, is_public=False),
+            EntityAudience(entity_id=period.id, tenant_id=tenant_id, is_public=False),
+        ]
+    )
+    await session.flush()
+    session.add(
+        EntryCalendarPeriod(entity_id=event.id, period_entity_id=period.id, tenant_id=tenant_id)
     )
 
     strength = StatDefinition(

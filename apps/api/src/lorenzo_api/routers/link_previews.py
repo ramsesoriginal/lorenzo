@@ -114,6 +114,8 @@ async def get_entity_preview(
             selectinload(Entity.slug),
             selectinload(Entity.fact),
             selectinload(Entity.calendar),
+            selectinload(Entity.calendar_period),
+            selectinload(Entity.story_event),
             selectinload(Entity.item),
             selectinload(Entity.item_instance),
             selectinload(Entity.being).selectinload(Being.character),

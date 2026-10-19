@@ -696,6 +696,10 @@ class _Applier:
             calendar_definition = CalendarDefinition.model_validate(change.upstream).model_dump(
                 mode="json"
             )
+            # Match direct edits/materialization: lock the entry before its definition.
+            await s.execute(
+                select(Entity.id).where(Entity.id == e, Entity.tenant_id == t).with_for_update()
+            )
             calendar = await s.scalar(
                 select(Calendar)
                 .where(Calendar.entity_id == e, Calendar.tenant_id == t)
@@ -704,6 +708,11 @@ class _Applier:
             if calendar is None:
                 self.skip(row, name, "The local entry is no longer a calendar")
                 return False
+            from lorenzo_api.calendar_periods import validate_materialized_periods
+
+            await validate_materialized_periods(
+                s, t, e, CalendarDefinition.model_validate(calendar_definition)
+            )
             calendar.definition = calendar_definition
             await s.execute(
                 update(Entity)

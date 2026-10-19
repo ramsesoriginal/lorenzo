@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lorenzo_api.models import (
     Being,
     Calendar,
+    CalendarPeriod,
     Character,
     ComputedStat,
     ComputedStatComparison,
@@ -38,6 +39,7 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    EntryCalendarPeriod,
     Fact,
     FactAbout,
     GroupMember,
@@ -59,9 +61,19 @@ from lorenzo_api.models import (
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
+    StoryEvent,
 )
 
-KINDS = ("item", "item_instance", "being", "character", "fact", "calendar")
+KINDS = (
+    "item",
+    "item_instance",
+    "being",
+    "character",
+    "fact",
+    "calendar",
+    "calendar_period",
+    "event",
+)
 
 
 @dataclass
@@ -165,6 +177,8 @@ class Content:
     information: dict[uuid.UUID, InformationData] = field(default_factory=dict)
     payloads: dict[uuid.UUID, PayloadData] = field(default_factory=dict)
     knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    calendar_periods: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    entry_dates: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
     entry_knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
@@ -245,6 +259,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("character", Character),
         ("fact", Fact),
         ("calendar", Calendar),
+        ("calendar_period", CalendarPeriod),
+        ("event", StoryEvent),
     ):
         for (entity_id,) in await rows(model.entity_id, where=model.tenant_id == t):
             c.kinds[entity_id].add(kind)
@@ -480,6 +496,24 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         if pid in kinds_by_payload:
             kind, fields = kinds_by_payload[pid]
             c.payloads[pid] = PayloadData(info_id, order, kind, fields)
+    c.calendar_periods = {
+        p.entity_id: {
+            "calendar": p.calendar_entity_id,
+            "year": p.year,
+            "segment": p.segment,
+            "day": p.day,
+            "parent": p.parent_entity_id,
+        }
+        for p in await session.scalars(select(CalendarPeriod).where(CalendarPeriod.tenant_id == t))
+    }
+    c.entry_dates = [
+        (entity_id, period_id)
+        for entity_id, period_id in await rows(
+            EntryCalendarPeriod.entity_id,
+            EntryCalendarPeriod.period_entity_id,
+            where=EntryCalendarPeriod.tenant_id == t,
+        )
+    ]
     c.calendars = dict(
         await rows(Calendar.entity_id, Calendar.definition, where=Calendar.tenant_id == t)
     )
@@ -695,3 +729,10 @@ def stat_definition_snapshot(
             for key, hinted in definition["hints"].items()
         },
     }
+
+
+def public_entry(content: Content, entity_id: uuid.UUID) -> bool:
+    if not content.entry_audiences.get(entity_id, True):
+        return False
+    period = content.calendar_periods.get(entity_id)
+    return period is None or content.entry_audiences.get(period["calendar"], True)

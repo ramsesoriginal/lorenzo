@@ -38,7 +38,9 @@ class EntitySlugOut(BaseModel):
     slug: str
 
 
-EntityKind = Literal["item", "item_instance", "being", "character", "fact", "calendar"]
+EntityKind = Literal[
+    "item", "item_instance", "being", "character", "fact", "calendar", "calendar_period", "event"
+]
 
 
 class ResolvedSlugOut(BaseModel):
@@ -62,7 +64,7 @@ class EntityCreate(BaseModel):
     id: uuid.UUID | None = None
     name: str
     slug: Slug | None = None
-    kinds: list[Literal["item", "being", "fact"]] = []
+    kinds: list[Literal["item", "being", "fact", "event"]] = []
     parents: list[uuid.UUID] = []
     in_public_catalog: bool | None = None
 
@@ -280,6 +282,10 @@ class KnowerOut(BaseModel):
 def _kinds_out(entity: Entity) -> list[EntityKind]:
     """Needs entity.item, item_instance and being loaded, and being.character."""
     kinds: list[EntityKind] = []
+    if entity.calendar_period is not None:
+        kinds.append("calendar_period")
+    if entity.story_event is not None:
+        kinds.append("event")
     if entity.calendar is not None:
         kinds.append("calendar")
     if entity.fact is not None:

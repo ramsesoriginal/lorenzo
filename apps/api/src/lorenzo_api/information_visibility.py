@@ -62,6 +62,7 @@ from lorenzo_api.entity_access import (
 )
 from lorenzo_api.models import (
     Calendar,
+    CalendarPeriod,
     CampaignGm,
     CharacterPlayer,
     EntityAudience,
@@ -72,6 +73,7 @@ from lorenzo_api.models import (
     Knowledge,
     MembershipRole,
     Player,
+    StoryEvent,
     Tenant,
     TenantAdminCampaignOptOut,
     TenantKind,
@@ -440,6 +442,10 @@ async def resolve_information_visibility(
                             select(Item.entity_id).where(Item.tenant_id == tenant_id),
                             select(Fact.entity_id).where(Fact.tenant_id == tenant_id),
                             select(Calendar.entity_id).where(Calendar.tenant_id == tenant_id),
+                            select(CalendarPeriod.entity_id).where(
+                                CalendarPeriod.tenant_id == tenant_id
+                            ),
+                            select(StoryEvent.entity_id).where(StoryEvent.tenant_id == tenant_id),
                         )
                     )
                 )

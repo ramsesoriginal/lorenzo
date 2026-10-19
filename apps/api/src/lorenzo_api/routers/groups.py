@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, exists, func, or_, select
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.campaign_access import can_manage_character
@@ -30,7 +30,16 @@ from lorenzo_api.exceptions import (
     InvalidUserError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
-from lorenzo_api.models import Character, Entity, Fact, GroupMember, User
+from lorenzo_api.models import (
+    Calendar,
+    CalendarPeriod,
+    Character,
+    Entity,
+    Fact,
+    GroupMember,
+    StoryEvent,
+    User,
+)
 from lorenzo_api.notifications import create_group_notification
 from lorenzo_api.schemas.common import EntitySummary, ProblemOut
 from lorenzo_api.schemas.groups import (
@@ -148,9 +157,18 @@ async def _require_can_manage_group(
     deleting, removing a member, and duplicating (see duplicate_group's
     own docstring for why that one needs no separate per-member check).
     """
-    if await session.get(Fact, group_entity_id) is not None:
+    if await session.scalar(
+        select(
+            or_(
+                *(
+                    exists().where(model.entity_id == group_entity_id)
+                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent)
+                )
+            )
+        )
+    ):
         raise InvalidGroupMemberError(
-            detail="Choose a group to hold members; a fact is an information anchor."
+            detail="Choose a group to hold members; this entry describes information or dates."
         )
     member_ids = (
         await session.execute(
@@ -560,9 +578,18 @@ async def duplicate_group(
     await _require_can_manage_group(
         session, tenant_id=tenant_id, user=user, group_entity_id=group_entity_id
     )
-    if await session.get(Fact, group_entity_id) is not None:
+    if await session.scalar(
+        select(
+            or_(
+                *(
+                    exists().where(model.entity_id == group_entity_id)
+                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent)
+                )
+            )
+        )
+    ):
         raise InvalidGroupMemberError(
-            detail="Choose a group to hold members; a fact is an information anchor."
+            detail="Choose a group to hold members; this entry describes information or dates."
         )
     member_ids = (
         (

@@ -26,7 +26,9 @@ from lorenzo_api.activity_log import record_activity
 from lorenzo_api.copyable_tables import COPIED_TABLES, COPY_LINKS, LINK_MODELS, PURGE_COUNTED
 from lorenzo_api.description_payloads import reference_values
 from lorenzo_api.exceptions import (
+    EntityKindInUseError,
     InvalidRepositoryCopyChoiceError,
+    InvalidRepositoryUpdateError,
     RepositoryAlreadyCopiedError,
     RepositoryCopyFormulaCycleError,
     RepositoryCopyNeedsChoicesError,
@@ -34,6 +36,7 @@ from lorenzo_api.exceptions import (
     RepositoryNotFoundError,
 )
 from lorenzo_api.models import (
+    CalendarPeriod,
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
@@ -45,6 +48,7 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    EntryCalendarPeriod,
     GroupMember,
     Information,
     Knowledge,
@@ -593,13 +597,21 @@ class _Planner:
                         "updated_by": user_id,
                     }
                 )
+            if "event" in kinds:
+                self.rows["story_event"].append({"entity_id": new, "tenant_id": tenant_id})
             if "calendar" in kinds:
                 self.rows["calendar"].append(
                     {"entity_id": new, "tenant_id": tenant_id, "definition": c.calendars[e]}
                 )
             if "fact" in kinds:
                 self.rows["fact"].append({"entity_id": new, "tenant_id": tenant_id})
-            if e in c.entry_audiences or "fact" in kinds or "calendar" in kinds:
+            if (
+                e in c.entry_audiences
+                or "fact" in kinds
+                or "calendar" in kinds
+                or "calendar_period" in kinds
+                or "event" in kinds
+            ):
                 self.rows["entity_audience"].append(
                     {
                         "entity_id": new,
@@ -845,6 +857,43 @@ class _Planner:
                             "tenant_id": tenant_id,
                             "fact_entity_id": self.local["entity"][e],
                             "subject_entity_id": target,
+                        }
+                    )
+        # Structural parents first, then their children. A missing calendar/parent is an
+        # explicit refusal instead of an orphaned period or silent change of kind.
+        for e, period in sorted(
+            c.calendar_periods.items(),
+            key=lambda pair: (pair[1]["segment"] is not None, pair[1]["day"] is not None),
+        ):
+            if copies("entity", e):
+                calendar_id = self._local(c, "entity", period["calendar"])
+                parent_id = self._local(c, "entity", period["parent"]) if period["parent"] else None
+                if calendar_id is None or period["parent"] and parent_id is None:
+                    raise InvalidRepositoryUpdateError(
+                        detail="Copy the calendar and its parent periods before this period."
+                    )
+                self.rows["calendar_period"].append(
+                    {
+                        "entity_id": self.local["entity"][e],
+                        "tenant_id": tenant_id,
+                        "calendar_entity_id": calendar_id,
+                        "year": period["year"],
+                        "segment": period["segment"],
+                        "day": period["day"],
+                        "parent_entity_id": parent_id,
+                    }
+                )
+        for e, period_id in c.entry_dates:
+            if copies("entity", e):
+                target = self._local(c, "entity", period_id)
+                if target is None:
+                    drop("entry_calendar_period", e, "its calendar period was not copied")
+                else:
+                    self.rows["entry_calendar_period"].append(
+                        {
+                            "entity_id": self.local["entity"][e],
+                            "period_entity_id": target,
+                            "tenant_id": tenant_id,
                         }
                     )
         for info_id, knower in c.knowledge:
@@ -1200,6 +1249,38 @@ async def forget_copy(
     pairs = sorted(links.attachments.get(repository_id, ()))
 
     if purge:
+        # Serialize with materialization and date edits before inspecting local references.
+        await session.execute(
+            select(Entity.id)
+            .where(Entity.tenant_id == t, Entity.id.in_(entities))
+            .order_by(Entity.id)
+            .with_for_update()
+        )
+        local_period = await session.scalar(
+            select(
+                exists().where(
+                    CalendarPeriod.tenant_id == t,
+                    CalendarPeriod.entity_id.not_in(entities),
+                    or_(
+                        CalendarPeriod.calendar_entity_id.in_(entities),
+                        CalendarPeriod.parent_entity_id.in_(entities),
+                    ),
+                )
+            )
+        )
+        local_date = await session.scalar(
+            select(
+                exists().where(
+                    EntryCalendarPeriod.tenant_id == t,
+                    EntryCalendarPeriod.entity_id.not_in(entities),
+                    EntryCalendarPeriod.period_entity_id.in_(entities),
+                )
+            )
+        )
+        if local_period or local_date:
+            raise EntityKindInUseError(
+                detail="Local dated material still references this copy. Resolve it before purging."
+            )
         # The edges the attachments recorded that no deleted row takes with it. One
         # whose parent a purge deletes goes with that entity, and is counted below
         # as it always was. A parent that isn't a copy is the tenant's own row, which

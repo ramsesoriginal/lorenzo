@@ -24,7 +24,7 @@ from lorenzo_api.release_document_store import (
     read_release_content,
     read_release_copies,
 )
-from lorenzo_api.repository_content import Content, load_content
+from lorenzo_api.repository_content import Content, load_content, public_entry
 from lorenzo_api.repository_releases import ReleaseRef, current_release
 from lorenzo_api.schemas.repositories import EntityKindName
 
@@ -155,7 +155,7 @@ def entity_rows(
     document."""
     prototypes: dict[uuid.UUID, list[uuid.UUID]] = {}
     for entity_id, prototype_id in content.prototypes:
-        if not public_only or content.entry_audiences.get(prototype_id, True):
+        if not public_only or public_entry(content, prototype_id):
             prototypes.setdefault(entity_id, []).append(prototype_id)
     needle = q.casefold() if q is not None else None
     return [
@@ -167,7 +167,7 @@ def entity_rows(
         )
         for entity_id, name in sorted(content.entities.items(), key=lambda e: (e[1], str(e[0])))
         if (needle is None or needle in name.casefold())
-        and (not public_only or content.entry_audiences.get(entity_id, True))
+        and (not public_only or public_entry(content, entity_id))
     ]
 
 

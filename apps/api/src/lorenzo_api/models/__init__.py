@@ -1,6 +1,7 @@
 from lorenzo_api.models.audit_log import AuditLog
 from lorenzo_api.models.being import Being
 from lorenzo_api.models.calendar import Calendar
+from lorenzo_api.models.calendar_period import CalendarPeriod, EntryCalendarPeriod, StoryEvent
 from lorenzo_api.models.campaign import Campaign
 from lorenzo_api.models.campaign_gm import CampaignGm
 from lorenzo_api.models.campaign_profile_picture import CampaignProfilePicture
@@ -80,6 +81,9 @@ __all__ = [
     "AuditLog",
     "Being",
     "Calendar",
+    "CalendarPeriod",
+    "EntryCalendarPeriod",
+    "StoryEvent",
     "Campaign",
     "CampaignGm",
     "CampaignProfilePicture",

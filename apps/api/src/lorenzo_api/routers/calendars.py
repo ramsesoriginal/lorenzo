@@ -225,6 +225,9 @@ async def replace_definition(
             detail="Read the calendar and send its ETag as If-Match."
         )
     check_if_match(if_match, updated_at=calendar.updated_at)
+    from lorenzo_api.calendar_periods import validate_materialized_periods
+
+    await validate_materialized_periods(session, tenant_id, entity_id, definition)
     value = definition.model_dump(mode="json")
     if calendar.definition != value:
         calendar.definition = value

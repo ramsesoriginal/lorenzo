@@ -96,6 +96,8 @@ class Kind1(StrEnum):
     character = "character"
     fact = "fact"
     calendar = "calendar"
+    calendar_period = "calendar_period"
+    event = "event"
 
 
 class BacklinkOut(BaseModel):
@@ -459,6 +461,11 @@ class CreditOut(BaseModel):
     url: str | None = Field(..., title="Url")
 
 
+class DatedEntryOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+
+
 class DayPreview(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -558,6 +565,7 @@ class Kind7(StrEnum):
     item = "item"
     being = "being"
     fact = "fact"
+    event = "event"
 
 
 class EntityCreate(BaseModel):
@@ -578,6 +586,8 @@ class Kind8(StrEnum):
     character = "character"
     fact = "fact"
     calendar = "calendar"
+    calendar_period = "calendar_period"
+    event = "event"
 
 
 class EntityExportStatOut(BaseModel):
@@ -815,6 +825,8 @@ class Kind14(StrEnum):
     character = "character"
     fact = "fact"
     calendar = "calendar"
+    calendar_period = "calendar_period"
+    event = "event"
 
 
 class LinkPreviewStatOut(BaseModel):
@@ -1054,6 +1066,14 @@ class PageContributionOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageDatedEntryOut(BaseModel):
+    items: list[DatedEntryOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageDelistedRepositoryOut(BaseModel):
     items: list[DelistedRepositoryOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1154,6 +1174,40 @@ class PayloadTextCreate(BaseModel):
     id: UUID | None = Field(None, title="Id")
     content: str = Field(..., title="Content")
     locale: str | None = Field("en-US", title="Locale")
+
+
+class PeriodCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    year: conint(ge=-1000000, le=1000000) = Field(..., title="Year")
+    segment: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") | None = Field(None, title="Segment")
+    day: conint(ge=1, le=1000) | None = Field(None, title="Day")
+    is_public: bool | None = Field(False, title="Is Public")
+
+
+class Granularity(StrEnum):
+    year = "year"
+    month = "month"
+    day = "day"
+
+
+class PeriodOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    name: str = Field(..., title="Name")
+    granularity: Granularity = Field(..., title="Granularity")
+    year: int = Field(..., title="Year")
+    segment: str | None = Field(..., title="Segment")
+    day: int | None = Field(..., title="Day")
+    parent_entity_id: UUID | None = Field(..., title="Parent Entity Id")
+
+
+class PeriodSelection(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    period_ids: list[UUID] = Field(..., max_length=1000, title="Period Ids")
 
 
 class Periodic(BaseModel):
@@ -1455,6 +1509,8 @@ class Kind18(StrEnum):
     character = "character"
     fact = "fact"
     calendar = "calendar"
+    calendar_period = "calendar_period"
+    event = "event"
 
 
 class ResolvedSlugOut(BaseModel):
@@ -2259,6 +2315,14 @@ class PageItemInstanceOut(BaseModel):
 
 class PageItemOut(BaseModel):
     items: list[ItemOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PagePeriodOut(BaseModel):
+    items: list[PeriodOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")

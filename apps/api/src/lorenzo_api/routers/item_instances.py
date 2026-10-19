@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import Problem
-from sqlalchemy import ColumnElement, Select, and_, or_, select, true
+from sqlalchemy import ColumnElement, Select, and_, exists, or_, select, true
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.binding import (
@@ -3056,7 +3056,18 @@ async def bulk_move_item_instances(
 
 
 async def require_physical_container(session: SessionDep, entity_id: uuid.UUID) -> None:
-    if await session.get(Fact, entity_id) is not None:
+    from lorenzo_api.models import Calendar, CalendarPeriod, StoryEvent
+
+    if await session.scalar(
+        select(
+            or_(
+                *(
+                    exists().where(model.entity_id == entity_id)
+                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent)
+                )
+            )
+        )
+    ):
         from lorenzo_api.exceptions import InvalidKindRequestError
 
         raise InvalidKindRequestError(
