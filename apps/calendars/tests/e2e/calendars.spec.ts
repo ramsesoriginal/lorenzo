@@ -37,12 +37,29 @@ test('imported irregular year is browsable without creating periods, and dated i
   await expect(page.getByLabel('Month or festival').locator('option')).toHaveCount(19);
   await expect(page.locator('.day')).toHaveCount(27);
   await expect(page.locator('.weekday').first()).toHaveText('Montag');
-  await expect(page.locator('.day').first()).toContainText('Maira:');
+  const firstMoon = page.locator('.day').first().locator('.moon-phase').first();
+  await expect(firstMoon).toHaveAttribute('title', /^Maira:/);
+  await expect(firstMoon).toHaveText(/[🌑🌒🌓🌔🌕🌖🌗🌘]/u);
+  await expect(page.locator('.day').first()).toHaveAttribute(
+    'aria-description',
+    /Maira:.*Mendra:.*Galon:/,
+  );
   await page.getByLabel('Month or festival').selectOption('segment-4');
   await expect(page.locator('.day')).toHaveCount(2);
   await page.getByLabel('Month or festival').selectOption('segment-6');
-  await page.getByRole('button', { name: '16 Quirm 3286', exact: true }).click();
-  await expect(page.getByText('A lantern was lit by the harbour.', { exact: true })).toBeVisible();
+  const diaryDay = page.getByRole('button', { name: '16 Quirm 3286', exact: true });
+  await expect(diaryDay).toContainText('A lantern was lit by the harbour.');
+  await expect(page.getByRole('button', { name: '17 Quirm 3286', exact: true })).toContainText(
+    'Harbour storm',
+  );
+  await expect(page.getByRole('button', { name: '18 Quirm 3286', exact: true })).toContainText(
+    'Recurring · Harbour feast',
+  );
+  await diaryDay.click();
+  await expect(
+    page.locator('aside').getByText('A lantern was lit by the harbour.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('aside .selected-moons')).toContainText('Maira:');
   await page.getByRole('button', { name: '17 Quirm 3286', exact: true }).click();
   await page.getByRole('link', { name: 'Harbour storm', exact: true }).click();
   await expect(
@@ -144,6 +161,14 @@ test('readers see permitted names and dates without private information or autho
   const page = await signedIn(browser, world.readerSubject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByLabel('Month or festival').selectOption('segment-6');
+  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
+    'A lantern was lit by the harbour.',
+  );
+  await expect(page.getByRole('button', { name: '17 Quirm 3286', exact: true })).toContainText(
+    'Harbour storm',
+  );
+  await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Secret tide|Hidden landing|Secret rite/)).toHaveCount(0);
   await page.getByRole('button', { name: '17 Quirm 3286', exact: true }).click();
   await page.getByRole('link', { name: 'Harbour storm', exact: true }).click();
   await expect(
@@ -272,4 +297,39 @@ test('signed-out welcome and appearance controls work in light and dark themes',
     fullPage: true,
   });
   await context.close();
+});
+
+test('month content is cached and moon names remain available when selecting a day on a phone', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const reads: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'GET' && /\/(information|entries)\?/.test(r.url())) reads.push(r.url());
+  });
+  await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
+  await page.getByLabel('Month or festival').selectOption('segment-6');
+  await expect(page.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
+    'A lantern was lit by the harbour.',
+  );
+  const loaded = reads.length;
+  await page.getByLabel('Month or festival').selectOption('segment-4');
+  await page.getByLabel('Month or festival').selectOption('segment-6');
+  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
+    'A lantern was lit by the harbour.',
+  );
+  expect(reads.length).toBe(loaded);
+  await page.screenshot({
+    path: test.info().outputPath('month-content-desktop.png'),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: '16 Quirm 3286', exact: true }).click();
+  await expect(page.locator('aside .selected-moons')).toContainText('Maira:');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('month-notes-phone.png'), fullPage: true });
+  await page.context().close();
 });
