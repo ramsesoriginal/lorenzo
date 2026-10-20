@@ -46,7 +46,7 @@ RECEIPT = {
 }
 
 
-def runtime(tmp_path, seen, *, stale=False):
+def runtime(tmp_path, seen, *, stale=False, timed_out=False):
     def handler(request):
         seen.append(request)
         if request.method == "GET" and request.url.path == f"/tenants/{TENANT_ID}":
@@ -56,6 +56,8 @@ def runtime(tmp_path, seen, *, stale=False):
         if request.url.path.endswith("/calendar-imports/isles/document"):
             return httpx.Response(200, json=DOCUMENT.model_dump(mode="json"))
         if request.url.path.endswith("/calendar-imports"):
+            if timed_out:
+                raise httpx.ReadTimeout("The read operation timed out", request=request)
             return (
                 httpx.Response(412, json={"detail": "The plan is stale"})
                 if stale
@@ -183,3 +185,77 @@ def test_invalid_calendar_fails_before_login_or_network_and_export_is_json(tmp_p
     )
     assert exported.exit_code == 0, exported.output
     assert CalendarDocument.model_validate_json(exported.stdout) == DOCUMENT
+
+
+def test_import_activity_is_stderr_and_bulk_wait_does_not_change_other_requests(tmp_path):
+    seen = []
+    result = RUNNER.invoke(
+        app,
+        [
+            "calendar",
+            "import",
+            str(native_file(tmp_path)),
+            "--tenant",
+            TENANT_ID,
+            "--yes",
+            "--json",
+            "--timeout",
+            "180",
+        ],
+        obj=runtime(tmp_path, seen),
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == RECEIPT
+    assert "Read calendar with 1 dated notes" in result.stderr
+    assert "Planning calendar" in result.stderr
+    assert "waiting for API confirmation" in result.stderr
+    for request in seen:
+        expected = 180 if "/calendar-imports" in request.url.path else 30
+        assert request.extensions["timeout"]["read"] == expected
+        assert request.extensions["timeout"]["connect"] == 30
+
+
+def test_unconfirmed_apply_is_not_retried_and_explains_recovery(tmp_path):
+    seen = []
+    result = RUNNER.invoke(
+        app,
+        ["calendar", "import", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--yes"],
+        obj=runtime(tmp_path, seen, timed_out=True),
+    )
+    assert result.exit_code == 1
+    assert "did not confirm the import outcome" in result.output
+    assert "Do not delete the calendar" in " ".join(result.output.split())
+    assert "--dry-run" in result.output
+    assert "Imported" not in result.stdout
+    apply = [r for r in seen if r.url.path.endswith("/calendar-imports")]
+    assert len(apply) == 1
+    assert apply[0].extensions["timeout"]["read"] == 300
+
+
+def test_calendar_wait_must_be_positive(tmp_path):
+    seen = []
+    result = RUNNER.invoke(
+        app,
+        ["calendar", "import", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--timeout", "0"],
+        obj=runtime(tmp_path, seen),
+    )
+    assert result.exit_code == 2
+    assert seen == []
+
+
+def test_terminal_import_renders_activity_and_keeps_receipt_readable(tmp_path, monkeypatch):
+    from rich.console import Console
+
+    from lorenzo_cli import main
+
+    terminal = io.StringIO()
+    monkeypatch.setattr(main, "_err", Console(file=terminal, force_terminal=True, width=120))
+    result = RUNNER.invoke(
+        app,
+        ["calendar", "import", str(native_file(tmp_path)), "--tenant", TENANT_ID, "--yes"],
+        obj=runtime(tmp_path, []),
+    )
+    assert result.exit_code == 0, result.output
+    assert "Planning calendar" in terminal.getvalue()
+    assert "waiting for API confirmation" in terminal.getvalue()
+    assert "Imported 1 new units" in result.stdout

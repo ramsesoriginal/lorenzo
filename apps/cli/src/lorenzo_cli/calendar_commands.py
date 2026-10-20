@@ -3,21 +3,47 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
+import httpx
 import typer
 from lorenzo_calendar import CalendarDefinition, Periodic, RecurrenceRule
 from lorenzo_calendar.document import Annotation, CalendarDocument, parse_document
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.text import Text
 
 from lorenzo_cli.client import ops
+from lorenzo_cli.client.errors import LorenzoConnectionError
 from lorenzo_cli.client.models import CalendarImportApply, CalendarImportPlan, CalendarImportRequest
 from lorenzo_cli.self_service import SelfServiceError
 from lorenzo_cli.terminal_script import safe
 from lorenzo_cli.vocabulary_commands import Json, Tenant, session
 
 app = typer.Typer(help="Import and export authored calendar documents.", no_args_is_help=True)
+
+
+@contextmanager
+def activity(description: str, *, as_json: bool) -> Iterator[None]:
+    """The API applies one transaction; show elapsed activity, never invented note progress."""
+    from lorenzo_cli.main import _err
+
+    if _err.is_terminal and not as_json:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("{task.description}"),
+            TimeElapsedColumn(),
+            console=_err,
+            transient=True,
+        ) as progress:
+            progress.add_task(description, total=None)
+            yield
+    else:
+        _err.print(Text(description))
+        yield
 
 
 class Choices(BaseModel):
@@ -60,7 +86,8 @@ def choose(document: CalendarDocument, choices: Choices) -> CalendarDocument:
 def review(document: CalendarDocument) -> CalendarDocument:
     annotations = []
     groups: dict[str, str] = {}
-    for annotation in document.annotations:
+    for index, annotation in enumerate(document.annotations, start=1):
+        typer.echo(f"Note {index} of {len(document.annotations)}")
         typer.echo(
             safe(
                 f"{annotation.key}: {annotation.date.year} / {annotation.date.segment} / "
@@ -128,6 +155,10 @@ def calendar_import(
     accept_warnings: Annotated[
         bool, typer.Option(help="Acknowledge the warnings printed from this document")
     ] = False,
+    timeout: Annotated[
+        int,
+        typer.Option(min=1, max=3600, help="Seconds to wait for import planning or saving."),
+    ] = 300,
     dry_run: bool = False,
     plan_out: Annotated[
         Path | None, typer.Option(help="Save the exact request and reviewed plan")
@@ -154,6 +185,7 @@ def calendar_import(
                 Choices.model_validate_json(read_file(choices_file)) if choices_file else Choices()
             )
             document = choose(document, choices)
+            typer.echo(f"Read calendar with {len(document.annotations)} dated notes.", err=True)
             if review_notes:
                 if not ctx.obj.interactive:
                     raise ValueError("Interactive note review needs a terminal; use a choices file")
@@ -179,9 +211,13 @@ def calendar_import(
             if saved:
                 planned = CalendarImportPlan.model_validate(saved["plan"])
             else:
-                planned = client.call(
-                    ops.PLAN_CALENDAR_IMPORT, path={"tenant_id": tid}, body=request
-                ).value
+                with activity("Planning calendar and dated notes…", as_json=as_json):
+                    planned = client.call(
+                        ops.PLAN_CALENDAR_IMPORT,
+                        path={"tenant_id": tid},
+                        body=request,
+                        timeout=httpx.Timeout(30.0, read=timeout),
+                    ).value
             describe(planned)
             if plan_out:
                 plan_out.write_text(
@@ -212,13 +248,27 @@ def calendar_import(
                     )
                 if not typer.confirm("Apply this calendar import?", default=False):
                     raise typer.Exit(0)
-            applied = client.call(
-                ops.APPLY_CALENDAR_IMPORT,
-                path={"tenant_id": tid},
-                body=CalendarImportApply.model_validate(
-                    {**request.model_dump(mode="json"), "token": planned.token}
-                ),
-            ).value
+            try:
+                with activity(
+                    "Saving calendar and dated notes; waiting for API confirmation…",
+                    as_json=as_json,
+                ):
+                    applied = client.call(
+                        ops.APPLY_CALENDAR_IMPORT,
+                        path={"tenant_id": tid},
+                        body=CalendarImportApply.model_validate(
+                            {**request.model_dump(mode="json"), "token": planned.token}
+                        ),
+                        timeout=httpx.Timeout(30.0, read=timeout),
+                    ).value
+            except LorenzoConnectionError as error:
+                raise SelfServiceError(
+                    f"{error}\nThe API did not confirm the import outcome. It may still finish. "
+                    "The calendar and dated notes are saved together in one transaction. "
+                    "Do not delete the calendar. Re-run with the same file, source key and "
+                    "note choices using --dry-run to check what is already imported. "
+                    "Use --timeout for a longer wait."
+                ) from error
             if as_json:
                 typer.echo(applied.model_dump_json(indent=2))
             else:
