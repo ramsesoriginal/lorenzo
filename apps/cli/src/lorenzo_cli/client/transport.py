@@ -101,6 +101,7 @@ class LorenzoClient:
         query: Mapping[str, QueryValue] | None = None,
         body: Any = None,
         if_match: str | None = None,
+        timeout: httpx.Timeout | float | None = None,
     ) -> Reply[T]:
         """Run one operation. `body` is a request model instance; only the fields set are sent."""
         response = self.send(
@@ -109,6 +110,7 @@ class LorenzoClient:
             query=query,
             json_body=None if body is None else body.model_dump(mode="json", exclude_unset=True),
             if_match=if_match,
+            timeout=timeout,
         )
         return self._reply(op, response)
 
@@ -121,6 +123,7 @@ class LorenzoClient:
         json_body: Any = None,
         content: bytes | None = None,
         if_match: str | None = None,
+        timeout: httpx.Timeout | float | None = None,
     ) -> httpx.Response:
         """One request, answered whatever its status, with the rules every request gets: the
         bearer token, one renewal after a `401`, and retries of a safe method. `content` is a
@@ -144,6 +147,7 @@ class LorenzoClient:
                     headers=headers,
                     json=json_body,
                     content=content,
+                    timeout=self._http.timeout if timeout is None else timeout,
                 )
             except httpx.TransportError as exc:
                 if attempt >= attempts:
