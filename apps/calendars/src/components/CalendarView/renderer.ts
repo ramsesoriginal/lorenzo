@@ -269,11 +269,7 @@ export async function mount() {
           );
         } else
           detail.append(
-            el(
-              'p',
-              'No notes or dated entries are available to you for this date.',
-              'caption',
-            ),
+            el('p', 'No notes or dated entries are available to you for this date.', 'caption'),
           );
         if (turn !== selection) return;
         for (const o of occurrences.filter(
