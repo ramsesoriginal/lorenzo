@@ -76,6 +76,10 @@
     "packages/calendar-engine": {
       "release-type": "python",
       "package-name": "lorenzo-calendar"
+    },
+    "apps/calendars": {
+      "release-type": "node",
+      "component": "calendars"
     }
   }
 }

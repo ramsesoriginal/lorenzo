@@ -53,6 +53,7 @@ router = APIRouter(
 
 class ObservanceCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    id: uuid.UUID | None = None
     name: str = Field(min_length=1, max_length=200)
     slug: Slug | None = None
     rule: RecurrenceRule
@@ -131,6 +132,7 @@ async def create_observance(
         kinds=[],
         parents=[],
         in_public_catalog=False,
+        entity_id=body.id,
     )
     observance = CalendarObservance(
         entity_id=entry.id,

@@ -145,3 +145,10 @@ node = "apps/inventory-ios"
 
 [nodes."packages/calendar-engine"]
 batch = "cli"
+
+[nodes."apps/calendars"]
+batch = "web-2"
+
+[suites.calendars-e2e]
+node = "apps/calendars"
+depends_on = ["apps/api"]

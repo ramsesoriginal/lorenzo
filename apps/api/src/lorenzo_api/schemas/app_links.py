@@ -10,6 +10,7 @@ class AppsOut(BaseModel):
     inventory_web: AppOut
     beings: AppOut
     bench: AppOut
+    calendars: AppOut
 
 
 class AppLinksOut(BaseModel):

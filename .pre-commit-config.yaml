@@ -116,6 +116,24 @@ repos:
         language: system
         files: ^apps/account-hub/.*\.astro$
         pass_filenames: false
+      - id: biome-calendars
+        name: biome (apps/calendars)
+        entry: pnpm --dir apps/calendars exec biome check --write
+        language: system
+        files: ^apps/calendars/.*\.(ts|js|json|css)$
+        pass_filenames: false
+      - id: astro-check-calendars
+        name: astro check (apps/calendars)
+        entry: pnpm --dir apps/calendars exec astro check
+        language: system
+        files: ^apps/calendars/.*\.(astro|ts)$
+        pass_filenames: false
+      - id: prettier-calendars
+        name: prettier --write (apps/calendars, .astro)
+        entry: pnpm --dir apps/calendars exec prettier --write "**/*.astro"
+        language: system
+        files: ^apps/calendars/.*\.astro$
+        pass_filenames: false
       - id: biome-beings
         name: biome (apps/beings)
         entry: pnpm --dir apps/beings exec biome check --write

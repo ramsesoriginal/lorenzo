@@ -17,14 +17,17 @@ async def test_observance_calculation_is_conditional_and_does_not_materialize(cl
     try:
         calendar = (await make_calendar(client, tenant)).json()["entity_id"]
         url = f"/tenants/{tenant}/calendars/{calendar}"
+        observance_id = uuid.uuid4()
         made = await client.post(
             url + "/observances",
             json={
+                "id": str(observance_id),
                 "name": "First Feast",
                 "rule": {"segment": "first", "day": 2, "when": {"every": 2, "offset": 1}},
             },
         )
         assert made.status_code == 201, made.text
+        assert made.json()["entity_id"] == str(observance_id)
         assert (await client.get(f"/tenants/{tenant}/entities/{made.json()['entity_id']}")).json()[
             "kinds"
         ] == ["observance"]

@@ -65,6 +65,7 @@ class AppsOut(BaseModel):
     inventory_web: AppOut
     beings: AppOut
     bench: AppOut
+    calendars: AppOut
 
 
 class AttachmentActionName(StrEnum):
@@ -2441,6 +2442,7 @@ class ObservanceCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    id: UUID | None = Field(None, title="Id")
     name: constr(min_length=1, max_length=200) = Field(..., title="Name")
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
         None, title="Slug"

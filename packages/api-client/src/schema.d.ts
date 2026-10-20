@@ -5179,6 +5179,7 @@ export interface components {
             inventory_web: components["schemas"]["AppOut"];
             beings: components["schemas"]["AppOut"];
             bench: components["schemas"]["AppOut"];
+            calendars: components["schemas"]["AppOut"];
         };
         /**
          * AttachmentActionIn
@@ -8762,6 +8763,8 @@ export interface components {
         };
         /** ObservanceCreate */
         ObservanceCreate: {
+            /** Id */
+            id?: string | null;
             /** Name */
             name: string;
             /** Slug */

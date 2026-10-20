@@ -74,13 +74,19 @@ class Settings(BaseSettings):
     inventory_web_url: str = "https://lorenzo-inventory-web.pages.dev"
     beings_url: str = "https://lorenzo-beings.pages.dev"
     bench_url: str = "https://lorenzo-bench.pages.dev"
+    calendars_url: str = "https://lorenzo-calendars.pages.dev"
     # Optional per-link overrides in APP_LINK_TEMPLATES: space-separated `name=template`
     # pairs (like CORS_ALLOWED_ORIGINS, no commas and no JSON, for the deploy action's sake),
     # e.g. "item=https://i.example.com/i/{tenant}/{id}". NoDecode, as cors_allowed_origins.
     app_link_templates: Annotated[dict[str, str], NoDecode] = {}
 
     @field_validator(
-        "account_hub_url", "inventory_web_url", "beings_url", "bench_url", mode="before"
+        "account_hub_url",
+        "inventory_web_url",
+        "beings_url",
+        "bench_url",
+        "calendars_url",
+        mode="before",
     )
     @classmethod
     def _blank_app_url_is_the_default(cls, v: object, info: ValidationInfo) -> object:
