@@ -479,3 +479,19 @@ mappings that the native text-source format cannot represent are refused instead
 formerly imported material outside the active source is called out. Keep exported files and
 saved plans private when their source or notes are private. Import provenance/receipts remain
 local and are not repository content; the authored calendar and entries copy normally.
+
+### Waiting for a calendar import
+
+Calendar import reports the number of source notes and shows a spinner with elapsed time
+while the API plans or saves. Redirected output uses plain stage messages on stderr;
+`--json` keeps stdout machine-readable. Note review shows your position in the source notes.
+The API saves the calendar and dated notes in one transaction, so there is no per-note
+save percentage before confirmation.
+
+Planning and saving wait up to 300 seconds for a response. Use `--timeout 600` on
+`lorenzo calendar import` to allow more time; other CLI requests retain their usual timeout.
+If the connection times out, the outcome is unconfirmed: the server may still finish.
+Do not delete the calendar. Preview again with the same source key, file and note choices
+using `--dry-run`; unchanged units are already imported. Reimports do not duplicate them.
+Notes are attached to their dates; look in the source year and month rather than the
+calendar entry's own Information. Imported audiences remain restricted unless explicitly chosen.
