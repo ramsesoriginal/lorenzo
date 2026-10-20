@@ -48,10 +48,11 @@ export async function start(): Promise<Session | null> {
       status.textContent = 'There are no libraries available to this account yet.';
       return null;
     }
+    const explicit = new URLSearchParams(location.search).get('tenant');
     const requested = currentTenant();
-    const tenant = requested
-      ? tenants.find((t) => t.id === requested || t.slug === requested)
-      : tenants[0];
+    const tenant =
+      (requested ? tenants.find((t) => t.id === requested || t.slug === requested) : undefined) ??
+      (explicit ? undefined : tenants[0]);
     if (!tenant) {
       status.textContent =
         'This library is not available to this account. Open Calendars to choose a library.';

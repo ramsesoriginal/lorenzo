@@ -214,3 +214,20 @@ test('recurring observance creation and rule edits do not materialize occurrence
   expect((await periods()).total).toBe(before.total);
   await page.context().close();
 });
+
+test('home recovers from a deleted remembered library without substituting explicit URLs', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.addInitScript(() =>
+    localStorage.setItem('lorenzo:lastTenant', '00000000-0000-0000-0000-000000000001'),
+  );
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Isles calendar', exact: true })).toBeVisible();
+  await page.goto('/?tenant=00000000-0000-0000-0000-000000000001');
+  await expect(page.getByText(/This library is not available to this account/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Isles calendar', exact: true })).toHaveCount(0);
+  await page.context().close();
+});
