@@ -704,6 +704,27 @@ class EntryKnowerOut(BaseModel):
     name: str | None = Field(..., title="Name")
 
 
+class Relation(StrEnum):
+    before = "before"
+    after = "after"
+    same = "same"
+
+
+class Basis(StrEnum):
+    causal = "causal"
+    ruled = "ruled"
+    linearized = "linearized"
+    identity = "identity"
+
+
+class EventPair(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    left: UUID = Field(..., title="Left")
+    right: UUID = Field(..., title="Right")
+
+
 class FactUpdate(BaseModel):
     name: constr(min_length=1) = Field(..., title="Name")
 
@@ -1482,6 +1503,32 @@ class RecurrenceRule(BaseModel):
     when: Periodic | None = Field({"every": 1, "offset": 0}, validate_default=True)
 
 
+class Kind16(StrEnum):
+    order = "order"
+    causes = "causes"
+
+
+class RelationshipOut(BaseModel):
+    from_event_id: UUID = Field(..., title="From Event Id")
+    to_event_id: UUID = Field(..., title="To Event Id")
+    from_name: str = Field(..., title="From Name")
+    to_name: str = Field(..., title="To Name")
+    kind: Kind16 = Field(..., title="Kind")
+
+
+class Direction(StrEnum):
+    incoming = "incoming"
+    outgoing = "outgoing"
+
+
+class RelationshipWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    kind: Kind16 = Field(..., title="Kind")
+    direction: Direction | None = Field("outgoing", title="Direction")
+
+
 class ReleaseCountsOut(BaseModel):
     entities: KindCountsOut
     stat_groups: KindCountsOut
@@ -1534,10 +1581,22 @@ class RepositoryDependencyOut(BaseModel):
     public: bool = Field(..., title="Public")
 
 
+class Kind18(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+    fact = "fact"
+    calendar = "calendar"
+    calendar_period = "calendar_period"
+    event = "event"
+    observance = "observance"
+
+
 class RepositoryEntityOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind14] = Field(..., title="Kinds")
+    kinds: list[Kind18] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
@@ -1576,7 +1635,7 @@ class RepositorySummaryOut(BaseModel):
     published_at: AwareDatetime | None = Field(..., title="Published At")
 
 
-class Kind17(StrEnum):
+class Kind19(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -1589,13 +1648,13 @@ class Action1(StrEnum):
 
 
 class ResolutionIn(BaseModel):
-    kind: Kind17 = Field(..., title="Kind")
+    kind: Kind19 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
-class Kind18(StrEnum):
+class Kind20(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -1611,7 +1670,7 @@ class ResolvedSlugOut(BaseModel):
     slug: str = Field(..., title="Slug")
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind18] = Field(..., title="Kinds")
+    kinds: list[Kind20] = Field(..., title="Kinds")
 
 
 class RoundMode(StrEnum):
@@ -1622,7 +1681,7 @@ class RoundMode(StrEnum):
     truncate = "truncate"
 
 
-class Kind19(StrEnum):
+class Kind21(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1633,7 +1692,7 @@ class State4(StrEnum):
     edited = "edited"
 
 
-class Kind20(StrEnum):
+class Kind22(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -1641,20 +1700,20 @@ class Kind20(StrEnum):
 
 
 class RowNameOut(BaseModel):
-    kind: Kind20 = Field(..., title="Kind")
+    kind: Kind22 = Field(..., title="Kind")
     row_id: UUID = Field(..., title="Row Id")
     parent_id: UUID | None = Field(..., title="Parent Id")
     name: str = Field(..., title="Name")
     parent_name: str | None = Field(..., title="Parent Name")
 
 
-class Kind21(StrEnum):
+class Kind23(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
 
 
-class Kind22(StrEnum):
+class Kind24(StrEnum):
     month = "month"
     festival = "festival"
 
@@ -1666,7 +1725,7 @@ class Segment(BaseModel):
     key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
     name: constr(min_length=1, max_length=200) = Field(..., title="Name")
     days: conint(ge=1, le=1000) = Field(..., title="Days")
-    kind: Kind22 | None = Field("month", title="Kind")
+    kind: Kind24 | None = Field("month", title="Kind")
     in_week: bool | None = Field(True, title="In Week")
     when: Periodic | None = None
 
@@ -1677,7 +1736,7 @@ class SegmentPreview(BaseModel):
     )
     key: str = Field(..., title="Key")
     name: str = Field(..., title="Name")
-    kind: Kind22 = Field(..., title="Kind")
+    kind: Kind24 = Field(..., title="Kind")
     month_ordinal: int | None = Field(..., title="Month Ordinal")
     days: list[DayPreview] = Field(..., title="Days")
 
@@ -1911,7 +1970,7 @@ class UnprovenKindOut(BaseModel):
     kinds: list[str] = Field(..., title="Kinds")
 
 
-class Kind24(StrEnum):
+class Kind26(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -2148,6 +2207,13 @@ class CharacterOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
 
 
+class ComparisonRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    pairs: list[EventPair] = Field(..., max_length=100, min_length=1, title="Pairs")
+
+
 class ComputedStatPreviewOut(BaseModel):
     stat_definition_id: UUID = Field(..., title="Stat Definition Id")
     value: int | float | str | bool | None = Field(..., title="Value")
@@ -2219,6 +2285,17 @@ class EntityStatValueOut(BaseModel):
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
     computed: bool | None = Field(False, title="Computed")
+
+
+class EventComparison(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    left: UUID = Field(..., title="Left")
+    right: UUID = Field(..., title="Right")
+    relation: Relation = Field(..., title="Relation")
+    basis: Basis = Field(..., title="Basis")
+    path: list[RelationshipOut] = Field(..., title="Path")
 
 
 class FlipCheckOut(BaseModel):
@@ -2656,7 +2733,7 @@ class RepositoryStatGroupOut(BaseModel):
 
 
 class RowChangeOut(BaseModel):
-    kind: Kind19 = Field(..., title="Kind")
+    kind: Kind21 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -2666,7 +2743,7 @@ class RowChangeOut(BaseModel):
 
 
 class RowRefOut(BaseModel):
-    kind: Kind21 = Field(..., title="Kind")
+    kind: Kind23 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -2751,7 +2828,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind24 = Field(..., title="Kind")
+    kind: Kind26 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action2 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")

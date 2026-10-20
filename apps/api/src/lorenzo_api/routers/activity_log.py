@@ -6,7 +6,8 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 
-from lorenzo_api.dependencies import ParamsDep, SessionDep, get_tenant_admin_context
+from lorenzo_api.dependencies import CurrentUser, ParamsDep, SessionDep, get_tenant_admin_context
+from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import AuditLog
 from lorenzo_api.schemas.activity_log import AuditLogEntryOut
 
@@ -18,6 +19,7 @@ async def list_activity_log(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
     session: SessionDep,
     params: ParamsDep,
+    user: CurrentUser,
 ) -> Page[AuditLogEntryOut]:
     """An accountability timeline for tenant administrators: who changed
     what shape this tenant has, who can see or do what in it, and who
@@ -35,5 +37,11 @@ async def list_activity_log(
         .where(AuditLog.tenant_id == tenant_id)
         .order_by(AuditLog.created_at.desc(), AuditLog.id)
     )
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    if not visibility.is_admin:
+        # Filter before pagination: even the presence/count of an assertion is restricted.
+        stmt = stmt.where(
+            AuditLog.action.not_in(["event.relationship_added", "event.relationship_removed"])
+        )
     page: Page[AuditLogEntryOut] = await apaginate(session, stmt, params)
     return page

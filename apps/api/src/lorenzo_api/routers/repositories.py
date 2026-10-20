@@ -42,6 +42,7 @@ from lorenzo_api.exceptions import (
     TenantAdminRequiredError,
     TenantNotFoundError,
 )
+from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     AuditLog,
     Being,
@@ -1270,7 +1271,7 @@ async def list_repository_dependencies(
 # --- Copying (ADR 0119, 0120) ---------------------------------------------------
 
 
-def _step_out(step: Step) -> CopyStepOut:
+def _step_out(step: Step, *, event_order_visible: bool = False) -> CopyStepOut:
     return CopyStepOut(
         repository_id=step.repository_id,
         name=step.name,
@@ -1284,14 +1285,16 @@ def _step_out(step: Step) -> CopyStepOut:
         information=step.information,
         attachments=step.attachments,
         dropped=[
-            DroppedOut(kind=d.kind, source_id=d.source_id, reason=d.reason) for d in step.dropped
+            DroppedOut(kind=d.kind, source_id=d.source_id, reason=d.reason)
+            for d in step.dropped
+            if event_order_visible or d.kind != "event_relationship"
         ],
     )
 
 
-def _plan_out(plan: Plan) -> CopyPlanOut:
+def _plan_out(plan: Plan, *, event_order_visible: bool = False) -> CopyPlanOut:
     return CopyPlanOut(
-        steps=[_step_out(s) for s in plan.steps],
+        steps=[_step_out(s, event_order_visible=event_order_visible) for s in plan.steps],
         collisions=[
             CollisionOut(
                 repository_id=c.repository_id,
@@ -1321,7 +1324,8 @@ async def plan_repository_copy(
     plan = await plan_copy(
         session, tenant_id=tenant_id, repository_id=repository_id, user_id=user.id, resolutions=[]
     )
-    return _plan_out(plan)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    return _plan_out(plan, event_order_visible=visibility.is_admin)
 
 
 @router.post("/repositories/{repository_id}/copy", status_code=201)
@@ -1341,6 +1345,7 @@ async def copy_repository(
     answering `200`. The copied rows are this tenant's own from then on;
     the tenant-admin tier, like authoring stat definitions.
     """
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     dry_run = bool(body and body.dry_run)
     await _require_admin_unless_dry_run(session, tenant_id=tenant_id, user=user, dry_run=dry_run)
     again = body.again if body else None
@@ -1379,7 +1384,7 @@ async def copy_repository(
     else:
         await session.commit()
     return CopyOut(
-        steps=[_step_out(s) for s in plan.to_copy],
+        steps=[_step_out(s, event_order_visible=visibility.is_admin) for s in plan.to_copy],
         dry_run=dry_run,
         previous=(
             PreviousCopyOut(
@@ -1387,7 +1392,11 @@ async def copy_repository(
                 entities=previous.entities,
                 stat_groups=previous.stat_groups,
                 stat_definitions=previous.stat_definitions,
-                also_removed=previous.also_removed,
+                also_removed={
+                    k: v
+                    for k, v in previous.also_removed.items()
+                    if visibility.is_admin or k != "event_relationship"
+                },
             )
             if previous
             else None

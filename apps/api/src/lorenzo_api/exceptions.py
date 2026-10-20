@@ -1439,3 +1439,16 @@ class InvalidCalendarDateError(UnprocessableProblem):
 
 class CalendarImportReviewRequiredError(ConflictProblem):
     title = "Review the calendar import before applying it"
+
+
+class EventOrderForbiddenError(ForbiddenProblem):
+    title = "Event order requires an Owner or Organizer using full Event visibility"
+
+
+class EventOrderCycleError(ConflictProblem):
+    title = "That relationship would contradict the recorded Event order"
+
+
+class EventOrderPreconditionRequiredError(StatusProblem):
+    status = 428
+    title = "Read the Event relationships before changing them"

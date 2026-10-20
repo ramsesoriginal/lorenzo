@@ -51,6 +51,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventRelationship,
     GroupMember,
     Information,
     Knowledge,
@@ -901,6 +902,20 @@ class _Planner:
                         "rule": observance["rule"],
                     }
                 )
+        for source, target, kind in c.event_relationships:
+            if copies("entity", source):
+                local_target = self._local(c, "entity", target)
+                if local_target is None:
+                    drop("event_relationship", source, "its target Event was not copied")
+                else:
+                    self.rows["event_relationship"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "from_event_id": self.local["entity"][source],
+                            "to_event_id": local_target,
+                            "kind": kind,
+                        }
+                    )
         for e, period_id in c.entry_dates:
             if copies("entity", e):
                 target = self._local(c, "entity", period_id)
@@ -1051,6 +1066,11 @@ _LINKS = COPY_LINKS
 async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]]) -> None:
     """Inserts a plan's rows in dependency order. Shared with ADR 0121's
     updates, which add rows the same way."""
+    # Acquire the graph lock before any row locks or insert snapshots, also for copy/update.
+    from lorenzo_api.event_order_lock import lock_event_order
+
+    for tenant_id in sorted({r["tenant_id"] for r in rows.get("event_relationship", [])}):
+        await lock_event_order(session, tenant_id)
     bound_rows = rows.get("calendar_period", []) + rows.get("calendar_observance", [])
     calendars = {(r["tenant_id"], r["calendar_entity_id"]) for r in bound_rows}
     for tenant_id, calendar_id in sorted(calendars, key=lambda pair: (str(pair[0]), str(pair[1]))):
@@ -1230,7 +1250,8 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
             detail=(
                 f"entities={step.entities},stat_groups={step.stat_groups},"
                 f"stat_definitions={step.stat_definitions},information={step.information},"
-                f"attachments={step.attachments},dropped={len(step.dropped)}"
+                f"attachments={step.attachments},"
+                f"dropped={sum(d.kind != 'event_relationship' for d in step.dropped)}"
             ),
         )
 
@@ -1290,6 +1311,9 @@ async def forget_copy(
     pairs = sorted(links.attachments.get(repository_id, ()))
 
     if purge:
+        from lorenzo_api.event_order_lock import lock_event_order
+
+        await lock_event_order(session, t)
         # Serialize with materialization and date edits before inspecting local references.
         await session.execute(
             select(Entity.id)
@@ -1447,6 +1471,17 @@ async def forget_copy(
                 EntityKnowledge.knower_entity_id.in_(entities),
                 EntityKnowledge.entity_id.not_in(entities),
             ),
+            "event_relationship": await _count(
+                session,
+                EventRelationship,
+                EventRelationship.tenant_id == t,
+                or_(
+                    EventRelationship.to_event_id.in_(entities)
+                    & EventRelationship.from_event_id.not_in(entities),
+                    EventRelationship.from_event_id.in_(entities)
+                    & EventRelationship.to_event_id.not_in(entities),
+                ),
+            ),
             "fact_about": await _count(
                 session,
                 FactAbout,
@@ -1494,6 +1529,17 @@ async def forget_copy(
                     ).in_(pairs),
                 )
             )
+        # These are deliberately NO ACTION for individual Event deletion.
+        # A reviewed repository purge explicitly removes the incident assertions first.
+        await session.execute(
+            delete(EventRelationship).where(
+                EventRelationship.tenant_id == t,
+                or_(
+                    EventRelationship.from_event_id.in_(entities),
+                    EventRelationship.to_event_id.in_(entities),
+                ),
+            )
+        )
         await session.execute(delete(Entity).where(Entity.tenant_id == t, Entity.id.in_(entities)))
         await session.execute(
             delete(StatDefinition).where(
@@ -1513,6 +1559,9 @@ async def forget_copy(
             RepositoryCopy.tenant_id == t, RepositoryCopy.repository_tenant_id == repository_id
         )
     )
+    reported_removed = sum(
+        count for kind, count in previous.also_removed.items() if kind != "event_relationship"
+    )
     await record_activity(
         session,
         tenant_id=t,
@@ -1523,7 +1572,7 @@ async def forget_copy(
         detail=(
             f"entities={previous.entities},stat_groups={previous.stat_groups},"
             f"stat_definitions={previous.stat_definitions},"
-            f"also_removed={sum(previous.also_removed.values())}"
+            f"also_removed={reported_removed}"
         ),
     )
     return previous

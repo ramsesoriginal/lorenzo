@@ -91,6 +91,10 @@ ADMIN_UNLESS_DRY_RUN = {
 
 # An Owner or an Organizer: `get_tenant_admin_context`.
 ADMIN = {
+    ("GET", T + "/events/{event_id}/relationships"),
+    ("POST", T + "/events/compare"),
+    ("PUT", T + "/events/{event_id}/relationships/{other_event_id}"),
+    ("DELETE", T + "/events/{event_id}/relationships/{other_event_id}"),
     ("PATCH", T),
     ("GET", T + "/activity-log"),
     ("POST", T + "/campaigns"),
@@ -221,6 +225,8 @@ def _url(path: str, world: World) -> str:
     for placeholder in (
         "{campaign_id}",
         "{entity_id}",
+        "{event_id}",
+        "{other_event_id}",
         "{stat_definition_id}",
         "{stat_group_id}",
         "{enum_value_id}",

@@ -99,20 +99,21 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 5
+    assert rd.FORMAT == 6
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
         "observances": {},
         "calendar_periods": {},
         "entry_dates": [],
+        "event_relationships": [],
         "entry_audiences": {},
         "entry_knowledge": [],
         "fact_about": [],
     }
 
 
-@pytest.mark.parametrize("format_", [0, 6, 99])
+@pytest.mark.parametrize("format_", [0, 7, 99])
 def test_a_version_nobody_knows_is_refused(format_: int) -> None:
     document, files = rd.encode(full_content())
 
@@ -169,3 +170,12 @@ def test_an_empty_content_round_trips() -> None:
 
     assert files == {}
     assert differences(content, rd.decode(rd.loads(rd.dumps(document)), files)) == []
+
+
+def test_event_assertions_round_trip_and_old_releases_have_none():
+    content = full_content()
+    content.event_relationships = [(uuid.UUID(int=10), uuid.UUID(int=11), "causes")]
+    document, files = rd.encode(content)
+    assert rd.decode(document, files).event_relationships == content.event_relationships
+    old = {k: v for k, v in document.items() if k != "event_relationships"}
+    assert rd.decode(old, files, format=5).event_relationships == []

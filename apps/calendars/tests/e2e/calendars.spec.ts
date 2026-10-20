@@ -460,3 +460,91 @@ test('whole year on a phone keeps reader visibility and returns from day detail 
   await expect(page.locator('.day')).toHaveCount(27);
   await page.context().close();
 });
+
+test('Event order shows evidence, keeps conflicting selections, and stays absent for readers', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  async function event(name: string) {
+    return ok(
+      world.api.POST('/tenants/{tenant_id}/entities', {
+        params: { path: { tenant_id: world.tenantId } },
+        body: { name, kinds: ['event'], parents: [] },
+      }),
+    );
+  }
+  const first = await event('The bell rings');
+  const second = await event('The gates close');
+  const third = await event('The flight begins');
+  // The reader can read this Event, but gets no structured-order surface or requests.
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+      params: {
+        path: { tenant_id: world.tenantId, entity_id: first.id },
+        header: { 'if-match': `W/"${first.updated_at}"` },
+      },
+      body: { is_public: true },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${first.id}`);
+  const panel = page.locator('[data-event-order]');
+  await panel.getByText('Order and causes', { exact: true }).click();
+  await panel.getByLabel('Find an Event').fill('The gates');
+  await panel.getByRole('button', { name: 'Search Events', exact: true }).click();
+  await panel.getByRole('button', { name: second.name, exact: true }).click();
+  await panel.getByRole('button', { name: 'Compare Events', exact: true }).click();
+  await expect(panel).toContainText('Linearized · no recorded ordering path');
+  await panel.getByLabel('Relationship', { exact: true }).selectOption('causes');
+  await panel.getByRole('button', { name: 'Add relationship', exact: true }).click();
+  await expect(panel.getByRole('status')).toHaveText('Relationship recorded.');
+  await panel.getByRole('button', { name: 'Compare Events', exact: true }).click();
+  await expect(panel).toContainText('Causal · a recorded chain of causes');
+  await expect(panel).toContainText('The bell rings caused The gates close');
+  await panel.getByLabel('Find an Event').fill('The flight');
+  await panel.getByRole('button', { name: 'Search Events', exact: true }).click();
+  await panel.getByRole('button', { name: third.name, exact: true }).click();
+  // Another editor changes the first Event's order after this page read its version.
+  const path = { tenant_id: world.tenantId, event_id: first.id };
+  const saved = await world.api.GET('/tenants/{tenant_id}/events/{event_id}/relationships', {
+    params: { path },
+  });
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}', {
+      params: {
+        path: { ...path, other_event_id: third.id },
+        header: { 'if-match': saved.response.headers.get('etag') ?? '' },
+      },
+      body: { kind: 'order', direction: 'outgoing' },
+    }),
+  );
+  await panel.getByRole('button', { name: 'Add relationship', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Your selection is kept');
+  await expect(panel.getByText(`Selected Event: ${third.name}`, { exact: true })).toBeVisible();
+  await panel.getByRole('button', { name: 'Refresh saved relationships', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Saved relationships refreshed');
+  await panel.getByLabel('Relationship', { exact: true }).selectOption('before');
+  await panel.getByRole('button', { name: 'Add relationship', exact: true }).click();
+  await expect(panel.getByRole('status')).toHaveText('Relationship recorded.');
+  await panel.getByRole('button', { name: 'Compare Events', exact: true }).click();
+  await expect(panel).toContainText('Ruled · recorded ordering');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('event-order-phone.png') });
+  await panel.getByRole('button', { name: 'Remove', exact: true }).last().click();
+  await expect(panel.getByRole('status')).toHaveText('Relationship removed.');
+  const reader = await signedIn(browser, world.readerSubject);
+  const graphRequests: string[] = [];
+  reader.on('request', (r) => {
+    if (r.url().includes('/relationships') || r.url().includes('/events/compare'))
+      graphRequests.push(r.url());
+  });
+  await reader.goto(`/entry/?tenant=${world.tenantId}&id=${first.id}`);
+  await expect(
+    reader.getByRole('heading', { name: first.name, exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(reader.locator('[data-event-order]')).toHaveCount(0);
+  expect(graphRequests).toEqual([]);
+  await page.context().close();
+  await reader.context().close();
+});

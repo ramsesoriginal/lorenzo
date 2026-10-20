@@ -2,6 +2,7 @@ import { renderAudienceControl } from '@lorenzo/information-editor';
 import { client, unwrap } from '../../lib/api';
 import { datedEntries, recurrenceFields } from '../../lib/dated-entries';
 import { button, calendarHref, el, entryHref, field, link, message } from '../../lib/dom';
+import { eventOrder } from '../../lib/event-order';
 import { informationForm, informationView } from '../../lib/information';
 import { start } from '../../lib/session';
 export async function mount() {
@@ -57,6 +58,14 @@ export async function mount() {
           ),
         );
       host.append(await datedEntries(tenantId, id));
+    }
+    if (entry.kinds.includes('event') && session.canOrderEvents) {
+      try {
+        const ordering = await eventOrder(tenantId, id);
+        if (ordering) host.append(ordering);
+      } catch (error) {
+        host.append(el('p', `Could not load Event ordering. ${message(error)}`, 'caption'));
+      }
     }
     const refresh = () => location.reload();
     if (canWrite) {
