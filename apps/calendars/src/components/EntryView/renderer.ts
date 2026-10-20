@@ -4,6 +4,7 @@ import { datedEntries, recurrenceFields } from '../../lib/dated-entries';
 import { button, calendarHref, el, entryHref, field, link, message } from '../../lib/dom';
 import { eventOrder } from '../../lib/event-order';
 import { informationForm, informationView } from '../../lib/information';
+import { participants } from '../../lib/participants';
 import { start } from '../../lib/session';
 export async function mount() {
   const session = await start();
@@ -13,7 +14,11 @@ export async function mount() {
   if (!host) return;
   const status = el('p');
   status.setAttribute('role', 'status');
-  host.append(link('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`), status);
+  host.append(
+    link('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`),
+    link('All Events', `/events/?tenant=${encodeURIComponent(tenantId)}`),
+    status,
+  );
   try {
     const params = new URLSearchParams(location.search);
     const id = params.get('id');
@@ -63,6 +68,7 @@ export async function mount() {
       try {
         const ordering = await eventOrder(tenantId, id);
         if (ordering) host.append(ordering);
+        host.append(await participants(tenantId, id));
       } catch (error) {
         host.append(el('p', `Could not load Event ordering. ${message(error)}`, 'caption'));
       }

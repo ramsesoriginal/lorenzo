@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 6
+FORMAT = 7
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -390,6 +390,7 @@ _CONTENT = _dataclass(
             )
         ),
         "entry_dates": _pairs(_ID, _ID),
+        "event_participants": _pairs(_ID, _ID),
         "event_relationships": _Codec(
             lambda rows, f: [[str(a), str(b), k] for a, b, k in rows],
             lambda rows, f: [(uuid.UUID(a), uuid.UUID(b), k) for a, b, k in rows],
@@ -440,6 +441,10 @@ def _read_v5(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v6(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v7({**document, "event_participants": []}, files)
+
+
+def _read_v7(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -453,6 +458,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     4: _read_v4,
     5: _read_v5,
     6: _read_v6,
+    7: _read_v7,
 }
 
 

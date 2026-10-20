@@ -51,6 +51,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventParticipant,
     EventRelationship,
     GroupMember,
     Information,
@@ -902,6 +903,19 @@ class _Planner:
                         "rule": observance["rule"],
                     }
                 )
+        for event, being in c.event_participants:
+            if copies("entity", event):
+                target = self._local(c, "entity", being)
+                if target is None:
+                    drop("event_participant", event, "its participating being was not copied")
+                else:
+                    self.rows["event_participant"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "event_entity_id": self.local["entity"][event],
+                            "being_entity_id": target,
+                        }
+                    )
         for source, target, kind in c.event_relationships:
             if copies("entity", source):
                 local_target = self._local(c, "entity", target)
@@ -1240,6 +1254,9 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
         a.step.dropped.append(Dropped("attachment", a.child_source_id, LOOP_REASON))
     await check_formula_cycles(session, plan.tenant_id)
     for step in plan.to_copy:
+        reported_dropped = sum(
+            d.kind not in ("event_relationship", "event_participant") for d in step.dropped
+        )
         await record_activity(
             session,
             tenant_id=plan.tenant_id,
@@ -1251,7 +1268,7 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
                 f"entities={step.entities},stat_groups={step.stat_groups},"
                 f"stat_definitions={step.stat_definitions},information={step.information},"
                 f"attachments={step.attachments},"
-                f"dropped={sum(d.kind != 'event_relationship' for d in step.dropped)}"
+                f"dropped={reported_dropped}"
             ),
         )
 
@@ -1471,6 +1488,17 @@ async def forget_copy(
                 EntityKnowledge.knower_entity_id.in_(entities),
                 EntityKnowledge.entity_id.not_in(entities),
             ),
+            "event_participant": await _count(
+                session,
+                EventParticipant,
+                EventParticipant.tenant_id == t,
+                or_(
+                    EventParticipant.event_entity_id.in_(entities)
+                    & EventParticipant.being_entity_id.not_in(entities),
+                    EventParticipant.being_entity_id.in_(entities)
+                    & EventParticipant.event_entity_id.not_in(entities),
+                ),
+            ),
             "event_relationship": await _count(
                 session,
                 EventRelationship,
@@ -1529,6 +1557,15 @@ async def forget_copy(
                     ).in_(pairs),
                 )
             )
+        await session.execute(
+            delete(EventParticipant).where(
+                EventParticipant.tenant_id == t,
+                or_(
+                    EventParticipant.event_entity_id.in_(entities),
+                    EventParticipant.being_entity_id.in_(entities),
+                ),
+            )
+        )
         # These are deliberately NO ACTION for individual Event deletion.
         # A reviewed repository purge explicitly removes the incident assertions first.
         await session.execute(
@@ -1560,7 +1597,9 @@ async def forget_copy(
         )
     )
     reported_removed = sum(
-        count for kind, count in previous.also_removed.items() if kind != "event_relationship"
+        count
+        for kind, count in previous.also_removed.items()
+        if kind not in ("event_relationship", "event_participant")
     )
     await record_activity(
         session,

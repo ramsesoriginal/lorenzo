@@ -41,6 +41,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventParticipant,
     EventRelationship,
     Fact,
     FactAbout,
@@ -183,6 +184,7 @@ class Content:
     calendar_periods: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     entry_dates: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
+    event_participants: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
@@ -512,6 +514,14 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         }
         for p in await session.scalars(select(CalendarPeriod).where(CalendarPeriod.tenant_id == t))
     }
+    c.event_participants = [
+        (e, b)
+        for e, b in await rows(
+            EventParticipant.event_entity_id,
+            EventParticipant.being_entity_id,
+            where=EventParticipant.tenant_id == t,
+        )
+    ]
     c.event_relationships = [
         (source, target, kind)
         for source, target, kind in await rows(

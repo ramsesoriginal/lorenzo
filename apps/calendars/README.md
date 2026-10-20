@@ -18,6 +18,14 @@ Owners and Organizers using full visibility can open **Order and causes** on an 
 
 Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, learning history, participations, time travel and Bench integration remain later work.
 
+The **Events** page creates undated Events, searches their names, and offers full-visibility
+Owners/Organizers participant and causal filters plus story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
+Causal filters follow causes in either direction from one Event; branches remain independent.
+Story order derives the full graph before filtering and labels unconstrained positions as
+linearized. Event pages add/remove participating beings with version checks. Participation
+records neither knowledge nor lived order and grants no visibility. Authors/readers may browse
+ordinary permitted Event names but receive no structured participation or order surface.
+
 ## Development and checks
 
 Use Node from the root `mise.toml` and the workspace pnpm version. Copy `.env.example` to `.env` and set this app's Authgear endpoint/client; register the slash-suffixed callback. The API must allow the local origin through CORS.

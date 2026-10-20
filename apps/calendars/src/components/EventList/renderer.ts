@@ -1,0 +1,268 @@
+import { client, unwrap } from '../../lib/api';
+import { button, el, entryHref, field, link, message, select } from '../../lib/dom';
+import { entryPicker } from '../../lib/entry-picker';
+import { start } from '../../lib/session';
+export async function mount() {
+  const session = await start();
+  if (!session) return;
+  const host = document.querySelector('#EventList');
+  if (!host) return;
+  const { tenantId, canWrite, canOrderEvents } = session;
+  const initial = new URLSearchParams(location.search);
+  let being = initial.get('being') ?? '';
+  let chain = initial.get('chain') ?? '';
+  let page = 1;
+  host.append(
+    link('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`),
+    el('h1', 'Events'),
+    el('p', 'Record what happened, even before its date is known.', 'intro'),
+  );
+  const status = el('p');
+  status.setAttribute('role', 'status');
+  const list = el('ol', '', 'stack');
+  list.dataset.eventList = '';
+  const nav = el('div', '', 'row');
+  const q = field('Search Event names', initial.get('q') ?? '');
+  const sort = select(
+    'List order',
+    canOrderEvents
+      ? [
+          ['name', 'Name'],
+          ['order', 'Story order'],
+        ]
+      : [['name', 'Name']],
+    canOrderEvents && initial.get('sort') === 'order' ? 'order' : 'name',
+  );
+  sort.input.setAttribute('aria-label', 'List order');
+  const direction = select(
+    'Causal direction',
+    [
+      ['both', 'What led here and followed'],
+      ['ancestors', 'What led here'],
+      ['descendants', 'What followed'],
+    ],
+    'both',
+  );
+  direction.input.setAttribute('aria-label', 'Causal direction');
+  const filters = el('div', '', 'stack-tight');
+  const choices = el('p', '', 'caption');
+  function showChoices() {
+    choices.textContent = [
+      being ? 'Participant filter selected' : '',
+      chain ? 'Causal Event selected' : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  let generation = 0;
+  async function load() {
+    const turn = ++generation;
+    status.textContent = 'Loading Events…';
+    try {
+      const response = await unwrap(
+        await client.GET('/tenants/{tenant_id}/events', {
+          params: {
+            path: { tenant_id: tenantId },
+            query: {
+              q: q.input.value,
+              sort: sort.input.value as 'name' | 'order',
+              being_id: being || undefined,
+              causal_event_id: chain || undefined,
+              direction: direction.input.value as 'both' | 'ancestors' | 'descendants',
+              page,
+              size: 30,
+            },
+          },
+        }),
+      );
+      if (turn !== generation) return;
+      list.replaceChildren();
+      list.start = (page - 1) * 30 + 1;
+      for (const entry of response.items) {
+        const row = el('li', '', 'panel stack-tight');
+        row.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
+        if (entry.order_basis)
+          row.append(
+            el(
+              'p',
+              {
+                causal: 'Causal order',
+                ruled: 'Recorded order',
+                linearized: 'Linearized · no recorded ordering path',
+              }[entry.order_basis],
+              'caption',
+            ),
+          );
+        if (canOrderEvents)
+          row.append(
+            button(
+              'Follow causes',
+              () => {
+                chain = entry.entity_id;
+                sort.input.value = 'order';
+                page = 1;
+                showChoices();
+                void load();
+              },
+              true,
+            ),
+          );
+        list.append(row);
+      }
+      nav.replaceChildren();
+      if (page > 1)
+        nav.append(
+          button(
+            'Previous Events',
+            () => {
+              page--;
+              void load();
+            },
+            true,
+          ),
+        );
+      if (page < (response.pages ?? 0))
+        nav.append(
+          button(
+            'Next Events',
+            () => {
+              page++;
+              void load();
+            },
+            true,
+          ),
+        );
+      status.textContent = response.total
+        ? `${response.total} Event${response.total === 1 ? '' : 's'}.`
+        : 'No Events match these filters.';
+      const address = new URL(location.href);
+      address.searchParams.set('tenant', tenantId);
+      for (const [key, value] of Object.entries({
+        q: q.input.value,
+        sort: sort.input.value,
+        being,
+        chain,
+      })) {
+        if (value) address.searchParams.set(key, value);
+        else address.searchParams.delete(key);
+      }
+      history.replaceState(null, '', address);
+    } catch (error) {
+      if (turn === generation) {
+        list.replaceChildren();
+        status.textContent = message(error);
+      }
+    }
+  }
+  filters.append(
+    q.label,
+    sort.label,
+    button(
+      'Find Events',
+      () => {
+        page = 1;
+        void load();
+      },
+      true,
+    ),
+  );
+  if (canOrderEvents) {
+    const advanced = el('details', '', 'panel');
+    const body = el('div', '', 'stack');
+    advanced.append(el('summary', 'Participants and causes'), body);
+    body.append(
+      entryPicker(tenantId, 'Filter by being', 'being', (entry) => {
+        being = entry.id;
+        page = 1;
+        showChoices();
+        void load();
+      }),
+      entryPicker(tenantId, 'Follow an Event', 'event', (entry) => {
+        chain = entry.id;
+        page = 1;
+        showChoices();
+        void load();
+      }),
+      direction.label,
+      choices,
+      button(
+        'Clear participant and causal filters',
+        () => {
+          being = '';
+          chain = '';
+          page = 1;
+          showChoices();
+          void load();
+        },
+        true,
+      ),
+    );
+    filters.append(advanced);
+  }
+  if (canWrite) {
+    const create = el('details', '', 'panel');
+    create.append(el('summary', 'Create an Event'));
+    const form = el('form', '', 'stack');
+    const name = field('Event name');
+    name.input.required = true;
+    const save = el('button', 'Create Event', 'btn');
+    save.type = 'submit';
+    const progress = el('p');
+    progress.setAttribute('role', 'status');
+    const id = crypto.randomUUID();
+    form.append(
+      name.label,
+      el(
+        'p',
+        'Starts restricted and undated. You can add dates and Information after saving.',
+        'caption',
+      ),
+      save,
+      progress,
+    );
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      save.disabled = true;
+      progress.textContent = 'Creating…';
+      try {
+        await unwrap(
+          await client.POST('/tenants/{tenant_id}/entities', {
+            params: { path: { tenant_id: tenantId } },
+            body: { id, name: name.input.value, kinds: ['event'], parents: [] },
+          }),
+        );
+        location.assign(entryHref(tenantId, id));
+      } catch (error) {
+        try {
+          const existing = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+            params: { path: { tenant_id: tenantId, entity_id: id } },
+          });
+          if (existing.data?.kinds.includes('event')) {
+            location.assign(entryHref(tenantId, id));
+            return;
+          }
+        } catch {
+          /* Keep the stable retry identity and draft. */
+        }
+        progress.textContent = `${message(error)} Your draft is kept.`;
+        save.disabled = false;
+      }
+    });
+    create.append(form);
+    host.append(create);
+  }
+  host.append(
+    filters,
+    el(
+      'p',
+      'Story order follows recorded relationships. Linearized placements supply no evidence of chronology. Causal filters follow causes, including branches.',
+      'caption',
+    ),
+    status,
+    list,
+    nav,
+  );
+  showChoices();
+  await load();
+}

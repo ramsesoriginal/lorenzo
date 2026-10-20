@@ -35,6 +35,7 @@ from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.entity_export import router as entity_export_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.event_order import router as event_order_router
+from lorenzo_api.routers.events import router as events_router
 from lorenzo_api.routers.groups import router as groups_router
 from lorenzo_api.routers.information import router as information_router
 from lorenzo_api.routers.invites import router as invites_router
@@ -139,6 +140,7 @@ def create_app() -> FastAPI:
     app.include_router(calendars_router)
     app.include_router(calendar_periods_router)
     app.include_router(event_order_router)
+    app.include_router(events_router)
     app.include_router(calendar_observances_router)
     app.include_router(calendar_imports_router)
     app.include_router(payloads_router)

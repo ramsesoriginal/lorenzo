@@ -704,6 +704,10 @@ class EntryKnowerOut(BaseModel):
     name: str | None = Field(..., title="Name")
 
 
+class EventAccess(BaseModel):
+    can_order: bool = Field(..., title="Can Order")
+
+
 class Relation(StrEnum):
     before = "before"
     after = "after"
@@ -723,6 +727,19 @@ class EventPair(BaseModel):
     )
     left: UUID = Field(..., title="Left")
     right: UUID = Field(..., title="Right")
+
+
+class OrderBasis(StrEnum):
+    causal = "causal"
+    ruled = "ruled"
+    linearized = "linearized"
+
+
+class EventSummary(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    order_basis: OrderBasis | None = Field(None, title="Order Basis")
 
 
 class FactUpdate(BaseModel):
@@ -1203,6 +1220,14 @@ class PageEntitySummary(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageEventSummary(BaseModel):
+    items: list[EventSummary] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageKnowledgeEntryOut(BaseModel):
     items: list[KnowledgeEntryOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1225,6 +1250,12 @@ class PageOccurrenceOut(BaseModel):
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
     pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class ParticipantOut(BaseModel):
+    being_entity_id: UUID = Field(..., title="Being Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
 
 
 class PayloadDescriptionOut(BaseModel):

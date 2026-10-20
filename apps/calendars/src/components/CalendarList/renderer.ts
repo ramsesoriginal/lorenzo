@@ -9,6 +9,7 @@ export async function mount() {
   if (!host) return;
   host.append(
     el('h1', 'Calendars'),
+    link('Browse Events', `/events/?tenant=${encodeURIComponent(session.tenantId)}`),
     el('p', 'Choose a calendar to explore its dates, notes and story events.', 'intro'),
   );
   const status = el('p');

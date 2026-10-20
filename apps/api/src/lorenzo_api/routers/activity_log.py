@@ -41,7 +41,14 @@ async def list_activity_log(
     if not visibility.is_admin:
         # Filter before pagination: even the presence/count of an assertion is restricted.
         stmt = stmt.where(
-            AuditLog.action.not_in(["event.relationship_added", "event.relationship_removed"])
+            AuditLog.action.not_in(
+                [
+                    "event.relationship_added",
+                    "event.relationship_removed",
+                    "event.participant_added",
+                    "event.participant_removed",
+                ]
+            )
         )
     page: Page[AuditLogEntryOut] = await apaginate(session, stmt, params)
     return page

@@ -548,3 +548,70 @@ test('Event order shows evidence, keeps conflicting selections, and stays absent
   await page.context().close();
   await reader.context().close();
 });
+
+test('standalone Events can be found by participating being without acquiring a date', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const being = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'Aster the traveller', kinds: ['being'], parents: [] },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/events/?tenant=${world.tenantId}`);
+  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByLabel('Event name', { exact: true }).fill('The beacon is lit');
+  await page.getByRole('button', { name: 'Create Event', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'The beacon is lit', exact: true, level: 1 }),
+  ).toBeVisible();
+  const eventId = new URL(page.url()).searchParams.get('id');
+  if (!eventId) throw new Error('Created Event address is missing.');
+  const roster = page.locator('[data-participants]');
+  await roster.getByText('Participating beings', { exact: true }).click();
+  await roster.getByLabel('Find a participating being', { exact: true }).fill('Aster');
+  await roster.getByRole('button', { name: 'Search beings', exact: true }).click();
+  await roster.getByRole('button', { name: being.name, exact: true }).click();
+  await roster.getByRole('button', { name: 'Add participant', exact: true }).click();
+  await expect(roster.getByText('Participation recorded.', { exact: true })).toBeVisible();
+  const dates = await ok(
+    world.api.GET('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+      params: { path: { tenant_id: world.tenantId, entity_id: eventId } },
+    }),
+  );
+  expect(dates).toEqual([]);
+  await page.getByRole('link', { name: 'All Events', exact: true }).click();
+  await page.getByText('Participants and causes', { exact: true }).click();
+  await page.getByLabel('Filter by being', { exact: true }).fill('Aster');
+  await page.getByRole('button', { name: 'Search beings', exact: true }).click();
+  await page.getByRole('button', { name: being.name, exact: true }).click();
+  await expect(page.locator('[data-event-list] > li')).toHaveCount(1);
+  await expect(page.locator('[data-event-list]')).toContainText('The beacon is lit');
+  await page.getByRole('combobox', { name: 'List order', exact: true }).selectOption('order');
+  await page.getByRole('button', { name: 'Find Events', exact: true }).click();
+  await expect(page.getByText('1 Event.', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('link', { name: 'The beacon is lit', exact: true }).click();
+  await page
+    .locator('[data-participants]')
+    .getByText('Participating beings', { exact: true })
+    .click();
+  await page
+    .locator('[data-participants]')
+    .getByRole('button', { name: 'Remove participant', exact: true })
+    .click();
+  await expect(page.getByText('Participation removed.', { exact: true })).toBeVisible();
+  const reader = await signedIn(browser, world.readerSubject);
+  await reader.goto(`/events/?tenant=${world.tenantId}`);
+  await expect(
+    reader.getByRole('heading', { name: 'Events', exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(reader.getByText('Participants and causes', { exact: true })).toHaveCount(0);
+  await expect(reader.getByText('Create an Event', { exact: true })).toHaveCount(0);
+  await expect(reader.getByRole('link', { name: 'The beacon is lit', exact: true })).toHaveCount(0);
+  await page.context().close();
+  await reader.context().close();
+});

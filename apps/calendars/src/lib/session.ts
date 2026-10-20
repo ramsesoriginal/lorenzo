@@ -86,10 +86,20 @@ export async function start(): Promise<Session | null> {
     document.querySelector<HTMLElement>('[data-page]')?.removeAttribute('hidden');
     status.hidden = true;
     document.querySelector<HTMLElement>('[data-welcome]')?.setAttribute('hidden', '');
+    let canOrderEvents = false;
+    if (['owner', 'orga'].includes(tenant.role)) {
+      canOrderEvents = (
+        await unwrap(
+          await client.GET('/tenants/{tenant_id}/events/access', {
+            params: { path: { tenant_id: tenant.id } },
+          }),
+        )
+      ).can_order;
+    }
     return {
       tenantId: tenant.id,
       canWrite: ['owner', 'orga', 'author'].includes(tenant.role),
-      canOrderEvents: ['owner', 'orga'].includes(tenant.role),
+      canOrderEvents,
     };
   } catch (e) {
     status.textContent = message(e);
