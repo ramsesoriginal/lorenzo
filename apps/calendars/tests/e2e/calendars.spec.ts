@@ -34,7 +34,9 @@ test('imported irregular year is browsable without creating periods, and dated i
   const before = await periods();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await expect(page.getByRole('heading', { name: 'Isles calendar', exact: true })).toBeVisible();
-  await expect(page.getByLabel('Month or festival').locator('option')).toHaveCount(19);
+  await expect(
+    page.getByRole('combobox', { name: /^Month or festival/ }).locator('option'),
+  ).toHaveCount(19);
   await expect(page.locator('.day')).toHaveCount(27);
   await expect(page.locator('.weekday').first()).toHaveText('Montag');
   const firstMoon = page.locator('.day').first().locator('.moon-phase').first();
@@ -44,9 +46,9 @@ test('imported irregular year is browsable without creating periods, and dated i
     'aria-description',
     /Maira:.*Mendra:.*Galon:/,
   );
-  await page.getByLabel('Month or festival').selectOption('segment-4');
+  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-4');
   await expect(page.locator('.day')).toHaveCount(2);
-  await page.getByLabel('Month or festival').selectOption('segment-6');
+  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
   const diaryDay = page.getByRole('button', { name: '16 Quirm 3286', exact: true });
   await expect(diaryDay).toContainText('A lantern was lit by the harbour.');
   await expect(page.getByRole('button', { name: '17 Quirm 3286', exact: true })).toContainText(
@@ -160,7 +162,7 @@ test('readers see permitted names and dates without private information or autho
   const world = await buildWorld();
   const page = await signedIn(browser, world.readerSubject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByLabel('Month or festival').selectOption('segment-6');
+  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
   await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
     'A lantern was lit by the harbour.',
   );
@@ -310,14 +312,14 @@ test('month content is cached and moon names remain available when selecting a d
     if (r.method() === 'GET' && /\/(information|entries)\?/.test(r.url())) reads.push(r.url());
   });
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByLabel('Month or festival').selectOption('segment-6');
+  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
   await expect(page.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
     'A lantern was lit by the harbour.',
   );
   const loaded = reads.length;
-  await page.getByLabel('Month or festival').selectOption('segment-4');
-  await page.getByLabel('Month or festival').selectOption('segment-6');
+  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-4');
+  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
   await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
     'A lantern was lit by the harbour.',
   );
@@ -331,5 +333,130 @@ test('month content is cached and moon names remain available when selecting a d
   await expect(page.locator('aside .selected-moons')).toContainText('Maira:');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('month-notes-phone.png'), fullPage: true });
+  await page.context().close();
+});
+
+test('whole year reuses month content and supports keyboard tabs, festivals and leap years without writes', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const path = { tenant_id: world.tenantId, entity_id: world.calendarId };
+  const response = await world.api.GET('/tenants/{tenant_id}/calendars/{entity_id}', {
+    params: { path },
+  });
+  const saved = await ok(Promise.resolve(response));
+  saved.definition.segments[3].kind = 'festival';
+  saved.definition.segments[3].in_week = false;
+  saved.definition.segments[18].when = { every: 4, offset: 2 };
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/calendars/{entity_id}/definition', {
+      params: { path, header: { 'if-match': response.response.headers.get('etag') ?? '' } },
+      body: saved.definition,
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const writes: string[] = [];
+  const reads: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() !== 'GET' && request.url().includes('/tenants/'))
+      writes.push(request.url());
+    if (request.method() === 'GET' && /\/(information|entries)\?/.test(request.url()))
+      reads.push(request.url());
+  });
+  const periods = () =>
+    ok(
+      world.api.GET('/tenants/{tenant_id}/calendars/{calendar_id}/periods', {
+        params: {
+          path: { tenant_id: world.tenantId, calendar_id: world.calendarId },
+          query: { size: 100 },
+        },
+      }),
+    );
+  const before = await periods();
+  await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
+  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
+    'A lantern was lit',
+  );
+  await page.getByRole('tab', { name: 'Month or festival', exact: true }).press('End');
+  const yearPanel = page.getByRole('tabpanel', { name: 'Whole year', exact: true });
+  await expect(page.getByRole('tab', { name: 'Whole year', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(yearPanel.locator('.year-segment > h2')).toHaveText(
+    saved.definition.segments.map((segment) => segment.name),
+  );
+  await expect(yearPanel.locator('.day')).toHaveCount(387);
+  await expect(yearPanel.locator('.festival .day')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
+    'A lantern was lit',
+  );
+  await expect(page.getByRole('button', { name: '17 Quirm 3286', exact: true })).toContainText(
+    'Harbour storm',
+  );
+  await expect(page.getByRole('button', { name: '18 Quirm 3286', exact: true })).toContainText(
+    'Recurring · Harbour feast',
+  );
+  await expect(yearPanel.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(
+    0,
+  );
+  const loaded = reads.length;
+  await page.getByRole('tab', { name: 'Whole year', exact: true }).press('Home');
+  await expect(page.getByRole('combobox', { name: /^Month or festival/ })).toHaveValue('segment-6');
+  await page.getByRole('tab', { name: 'Month or festival', exact: true }).press('ArrowRight');
+  await expect(yearPanel.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(
+    0,
+  );
+  expect(reads.length).toBe(loaded);
+  await page.screenshot({ path: test.info().outputPath('whole-year-desktop.png') });
+  await page.getByRole('button', { name: 'Next year', exact: true }).click();
+  await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3287');
+  await expect(page.getByRole('tab', { name: 'Whole year', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(yearPanel.locator('.year-segment')).toHaveCount(18);
+  await expect(yearPanel.locator('.day')).toHaveCount(386);
+  await page.reload();
+  await expect(page.getByRole('tab', { name: 'Whole year', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(yearPanel.locator('.day')).toHaveCount(386);
+  expect((await periods()).total).toBe(before.total);
+  expect(writes).toEqual([]);
+  await page.context().close();
+});
+
+test('whole year on a phone keeps reader visibility and returns from day detail to the selected date', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.readerSubject);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&view=year`);
+  const panel = page.getByRole('tabpanel', { name: 'Whole year', exact: true });
+  await expect(panel.locator('.day')).toHaveCount(387);
+  await expect(panel.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(0);
+  await expect(
+    page.getByText(/Secret tide|Hidden landing|Secret rite|A storm reaches/),
+  ).toHaveCount(0);
+  const day = page.getByRole('button', { name: '16 Quirm 3286', exact: true });
+  await expect(day).toContainText('A lantern was lit');
+  await day.click();
+  await expect(
+    page.locator('aside').getByText('A lantern was lit by the harbour.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to calendar', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: 'Back to calendar', exact: true }).click();
+  await expect(day).toBeFocused();
+  await expect(day).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('whole-year-phone.png') });
+  await page.getByRole('tab', { name: 'Month or festival', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Back to calendar', exact: true })).toHaveCount(0);
+  await expect(page.locator('.day')).toHaveCount(27);
   await page.context().close();
 });
