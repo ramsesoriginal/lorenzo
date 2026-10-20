@@ -9,7 +9,7 @@ export async function mount() {
   if (!host) return;
   host.append(
     el('h1', 'Calendars'),
-    el('p', 'The reckonings your worlds use. Open any year; add detail where your story needs it.'),
+    el('p', 'Choose a calendar to explore its dates, notes and story events.', 'intro'),
   );
   const status = el('p');
   status.setAttribute('role', 'status');
@@ -25,7 +25,9 @@ export async function mount() {
     const list = el('ul', '', 'calendar-list');
     for (const calendar of calendars) {
       const item = el('li', '', 'panel');
-      item.append(link(calendar.name, calendarHref(session.tenantId, calendar.entity_id)));
+      const open = link(calendar.name, calendarHref(session.tenantId, calendar.entity_id));
+      open.className = 'calendar-card';
+      item.append(open);
       list.append(item);
     }
     host.append(list);

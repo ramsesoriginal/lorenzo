@@ -1,6 +1,6 @@
 # Setting up Lorenzo Calendars for hosting
 
-[Lorenzo Calendars](../../apps/calendars/README.md) is a static Astro app. This slice does not provision an Authgear client or a Cloudflare Pages project. The following is the setup procedure after review. It follows the other static apps: Cloudflare Git integration builds from `main`, without a separate GitHub deployment workflow. See [deployment setup](deployment-setup.md) for shared Authgear, Cloudflare and CORS details.
+[Lorenzo Calendars](../../apps/calendars/README.md) is a static Astro app. The production app is at [lorenzo-calendars.pages.dev](https://lorenzo-calendars.pages.dev/). The following records its setup procedure. It follows the other static apps: Cloudflare Git integration builds from `main`, without a separate GitHub deployment workflow. See [deployment setup](deployment-setup.md) for shared Authgear, Cloudflare and CORS details.
 
 ## Pages
 
