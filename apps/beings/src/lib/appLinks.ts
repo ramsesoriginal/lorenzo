@@ -1,6 +1,12 @@
 // Where the other Lorenzo apps live. The API's registry of app links says (ADR 0273); the build's
 // own PUBLIC_INVENTORY_WEB_BASE_URL is only the fallback for when the registry cannot be reached.
-import { type AppLinks, fill, getAppLinks } from '@lorenzo/api-client';
+import {
+  type AppLinks,
+  calendarEntryHref,
+  fill,
+  getAppLinks,
+  type Schema,
+} from '@lorenzo/api-client';
 import { API_BASE_URL, INVENTORY_WEB_BASE_URL } from './config';
 
 let registry: AppLinks | undefined;
@@ -34,4 +40,12 @@ export function itemUrl(tenant: string, entityId: string): string | null {
   return INVENTORY_WEB_BASE_URL
     ? `${INVENTORY_WEB_BASE_URL}/item/?tenant=${encodeURIComponent(tenant)}&id=${entityId}`
     : null;
+}
+
+export function calendarUrl(
+  tenant: string,
+  entry: Pick<Schema<'ResolvedSlugOut'>, 'entity_id' | 'kinds'> & { slug?: string | null },
+  hint = '',
+): string | null {
+  return calendarEntryHref(registry, tenant, entry, hint);
 }

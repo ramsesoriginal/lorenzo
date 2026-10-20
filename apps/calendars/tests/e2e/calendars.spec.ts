@@ -615,3 +615,66 @@ test('standalone Events can be found by participating being without acquiring a 
   await page.context().close();
   await reader.context().close();
 });
+
+test('calendar addresses and named or numbered date links preserve identity without creating dates', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const path = { tenant_id: world.tenantId, entity_id: world.calendarId };
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+      params: { path },
+      body: { slug: 'reckoning' },
+    }),
+  );
+  const event = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'A date remembered', kinds: ['event'], parents: [], slug: 'arrival' },
+    }),
+  );
+  await ok(
+    world.api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      params: { path: { tenant_id: world.tenantId, entity_id: event.id } },
+      body: {
+        title: 'Dates',
+        is_public: false,
+        locale: 'en',
+        type: 'note',
+        content:
+          '[[calendar/reckoning]] {{cal reckoning 3286/Quirm/16}} {{cal reckoning 3286/6/16}} {{cal missing 0}}',
+      },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  const writes: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'GET' && r.url().includes('/periods')) writes.push(r.url());
+  });
+  await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
+  await expect(page).toHaveURL(/slug=reckoning/);
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=arrival`);
+  await expect(
+    page.getByRole('heading', { name: event.name, exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/slug=arrival/);
+  await expect(page.locator('a.ls-cal')).toHaveCount(2);
+  await expect(page.locator('a.ls-cal').first()).toHaveText('16 Quirm 3286');
+  await page.locator('a.ls-cal').first().click();
+  await expect(page.getByRole('combobox', { name: /^Month or festival/ })).toHaveValue('segment-6');
+  await expect(
+    page.locator('aside').getByRole('heading', { name: '16 Quirm 3286', exact: true }),
+  ).toBeVisible();
+  expect(writes).toEqual([]);
+  await page.goto(`/entry/?tenant=${world.tenantId}&slug=arrival`);
+  await page.getByText('Name, link name and audience', { exact: true }).click();
+  await page.getByLabel('Link name', { exact: true }).fill(event.id);
+  await page.getByRole('button', { name: 'Save link name', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`slug=${event.id}`));
+  await expect(
+    page.getByRole('heading', { name: event.name, exact: true, level: 1 }),
+  ).toBeVisible();
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${event.id}`);
+  await expect(page).toHaveURL(new RegExp(`slug=${event.id}`));
+  await page.context().close();
+});

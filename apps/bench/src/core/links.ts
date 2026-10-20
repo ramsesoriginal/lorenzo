@@ -37,6 +37,7 @@ export class LinkResolver {
   /** The stats of an entry as text, for the `{weight}` in its texts; null while it is not read. */
   stats: (home: string) => StatTexts | null = () => null;
 
+  private dates = new Map<string, { text: string; href: string }>();
   private found = new Map<string, ResolvedEntry>();
   private missed = new Map<string, number>();
   /** Main pictures by entry id, as URLs; `null` for an entry that has none. Kept for the visit. */
@@ -157,6 +158,7 @@ export class LinkResolver {
     return {
       html: render(doc, {
         resolve: {
+          calendar: (expression) => this.dates.get(expression) ?? null,
           image: (ref) => {
             const entry = entryOf(ref);
             const src = entry && this.pictures.get(entry.id);
@@ -168,7 +170,9 @@ export class LinkResolver {
           },
           entity: (ref) => {
             const entry = entryOf(ref);
-            return entry ? { href: entryHref(entry.id), title: entry.name } : null;
+            return entry && entry.href !== null
+              ? { href: entry.href ?? entryHref(entry.id), title: entry.name }
+              : null;
           },
         },
       }),
@@ -193,6 +197,12 @@ export class LinkResolver {
    * to, which is what `my/` means. Without a connection, as plain text.
    */
   async render(text: string, home: string): Promise<Rendered> {
+    const expressions = references(parse(text)).flatMap((r) =>
+      r.kind === 'calendar' ? [r.expression] : [],
+    );
+    if (expressions.length && this.transport.resolveCalendars) {
+      this.dates = await this.transport.resolveCalendars(expressions).catch(() => new Map());
+    }
     const refs = references(parse(text)).filter(isEntityRef);
     await this.lookUp(refs, home).catch(() => {});
     await this.loadPictures(

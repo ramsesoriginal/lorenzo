@@ -1,3 +1,4 @@
+import { namedParams, tenantAddress } from './addresses';
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   text = '',
@@ -53,13 +54,19 @@ export function select(text: string, options: [string, string][], value: string)
 export const message = (e: unknown): string =>
   e instanceof Error ? e.message : 'Could not finish this action.';
 export function entryHref(tenant: string, id: string): string {
-  return `/entry/?${new URLSearchParams({ tenant, id })}`;
+  return `/entry/?${namedParams(tenant, id)}`;
 }
 export function calendarHref(tenant: string, id: string, year?: number): string {
-  return `/calendar/?${new URLSearchParams({ tenant, id, ...(year === undefined ? {} : { year: String(year) }) })}`;
+  const params = namedParams(tenant, id);
+  if (year !== undefined) params.set('year', String(year));
+  return `/calendar/?${params}`;
 }
 export function link(text: string, href: string) {
   const a = el('a', text);
-  a.href = href;
+  const url = new URL(href, location.origin);
+  const tenant = url.searchParams.get('tenant');
+  if (url.origin === location.origin && tenant)
+    url.searchParams.set('tenant', tenantAddress(tenant));
+  a.href = url.href;
   return a;
 }

@@ -147,3 +147,10 @@ export function etagOf(response: Response): string | null {
 }
 
 export { type AppLinks, clearAppLinksCache, fill, getAppLinks } from './appLinks';
+
+export {
+  type CalendarLink,
+  calendarDateLinks,
+  calendarEntryHref,
+  isCalendarKind,
+} from './calendarLinks';

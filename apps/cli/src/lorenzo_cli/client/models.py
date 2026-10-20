@@ -288,9 +288,27 @@ class CalendarImportReceipt(BaseModel):
     retained: list[str] = Field(..., title="Retained")
 
 
+class CalendarReferenceOut(BaseModel):
+    expression: str = Field(..., title="Expression")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    calendar_slug: str = Field(..., title="Calendar Slug")
+    text: str = Field(..., title="Text")
+    year: int = Field(..., title="Year")
+    segment: str | None = Field(None, title="Segment")
+    day: int | None = Field(None, title="Day")
+
+
+class CalendarReferencesIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    expressions: list[str] = Field(..., max_length=100, min_length=1, title="Expressions")
+
+
 class CalendarSummary(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
 
@@ -520,6 +538,7 @@ class CreditOut(BaseModel):
 class DatedEntryOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
 
 
 class DayPreview(BaseModel):
@@ -1330,6 +1349,7 @@ class Granularity(StrEnum):
 
 class PeriodOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
+    slug: str | None = Field(None, title="Slug")
     calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
     name: str = Field(..., title="Name")
     granularity: Granularity = Field(..., title="Granularity")

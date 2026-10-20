@@ -16,7 +16,7 @@ The entry page reuses the shared text/image bundle editor, LorenzoScript, author
 
 Owners and Organizers using full visibility can open **Order and causes** on an Event page ([ADR 0312](../../docs/adr/0312-explicit-event-order-and-causality.md)). Search for another Event, choose Happened before/after or Caused/Was caused by, and add the relationship. Compare Events shows a recorded causal chain, recorded ordering, or an explicitly linearized display order with no recorded path. Dates do not create assertions. Conflicting edits keep the selection; refresh the saved relationships and review before retrying. Removing an assertion changes the derived order, and linked Events must be unlinked before deletion. Authors, players and administrators with a visibility opt-out get no ordering panel.
 
-Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, learning history, participations, time travel and Bench integration remain later work.
+Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, learning history and time travel remain later work.
 
 The **Events** page creates undated Events, searches their names, and offers full-visibility
 Owners/Organizers participant and causal filters plus story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
@@ -25,6 +25,18 @@ Story order derives the full graph before filtering and labels unconstrained pos
 linearized. Event pages add/remove participating beings with version checks. Participation
 records neither knowledge nor lived order and grants no visibility. Authors/readers may browse
 ordinary permitted Event names but receive no structured participation or order surface.
+
+Calendar, period and Event link names use the existing entry editor. Calendars URLs accept
+UUIDs or slugs and prefer an entry's defined slug; internal identities stay UUIDs. An explicit
+`slug` parameter handles UUID-shaped link names. Tenant links also prefer the library slug.
+LorenzoScript supports `[[calendar/reckoning]]`, `[[event/arrival]]`,
+`[[calendar_period/first-day]]` and computed dates such as `{{cal reckoning 3286/Quirm/16}}`
+or `{{cal reckoning 3286/6/16}}`. A year or month alone works too. Numbers count every
+segment in authored order, including festivals and absent leap segments. Names are matched
+uniquely after Unicode normalization and case folding. Use `key:segment-6` or `name:123`
+for an explicit key or a numeric name, and percent-encode `/` inside a name. Computed links
+create no period and disclose no hidden period or Information. Existing apps share these
+calendar links through the app registry.
 
 ## Development and checks
 

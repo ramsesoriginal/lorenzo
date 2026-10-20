@@ -1,4 +1,4 @@
-import { getAppLinks } from '@lorenzo/api-client';
+import { type AppLinks, calendarEntryHref, getAppLinks, type Schema } from '@lorenzo/api-client';
 import { API_BASE_URL } from './config';
 import { hubNotificationsUrl } from './notificationBell';
 
@@ -15,4 +15,17 @@ export async function notificationsUrl(fallbackHub: string): Promise<string> {
   } catch {
     return fallback;
   }
+}
+
+let registry: AppLinks | undefined;
+export async function loadAppLinks(): Promise<void> {
+  registry = await getAppLinks(API_BASE_URL).catch(() => undefined);
+}
+
+export function calendarUrl(
+  tenant: string,
+  entry: Pick<Schema<'ResolvedSlugOut'>, 'entity_id' | 'kinds'> & { slug?: string | null },
+  hint = '',
+): string | null {
+  return calendarEntryHref(registry, tenant, entry, hint);
 }

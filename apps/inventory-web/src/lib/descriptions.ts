@@ -1,3 +1,4 @@
+import { calendarDateLinks, getAppLinks, isCalendarKind } from '@lorenzo/api-client';
 // Descriptions as LorenzoScript (RFC 0027, ADR 0108): rendering them with
 // this tenant's entities resolved, and what links to an entity. Writing
 // them is information.ts's.
@@ -11,6 +12,8 @@ import {
   statNames,
 } from '@lorenzo/lorenzoscript';
 import { client, type components, fetchAllPages, MAX_PAGE_SIZE, unwrap } from './api';
+import { loadAppLinks } from './appLinks';
+import { API_BASE_URL } from './config';
 import { type EntityReference, entityHref, linkNote, type ResolvedSlug } from './entityLinks';
 import { viewerLocales } from './me';
 
@@ -185,12 +188,24 @@ export function descriptionRenderer(tenantId: string, now: () => number = Date.n
 
   return async (texts, homes = []) => {
     const docs = texts.map(parse);
+    const expressions = docs.flatMap((doc) =>
+      references(doc).flatMap((r) => (r.kind === 'calendar' ? [r.expression] : [])),
+    );
+    let dates = new Map<string, { href: string; text: string }>();
+    if (expressions.length) {
+      const registry = await getAppLinks(API_BASE_URL).catch(() => undefined);
+      dates = await calendarDateLinks(client, registry, tenantId, expressions).catch(
+        () => new Map(),
+      );
+    }
     const refs = docs.map((doc) => references(doc).filter(isEntityReference));
     // A failed lookup is simply tried again next time; until then, its links
     // render as plain text and get no notes.
     await resolve(refs.flatMap((list, i) => list.map((ref) => ({ ref, home: homes[i] })))).catch(
       () => {},
     );
+    if ([...slugs.values()].some((entry) => entry && isCalendarKind(entry.kinds)))
+      await loadAppLinks();
     const imageIds = refs.flatMap((list, i) =>
       list.flatMap((ref) =>
         ref.kind === 'image' ? (slugs.get(keyOf(ref, homes[i]))?.entity_id ?? []) : [],
@@ -208,6 +223,7 @@ export function descriptionRenderer(tenantId: string, now: () => number = Date.n
       if (home && !stats.has(home) && statNames(doc).length) stats.set(home, await statTexts(home));
     }
     const resolverFor = (home: string | undefined): Resolver => ({
+      calendar: (expression) => dates.get(expression) ?? null,
       stat: (name) => {
         const found = home ? stats.get(home)?.get(name.toLowerCase()) : undefined;
         return found ? { text: found.text, title: found.name } : null;

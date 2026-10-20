@@ -1,3 +1,4 @@
+import { rememberEntryAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
 import { button, el, entryHref, field, link, message, select } from './dom';
 import type { Definition, Period, Rule } from './types';
@@ -235,7 +236,10 @@ export async function datedEntries(tenantId: string, periodId: string): Promise<
       }),
     ),
   );
-  for (const entry of entries) host.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
+  for (const entry of entries) {
+    rememberEntryAddress(tenantId, entry);
+    host.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
+  }
   if (!entries.length)
     host.append(el('p', 'No dated entries are available to you here.', 'caption'));
   return host;

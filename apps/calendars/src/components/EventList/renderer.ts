@@ -1,3 +1,4 @@
+import { rememberEntryAddress, tenantAddress } from '../../lib/addresses';
 import { client, unwrap } from '../../lib/api';
 import { button, el, entryHref, field, link, message, select } from '../../lib/dom';
 import { entryPicker } from '../../lib/entry-picker';
@@ -79,6 +80,7 @@ export async function mount() {
       list.replaceChildren();
       list.start = (page - 1) * 30 + 1;
       for (const entry of response.items) {
+        rememberEntryAddress(tenantId, entry);
         const row = el('li', '', 'panel stack-tight');
         row.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
         if (entry.order_basis)
@@ -136,7 +138,7 @@ export async function mount() {
         ? `${response.total} Event${response.total === 1 ? '' : 's'}.`
         : 'No Events match these filters.';
       const address = new URL(location.href);
-      address.searchParams.set('tenant', tenantId);
+      address.searchParams.set('tenant', tenantAddress(tenantId));
       for (const [key, value] of Object.entries({
         q: q.input.value,
         sort: sort.input.value,

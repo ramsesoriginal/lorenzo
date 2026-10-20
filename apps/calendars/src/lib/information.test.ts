@@ -12,7 +12,7 @@ import { renderText } from './information';
 describe('information references', () => {
   it('links only entries the API resolves for this reader and escapes titles', async () => {
     get.mockResolvedValue({
-      data: [{ slug: 'visible', entity_id: 'entry-1', name: '<Secret & name>' }],
+      data: [{ slug: 'visible', entity_id: 'entry-1', name: '<Secret & name>', kinds: ['event'] }],
     });
     const html = await renderText(
       'library',
@@ -21,7 +21,7 @@ describe('information references', () => {
     expect(get).toHaveBeenCalledWith('/tenants/{tenant_id}/entities/resolve', {
       params: { path: { tenant_id: 'library' }, query: { slug: ['visible', 'missing', 'hidden'] } },
     });
-    expect(html).toContain('/entry/?tenant=library&amp;id=entry-1');
+    expect(html).toContain('/entry/?tenant=library&amp;slug=visible');
     expect(html).not.toContain('<script>');
     expect(html).not.toMatch(/href="[^"]*(missing|hidden)/);
     expect(html).toContain('missing');

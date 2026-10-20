@@ -1,4 +1,5 @@
 import { getAppLinks } from '@lorenzo/api-client';
+import { rememberTenantAddress, tenantAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { API_BASE_URL } from './config';
@@ -78,9 +79,13 @@ export async function start(): Promise<Session | null> {
     }
     picker.value = tenant.id;
     rememberTenant(tenant.id);
+    for (const t of tenants) rememberTenantAddress(t.id, t.slug);
+    const address = new URL(location.href);
+    address.searchParams.set('tenant', tenantAddress(tenant.id));
+    history.replaceState(null, '', address);
     picker.addEventListener('change', () => {
       rememberTenant(picker.value);
-      location.assign(`/?tenant=${encodeURIComponent(picker.value)}`);
+      location.assign(`/?tenant=${encodeURIComponent(tenantAddress(picker.value))}`);
     });
     document.querySelector<HTMLElement>('[data-library-field]')?.removeAttribute('hidden');
     document.querySelector<HTMLElement>('[data-page]')?.removeAttribute('hidden');

@@ -30,6 +30,7 @@ _DEFAULTS: dict[str, tuple[str, str]] = {
     "calendar": ("calendars", "/calendar/?tenant={tenant}&id={id}"),
     "calendar_by_slug": ("calendars", "/calendar/?tenant={tenant}&slug={slug}"),
     "calendar_entry": ("calendars", "/entry/?tenant={tenant}&id={id}"),
+    "calendar_entry_by_slug": ("calendars", "/entry/?tenant={tenant}&slug={slug}"),
     "being": ("beings", "/being/?tenant={tenant}&id={id}"),
     "being_by_slug": ("beings", "/being/?tenant={tenant}&slug={slug}"),
 }

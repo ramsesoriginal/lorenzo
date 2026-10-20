@@ -1,3 +1,4 @@
+import { rememberEntryAddress } from '../../lib/addresses';
 import { client, fetchAllPages, unwrap } from '../../lib/api';
 import { definitionEditor } from '../../lib/definition-editor';
 import { calendarHref, el, link, message } from '../../lib/dom';
@@ -25,6 +26,7 @@ export async function mount() {
     );
     const list = el('ul', '', 'calendar-list');
     for (const calendar of calendars) {
+      rememberEntryAddress(session.tenantId, calendar);
       const item = el('li', '', 'panel');
       const open = link(calendar.name, calendarHref(session.tenantId, calendar.entity_id));
       open.className = 'calendar-card';

@@ -24,7 +24,14 @@ const OPTIONS: RenderOptions = {
       return entity?.picture ? { src: `/pictures/${slug}.png`, title: entity.name } : null;
     },
     calendar: (expression) =>
-      expression === 'harptos 1492-mirtul-12' ? '12 Mirtul 1492 DR' : null,
+      expression === 'harptos 1492/Mirtul/12'
+        ? {
+            text: '12 Mirtul 1492',
+            href: '/calendar/?slug=harptos&year=1492&segment=mirtul&day=12',
+          }
+        : expression === 'harptos 1492-mirtul-12'
+          ? '12 Mirtul 1492 DR'
+          : null,
     stat: (name) => (name === 'weight' ? { text: '1.5 kg', title: 'Weight' } : null),
   },
 };
@@ -218,4 +225,16 @@ describe('the stat resolver', () => {
     });
     expect(asked).toBe(0);
   });
+});
+
+test('calendar links reject unsafe URLs and escape labels', () => {
+  const doc = parse('{{cal example 0/1/1}}');
+  expect(
+    render(doc, {
+      resolve: { calendar: () => ({ text: '<secret>', href: 'javascript:alert(1)' }) },
+    }),
+  ).toBe('<p><span class="ls-cal">example 0/1/1</span></p>\n');
+  expect(
+    render(doc, { resolve: { calendar: () => ({ text: '<date>', href: '/calendar/' }) } }),
+  ).toBe('<p><a href="/calendar/" class="ls-cal">&lt;date&gt;</a></p>\n');
 });

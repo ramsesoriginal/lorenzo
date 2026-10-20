@@ -2658,6 +2658,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/calendar-references/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Calendar References */
+        post: operations["resolve_calendar_references"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/calendars/{calendar_id}/periods": {
         parameters: {
             query?: never;
@@ -6135,6 +6152,31 @@ export interface components {
              */
             updated_at: string;
         };
+        /** CalendarReferenceOut */
+        CalendarReferenceOut: {
+            /** Expression */
+            expression: string;
+            /**
+             * Calendar Entity Id
+             * Format: uuid
+             */
+            calendar_entity_id: string;
+            /** Calendar Slug */
+            calendar_slug: string;
+            /** Text */
+            text: string;
+            /** Year */
+            year: number;
+            /** Segment */
+            segment?: string | null;
+            /** Day */
+            day?: number | null;
+        };
+        /** CalendarReferencesIn */
+        CalendarReferencesIn: {
+            /** Expressions */
+            expressions: string[];
+        };
         /** CalendarSummary */
         CalendarSummary: {
             /**
@@ -6144,6 +6186,8 @@ export interface components {
             entity_id: string;
             /** Name */
             name: string;
+            /** Slug */
+            slug?: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -6868,6 +6912,8 @@ export interface components {
             entity_id: string;
             /** Name */
             name: string;
+            /** Slug */
+            slug?: string | null;
         };
         /** DayPreview */
         DayPreview: {
@@ -9658,6 +9704,8 @@ export interface components {
              * Format: uuid
              */
             entity_id: string;
+            /** Slug */
+            slug?: string | null;
             /**
              * Calendar Entity Id
              * Format: uuid
@@ -21008,6 +21056,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["YearPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    resolve_calendar_references: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarReferencesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarReferenceOut"][];
                 };
             };
             /** @description Validation Error */

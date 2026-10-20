@@ -1,3 +1,4 @@
+import { calendarDateLinks, getAppLinks } from '@lorenzo/api-client';
 import {
   type BundleReceipt,
   renderAudienceControl,
@@ -7,8 +8,10 @@ import {
 } from '@lorenzo/information-editor';
 import { parse, references, render } from '@lorenzo/lorenzoscript';
 import { createEditor, DEFAULT_TOOLBAR } from '@lorenzo/lorenzoscript-editor';
+import { rememberEntryAddress } from './addresses';
 import { blobUrl, client, unwrap } from './api';
-import { button, el, entryHref, field, message } from './dom';
+import { API_BASE_URL } from './config';
+import { button, calendarHref, el, entryHref, field, message } from './dom';
 import type { Entry, Information } from './types';
 export async function renderText(tenantId: string, source: string): Promise<string> {
   const doc = parse(source);
@@ -20,13 +23,32 @@ export async function renderText(tenantId: string, source: string): Promise<stri
         }),
       )
     : [];
+  const expressions = references(doc).flatMap((r) => (r.kind === 'calendar' ? [r.expression] : []));
+  const registry = expressions.length
+    ? await getAppLinks(API_BASE_URL).catch(() => undefined)
+    : undefined;
+  const dates = await calendarDateLinks(
+    client,
+    registry,
+    tenantId,
+    references(doc).flatMap((r) => (r.kind === 'calendar' ? [r.expression] : [])),
+  );
+  for (const entry of found) rememberEntryAddress(tenantId, entry);
   return render(doc, {
     locale: 'en-US',
     externalImages: false,
     resolve: {
+      calendar: (expression) => dates.get(expression) ?? null,
       entity: (ref) => {
         const match = found.find((e) => e.slug === ref.slug);
-        return match ? { href: entryHref(tenantId, match.entity_id), title: match.name } : null;
+        return match
+          ? {
+              href: match.kinds.includes('calendar')
+                ? calendarHref(tenantId, match.entity_id)
+                : entryHref(tenantId, match.entity_id),
+              title: match.name,
+            }
+          : null;
       },
     },
   });

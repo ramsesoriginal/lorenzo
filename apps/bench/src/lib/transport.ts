@@ -1,3 +1,10 @@
+import {
+  calendarDateLinks,
+  calendarEntryHref,
+  getAppLinks,
+  isCalendarKind,
+} from '@lorenzo/api-client';
+import { API_BASE_URL } from './config';
 // The command layer's transport on the typed client (ADR 0122), for one repository.
 
 import {
@@ -402,6 +409,8 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
         definitions = null;
       }),
 
+    resolveCalendars: async (expressions) =>
+      calendarDateLinks(client, await getAppLinks(API_BASE_URL), tenantId, expressions),
     resolveSlugs: (slugs, from) =>
       guarded(async (): Promise<ResolvedEntry[]> => {
         if (!slugs.length) return [];
@@ -410,11 +419,15 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
             params: { path, query: { slug: slugs, ...(from ? { from } : {}) } },
           }),
         );
+        const registry = rows.some((r) => isCalendarKind(r.kinds))
+          ? await getAppLinks(API_BASE_URL).catch(() => undefined)
+          : undefined;
         return rows.map((r) => ({
           slug: r.slug,
           id: r.entity_id,
           name: r.name,
           kinds: [...r.kinds],
+          ...(isCalendarKind(r.kinds) ? { href: calendarEntryHref(registry, tenantId, r) } : {}),
         }));
       }),
 

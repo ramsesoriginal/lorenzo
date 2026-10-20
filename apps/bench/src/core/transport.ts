@@ -37,6 +37,7 @@ import type { Formula } from './formulas';
 
 /** An entry a link name stands for (`GET .../entities/resolve`). */
 export interface ResolvedEntry {
+  href?: string | null;
   slug: string;
   id: string;
   name: string;
@@ -182,6 +183,7 @@ export interface Transport {
    * for the item held by the being the entry `from` belongs to (ADR 0240); it comes back as asked.
    */
   resolveSlugs(slugs: string[], from?: string): Promise<ResolvedEntry[]>;
+  resolveCalendars?(expressions: string[]): Promise<Map<string, { text: string; href: string }>>;
   getEntry(id: string): Promise<EntryState>;
   /** What links to the entry: the texts, on other entries, that name its link name. */
   backlinks(entryId: string): Promise<Backlink[]>;

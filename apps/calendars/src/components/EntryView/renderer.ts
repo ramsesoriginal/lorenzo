@@ -1,4 +1,5 @@
 import { renderAudienceControl } from '@lorenzo/information-editor';
+import { canonicalAddress, rememberEntryAddress, resolveAddress } from '../../lib/addresses';
 import { client, unwrap } from '../../lib/api';
 import { datedEntries, recurrenceFields } from '../../lib/dated-entries';
 import { button, calendarHref, el, entryHref, field, link, message } from '../../lib/dom';
@@ -21,13 +22,14 @@ export async function mount() {
   );
   try {
     const params = new URLSearchParams(location.search);
-    const id = params.get('id');
-    if (!id) throw new Error('Choose an entry from a calendar.');
+    const id = await resolveAddress(tenantId, params);
     const path = { tenant_id: tenantId, entity_id: id };
     const result = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
       params: { path },
     });
     const entry = await unwrap(result);
+    rememberEntryAddress(tenantId, entry);
+    canonicalAddress(tenantId, id);
     const version = result.response.headers.get('etag');
     host.append(
       el('h1', entry.name),
@@ -116,6 +118,11 @@ export async function mount() {
                     params: { path },
                   }),
                 );
+              const next = await unwrap(
+                await client.GET('/tenants/{tenant_id}/entities/{entity_id}', { params: { path } }),
+              );
+              rememberEntryAddress(tenantId, next);
+              canonicalAddress(tenantId, id);
               refresh();
             } catch (e) {
               status.textContent = `${message(e)} Your link-name draft is kept.`;
