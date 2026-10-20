@@ -28,6 +28,14 @@ This RFC has two parts, debated by the same four participants.
 
 The [Decision](#decision), [sub-slices](#proposed-sub-slices-once-decided), [Not in scope](#not-in-scope) and [Consequences](#consequences) sections cover both parts.
 
+## Accepted explicit Event-order slice (2026-10-20)
+
+[ADR 0312](../adr/0312-explicit-event-order-and-causality.md) accepts explicit order/causes
+relationships on existing Events, always-comparable results with causal/ruled/linearized basis,
+and a rebuildable derived order. Initial access is full-visibility Owners/Organizers only.
+This does not accept the remaining baseline, either complete candidate or later history/clock
+semantics. The original proposals and objections below remain historical design material.
+
 ## Context
 
 [docs/domain/world-model.md](../domain/world-model.md) leaves time deliberately unresolved: "every one of these axes can keep time differently… a plane can sit outside time entirely, a ship traveling near light speed experiences time differently than the world it left, and parallel timelines aren't necessarily synchronized at all." It goes on: "exactly how far this needs to be modeled — a shared 'true' timeline vs. many independent local ones, and how causality gets tracked across them — is genuinely open… it's the kind of thing that needs an RFC once it's actually being built." [docs/domain/entities-knowledge-and-visibility.md](../domain/entities-knowledge-and-visibility.md) is just as explicit about the other half. Knowledge is "a fact about a specific character at a specific point in the story's timeline, not a global flag", and how that gets represented is "genuinely unbuilt design space." This RFC covers both.
