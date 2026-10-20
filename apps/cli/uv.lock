@@ -445,11 +445,30 @@ wheels = [
 ]
 
 [[package]]
+name = "lorenzo-calendar"
+version = "0.0.0"
+source = { directory = "../../packages/calendar-engine" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.10" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=2.3.1" },
+    { name = "pytest", specifier = ">=8.3" },
+    { name = "ruff", specifier = ">=0.8" },
+]
+
+[[package]]
 name = "lorenzo-cli"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
+    { name = "lorenzo-calendar" },
     { name = "mini-racer" },
     { name = "pydantic" },
     { name = "rich" },
@@ -471,6 +490,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
+    { name = "lorenzo-calendar", directory = "../../packages/calendar-engine" },
     { name = "mini-racer", specifier = ">=0.14" },
     { name = "pydantic", specifier = ">=2.10" },
     { name = "rich", specifier = ">=13.9" },

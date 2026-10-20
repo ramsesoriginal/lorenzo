@@ -110,3 +110,11 @@ visible results for a year, optionally filtered to a segment, without creating p
 Events. Missing dates skip. Rule edits require the observance entry's ETag; definition edits
 validate its rules too. Copied rule updates are explicit review fields. Release format 5
 preserves rules and keeps formats 1–4 readable.
+
+Calendar imports use read-only `POST .../calendar-imports/plan`, followed by atomic
+`POST .../calendar-imports` with its token. The token covers tenant/calendar, file, choices,
+versions and recorded periods; apply rechecks authorization and current state under locks.
+A repeated successful request returns its receipt. Source keys and annotation bindings are
+local tenant data with forced RLS and same-tenant references, explicitly excluded from repository
+content. `GET .../calendar-imports/{source_key}/document` exports the current managed text source
+with the same visibility/authoring checks. See the CLI's calendar-file workflow and ADR 0311.

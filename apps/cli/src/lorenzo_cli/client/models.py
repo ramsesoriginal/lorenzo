@@ -49,6 +49,13 @@ class AdminUserOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class Classification(StrEnum):
+    note = "note"
+    observance = "observance"
+    fact = "fact"
+    event = "event"
+
+
 class AppOut(BaseModel):
     url: str = Field(..., title="Url")
 
@@ -231,6 +238,53 @@ class CalendarDate(BaseModel):
     year: conint(ge=-1000000, le=1000000) = Field(..., title="Year")
     segment: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Segment")
     day: conint(ge=1, le=1000) = Field(..., title="Day")
+
+
+class AcceptedWarning(RootModel[constr(pattern=r"^[a-z][a-z0-9-]{0,63}$")]):
+    root: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$")
+
+
+class Resolutions(StrEnum):
+    keep_local = "keep_local"
+    take_source = "take_source"
+
+
+class Action(StrEnum):
+    create = "create"
+    unchanged = "unchanged"
+    conflict = "conflict"
+    retained = "retained"
+
+
+class Resolution(StrEnum):
+    keep_local = "keep_local"
+    take_source = "take_source"
+
+
+class CalendarImportChange(BaseModel):
+    key: str = Field(..., title="Key")
+    action: Action = Field(..., title="Action")
+    reason: str | None = Field(None, title="Reason")
+    resolution: Resolution | None = Field(None, title="Resolution")
+
+
+class CalendarImportPlan(BaseModel):
+    source_key: str = Field(..., title="Source Key")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    token: str = Field(..., title="Token")
+    changes: list[CalendarImportChange] = Field(..., title="Changes")
+    unaccepted_warnings: list[str] = Field(..., title="Unaccepted Warnings")
+    ready: bool = Field(..., title="Ready")
+
+
+class CalendarImportReceipt(BaseModel):
+    source_key: str = Field(..., title="Source Key")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    created: list[str] = Field(..., title="Created")
+    changed: list[str] = Field(..., title="Changed")
+    unchanged: list[str] = Field(..., title="Unchanged")
+    kept_local: list[str] = Field(..., title="Kept Local")
+    retained: list[str] = Field(..., title="Retained")
 
 
 class CalendarSummary(BaseModel):
@@ -540,6 +594,14 @@ class DiscoverReleaseOut(BaseModel):
     released_at: AwareDatetime = Field(..., title="Released At")
 
 
+class DocumentWarning(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
+    message: constr(min_length=1, max_length=2000) = Field(..., title="Message")
+
+
 class DroppedOut(BaseModel):
     kind: str = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
@@ -782,6 +844,10 @@ class ItemInstanceUpdate(BaseModel):
 class ItemUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+
+
+class JsonValue(RootModel[Any]):
+    root: Any
 
 
 class KindCountsOut(BaseModel):
@@ -1515,7 +1581,7 @@ class Kind17(StrEnum):
     slug = "slug"
 
 
-class Action(StrEnum):
+class Action1(StrEnum):
     rename = "rename"
     merge = "merge"
     skip = "skip"
@@ -1524,7 +1590,7 @@ class Action(StrEnum):
 class ResolutionIn(BaseModel):
     kind: Kind17 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
-    action: Action = Field(..., title="Action")
+    action: Action1 = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
@@ -1850,20 +1916,20 @@ class Kind24(StrEnum):
     stat_definition = "stat_definition"
 
 
-class Action1(StrEnum):
+class Action2(StrEnum):
     apply = "apply"
     add = "add"
     detach = "detach"
 
 
-class Action2(StrEnum):
+class Action3(StrEnum):
     rename = "rename"
     merge = "merge"
     skip = "skip"
 
 
 class UpdateResolutionIn(BaseModel):
-    action: Action2 = Field(..., title="Action")
+    action: Action3 = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
@@ -1910,6 +1976,22 @@ class Problem(BaseModel):
     type: str = Field(..., title="Problem type")
     status: int = Field(..., title="Status code")
     detail: str | None = Field(None, title="Problem detail")
+
+
+class Annotation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
+    date: CalendarDate
+    text: constr(max_length=40000) = Field(..., title="Text")
+    original_text: constr(max_length=40000) = Field(..., title="Original Text")
+    classification: Classification | None = Field("note", title="Classification")
+    title: constr(min_length=1, max_length=200) | None = Field(None, title="Title")
+    group: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") | None = Field(None, title="Group")
+    recurrence: RecurrenceRule | None = None
+    is_public: bool | None = Field(False, title="Is Public")
+    information_is_public: bool | None = Field(False, title="Information Is Public")
 
 
 class AppLinksOut(BaseModel):
@@ -1981,6 +2063,71 @@ class CalendarDefinitionOutput(BaseModel):
     segments: list[Segment] = Field(..., max_length=128, min_length=1, title="Segments")
     week: Week | None = None
     moons: list[MoonOutput] | None = Field([], max_length=32, title="Moons", validate_default=True)
+
+
+class CalendarDocumentInput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    format: Literal["lorenzo.calendar-document/1"] = Field(
+        "lorenzo.calendar-document/1", title="Format"
+    )
+    source_key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Source Key")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    definition: CalendarDefinitionInput
+    annotations: list[Annotation] | None = Field(
+        [], max_length=1000, title="Annotations", validate_default=True
+    )
+    source: dict[str, JsonValue] | None = Field(None, title="Source")
+    warnings: list[DocumentWarning] | None = Field(
+        [], max_length=100, title="Warnings", validate_default=True
+    )
+    is_public: bool | None = Field(False, title="Is Public")
+    period_is_public: bool | None = Field(False, title="Period Is Public")
+
+
+class CalendarDocumentOutput(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    format: Literal["lorenzo.calendar-document/1"] = Field(
+        "lorenzo.calendar-document/1", title="Format"
+    )
+    source_key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Source Key")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    definition: CalendarDefinitionOutput
+    annotations: list[Annotation] | None = Field(
+        [], max_length=1000, title="Annotations", validate_default=True
+    )
+    source: dict[str, JsonValue] | None = Field(None, title="Source")
+    warnings: list[DocumentWarning] | None = Field(
+        [], max_length=100, title="Warnings", validate_default=True
+    )
+    is_public: bool | None = Field(False, title="Is Public")
+    period_is_public: bool | None = Field(False, title="Period Is Public")
+
+
+class CalendarImportApply(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    document: CalendarDocumentInput
+    accepted_warnings: list[AcceptedWarning] | None = Field(
+        None, max_length=100, title="Accepted Warnings"
+    )
+    resolutions: dict[str, Resolutions] | None = Field(None, max_length=1001, title="Resolutions")
+    token: constr(pattern=r"^[a-f0-9]{64}$") = Field(..., title="Token")
+
+
+class CalendarImportRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    document: CalendarDocumentInput
+    accepted_warnings: list[AcceptedWarning] | None = Field(
+        None, max_length=100, title="Accepted Warnings"
+    )
+    resolutions: dict[str, Resolutions] | None = Field(None, max_length=1001, title="Resolutions")
 
 
 class CalendarOut(BaseModel):
@@ -2604,7 +2751,7 @@ class TenantCreate(BaseModel):
 class UpdateActionIn(BaseModel):
     kind: Kind24 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
-    action: Action1 = Field(..., title="Action")
+    action: Action2 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
     take_upstream: list[str] | None = Field(None, title="Take Upstream")
     resolution: UpdateResolutionIn | None = None

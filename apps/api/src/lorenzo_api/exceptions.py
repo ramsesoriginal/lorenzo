@@ -1435,3 +1435,7 @@ class PayloadReplayConflictError(ConflictProblem):
 
 class InvalidCalendarDateError(UnprocessableProblem):
     title = "That calendar date is not available"
+
+
+class CalendarImportReviewRequiredError(ConflictProblem):
+    title = "Review the calendar import before applying it"

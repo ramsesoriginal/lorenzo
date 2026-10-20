@@ -15,6 +15,11 @@ from pydantic import TypeAdapter
 from lorenzo_cli.client.models import (
     ApplyUpdatesOut,
     ApplyUpdatesRequest,
+    CalendarDocumentOutput,
+    CalendarImportApply,
+    CalendarImportPlan,
+    CalendarImportReceipt,
+    CalendarImportRequest,
     ComparisonFormulaBodyInput,
     ComputedStatOut,
     ContentsFormulaBody,
@@ -358,7 +363,31 @@ GET_BEING_SHEET: Op[SheetOut] = Op(
     response_type=SheetOut,
 )
 
+PLAN_CALENDAR_IMPORT: Op[CalendarImportPlan] = Op(
+    "plan_calendar_import",
+    "POST",
+    f"{_TENANT}/calendar-imports/plan",
+    request_type=CalendarImportRequest,
+    response_type=CalendarImportPlan,
+)
+APPLY_CALENDAR_IMPORT: Op[CalendarImportReceipt] = Op(
+    "apply_calendar_import",
+    "POST",
+    f"{_TENANT}/calendar-imports",
+    request_type=CalendarImportApply,
+    response_type=CalendarImportReceipt,
+)
+EXPORT_CALENDAR_IMPORT: Op[CalendarDocumentOutput] = Op(
+    "export_calendar_import",
+    "GET",
+    f"{_TENANT}/calendar-imports/{{source_key}}/document",
+    response_type=CalendarDocumentOutput,
+)
+
 ALL_OPS: tuple[Op[Any], ...] = (
+    PLAN_CALENDAR_IMPORT,
+    APPLY_CALENDAR_IMPORT,
+    EXPORT_CALENDAR_IMPORT,
     UPDATE_STAT_GROUP,
     UPDATE_STAT_DEFINITION,
     UPDATE_TENANT,

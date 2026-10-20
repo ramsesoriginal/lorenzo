@@ -47,7 +47,7 @@ records for review. The converter's structure and anchor warnings require delibe
 before applying an import. Credentials do not belong in a calendar file.
 
 Audiences default to restricted: `is_public` on the document controls the calendar's outer
-existence/name gate; `period_is_public` controls materialized periods; an annotation's
+existence/name gate; `period_is_public` controls newly materialized periods; an annotation's
 `is_public` controls its Fact/Event/observance outer gate, and `information_is_public` its
 Information. Public Information never opens an outer gate. Explicit grants remain separately
 editable through ordinary audience controls.
