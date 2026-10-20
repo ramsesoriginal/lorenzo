@@ -7,6 +7,10 @@ on:
   schedule:
     - cron: '17 3 * * 1' # weekly, Monday
 
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   security-events: write
@@ -26,7 +30,15 @@ jobs:
       languages: ${{ steps.find.outputs.languages }}
     steps:
       - uses: actions/checkout@v7
+      - name: Fetch the pull request's base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: git fetch --no-tags --depth=1 origin "$BASE_SHA"
       - id: find
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           langs="[]"
           if find . -name '*.py' -not -path './.git/*' | grep -q .; then
@@ -38,7 +50,14 @@ jobs:
           if find apps/inventory-mobile -name '*.kt' -not -path '*/build/*' | grep -q .; then
             langs=$(echo "$langs" | jq -c '. + ["java-kotlin"]')
           fi
-          if find apps/inventory-ios -name '*.swift' -not -path '*/build/*' -not -path '*/.build/*' | grep -q .; then
+          # Swift pays for a native build: unrelated PRs do not need it (ADR 0148).
+          if [ "$EVENT_NAME" = pull_request ]; then
+            swift_scan=$(python3 .github/scripts/swift_codeql.py --base "$BASE_SHA")
+          else
+            swift_scan=$(python3 .github/scripts/swift_codeql.py)
+          fi
+          echo "Swift CodeQL selected: $swift_scan"
+          if [ "$swift_scan" = true ]; then
             langs=$(echo "$langs" | jq -c '. + ["swift"]')
           fi
           echo "Discovered languages: $langs"
@@ -71,6 +90,13 @@ jobs:
       # Only the downloaded libraries help here: the build below runs every task again (see there).
       - uses: gradle/actions/setup-gradle@v6
         if: matrix.language == 'java-kotlin'
+      # Asset preparation is not production Swift and need not be traced.
+      - name: Prepare Swift project
+        if: matrix.language == 'swift'
+        working-directory: apps/inventory-ios
+        run: |
+          swift scripts/icon.swift
+          python3 scripts/project.py
       - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
@@ -85,7 +111,19 @@ jobs:
       - name: Build Swift for CodeQL
         if: matrix.language == 'swift'
         working-directory: apps/inventory-ios
-        run: mise run build
+        # Fresh compiler work is required for extraction; never restore compiled objects.
+        # Keep Release conditions, but skip optimization and IPA packaging.
+        run: |
+          derived=$(mktemp -d "${TMPDIR:-/tmp}/lorenzo-codeql.XXXXXX")
+          xcodebuild -project LorenzoInventory.xcodeproj -target LorenzoInventory \
+            -configuration Release -sdk iphoneos \
+            CONFIGURATION_BUILD_DIR="$derived/products" OBJROOT="$derived/objects" \
+            SYMROOT="$derived/symbols" ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            SWIFT_OPTIMIZATION_LEVEL=-Onone SWIFT_COMPILATION_MODE=wholemodule \
+            SWIFT_USE_INTEGRATED_DRIVER=NO \
+            COMPILATION_CACHE_ENABLE_CACHING=NO SWIFT_ENABLE_COMPILE_CACHE=NO \
+            -showBuildTimingSummary build
       - uses: github/codeql-action/analyze@v4
 
   dependency-review:
