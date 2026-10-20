@@ -349,3 +349,19 @@ select {
     min-height: var(--target-min);
   }
 }
+
+.year-segment {
+  min-width: 0;
+  margin: 0;
+  padding-block-end: var(--space-4);
+  border-block-end: 1px solid var(--border-subtle);
+}
+@media (min-width: 721px) {
+  .calendar-layout.whole-year > aside {
+    position: sticky;
+    top: var(--space-3);
+    max-height: calc(100dvh - var(--space-5));
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+}

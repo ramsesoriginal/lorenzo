@@ -86,6 +86,8 @@ export async function mount() {
     detail.setAttribute('aria-live', 'polite');
     body.append(grid, detail);
     host.append(body);
+    let wholeYear = params.get('view') === 'year';
+    let chosenSegment = '';
     let preview: YearPreview;
     let periods: Period[] = [];
     let occurrences: Array<{
@@ -142,6 +144,42 @@ export async function mount() {
         if (contentCache.get(periodId) === loading) contentCache.delete(periodId);
       });
       return loading;
+    }
+    const dayQueue: Array<{ period: Period; content: HTMLElement }> = [];
+    let activeDays = 0;
+    function loadDays() {
+      while (activeDays < 4 && dayQueue.length) {
+        const job = dayQueue.shift();
+        if (!job?.content.isConnected) continue;
+        activeDays++;
+        const { period, content } = job;
+        void (async () => {
+          try {
+            const summary = await dayContent(period.entity_id);
+            if (!content.isConnected) return;
+            content.replaceChildren(
+              ...summary.notes.map((note) => el('span', `Note · ${note}`, 'day-item day-note')),
+              ...summary.entries.map((name) => el('span', name, 'day-item day-entry')),
+            );
+            const cell = content.closest('.day');
+            cell?.setAttribute(
+              'aria-description',
+              [
+                cell.getAttribute('aria-description'),
+                ...summary.notes.map((note) => `Note: ${note}`),
+                ...summary.entries,
+              ]
+                .filter(Boolean)
+                .join('; '),
+            );
+          } catch {
+            if (content.isConnected) content.textContent = 'Could not load notes and entries.';
+          }
+        })().finally(() => {
+          activeDays--;
+          loadDays();
+        });
+      }
     }
     let generation = 0;
     let selection = 0;
@@ -206,31 +244,104 @@ export async function mount() {
     }
     function showYear() {
       grid.replaceChildren();
-      const picker = select(
-        'Month or festival',
-        preview.segments.map((s) => [
-          s.key,
-          `${s.name}${s.kind === 'festival' ? ' · festival' : ''}`,
-        ]),
-        preview.segments[0]?.key ?? '',
-      );
-      const days = el('div');
+      const tabs = el('div', '', 'tabs');
+      tabs.setAttribute('role', 'tablist');
+      tabs.setAttribute('aria-label', 'Calendar view');
+      const monthPanel = el('div', '', 'stack');
+      const yearPanel = el('div', '', 'stack year-segments');
+      const panels = [monthPanel, yearPanel];
+      const tabButtons = ['Month or festival', 'Whole year'].map((name, index) => {
+        const tab = button(name, () => activate(index), true);
+        tab.className = 'tab';
+        tab.id = `calendar-view-tab-${index}`;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-controls', `calendar-view-panel-${index}`);
+        const panel = panels[index];
+        panel.id = `calendar-view-panel-${index}`;
+        panel.setAttribute('role', 'tabpanel');
+        panel.setAttribute('aria-labelledby', tab.id);
+        panel.tabIndex = 0;
+        tab.addEventListener('keydown', (event) => {
+          let next: number;
+          switch (event.key) {
+            case 'ArrowLeft':
+            case 'ArrowRight':
+              next = 1 - index;
+              break;
+            case 'Home':
+              next = 0;
+              break;
+            case 'End':
+              next = 1;
+              break;
+            default:
+              return;
+          }
+          event.preventDefault();
+          activate(next);
+          tabButtons[next].focus();
+        });
+        tabs.append(tab);
+        return tab;
+      });
       grid.append(
         button(`Year ${year}: notes and dated entries`, () => showPeriod(), true),
-        picker.label,
-        days,
+        tabs,
+        monthPanel,
+        yearPanel,
       );
-      picker.input.addEventListener('change', () => showSegment(picker.input.value, days));
-      showSegment(picker.input.value, days);
+      function activate(index: number) {
+        wholeYear = index === 1;
+        detail.querySelector('[data-calendar-return]')?.remove();
+        body.classList.toggle('whole-year', wholeYear);
+        tabButtons.forEach((tab, i) => {
+          tab.setAttribute('aria-selected', String(i === index));
+          tab.tabIndex = i === index ? 0 : -1;
+          panels[i].hidden = i !== index;
+          panels[i].replaceChildren();
+        });
+        const url = new URL(location.href);
+        if (wholeYear) url.searchParams.set('view', 'year');
+        else url.searchParams.delete('view');
+        history.replaceState(null, '', url);
+        if (wholeYear) {
+          for (const segment of preview.segments) {
+            const month = el('section', '', 'stack year-segment');
+            yearPanel.append(month);
+            showSegment(segment.key, month);
+          }
+        } else {
+          if (!preview.segments.some((s) => s.key === chosenSegment))
+            chosenSegment = preview.segments[0]?.key ?? '';
+          const picker = select(
+            'Month or festival',
+            preview.segments.map((s) => [
+              s.key,
+              `${s.name}${s.kind === 'festival' ? ' · festival' : ''}`,
+            ]),
+            chosenSegment,
+          );
+          const days = el('div');
+          monthPanel.append(picker.label, days);
+          picker.input.addEventListener('change', () => {
+            chosenSegment = picker.input.value;
+            showSegment(chosenSegment, days);
+          });
+          showSegment(chosenSegment, days);
+        }
+      }
+      activate(wholeYear ? 1 : 0);
     }
     function showSegment(key: string, container: HTMLElement) {
       const segment = preview.segments.find((s) => s.key === key);
       if (!segment) return;
       container.replaceChildren();
-      container.append(
-        el('h2', segment.name),
-        button('Month or festival notes', () => showPeriod(key), true),
+      const notes = button(
+        'Month or festival notes',
+        () => showPeriod(key, undefined, notes),
+        true,
       );
+      container.append(el('h2', segment.name), notes);
       const definition = calendar.definition.segments.find((s) => s.key === key);
       const week = calendar.definition.week;
       const useWeek = Boolean(week && definition?.in_week);
@@ -256,7 +367,7 @@ export async function mount() {
       }
       const pending: Array<{ period: Period; content: HTMLElement }> = [];
       for (const day of segment.days) {
-        const cell = button('', () => showPeriod(key, day.date.day), true);
+        const cell = button('', () => showPeriod(key, day.date.day, cell), true);
         cell.className = 'day';
         cell.setAttribute('aria-label', `${day.date.day} ${segment.name} ${year}`);
         cell.dataset.day = String(day.date.day);
@@ -301,37 +412,10 @@ export async function mount() {
         cells.append(cell);
       }
       container.append(cells);
-      // Four dates at a time; stop queued work when another month replaces this one.
-      let next = 0;
-      async function loadDays() {
-        while (next < pending.length && cells.isConnected) {
-          const { period, content } = pending[next++];
-          try {
-            const summary = await dayContent(period.entity_id);
-            if (!content.isConnected) return;
-            content.replaceChildren(
-              ...summary.notes.map((note) => el('span', `Note · ${note}`, 'day-item day-note')),
-              ...summary.entries.map((name) => el('span', name, 'day-item day-entry')),
-            );
-            const cell = content.closest('.day');
-            cell?.setAttribute(
-              'aria-description',
-              [
-                cell.getAttribute('aria-description'),
-                ...summary.notes.map((note) => `Note: ${note}`),
-                ...summary.entries,
-              ]
-                .filter(Boolean)
-                .join('; '),
-            );
-          } catch {
-            if (content.isConnected) content.textContent = 'Could not load notes and entries.';
-          }
-        }
-      }
-      for (let i = 0; i < Math.min(4, pending.length); i++) void loadDays();
+      dayQueue.push(...pending);
+      loadDays();
     }
-    async function showPeriod(segment?: string, day?: number) {
+    async function showPeriod(segment?: string, day?: number, target?: HTMLButtonElement) {
       const turn = ++selection;
       const chosenYear = year;
       const title = segment
@@ -446,6 +530,20 @@ export async function mount() {
           }
         }
         detail.append(localStatus);
+        if (wholeYear && target?.isConnected && window.matchMedia('(max-width: 720px)').matches) {
+          const back = button(
+            'Back to calendar',
+            () => {
+              target.scrollIntoView({ block: 'center' });
+              target.focus({ preventScroll: true });
+            },
+            true,
+          );
+          back.dataset.calendarReturn = '';
+          detail.prepend(back);
+          detail.scrollIntoView({ block: 'start' });
+          back.focus({ preventScroll: true });
+        }
       } catch (e) {
         if (turn === selection) localStatus.textContent = message(e);
         detail.append(localStatus);
