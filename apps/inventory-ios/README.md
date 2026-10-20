@@ -32,7 +32,7 @@ On macOS with Xcode 16.4 (pinned in CI) and an installed iOS simulator runtime:
 
 Simulator tests use local ad-hoc signing for private Keychain access, with no Apple account or certificate. The device IPA remains unsigned for AltStore.
 
-Public macOS CI runs native contract, encryption, session, image-orientation and replay tests plus a simulator flow against a localhost fixture. Builds produce build/Lorenzo-Inventory.ipa without certificates; simulator results are retained as CI artifacts. Swift CodeQL traces a fresh native build.
+Public macOS CI runs native contract, encryption, session, image-orientation and replay tests plus a simulator flow against a localhost fixture. Builds produce build/Lorenzo-Inventory.ipa without certificates; simulator results are retained as CI artifacts. Swift CodeQL traces a fresh, single-arm64 app build with Release conditions and optimization disabled, without packaging an IPA. On PRs it runs only for Swift source or relevant build/scanner changes; main and weekly scans remain full scans (ADR 0148).
 
 The dependency-free Python generator creates an ignored Xcode project from Sources/Resources/UITests. Windows/Linux can run Python project/contract checks; native tests need Xcode. The app owns dev/lint/test/build, API/brand dependency declarations, a consumed-contract snapshot, independent version.txt/release-please entry and Swift dependency discovery.
 
