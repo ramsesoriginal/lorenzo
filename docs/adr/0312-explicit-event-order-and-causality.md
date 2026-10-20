@@ -36,7 +36,10 @@ restricted readers and Authors do not receive a comparison, order panel, path, c
 about this graph in this slice. The reason is substantive: even refusing a cycle can reveal a
 hidden ordering constraint. Reader-facing disclosure and independently restricted relationships
 need their own design before extending access. This does not change ordinary Event identity,
-Information, dates or grants.
+Information, dates or grants. Indirect surfaces follow the same restriction: copy previews and
+purge summaries omit relationship reports for callers without full administrative visibility,
+and activity-log reads exclude relationship actions before pagination when an administrator has
+opted out. Generic copy audit totals do not encode hidden relationship counts.
 
 `event_relationship` is tenant content with FORCE RLS and composite same-tenant foreign keys to
 both StoryEvent markers. Database checks reject self-links, invalid kinds and cycles across
