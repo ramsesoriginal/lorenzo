@@ -231,3 +231,45 @@ test('home recovers from a deleted remembered library without substituting expli
   await expect(page.getByRole('link', { name: 'Isles calendar', exact: true })).toHaveCount(0);
   await page.context().close();
 });
+
+// The shared header remains usable before authentication and at phone widths.
+test('signed-out welcome and appearance controls work in light and dark themes', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    colorScheme: 'light',
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Calendars for your worlds' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
+  await expect(page.locator('.brand-mark--light')).toBeVisible();
+  expect(
+    await page
+      .locator('.brand-mark--light')
+      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
+  ).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('.brand-mark--dark')).toBeVisible();
+  expect(
+    await page
+      .locator('.brand-mark--dark')
+      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
+  ).toBeGreaterThan(0);
+  await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('welcome-dark-phone.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({
+    path: test.info().outputPath('welcome-light-desktop.png'),
+    fullPage: true,
+  });
+  await context.close();
+});

@@ -34,4 +34,4 @@ The browser fixtures import the supplied nineteen-segment, 387-day calendar stru
 
 ## Hosting
 
-The Authgear client and Cloudflare Pages project still require setup; no hosting is provisioned by this change. Follow [calendars-setup.md](../../docs/operations/calendars-setup.md). Other app addresses come from `GET /app-links`; the API's optional `CALENDARS_URL` overrides the planned Pages address.
+The app is deployed at [lorenzo-calendars.pages.dev](https://lorenzo-calendars.pages.dev/). Follow [calendars-setup.md](../../docs/operations/calendars-setup.md). Other app addresses come from `GET /app-links`; the API's optional `CALENDARS_URL` overrides the planned Pages address.

@@ -68,7 +68,7 @@ export async function mount() {
     const y = field('Year', String(year), 'number');
     y.input.min = '-1000000';
     y.input.max = '1000000';
-    const yearNav = el('form', '', 'row');
+    const yearNav = el('form', '', 'row year-nav');
     const go = el('button', 'Open year', 'btn');
     go.type = 'submit';
     yearNav.append(
@@ -208,7 +208,7 @@ export async function mount() {
         cell.setAttribute('aria-label', `${day.date.day} ${segment.name} ${year}`);
         cell.dataset.day = String(day.date.day);
         if (periods.some((p) => p.segment === key && p.day === day.date.day)) {
-          const mark = el('span', 'Open saved date', 'caption');
+          const mark = el('span', 'Notes and entries', 'caption');
           cell.append(mark);
         }
         for (const moon of calendar.definition.moons) {
@@ -271,7 +271,7 @@ export async function mount() {
           detail.append(
             el(
               'p',
-              'This date has no saved entry available to you. Browsing it does not create one.',
+              'No notes or dated entries are available to you for this date.',
               'caption',
             ),
           );

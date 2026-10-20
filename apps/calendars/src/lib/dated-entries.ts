@@ -45,11 +45,7 @@ export function createDatedEntry(tenantId: string, period: () => Promise<Period>
   form.append(
     kind.label,
     name.label,
-    el(
-      'p',
-      'Starts restricted. A date associates the entry with a calendar period; it does not establish causal order.',
-      'caption',
-    ),
+    el('p', 'Starts restricted. Choose who can read it after saving.', 'caption'),
     save,
     status,
   );
