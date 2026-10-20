@@ -304,7 +304,7 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
           body: definition,
         });
         await unwrap(result);
-        location.reload();
+        if (form.isConnected) location.reload();
       } else {
         const created = await unwrap(
           await client.POST('/tenants/{tenant_id}/calendars', {
@@ -317,7 +317,8 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
             },
           }),
         );
-        location.assign(calendarHref(tenantId, created.entity_id, Number(year.input.value)));
+        if (form.isConnected)
+          location.assign(calendarHref(tenantId, created.entity_id, Number(year.input.value)));
       }
     } catch (e) {
       status.textContent = message(e);

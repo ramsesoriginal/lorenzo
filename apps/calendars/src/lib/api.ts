@@ -1,6 +1,7 @@
 import { createLorenzoClient, LorenzoApiError } from '@lorenzo/api-client';
 import { getAccessToken } from './auth';
 import { API_BASE_URL } from './config';
+import { calendarReads } from './read-cache';
 
 // The typed client, its error type, and paging all come from the client
 // package this app shares with loot-bot (ADR 0122), generated from
@@ -13,7 +14,11 @@ export { fetchAllPages, LorenzoApiError, MAX_PAGE_SIZE, unwrap } from '@lorenzo/
 
 // Every request carries the viewer's token; with none, a request is refused
 // with a 401 before it goes out, rather than sent for the API to reject.
-export const client = createLorenzoClient({ baseUrl: API_BASE_URL, getAccessToken });
+export const client = createLorenzoClient({
+  baseUrl: API_BASE_URL,
+  getAccessToken,
+  fetch: calendarReads.fetch,
+});
 
 const blobs = new Map<string, Promise<string>>();
 
@@ -39,4 +44,27 @@ export function blobUrl(url: string, version?: string): Promise<string> {
   loading.catch(() => blobs.delete(key));
   blobs.set(key, loading);
   return loading;
+}
+
+export function clearPrivateState() {
+  calendarReads.clear();
+  for (const pending of blobs.values())
+    void pending.then((url) => URL.revokeObjectURL(url)).catch(() => {});
+  blobs.clear();
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('lorenzo:sign-out', clearPrivateState);
+  window.addEventListener('pagehide', () => {
+    clearPrivateState();
+    document.querySelector('[data-page]')?.setAttribute('hidden', '');
+  });
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) location.reload();
+  });
+  document.addEventListener('astro:before-swap', () => {
+    for (const pending of blobs.values())
+      void pending.then((url) => URL.revokeObjectURL(url)).catch(() => {});
+    blobs.clear();
+  });
 }

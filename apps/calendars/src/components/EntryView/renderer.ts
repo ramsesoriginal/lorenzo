@@ -8,11 +8,12 @@ import { informationForm, informationView } from '../../lib/information';
 import { participants } from '../../lib/participants';
 import { start } from '../../lib/session';
 export async function mount() {
+  const host = document.querySelector<HTMLElement>('#EntryView');
+  if (!host || host.dataset.mounted) return;
+  host.dataset.mounted = 'true';
   const session = await start();
-  if (!session) return;
+  if (!session || !host.isConnected) return;
   const { tenantId, canWrite } = session;
-  const host = document.querySelector('#EntryView');
-  if (!host) return;
   const status = el('p');
   status.setAttribute('role', 'status');
   host.append(
@@ -28,6 +29,7 @@ export async function mount() {
       params: { path },
     });
     const entry = await unwrap(result);
+    if (!host.isConnected) return;
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, id);
     const version = result.response.headers.get('etag');
@@ -75,7 +77,9 @@ export async function mount() {
         host.append(el('p', `Could not load Event ordering. ${message(error)}`, 'caption'));
       }
     }
-    const refresh = () => location.reload();
+    const refresh = () => {
+      if (host.isConnected) location.reload();
+    };
     if (canWrite) {
       const controls = el('details');
       controls.append(el('summary', 'Name, link name and audience'));

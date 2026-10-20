@@ -81,7 +81,7 @@ export function createDatedEntry(tenantId: string, period: () => Promise<Period>
         name.input.disabled = true;
       }
       await attachDate(tenantId, id, target.entity_id);
-      location.assign(`${entryHref(tenantId, id)}&add=information`);
+      if (form.isConnected) location.assign(`${entryHref(tenantId, id)}&add=information`);
     } catch (e) {
       status.textContent = message(e);
       if (created) {
@@ -153,14 +153,14 @@ export function createObservance(
           body: { id, name: name.input.value, rule: rules.read(), is_public: false },
         }),
       );
-      location.assign(entryHref(tenantId, entry.entity_id));
+      if (form.isConnected) location.assign(entryHref(tenantId, entry.entity_id));
     } catch (e) {
       try {
         const existing = await client.GET('/tenants/{tenant_id}/observances/{entity_id}', {
           params: { path: { tenant_id: tenantId, entity_id: id } },
         });
         if (existing.data) {
-          location.assign(entryHref(tenantId, id));
+          if (form.isConnected) location.assign(entryHref(tenantId, id));
           return;
         }
       } catch {
@@ -204,7 +204,7 @@ export function attachExisting(tenantId: string, period: () => Promise<Period>):
                   try {
                     const target = await period();
                     await attachDate(tenantId, entry.id, target.entity_id);
-                    location.assign(entryHref(tenantId, entry.id));
+                    if (host.isConnected) location.assign(entryHref(tenantId, entry.id));
                   } catch (e) {
                     status.textContent = `${message(e)} Reload the entry before trying again.`;
                   }

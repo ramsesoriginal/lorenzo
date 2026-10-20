@@ -38,6 +38,22 @@ for an explicit key or a numeric name, and percent-encode `/` inside a name. Com
 create no period and disclose no hidden period or Information. Existing apps share these
 calendar links through the app registry.
 
+In-app links keep a bounded session-memory cache and revalidate the account, library role
+and Event-order capability before a protected view is drawn. Full-visibility staff can reuse
+recent responses (10 seconds, at most 64 bodies / 2 MiB, with oversized bodies skipped).
+Other readers deduplicate simultaneous requests but fetch private content afresh on entering
+a view. Slug lookups always stay fresh; cache identities use resolved UUIDs. Writes invalidate
+reads before and after the request, and late reads cannot repopulate an invalidated cache.
+Sign-out, denied reads, scope changes and full-page history restores clear private state.
+No private Information is stored in localStorage or available as an offline fallback.
+
+Hovering or focusing a calendar, date or entry can prefetch its visible details. Small
+calendars also prefetch the next year's first pages. Prefetch uses at most two requests at
+once, eight queued and sixteen distinct intentions per view; it respects the full-visibility
+check, does not change the selected date and never authors periods. Existing four-date
+loading for visible month content remains in place. In-app navigation uses Astro's built-in
+client router; every new page remounts behind its fresh session check.
+
 ## Development and checks
 
 Use Node from the root `mise.toml` and the workspace pnpm version. Copy `.env.example` to `.env` and set this app's Authgear endpoint/client; register the slash-suffixed callback. The API must allow the local origin through CORS.

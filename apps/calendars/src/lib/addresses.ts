@@ -47,5 +47,11 @@ export function canonicalAddress(tenant: string, id: string) {
   url.searchParams.delete('id');
   url.searchParams.delete('slug');
   for (const [key, value] of namedParams(tenant, id)) url.searchParams.set(key, value);
-  history.replaceState(null, '', url);
+  history.replaceState(history.state, '', url);
 }
+
+if (typeof document !== 'undefined')
+  document.addEventListener('astro:before-swap', () => {
+    tenants.clear();
+    names.clear();
+  });

@@ -4,10 +4,12 @@ import { definitionEditor } from '../../lib/definition-editor';
 import { calendarHref, el, link, message } from '../../lib/dom';
 import { start } from '../../lib/session';
 export async function mount() {
+  const host = document.querySelector<HTMLElement>('#CalendarList');
+  if (!host || host.dataset.mounted) return;
+  host.dataset.mounted = 'true';
   const session = await start();
-  if (!session) return;
-  const host = document.querySelector('#CalendarList');
-  if (!host) return;
+  if (!session || !host.isConnected) return;
+
   host.append(
     el('h1', 'Calendars'),
     link('Browse Events', `/events/?tenant=${encodeURIComponent(session.tenantId)}`),
@@ -24,6 +26,7 @@ export async function mount() {
         }),
       ),
     );
+    if (!host.isConnected) return;
     const list = el('ul', '', 'calendar-list');
     for (const calendar of calendars) {
       rememberEntryAddress(session.tenantId, calendar);

@@ -1,4 +1,5 @@
 ---
+import { ClientRouter } from 'astro:transitions';
 import { BRANDING_CSS_URL } from '../lib/config';
 import appStyles from '../styles/app.css?url';
 interface Props {
@@ -14,6 +15,7 @@ const { title = 'Lorenzo Calendars' } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>{title}</title>
+    <ClientRouter />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     {['normalize', 'tokens', 'fonts', 'base', 'layout', 'components', 'motion'].map((name) => (
       <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${name}.css`} />

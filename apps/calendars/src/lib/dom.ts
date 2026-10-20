@@ -1,4 +1,5 @@
 import { namedParams, tenantAddress } from './addresses';
+import { prefetchCalendar, prefetchEntry } from './prefetch';
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   text = '',
@@ -53,13 +54,20 @@ export function select(text: string, options: [string, string][], value: string)
 }
 export const message = (e: unknown): string =>
   e instanceof Error ? e.message : 'Could not finish this action.';
+const destinations = new Map<string, { tenant: string; id: string; calendar: boolean }>();
 export function entryHref(tenant: string, id: string): string {
-  return `/entry/?${namedParams(tenant, id)}`;
+  const href = `/entry/?${namedParams(tenant, id)}`;
+  destinations.set(href, { tenant, id, calendar: false });
+  if (destinations.size > 256) destinations.delete(destinations.keys().next().value ?? '');
+  return href;
 }
 export function calendarHref(tenant: string, id: string, year?: number): string {
   const params = namedParams(tenant, id);
   if (year !== undefined) params.set('year', String(year));
-  return `/calendar/?${params}`;
+  const href = `/calendar/?${params}`;
+  destinations.set(href, { tenant, id, calendar: true });
+  if (destinations.size > 256) destinations.delete(destinations.keys().next().value ?? '');
+  return href;
 }
 export function link(text: string, href: string) {
   const a = el('a', text);
@@ -68,5 +76,17 @@ export function link(text: string, href: string) {
   if (url.origin === location.origin && tenant)
     url.searchParams.set('tenant', tenantAddress(tenant));
   a.href = url.href;
+  const destination = destinations.get(href);
+  if (destination) {
+    const read = () =>
+      destination.calendar
+        ? prefetchCalendar(destination.tenant, destination.id)
+        : prefetchEntry(destination.tenant, destination.id);
+    a.addEventListener('pointerenter', read);
+    a.addEventListener('focus', read);
+  }
   return a;
 }
+
+if (typeof document !== 'undefined')
+  document.addEventListener('astro:before-swap', () => destinations.clear());

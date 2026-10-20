@@ -4,10 +4,11 @@ import { button, el, entryHref, field, link, message, select } from '../../lib/d
 import { entryPicker } from '../../lib/entry-picker';
 import { start } from '../../lib/session';
 export async function mount() {
+  const host = document.querySelector<HTMLElement>('#EventList');
+  if (!host || host.dataset.mounted) return;
+  host.dataset.mounted = 'true';
   const session = await start();
-  if (!session) return;
-  const host = document.querySelector('#EventList');
-  if (!host) return;
+  if (!session || !host?.isConnected) return;
   const { tenantId, canWrite, canOrderEvents } = session;
   const initial = new URLSearchParams(location.search);
   let being = initial.get('being') ?? '';
@@ -76,7 +77,7 @@ export async function mount() {
           },
         }),
       );
-      if (turn !== generation) return;
+      if (turn !== generation || !host?.isConnected) return;
       list.replaceChildren();
       list.start = (page - 1) * 30 + 1;
       for (const entry of response.items) {
@@ -148,7 +149,7 @@ export async function mount() {
         if (value) address.searchParams.set(key, value);
         else address.searchParams.delete(key);
       }
-      history.replaceState(null, '', address);
+      history.replaceState(history.state, '', address);
     } catch (error) {
       if (turn === generation) {
         list.replaceChildren();
@@ -234,14 +235,14 @@ export async function mount() {
             body: { id, name: name.input.value, kinds: ['event'], parents: [] },
           }),
         );
-        location.assign(entryHref(tenantId, id));
+        if (form.isConnected) location.assign(entryHref(tenantId, id));
       } catch (error) {
         try {
           const existing = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
             params: { path: { tenant_id: tenantId, entity_id: id } },
           });
           if (existing.data?.kinds.includes('event')) {
-            location.assign(entryHref(tenantId, id));
+            if (form.isConnected) location.assign(entryHref(tenantId, id));
             return;
           }
         } catch {
