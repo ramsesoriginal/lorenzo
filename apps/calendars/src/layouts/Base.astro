@@ -1,6 +1,6 @@
 ---
 import { BRANDING_CSS_URL } from '../lib/config';
-import '../styles/app.css';
+import appStyles from '../styles/app.css?url';
 interface Props {
   title?: string;
 }
@@ -12,11 +12,13 @@ const { title = 'Lorenzo Calendars' } = Astro.props;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <title>{title}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     {['normalize', 'tokens', 'fonts', 'base', 'layout', 'components', 'motion'].map((name) => (
       <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${name}.css`} />
     ))}
+    <link rel="stylesheet" href={appStyles} />
     <script is:inline>
       if (window.matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.dataset.theme = 'dark';
@@ -26,35 +28,61 @@ const { title = 'Lorenzo Calendars' } = Astro.props;
     <a class="skip-link" href="#content">
       Skip to content
     </a>
-    <header class="app-header">
-      <div class="wrap row">
-        <a class="brand" href="/">
-          Lorenzo Calendars
+    <header class="site-header">
+      <div class="row brand-group">
+        <a class="brand" href="/" aria-label="Lorenzo Calendars home">
+          <img
+            class="brand-mark brand-mark--light"
+            src="/brand/lorenzo_horizontal_lockup_light_bg.svg"
+            alt="Lorenzo"
+            width="220"
+            height="59"
+          />
+          <img
+            class="brand-mark brand-mark--dark"
+            src="/brand/lorenzo_horizontal_lockup_dark_bg.svg"
+            alt="Lorenzo"
+            width="220"
+            height="59"
+          />
         </a>
-        <nav aria-label="Account">
-          <a data-hub hidden>
-            Account
-          </a>
-          <button class="btn btn-secondary" data-login hidden>
-            Log in
-          </button>
-          <button class="btn btn-secondary" data-logout hidden>
-            Log out
-          </button>
-        </nav>
+        <span class="product">Calendars</span>
       </div>
+      <nav aria-label="Account and appearance">
+        <a data-hub hidden>
+          Account
+        </a>
+        <button class="btn btn-secondary" data-login hidden>
+          Log in
+        </button>
+        <button class="btn btn-secondary" data-logout hidden>
+          Log out
+        </button>
+        <button type="button" class="btn btn-secondary" data-theme-toggle aria-pressed="false">
+          Dark theme
+        </button>
+      </nav>
     </header>
     <main id="content" class="wrap stack">
-      <p data-session role="status">
-        Opening your calendars…
-      </p>
-      <label data-library-field hidden>
+      <div class="welcome stack" data-welcome>
+        <h1>Calendars for your worlds</h1>
+        <p class="intro">
+          Keep the months, festivals and moons of each world in its own reckoning. Open a date to
+          read its notes and story events.
+        </p>
+        <p data-session role="status">
+          Opening your calendars…
+        </p>
+      </div>
+      <label class="library-picker" data-library-field hidden>
         Library or repository <select data-library></select>
       </label>
       <div data-page hidden>
         <slot />
       </div>
     </main>
-    <footer class="wrap caption">Dates in your world, in its own reckoning.</footer>
+    <footer>
+      <div class="wrap">Dates in your world, in its own reckoning.</div>
+    </footer>
   </body>
 </html>

@@ -1,38 +1,68 @@
+/* The shared brand supplies the shell, typography and buttons. Only calendar
+   layout and domain-specific surfaces belong here (ADR 0098, ADR 0311). */
 .wrap {
+  width: 100%;
   max-width: 80rem;
   margin-inline: auto;
-  padding: 1.25rem;
+  padding-inline: var(--space-4);
+  box-sizing: border-box;
+}
+main.wrap {
+  padding-block: var(--space-5);
 }
 .row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 .stack,
 .stack-tight {
   display: grid;
-  gap: 1rem;
+  align-content: start;
+  gap: var(--space-4);
 }
 .stack-tight {
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
-.app-header .row {
-  justify-content: space-between;
+.stack > button,
+.stack-tight > button {
+  justify-self: start;
 }
-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.site-header {
+  flex-wrap: wrap;
 }
-.brand {
-  font-size: 1.25rem;
-  font-weight: 700;
-  text-decoration: none;
+.site-header nav {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.product {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.welcome {
+  max-width: 42rem;
+  margin-block: var(--space-6);
+}
+h1,
+h2,
+h3,
+p {
+  margin-block: 0;
+}
+h1 {
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.intro,
+.caption {
+  color: var(--text-secondary);
 }
 .caption {
-  opacity: 0.8;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+}
+[role="status"]:empty {
+  display: none;
 }
 [hidden] {
   /* biome-ignore lint/complexity/noImportantStyles: hidden overrides layout classes. */
@@ -40,23 +70,26 @@ nav {
 }
 label {
   display: grid;
-  gap: 0.35rem;
+  gap: var(--space-1);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 label.check {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 input,
 select,
 textarea {
   max-width: 100%;
-  padding: 0.55rem;
-  border: 1px solid currentColor;
-  border-radius: 0.3rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
   font: inherit;
-  background: transparent;
-  color: inherit;
+  background: var(--surface-default);
+  color: var(--text-primary);
+  box-sizing: border-box;
 }
 textarea {
   min-height: 7rem;
@@ -64,130 +97,173 @@ textarea {
 }
 input[type="checkbox"] {
   width: auto;
+  accent-color: var(--action);
+}
+select {
+  width: 100%;
+}
+.library-picker {
+  max-width: 24rem;
 }
 fieldset,
 .panel {
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-  border-radius: 0.5rem;
-  padding: 1rem;
+  margin: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+  background: var(--surface-default);
 }
 fieldset {
   min-width: 0;
 }
 legend {
-  padding-inline: 0.4rem;
+  padding-inline: var(--space-2);
+  color: var(--text-primary);
   font-weight: 600;
+}
+details {
+  border-block-start: 1px solid var(--border-subtle);
+  padding-block-start: var(--space-3);
+}
+summary {
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  padding-block: var(--space-2);
+}
+details[open] > summary {
+  margin-block-end: var(--space-3);
 }
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.8rem;
+  gap: var(--space-3);
 }
 .segment-row {
-  border-block-end: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-  padding-block: 1rem;
+  border-block-end: 1px solid var(--border-subtle);
+  padding-block: var(--space-3);
+}
+.year-nav {
+  align-items: end;
+  padding-block: var(--space-3);
+  border-block: 1px solid var(--border-subtle);
 }
 .calendar-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
-  gap: 1.5rem;
+  gap: var(--space-4);
   align-items: start;
 }
 .month-grid {
   display: grid;
   grid-template-columns: repeat(var(--week-length, 7), minmax(2.4rem, 1fr));
-  gap: 0.25rem;
+  gap: var(--space-1);
   overflow-x: auto;
+  padding: var(--space-1);
 }
 .day {
   display: grid;
-  gap: 0.25rem;
+  align-content: start;
+  justify-content: stretch;
+  gap: var(--space-1);
   min-height: 5rem;
-  padding: 0.4rem;
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-  border-radius: 0.35rem;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
   text-align: start;
-  color: inherit;
-  background: transparent;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: var(--surface-default);
   cursor: pointer;
 }
-.day:hover,
-.day:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 1px;
+.day:hover {
+  background: var(--action-surface);
+  border-color: var(--action);
 }
 .day[aria-pressed="true"] {
-  background: color-mix(in srgb, currentColor 12%, transparent);
+  background: var(--surface-selected);
+  border-color: var(--action);
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+.month-grid:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 .moons {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 .festival {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 .festival .day {
   min-width: 7rem;
 }
 .weekday {
-  font-size: 0.8rem;
-  font-weight: 600;
-  overflow-wrap: anywhere;
+  padding-block: var(--space-2);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .calendar-list {
   list-style: none;
   padding: 0;
+  margin: 0;
   display: grid;
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-3);
+}
+.calendar-list .panel {
+  padding: 0;
+}
+.calendar-card {
+  display: block;
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+.calendar-card:hover {
+  background: var(--action-surface);
+  color: var(--action);
 }
 .error {
-  color: var(--danger, #a32930);
+  color: var(--danger);
 }
-.draft-status {
+.draft-status,
+pre {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .skip-link:not(:focus) {
   position: absolute;
   clip-path: inset(100%);
 }
-@media (max-width: 48rem) {
-  .calendar-layout {
-    grid-template-columns: 1fr;
-  }
-  .wrap {
-    padding: 0.8rem;
-  }
-  .day {
-    min-height: 4.2rem;
-  }
-}
-
-pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
 .ls-editor-panes {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-3);
 }
 .editor-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-}
-.editor-toolbar button {
-  padding: 0.3rem;
+  gap: var(--space-1);
 }
 .ls-content img {
   max-width: 100%;
   height: auto;
-}
-
-.wrap {
-  width: 100%;
-  box-sizing: border-box;
 }
 .stack,
 .stack-tight,
@@ -199,23 +275,43 @@ input,
 select {
   min-width: 0;
 }
-select {
-  width: 100%;
+.year-nav input {
+  width: 9rem;
 }
-
 .month-grid.with-moons {
   grid-template-columns: repeat(var(--week-length, 7), minmax(6rem, 1fr));
-}
-.weekday {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .calendar-scroll-hint {
   display: none;
 }
-@media (max-width: 48rem) {
+@media (max-width: 720px) {
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+  .wrap {
+    padding-inline: var(--space-3);
+  }
+  .site-header {
+    padding: var(--space-3);
+  }
   .calendar-scroll-hint {
     display: block;
+  }
+  .day {
+    min-height: 4.5rem;
+  }
+  .panel,
+  fieldset {
+    padding: var(--space-3);
+  }
+}
+@media (max-width: 720px), (pointer: coarse) {
+  button,
+  select,
+  input:not([type="checkbox"]),
+  summary,
+  .site-header nav a,
+  label.check {
+    min-height: var(--target-min);
   }
 }

@@ -8,6 +8,18 @@ export type Session = { tenantId: string; canWrite: boolean };
 export async function start(): Promise<Session | null> {
   const status = document.querySelector<HTMLElement>('[data-session]');
   if (!status) return null;
+  const theme = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+  function applyTheme(dark: boolean) {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    if (theme) {
+      theme.textContent = dark ? 'Light theme' : 'Dark theme';
+      theme.setAttribute('aria-pressed', String(dark));
+    }
+  }
+  applyTheme(document.documentElement.dataset.theme === 'dark');
+  theme?.addEventListener('click', () =>
+    applyTheme(document.documentElement.dataset.theme !== 'dark'),
+  );
   const signIn = document.querySelector<HTMLButtonElement>('[data-login]');
   signIn?.addEventListener('click', () => {
     sessionStorage.setItem('lorenzo:calendars:return', location.pathname + location.search);
@@ -73,6 +85,7 @@ export async function start(): Promise<Session | null> {
     document.querySelector<HTMLElement>('[data-library-field]')?.removeAttribute('hidden');
     document.querySelector<HTMLElement>('[data-page]')?.removeAttribute('hidden');
     status.hidden = true;
+    document.querySelector<HTMLElement>('[data-welcome]')?.setAttribute('hidden', '');
     return { tenantId: tenant.id, canWrite: ['owner', 'orga', 'author'].includes(tenant.role) };
   } catch (e) {
     status.textContent = message(e);
