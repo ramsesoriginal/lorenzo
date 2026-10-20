@@ -95,16 +95,19 @@ async def graph(
     session: SessionDep, tenant_id: uuid.UUID
 ) -> tuple[EventOrder, dict[uuid.UUID, str]]:
     # One statement = one MVCC snapshot of both nodes and assertions.
-    nodes = (
-        select(
-            StoryEvent.entity_id,
-            Entity.name,
-            literal(None, type_=Uuid),
-            literal(None, type_=String),
-        )
-        .join(Entity, Entity.id == StoryEvent.entity_id)
-        .where(StoryEvent.tenant_id == tenant_id, Entity.tenant_id == tenant_id)
+    # RLS plus fresh tenant statistics can make a normal join repeatedly scan
+    # every entry for every Event. Keep the name lookup correlated and indexed;
+    # OFFSET 0 prevents flattening it back into that quadratic plan (4,000-Event test).
+    name = (
+        select(Entity.name)
+        .where(Entity.id == StoryEvent.entity_id, Entity.tenant_id == tenant_id)
+        .correlate(StoryEvent)
+        .offset(0)
+        .scalar_subquery()
     )
+    nodes = select(
+        StoryEvent.entity_id, name, literal(None, type_=Uuid), literal(None, type_=String)
+    ).where(StoryEvent.tenant_id == tenant_id)
     edges = select(
         EventRelationship.from_event_id,
         literal(None, type_=String),
