@@ -314,3 +314,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0309 - Calendar period entries, minimal Events and date associations](0309-calendar-periods-events-and-date-associations.md)
 - [0310 - Recurring calendar observances](0310-recurring-calendar-observances.md)
 - [0311 - Calendar documents, donjon import and the calendar app](0311-calendar-documents-import-and-app.md)
+- [0312 - Explicit Event order and causal relationships](0312-explicit-event-order-and-causality.md)
