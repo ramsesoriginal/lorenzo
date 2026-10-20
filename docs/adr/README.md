@@ -315,3 +315,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0310 - Recurring calendar observances](0310-recurring-calendar-observances.md)
 - [0311 - Calendar documents, donjon import and the calendar app](0311-calendar-documents-import-and-app.md)
 - [0312 - Explicit Event order and causal relationships](0312-explicit-event-order-and-causality.md)
+- [0313 - Event participation, browsing and calendar addresses](0313-event-participation-browsing-and-calendar-addresses.md)
