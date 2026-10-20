@@ -1425,5 +1425,17 @@ class PayloadOrderListError(ConflictProblem):
     title = "Include every payload exactly once"
 
 
+class CalendarDefinitionInUseError(ConflictProblem):
+    title = "This definition would invalidate recorded dates"
+
+
 class PayloadReplayConflictError(ConflictProblem):
     title = "That payload id already holds different content"
+
+
+class InvalidCalendarDateError(UnprocessableProblem):
+    title = "That calendar date is not available"
+
+
+class CalendarImportReviewRequiredError(ConflictProblem):
+    title = "Review the calendar import before applying it"

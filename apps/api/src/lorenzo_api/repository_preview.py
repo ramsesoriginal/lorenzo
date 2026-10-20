@@ -32,7 +32,7 @@ from lorenzo_api.config import get_settings
 from lorenzo_api.exceptions import PublicRepositoryHasNoReleaseError
 from lorenzo_api.models import RepositoryProfile, RepositoryShowcase
 from lorenzo_api.release_document_store import ReleaseDocumentNotFoundError, read_release_content
-from lorenzo_api.repository_content import Content, load_content
+from lorenzo_api.repository_content import Content, load_content, public_entry
 from lorenzo_api.repository_releases import current_release
 from lorenzo_api.repository_upstream import is_public
 from lorenzo_api.schemas.repositories import EntityKindName
@@ -59,7 +59,17 @@ __all__ = [
 # How many entries an Owner may feature (RFC 0038 section 5, the cap its open question asks for).
 SHOWCASE_MAX = 12
 
-_KIND_ORDER: tuple[EntityKindName, ...] = ("item", "item_instance", "being", "character", "fact")
+_KIND_ORDER: tuple[EntityKindName, ...] = (
+    "item",
+    "item_instance",
+    "being",
+    "character",
+    "fact",
+    "calendar",
+    "calendar_period",
+    "event",
+    "observance",
+)
 
 Reach = Literal["none", "showcase", "all"]
 
@@ -215,7 +225,7 @@ def entity_out(
     """The entry as it is looked at, or none if the content has no such entry. Without `text` the
     entry is its name, kinds and parents only."""
     name = content.entities.get(entity_id)
-    if name is None or not content.entry_audiences.get(entity_id, True):
+    if name is None or not public_entry(content, entity_id):
         return None
     kinds = content.kinds.get(entity_id, set())
     return PreviewEntityOut(
@@ -225,9 +235,7 @@ def entity_out(
         parents=[
             PreviewParentOut(id=parent, name=content.entities[parent])
             for child, parent in content.prototypes
-            if child == entity_id
-            and parent in content.entities
-            and content.entry_audiences.get(parent, True)
+            if child == entity_id and parent in content.entities and public_entry(content, parent)
         ],
         featured=featured,
         text_visible=text,
@@ -241,7 +249,7 @@ def picture_of(
 ) -> tuple[bytes, str] | None:
     """The bytes and type of a picture on a row of the entry's text that is Everyone's, or none:
     a picture of any other row, of another entry or that does not exist is the same answer."""
-    if not content.entry_audiences.get(entity_id, True):
+    if not public_entry(content, entity_id):
         return None
     payload = content.payloads.get(payload_id)
     if payload is None or payload.kind != "picture":

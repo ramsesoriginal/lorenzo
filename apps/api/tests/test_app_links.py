@@ -12,6 +12,7 @@ def test_defaults_are_the_official_pages_addresses() -> None:
         "inventory_web": {"url": "https://lorenzo-inventory-web.pages.dev"},
         "beings": {"url": "https://lorenzo-beings.pages.dev"},
         "bench": {"url": "https://lorenzo-bench.pages.dev"},
+        "calendars": {"url": "https://lorenzo-calendars.pages.dev"},
     }
     links = doc["links"]
     assert links["notifications"] == "https://lorenzo-account-hub.pages.dev/notifications/"
@@ -25,6 +26,11 @@ def test_defaults_are_the_official_pages_addresses() -> None:
     assert links["being_by_slug"].endswith("/being/?tenant={tenant}&slug={slug}")
     assert links["repository"].endswith("/repositories/")
     assert links["studio"].endswith("/studio/")
+    assert (
+        links["calendar"] == "https://lorenzo-calendars.pages.dev/calendar/?tenant={tenant}&id={id}"
+    )
+    assert links["calendar_by_slug"].endswith("/calendar/?tenant={tenant}&slug={slug}")
+    assert links["calendar_entry"].endswith("/entry/?tenant={tenant}&id={id}")
 
 
 def test_overridden_addresses_lose_trailing_slashes() -> None:
@@ -74,7 +80,7 @@ async def test_endpoint_is_public_and_cacheable(client: AsyncClient) -> None:
     assert response.status_code == 200
     assert response.headers["cache-control"] == "public, max-age=300"
     body = response.json()
-    assert set(body["apps"]) == {"account_hub", "inventory_web", "beings", "bench"}
+    assert set(body["apps"]) == {"account_hub", "inventory_web", "beings", "bench", "calendars"}
     assert "{tenant}" in body["links"]["item"]
 
 

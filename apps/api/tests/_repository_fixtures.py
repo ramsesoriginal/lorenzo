@@ -11,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lorenzo_api import release_document
 from lorenzo_api.models import (
     Being,
+    Calendar,
+    CalendarObservance,
+    CalendarPeriod,
     Character,
     ComputedStat,
     ComputedStatComparison,
@@ -27,6 +30,7 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    EntryCalendarPeriod,
     Fact,
     FactAbout,
     GroupMember,
@@ -53,6 +57,7 @@ from lorenzo_api.models import (
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
+    StoryEvent,
 )
 from lorenzo_api.repository_content import Content
 
@@ -78,6 +83,10 @@ async def seed_every_content_table(
         entity("Harpers"),
         entity("Elminster"),
     )
+    calendar = entity("Fixture calendar")
+    period = entity("Fixture year")
+    event = entity("Fixture event")
+    observance = entity("Fixture observance")
     fact = entity("The blade belongs to Elminster")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
@@ -85,6 +94,14 @@ async def seed_every_content_table(
 
     session.add_all(
         [
+            Calendar(
+                entity_id=calendar.id,
+                tenant_id=tenant_id,
+                definition={
+                    "format": "lorenzo.calendar/1",
+                    "segments": [{"key": "month", "name": "Month", "days": 30}],
+                },
+            ),
             Fact(entity_id=fact.id, tenant_id=tenant_id),
             EntityAudience(entity_id=fact.id, tenant_id=tenant_id, is_public=False),
         ]
@@ -95,6 +112,34 @@ async def seed_every_content_table(
             FactAbout(fact_entity_id=fact.id, subject_entity_id=blade.id, tenant_id=tenant_id),
             EntityKnowledge(entity_id=fact.id, knower_entity_id=guild.id, tenant_id=tenant_id),
         ]
+    )
+
+    session.add_all(
+        [
+            CalendarObservance(
+                entity_id=observance.id,
+                tenant_id=tenant_id,
+                calendar_entity_id=calendar.id,
+                rule={"segment": "month", "day": 1, "when": {"every": 1, "offset": 0}},
+            ),
+            EntityAudience(entity_id=observance.id, tenant_id=tenant_id, is_public=False),
+            StoryEvent(entity_id=event.id, tenant_id=tenant_id),
+            CalendarPeriod(
+                entity_id=period.id,
+                tenant_id=tenant_id,
+                calendar_entity_id=calendar.id,
+                year=0,
+                segment=None,
+                day=None,
+                parent_entity_id=None,
+            ),
+            EntityAudience(entity_id=event.id, tenant_id=tenant_id, is_public=False),
+            EntityAudience(entity_id=period.id, tenant_id=tenant_id, is_public=False),
+        ]
+    )
+    await session.flush()
+    session.add(
+        EntryCalendarPeriod(entity_id=event.id, period_entity_id=period.id, tenant_id=tenant_id)
     )
 
     strength = StatDefinition(

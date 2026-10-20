@@ -31,7 +31,14 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lorenzo_cli import entry_commands, rawapi, repo_report, repos, vocabulary_commands
+from lorenzo_cli import (
+    calendar_commands,
+    entry_commands,
+    rawapi,
+    repo_report,
+    repos,
+    vocabulary_commands,
+)
 from lorenzo_cli.auth import store as credentials
 from lorenzo_cli.auth.device import DeviceLoginError, run_device_login
 from lorenzo_cli.auth.login import LoginError, run_login
@@ -148,6 +155,7 @@ app = typer.Typer(
 )
 tenant_app = typer.Typer(help="List, read or create a tenant.", no_args_is_help=True)
 app.add_typer(tenant_app, name="tenant")
+app.add_typer(calendar_commands.app, name="calendar")
 pack_app = typer.Typer(help="Hand out an imported pack.", no_args_is_help=True)
 app.add_typer(pack_app, name="pack")
 item_app = typer.Typer(help="Find the items you may add, and add one.", no_args_is_help=True)

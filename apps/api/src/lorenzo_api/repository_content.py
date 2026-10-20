@@ -22,6 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.models import (
     Being,
+    Calendar,
+    CalendarObservance,
+    CalendarPeriod,
     Character,
     ComputedStat,
     ComputedStatComparison,
@@ -37,6 +40,7 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    EntryCalendarPeriod,
     Fact,
     FactAbout,
     GroupMember,
@@ -58,9 +62,20 @@ from lorenzo_api.models import (
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
+    StoryEvent,
 )
 
-KINDS = ("item", "item_instance", "being", "character", "fact")
+KINDS = (
+    "item",
+    "item_instance",
+    "being",
+    "character",
+    "fact",
+    "calendar",
+    "calendar_period",
+    "event",
+    "observance",
+)
 
 
 @dataclass
@@ -164,6 +179,10 @@ class Content:
     information: dict[uuid.UUID, InformationData] = field(default_factory=dict)
     payloads: dict[uuid.UUID, PayloadData] = field(default_factory=dict)
     knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    calendar_periods: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    entry_dates: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
     entry_knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     fact_about: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
@@ -242,6 +261,10 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("being", Being),
         ("character", Character),
         ("fact", Fact),
+        ("calendar", Calendar),
+        ("calendar_period", CalendarPeriod),
+        ("event", StoryEvent),
+        ("observance", CalendarObservance),
     ):
         for (entity_id,) in await rows(model.entity_id, where=model.tenant_id == t):
             c.kinds[entity_id].add(kind)
@@ -477,6 +500,36 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         if pid in kinds_by_payload:
             kind, fields = kinds_by_payload[pid]
             c.payloads[pid] = PayloadData(info_id, order, kind, fields)
+    c.calendar_periods = {
+        p.entity_id: {
+            "calendar": p.calendar_entity_id,
+            "year": p.year,
+            "segment": p.segment,
+            "day": p.day,
+            "parent": p.parent_entity_id,
+        }
+        for p in await session.scalars(select(CalendarPeriod).where(CalendarPeriod.tenant_id == t))
+    }
+    c.entry_dates = [
+        (entity_id, period_id)
+        for entity_id, period_id in await rows(
+            EntryCalendarPeriod.entity_id,
+            EntryCalendarPeriod.period_entity_id,
+            where=EntryCalendarPeriod.tenant_id == t,
+        )
+    ]
+    c.observances = {
+        entity_id: {"calendar": calendar_id, "rule": rule}
+        for entity_id, calendar_id, rule in await rows(
+            CalendarObservance.entity_id,
+            CalendarObservance.calendar_entity_id,
+            CalendarObservance.rule,
+            where=CalendarObservance.tenant_id == t,
+        )
+    }
+    c.calendars = dict(
+        await rows(Calendar.entity_id, Calendar.definition, where=Calendar.tenant_id == t)
+    )
     c.entry_audiences = dict(
         await rows(
             EntityAudience.entity_id, EntityAudience.is_public, where=EntityAudience.tenant_id == t
@@ -644,6 +697,16 @@ def entity_snapshot(
 ) -> dict[str, Any]:
     """What a copy link records for an entity (ADR 0119/0121)."""
     return {
+        **(
+            {"calendar_definition": content.calendars[entity_id]}
+            if entity_id in content.calendars
+            else {}
+        ),
+        **(
+            {"observance_rule": content.observances[entity_id]["rule"]}
+            if entity_id in content.observances
+            else {}
+        ),
         "name": content.entities[entity_id],
         "kinds": sorted(content.kinds.get(entity_id, ())),
         "in_public_catalog": content.in_public_catalog.get(entity_id),
@@ -684,3 +747,10 @@ def stat_definition_snapshot(
             for key, hinted in definition["hints"].items()
         },
     }
+
+
+def public_entry(content: Content, entity_id: uuid.UUID) -> bool:
+    if not content.entry_audiences.get(entity_id, True):
+        return False
+    period = content.calendar_periods.get(entity_id) or content.observances.get(entity_id)
+    return period is None or content.entry_audiences.get(period["calendar"], True)

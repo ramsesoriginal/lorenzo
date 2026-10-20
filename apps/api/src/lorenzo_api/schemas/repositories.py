@@ -55,7 +55,17 @@ __all__ = [
     "SubscriptionOut",
 ]
 
-EntityKindName = Literal["item", "item_instance", "being", "character", "fact"]
+EntityKindName = Literal[
+    "item",
+    "item_instance",
+    "being",
+    "character",
+    "fact",
+    "calendar",
+    "calendar_period",
+    "event",
+    "observance",
+]
 
 # A release's words (ADR 0207). The label is free text, never parsed as a version.
 ReleaseLabel = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]

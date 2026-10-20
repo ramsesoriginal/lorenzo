@@ -1,5 +1,9 @@
 from lorenzo_api.models.audit_log import AuditLog
 from lorenzo_api.models.being import Being
+from lorenzo_api.models.calendar import Calendar
+from lorenzo_api.models.calendar_import import CalendarImport
+from lorenzo_api.models.calendar_observance import CalendarObservance
+from lorenzo_api.models.calendar_period import CalendarPeriod, EntryCalendarPeriod, StoryEvent
 from lorenzo_api.models.campaign import Campaign
 from lorenzo_api.models.campaign_gm import CampaignGm
 from lorenzo_api.models.campaign_profile_picture import CampaignProfilePicture
@@ -72,12 +76,18 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "CalendarImport",
+    "CalendarObservance",
     "EntityAudience",
     "EntityKnowledge",
     "Fact",
     "FactAbout",
     "AuditLog",
     "Being",
+    "Calendar",
+    "CalendarPeriod",
+    "EntryCalendarPeriod",
+    "StoryEvent",
     "Campaign",
     "CampaignGm",
     "CampaignProfilePicture",

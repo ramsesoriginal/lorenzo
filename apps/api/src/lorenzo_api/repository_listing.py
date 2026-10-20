@@ -10,7 +10,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.models import RepositoryRelease
-from lorenzo_api.repository_content import Content
+from lorenzo_api.repository_content import Content, public_entry
 from lorenzo_api.repository_profiles import profile_of
 
 __all__ = ["set_listing_facts"]
@@ -27,6 +27,6 @@ async def set_listing_facts(
     profile = await profile_of(session, repository_id)
     profile.release_label = release.label
     profile.released_at = release.created_at
-    profile.entry_count = sum(content.entry_audiences.get(e, True) for e in content.entities)
+    profile.entry_count = sum(public_entry(content, e) for e in content.entities)
     profile.stat_definition_count = len(content.definitions)
     await session.flush()

@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 2
+FORMAT = 5
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -377,6 +377,23 @@ _CONTENT = _dataclass(
         "information": _id_map(_INFORMATION),
         "payloads": _id_map(_PAYLOAD),
         "knowledge": _pairs(_ID, _ID),
+        "calendar_periods": _id_map(
+            _record(
+                {
+                    "calendar": _ID,
+                    "year": _PLAIN,
+                    "segment": _PLAIN,
+                    "day": _PLAIN,
+                    "parent": _optional(_ID),
+                },
+                name="Content.calendar_periods",
+            )
+        ),
+        "entry_dates": _pairs(_ID, _ID),
+        "calendars": _id_map(_PLAIN),
+        "observances": _id_map(
+            _record({"calendar": _ID, "rule": _PLAIN}, name="Content.observances")
+        ),
         "entry_audiences": _id_map(_PLAIN),
         "entry_knowledge": _pairs(_ID, _ID),
         "fact_about": _pairs(_ID, _ID),
@@ -403,13 +420,31 @@ def _read_v1(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v2(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v3({**document, "calendars": {}}, files)
+
+
+def _read_v3(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v4({**document, "calendar_periods": {}, "entry_dates": []}, files)
+
+
+def _read_v4(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v5({**document, "observances": {}}, files)
+
+
+def _read_v5(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
 
 # Every version this code can read. A change to `Content` or to the format above that changes
 # what a document holds is a new version and a new reader; the old reader stays.
-READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {1: _read_v1, 2: _read_v2}
+READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
+    1: _read_v1,
+    2: _read_v2,
+    3: _read_v3,
+    4: _read_v4,
+    5: _read_v5,
+}
 
 
 def decode(document: Document, files: Mapping[str, bytes], *, format: int = FORMAT) -> Content:  # noqa: A002

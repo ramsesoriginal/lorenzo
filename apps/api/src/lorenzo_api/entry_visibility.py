@@ -7,16 +7,16 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import ColumnElement, exists, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.orm import InstrumentedAttribute, aliased
 
 from lorenzo_api.entity_access import entity_id_among
-from lorenzo_api.models import EntityAudience, EntityKnowledge
+from lorenzo_api.models import CalendarObservance, CalendarPeriod, EntityAudience, EntityKnowledge
 
 if TYPE_CHECKING:
     from lorenzo_api.information_visibility import InformationVisibility
 
 
-def visible_entry_clause(
+def _own_visible_entry_clause(
     vis: InformationVisibility,
     entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
 ) -> ColumnElement[bool]:
@@ -39,6 +39,28 @@ def visible_entry_clause(
     return ~exists().where(EntityAudience.entity_id == entity_id, ~or_(*allowed))
 
 
+def visible_entry_clause(
+    vis: InformationVisibility,
+    entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
+) -> ColumnElement[bool]:
+    if vis.is_admin or vis.author_sees_all:
+        return true()
+    period = aliased(CalendarPeriod)
+    observance = aliased(CalendarObservance)
+    own = _own_visible_entry_clause(vis, entity_id)
+    return (
+        own
+        & ~exists().where(
+            period.entity_id == entity_id,
+            ~_own_visible_entry_clause(vis, period.calendar_entity_id),
+        )
+        & ~exists().where(
+            observance.entity_id == entity_id,
+            ~_own_visible_entry_clause(vis, observance.calendar_entity_id),
+        )
+    )
+
+
 async def require_visible_entry(
     session: AsyncSession,
     *,
@@ -58,7 +80,11 @@ async def require_visible_entry(
         select(EntityAudience.entity_id).where(
             EntityAudience.entity_id == entity_id,
             EntityAudience.tenant_id == tenant_id,
-            EntityAudience.is_public.is_(False),
+            or_(
+                EntityAudience.is_public.is_(False),
+                exists().where(CalendarPeriod.entity_id == entity_id),
+                exists().where(CalendarObservance.entity_id == entity_id),
+            ),
         )
     )
     if gate is None:

@@ -33,6 +33,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.models import (
     Being,
+    CalendarObservance,
     Character,
     ComputedStat,
     ComputedStatComparison,
@@ -58,6 +59,7 @@ from lorenzo_api.models import (
     StatValueType,
     Tenant,
 )
+from lorenzo_api.models.calendar import Calendar
 from lorenzo_api.models.fact import EntityAudience, Fact
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
@@ -689,6 +691,68 @@ class _Applier:
     async def _entity(self, row: RowChange, change: FieldChange) -> bool:
         e, t, s = row.local_id, self.tenant_id, self.session
         name = change.field
+        if name == "observance_rule":
+            from lorenzo_calendar import CalendarDefinition, RecurrenceRule, validate_recurrence
+
+            observance = await s.get(CalendarObservance, e)
+            if observance is None:
+                self.skip(row, name, "The local entry is no longer an observance")
+                return False
+            await s.execute(
+                select(Entity.id)
+                .where(Entity.tenant_id == t, Entity.id.in_([e, observance.calendar_entity_id]))
+                .order_by(Entity.id)
+                .with_for_update()
+            )
+            calendar = await s.scalar(
+                select(Calendar)
+                .where(Calendar.entity_id == observance.calendar_entity_id, Calendar.tenant_id == t)
+                .with_for_update()
+            )
+            assert calendar is not None
+            rule = RecurrenceRule.model_validate(change.upstream)
+            try:
+                validate_recurrence(CalendarDefinition.model_validate(calendar.definition), rule)
+            except ValueError:
+                self.skip(row, name, "This rule does not fit the local calendar definition")
+                return False
+            observance.rule = rule.model_dump(mode="json")
+            await s.execute(
+                update(Entity)
+                .where(Entity.id == e, Entity.tenant_id == t)
+                .values(updated_at=func.now())
+            )
+            return True
+        if name == "calendar_definition":
+            from lorenzo_calendar import CalendarDefinition
+
+            calendar_definition = CalendarDefinition.model_validate(change.upstream).model_dump(
+                mode="json"
+            )
+            # Match direct edits/materialization: lock the entry before its definition.
+            await s.execute(
+                select(Entity.id).where(Entity.id == e, Entity.tenant_id == t).with_for_update()
+            )
+            calendar = await s.scalar(
+                select(Calendar)
+                .where(Calendar.entity_id == e, Calendar.tenant_id == t)
+                .with_for_update()
+            )
+            if calendar is None:
+                self.skip(row, name, "The local entry is no longer a calendar")
+                return False
+            from lorenzo_api.calendar_periods import validate_materialized_periods
+
+            await validate_materialized_periods(
+                s, t, e, CalendarDefinition.model_validate(calendar_definition)
+            )
+            calendar.definition = calendar_definition
+            await s.execute(
+                update(Entity)
+                .where(Entity.id == e, Entity.tenant_id == t)
+                .values(updated_at=func.now())
+            )
+            return True
         if name == "name":
             await s.execute(
                 update(Entity)

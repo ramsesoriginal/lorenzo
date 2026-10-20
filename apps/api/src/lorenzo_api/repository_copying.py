@@ -26,7 +26,9 @@ from lorenzo_api.activity_log import record_activity
 from lorenzo_api.copyable_tables import COPIED_TABLES, COPY_LINKS, LINK_MODELS, PURGE_COUNTED
 from lorenzo_api.description_payloads import reference_values
 from lorenzo_api.exceptions import (
+    EntityKindInUseError,
     InvalidRepositoryCopyChoiceError,
+    InvalidRepositoryUpdateError,
     RepositoryAlreadyCopiedError,
     RepositoryCopyFormulaCycleError,
     RepositoryCopyNeedsChoicesError,
@@ -34,6 +36,9 @@ from lorenzo_api.exceptions import (
     RepositoryNotFoundError,
 )
 from lorenzo_api.models import (
+    Calendar,
+    CalendarObservance,
+    CalendarPeriod,
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
@@ -45,6 +50,7 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    EntryCalendarPeriod,
     GroupMember,
     Information,
     Knowledge,
@@ -593,9 +599,22 @@ class _Planner:
                         "updated_by": user_id,
                     }
                 )
+            if "event" in kinds:
+                self.rows["story_event"].append({"entity_id": new, "tenant_id": tenant_id})
+            if "calendar" in kinds:
+                self.rows["calendar"].append(
+                    {"entity_id": new, "tenant_id": tenant_id, "definition": c.calendars[e]}
+                )
             if "fact" in kinds:
                 self.rows["fact"].append({"entity_id": new, "tenant_id": tenant_id})
-            if e in c.entry_audiences or "fact" in kinds:
+            if (
+                e in c.entry_audiences
+                or "fact" in kinds
+                or "calendar" in kinds
+                or "calendar_period" in kinds
+                or "event" in kinds
+                or "observance" in kinds
+            ):
                 self.rows["entity_audience"].append(
                     {
                         "entity_id": new,
@@ -843,6 +862,58 @@ class _Planner:
                             "subject_entity_id": target,
                         }
                     )
+        # Structural parents first, then their children. A missing calendar/parent is an
+        # explicit refusal instead of an orphaned period or silent change of kind.
+        for e, period in sorted(
+            c.calendar_periods.items(),
+            key=lambda pair: (pair[1]["segment"] is not None, pair[1]["day"] is not None),
+        ):
+            if copies("entity", e):
+                calendar_id = self._local(c, "entity", period["calendar"])
+                parent_id = self._local(c, "entity", period["parent"]) if period["parent"] else None
+                if calendar_id is None or period["parent"] and parent_id is None:
+                    raise InvalidRepositoryUpdateError(
+                        detail="Copy the calendar and its parent periods before this period."
+                    )
+                self.rows["calendar_period"].append(
+                    {
+                        "entity_id": self.local["entity"][e],
+                        "tenant_id": tenant_id,
+                        "calendar_entity_id": calendar_id,
+                        "year": period["year"],
+                        "segment": period["segment"],
+                        "day": period["day"],
+                        "parent_entity_id": parent_id,
+                    }
+                )
+        for e, observance in c.observances.items():
+            if copies("entity", e):
+                calendar_id = self._local(c, "entity", observance["calendar"])
+                if calendar_id is None:
+                    raise InvalidRepositoryUpdateError(
+                        detail="Copy the calendar before its observance."
+                    )
+                self.rows["calendar_observance"].append(
+                    {
+                        "entity_id": self.local["entity"][e],
+                        "tenant_id": tenant_id,
+                        "calendar_entity_id": calendar_id,
+                        "rule": observance["rule"],
+                    }
+                )
+        for e, period_id in c.entry_dates:
+            if copies("entity", e):
+                target = self._local(c, "entity", period_id)
+                if target is None:
+                    drop("entry_calendar_period", e, "its calendar period was not copied")
+                else:
+                    self.rows["entry_calendar_period"].append(
+                        {
+                            "entity_id": self.local["entity"][e],
+                            "period_entity_id": target,
+                            "tenant_id": tenant_id,
+                        }
+                    )
         for info_id, knower in c.knowledge:
             known = local_information.get(info_id)
             if known is None:
@@ -980,6 +1051,14 @@ _LINKS = COPY_LINKS
 async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]]) -> None:
     """Inserts a plan's rows in dependency order. Shared with ADR 0121's
     updates, which add rows the same way."""
+    bound_rows = rows.get("calendar_period", []) + rows.get("calendar_observance", [])
+    calendars = {(r["tenant_id"], r["calendar_entity_id"]) for r in bound_rows}
+    for tenant_id, calendar_id in sorted(calendars, key=lambda pair: (str(pair[0]), str(pair[1]))):
+        await session.execute(
+            select(Entity.id)
+            .where(Entity.id == calendar_id, Entity.tenant_id == tenant_id)
+            .with_for_update()
+        )
     # Not held to the quotas of ADR 0298: a bridge's size is its upstream's (see there).
     for key, model in _TABLES:
         if rows.get(key):
@@ -994,6 +1073,21 @@ async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]
                     )
                     .values({k: v for k, v in hint.items() if k.endswith("_hint_id")})
                 )
+    if calendars:
+        from lorenzo_calendar import CalendarDefinition
+
+        from lorenzo_api.calendar_periods import validate_materialized_periods
+
+        for tenant_id, calendar_id in calendars:
+            definition = await session.scalar(
+                select(Calendar.definition).where(
+                    Calendar.entity_id == calendar_id, Calendar.tenant_id == tenant_id
+                )
+            )
+            assert definition is not None
+            await validate_materialized_periods(
+                session, tenant_id, calendar_id, CalendarDefinition.model_validate(definition)
+            )
     for key, model, local in _LINKS:
         if rows.get(key):
             await session.execute(
@@ -1196,6 +1290,47 @@ async def forget_copy(
     pairs = sorted(links.attachments.get(repository_id, ()))
 
     if purge:
+        # Serialize with materialization and date edits before inspecting local references.
+        await session.execute(
+            select(Entity.id)
+            .where(Entity.tenant_id == t, Entity.id.in_(entities))
+            .order_by(Entity.id)
+            .with_for_update()
+        )
+        local_period = await session.scalar(
+            select(
+                exists().where(
+                    CalendarPeriod.tenant_id == t,
+                    CalendarPeriod.entity_id.not_in(entities),
+                    or_(
+                        CalendarPeriod.calendar_entity_id.in_(entities),
+                        CalendarPeriod.parent_entity_id.in_(entities),
+                    ),
+                )
+            )
+        )
+        local_date = await session.scalar(
+            select(
+                exists().where(
+                    EntryCalendarPeriod.tenant_id == t,
+                    EntryCalendarPeriod.entity_id.not_in(entities),
+                    EntryCalendarPeriod.period_entity_id.in_(entities),
+                )
+            )
+        )
+        local_rule = await session.scalar(
+            select(
+                exists().where(
+                    CalendarObservance.tenant_id == t,
+                    CalendarObservance.entity_id.not_in(entities),
+                    CalendarObservance.calendar_entity_id.in_(entities),
+                )
+            )
+        )
+        if local_period or local_date or local_rule:
+            raise EntityKindInUseError(
+                detail="Local dated material still references this copy. Resolve it before purging."
+            )
         # The edges the attachments recorded that no deleted row takes with it. One
         # whose parent a purge deletes goes with that entity, and is counted below
         # as it always was. A parent that isn't a copy is the tenant's own row, which

@@ -1,0 +1,221 @@
+.wrap {
+  max-width: 80rem;
+  margin-inline: auto;
+  padding: 1.25rem;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.stack,
+.stack-tight {
+  display: grid;
+  gap: 1rem;
+}
+.stack-tight {
+  gap: 0.5rem;
+}
+.app-header .row {
+  justify-content: space-between;
+}
+nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.caption {
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+[hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: hidden overrides layout classes. */
+  display: none !important;
+}
+label {
+  display: grid;
+  gap: 0.35rem;
+}
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+input,
+select,
+textarea {
+  max-width: 100%;
+  padding: 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: 0.3rem;
+  font: inherit;
+  background: transparent;
+  color: inherit;
+}
+textarea {
+  min-height: 7rem;
+  width: 100%;
+}
+input[type="checkbox"] {
+  width: auto;
+}
+fieldset,
+.panel {
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+fieldset {
+  min-width: 0;
+}
+legend {
+  padding-inline: 0.4rem;
+  font-weight: 600;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.8rem;
+}
+.segment-row {
+  border-block-end: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  padding-block: 1rem;
+}
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--week-length, 7), minmax(2.4rem, 1fr));
+  gap: 0.25rem;
+  overflow-x: auto;
+}
+.day {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 5rem;
+  padding: 0.4rem;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 0.35rem;
+  text-align: start;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.day:hover,
+.day:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
+}
+.day[aria-pressed="true"] {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.moons {
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.festival {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.festival .day {
+  min-width: 7rem;
+}
+.weekday {
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.calendar-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.error {
+  color: var(--danger, #a32930);
+}
+.draft-status {
+  white-space: pre-wrap;
+}
+.skip-link:not(:focus) {
+  position: absolute;
+  clip-path: inset(100%);
+}
+@media (max-width: 48rem) {
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+  .wrap {
+    padding: 0.8rem;
+  }
+  .day {
+    min-height: 4.2rem;
+  }
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ls-editor-panes {
+  display: grid;
+  gap: 1rem;
+}
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.editor-toolbar button {
+  padding: 0.3rem;
+}
+.ls-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.wrap {
+  width: 100%;
+  box-sizing: border-box;
+}
+.stack,
+.stack-tight,
+.stack > *,
+.stack-tight > *,
+.calendar-layout > *,
+label,
+input,
+select {
+  min-width: 0;
+}
+select {
+  width: 100%;
+}
+
+.month-grid.with-moons {
+  grid-template-columns: repeat(var(--week-length, 7), minmax(6rem, 1fr));
+}
+.weekday {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-scroll-hint {
+  display: none;
+}
+@media (max-width: 48rem) {
+  .calendar-scroll-hint {
+    display: block;
+  }
+}

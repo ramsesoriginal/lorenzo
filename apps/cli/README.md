@@ -429,3 +429,53 @@ The terminal shows resolved stats in vocabulary order with units, hints and wher
 Descriptions and notes are drawn as LorenzoScript, using the same parser as the web apps. Headings, emphasis, nested lists, quotes, tables, code, tasks, footnotes, dates, entity links and `{stat-name}` work in the terminal. Links resolve as your signed-in account, including `my/` in the entry's context; unresolved references stay readable as text. Pictures use their alternate text without downloading media, math is shown as its source, world-calendar dates stay as written, and CSS classes have no terminal appearance. Code stays literal. Authored terminal control characters are stripped. There is no terminal play editor.
 
 The parser is bundled in the wheel, so installing and running the CLI does not require Node. After changing `packages/lorenzoscript/src`, regenerate it with `mise run //apps/cli:bundle-lorenzoscript` (the repository's JavaScript dependencies must be installed). A source-digest test catches a stale bundle, and CI tracks the CLI's dependency on LorenzoScript.
+
+## Calendar files
+
+Convert saved donjon exports offline with `lorenzo-convert donjon`, or author a
+[native calendar JSON document](../../docs/guides/calendar-file-format.md). Calendar import
+works in a library or repository; it does not seed setting data.
+
+```bash
+lorenzo calendar import isles.calendar.json --tenant my-library --dry-run --json
+lorenzo calendar import isles.calendar.json --tenant my-library --choices choices.json \
+  --accept-warnings --dry-run --plan-out reviewed-plan.json
+lorenzo calendar import isles.calendar.json --tenant my-library --choices choices.json \
+  --accept-warnings --apply-plan reviewed-plan.json --yes
+lorenzo calendar export isles --tenant my-library -O isles.current.json
+```
+
+`--review-notes` asks for each note's classification (note, Fact, Event or recurring observance).
+Otherwise a choices file can classify notes individually or group several explicitly into one
+Event. `--accept-warnings` deliberately acknowledges the displayed document warnings. Applying
+requires a ready plan and confirmation (`--yes` for noninteractive use); `--json` prints exactly
+one plan or receipt, with review messages on stderr. Saved plans keep the reviewed request and
+are refused after changes to the file, choices or local material. Repeating a successful import
+creates no duplicates, including retrying after a lost response.
+
+A choices file contains optional `annotations`, `definition`, `is_public`, `period_is_public`,
+`accepted_warnings` and `resolutions`. Only keys present are overridden. For example:
+
+```json
+{
+  "annotations": {
+    "note-3286-6-16": {"classification": "event", "group": "storm", "title": "Storm"},
+    "note-3286-6-17": {"classification": "event", "group": "storm", "title": "Storm"}
+  },
+  "resolutions": {"$calendar": "keep_local", "event:storm": "take_source"}
+}
+```
+
+The plan names conflict keys for `keep_local` or `take_source`. Taking the source changes its
+managed text, name, public flags, rule or selected dates; additional payloads, other information,
+About edges and explicit knowledge grants are preserved. A changed classification/grouping
+creates new material only after review and retains the former entries. Omitted source material
+is retained. New period audiences use `period_is_public`; existing period audiences are edited
+separately. Definitions that erase recorded dates/rules remain refused.
+
+Export covers the current annotations managed by that source key, preserving original source
+values. It does not claim to export every locally authored entry. Expanded bundles or date
+mappings that the native text-source format cannot represent are refused instead of dropped;
+formerly imported material outside the active source is called out. Keep exported files and
+saved plans private when their source or notes are private. Import provenance/receipts remain
+local and are not repository content; the authored calendar and entries copy normally.

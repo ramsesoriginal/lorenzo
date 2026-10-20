@@ -2572,6 +2572,265 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Calendars */
+        get: operations["list_calendars"];
+        put?: never;
+        /** Create Calendar */
+        post: operations["create_calendar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Definition */
+        post: operations["preview_definition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Calendar */
+        get: operations["get_calendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/{entity_id}/definition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace Definition */
+        put: operations["replace_definition"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/{entity_id}/years/{year}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Calendar Year */
+        get: operations["get_calendar_year"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/{calendar_id}/periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Periods */
+        get: operations["list_periods"];
+        put?: never;
+        /** Materialize Period */
+        post: operations["materialize_period"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Entry Dates */
+        get: operations["list_entry_dates"];
+        /** Replace Entry Dates */
+        put: operations["replace_entry_dates"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendar-periods/{period_id}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Entries At Period */
+        get: operations["entries_at_period"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/{calendar_id}/observances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Observances */
+        get: operations["list_observances"];
+        put?: never;
+        /** Create Observance */
+        post: operations["create_observance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/observances/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Observance */
+        get: operations["get_observance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/observances/{entity_id}/rule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace Rule */
+        put: operations["replace_rule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/{calendar_id}/years/{year}/observances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Year Observances */
+        get: operations["year_observances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendar-imports/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Plan Calendar Import */
+        post: operations["plan_calendar_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendar-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Calendar Import */
+        post: operations["apply_calendar_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendar-imports/{source_key}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Calendar Import */
+        get: operations["export_calendar_import"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/payloads/{payload_id}/content": {
         parameters: {
             query?: never;
@@ -4831,6 +5090,37 @@ export interface components {
              */
             created_at: string;
         };
+        /** Annotation */
+        Annotation: {
+            /** Key */
+            key: string;
+            date: components["schemas"]["CalendarDate"];
+            /** Text */
+            text: string;
+            /** Original Text */
+            original_text: string;
+            /**
+             * Classification
+             * @default note
+             * @enum {string}
+             */
+            classification: "note" | "observance" | "fact" | "event";
+            /** Title */
+            title?: string | null;
+            /** Group */
+            group?: string | null;
+            recurrence?: components["schemas"]["RecurrenceRule"] | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /**
+             * Information Is Public
+             * @default false
+             */
+            information_is_public: boolean;
+        };
         /**
          * AppLinksOut
          * @description Where the apps live, and URL templates (`{tenant}`, `{id}`, `{slug}`) between them.
@@ -4889,6 +5179,7 @@ export interface components {
             inventory_web: components["schemas"]["AppOut"];
             beings: components["schemas"]["AppOut"];
             bench: components["schemas"]["AppOut"];
+            calendars: components["schemas"]["AppOut"];
         };
         /**
          * AttachmentActionIn
@@ -5064,7 +5355,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
             /**
              * Information Id
              * Format: uuid
@@ -5498,6 +5789,245 @@ export interface components {
             status: "ok" | "error";
             item?: components["schemas"]["ItemOut"] | null;
             problem?: components["schemas"]["ProblemOut"] | null;
+        };
+        /** CalendarCreate */
+        CalendarCreate: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            definition: components["schemas"]["CalendarDefinition-Input"];
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+        };
+        /** CalendarDate */
+        CalendarDate: {
+            /** Year */
+            year: number;
+            /** Segment */
+            segment: string;
+            /** Day */
+            day: number;
+        };
+        /** CalendarDefinition */
+        "CalendarDefinition-Input": {
+            /**
+             * Format
+             * @default lorenzo.calendar/1
+             * @constant
+             */
+            format: "lorenzo.calendar/1";
+            /** Segments */
+            segments: components["schemas"]["Segment"][];
+            week?: components["schemas"]["Week"] | null;
+            /**
+             * Moons
+             * @default []
+             */
+            moons: components["schemas"]["Moon-Input"][];
+        };
+        /** CalendarDefinition */
+        "CalendarDefinition-Output": {
+            /**
+             * Format
+             * @default lorenzo.calendar/1
+             * @constant
+             */
+            format: "lorenzo.calendar/1";
+            /** Segments */
+            segments: components["schemas"]["Segment"][];
+            week?: components["schemas"]["Week"] | null;
+            /**
+             * Moons
+             * @default []
+             */
+            moons: components["schemas"]["Moon-Output"][];
+        };
+        /** CalendarDocument */
+        "CalendarDocument-Input": {
+            /**
+             * Format
+             * @default lorenzo.calendar-document/1
+             * @constant
+             */
+            format: "lorenzo.calendar-document/1";
+            /** Source Key */
+            source_key: string;
+            /** Name */
+            name: string;
+            definition: components["schemas"]["CalendarDefinition-Input"];
+            /**
+             * Annotations
+             * @default []
+             */
+            annotations: components["schemas"]["Annotation"][];
+            /** Source */
+            source?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["DocumentWarning"][];
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /**
+             * Period Is Public
+             * @default false
+             */
+            period_is_public: boolean;
+        };
+        /** CalendarDocument */
+        "CalendarDocument-Output": {
+            /**
+             * Format
+             * @default lorenzo.calendar-document/1
+             * @constant
+             */
+            format: "lorenzo.calendar-document/1";
+            /** Source Key */
+            source_key: string;
+            /** Name */
+            name: string;
+            definition: components["schemas"]["CalendarDefinition-Output"];
+            /**
+             * Annotations
+             * @default []
+             */
+            annotations: components["schemas"]["Annotation"][];
+            /** Source */
+            source?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["DocumentWarning"][];
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /**
+             * Period Is Public
+             * @default false
+             */
+            period_is_public: boolean;
+        };
+        /** CalendarImportApply */
+        CalendarImportApply: {
+            document: components["schemas"]["CalendarDocument-Input"];
+            /** Accepted Warnings */
+            accepted_warnings?: string[];
+            /** Resolutions */
+            resolutions?: {
+                [key: string]: "keep_local" | "take_source";
+            };
+            /** Token */
+            token: string;
+        };
+        /** CalendarImportChange */
+        CalendarImportChange: {
+            /** Key */
+            key: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "create" | "unchanged" | "conflict" | "retained";
+            /** Reason */
+            reason?: string | null;
+            /** Resolution */
+            resolution?: ("keep_local" | "take_source") | null;
+        };
+        /** CalendarImportPlan */
+        CalendarImportPlan: {
+            /** Source Key */
+            source_key: string;
+            /**
+             * Calendar Entity Id
+             * Format: uuid
+             */
+            calendar_entity_id: string;
+            /** Token */
+            token: string;
+            /** Changes */
+            changes: components["schemas"]["CalendarImportChange"][];
+            /** Unaccepted Warnings */
+            unaccepted_warnings: string[];
+            /** Ready */
+            ready: boolean;
+        };
+        /** CalendarImportReceipt */
+        CalendarImportReceipt: {
+            /** Source Key */
+            source_key: string;
+            /**
+             * Calendar Entity Id
+             * Format: uuid
+             */
+            calendar_entity_id: string;
+            /** Created */
+            created: string[];
+            /** Changed */
+            changed: string[];
+            /** Unchanged */
+            unchanged: string[];
+            /** Kept Local */
+            kept_local: string[];
+            /** Retained */
+            retained: string[];
+        };
+        /** CalendarImportRequest */
+        CalendarImportRequest: {
+            document: components["schemas"]["CalendarDocument-Input"];
+            /** Accepted Warnings */
+            accepted_warnings?: string[];
+            /** Resolutions */
+            resolutions?: {
+                [key: string]: "keep_local" | "take_source";
+            };
+        };
+        /** CalendarOut */
+        CalendarOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            definition: components["schemas"]["CalendarDefinition-Output"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** CalendarSummary */
+        CalendarSummary: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * CampaignCreate
@@ -6203,6 +6733,26 @@ export interface components {
             /** Url */
             url: string | null;
         };
+        /** DatedEntryOut */
+        DatedEntryOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+        };
+        /** DayPreview */
+        DayPreview: {
+            date: components["schemas"]["CalendarDate"];
+            /** Weekday */
+            weekday: number | null;
+            /** Moons */
+            moons: {
+                [key: string]: number;
+            };
+        };
         /**
          * DelistRepositoryRequest
          * @description PUT /admin/repositories/{id}/delist body - ADR 0303: why, in 1 to 500 characters. The
@@ -6416,6 +6966,13 @@ export interface components {
              */
             released_at: string;
         };
+        /** DocumentWarning */
+        DocumentWarning: {
+            /** Key */
+            key: string;
+            /** Message */
+            message: string;
+        };
         /**
          * DroppedOut
          * @description A row a copy leaves out, because something it points at wasn't
@@ -6501,7 +7058,7 @@ export interface components {
              * Kinds
              * @default []
              */
-            kinds: ("item" | "being" | "fact")[];
+            kinds: ("item" | "being" | "fact" | "event")[];
             /**
              * Parents
              * @default []
@@ -6544,7 +7101,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -6574,7 +7131,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
             /** Parent Ids */
             parent_ids: string[];
             /** Stat Group Ids */
@@ -6656,7 +7213,7 @@ export interface components {
             /** Quantity */
             quantity?: number | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
             /** Parent Ids */
             parent_ids: string[];
         };
@@ -6747,7 +7304,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -7575,6 +8132,7 @@ export interface components {
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
         };
+        JsonValue: unknown;
         /** KindCountsOut */
         KindCountsOut: {
             /** Added */
@@ -7737,7 +8295,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
             /** Template */
             template: string;
             /** Picture Url */
@@ -8087,6 +8645,36 @@ export interface components {
              */
             into_entity_id: string;
         };
+        /** Moon */
+        "Moon-Input": {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Period */
+            period: number | string;
+            reference: components["schemas"]["CalendarDate"];
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number | string;
+        };
+        /** Moon */
+        "Moon-Output": {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Period */
+            period: string;
+            reference: components["schemas"]["CalendarDate"];
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: string;
+        };
         /**
          * NotAppliedOut
          * @description A field that couldn't be applied, and why. It keeps being offered. `name` is the
@@ -8172,6 +8760,53 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ObservanceCreate */
+        ObservanceCreate: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            rule: components["schemas"]["RecurrenceRule"];
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+        };
+        /** ObservanceOut */
+        ObservanceOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Calendar Entity Id
+             * Format: uuid
+             */
+            calendar_entity_id: string;
+            /** Name */
+            name: string;
+            rule: components["schemas"]["RecurrenceRule"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OccurrenceOut */
+        OccurrenceOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            date: components["schemas"]["CalendarDate"];
         };
         /**
          * OwnedByResponse
@@ -8304,6 +8939,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[CalendarSummary] */
+        Page_CalendarSummary_: {
+            /** Items */
+            items: components["schemas"]["CalendarSummary"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[CampaignSummaryOut] */
         Page_CampaignSummaryOut_: {
             /** Items */
@@ -8334,6 +8982,19 @@ export interface components {
         Page_ContributionOut_: {
             /** Items */
             items: components["schemas"]["ContributionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[DatedEntryOut] */
+        Page_DatedEntryOut_: {
+            /** Items */
+            items: components["schemas"]["DatedEntryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -8464,6 +9125,45 @@ export interface components {
         Page_NotificationOut_: {
             /** Items */
             items: components["schemas"]["NotificationOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[ObservanceOut] */
+        Page_ObservanceOut_: {
+            /** Items */
+            items: components["schemas"]["ObservanceOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[OccurrenceOut] */
+        Page_OccurrenceOut_: {
+            /** Items */
+            items: components["schemas"]["OccurrenceOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[PeriodOut] */
+        Page_PeriodOut_: {
+            /** Items */
+            items: components["schemas"]["PeriodOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -8728,6 +9428,63 @@ export interface components {
              * @default en-US
              */
             locale: string;
+        };
+        /** PeriodCreate */
+        PeriodCreate: {
+            /** Year */
+            year: number;
+            /** Segment */
+            segment?: string | null;
+            /** Day */
+            day?: number | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+        };
+        /** PeriodOut */
+        PeriodOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /**
+             * Calendar Entity Id
+             * Format: uuid
+             */
+            calendar_entity_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Granularity
+             * @enum {string}
+             */
+            granularity: "year" | "month" | "day";
+            /** Year */
+            year: number;
+            /** Segment */
+            segment: string | null;
+            /** Day */
+            day: number | null;
+            /** Parent Entity Id */
+            parent_entity_id: string | null;
+        };
+        /** PeriodSelection */
+        PeriodSelection: {
+            /** Period Ids */
+            period_ids: string[];
+        };
+        /** Periodic */
+        Periodic: {
+            /** Every */
+            every: number;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
         };
         /**
          * PersonalTokenIssuedOut
@@ -9017,7 +9774,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
             /** Parents */
             parents: components["schemas"]["PreviewParentOut"][];
             /** Featured */
@@ -9326,6 +10083,20 @@ export interface components {
             /** Display Name */
             display_name: string;
         };
+        /** RecurrenceRule */
+        RecurrenceRule: {
+            /** Segment */
+            segment: string;
+            /** Day */
+            day: number;
+            /**
+             * @default {
+             *       "every": 1,
+             *       "offset": 0
+             *     }
+             */
+            when: components["schemas"]["Periodic"];
+        };
         /**
          * ReleaseAuthoredOut
          * @description A release as the repository's own members see it: `created_by` is the user who
@@ -9549,7 +10320,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
             /** Prototype Ids */
             prototype_ids: string[];
         };
@@ -9705,7 +10476,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[];
         };
         /**
          * RoundMode
@@ -9785,6 +10556,43 @@ export interface components {
             state: ("released" | "edited") | null;
             /** Breaking */
             breaking: components["schemas"]["BreakingNoteOut"][];
+        };
+        /** Segment */
+        Segment: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Days */
+            days: number;
+            /**
+             * Kind
+             * @default month
+             * @enum {string}
+             */
+            kind: "month" | "festival";
+            /**
+             * In Week
+             * @default true
+             */
+            in_week: boolean;
+            when?: components["schemas"]["Periodic"] | null;
+        };
+        /** SegmentPreview */
+        SegmentPreview: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "month" | "festival";
+            /** Month Ordinal */
+            month_ordinal: number | null;
+            /** Days */
+            days: components["schemas"]["DayPreview"][];
         };
         /**
          * SetContainerRequest
@@ -10659,6 +11467,32 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** Week */
+        Week: {
+            /** Length */
+            length: number;
+            /** Names */
+            names?: string[] | null;
+            /**
+             * Reset
+             * @default never
+             * @enum {string}
+             */
+            reset: "never" | "segment";
+            reference: components["schemas"]["CalendarDate"];
+            /**
+             * Weekday
+             * @default 0
+             */
+            weekday: number;
+        };
+        /** YearPreview */
+        YearPreview: {
+            /** Year */
+            year: number;
+            /** Segments */
+            segments: components["schemas"]["SegmentPreview"][];
         };
         /** Problem */
         Problem: {
@@ -19564,6 +20398,1318 @@ export interface operations {
             };
         };
     };
+    list_calendars: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CalendarSummary_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_calendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    preview_definition: {
+        parameters: {
+            query: {
+                year: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarDefinition-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YearPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_calendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_definition: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarDefinition-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_calendar_year: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YearPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_periods: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PeriodOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    materialize_period: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_entry_dates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_entry_dates: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodSelection"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entries_at_period: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                period_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_DatedEntryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_observances: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ObservanceOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_observance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ObservanceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_observance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    replace_rule: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurrenceRule"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    year_observances: {
+        parameters: {
+            query?: {
+                segment?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                calendar_id: string;
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OccurrenceOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    plan_calendar_import: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarImportPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    apply_calendar_import: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarImportApply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarImportReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export_calendar_import: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                source_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarDocument-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     payload_content: {
         parameters: {
             query?: never;
@@ -19919,7 +22065,7 @@ export interface operations {
                 /** @description Case-insensitive substring match against the entry's name. */
                 q?: string | null;
                 /** @description Only entries of these kinds (repeatable): any of them, not all. */
-                kind?: ("item" | "item_instance" | "being" | "character" | "fact")[] | null;
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "calendar_period" | "event" | "observance")[] | null;
                 /** @description Only entries that have this entry as a parent. */
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
@@ -20067,7 +22213,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being" | "fact";
+                kind: "item" | "being" | "fact" | "event";
             };
             cookie?: never;
         };
@@ -20140,7 +22286,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being" | "fact";
+                kind: "item" | "being" | "fact" | "event";
             };
             cookie?: never;
         };

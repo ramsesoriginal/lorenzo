@@ -1,7 +1,25 @@
 # RFC: How should in-fiction time, causal order, history, and calendars be modeled, so that "who knew what, and where everything was, as of when" always has exactly one answer?
 
-Status: proposed — Decision open
+Status: partially accepted — calendar/date-association slice accepted 2026-10-19; causal and historical Decision open
 
+## Accepted calendar slice (2026-10-19)
+
+The maintainer accepted [ADR 0308](../adr/0308-authored-calendars-and-calculation.md) to
+[0311](../adr/0311-calendar-documents-import-and-app.md): authored calendars, explicit year/month/day
+period entries, minimal Event markers with n:m date associations, recurring observances, native
+JSON/donjon conversion, CLI import and a dedicated calendar editor/viewer. Ordinary dated
+Information belongs to one period. The app is not Bench, and import is CLI-only initially.
+
+This accepts only that slice. It does **not** accept BL1-BL14, PB1-PB14, Candidate A or B,
+clock relations, or the proposed historical execution order as a whole. A minimal Event has no
+causal key, participation, clock or learning semantics. The original debate, objections and
+Decision below remain authoritative proposals for the still-open temporal/historical work.
+
+Several original prerequisites are now delivered: composite tenant FKs (ADR 0117), SQL
+information visibility (ADR 0109), the copyable-table registry (ADR 0218), repository releases,
+and LorenzoScript date/calendar reference extraction (ADR 0110). JSONB is established. Facts
+were accepted independently (RFC 0044, ADR 0305), and deletion now also has ADR 0302. These
+must be considered when any later temporal slice is scoped.
 This RFC has two parts, debated by the same four participants.
 
 - **Part 1** (most of this document) designs time itself: the causal order, clocks, knowledge "as of", and calendars.

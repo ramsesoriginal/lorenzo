@@ -45,12 +45,26 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     (): "item",
     ("item",): "being",
     ("fact",): None,
+    ("calendar",): None,
+    ("calendar_period",): None,
+    ("event",): None,
+    ("observance",): None,
     ("being",): "item",
     ("being", "item"): "being",
     ("item_instance",): None,
     ("being", "character"): None,
 }
-_ORDER = ["item", "item_instance", "being", "character", "fact"]
+_ORDER = [
+    "item",
+    "item_instance",
+    "being",
+    "character",
+    "fact",
+    "calendar",
+    "calendar_period",
+    "event",
+    "observance",
+]
 
 
 def test_the_matrix_holds_exactly_the_combinations_publishing_allows() -> None:
@@ -123,7 +137,97 @@ async def _make(
 ) -> uuid.UUID:
     """An entry of those kinds in a repository: through the route where one exists, and straight
     in the database for an inventory item and a character, which no route makes this way."""
-    if set(kinds) <= {"item", "being", "fact"}:
+    if kinds == ("calendar",):
+        response = await scene_author.post(
+            f"/tenants/{repository}/calendars",
+            json={
+                "name": name,
+                "is_public": True,
+                "definition": {
+                    "format": "lorenzo.calendar/1",
+                    "segments": [{"key": "month", "name": "Month", "days": 30}],
+                },
+            },
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["entity_id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("observance",):
+        calendars = await scene_author.get(f"/tenants/{repository}/calendars")
+        calendar_id = next(
+            (
+                c["entity_id"]
+                for c in calendars.json()["items"]
+                if c["name"] == "Observance matrix calendar"
+            ),
+            None,
+        )
+        if calendar_id is None:
+            calendar = await scene_author.post(
+                f"/tenants/{repository}/calendars",
+                json={
+                    "name": "Observance matrix calendar",
+                    "is_public": True,
+                    "definition": {"segments": [{"key": "month", "name": "Month", "days": 30}]},
+                },
+            )
+            assert calendar.status_code == 201, calendar.text
+            calendar_id = calendar.json()["entity_id"]
+        made = await scene_author.post(
+            f"/tenants/{repository}/calendars/{calendar_id}/observances",
+            json={"name": name, "rule": {"segment": "month", "day": 1}, "is_public": True},
+        )
+        assert made.status_code == 201, made.text
+        entity_id = made.json()["entity_id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("calendar_period",):
+        calendars = await scene_author.get(f"/tenants/{repository}/calendars")
+        calendar_id = next(
+            (
+                c["entity_id"]
+                for c in calendars.json()["items"]
+                if c["name"] == "Period matrix calendar"
+            ),
+            None,
+        )
+        if calendar_id is None:
+            calendar = await scene_author.post(
+                f"/tenants/{repository}/calendars",
+                json={
+                    "name": "Period matrix calendar",
+                    "is_public": True,
+                    "definition": {"segments": [{"key": "month", "name": "Month", "days": 30}]},
+                },
+            )
+            assert calendar.status_code == 201, calendar.text
+            calendar_id = calendar.json()["entity_id"]
+        period = await scene_author.post(
+            f"/tenants/{repository}/calendars/{calendar_id}/periods",
+            json={"year": {"Alpha": 0, "Beta": 1}[name], "is_public": True},
+        )
+        assert period.status_code == 200, period.text
+        entity_id = period.json()["entity_id"]
+        renamed = await scene_author.patch(
+            f"/tenants/{repository}/entities/{entity_id}", json={"name": name}
+        )
+        assert renamed.status_code == 200, renamed.text
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if set(kinds) <= {"item", "being", "fact", "event"}:
         response = await scene_author.post(
             f"/tenants/{repository}/entities",
             json={"name": name, "kinds": list(kinds), "parents": [str(p) for p in parents]},

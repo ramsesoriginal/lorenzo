@@ -89,3 +89,32 @@ inspect and atomically replace it under `If-Match`. Information audiences are in
 reading requires both gates. `.../entities/{fact}/about` lists explicit subjects; `PUT`/`DELETE`
 on `about/{subject}` manage each edge, and `.../entities/{subject}/facts` lists visible facts.
 Ancestry and LorenzoScript links remain independent of About ([ADR 0305](../../docs/adr/0305-facts-and-entry-audiences.md)).
+
+## Authored calendars and dated entries
+
+Calendars carry a versioned definition of segments, weeks and moons, independent of clocks or
+story order ([ADR 0308](../../docs/adr/0308-authored-calendars-and-calculation.md)).
+Definition updates require their own `If-Match`; preview/year reads calculate without writing.
+Explicit period authoring creates/reuses structural year/month/day entries. Periods and Event
+entries have restricted outer audiences by default; reading period coordinates also requires
+visibility of their calendar. Ordinary dated notes are Information on one period. Entry date
+associations are a separate n:m relation, replaced under the source entry's `If-Match`; they
+assert no interval, chronology or historical truth ([ADR 0309](../../docs/adr/0309-calendar-periods-events-and-date-associations.md)).
+Definition changes that erase recorded periods and deletion of referenced periods/calendars
+are refused. Copies preserve local identities and remap structural/date links; definition
+updates remain explicit and validate local periods.
+
+Recurring observances are entries with one calendar-bound segment/day rule and optional
+periodic years ([ADR 0310](../../docs/adr/0310-recurring-calendar-observances.md)). Occurrence reads calculate
+visible results for a year, optionally filtered to a segment, without creating periods or
+Events. Missing dates skip. Rule edits require the observance entry's ETag; definition edits
+validate its rules too. Copied rule updates are explicit review fields. Release format 5
+preserves rules and keeps formats 1–4 readable.
+
+Calendar imports use read-only `POST .../calendar-imports/plan`, followed by atomic
+`POST .../calendar-imports` with its token. The token covers tenant/calendar, file, choices,
+versions and recorded periods; apply rechecks authorization and current state under locks.
+A repeated successful request returns its receipt. Source keys and annotation bindings are
+local tenant data with forced RLS and same-tenant references, explicitly excluded from repository
+content. `GET .../calendar-imports/{source_key}/document` exports the current managed text source
+with the same visibility/authoring checks. See the CLI's calendar-file workflow and ADR 0311.

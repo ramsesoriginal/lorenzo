@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/api/**'
+      - 'packages/calendar-engine/**'
   workflow_dispatch:
 
 concurrency:
@@ -79,7 +80,8 @@ jobs:
 
       - uses: docker/build-push-action@v7
         with:
-          context: apps/api
+          context: .
+          file: apps/api/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.image }}
 
@@ -138,7 +140,7 @@ jobs:
           # means no link. PUBLIC_REPOSITORIES_ENABLED (ADR 0290): whether a repository can be made
           # public; an unset GitHub variable means off. Both are set under Settings, Secrets and
           # variables, Actions, Variables; see docs/operations/public-launch.md.
-          # ACCOUNT_HUB_URL, INVENTORY_WEB_URL, BEINGS_URL, BENCH_URL, APP_LINK_TEMPLATES
+          # ACCOUNT_HUB_URL, INVENTORY_WEB_URL, BEINGS_URL, BENCH_URL, CALENDARS_URL, APP_LINK_TEMPLATES
           # (ADR 0273): the registry GET /app-links serves. All optional: unset (empty)
           # means the official *.pages.dev address. APP_LINK_TEMPLATES is space-separated
           # name=template pairs, no commas, for the same reason as CORS_ALLOWED_ORIGINS.
@@ -152,6 +154,7 @@ jobs:
             ACCOUNT_HUB_URL=${{ vars.ACCOUNT_HUB_URL }}
             INVENTORY_WEB_URL=${{ vars.INVENTORY_WEB_URL }}
             BEINGS_URL=${{ vars.BEINGS_URL }}
+            CALENDARS_URL=${{ vars.CALENDARS_URL }}
             BENCH_URL=${{ vars.BENCH_URL }}
             APP_LINK_TEMPLATES=${{ vars.APP_LINK_TEMPLATES }}
             REPORT_ADDRESS=${{ vars.REPORT_ADDRESS }}

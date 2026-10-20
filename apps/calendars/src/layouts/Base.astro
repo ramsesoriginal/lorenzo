@@ -1,0 +1,60 @@
+---
+import { BRANDING_CSS_URL } from '../lib/config';
+import '../styles/app.css';
+interface Props {
+  title?: string;
+}
+const { title = 'Lorenzo Calendars' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {['normalize', 'tokens', 'fonts', 'base', 'layout', 'components', 'motion'].map((name) => (
+      <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${name}.css`} />
+    ))}
+    <script is:inline>
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = 'dark';
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">
+      Skip to content
+    </a>
+    <header class="app-header">
+      <div class="wrap row">
+        <a class="brand" href="/">
+          Lorenzo Calendars
+        </a>
+        <nav aria-label="Account">
+          <a data-hub hidden>
+            Account
+          </a>
+          <button class="btn btn-secondary" data-login hidden>
+            Log in
+          </button>
+          <button class="btn btn-secondary" data-logout hidden>
+            Log out
+          </button>
+        </nav>
+      </div>
+    </header>
+    <main id="content" class="wrap stack">
+      <p data-session role="status">
+        Opening your calendars…
+      </p>
+      <label data-library-field hidden>
+        Library or repository <select data-library></select>
+      </label>
+      <div data-page hidden>
+        <slot />
+      </div>
+    </main>
+    <footer class="wrap caption">Dates in your world, in its own reckoning.</footer>
+  </body>
+</html>

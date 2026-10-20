@@ -27,6 +27,9 @@ _DEFAULTS: dict[str, tuple[str, str]] = {
     "inventory": ("inventory_web", "/board/?tenant={tenant}&character={id}"),
     "board": ("inventory_web", "/board/?tenant={tenant}&character={id}"),
     # Lorenzo Beings: a being's page, by id or by slug.
+    "calendar": ("calendars", "/calendar/?tenant={tenant}&id={id}"),
+    "calendar_by_slug": ("calendars", "/calendar/?tenant={tenant}&slug={slug}"),
+    "calendar_entry": ("calendars", "/entry/?tenant={tenant}&id={id}"),
     "being": ("beings", "/being/?tenant={tenant}&id={id}"),
     "being_by_slug": ("beings", "/being/?tenant={tenant}&slug={slug}"),
 }
@@ -43,6 +46,7 @@ def apps(settings: Settings) -> dict[str, str]:
         "inventory_web": _clean(settings.inventory_web_url),
         "beings": _clean(settings.beings_url),
         "bench": _clean(settings.bench_url),
+        "calendars": _clean(settings.calendars_url),
     }
 
 

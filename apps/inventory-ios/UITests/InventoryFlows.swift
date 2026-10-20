@@ -39,7 +39,19 @@ final class InventoryFlows: XCTestCase {
     let text = app.textViews["Text"]
     XCTAssertTrue(text.waitForExistence(timeout: 10))
     text.tap()
-    text.typeText("Smoke stains on the map.")
+    let noteBody = "Smoke stains on the map."
+    var entered = ""
+    for character in noteBody {
+      text.typeText(String(character))
+      entered.append(character)
+      // Let SwiftUI settle each edit before XCTest sends the next keyboard event.
+      let accepted = XCTNSPredicateExpectation(
+        predicate: NSPredicate(format: "value == %@", entered), object: text)
+      guard XCTWaiter.wait(for: [accepted], timeout: 5) == .completed else {
+        XCTFail("The editor did not retain the typed text: \(entered)")
+        return
+      }
+    }
     app.buttons["Save note"].tap()
     XCTAssertTrue(app.staticTexts["Smoke stains on the map."].waitForExistence(timeout: 20))
     XCTAssertTrue(app.staticTexts["Private"].exists)

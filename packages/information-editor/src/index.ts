@@ -123,7 +123,7 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
       const hint = document.createElement('p');
       hint.className = 'caption';
       hint.textContent = options.entityId
-        ? 'This audience controls both the fact’s existence and its name. Each piece of information has its own audience as well. Applicable role access still applies.'
+        ? 'This audience controls both the entry’s existence and its name. Each piece of information has its own audience as well. Applicable role access still applies.'
         : 'Applicable GMs, library administrators and authors can also have access through their roles. An entry’s own audience still applies.';
       const field = document.createElement('fieldset');
       const legend = document.createElement('legend');

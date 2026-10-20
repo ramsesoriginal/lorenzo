@@ -1,0 +1,10 @@
+import type { Schema } from '@lorenzo/api-client';
+export type Definition = Schema<'CalendarDefinition-Output'>;
+export type Segment = Schema<'Segment'>;
+export type Calendar = Schema<'CalendarOut'>;
+export type Period = Schema<'PeriodOut'>;
+export type DateValue = Schema<'CalendarDate'>;
+export type YearPreview = Schema<'YearPreview'>;
+export type Entry = Schema<'EntityDetailOut'>;
+export type Information = Schema<'InformationOut'>;
+export type Rule = Schema<'RecurrenceRule'>;
