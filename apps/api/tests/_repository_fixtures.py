@@ -31,6 +31,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventRelationship,
     Fact,
     FactAbout,
     GroupMember,
@@ -86,6 +87,7 @@ async def seed_every_content_table(
     calendar = entity("Fixture calendar")
     period = entity("Fixture year")
     event = entity("Fixture event")
+    later_event = entity("Later fixture Event")
     observance = entity("Fixture observance")
     fact = entity("The blade belongs to Elminster")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
@@ -124,6 +126,7 @@ async def seed_every_content_table(
             ),
             EntityAudience(entity_id=observance.id, tenant_id=tenant_id, is_public=False),
             StoryEvent(entity_id=event.id, tenant_id=tenant_id),
+            StoryEvent(entity_id=later_event.id, tenant_id=tenant_id),
             CalendarPeriod(
                 entity_id=period.id,
                 tenant_id=tenant_id,
@@ -134,6 +137,7 @@ async def seed_every_content_table(
                 parent_entity_id=None,
             ),
             EntityAudience(entity_id=event.id, tenant_id=tenant_id, is_public=False),
+            EntityAudience(entity_id=later_event.id, tenant_id=tenant_id, is_public=False),
             EntityAudience(entity_id=period.id, tenant_id=tenant_id, is_public=False),
         ]
     )
@@ -142,6 +146,11 @@ async def seed_every_content_table(
         EntryCalendarPeriod(entity_id=event.id, period_entity_id=period.id, tenant_id=tenant_id)
     )
 
+    session.add(
+        EventRelationship(
+            tenant_id=tenant_id, from_event_id=event.id, to_event_id=later_event.id, kind="causes"
+        )
+    )
     strength = StatDefinition(
         tenant_id=tenant_id, stat_group_id=group.id, name="Strength", value_type=StatValueType.INT
     )

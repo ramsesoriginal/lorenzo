@@ -322,6 +322,21 @@ async def require_deletable(
     campaign's own entry stays with the campaign. A being that is no character, an item and a
     bare entry go. The permanent being-deletion route explicitly allows a character here."""
     kinds = await kinds_of_entry(session, entity_id)
+    if "event" in kinds:
+        from lorenzo_api.event_order_lock import lock_event_order
+        from lorenzo_api.models import EventRelationship
+
+        await lock_event_order(session, tenant_id)
+        if await session.scalar(
+            select(
+                exists().where(
+                    EventRelationship.tenant_id == tenant_id,
+                    (EventRelationship.from_event_id == entity_id)
+                    | (EventRelationship.to_event_id == entity_id),
+                )
+            )
+        ):
+            raise EntityKindInUseError(detail="This entry has references that prevent deletion.")
     if "calendar" in kinds or "calendar_period" in kinds or "observance" in kinds:
         await session.execute(
             select(Entity.id)

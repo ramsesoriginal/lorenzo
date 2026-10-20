@@ -4,7 +4,7 @@ import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { currentTenant, rememberTenant } from './lastTenant';
-export type Session = { tenantId: string; canWrite: boolean };
+export type Session = { tenantId: string; canWrite: boolean; canOrderEvents: boolean };
 export async function start(): Promise<Session | null> {
   const status = document.querySelector<HTMLElement>('[data-session]');
   if (!status) return null;
@@ -86,7 +86,11 @@ export async function start(): Promise<Session | null> {
     document.querySelector<HTMLElement>('[data-page]')?.removeAttribute('hidden');
     status.hidden = true;
     document.querySelector<HTMLElement>('[data-welcome]')?.setAttribute('hidden', '');
-    return { tenantId: tenant.id, canWrite: ['owner', 'orga', 'author'].includes(tenant.role) };
+    return {
+      tenantId: tenant.id,
+      canWrite: ['owner', 'orga', 'author'].includes(tenant.role),
+      canOrderEvents: ['owner', 'orga'].includes(tenant.role),
+    };
   } catch (e) {
     status.textContent = message(e);
     if (signIn) signIn.hidden = false;
