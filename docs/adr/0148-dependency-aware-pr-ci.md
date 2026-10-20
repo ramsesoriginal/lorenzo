@@ -216,3 +216,16 @@ Then `apps/inventory-mobile` (a Kotlin app, ADR 0291) joined the full run, and i
 - **CodeQL's Kotlin build asks for the compilers only** (`:app:compileDebugKotlin :app:compileDebugJavaWithJavac :core:classes`, still with `--rerun-tasks` and without the build cache, so that CodeQL sees every compiler run): dexing, packaging and the APK have no source for it to read. The files scanned are to stay at 11 of 17.
 
 What it should bring, to be confirmed by the run of the change that made it and the next pushes to main: the mobile legs at 165 s or less (less with the cache), so a full run of about 200-250 s while the end-to-end legs wait for places as before, and CodeQL's Kotlin job a good deal shorter than 317 s.
+
+## Addendum (2026-10-20): Swift security scans follow the change
+
+The Swift CodeQL job on CLI-only PR #808 (run 39409873069, job 118585139553) spent 15 minutes 48 seconds in its build step. Security discovery checked only whether Swift existed, so every PR paid for an optimized release build and IPA packaging even when the app had not changed.
+
+- On pull requests, include Swift only when the base-to-merge diff changes Swift source, the iOS build inputs, or the Swift scanner's workflow/configuration/discovery. Include deletions and both sides of renames. Read the complete Git diff rather than a paginated or truncated changed-files API. A failed diff fails discovery; it never means skip. Documentation, API and unrelated app changes do not request Swift. Python, TypeScript and Kotlin discovery stays as before. Pushes to main and the weekly schedule keep full scans.
+- Prepare the icon and Xcode project before CodeQL initialization. Trace a fresh, single-arm64, compile-only app build with Release conditional compilation, optimization disabled and whole-module compilation. Keep every production Swift file, including SwiftUI views; omit IPA packaging and helper-icon compilation from the traced build. Disable the integrated Swift driver and compiler caches as GitHub recommends. Never restore compiled objects in place of a traced build. The ordinary release IPA build is unchanged.
+- Cancel superseded Security runs for the same workflow/ref, as CI already does. A different PR or main run is not cancelled by a PR update.
+- Validate selection with regression tests, and compare the native job's build duration and source coverage with the old run before claiming a measured speed-up. No query suite is weakened, and no required-check setting changes.
+
+This refines ADR 0307's fresh native build requirement without changing the application or its distribution. The existing ADR 0148 milestone also tracks this slice. Native extraction still has a cost on actual Swift changes; skipping unrelated PRs is the guaranteed saving.
+
+References: [GitHub Swift build guidance](https://docs.github.com/en/code-security/reference/code-scanning/codeql/build-options-for-compiled-languages#customizing-swift-compilation-in-a-codeql-analysis-workflow), [traced Xcode build flags](https://docs.github.com/en/code-security/tutorials/customize-code-scanning/prepare-code-for-analysis#specifying-build-commands).
