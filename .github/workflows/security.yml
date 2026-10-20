@@ -125,6 +125,22 @@ jobs:
             COMPILATION_CACHE_ENABLE_CACHING=NO SWIFT_ENABLE_COMPILE_CACHE=NO \
             -showBuildTimingSummary build
       - uses: github/codeql-action/analyze@v4
+      - name: Verify Swift source coverage
+        if: matrix.language == 'swift'
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from zipfile import ZipFile
+          with ZipFile(Path(os.environ["RUNNER_TEMP"]) / "codeql_databases/swift/src.zip") as archive:
+              names = archive.namelist()
+          sources = sorted(Path("apps/inventory-ios/Sources").rglob("*.swift"))
+          missing = [p.as_posix() for p in sources if not any(
+              n == p.as_posix() or n.endswith("/" + p.as_posix()) for n in names)]
+          if missing:
+              raise SystemExit("Swift sources missing from CodeQL: " + ", ".join(missing))
+          print(f"CodeQL source archive contains all {len(sources)} production Swift files.")
+          PY
 
   dependency-review:
     if: github.event_name == 'pull_request'
