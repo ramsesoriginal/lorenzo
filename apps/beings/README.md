@@ -48,3 +48,9 @@ An entry lists the Facts explicitly about it when the reader can see their exist
 The Fact page renders its visible information bundles and About subjects. LorenzoScript links
 resolve to that page. The Fact's outer audience and each information audience are independent;
 hidden Facts produce the same unavailable view as missing entries (ADR 0305, RFC 0044).
+
+Full-visibility library Owners/Organizers see participating Event titles below Inventory,
+in story order, with links to Calendars and explicit linearized labels (ADR 0313).
+The section checks current Event-order access before querying. Other readers and admins
+with a visibility opt-out get no Event participation/order section. These associations
+record participation, never learning or a being's lived sequence.
