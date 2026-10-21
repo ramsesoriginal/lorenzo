@@ -83,7 +83,7 @@
     },
     "apps/sessions": {
       "release-type": "node",
-      "component": "calendars"
+      "component": "sessions"
     }
   }
 }
