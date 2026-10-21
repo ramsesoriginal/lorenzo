@@ -5,7 +5,7 @@ from __future__ import annotations
 import heapq
 import uuid
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 Kind = Literal["order", "causes"]
@@ -16,6 +16,8 @@ class Edge:
     source: uuid.UUID
     target: uuid.UUID
     kind: Kind
+    # Disclosure metadata does not change assertion identity or ordering semantics.
+    is_shared: bool = field(default=False, compare=False)
 
 
 class EventOrder:

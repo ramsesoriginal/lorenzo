@@ -2780,6 +2780,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}/sharing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Share Event Relationship */
+        put: operations["share_event_relationship"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/events/access": {
         parameters: {
             query?: never;
@@ -7589,6 +7606,8 @@ export interface components {
         EventAccess: {
             /** Can Order */
             can_order: boolean;
+            /** Can Read Order */
+            can_read_order: boolean;
         };
         /** EventComparison */
         EventComparison: {
@@ -10470,6 +10489,27 @@ export interface components {
              * @enum {string}
              */
             kind: "order" | "causes";
+            /**
+             * Is Shared
+             * @default false
+             */
+            is_shared: boolean;
+        };
+        /** RelationshipSharingWrite */
+        RelationshipSharingWrite: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "order" | "causes";
+            /**
+             * Direction
+             * @default outgoing
+             * @enum {string}
+             */
+            direction: "incoming" | "outgoing";
+            /** Is Shared */
+            is_shared: boolean;
         };
         /** RelationshipWrite */
         RelationshipWrite: {
@@ -21840,6 +21880,79 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    share_event_relationship: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                event_id: string;
+                other_event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelationshipSharingWrite"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

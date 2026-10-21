@@ -9,9 +9,9 @@ export async function mount() {
   host.dataset.mounted = 'true';
   const session = await start();
   if (!session || !host?.isConnected) return;
-  const { tenantId, canWrite, canOrderEvents } = session;
+  const { tenantId, canWrite, canOrderEvents, canReadEventOrder } = session;
   const initial = new URLSearchParams(location.search);
-  let being = initial.get('being') ?? '';
+  let being = canOrderEvents ? (initial.get('being') ?? '') : '';
   let chain = initial.get('chain') ?? '';
   let page = 1;
   host.append(
@@ -27,13 +27,13 @@ export async function mount() {
   const q = field('Search Event names', initial.get('q') ?? '');
   const sort = select(
     'List order',
-    canOrderEvents
+    canReadEventOrder
       ? [
           ['name', 'Name'],
           ['order', 'Story order'],
         ]
       : [['name', 'Name']],
-    canOrderEvents && initial.get('sort') === 'order' ? 'order' : 'name',
+    canReadEventOrder && initial.get('sort') === 'order' ? 'order' : 'name',
   );
   sort.input.setAttribute('aria-label', 'List order');
   const direction = select(
@@ -96,7 +96,7 @@ export async function mount() {
               'caption',
             ),
           );
-        if (canOrderEvents)
+        if (canReadEventOrder)
           row.append(
             button(
               'Follow causes',
@@ -169,17 +169,21 @@ export async function mount() {
       true,
     ),
   );
-  if (canOrderEvents) {
+  if (canReadEventOrder) {
     const advanced = el('details', '', 'panel');
     const body = el('div', '', 'stack');
-    advanced.append(el('summary', 'Participants and causes'), body);
+    advanced.append(el('summary', canOrderEvents ? 'Participants and causes' : 'Causes'), body);
     body.append(
-      entryPicker(tenantId, 'Filter by being', 'being', (entry) => {
-        being = entry.id;
-        page = 1;
-        showChoices();
-        void load();
-      }),
+      ...(canOrderEvents
+        ? [
+            entryPicker(tenantId, 'Filter by being', 'being', (entry) => {
+              being = entry.id;
+              page = 1;
+              showChoices();
+              void load();
+            }),
+          ]
+        : []),
       entryPicker(tenantId, 'Follow an Event', 'event', (entry) => {
         chain = entry.id;
         page = 1;
@@ -189,7 +193,7 @@ export async function mount() {
       direction.label,
       choices,
       button(
-        'Clear participant and causal filters',
+        canOrderEvents ? 'Clear participant and causal filters' : 'Clear causal filter',
         () => {
           being = '';
           chain = '';
@@ -259,7 +263,9 @@ export async function mount() {
     filters,
     el(
       'p',
-      'Story order follows recorded relationships. Linearized placements supply no evidence of chronology. Causal filters follow causes, including branches.',
+      canOrderEvents
+        ? 'Story order follows recorded relationships. Linearized placements supply no evidence of chronology. Causal filters follow causes, including branches.'
+        : 'Your story order uses shared relationships between Events you can see. Linearized placements are display order, not evidence of chronology. Other readers may see a different order.',
       'caption',
     ),
     status,

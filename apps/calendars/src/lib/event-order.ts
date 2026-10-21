@@ -3,8 +3,12 @@ import { button, el, entryHref, field, link, message, select } from './dom';
 
 type Relationship = components['schemas']['RelationshipOut'];
 
-/** Only mounted for full-visibility Owners/Organizers; API remains authoritative. */
-export async function eventOrder(tenantId: string, eventId: string): Promise<HTMLElement | null> {
+/** Reader graph with separately gated staff editing; the API remains authoritative. */
+export async function eventOrder(
+  tenantId: string,
+  eventId: string,
+  canEdit = false,
+): Promise<HTMLElement | null> {
   const path = { tenant_id: tenantId, event_id: eventId };
   const host = el('details', '', 'panel stack');
   host.dataset.eventOrder = '';
@@ -32,20 +36,31 @@ export async function eventOrder(tenantId: string, eventId: string): Promise<HTM
   relationship.input.setAttribute('aria-label', 'Relationship');
   const comparison = el('div', '', 'stack-tight');
   async function run(action: () => Promise<void>) {
-    if (busy) return;
+    if (busy || !host.isConnected) return;
     busy = true;
     status.textContent = '';
     try {
       await action();
     } catch (error) {
-      status.textContent = `${message(error)} Your selection is kept. Refresh the saved relationships before retrying a conflicting edit.`;
+      status.textContent = canEdit
+        ? `${message(error)} Your selection is kept. Refresh the saved relationships before retrying a conflicting edit.`
+        : message(error);
     } finally {
       busy = false;
     }
   }
   function render(rows: Relationship[]) {
     assertions.replaceChildren();
-    if (!rows.length) assertions.append(el('p', 'No ordering relationships recorded.', 'caption'));
+    if (!rows.length)
+      assertions.append(
+        el(
+          'p',
+          canEdit
+            ? 'No ordering relationships recorded.'
+            : 'No shared relationships are available in your view.',
+          'caption',
+        ),
+      );
     for (const row of rows) {
       const incoming = row.to_event_id === eventId;
       const otherId = incoming ? row.from_event_id : row.to_event_id;
@@ -59,31 +74,63 @@ export async function eventOrder(tenantId: string, eventId: string): Promise<HTM
             ? 'Happened after'
             : 'Happened before';
       const line = el('div', '', 'row');
-      line.append(
-        el('span', label),
-        link(otherName, entryHref(tenantId, otherId)),
-        button(
-          'Remove',
-          () =>
-            run(async () => {
-              const result = await client.DELETE(
-                '/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}',
-                {
-                  params: {
-                    path: { ...path, other_event_id: otherId },
-                    query: { kind: row.kind, direction: incoming ? 'incoming' : 'outgoing' },
-                    header: { 'if-match': version },
+      line.append(el('span', label), link(otherName, entryHref(tenantId, otherId)));
+      if (canEdit)
+        line.append(
+          el(
+            'span',
+            row.is_shared ? 'Shared with readers of both Events' : 'Private relationship',
+            'caption',
+          ),
+          button(
+            row.is_shared ? 'Make relationship private' : 'Share relationship',
+            () =>
+              run(async () => {
+                const result = await client.PUT(
+                  '/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}/sharing',
+                  {
+                    params: {
+                      path: { ...path, other_event_id: otherId },
+                      header: { 'if-match': version },
+                    },
+                    body: {
+                      kind: row.kind,
+                      direction: incoming ? 'incoming' : 'outgoing',
+                      is_shared: !row.is_shared,
+                    },
                   },
-                },
-              );
-              render(await unwrap(result));
-              version = result.response.headers.get('etag') ?? '';
-              comparison.replaceChildren();
-              status.textContent = 'Relationship removed.';
-            }),
-          true,
-        ),
-      );
+                );
+                render(await unwrap(result));
+                version = result.response.headers.get('etag') ?? '';
+                comparison.replaceChildren();
+                status.textContent = row.is_shared
+                  ? 'Relationship is private.'
+                  : 'Relationship shared. Readers still need access to both Events.';
+              }),
+            true,
+          ),
+          button(
+            'Remove',
+            () =>
+              run(async () => {
+                const result = await client.DELETE(
+                  '/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}',
+                  {
+                    params: {
+                      path: { ...path, other_event_id: otherId },
+                      query: { kind: row.kind, direction: incoming ? 'incoming' : 'outgoing' },
+                      header: { 'if-match': version },
+                    },
+                  },
+                );
+                render(await unwrap(result));
+                version = result.response.headers.get('etag') ?? '';
+                comparison.replaceChildren();
+                status.textContent = 'Relationship removed.';
+              }),
+            true,
+          ),
+        );
       assertions.append(line);
     }
   }
@@ -104,7 +151,9 @@ export async function eventOrder(tenantId: string, eventId: string): Promise<HTM
   body.append(
     el(
       'p',
-      'Record what happened before or caused this Event. Calendar dates do not establish these relationships.',
+      canEdit
+        ? 'Record what happened before or caused this Event. Relationships start private; sharing never opens an Event or its Information.'
+        : 'Only shared relationships between Events you can see appear here. This order may differ from another reader’s view. Calendar dates do not establish order.',
       'caption',
     ),
     assertions,
@@ -151,34 +200,39 @@ export async function eventOrder(tenantId: string, eventId: string): Promise<HTM
     ),
     results,
     selected,
-    relationship.label,
-    button(
-      'Add relationship',
-      () =>
-        run(async () => {
-          if (!target) throw new Error('Choose an Event first.');
-          if (!version) throw new Error('Refresh the saved relationships first.');
-          const value = relationship.input.value;
-          const result = await client.PUT(
-            '/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}',
-            {
-              params: {
-                path: { ...path, other_event_id: target.id },
-                header: { 'if-match': version },
-              },
-              body: {
-                kind: value === 'causes' || value === 'caused-by' ? 'causes' : 'order',
-                direction: value === 'after' || value === 'caused-by' ? 'incoming' : 'outgoing',
-              },
-            },
-          );
-          render(await unwrap(result));
-          version = result.response.headers.get('etag') ?? '';
-          comparison.replaceChildren();
-          status.textContent = 'Relationship recorded.';
-        }),
-      true,
-    ),
+    ...(canEdit
+      ? [
+          relationship.label,
+          button(
+            'Add relationship',
+            () =>
+              run(async () => {
+                if (!target) throw new Error('Choose an Event first.');
+                if (!version) throw new Error('Refresh the saved relationships first.');
+                const value = relationship.input.value;
+                const result = await client.PUT(
+                  '/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}',
+                  {
+                    params: {
+                      path: { ...path, other_event_id: target.id },
+                      header: { 'if-match': version },
+                    },
+                    body: {
+                      kind: value === 'causes' || value === 'caused-by' ? 'causes' : 'order',
+                      direction:
+                        value === 'after' || value === 'caused-by' ? 'incoming' : 'outgoing',
+                    },
+                  },
+                );
+                render(await unwrap(result));
+                version = result.response.headers.get('etag') ?? '';
+                comparison.replaceChildren();
+                status.textContent = 'Relationship recorded.';
+              }),
+            true,
+          ),
+        ]
+      : []),
     button(
       'Compare Events',
       () =>
@@ -193,7 +247,9 @@ export async function eventOrder(tenantId: string, eventId: string): Promise<HTM
           const basis = {
             causal: 'Causal · a recorded chain of causes',
             ruled: 'Ruled · recorded ordering',
-            linearized: 'Linearized · no recorded ordering path',
+            linearized: canEdit
+              ? 'Linearized · no recorded ordering path'
+              : 'Linearized · no visible recorded ordering path',
             identity: 'Same Event',
           }[result.basis];
           comparison.replaceChildren(

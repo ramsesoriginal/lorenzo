@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import CheckConstraint, ForeignKeyConstraint
+from sqlalchemy import CheckConstraint, ForeignKeyConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lorenzo_api.db import Base, TenantFk, same_tenant_fk
@@ -29,3 +29,4 @@ class EventRelationship(Base):
     to_event_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
+    is_shared: Mapped[bool] = mapped_column(server_default=text("false"))

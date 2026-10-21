@@ -69,12 +69,14 @@ export async function mount() {
         );
       host.append(await datedEntries(tenantId, id));
     }
-    if (entry.kinds.includes('event') && session.canOrderEvents) {
+    if (entry.kinds.includes('event') && session.canReadEventOrder) {
       try {
-        const ordering = await eventOrder(tenantId, id);
+        const ordering = await eventOrder(tenantId, id, session.canOrderEvents);
         if (ordering) host.append(ordering);
-        host.append(await participants(tenantId, id));
-        host.append(await eventLearning(tenantId, id));
+        if (session.canOrderEvents) {
+          host.append(await participants(tenantId, id));
+          host.append(await eventLearning(tenantId, id));
+        }
       } catch (error) {
         host.append(el('p', `Could not load Event ordering. ${message(error)}`, 'caption'));
       }

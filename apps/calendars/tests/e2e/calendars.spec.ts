@@ -476,7 +476,7 @@ test('Event order shows evidence, keeps conflicting selections, and stays absent
   const first = await event('The bell rings');
   const second = await event('The gates close');
   const third = await event('The flight begins');
-  // The reader can read this Event, but gets no structured-order surface or requests.
+  // The reader can read this Event, but private relationships remain undisclosed.
   await ok(
     world.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/audience', {
       params: {
@@ -543,8 +543,15 @@ test('Event order shows evidence, keeps conflicting selections, and stays absent
   await expect(
     reader.getByRole('heading', { name: first.name, exact: true, level: 1 }),
   ).toBeVisible();
-  await expect(reader.locator('[data-event-order]')).toHaveCount(0);
-  expect(graphRequests).toEqual([]);
+  await expect(reader.locator('[data-event-order]')).toHaveCount(1);
+  await reader.locator('[data-event-order] summary').click();
+  await expect(
+    reader.getByText('No shared relationships are available in your view.'),
+  ).toBeVisible();
+  await expect(reader.getByRole('button', { name: 'Add relationship', exact: true })).toHaveCount(
+    0,
+  );
+  expect(graphRequests.filter((url) => url.includes('/relationships'))).toHaveLength(1);
   await page.context().close();
   await reader.context().close();
 });
@@ -1021,4 +1028,109 @@ test('learning is explicit, versioned and separate from Information audiences', 
   expect(requests).toEqual([]);
   await reader.context().close();
   await page.context().close();
+});
+
+test('shared Event order is readable without exposing private relationships or editing controls', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const path = { tenant_id: world.tenantId };
+  async function create(name: string, publicEntry = true) {
+    const e = await ok(
+      world.api.POST('/tenants/{tenant_id}/entities', {
+        params: { path },
+        body: { name, kinds: ['event'], parents: [] },
+      }),
+    );
+    if (publicEntry)
+      await ok(
+        world.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+          params: {
+            path: { ...path, entity_id: e.id },
+            header: { 'if-match': `W/"${e.updated_at}"` },
+          },
+          body: { is_public: true },
+        }),
+      );
+    return e;
+  }
+  const arrival = await create('Arrival at the harbour');
+  const departure = await create('Departure from the harbour');
+  const secret = await create('Secret midnight meeting', false);
+  async function relate(a: string, b: string, kind: 'order' | 'causes') {
+    const p = { ...path, event_id: a };
+    const current = await world.api.GET('/tenants/{tenant_id}/events/{event_id}/relationships', {
+      params: { path: p },
+    });
+    await ok(
+      world.api.PUT('/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}', {
+        params: {
+          path: { ...p, other_event_id: b },
+          header: { 'if-match': current.response.headers.get('etag') ?? '' },
+        },
+        body: { kind, direction: 'outgoing' },
+      }),
+    );
+  }
+  await relate(arrival.id, secret.id, 'causes');
+  await relate(secret.id, departure.id, 'causes');
+  await relate(arrival.id, departure.id, 'order');
+  const reader = await signedIn(browser, world.readerSubject);
+  await reader.goto(`/entry/?tenant=${world.tenantId}&id=${arrival.id}`);
+  const readPanel = reader.locator('[data-event-order]');
+  await readPanel.locator('summary').click();
+  await expect(
+    readPanel.getByText('No shared relationships are available in your view.'),
+  ).toBeVisible();
+  await expect(
+    readPanel.getByRole('button', { name: 'Add relationship', exact: true }),
+  ).toHaveCount(0);
+  await expect(reader.locator('[data-participants], [data-learning]')).toHaveCount(0);
+  const staff = await signedIn(browser, world.subject);
+  await staff.goto(`/entry/?tenant=${world.tenantId}&id=${arrival.id}`);
+  const panel = staff.locator('[data-event-order]');
+  await panel.locator('summary').click();
+  const direct = panel
+    .locator('.row')
+    .filter({ hasText: 'Happened before' })
+    .filter({ hasText: departure.name });
+  await expect(direct).toContainText('Private relationship');
+  await direct.getByRole('button', { name: 'Share relationship', exact: true }).click();
+  await expect(panel.getByRole('status')).toHaveText(
+    'Relationship shared. Readers still need access to both Events.',
+  );
+  await reader.reload();
+  await readPanel.locator('summary').click();
+  await expect(readPanel.getByRole('link', { name: departure.name, exact: true })).toBeVisible();
+  await expect(readPanel).not.toContainText(secret.name);
+  await readPanel.getByLabel('Find an Event').fill('Departure');
+  await readPanel.getByRole('button', { name: 'Search Events', exact: true }).click();
+  await readPanel.getByRole('button', { name: departure.name, exact: true }).click();
+  await readPanel.getByRole('button', { name: 'Compare Events', exact: true }).click();
+  await expect(readPanel).toContainText('Ruled · recorded ordering');
+  await expect(readPanel).not.toContainText('Causal · a recorded chain of causes');
+  await reader.getByRole('link', { name: 'All Events', exact: true }).click();
+  await reader.getByLabel('List order', { exact: true }).selectOption('order');
+  await reader.getByRole('button', { name: 'Find Events', exact: true }).click();
+  await expect(reader.getByRole('status')).toHaveText('3 Events.');
+  await expect(reader.locator('[data-event-list]')).not.toContainText(secret.name);
+  await expect(reader.getByText('Participants and causes', { exact: true })).toHaveCount(0);
+  await expect(reader.getByText('Causes', { exact: true })).toBeVisible();
+  await reader.setViewportSize({ width: 390, height: 844 });
+  expect(await reader.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+    true,
+  );
+  await reader.screenshot({
+    path: test.info().outputPath('reader-order-phone.png'),
+    fullPage: true,
+  });
+  await direct.getByRole('button', { name: 'Make relationship private', exact: true }).click();
+  await expect(panel.getByRole('status')).toHaveText('Relationship is private.');
+  await reader.goto(`/entry/?tenant=${world.tenantId}&id=${arrival.id}`);
+  await readPanel.locator('summary').click();
+  await expect(
+    readPanel.getByText('No shared relationships are available in your view.'),
+  ).toBeVisible();
+  await reader.context().close();
+  await staff.context().close();
 });
