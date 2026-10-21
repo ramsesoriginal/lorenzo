@@ -274,6 +274,19 @@ icon-device: device-laptop
 icon-release: tag-starred
 icon-inventory: backpack
 
+# Lorenzo-owned custom icons (identity.md §17.4, ADR 0326): Tabler has no set of moon phases,
+# so these eight are drawn in Tabler's grammar (24x24, 2px round stroke, currentColor) and have
+# no upstream source; the value is "custom". Phase n of the calendar engine's int(fraction * 8)
+# is the nth, new moon first. The lit part is one closed arc path; waxing is lit on the right.
+icon-moon-new: custom
+icon-moon-waxing-crescent: custom
+icon-moon-first-quarter: custom
+icon-moon-waxing-gibbous: custom
+icon-moon-full: custom
+icon-moon-waning-gibbous: custom
+icon-moon-last-quarter: custom
+icon-moon-waning-crescent: custom
+
 # Aliases - reuse an existing symbol id above, not a new one:
 #   icon-remove            -> icon-close   (removing a chip/tag)
 #   icon-clear-selection   -> icon-close   (clearing a bulk-selection toolbar)

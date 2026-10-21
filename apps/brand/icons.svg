@@ -10,7 +10,8 @@
 
   See icons.manifest.yaml for the full semantic-name -> Tabler-source
   mapping, including aliases that intentionally reuse one icon's artwork
-  for more than one (closely related) semantic name.
+  for more than one (closely related) semantic name. The eight moon phases
+  at the end are Lorenzo's own drawings (ADR 0326), not Tabler's.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display: none">
   <symbol id="icon-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1569,5 +1570,50 @@
     <path d="M10 6v-1a2 2 0 1 1 4 0v1" />
     <path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4" />
     <path d="M11 10h2" />
+  </symbol>
+
+  <!--
+    Moon phases (ADR 0326): Lorenzo-owned, drawn here rather than taken from Tabler, which has
+    no set of phases. One per band of the calendar engine's int(fraction * 8), in this order.
+    Tabler's grammar: 24x24, 2px round stroke, currentColor. The circle is the outline; the
+    lit part is one closed arc path, filled so the new moon (the outline alone) and the full
+    moon (the whole disc) differ without colour. Waxing is lit on the right, waning on the left.
+  -->
+  <symbol id="icon-moon-new" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+  </symbol>
+
+  <symbol id="icon-moon-waxing-crescent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 3a9 9 0 0 1 0 18a5 9 0 0 0 0 -18z" fill="currentColor" />
+  </symbol>
+
+  <symbol id="icon-moon-first-quarter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" />
+  </symbol>
+
+  <symbol id="icon-moon-waxing-gibbous" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 3a9 9 0 0 1 0 18a5 9 0 0 1 0 -18z" fill="currentColor" />
+  </symbol>
+
+  <symbol id="icon-moon-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" fill="currentColor" />
+  </symbol>
+
+  <symbol id="icon-moon-waning-gibbous" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 3a9 9 0 0 0 0 18a5 9 0 0 0 0 -18z" fill="currentColor" />
+  </symbol>
+
+  <symbol id="icon-moon-last-quarter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" />
+  </symbol>
+
+  <symbol id="icon-moon-waning-crescent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 3a9 9 0 0 0 0 18a5 9 0 0 1 0 -18z" fill="currentColor" />
   </symbol>
 </svg>
