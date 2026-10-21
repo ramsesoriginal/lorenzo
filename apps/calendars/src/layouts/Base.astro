@@ -22,8 +22,20 @@ const { title = 'Lorenzo Calendars' } = Astro.props;
     ))}
     <link rel="stylesheet" href={appStyles} />
     <script is:inline>
-      if (window.matchMedia('(prefers-color-scheme: dark)').matches)
-        document.documentElement.dataset.theme = 'dark';
+      (() => {
+        let saved;
+        try {
+          saved = localStorage.getItem('lorenzo:calendars:theme');
+        } catch {
+          // System appearance remains usable when preference storage is blocked.
+        }
+        document.documentElement.dataset.theme =
+          saved === 'light' || saved === 'dark'
+            ? saved
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+      })();
     </script>
   </head>
   <body>
