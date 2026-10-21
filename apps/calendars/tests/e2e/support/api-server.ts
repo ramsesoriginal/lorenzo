@@ -43,6 +43,7 @@ const env = {
   // Where the app-links registry says inventory-web is: the site gets it from the API, not from
   // a variable of its own (ADR 0273).
   INVENTORY_WEB_URL: INVENTORY_URL,
+  CALENDARS_URL: SITE_URL,
   // The API prints every trace span to the console; that would bury the test output.
   OTEL_SDK_DISABLED: 'true',
 };

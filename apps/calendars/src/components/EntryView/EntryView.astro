@@ -1,5 +1,6 @@
 <section id="EntryView" class="stack"></section>
 <script>
+  import { onPage } from '../../lib/page';
   import { mount } from './renderer';
-  void mount();
+  onPage('EntryView', mount);
 </script>

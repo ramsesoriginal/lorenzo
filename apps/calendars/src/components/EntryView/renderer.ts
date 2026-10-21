@@ -1,28 +1,37 @@
 import { renderAudienceControl } from '@lorenzo/information-editor';
+import { canonicalAddress, rememberEntryAddress, resolveAddress } from '../../lib/addresses';
 import { client, unwrap } from '../../lib/api';
 import { datedEntries, recurrenceFields } from '../../lib/dated-entries';
 import { button, calendarHref, el, entryHref, field, link, message } from '../../lib/dom';
 import { eventOrder } from '../../lib/event-order';
 import { informationForm, informationView } from '../../lib/information';
+import { participants } from '../../lib/participants';
 import { start } from '../../lib/session';
 export async function mount() {
+  const host = document.querySelector<HTMLElement>('#EntryView');
+  if (!host || host.dataset.mounted) return;
+  host.dataset.mounted = 'true';
   const session = await start();
-  if (!session) return;
+  if (!session || !host.isConnected) return;
   const { tenantId, canWrite } = session;
-  const host = document.querySelector('#EntryView');
-  if (!host) return;
   const status = el('p');
   status.setAttribute('role', 'status');
-  host.append(link('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`), status);
+  host.append(
+    link('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`),
+    link('All Events', `/events/?tenant=${encodeURIComponent(tenantId)}`),
+    status,
+  );
   try {
     const params = new URLSearchParams(location.search);
-    const id = params.get('id');
-    if (!id) throw new Error('Choose an entry from a calendar.');
+    const id = await resolveAddress(tenantId, params);
     const path = { tenant_id: tenantId, entity_id: id };
     const result = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
       params: { path },
     });
     const entry = await unwrap(result);
+    if (!host.isConnected) return;
+    rememberEntryAddress(tenantId, entry);
+    canonicalAddress(tenantId, id);
     const version = result.response.headers.get('etag');
     host.append(
       el('h1', entry.name),
@@ -63,11 +72,14 @@ export async function mount() {
       try {
         const ordering = await eventOrder(tenantId, id);
         if (ordering) host.append(ordering);
+        host.append(await participants(tenantId, id));
       } catch (error) {
         host.append(el('p', `Could not load Event ordering. ${message(error)}`, 'caption'));
       }
     }
-    const refresh = () => location.reload();
+    const refresh = () => {
+      if (host.isConnected) location.reload();
+    };
     if (canWrite) {
       const controls = el('details');
       controls.append(el('summary', 'Name, link name and audience'));
@@ -110,6 +122,11 @@ export async function mount() {
                     params: { path },
                   }),
                 );
+              const next = await unwrap(
+                await client.GET('/tenants/{tenant_id}/entities/{entity_id}', { params: { path } }),
+              );
+              rememberEntryAddress(tenantId, next);
+              canonicalAddress(tenantId, id);
               refresh();
             } catch (e) {
               status.textContent = `${message(e)} Your link-name draft is kept.`;

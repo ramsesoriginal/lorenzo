@@ -1,4 +1,5 @@
 import { renderAudienceControl } from '@lorenzo/information-editor';
+import { canonicalAddress, rememberEntryAddress, resolveAddress } from '../../lib/addresses';
 import { client, fetchAllPages, unwrap } from '../../lib/api';
 import {
   attachExisting,
@@ -9,6 +10,7 @@ import {
 import { definitionEditor } from '../../lib/definition-editor';
 import { button, el, entryHref, field, link, message, select } from '../../lib/dom';
 import { informationView, renderText } from '../../lib/information';
+import { prefetchEntry, prefetchYear } from '../../lib/prefetch';
 import { start } from '../../lib/session';
 import type { Period, YearPreview } from '../../lib/types';
 
@@ -25,32 +27,31 @@ const phases = [
 const phaseSymbols = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
 
 export async function mount() {
+  const host = document.querySelector<HTMLElement>('#CalendarView');
+  if (!host || host.dataset.mounted) return;
+  host.dataset.mounted = 'true';
   const session = await start();
-  if (!session) return;
+  if (!session || !host?.isConnected) return;
   const { tenantId, canWrite } = session;
-  const host = document.querySelector('#CalendarView');
-  if (!host) return;
   const params = new URLSearchParams(location.search);
-  let id = params.get('id');
   const status = el('p');
   status.setAttribute('role', 'status');
   host.append(link('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`), status);
   try {
-    if (!id && params.get('slug')) {
-      const resolved = await unwrap(
-        await client.GET('/tenants/{tenant_id}/entities/resolve', {
-          params: { path: { tenant_id: tenantId }, query: { slug: [params.get('slug') ?? ''] } },
-        }),
-      );
-      id = resolved.find((r) => r.kinds.includes('calendar'))?.entity_id ?? null;
-    }
-    if (!id) throw new Error('Choose a calendar from your library.');
-    const calendarId = id;
+    const calendarId = await resolveAddress(tenantId, params, 'calendar');
     const calendar = await unwrap(
       await client.GET('/tenants/{tenant_id}/calendars/{entity_id}', {
         params: { path: { tenant_id: tenantId, entity_id: calendarId } },
       }),
     );
+    const entry = await unwrap(
+      await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+        params: { path: { tenant_id: tenantId, entity_id: calendarId } },
+      }),
+    );
+    if (!host?.isConnected) return;
+    rememberEntryAddress(tenantId, entry);
+    canonicalAddress(tenantId, calendarId);
     host.append(el('h1', calendar.name));
     const tools = el('div', '', 'row');
     tools.append(link('Calendar information', entryHref(tenantId, calendarId)));
@@ -87,7 +88,9 @@ export async function mount() {
     body.append(grid, detail);
     host.append(body);
     let wholeYear = params.get('view') === 'year';
-    let chosenSegment = '';
+    let chosenSegment = params.get('segment') ?? '';
+    let requestedDate = params.has('segment');
+    let requestedDay = params.has('day') ? Number(params.get('day')) : null;
     let preview: YearPreview;
     let periods: Period[] = [];
     let occurrences: Array<{
@@ -193,6 +196,10 @@ export async function mount() {
         return;
       }
       const turn = ++generation;
+      const selectRequested = requestedDate;
+      const dayRequested = requestedDay;
+      requestedDate = false;
+      requestedDay = null;
       contentCache.clear();
       status.textContent = 'Opening year…';
       try {
@@ -226,18 +233,33 @@ export async function mount() {
             ),
           ),
         ]);
-        if (turn !== generation) return;
+        if (turn !== generation || !host?.isConnected) return;
         year = next;
         y.input.value = String(year);
         preview = calculated;
         periods = saved;
+        for (const period of saved) rememberEntryAddress(tenantId, period);
         occurrences = observances;
         status.textContent = '';
         const url = new URL(location.href);
         url.searchParams.set('year', String(year));
-        history.replaceState(null, '', url);
+        history.replaceState(history.state, '', url);
         showYear();
-        await showPeriod();
+        const target = preview.segments.find((s) => s.key === chosenSegment);
+        if (
+          selectRequested &&
+          target &&
+          (dayRequested === null || target.days.some((d) => d.date.day === dayRequested))
+        ) {
+          await showPeriod(target.key, dayRequested ?? undefined);
+        } else await showPeriod();
+        requestedDay = null;
+        requestedDate = false;
+        if (
+          calendar.definition.segments.reduce((total, s) => total + s.days, 0) <= 1000 &&
+          calendar.definition.moons.length <= 8
+        )
+          prefetchYear(tenantId, calendarId, year + 1);
       } catch (e) {
         if (turn === generation) status.textContent = message(e);
       }
@@ -303,7 +325,7 @@ export async function mount() {
         const url = new URL(location.href);
         if (wholeYear) url.searchParams.set('view', 'year');
         else url.searchParams.delete('view');
-        history.replaceState(null, '', url);
+        history.replaceState(history.state, '', url);
         if (wholeYear) {
           for (const segment of preview.segments) {
             const month = el('section', '', 'stack year-segment');
@@ -395,6 +417,8 @@ export async function mount() {
         cell.append(header, content);
         const saved = periods.find((p) => p.segment === key && p.day === day.date.day);
         if (saved) {
+          cell.addEventListener('pointerenter', () => prefetchEntry(tenantId, saved.entity_id));
+          cell.addEventListener('focus', () => prefetchEntry(tenantId, saved.entity_id));
           content.textContent = 'Loading notes…';
           pending.push({ period: saved, content });
         }
@@ -418,6 +442,12 @@ export async function mount() {
     async function showPeriod(segment?: string, day?: number, target?: HTMLButtonElement) {
       const turn = ++selection;
       const chosenYear = year;
+      const address = new URL(location.href);
+      if (segment) address.searchParams.set('segment', segment);
+      else address.searchParams.delete('segment');
+      if (day !== undefined) address.searchParams.set('day', String(day));
+      else address.searchParams.delete('day');
+      history.replaceState(history.state, '', address);
       const title = segment
         ? `${day === undefined ? '' : `${day} `}${calendar.definition.segments.find((s) => s.key === segment)?.name ?? segment} ${year}`
         : `Year ${year}`;
@@ -462,8 +492,9 @@ export async function mount() {
               params: { path: { tenant_id: tenantId, entity_id: saved.entity_id } },
             }),
           );
+          rememberEntryAddress(tenantId, entry);
           const dates = await datedEntries(tenantId, saved.entity_id);
-          if (turn !== selection) return;
+          if (turn !== selection || !host?.isConnected) return;
           detail.append(
             link(
               'Open date entry',
@@ -476,7 +507,7 @@ export async function mount() {
           detail.append(
             el('p', 'No notes or dated entries are available to you for this date.', 'caption'),
           );
-        if (turn !== selection) return;
+        if (turn !== selection || !host?.isConnected) return;
         for (const o of occurrences.filter(
           (o) =>
             (segment === undefined || o.date.segment === segment) &&
@@ -495,6 +526,7 @@ export async function mount() {
               async () => {
                 try {
                   const period = await materialize();
+                  if (!host?.isConnected) return;
                   location.assign(
                     `${entryHref(tenantId, period.entity_id)}&calendar=${encodeURIComponent(calendarId)}&year=${chosenYear}&add=information`,
                   );

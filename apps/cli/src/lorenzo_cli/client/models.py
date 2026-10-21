@@ -288,9 +288,27 @@ class CalendarImportReceipt(BaseModel):
     retained: list[str] = Field(..., title="Retained")
 
 
+class CalendarReferenceOut(BaseModel):
+    expression: str = Field(..., title="Expression")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    calendar_slug: str = Field(..., title="Calendar Slug")
+    text: str = Field(..., title="Text")
+    year: int = Field(..., title="Year")
+    segment: str | None = Field(None, title="Segment")
+    day: int | None = Field(None, title="Day")
+
+
+class CalendarReferencesIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    expressions: list[str] = Field(..., max_length=100, min_length=1, title="Expressions")
+
+
 class CalendarSummary(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
 
@@ -520,6 +538,7 @@ class CreditOut(BaseModel):
 class DatedEntryOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
 
 
 class DayPreview(BaseModel):
@@ -704,6 +723,10 @@ class EntryKnowerOut(BaseModel):
     name: str | None = Field(..., title="Name")
 
 
+class EventAccess(BaseModel):
+    can_order: bool = Field(..., title="Can Order")
+
+
 class Relation(StrEnum):
     before = "before"
     after = "after"
@@ -723,6 +746,19 @@ class EventPair(BaseModel):
     )
     left: UUID = Field(..., title="Left")
     right: UUID = Field(..., title="Right")
+
+
+class OrderBasis(StrEnum):
+    causal = "causal"
+    ruled = "ruled"
+    linearized = "linearized"
+
+
+class EventSummary(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    order_basis: OrderBasis | None = Field(None, title="Order Basis")
 
 
 class FactUpdate(BaseModel):
@@ -1203,6 +1239,14 @@ class PageEntitySummary(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageEventSummary(BaseModel):
+    items: list[EventSummary] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageKnowledgeEntryOut(BaseModel):
     items: list[KnowledgeEntryOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1225,6 +1269,12 @@ class PageOccurrenceOut(BaseModel):
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
     pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class ParticipantOut(BaseModel):
+    being_entity_id: UUID = Field(..., title="Being Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
 
 
 class PayloadDescriptionOut(BaseModel):
@@ -1299,6 +1349,7 @@ class Granularity(StrEnum):
 
 class PeriodOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
+    slug: str | None = Field(None, title="Slug")
     calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
     name: str = Field(..., title="Name")
     granularity: Granularity = Field(..., title="Granularity")

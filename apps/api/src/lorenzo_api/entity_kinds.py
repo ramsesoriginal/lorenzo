@@ -37,6 +37,7 @@ from lorenzo_api.models import (
     EntityPrototype,
     EntitySlug,
     EntryCalendarPeriod,
+    EventParticipant,
     Fact,
     Item,
     ItemInstance,
@@ -222,6 +223,28 @@ async def add_kind(
     return result
 
 
+async def require_no_participations(
+    session: AsyncSession, tenant_id: uuid.UUID, entity_id: uuid.UUID
+) -> None:
+    await session.execute(
+        select(Entity.id)
+        .where(Entity.tenant_id == tenant_id, Entity.id == entity_id)
+        .with_for_update()
+    )
+    if await session.scalar(
+        select(
+            exists().where(
+                EventParticipant.tenant_id == tenant_id,
+                (EventParticipant.event_entity_id == entity_id)
+                | (EventParticipant.being_entity_id == entity_id),
+            )
+        )
+    ):
+        raise EntityKindInUseError(
+            detail="This entry has references that prevent deletion or kind removal."
+        )
+
+
 async def remove_kind(
     session: AsyncSession,
     *,
@@ -235,6 +258,8 @@ async def remove_kind(
     (ADR 0032), and `being` while the entry is a character, whose key would cascade away with it:
     demote it first (ADR 0036)."""
     entity_id = entity.id
+    if kind == "being":
+        await require_no_participations(session, tenant_id, entity_id)
     if kind == "event":
         raise EntityKindInUseError(detail="Delete the Event entry instead of removing its kind.")
     if kind == "item":
@@ -337,6 +362,8 @@ async def require_deletable(
             )
         ):
             raise EntityKindInUseError(detail="This entry has references that prevent deletion.")
+    if "event" in kinds or "being" in kinds:
+        await require_no_participations(session, tenant_id, entity_id)
     if "calendar" in kinds or "calendar_period" in kinds or "observance" in kinds:
         await session.execute(
             select(Entity.id)

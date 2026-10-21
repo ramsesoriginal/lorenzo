@@ -16,7 +16,43 @@ The entry page reuses the shared text/image bundle editor, LorenzoScript, author
 
 Owners and Organizers using full visibility can open **Order and causes** on an Event page ([ADR 0312](../../docs/adr/0312-explicit-event-order-and-causality.md)). Search for another Event, choose Happened before/after or Caused/Was caused by, and add the relationship. Compare Events shows a recorded causal chain, recorded ordering, or an explicitly linearized display order with no recorded path. Dates do not create assertions. Conflicting edits keep the selection; refresh the saved relationships and review before retrying. Removing an assertion changes the derived order, and linked Events must be unlinked before deletion. Authors, players and administrators with a visibility opt-out get no ordering panel.
 
-Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, learning history, participations, time travel and Bench integration remain later work.
+Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, learning history and time travel remain later work.
+
+The **Events** page creates undated Events, searches their names, and offers full-visibility
+Owners/Organizers participant and causal filters plus story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
+Causal filters follow causes in either direction from one Event; branches remain independent.
+Story order derives the full graph before filtering and labels unconstrained positions as
+linearized. Event pages add/remove participating beings with version checks. Participation
+records neither knowledge nor lived order and grants no visibility. Authors/readers may browse
+ordinary permitted Event names but receive no structured participation or order surface.
+
+Calendar, period and Event link names use the existing entry editor. Calendars URLs accept
+UUIDs or slugs and prefer an entry's defined slug; internal identities stay UUIDs. An explicit
+`slug` parameter handles UUID-shaped link names. Tenant links also prefer the library slug.
+LorenzoScript supports `[[calendar/reckoning]]`, `[[event/arrival]]`,
+`[[calendar_period/first-day]]` and computed dates such as `{{cal reckoning 3286/Quirm/16}}`
+or `{{cal reckoning 3286/6/16}}`. A year or month alone works too. Numbers count every
+segment in authored order, including festivals and absent leap segments. Names are matched
+uniquely after Unicode normalization and case folding. Use `key:segment-6` or `name:123`
+for an explicit key or a numeric name, and percent-encode `/` inside a name. Computed links
+create no period and disclose no hidden period or Information. Existing apps share these
+calendar links through the app registry.
+
+In-app links keep a bounded session-memory cache and revalidate the account, library role
+and Event-order capability before a protected view is drawn. Full-visibility staff can reuse
+recent responses (10 seconds, at most 64 bodies / 2 MiB, with oversized bodies skipped).
+Other readers deduplicate simultaneous requests but fetch private content afresh on entering
+a view. Slug lookups always stay fresh; cache identities use resolved UUIDs. Writes invalidate
+reads before and after the request, and late reads cannot repopulate an invalidated cache.
+Sign-out, denied reads, scope changes and full-page history restores clear private state.
+No private Information is stored in localStorage or available as an offline fallback.
+
+Hovering or focusing a calendar, date or entry can prefetch its visible details. Small
+calendars also prefetch the next year's first pages. Prefetch uses at most two requests at
+once, eight queued and sixteen distinct intentions per view; it respects the full-visibility
+check, does not change the selected date and never authors periods. Existing four-date
+loading for visible month content remains in place. In-app navigation uses Astro's built-in
+client router; every new page remounts behind its fresh session check.
 
 ## Development and checks
 

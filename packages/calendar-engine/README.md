@@ -12,3 +12,8 @@ Run `mise run //packages/calendar-engine:test` and `:lint`.
 `RecurrenceRule`, `validate_recurrence` and `occurrence` calculate scheduled observances.
 Every-N-years/offset rules use signed years. A date missing in a year returns no occurrence;
 it never shifts to a neighbouring date. Calculation creates no entries and records no event.
+
+`lorenzo_calendar.references` parses and resolves `calendar-slug year[/month[/day]]`
+coordinates for read-only links (ADR 0313). Months accept a unique normalized name,
+stable key, or one-based position in the full definition, including conditional festivals.
+Explicit `name:` and `key:` prefixes disambiguate. An absent or ambiguous date is unresolved.

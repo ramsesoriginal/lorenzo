@@ -548,3 +548,272 @@ test('Event order shows evidence, keeps conflicting selections, and stays absent
   await page.context().close();
   await reader.context().close();
 });
+
+test('standalone Events can be found by participating being without acquiring a date', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const being = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'Aster the traveller', kinds: ['being'], parents: [] },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/events/?tenant=${world.tenantId}`);
+  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByLabel('Event name', { exact: true }).fill('The beacon is lit');
+  await page.getByRole('button', { name: 'Create Event', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'The beacon is lit', exact: true, level: 1 }),
+  ).toBeVisible();
+  const eventId = new URL(page.url()).searchParams.get('id');
+  if (!eventId) throw new Error('Created Event address is missing.');
+  const roster = page.locator('[data-participants]');
+  await roster.getByText('Participating beings', { exact: true }).click();
+  await roster.getByLabel('Find a participating being', { exact: true }).fill('Aster');
+  await roster.getByRole('button', { name: 'Search beings', exact: true }).click();
+  await roster.getByRole('button', { name: being.name, exact: true }).click();
+  await roster.getByRole('button', { name: 'Add participant', exact: true }).click();
+  await expect(roster.getByText('Participation recorded.', { exact: true })).toBeVisible();
+  const dates = await ok(
+    world.api.GET('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+      params: { path: { tenant_id: world.tenantId, entity_id: eventId } },
+    }),
+  );
+  expect(dates).toEqual([]);
+  await page.getByRole('link', { name: 'All Events', exact: true }).click();
+  await page.getByText('Participants and causes', { exact: true }).click();
+  await page.getByLabel('Filter by being', { exact: true }).fill('Aster');
+  await page.getByRole('button', { name: 'Search beings', exact: true }).click();
+  await page.getByRole('button', { name: being.name, exact: true }).click();
+  await expect(page.locator('[data-event-list] > li')).toHaveCount(1);
+  await expect(page.locator('[data-event-list]')).toContainText('The beacon is lit');
+  await page.getByRole('combobox', { name: 'List order', exact: true }).selectOption('order');
+  await page.getByRole('button', { name: 'Find Events', exact: true }).click();
+  await expect(page.getByText('1 Event.', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('link', { name: 'The beacon is lit', exact: true }).click();
+  await page
+    .locator('[data-participants]')
+    .getByText('Participating beings', { exact: true })
+    .click();
+  await page
+    .locator('[data-participants]')
+    .getByRole('button', { name: 'Remove participant', exact: true })
+    .click();
+  await expect(page.getByText('Participation removed.', { exact: true })).toBeVisible();
+  const reader = await signedIn(browser, world.readerSubject);
+  await reader.goto(`/events/?tenant=${world.tenantId}`);
+  await expect(
+    reader.getByRole('heading', { name: 'Events', exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(reader.getByText('Participants and causes', { exact: true })).toHaveCount(0);
+  await expect(reader.getByText('Create an Event', { exact: true })).toHaveCount(0);
+  await expect(reader.getByRole('link', { name: 'The beacon is lit', exact: true })).toHaveCount(0);
+  await page.context().close();
+  await reader.context().close();
+});
+
+test('calendar addresses and named or numbered date links preserve identity without creating dates', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const path = { tenant_id: world.tenantId, entity_id: world.calendarId };
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+      params: { path },
+      body: { slug: 'reckoning' },
+    }),
+  );
+  const event = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'A date remembered', kinds: ['event'], parents: [], slug: 'arrival' },
+    }),
+  );
+  await ok(
+    world.api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      params: { path: { tenant_id: world.tenantId, entity_id: event.id } },
+      body: {
+        title: 'Dates',
+        is_public: false,
+        locale: 'en',
+        type: 'note',
+        content:
+          '[[calendar/reckoning]] {{cal reckoning 3286/Quirm/16}} {{cal reckoning 3286/6/16}} {{cal missing 0}}',
+      },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  const writes: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'GET' && r.url().includes('/periods')) writes.push(r.url());
+  });
+  await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
+  await expect(page).toHaveURL(/slug=reckoning/);
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=arrival`);
+  await expect(
+    page.getByRole('heading', { name: event.name, exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/slug=arrival/);
+  await expect(page.locator('a.ls-cal')).toHaveCount(2);
+  await expect(page.locator('a.ls-cal').first()).toHaveText('16 Quirm 3286');
+  await page.locator('a.ls-cal').first().click();
+  await expect(page.getByRole('combobox', { name: /^Month or festival/ })).toHaveValue('segment-6');
+  await expect(
+    page.locator('aside').getByRole('heading', { name: '16 Quirm 3286', exact: true }),
+  ).toBeVisible();
+  expect(writes).toEqual([]);
+  await page.goto(`/entry/?tenant=${world.tenantId}&slug=arrival`);
+  await page.getByText('Name, link name and audience', { exact: true }).click();
+  await page.getByLabel('Link name', { exact: true }).fill(event.id);
+  await page.getByRole('button', { name: 'Save link name', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`slug=${event.id}`));
+  await expect(
+    page.getByRole('heading', { name: event.name, exact: true, level: 1 }),
+  ).toBeVisible();
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${event.id}`);
+  await expect(page).toHaveURL(new RegExp(`slug=${event.id}`));
+  await page.context().close();
+});
+
+test('prefetched Event information survives in-app navigation only after fresh access and stays out of storage', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const tenant_id = world.tenantId;
+  const event = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id } },
+      body: {
+        name: 'A private departure',
+        slug: 'private-departure',
+        kinds: ['event'],
+        parents: [],
+      },
+    }),
+  );
+  await ok(
+    world.api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      params: { path: { tenant_id, entity_id: event.id } },
+      body: {
+        title: 'Private record',
+        type: 'note',
+        content: 'Private cache marker',
+        is_public: false,
+        locale: 'en',
+      },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  let entityReads = 0;
+  let capabilityReads = 0;
+  const writes: string[] = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (request.method() === 'GET' && path.endsWith(`/entities/${event.id}`)) entityReads++;
+    if (path.endsWith('/events/access')) capabilityReads++;
+    if (request.method() !== 'GET' && path.startsWith(`/tenants/${tenant_id}/`)) writes.push(path);
+  });
+  await page.goto(`/events/?tenant=${tenant_id}`);
+  const open = page.getByRole('link', { name: event.name, exact: true });
+  await expect(open).toBeVisible();
+  await page.evaluate(() => Reflect.set(window, 'calendarNavigationMarker', 'same document'));
+  const prefetched = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith(`/entities/${event.id}`),
+  );
+  await open.hover();
+  await (await prefetched).finished();
+  await open.click();
+  await expect(page.getByText('Private cache marker', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => Reflect.get(window, 'calendarNavigationMarker'))).toBe(
+    'same document',
+  );
+  expect(entityReads).toBe(1);
+  expect(capabilityReads).toBeGreaterThanOrEqual(2);
+  expect(
+    await page.evaluate(() =>
+      [localStorage, sessionStorage].some((store) =>
+        Object.values(store).some((value) => String(value).includes('Private cache marker')),
+      ),
+    ),
+  ).toBe(false);
+  const campaigns = await ok(
+    world.api.GET('/tenants/{tenant_id}/campaigns', { params: { path: { tenant_id } } }),
+  );
+  const campaign = campaigns.items[0];
+  if (!campaign) throw new Error('Missing fixture campaign.');
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out', {
+      params: { path: { tenant_id, campaign_id: campaign.id } },
+    }),
+  );
+  await page.getByRole('link', { name: 'All Events', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Events', exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: event.name, exact: true })).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByText('Private cache marker', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: event.name, exact: true, level: 1 })).toHaveCount(
+    0,
+  );
+  expect(writes).toEqual([]);
+  await page.context().close();
+});
+
+test('a write finishing after leaving an Event does not reload the new view', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const path = { tenant_id: world.tenantId };
+  const event = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path },
+      body: { name: 'Before departure', kinds: ['event'], parents: [] },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${event.id}`);
+  await page.getByText('Name, link name and audience', { exact: true }).click();
+  await page.getByLabel('Entry name', { exact: true }).fill('After departure');
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  await page.route(`**/entities/${event.id}`, async (route) => {
+    if (route.request().method() === 'PATCH') {
+      started.resolve();
+      await release.promise;
+    }
+    await route.continue();
+  });
+  await page.evaluate(() => Reflect.set(window, 'pendingWriteMarker', 'still here'));
+  const saved = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PATCH' &&
+      new URL(response.url()).pathname.endsWith(`/entities/${event.id}`),
+  );
+  await page.getByRole('button', { name: 'Save name', exact: true }).click();
+  await started.promise;
+  try {
+    await page.getByRole('link', { name: 'All Events', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Before departure', exact: true })).toBeVisible();
+  } finally {
+    release.resolve();
+  }
+  await (await saved).finished();
+  await expect
+    .poll(
+      async () =>
+        (
+          await ok(
+            world.api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+              params: { path: { ...path, entity_id: event.id } },
+            }),
+          )
+        ).name,
+    )
+    .toBe('After departure');
+  await expect(page.getByRole('heading', { name: 'Events', exact: true, level: 1 })).toBeVisible();
+  expect(await page.evaluate(() => Reflect.get(window, 'pendingWriteMarker'))).toBe('still here');
+  await page.context().close();
+});

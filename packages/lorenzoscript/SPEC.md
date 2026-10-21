@@ -10,6 +10,7 @@ Every example renders with `locale: 'en-GB'` and a fixture resolver:
 - A reference `hint/slug` links to `/hint/slug`, or to `/entity/slug` without a hint. The link is titled with the entity's name.
 - A picture is `/pictures/slug.png`.
 - It reads the calendar date `harptos 1492-mirtul-12` as "12 Mirtul 1492 DR".
+- It links `harptos 1492/Mirtul/12` to its computed calendar date.
 - It knows one stat, `weight`, which reads "1.5 kg".
 
 The sections cover three stages:
@@ -1113,7 +1114,7 @@ The session is on {{date 2026-09-24}}; {{date 2026-02-30}} and {{date tomorrow}}
 
 ## Calendar dates
 
-`{{cal …}}` is a date in a world's own calendar. Calendars aren't modelled yet, so it shows as written unless the resolver can read it. A `{{cal}}` with nothing in it is text.
+`{{cal …}}` is a date in a world's own calendar. The calendar resolver may return readable text or a safe hyperlink. Lorenzo apps resolve `calendar-link-name year[/month[/day]]` without creating a period entry. Months can be named (Unicode-normalized, case-insensitive) or numbered from 1 in the full definition, including festivals and conditional segments; absent segments do not renumber the rest. Stable keys also work. `name:` and `key:` disambiguate names and keys, and percent encoding protects `/` in a name. Missing, hidden, invalid or ambiguous references show as written. A `{{cal}}` with nothing in it is text.
 
 ```````` example
 The coronation was {{cal harptos 1492-mirtul-12}}, the siege {{cal harptos 1491-ches-3}}, and {{cal}} is text.
@@ -1278,3 +1279,15 @@ See [[Ashfang]] at {weight}.
 - Lazy continuation is decided by the previous line alone (is it paragraph text once its quote and list markers are set aside?), not by a full parse, which keeps it linear.
 - The nesting limit above.
 - The parser doesn't aim for every corner of CommonMark's list and lazy-continuation rules; this file, not CommonMark's spec, is what LorenzoScript does.
+
+A computed date link can refer to a year, month or day. Generic typed links such as
+`[[calendar/harptos]]`, `[[event/arrival]]` and `[[calendar_period/first-day]]`
+use the existing entity resolver and its audience gate.
+
+```````` example
+{{cal harptos 1492/Mirtul/12}}
+.
+<p><a href="/calendar/?slug=harptos&amp;year=1492&amp;segment=mirtul&amp;day=12" class="ls-cal">12 Mirtul 1492</a></p>
+.
+[{"kind":"calendar","expression":"harptos 1492/Mirtul/12"}]
+````````

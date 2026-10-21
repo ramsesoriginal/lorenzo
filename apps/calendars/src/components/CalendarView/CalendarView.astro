@@ -1,5 +1,6 @@
 <section id="CalendarView" class="stack"></section>
 <script>
+  import { onPage } from '../../lib/page';
   import { mount } from './renderer';
-  void mount();
+  onPage('CalendarView', mount);
 </script>

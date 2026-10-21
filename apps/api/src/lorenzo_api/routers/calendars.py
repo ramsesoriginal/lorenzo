@@ -33,7 +33,7 @@ from lorenzo_api.exceptions import (
     InformationManagementForbiddenError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
-from lorenzo_api.models import Calendar, Entity, EntityAudience
+from lorenzo_api.models import Calendar, Entity, EntityAudience, EntitySlug
 from lorenzo_api.routers.entities import authorize_entity_write
 from lorenzo_api.schemas.common import Slug
 
@@ -63,6 +63,7 @@ class CalendarOut(BaseModel):
 class CalendarSummary(BaseModel):
     entity_id: uuid.UUID
     name: str
+    slug: str | None = None
     updated_at: datetime
 
 
@@ -111,8 +112,9 @@ async def list_calendars(
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     statement = (
-        select(Calendar.entity_id, Entity.name, Calendar.updated_at)
+        select(Calendar.entity_id, Entity.name, Calendar.updated_at, EntitySlug.slug)
         .join(Entity, Entity.id == Calendar.entity_id)
+        .outerjoin(EntitySlug, EntitySlug.entity_id == Calendar.entity_id)
         .where(Calendar.tenant_id == tenant_id, visible_entry_clause(vis, Calendar.entity_id))
         .order_by(Entity.name, Calendar.entity_id)
     )
@@ -121,7 +123,9 @@ async def list_calendars(
         statement,
         params,
         transformer=lambda rows: [
-            CalendarSummary(entity_id=r.entity_id, name=r.name, updated_at=r.updated_at)
+            CalendarSummary(
+                entity_id=r.entity_id, name=r.name, slug=r.slug, updated_at=r.updated_at
+            )
             for r in rows
         ],
     )

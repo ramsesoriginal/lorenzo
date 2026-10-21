@@ -1,6 +1,7 @@
 import authgear, { SessionState } from '@authgear/web';
 import { AUTHGEAR_CLIENT_ID, AUTHGEAR_ENDPOINT } from './config';
 import { forgetTenant } from './lastTenant';
+import { calendarReads } from './read-cache';
 
 // Trailing slash is deliberate, not cosmetic: Cloudflare Pages 308-redirects
 // any extensionless path to add one (confirmed against apps/account-hub's
@@ -64,6 +65,9 @@ export async function logout(): Promise<void> {
   await ensureConfigured();
   // This user's last library - not the next one's.
   forgetTenant();
+  calendarReads.clear();
+  window.dispatchEvent(new Event('lorenzo:sign-out'));
+  document.querySelector('[data-page]')?.setAttribute('hidden', '');
   await authgear.logout({ redirectURI: window.location.origin, force: true });
   window.location.assign('/');
 }

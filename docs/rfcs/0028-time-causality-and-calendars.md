@@ -1279,3 +1279,12 @@ Gained:
   - A drafting error in part 1's knowledge as-of rule ("intersected with" history, which would have dropped a traveller's past). Caught by Judy.
   - A three-valued-logic hole in a `CHECK` that let a `contained` history row with no quantity through. Caught by Liam.
   - A proof that a single tied `lived_pos` can't keep date-placed spans unordered. Also Liam.
+
+## Narrow acceptance: participation and browsing (2026-10-21)
+
+[ADR 0313](../adr/0313-event-participation-browsing-and-calendar-addresses.md) accepts a simple
+Event-to-Being participation association, Event browsing/authoring, calendar addressing and
+LorenzoScript resolution. Ordered reads retain ADR 0312's full-visibility staff restriction.
+The pair is the participation identity for this slice; no lived position, clock snapshot or
+knowledge change is adopted. The broader D2 self-meeting and Part 2 history alternatives remain
+open. This amendment does not accept the rest of the RFC or its proposed execution order.

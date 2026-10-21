@@ -3,6 +3,7 @@
 // it's tested without a browser; descriptions.ts does the fetching.
 import type { EntityRef, Reference } from '@lorenzo/lorenzoscript';
 import type { components } from './api';
+import { calendarUrl } from './appLinks';
 
 export type ResolvedSlug = components['schemas']['ResolvedSlugOut'];
 /** A link or picture naming an entity by slug. */
@@ -34,13 +35,19 @@ const board: View['href'] = (t, id) => `/board/?tenant=${t}&character=${id}`;
 // hint tries them. A plain being has none here.
 const VIEWS: View[] = [
   { kind: 'fact', page: 'its fact page', href: factPageHref },
+  ...(['calendar', 'calendar_period', 'event'] as const).map((kind) => ({
+    kind,
+    page: 'its page in Calendars',
+    href: (tenant: string, id: string) =>
+      calendarUrl(tenant, { entity_id: id, kinds: [kind] }) ?? '',
+  })),
   { kind: 'item_instance', page: 'its item page', href: itemPage },
   { kind: 'item', page: 'its item page', href: itemPage },
   { kind: 'character', page: 'the board', href: board },
 ];
 
 /** What choosing a page needs to know about an entity: a resolved slug, or a backlink. */
-type Linkable = Pick<ResolvedSlug, 'entity_id' | 'kinds'>;
+type Linkable = Pick<ResolvedSlug, 'entity_id' | 'kinds'> & { slug?: string | null };
 
 // The hint's view if the entity is one, else the entity's first kind with a view.
 function viewFor(entity: Linkable, hint: string) {
@@ -50,7 +57,11 @@ function viewFor(entity: Linkable, hint: string) {
 
 /** Where a link to `entity` leads, or null if it has no page here. */
 export function entityHref(tenantId: string, entity: Linkable, hint = ''): string | null {
-  return viewFor(entity, hint)?.href(tenantId, entity.entity_id) ?? null;
+  return (
+    calendarUrl(tenantId, entity, hint) ??
+    viewFor(entity, hint)?.href(tenantId, entity.entity_id) ??
+    null
+  );
 }
 
 /**

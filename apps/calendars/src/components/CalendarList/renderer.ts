@@ -1,14 +1,18 @@
+import { rememberEntryAddress } from '../../lib/addresses';
 import { client, fetchAllPages, unwrap } from '../../lib/api';
 import { definitionEditor } from '../../lib/definition-editor';
 import { calendarHref, el, link, message } from '../../lib/dom';
 import { start } from '../../lib/session';
 export async function mount() {
+  const host = document.querySelector<HTMLElement>('#CalendarList');
+  if (!host || host.dataset.mounted) return;
+  host.dataset.mounted = 'true';
   const session = await start();
-  if (!session) return;
-  const host = document.querySelector('#CalendarList');
-  if (!host) return;
+  if (!session || !host.isConnected) return;
+
   host.append(
     el('h1', 'Calendars'),
+    link('Browse Events', `/events/?tenant=${encodeURIComponent(session.tenantId)}`),
     el('p', 'Choose a calendar to explore its dates, notes and story events.', 'intro'),
   );
   const status = el('p');
@@ -22,8 +26,10 @@ export async function mount() {
         }),
       ),
     );
+    if (!host.isConnected) return;
     const list = el('ul', '', 'calendar-list');
     for (const calendar of calendars) {
+      rememberEntryAddress(session.tenantId, calendar);
       const item = el('li', '', 'panel');
       const open = link(calendar.name, calendarHref(session.tenantId, calendar.entity_id));
       open.className = 'calendar-card';

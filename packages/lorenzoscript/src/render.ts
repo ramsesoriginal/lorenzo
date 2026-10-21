@@ -16,7 +16,7 @@ export type Resolver = {
   entity?: (ref: EntityRef) => { href: string; title?: string } | null;
   /** The entity's main picture: `https:`, `blob:` (fetched with the viewer's token), or relative. */
   image?: (ref: EntityRef) => { src: string; title?: string } | null;
-  calendar?: (expression: string) => string | null;
+  calendar?: (expression: string) => string | { text: string; href: string; title?: string } | null;
   /**
    * `{weight}`: the value of a stat of the entry the text belongs to, as the text to show (`1.5 kg`).
    * Null, or no lookup, renders the `{weight}` as it was written.
@@ -90,6 +90,12 @@ export function render(doc: Document, options: RenderOptions = {}): string {
       }
       case 'calendar': {
         const shown = options.resolve?.calendar?.(n.expression) ?? n.expression;
+        if (typeof shown === 'object') {
+          const href = safeUrl(shown.href, RESOLVED_LINKS);
+          return href
+            ? `<a${attr('href', href)}${attr('title', shown.title ?? '')}${attrsHtml(n.attrs, 'ls-cal')}>${escapeHtml(shown.text)}</a>`
+            : `<span${attrsHtml(n.attrs, 'ls-cal')}>${escapeHtml(n.expression)}</span>`;
+        }
         return `<span${attrsHtml(n.attrs, 'ls-cal')}>${escapeHtml(shown)}</span>`;
       }
       case 'link': {

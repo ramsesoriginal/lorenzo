@@ -30,7 +30,13 @@ from lorenzo_api.exceptions import (
     InvalidCalendarDateError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
-from lorenzo_api.models import CalendarPeriod, Entity, EntityAudience, EntryCalendarPeriod
+from lorenzo_api.models import (
+    CalendarPeriod,
+    Entity,
+    EntityAudience,
+    EntitySlug,
+    EntryCalendarPeriod,
+)
 from lorenzo_api.routers.calendars import read_calendar
 from lorenzo_api.routers.entities import authorize_entity_write
 
@@ -57,6 +63,7 @@ class PeriodCreate(BaseModel):
 
 class PeriodOut(BaseModel):
     entity_id: uuid.UUID
+    slug: str | None = None
     calendar_entity_id: uuid.UUID
     name: str
     granularity: Literal["year", "month", "day"]
@@ -74,11 +81,13 @@ class PeriodSelection(BaseModel):
 class DatedEntryOut(BaseModel):
     entity_id: uuid.UUID
     name: str
+    slug: str | None = None
 
 
-def period_out(period: CalendarPeriod, entity: Entity) -> PeriodOut:
+def period_out(period: CalendarPeriod, entity: Entity, slug: str | None = None) -> PeriodOut:
     return PeriodOut(
         entity_id=period.entity_id,
+        slug=slug,
         calendar_entity_id=period.calendar_entity_id,
         name=entity.name,
         year=period.year,
@@ -206,8 +215,9 @@ async def list_periods(
     await read_calendar(session, user, tenant_id, calendar_id)
     vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     query = (
-        select(CalendarPeriod, Entity)
+        select(CalendarPeriod, Entity, EntitySlug.slug)
         .join(Entity, Entity.id == CalendarPeriod.entity_id)
+        .outerjoin(EntitySlug, EntitySlug.entity_id == CalendarPeriod.entity_id)
         .where(
             CalendarPeriod.calendar_entity_id == calendar_id,
             CalendarPeriod.tenant_id == tenant_id,
@@ -218,7 +228,10 @@ async def list_periods(
     if year is not None:
         query = query.where(CalendarPeriod.year == year)
     result = await apaginate(
-        session, query, params, transformer=lambda rows: [period_out(p, e) for p, e in rows]
+        session,
+        query,
+        params,
+        transformer=lambda rows: [period_out(p, e, slug) for p, e, slug in rows],
     )
     return cast(Page[PeriodOut], result)
 
@@ -238,8 +251,9 @@ async def list_entry_dates(
         raise EntityNotFoundError(detail="No entry with that id in this library")
     vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     rows = await session.execute(
-        select(CalendarPeriod, Entity)
+        select(CalendarPeriod, Entity, EntitySlug.slug)
         .join(Entity, Entity.id == CalendarPeriod.entity_id)
+        .outerjoin(EntitySlug, EntitySlug.entity_id == CalendarPeriod.entity_id)
         .join(EntryCalendarPeriod, EntryCalendarPeriod.period_entity_id == CalendarPeriod.entity_id)
         .where(
             EntryCalendarPeriod.entity_id == entity_id,
@@ -253,7 +267,7 @@ async def list_entry_dates(
             CalendarPeriod.day,
         )
     )
-    return [period_out(p, e) for p, e in rows]
+    return [period_out(p, e, slug) for p, e, slug in rows]
 
 
 @router.put("/entities/{entity_id}/dates")
@@ -393,7 +407,8 @@ async def entries_at_period(
         raise EntityNotFoundError(detail="No period with that id in this library")
     vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     query = (
-        select(Entity.id, Entity.name)
+        select(Entity.id, Entity.name, EntitySlug.slug)
+        .outerjoin(EntitySlug, EntitySlug.entity_id == Entity.id)
         .join(EntryCalendarPeriod, EntryCalendarPeriod.entity_id == Entity.id)
         .where(
             EntryCalendarPeriod.period_entity_id == period_id,
@@ -406,6 +421,8 @@ async def entries_at_period(
         session,
         query,
         params,
-        transformer=lambda rows: [DatedEntryOut(entity_id=r.id, name=r.name) for r in rows],
+        transformer=lambda rows: [
+            DatedEntryOut(entity_id=r.id, name=r.name, slug=r.slug) for r in rows
+        ],
     )
     return cast(Page[DatedEntryOut], result)
