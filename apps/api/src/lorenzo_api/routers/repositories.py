@@ -1287,7 +1287,8 @@ def _step_out(step: Step, *, event_order_visible: bool = False) -> CopyStepOut:
         dropped=[
             DroppedOut(kind=d.kind, source_id=d.source_id, reason=d.reason)
             for d in step.dropped
-            if event_order_visible or d.kind not in ("event_relationship", "event_participant")
+            if event_order_visible
+            or d.kind not in ("event_relationship", "event_participant", "event_learning")
         ],
     )
 
@@ -1395,7 +1396,8 @@ async def copy_repository(
                 also_removed={
                     k: v
                     for k, v in previous.also_removed.items()
-                    if visibility.is_admin or k not in ("event_relationship", "event_participant")
+                    if visibility.is_admin
+                    or k not in ("event_relationship", "event_participant", "event_learning")
                 },
             )
             if previous

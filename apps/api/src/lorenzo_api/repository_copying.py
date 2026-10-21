@@ -51,6 +51,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventLearning,
     EventParticipant,
     EventRelationship,
     GroupMember,
@@ -903,6 +904,21 @@ class _Planner:
                         "rule": observance["rule"],
                     }
                 )
+        for event, being, information in c.event_learning:
+            if copies("entity", event):
+                target = self._local(c, "entity", being)
+                local_info_id = local_information.get(information)
+                if target is None or local_info_id is None:
+                    drop("event_learning", event, "its being or Information was not copied")
+                else:
+                    self.rows["event_learning"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "event_entity_id": self.local["entity"][event],
+                            "being_entity_id": target,
+                            "information_id": local_info_id,
+                        }
+                    )
         for event, being in c.event_participants:
             if copies("entity", event):
                 target = self._local(c, "entity", being)
@@ -1255,7 +1271,8 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
     await check_formula_cycles(session, plan.tenant_id)
     for step in plan.to_copy:
         reported_dropped = sum(
-            d.kind not in ("event_relationship", "event_participant") for d in step.dropped
+            d.kind not in ("event_relationship", "event_participant", "event_learning")
+            for d in step.dropped
         )
         await record_activity(
             session,
@@ -1488,6 +1505,20 @@ async def forget_copy(
                 EntityKnowledge.knower_entity_id.in_(entities),
                 EntityKnowledge.entity_id.not_in(entities),
             ),
+            "event_learning": await _count(
+                session,
+                EventLearning,
+                EventLearning.tenant_id == t,
+                or_(
+                    EventLearning.event_entity_id.in_(entities),
+                    EventLearning.being_entity_id.in_(entities),
+                    EventLearning.information_id.in_(
+                        select(Information.id).where(
+                            Information.tenant_id == t, Information.entity_id.in_(entities)
+                        )
+                    ),
+                ),
+            ),
             "event_participant": await _count(
                 session,
                 EventParticipant,
@@ -1558,6 +1589,20 @@ async def forget_copy(
                 )
             )
         await session.execute(
+            delete(EventLearning).where(
+                EventLearning.tenant_id == t,
+                or_(
+                    EventLearning.event_entity_id.in_(entities),
+                    EventLearning.being_entity_id.in_(entities),
+                    EventLearning.information_id.in_(
+                        select(Information.id).where(
+                            Information.tenant_id == t, Information.entity_id.in_(entities)
+                        )
+                    ),
+                ),
+            )
+        )
+        await session.execute(
             delete(EventParticipant).where(
                 EventParticipant.tenant_id == t,
                 or_(
@@ -1599,7 +1644,7 @@ async def forget_copy(
     reported_removed = sum(
         count
         for kind, count in previous.also_removed.items()
-        if kind not in ("event_relationship", "event_participant")
+        if kind not in ("event_relationship", "event_participant", "event_learning")
     )
     await record_activity(
         session,

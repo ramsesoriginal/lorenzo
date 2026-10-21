@@ -16,7 +16,7 @@ The entry page reuses the shared text/image bundle editor, LorenzoScript, author
 
 Owners and Organizers using full visibility can open **Order and causes** on an Event page ([ADR 0312](../../docs/adr/0312-explicit-event-order-and-causality.md)). Search for another Event, choose Happened before/after or Caused/Was caused by, and add the relationship. Compare Events shows a recorded causal chain, recorded ordering, or an explicitly linearized display order with no recorded path. Dates do not create assertions. Conflicting edits keep the selection; refresh the saved relationships and review before retrying. Removing an assertion changes the derived order, and linked Events must be unlinked before deletion. Authors, players and administrators with a visibility opt-out get no ordering panel.
 
-Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, learning history and time travel remain later work.
+Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, full historical knowledge and time travel remain later work.
 
 The **Events** page creates undated Events, searches their names, and offers full-visibility
 Owners/Organizers participant and causal filters plus story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
@@ -77,3 +77,11 @@ The browser fixtures import the supplied nineteen-segment, 387-day calendar stru
 ## Hosting
 
 The app is deployed at [lorenzo-calendars.pages.dev](https://lorenzo-calendars.pages.dev/). Follow [calendars-setup.md](../../docs/operations/calendars-setup.md). Other app addresses come from `GET /app-links`; the API's optional `CALENDARS_URL` overrides the planned Pages address.
+
+## Optional learning records
+
+Full-visibility Owners and Organizers can open **Learning** on an Event page ([ADR 0314](../../docs/adr/0314-optional-event-learning-records.md)). Add the being as a participant first, refresh saved learning if needed, then choose the participant, find an entry and select its specific Information bundle. **Record learning** creates an explicit story association without sharing either the Information or its entry. Public Information needs no Knowledge grant for this association.
+
+The Event lists its recorded learning. Following the being link opens its recorded learning occasions in Calendars; Information cards offer **Recorded learning** on demand. These lists are associations, not a claimed lived or causal sequence. Readers outside the full-visibility capability receive no learning controls or background reads. Conflicting writes keep the selection and require **Refresh saved learning** before retrying.
+
+Removing a learning record corrects provenance; it does not revoke access, mean forgetting or remove participation. Remove dependent learning records before removing a participation or deleting its Information/entry. Records follow Information identity through wording edits and do not snapshot the earlier text. An empty list means no learning history is recorded, not that nobody knew. Existing audience grants and untimed workflows remain unchanged.

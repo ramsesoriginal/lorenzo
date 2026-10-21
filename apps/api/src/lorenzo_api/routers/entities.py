@@ -68,6 +68,7 @@ from lorenzo_api.information_visibility import (
     resolve_information_visibility,
     visible_information_clause,
 )
+from lorenzo_api.learning import require_no_learning
 from lorenzo_api.models import (
     Being,
     Calendar,
@@ -1495,6 +1496,7 @@ async def clear_entity_picture(
     if information is None:
         return
     information_id = information.id
+    await require_no_learning(session, tenant_id, information_id=information.id)
     await session.delete(information)
     await record_activity(
         session,

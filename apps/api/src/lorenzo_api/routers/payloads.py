@@ -27,6 +27,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.information_bundles import touch_bundle
 from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.learning import require_no_learning
 from lorenzo_api.models import Information, Payload
 from lorenzo_api.routers.entities import authorize_information_edit
 from lorenzo_api.routers.information import locked_information
@@ -194,6 +195,7 @@ async def delete_payload(
     check_if_match(if_match, updated_at=current_version)
 
     if information.type == "main_picture":
+        await require_no_learning(session, tenant_id, information_id=information.id)
         await session.delete(information)
     else:
         touch_bundle(information)

@@ -900,3 +900,125 @@ test('appearance choice survives page swaps when preference storage is unavailab
   expect(errors).toEqual([]);
   await page.context().close();
 });
+
+test('learning is explicit, versioned and separate from Information audiences', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const path = { tenant_id: world.tenantId };
+  const create = (name: string, kinds: ('event' | 'being' | 'fact')[]) =>
+    ok(
+      world.api.POST('/tenants/{tenant_id}/entities', {
+        params: { path },
+        body: { name, kinds, parents: [] },
+      }),
+    );
+  const event = await create('Prisoner interrogation', ['event']);
+  const being = await create('Mara', ['being']);
+  const fact = await create('Hidden passage', ['fact']);
+  const info = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      params: { path: { ...path, entity_id: fact.id } },
+      body: {
+        title: 'Waterfall entrance',
+        locale: 'en',
+        type: 'note',
+        content: 'Behind the waterfall.',
+        is_public: false,
+      },
+    }),
+  );
+  const eventPath = { ...path, event_id: event.id };
+  const participants = await world.api.GET('/tenants/{tenant_id}/events/{event_id}/participants', {
+    params: { path: eventPath },
+  });
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/events/{event_id}/participants/{being_id}', {
+      params: {
+        path: { ...eventPath, being_id: being.id },
+        header: { 'if-match': participants.response.headers.get('etag') ?? '' },
+      },
+    }),
+  );
+  const audience = () =>
+    ok(
+      world.api.GET('/tenants/{tenant_id}/information/{information_id}/audience', {
+        params: { path: { ...path, information_id: info.id } },
+      }),
+    );
+  const before = await audience();
+  const outer = await world.api.GET('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+    params: { path: { ...path, entity_id: event.id } },
+  });
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+      params: {
+        path: { ...path, entity_id: event.id },
+        header: { 'if-match': outer.response.headers.get('etag') ?? '' },
+      },
+      body: { is_public: true, entity_ids: [], player_ids: [] },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${event.id}`);
+  const panel = page.locator('[data-learning]');
+  await panel.locator('summary').click();
+  await expect(panel.getByText('No learning history is recorded for this Event.')).toBeVisible();
+  await panel.getByLabel('Who learned?').selectOption(being.id);
+  await panel.getByLabel('Find an entry with Information').fill('Hidden passage');
+  await panel.getByRole('button', { name: 'Search entries', exact: true }).click();
+  await panel.getByRole('button', { name: 'Hidden passage', exact: true }).click();
+  await expect(panel.getByLabel('Information learned').locator('option')).toHaveCount(2);
+  await panel.getByLabel('Information learned').selectOption(info.id);
+  await panel.getByRole('button', { name: 'Record learning', exact: true }).click();
+  await expect(
+    panel.getByText('Learning recorded. Audiences are unchanged.', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.getByText('Mara learned Waterfall entrance (Hidden passage).', { exact: true }),
+  ).toBeVisible();
+  expect(await audience()).toEqual(before);
+  await panel.getByRole('link', { name: 'Learning recorded for Mara', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Recorded learning', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Waterfall entrance', exact: true })).toBeVisible();
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${fact.id}`);
+  await page.getByText('Recorded learning', { exact: true }).click();
+  await expect(
+    page.getByRole('link', { name: 'Prisoner interrogation', exact: true }),
+  ).toBeVisible();
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${event.id}`);
+  await panel.locator('summary').click();
+  // A change after the panel was loaded must not silently overwrite the saved version.
+  await ok(
+    world.api.PATCH('/tenants/{tenant_id}/entities/{entity_id}', {
+      params: { path: { ...path, entity_id: event.id } },
+      body: { name: 'Interrogation revised' },
+    }),
+  );
+  await panel.getByRole('button', { name: 'Remove learning record', exact: true }).click();
+  await expect(panel.getByRole('status')).toContainText('Your selection is kept');
+  await expect(panel.getByLabel('Who learned?')).toHaveValue('');
+  await panel.getByRole('button', { name: 'Refresh saved learning', exact: true }).click();
+  await expect(panel.getByRole('status')).toHaveText('Saved learning refreshed.');
+  await panel.getByRole('button', { name: 'Remove learning record', exact: true }).click();
+  await expect(panel.getByText('No learning history is recorded for this Event.')).toBeVisible();
+  expect(await audience()).toEqual(before);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('learning-phone.png'), fullPage: true });
+  const reader = await signedIn(browser, world.readerSubject);
+  const requests: string[] = [];
+  reader.on('request', (r) => {
+    if (r.url().includes('/event-learning') || r.url().includes('/learning-version'))
+      requests.push(r.url());
+  });
+  await reader.goto(`/entry/?tenant=${world.tenantId}&id=${event.id}`);
+  await expect(
+    reader.getByRole('heading', { name: 'Interrogation revised', exact: true }),
+  ).toBeVisible();
+  await expect(reader.locator('[data-learning]')).toHaveCount(0);
+  await expect(reader.getByText('Recorded learning', { exact: true })).toHaveCount(0);
+  expect(requests).toEqual([]);
+  await reader.context().close();
+  await page.context().close();
+});

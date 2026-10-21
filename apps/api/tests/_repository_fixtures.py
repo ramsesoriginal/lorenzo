@@ -31,6 +31,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventLearning,
     EventParticipant,
     EventRelationship,
     Fact,
@@ -304,6 +305,15 @@ async def seed_every_content_table(
     session.add(
         EventParticipant(
             tenant_id=tenant_id, event_entity_id=event.id, being_entity_id=elminster.id
+        )
+    )
+    await session.flush()
+    session.add(
+        EventLearning(
+            tenant_id=tenant_id,
+            event_entity_id=event.id,
+            being_entity_id=elminster.id,
+            information_id=info.id,
         )
     )
     release = RepositoryRelease(

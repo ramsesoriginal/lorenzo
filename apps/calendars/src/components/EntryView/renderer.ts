@@ -5,6 +5,7 @@ import { datedEntries, recurrenceFields } from '../../lib/dated-entries';
 import { button, calendarHref, el, entryHref, field, link, message } from '../../lib/dom';
 import { eventOrder } from '../../lib/event-order';
 import { informationForm, informationView } from '../../lib/information';
+import { eventLearning, learningList } from '../../lib/learning';
 import { participants } from '../../lib/participants';
 import { start } from '../../lib/session';
 export async function mount() {
@@ -73,9 +74,18 @@ export async function mount() {
         const ordering = await eventOrder(tenantId, id);
         if (ordering) host.append(ordering);
         host.append(await participants(tenantId, id));
+        host.append(await eventLearning(tenantId, id));
       } catch (error) {
         host.append(el('p', `Could not load Event ordering. ${message(error)}`, 'caption'));
       }
+    }
+    if (entry.kinds.includes('being') && session.canOrderEvents) {
+      const learning = el('section', '', 'panel stack');
+      learning.append(
+        el('h2', 'Recorded learning'),
+        await learningList(tenantId, { being_id: id }),
+      );
+      host.append(learning);
     }
     const refresh = () => {
       if (host.isConnected) location.reload();
@@ -251,7 +261,7 @@ export async function mount() {
       if (!subjects.length) about.append(el('p', 'No subjects are available to you.', 'caption'));
       host.append(about);
     }
-    host.append(informationView(tenantId, entry, canWrite, refresh));
+    host.append(informationView(tenantId, entry, canWrite, refresh, session.canOrderEvents));
     if (canWrite && params.get('add') === 'information')
       host.append(informationForm(tenantId, id, refresh));
   } catch (e) {

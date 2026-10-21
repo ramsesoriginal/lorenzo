@@ -31,6 +31,7 @@ from lorenzo_api.information_bundles import (
     touch_bundle,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.learning import require_no_learning
 from lorenzo_api.models import Entity, Information, Knowledge, Payload, Player, User
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
 from lorenzo_api.routers.entities import (
@@ -190,6 +191,7 @@ async def delete_information(
     )
     check_if_match(if_match, updated_at=information.updated_at)
 
+    await require_no_learning(session, tenant_id, information_id=information.id)
     await session.delete(information)
     await record_activity(
         session,
