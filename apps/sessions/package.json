@@ -22,6 +22,7 @@
   "dependencies": {
     "@authgear/web": "^6.0.0",
     "@lorenzo/api-client": "workspace:*",
+    "@lorenzo/app-shell": "workspace:*",
     "@lorenzo/brand": "workspace:*",
     "@lorenzo/lorenzoscript": "workspace:*",
     "@lorenzo/lorenzoscript-editor": "workspace:*",

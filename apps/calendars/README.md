@@ -115,3 +115,7 @@ action does not open the source Event or its notes. Stable request identities ma
 retry return the existing group without restoring membership or renaming it. General group APIs
 also accept all beings through their existing member fields; roster/player control still needs
 Character, and group knowledge remains direct rather than inherited through nested groups.
+
+## Page frame
+
+The header, skip link, welcome, footer and theme toggle come from [`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand ([ADR 0322](../../docs/adr/0322-calendars-and-sessions-share-a-header-and-the-brand-base.md)); `src/layouts/Base.astro` only names the product, its page links and its welcome text. At phone width the header shows the spark alone.
