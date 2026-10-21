@@ -327,3 +327,8 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0318 - Explicit Session and play order](0318-explicit-session-and-play-order.md)
 
 - [0319 - Personal lived order as Event evidence](0319-personal-lived-order-as-event-evidence.md)
+- [0322 - Calendars and Sessions share a header and stand on the brand base](0322-calendars-and-sessions-share-a-header-and-the-brand-base.md) — `packages/app-shell` for the header and page frame, no app switcher, the library picker in the header, the SVG lockup, brand tokens and classes only, and guards against undefined tokens and literals
+- [0323 - One calendar-period picker](0323-the-calendar-period-picker.md) — `packages/period-picker`: a day, month, year or several, as an explicit list of coordinates; a range is a selection gesture with a count and a cap, never a stored span
+- [0324 - Bulk reads for calendar periods and day content](0324-bulk-reads-for-calendar-periods-and-day-content.md) — periods with coordinates and by id, per-year period summaries in one request, and an idempotent batch materialize, all additive and visibility-gated
+- [0325 - One read cache, and what it may hold](0325-one-read-cache-and-what-it-may-hold.md) — `packages/read-cache`: viewer-scoped stale-while-revalidate in memory for private data, `sessionStorage` only for `/me`, `/tenants` and `/app-links`, access revalidated before private data is drawn
+- [0326 - Moon phases in the icon atlas](0326-moon-phases-in-the-icon-atlas.md) — eight custom `icon-moon-*` symbols in Tabler's grammar replace the emoji
