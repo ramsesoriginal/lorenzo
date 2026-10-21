@@ -139,3 +139,42 @@ test('signed-out view and explicit theme work on a phone', async ({ page }) => {
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
+
+test('a concurrent session edit keeps the draft until the GM reviews the saved revision', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'Original preparation', campaign_id: w.campaign.id },
+      }),
+    );
+    const path = { ...w.path, session_id: session.id };
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await page.getByText('Session details', { exact: true }).click();
+    await page.getByLabel('Session title', { exact: true }).fill('My draft');
+    const current = await w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+      params: { path },
+    });
+    await ok(
+      w.gm.PATCH('/tenants/{tenant_id}/sessions/{session_id}', {
+        params: { path, header: { 'if-match': current.response.headers.get('etag') ?? '' } },
+        body: { name: 'Other saved edit' },
+      }),
+    );
+    await page.getByRole('button', { name: 'Save session details', exact: true }).click();
+    await expect(page.getByText(/Your draft is still here/)).toBeVisible();
+    await expect(page.getByLabel('Session title', { exact: true })).toHaveValue('My draft');
+    await page.getByRole('button', { name: 'Review saved session', exact: true }).click();
+    await expect(page.getByText(/Saved session: Other saved edit/)).toBeVisible();
+    await expect(page.getByLabel('Session title', { exact: true })).toHaveValue('My draft');
+    await page.getByRole('button', { name: 'Save session details', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'My draft', exact: true })).toBeVisible();
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
