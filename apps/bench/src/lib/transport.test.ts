@@ -713,3 +713,28 @@ describe('formulas', () => {
     await expect(transport.clearFormula(E, S_INT, 'W/"x"')).rejects.toBeInstanceOf(RefusedError);
   });
 });
+
+it.each([false, true])(
+  'retains participant sharing %s in audience conflict snapshots',
+  async (shared) => {
+    const { transport } = setup(() =>
+      json(
+        {
+          is_public: false,
+          shared_with_participants: shared,
+          entity_ids: ['being'],
+          player_ids: [],
+        },
+        { etag: 'audience-version' },
+      ),
+    );
+    const snapshot = await transport.readField?.({ kind: 'entry-audience', id: E });
+    expect(JSON.parse(String(snapshot?.value))).toEqual({
+      is_public: false,
+      shared_with_participants: shared,
+      entity_ids: ['being'],
+      player_ids: [],
+    });
+    expect(snapshot?.version).toBe('audience-version');
+  },
+);

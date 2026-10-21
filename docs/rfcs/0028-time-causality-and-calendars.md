@@ -12,8 +12,13 @@ Information belongs to one period. The app is not Bench, and import is CLI-only 
 
 This accepts only that slice. It does **not** accept BL1-BL14, PB1-PB14, Candidate A or B,
 clock relations, or the proposed historical execution order as a whole. A minimal Event has no
-causal key, participation, clock or learning semantics. The original debate, objections and
-Decision below remain authoritative proposals for the still-open temporal/historical work.
+causal key, participation, clock or learning semantics from that calendar decision alone.
+Subsequent accepted slices independently added explicit shared Event order (ADR 0312),
+participation and calendar addresses (ADR 0313), optional learning provenance (ADR 0314),
+reader-scoped shared relationships (ADR 0315), and collaborative Events/Facts, live participant
+audiences and all-being groups (ADR 0316). None accepts clocks, inferred date ordering or a
+historical access ledger. The original debate, objections and Decision below remain proposals
+for the still-open temporal/historical work.
 
 Several original prerequisites are now delivered: composite tenant FKs (ADR 0117), SQL
 information visibility (ADR 0109), the copyable-table registry (ADR 0218), repository releases,

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Form, Header, Query, Request, Response, 
 from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import ForbiddenProblem
+from pydantic import BaseModel
 from sqlalchemy import delete, exists, func, literal, or_, select, union_all
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -45,6 +46,7 @@ from lorenzo_api.entity_kinds import (
 from lorenzo_api.entity_parents import replace_parents
 from lorenzo_api.entry_visibility import require_visible_entry, visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
+from lorenzo_api.event_fact_access import edits_event_fact, is_event_fact, manages_events
 from lorenzo_api.exceptions import (
     AudiencePreconditionRequiredError,
     ClientIdUnavailableError,
@@ -309,7 +311,7 @@ async def list_entities(
     return page
 
 
-@router.post("", status_code=201, dependencies=[Depends(get_tenant_context)])
+@router.post("", status_code=201)
 async def create_entity(
     tenant_id: uuid.UUID,
     body: EntityCreate,
@@ -329,6 +331,7 @@ async def create_entity(
     entry with it, the create was already done, and that entry is returned with `200` and nothing
     is written; an id that is taken by something the caller cannot see is a generic `409`.
     """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     if (
         body.id is not None
         and (await existing_in_tenant(session, Entity, body.id, tenant_id)) is not None
@@ -346,6 +349,9 @@ async def create_entity(
         response.headers["ETag"] = etag_for(out.updated_at)
         return out
     kinds = sorted(set(body.kinds))
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    if not kinds or not set(kinds) <= {"event", "fact"}:
+        await get_tenant_context(tenant_id, session, user)
     await author_may_use_kinds(session, tenant_id=tenant_id, user_id=user.id, kinds=kinds)
     entity = await create_entry(
         session,
@@ -358,6 +364,12 @@ async def create_entity(
         in_public_catalog=bool(body.in_public_catalog),
         entity_id=body.id,
     )
+    if body.visibility is not None:
+        audience = await session.get(EntityAudience, entity.id)
+        assert audience is not None
+        audience.is_public = body.visibility == "library"
+        audience.shared_with_participants = body.visibility == "participants"
+        await session.flush()
     if "fact" in kinds or "event" in kinds:
         try:
             await require_visible_entry(
@@ -1119,6 +1131,14 @@ async def authorize_entity_write(
     `forbidden` is what to raise instead of InformationManagementForbiddenError,
     for a write that isn't about information (an entity's slug, ADR 0107).
     """
+    if await is_event_fact(session, tenant_id=tenant_id, entity_id=entity_id):
+        if await edits_event_fact(
+            session, tenant_id=tenant_id, user_id=user.id, entity_id=entity_id
+        ):
+            return
+        raise forbidden or InformationManagementForbiddenError(
+            detail="Only an Event/Fact manager or its creator can edit this entry"
+        )
     if await can_self_manage_entity(
         session, entity_id=entity_id, user_id=user.id, tenant_id=tenant_id
     ):
@@ -1232,14 +1252,22 @@ async def create_information(
     if (await session.execute(entity_stmt)).first() is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
 
-    await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    collaborative = await is_event_fact(session, tenant_id=tenant_id, entity_id=entity_id)
+    if collaborative:
+        if not await manages_events(session, tenant_id=tenant_id, user_id=user.id) and (
+            body.type != "note" or body.order is not None
+        ):
+            raise InformationManagementForbiddenError(detail="Readers can append their own notes")
+    else:
+        await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
 
     if body.id is not None:
         # An id the client chose (ADR 0222): already made on this entry means the create was
         # done; the same id on another entry, or one the caller cannot see, is a generic 409.
         known = await existing_in_tenant(session, Information, body.id, tenant_id)
         if known is not None:
-            if known.entity_id != entity_id:
+            if known.entity_id != entity_id or (collaborative and known.created_by != user.id):
                 raise ClientIdUnavailableError(detail="That id is not available.")
             response.status_code = 200
             response.headers["Location"] = str(
@@ -1602,6 +1630,18 @@ async def authorize_information_edit(
         raise InformationNotFoundError(
             detail=f"No information with id {information.id} in tenant {tenant_id}"
         ) from None
+    if await is_event_fact(session, tenant_id=tenant_id, entity_id=information.entity_id):
+        await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+        if await manages_events(session, tenant_id=tenant_id, user_id=user.id):
+            return
+        if information.created_by == user.id and information.type == "note":
+            return
+        reader = await resolve_information_reader(
+            session, user_id=user.id, tenant_id=tenant_id, information=[information]
+        )
+        if not reader.can_see(information):
+            raise InformationNotFoundError(detail="No such Information in this library")
+        raise InformationManagementForbiddenError(detail="Readers edit only their own notes")
     if information.created_by != user.id:
         reader = await resolve_information_reader(
             session, user_id=user.id, tenant_id=tenant_id, information=[information]
@@ -1652,6 +1692,7 @@ async def entry_audience_of(session: SessionDep, audience: EntityAudience) -> In
     ).all()
     return InformationAudience(
         is_public=audience.is_public,
+        shared_with_participants=audience.shared_with_participants,
         entity_ids=sorted((e for e, _ in links if e is not None), key=str),
         player_ids=sorted((p for _, p in links if p is not None), key=str),
     )
@@ -1781,8 +1822,16 @@ async def replace_entry_audience(
             if found != wanted:
                 raise InvalidAudienceRecipientError(detail="Choose recipients from this library.")
     previous = await entry_audience_of(session, audience)
+    shared = (
+        body.shared_with_participants
+        if "shared_with_participants" in body.model_fields_set
+        else previous.shared_with_participants
+    )
+    if shared and await session.get(StoryEvent, entity_id) is None:
+        raise InvalidAudienceRecipientError(detail="Only Events have a participant audience")
     if (
         previous.is_public != body.is_public
+        or previous.shared_with_participants != shared
         or set(previous.entity_ids) != entities
         or set(previous.player_ids) != players
     ):
@@ -1805,6 +1854,7 @@ async def replace_entry_audience(
             )
         session.info.pop("visible_entry_checks", None)
         audience.is_public = body.is_public
+        audience.shared_with_participants = shared
         audience.updated_at = datetime.now(UTC)
         await record_activity(
             session,
@@ -1934,3 +1984,43 @@ async def list_facts_about(
         ]
 
     return cast(Page[EntityListOut], await apaginate(session, stmt, params, transformer=rows))
+
+
+class EntryCollaborationAccess(BaseModel):
+    can_edit: bool
+    can_add_notes: bool
+    editable_information_ids: list[uuid.UUID]
+
+
+@router.get("/{entity_id}/access")
+async def entry_collaboration_access(
+    tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> EntryCollaborationAccess:
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    await get_entity_or_404(session, entity_id, tenant_id)
+    collaborative = await is_event_fact(session, tenant_id=tenant_id, entity_id=entity_id)
+    editable = False
+    try:
+        await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
+        editable = True
+    except InformationManagementForbiddenError:
+        pass
+    editable_ids = []
+    infos = await session.scalars(
+        select(Information)
+        .options(selectinload(Information.knowledge_links))
+        .where(Information.tenant_id == tenant_id, Information.entity_id == entity_id)
+    )
+    for info in infos:
+        try:
+            await authorize_information_edit(
+                session, tenant_id=tenant_id, user=user, information=info
+            )
+            editable_ids.append(info.id)
+        except InformationManagementForbiddenError, InformationNotFoundError:
+            pass
+    return EntryCollaborationAccess(
+        can_edit=editable,
+        can_add_notes=collaborative or editable,
+        editable_information_ids=editable_ids,
+    )

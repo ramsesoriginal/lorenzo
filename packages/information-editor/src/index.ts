@@ -16,6 +16,9 @@ export function audienceWithRecipients(
 ): Audience {
   return {
     is_public: audience.is_public,
+    ...(audience.shared_with_participants === undefined
+      ? {}
+      : { shared_with_participants: audience.shared_with_participants }),
     entity_ids: [...new Set(entities)].sort(),
     player_ids: [...new Set(players)].sort(),
   };
@@ -33,6 +36,7 @@ type Options = {
     version: string,
   ) => Promise<{ audience: Audience; version: string | null }>;
 
+  allowParticipants?: boolean;
   onSaved?: () => void | Promise<void>;
 };
 
@@ -120,6 +124,12 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
       isPublic.type = 'checkbox';
       isPublic.checked = audience.is_public;
       publicLabel.append(isPublic, ' Everyone with access to the library');
+      const participantLabel = document.createElement('label');
+      participantLabel.className = 'field-row';
+      const participants = document.createElement('input');
+      participants.type = 'checkbox';
+      participants.checked = audience.shared_with_participants ?? false;
+      participantLabel.append(participants, ' Participants in this Event');
       const hint = document.createElement('p');
       hint.className = 'caption';
       hint.textContent = options.entityId
@@ -186,7 +196,13 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
         status.textContent = 'Saving…';
         try {
           const replacement = audienceWithRecipients(
-            { ...audience, is_public: isPublic.checked },
+            {
+              ...audience,
+              is_public: isPublic.checked,
+              ...(options.allowParticipants
+                ? { shared_with_participants: participants.checked }
+                : {}),
+            },
             entities,
             players,
           );
@@ -226,7 +242,9 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
       const actions = document.createElement('div');
       actions.className = 'row';
       actions.append(save);
-      body.append(publicLabel, field, hint, actions, status);
+      body.append(publicLabel);
+      if (options.allowParticipants) body.append(participantLabel);
+      body.append(field, hint, actions, status);
       loaded = true;
     } catch (error) {
       body.textContent = `${message(error)} Close and reopen to try again.`;

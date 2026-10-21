@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
-import { ok, refreshTokenFor } from './support/api.ts';
+import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { AUTHGEAR_URL, REFRESH_TOKEN_KEY, SITE_URL, SUBJECT_COOKIE } from './support/env.ts';
 import { buildWorld } from './support/world.ts';
 
@@ -178,7 +178,7 @@ test('readers see permitted names and dates without private information or autho
   ).toBeVisible();
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toHaveCount(0);
   await expect(page.getByText('No information is available to you here.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add information', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add information', exact: true })).toHaveCount(1);
   await page.context().close();
 });
 test('a calendar can be created through structured preview and opened on a phone after PKCE login', async ({
@@ -617,7 +617,7 @@ test('standalone Events can be found by participating being without acquiring a 
     reader.getByRole('heading', { name: 'Events', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(reader.getByText('Participants and causes', { exact: true })).toHaveCount(0);
-  await expect(reader.getByText('Create an Event', { exact: true })).toHaveCount(0);
+  await expect(reader.getByText('Create an Event', { exact: true })).toHaveCount(1);
   await expect(reader.getByRole('link', { name: 'The beacon is lit', exact: true })).toHaveCount(0);
   await page.context().close();
   await reader.context().close();
@@ -691,8 +691,16 @@ test('prefetched Event information survives in-app navigation only after fresh a
 }) => {
   const world = await buildWorld();
   const tenant_id = world.tenantId;
+  const author = await apiAs(`calendar-other-author-${crypto.randomUUID()}`);
+  const me = await ok(author.GET('/me'));
+  await ok(
+    world.api.POST('/tenants/{tenant_id}/memberships', {
+      params: { path: { tenant_id } },
+      body: { user_id: me.id, role: 'author' },
+    }),
+  );
   const event = await ok(
-    world.api.POST('/tenants/{tenant_id}/entities', {
+    author.POST('/tenants/{tenant_id}/entities', {
       params: { path: { tenant_id } },
       body: {
         name: 'A private departure',
@@ -703,7 +711,7 @@ test('prefetched Event information survives in-app navigation only after fresh a
     }),
   );
   await ok(
-    world.api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+    author.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
       params: { path: { tenant_id, entity_id: event.id } },
       body: {
         title: 'Private record',
@@ -1136,4 +1144,143 @@ test('shared Event order is readable without exposing private relationships or e
   ).toBeVisible();
   await reader.context().close();
   await staff.context().close();
+});
+
+test('players create their own Events and Facts and contribute only their own notes', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.readerSubject);
+  await page.goto(`/events/?tenant=${world.tenantId}`);
+  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByLabel('Event name', { exact: true }).fill('A player records arrival');
+  await page.getByRole('button', { name: 'Create Event', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'A player records arrival', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText('Learning', { exact: true })).toHaveCount(0);
+  await page.getByText('Name, link name and audience', { exact: true }).click();
+  await page.getByLabel('Entry name', { exact: true }).fill('Arrival, corrected');
+  await page.getByRole('button', { name: 'Save name', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Arrival, corrected', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Add information', exact: true }).click();
+  await page.getByLabel('Information title', { exact: true }).fill('My recollection');
+  await page.getByRole('textbox', { name: 'Text', exact: true }).fill('We arrived before supper.');
+  await page.getByRole('button', { name: 'Save information', exact: true }).click();
+  await expect(page.getByText('We arrived before supper.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit information', exact: true })).toHaveCount(1);
+  await page.goto(`/events/?tenant=${world.tenantId}`);
+  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByLabel('Entry kind', { exact: true }).selectOption('fact');
+  await page.getByLabel('Event name', { exact: true }).fill('The harbour has a beacon');
+  await page.getByRole('button', { name: 'Create Fact', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'The harbour has a beacon', exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.context().close();
+});
+
+test('Event creation visibility and participant note audiences remain separate', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/events/?tenant=${world.tenantId}`);
+  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByLabel('Event name', { exact: true }).fill('The participants meet');
+  await page.getByLabel('Entry visibility', { exact: true }).selectOption('participants');
+  await page.getByRole('button', { name: 'Create Event', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'The participants meet', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Entry visibility', { exact: true })).toHaveValue('participants');
+  const id = new URL(page.url()).searchParams.get('id');
+  if (!id) throw new Error('Missing Event identity');
+  const audience = await ok(
+    world.api.GET('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+      params: { path: { tenant_id: world.tenantId, entity_id: id } },
+    }),
+  );
+  expect(audience.shared_with_participants).toBe(true);
+  expect(audience.is_public).toBe(false);
+  await page.getByRole('button', { name: 'Add information', exact: true }).click();
+  await page.getByLabel('Information title', { exact: true }).fill('Shared recollection');
+  await page.getByRole('textbox', { name: 'Text', exact: true }).fill('The lantern was blue.');
+  await page.getByRole('button', { name: 'Save information', exact: true }).click();
+  await expect(page.getByText('The lantern was blue.', { exact: true })).toBeVisible();
+  await page.getByText('Who can read this', { exact: true }).click();
+  await page.getByLabel('Participants in this Event', { exact: true }).check();
+  await page.getByRole('button', { name: 'Save audience', exact: true }).click();
+  await expect(page.getByText('Audience saved.', { exact: true })).toBeVisible();
+  await page.getByLabel('Entry visibility', { exact: true }).selectOption('restricted');
+  await page.getByRole('button', { name: 'Save Event visibility', exact: true }).click();
+  await expect(page.getByLabel('Entry visibility', { exact: true })).toHaveValue('restricted');
+  await page.context().close();
+});
+
+test('Event managers create an ordinary group snapshot including an untracked NPC', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const tenant_id = world.tenantId;
+  const event = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id } },
+      body: { name: 'The council gathers', kinds: ['event'], parents: [] },
+    }),
+  );
+  const being = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id } },
+      body: { name: 'Untracked guide', kinds: ['being'], parents: [] },
+    }),
+  );
+  const roster = await world.api.GET('/tenants/{tenant_id}/events/{event_id}/participants', {
+    params: { path: { tenant_id, event_id: event.id } },
+  });
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/events/{event_id}/participants/{being_id}', {
+      params: {
+        path: { tenant_id, event_id: event.id, being_id: being.id },
+        header: { 'if-match': roster.response.headers.get('etag') ?? '' },
+      },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/entry/?tenant=${tenant_id}&id=${event.id}`);
+  const participants = page.locator('[data-participants]');
+  await participants.getByText('Participating beings', { exact: true }).click();
+  await participants.getByText('Create group from event participants', { exact: true }).click();
+  await expect(
+    participants.getByText('1 participating being(s) will be copied.', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    participants.getByText(/Groups and their members are readable by library participants/),
+  ).toBeVisible();
+  await participants.getByLabel('Group name', { exact: true }).fill('Council companions');
+  await participants.getByRole('button', { name: 'Create group', exact: true }).click();
+  const open = participants.getByRole('link', { name: 'Council companions', exact: true });
+  await expect(open).toBeVisible();
+  const groupId = new URL(
+    (await open.getAttribute('href')) ?? '',
+    'http://example.test',
+  ).searchParams.get('id');
+  if (!groupId) throw new Error('Group identity missing');
+  const members = await ok(
+    world.api.GET('/tenants/{tenant_id}/groups/{group_entity_id}/members', {
+      params: { path: { tenant_id, group_entity_id: groupId } },
+    }),
+  );
+  expect(members.map((member) => member.id)).toEqual([being.id]);
+  const tracked = await world.api.GET('/tenants/{tenant_id}/characters/{character_id}', {
+    params: { path: { tenant_id, character_id: being.id } },
+  });
+  expect(tracked.response.status).toBe(404);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.context().close();
 });

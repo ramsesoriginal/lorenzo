@@ -582,8 +582,8 @@ async def delete_character(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> None:
-    """Demotes - deletes only the `character` row (CharacterPlayer/
-    GroupMember rows referencing it cascade away with it); `being`/`entity`
+    """Demotes - deletes only the `character` row and its CharacterPlayer roster links.
+    Group membership follows Being (ADR 0316) and survives; `being`/`entity`
     survive untouched, along with anything the character owned, contained,
     or knew (ADR 0036/RFC 0007, resolving ADR 0031/RFC 0004's own open
     question). Authorization uses the every-campaign tier: demotion ends

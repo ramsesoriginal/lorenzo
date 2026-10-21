@@ -2389,8 +2389,8 @@ export interface paths {
         post?: never;
         /**
          * Delete Character
-         * @description Demotes - deletes only the `character` row (CharacterPlayer/
-         *     GroupMember rows referencing it cascade away with it); `being`/`entity`
+         * @description Demotes - deletes only the `character` row and its CharacterPlayer roster links.
+         *     Group membership follows Being (ADR 0316) and survives; `being`/`entity`
          *     survive untouched, along with anything the character owned, contained,
          *     or knew (ADR 0036/RFC 0007, resolving ADR 0031/RFC 0004's own open
          *     question). Authorization uses the every-campaign tier: demotion ends
@@ -2861,6 +2861,23 @@ export interface paths {
         post?: never;
         /** Remove Event Participant */
         delete: operations["remove_event_participant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/events/{event_id}/participant-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Group From Participants */
+        post: operations["group_from_participants"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3569,6 +3586,23 @@ export interface paths {
         };
         /** List Facts About */
         get: operations["list_facts_about"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Entry Collaboration Access */
+        get: operations["entry_collaboration_access"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7307,6 +7341,8 @@ export interface components {
             parents: string[];
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
+            /** Visibility */
+            visibility?: ("restricted" | "participants" | "library") | null;
         };
         /**
          * EntityDetailOut
@@ -7585,6 +7621,15 @@ export interface components {
             /** Quantity */
             quantity?: number | null;
         };
+        /** EntryCollaborationAccess */
+        EntryCollaborationAccess: {
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Add Notes */
+            can_add_notes: boolean;
+            /** Editable Information Ids */
+            editable_information_ids: string[];
+        };
         /**
          * EntryKnowerOut
          * @description An explicit outer recipient, without inventing a grant date.
@@ -7608,6 +7653,8 @@ export interface components {
             can_order: boolean;
             /** Can Read Order */
             can_read_order: boolean;
+            /** Can Retain Private */
+            can_retain_private: boolean;
         };
         /** EventComparison */
         EventComparison: {
@@ -7844,7 +7891,7 @@ export interface components {
         /**
          * GroupCreate
          * @description POST /groups - see ADR 0064. Creates a fresh bare Entity to serve as
-         *     the group, plus one GroupMember row per id in member_character_ids
+         *     the group, plus one GroupMember row per being id in the legacy member_character_ids
          *     (each individually validated and authorized, same as the single-member
          *     PUT route below).
          */
@@ -7939,6 +7986,8 @@ export interface components {
         InformationAudience: {
             /** Is Public */
             is_public: boolean;
+            /** Shared With Participants */
+            shared_with_participants?: boolean;
             /** Entity Ids */
             entity_ids?: string[];
             /** Player Ids */
@@ -9659,6 +9708,16 @@ export interface components {
             size: number;
             /** Pages */
             pages: number;
+        };
+        /** ParticipantGroupCreate */
+        ParticipantGroupCreate: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** ParticipantOut */
         ParticipantOut: {
@@ -22350,6 +22409,78 @@ export interface operations {
             };
         };
     };
+    group_from_participants: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantGroupCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_learning: {
         parameters: {
             query?: {
@@ -25198,6 +25329,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_EntityListOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entry_collaboration_access: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryCollaborationAccess"];
                 };
             };
             /** @description Validation Error */

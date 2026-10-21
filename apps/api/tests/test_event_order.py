@@ -126,13 +126,13 @@ async def test_authors_opt_out_and_other_tenant_disclose_no_graph(client, test_u
             member.role = MembershipRole.AUTHOR
             await session.commit()
         rows = await client.get(f"/tenants/{tenant}/events/{a}/relationships")
-        assert rows.status_code == 200 and rows.json() == []
-        assert "etag" not in rows.headers
-        assert (await compare(client, tenant, a, own_other))["basis"] == "linearized"
+        assert rows.status_code == 200 and len(rows.json()) == 1
+        assert "etag" in rows.headers
+        assert (await compare(client, tenant, a, own_other))["basis"] == "ruled"
         response = await client.put(
             f"/tenants/{tenant}/events/{a}/relationships/{b}", json={"kind": "order"}
         )
-        assert response.status_code == 403
+        assert response.status_code == 404
         async with admin_session_factory() as session:
             member = await session.get_one(Membership, (tenant, test_user_id))
             member.role = MembershipRole.OWNER
@@ -148,7 +148,10 @@ async def test_authors_opt_out_and_other_tenant_disclose_no_graph(client, test_u
                 )
             )
             await session.commit()
-        assert (await client.get(f"/tenants/{tenant}/events/{a}/relationships")).status_code == 404
+        # Opting out removes staff graph access, but the creator still sees their entry.
+        scoped = await client.get(f"/tenants/{tenant}/events/{a}/relationships")
+        assert scoped.status_code == 200 and scoped.json() == []
+        assert "etag" not in scoped.headers
         log = await client.get(log_url)
         assert log.status_code == 200, log.text
         assert all(

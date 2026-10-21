@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 9
+FORMAT = 10
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -407,6 +407,12 @@ _CONTENT = _dataclass(
         "observances": _id_map(
             _record({"calendar": _ID, "rule": _PLAIN}, name="Content.observances")
         ),
+        "participant_entry_audiences": _Codec(
+            lambda rows, f: [str(i) for i in rows], lambda rows, f: [uuid.UUID(i) for i in rows]
+        ),
+        "participant_information_audiences": _Codec(
+            lambda rows, f: [str(i) for i in rows], lambda rows, f: [uuid.UUID(i) for i in rows]
+        ),
         "entry_audiences": _id_map(_PLAIN),
         "entry_knowledge": _pairs(_ID, _ID),
         "fact_about": _pairs(_ID, _ID),
@@ -461,6 +467,13 @@ def _read_v8(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v9(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v10(
+        {**document, "participant_entry_audiences": [], "participant_information_audiences": []},
+        files,
+    )
+
+
+def _read_v10(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -477,6 +490,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     7: _read_v7,
     8: _read_v8,
     9: _read_v9,
+    10: _read_v10,
 }
 
 

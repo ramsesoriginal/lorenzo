@@ -4,6 +4,7 @@ import {
   getAppLinks,
   isCalendarKind,
 } from '@lorenzo/api-client';
+import { audienceWithRecipients } from '@lorenzo/information-editor';
 import { API_BASE_URL } from './config';
 // The command layer's transport on the typed client (ADR 0122), for one repository.
 
@@ -129,11 +130,7 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
   }
 
   const audienceText = (value: Schema<'InformationAudience'>) =>
-    JSON.stringify({
-      is_public: value.is_public,
-      entity_ids: [...(value.entity_ids ?? [])].sort(),
-      player_ids: [...(value.player_ids ?? [])].sort(),
-    });
+    JSON.stringify(audienceWithRecipients(value, value.entity_ids ?? [], value.player_ids ?? []));
   async function readField(target: EntryFieldTarget): Promise<FieldSnapshot> {
     if (target.kind === 'fact-about') {
       const rows = await unwrap(

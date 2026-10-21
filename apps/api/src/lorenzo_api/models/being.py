@@ -11,16 +11,15 @@ from lorenzo_api.db import Base, TenantFk, same_tenant_fk
 if TYPE_CHECKING:
     from lorenzo_api.models.character import Character
     from lorenzo_api.models.entity import Entity
+    from lorenzo_api.models.group_member import GroupMember
 
 
 class Being(Base):
     """Anything sentient/agentive - a character, an NPC - see ADR 0025 and
     RFC 0001/0002. Mirrors Item's bare class-table-inheritance shape.
 
-    `owner_player_id`/`player_links`/`group_links` moved to `Character`
-    (ADR 0031/RFC 0004): only a tracked, named individual is ever
-    player-owned, rostered, or knowledge-grouped - a bare, untracked
-    `being` was never a meaningful target for any of the three.
+    Player ownership and roster seats require Character (ADR 0031). Groups can
+    contain any being, including untracked NPCs (ADR 0316).
     """
 
     __tablename__ = "being"
@@ -38,6 +37,14 @@ class Being(Base):
     )
     character: Mapped[Character | None] = relationship(
         foreign_keys="Character.entity_id",
+        lazy="raise_on_sql",
+        back_populates="being",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    group_links: Mapped[list[GroupMember]] = relationship(
+        foreign_keys="GroupMember.character_entity_id",
         lazy="raise_on_sql",
         back_populates="being",
         cascade="all, delete-orphan",

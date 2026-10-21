@@ -52,6 +52,13 @@ async def make_event(client, t, name, n, public=True):
     e = result.json()["id"]
     async with admin_session_factory() as s:
         (await s.get_one(EntityAudience, uuid.UUID(e))).is_public = public
+        if not public:
+            from lorenzo_api.models import Entity, User
+
+            other = User(authgear_subject_id=str(uuid.uuid4()))
+            s.add(other)
+            await s.flush()
+            (await s.get_one(Entity, uuid.UUID(e))).created_by = other.id
         await s.commit()
     return e
 
@@ -158,12 +165,13 @@ async def test_sharing_is_versioned_independent_per_kind_and_does_not_open_endpo
         async with admin_session_factory() as s:
             (await s.get_one(Membership, (t, test_user_id))).role = MembershipRole.AUTHOR
             await s.commit()
+        # ADR 0316 admits this Author; the independent player denial remains below.
         assert (await client.get(base)).status_code == 200
         assert (
             await client.put(base + f"/{b}/sharing", json={"kind": "order", "is_shared": True})
-        ).status_code == 403
-        assert (await client.get(f"/tenants/{t}/events/{a}/participants")).status_code == 403
-        assert (await client.get(f"/tenants/{t}/event-learning")).status_code == 403
+        ).status_code == 428
+        assert (await client.get(f"/tenants/{t}/events/{a}/participants")).status_code == 200
+        assert (await client.get(f"/tenants/{t}/event-learning")).status_code == 200
     finally:
         await delete_tenant(t)
 
@@ -188,6 +196,15 @@ async def test_shared_assertions_copy_and_old_release_defaults_are_private(clien
         a, b, c = [await event(client, source, name) for name in ["A", "B", "C"]]
         await relation(client, source, a, b, "causes")
         await relation(client, source, b, c, "order")
+        from test_event_learning import information
+
+        from lorenzo_api.models import EntityAudience, Information
+
+        note = await information(client, source, a, False)
+        async with admin_session_factory() as s:
+            (await s.get_one(EntityAudience, uuid.UUID(a))).shared_with_participants = True
+            (await s.get_one(Information, uuid.UUID(note))).shared_with_participants = True
+            await s.commit()
         await share(client, source, a, b, "causes")
         async with admin_session_factory() as s:
             (await s.get_one(Tenant, source)).published_at = datetime.now(UTC)
@@ -211,8 +228,36 @@ async def test_shared_assertions_copy_and_old_release_defaults_are_private(clien
                 False,
                 True,
             ]
+            assert sum(row["shared_with_participants"] for row in plan.rows["entity_audience"]) == 1
+            assert sum(row["shared_with_participants"] for row in plan.rows["information"]) == 1
             await apply_plan(s, plan, user_id=test_user_id)
             await s.commit()
+            assert (
+                len(
+                    (
+                        await s.scalars(
+                            select(EntityAudience).where(
+                                EntityAudience.tenant_id == target,
+                                EntityAudience.shared_with_participants.is_(True),
+                            )
+                        )
+                    ).all()
+                )
+                == 1
+            )
+            assert (
+                len(
+                    (
+                        await s.scalars(
+                            select(Information).where(
+                                Information.tenant_id == target,
+                                Information.shared_with_participants.is_(True),
+                            )
+                        )
+                    ).all()
+                )
+                == 1
+            )
             rows = (
                 await s.scalars(
                     select(EventRelationship).where(EventRelationship.tenant_id == target)
@@ -296,7 +341,7 @@ async def test_authors_gms_and_players_get_reader_graph_but_no_ordering_write(
             denied = await reader.put(
                 base + f"/{b}/sharing", json={"kind": "causes", "is_shared": False}
             )
-            assert denied.status_code in [403, 404]
+            assert denied.status_code == 428
         async with admin_session_factory() as s:
             await s.execute(
                 delete(CampaignGm).where(
@@ -316,3 +361,24 @@ async def test_authors_gms_and_players_get_reader_graph_but_no_ordering_write(
         assert denied.status_code in [403, 404]
     finally:
         await world.clean_up()
+
+
+def test_participant_audiences_release_v9_defaults_private():
+    from lorenzo_api.release_document import decode, encode
+    from lorenzo_api.repository_content import Content
+
+    c = Content(tenant_id=uuid.uuid4())
+    c.participant_entry_audiences = [uuid.uuid4()]
+    c.participant_information_audiences = [uuid.uuid4()]
+    document, files = encode(c)
+    back = decode(document, files)
+    assert back.participant_entry_audiences == c.participant_entry_audiences
+    assert back.participant_information_audiences == c.participant_information_audiences
+    old = {
+        k: v
+        for k, v in document.items()
+        if k not in {"participant_entry_audiences", "participant_information_audiences"}
+    }
+    back = decode(old, files, format=9)
+    assert back.participant_entry_audiences == []
+    assert back.participant_information_audiences == []

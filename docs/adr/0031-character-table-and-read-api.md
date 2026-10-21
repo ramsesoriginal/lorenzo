@@ -77,3 +77,10 @@ Carried from RFC 0004, unresolved here:
 - `Player.owned_beings` renamed `Player.owned_characters`, following the column to `Character` - a plain `being` was never a valid target, so nothing meaningful is lost.
 - `membership`/`player`/`campaign_gm` tables themselves are unaffected structurally by this ADR (only their eventual attribution columns are deferred, per above) - no migration need beyond `character`/`being`/`character_player`/`group_member`.
 - New `tests/conftest.py` helpers `make_being`/`make_character`, matching `make_tenant`/`make_campaign`/`make_player`'s existing precedent - promoted immediately (not after independent duplication first) since this ADR's own migration forced every existing `being`/`character_player`/`group_member` test to be touched anyway.
+
+## Addendum: group membership (2026-10-21)
+
+[ADR 0316](0316-collaborative-events-facts-and-participant-audiences.md) resolves the named
+question about grouping untracked NPCs: group membership references Being again. Character
+tracking remains required for player ownership and roster seats. Demotion preserves group
+membership; deleting the Being removes it. The original decision above remains historical.

@@ -38,6 +38,7 @@ class EntityAudience(Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
     is_public: Mapped[bool] = mapped_column(server_default=text("false"))
+    shared_with_participants: Mapped[bool] = mapped_column(server_default=text("false"))
     updated_at: Mapped[UpdatedAt]
 
 

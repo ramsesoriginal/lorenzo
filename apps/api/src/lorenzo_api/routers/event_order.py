@@ -14,7 +14,6 @@ from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
     CurrentUser,
     SessionDep,
-    get_tenant_admin_context,
     get_tenant_or_404,
     require_tenant_participant,
     set_tenant_rls_context,
@@ -79,9 +78,9 @@ async def require_event_order_access(
     session: SessionDep, user: CurrentUser, tenant_id: uuid.UUID
 ) -> None:
     vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    if not vis.is_admin:
+    if not (vis.is_admin or vis.manages_events):
         raise EventOrderForbiddenError(
-            detail="Event ordering requires an Owner or Organizer using full visibility."
+            detail="Event ordering requires an Author, GM, or full-visibility Owner/Organizer."
         )
 
 
@@ -127,7 +126,7 @@ async def graph(
         EventRelationship.kind,
         EventRelationship.is_shared,
     ).where(EventRelationship.tenant_id == tenant_id)
-    if visibility is not None and not visibility.is_admin:
+    if visibility is not None and not (visibility.is_admin or visibility.manages_events):
         nodes = nodes.where(visible_entry_clause(visibility, StoryEvent.entity_id))
         edges = edges.where(
             EventRelationship.is_shared.is_(True),
@@ -189,7 +188,7 @@ async def list_event_relationships(
 ) -> list[RelationshipOut]:
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    if visibility.is_admin:
+    if visibility.is_admin or visibility.manages_events:
         # The staff ETag guards mutation; readers receive no private revision.
         await lock_event_order(session, tenant_id)
         entry = await read_event(session, tenant_id, event_id)
@@ -290,9 +289,7 @@ async def change_relationship(
     return await list_event_relationships(tenant_id, event_id, response, session, user)
 
 
-@router.put(
-    "/{event_id}/relationships/{other_event_id}", dependencies=[Depends(get_tenant_admin_context)]
-)
+@router.put("/{event_id}/relationships/{other_event_id}", dependencies=[Depends(get_tenant_or_404)])
 async def put_event_relationship(
     tenant_id: uuid.UUID,
     event_id: uuid.UUID,
@@ -309,7 +306,7 @@ async def put_event_relationship(
 
 
 @router.delete(
-    "/{event_id}/relationships/{other_event_id}", dependencies=[Depends(get_tenant_admin_context)]
+    "/{event_id}/relationships/{other_event_id}", dependencies=[Depends(get_tenant_or_404)]
 )
 async def delete_event_relationship(
     tenant_id: uuid.UUID,
@@ -337,7 +334,7 @@ async def delete_event_relationship(
 
 @router.put(
     "/{event_id}/relationships/{other_event_id}/sharing",
-    dependencies=[Depends(get_tenant_admin_context)],
+    dependencies=[Depends(get_tenant_or_404)],
 )
 async def share_event_relationship(
     tenant_id: uuid.UUID,

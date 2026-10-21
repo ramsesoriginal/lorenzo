@@ -19,6 +19,7 @@ from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     AudiencePreconditionRequiredError,
     EntityNotFoundError,
+    InformationManagementForbiddenError,
     InvalidAudienceRecipientError,
     MainPictureThroughEntityError,
     PayloadReplayConflictError,
@@ -32,7 +33,7 @@ from lorenzo_api.information_bundles import (
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.learning import require_no_learning
-from lorenzo_api.models import Entity, Information, Knowledge, Payload, Player, User
+from lorenzo_api.models import Entity, Information, Knowledge, Payload, Player, StoryEvent, User
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
 from lorenzo_api.routers.entities import (
     authorize_information_edit,
@@ -125,6 +126,17 @@ async def update_information(
     await authorize_information_edit(
         session, tenant_id=tenant_id, user=user, information=information
     )
+    from lorenzo_api.event_fact_access import is_event_fact, manages_events
+
+    if (
+        await is_event_fact(session, tenant_id=tenant_id, entity_id=information.entity_id)
+        and not await manages_events(session, tenant_id=tenant_id, user_id=user.id)
+        and (body.order is not None or (body.type is not None and body.type != "note"))
+    ):
+        raise InformationManagementForbiddenError(
+            detail="Readers edit their own note without changing its kind or position"
+        )
+
     check_if_match(if_match, updated_at=information.updated_at)
 
     update = body.model_dump(exclude_unset=True)
@@ -604,6 +616,7 @@ async def audience_of(session: SessionDep, information: Information) -> Informat
     ).all()
     return InformationAudience(
         is_public=information.is_public,
+        shared_with_participants=information.shared_with_participants,
         entity_ids=sorted((e for e, _ in pairs if e is not None), key=str),
         player_ids=sorted((p for _, p in pairs if p is not None), key=str),
     )
@@ -657,8 +670,18 @@ async def replace_information_audience(
             if found != wanted:
                 raise InvalidAudienceRecipientError(detail="Choose recipients from this library.")
     previous = await audience_of(session, information)
+    shared = (
+        body.shared_with_participants
+        if "shared_with_participants" in body.model_fields_set
+        else previous.shared_with_participants
+    )
+    if shared and await session.get(StoryEvent, information.entity_id) is None:
+        raise InvalidAudienceRecipientError(
+            detail="Only Event Information has a participant audience"
+        )
     if (
         information.is_public != body.is_public
+        or previous.shared_with_participants != shared
         or set(previous.entity_ids) != entities
         or set(previous.player_ids) != players
     ):
@@ -694,6 +717,7 @@ async def replace_information_audience(
                 )
             )
         information.is_public = body.is_public
+        information.shared_with_participants = shared
         information.updated_at = datetime.now(UTC)
         await record_activity(
             session,

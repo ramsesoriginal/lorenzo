@@ -2,6 +2,7 @@ import { rememberEntryAddress, tenantAddress } from '../../lib/addresses';
 import { client, unwrap } from '../../lib/api';
 import { button, el, entryHref, field, link, message, select } from '../../lib/dom';
 import { entryPicker } from '../../lib/entry-picker';
+import { creationVisibility } from '../../lib/event-visibility';
 import { start } from '../../lib/session';
 export async function mount() {
   const host = document.querySelector<HTMLElement>('#EventList');
@@ -9,7 +10,7 @@ export async function mount() {
   host.dataset.mounted = 'true';
   const session = await start();
   if (!session || !host?.isConnected) return;
-  const { tenantId, canWrite, canOrderEvents, canReadEventOrder } = session;
+  const { tenantId, canOrderEvents, canReadEventOrder } = session;
   const initial = new URLSearchParams(location.search);
   let being = canOrderEvents ? (initial.get('being') ?? '') : '';
   let chain = initial.get('chain') ?? '';
@@ -208,24 +209,39 @@ export async function mount() {
     );
     filters.append(advanced);
   }
-  if (canWrite) {
+  if (session.canCreateEntries) {
     const create = el('details', '', 'panel');
     create.append(el('summary', 'Create an Event'));
     const form = el('form', '', 'stack');
     const name = field('Event name');
     name.input.required = true;
+    const visibility = creationVisibility();
+    const kind = el('select');
+    kind.setAttribute('aria-label', 'Entry kind');
+    for (const [value, label] of [
+      ['event', 'Event'],
+      ['fact', 'Fact'],
+    ]) {
+      const option = el('option', label);
+      option.value = value;
+      kind.append(option);
+    }
+    const kindLabel = el('label', 'Entry kind');
+    kindLabel.append(kind);
     const save = el('button', 'Create Event', 'btn');
     save.type = 'submit';
+    kind.addEventListener('change', () => {
+      save.textContent = kind.value === 'event' ? 'Create Event' : 'Create Fact';
+      visibility.setEvent(kind.value === 'event');
+    });
     const progress = el('p');
     progress.setAttribute('role', 'status');
     const id = crypto.randomUUID();
     form.append(
       name.label,
-      el(
-        'p',
-        'Starts restricted and undated. You can add dates and Information after saving.',
-        'caption',
-      ),
+      kindLabel,
+      visibility.label,
+      el('p', 'Starts undated. Notes have their own audiences.', 'caption'),
       save,
       progress,
     );
@@ -238,7 +254,13 @@ export async function mount() {
         await unwrap(
           await client.POST('/tenants/{tenant_id}/entities', {
             params: { path: { tenant_id: tenantId } },
-            body: { id, name: name.input.value, kinds: ['event'], parents: [] },
+            body: {
+              id,
+              name: name.input.value,
+              kinds: [kind.value as 'event' | 'fact'],
+              visibility: visibility.value(),
+              parents: [],
+            },
           }),
         );
         if (form.isConnected) location.assign(entryHref(tenantId, id));
@@ -247,7 +269,7 @@ export async function mount() {
           const existing = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
             params: { path: { tenant_id: tenantId, entity_id: id } },
           });
-          if (existing.data?.kinds.includes('event')) {
+          if (existing.data?.kinds.includes(kind.value as 'event' | 'fact')) {
             if (form.isConnected) location.assign(entryHref(tenantId, id));
             return;
           }

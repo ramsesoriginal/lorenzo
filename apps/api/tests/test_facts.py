@@ -7,15 +7,18 @@ import pytest
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_campaign, make_tenant
 from httpx import AsyncClient
-from sqlalchemy import delete
+from sqlalchemy import delete, select, update
 
 from lorenzo_api.models import (
     Entity,
     EntityAudience,
     EntityKnowledge,
+    Fact,
+    Information,
     Knowledge,
     Membership,
     Player,
+    User,
 )
 
 
@@ -30,6 +33,17 @@ async def make_fact(client: AsyncClient, tenant: uuid.UUID, name: str = "The lic
 
 async def reader_seat(tenant: uuid.UUID, user: uuid.UUID) -> uuid.UUID:
     async with admin_session_factory() as session:
+        # This fixture becomes a reader of someone else's facts, not their creator.
+        author = User(authgear_subject_id=str(uuid.uuid4()))
+        session.add(author)
+        await session.flush()
+        facts = select(Fact.entity_id).where(Fact.tenant_id == tenant)
+        await session.execute(
+            update(Entity).where(Entity.id.in_(facts)).values(created_by=author.id)
+        )
+        await session.execute(
+            update(Information).where(Information.entity_id.in_(facts)).values(created_by=author.id)
+        )
         campaign = await make_campaign(session, tenant_id=tenant)
         seat = Player(tenant_id=tenant, campaign_id=campaign.id, user_id=user)
         session.add(seat)
@@ -148,7 +162,12 @@ async def test_outer_audience_is_atomic_and_does_not_change_information(
         )
         assert note.status_code == 201, note.text
         before = await client.get(base + "/audience")
-        assert before.json() == {"is_public": False, "entity_ids": [], "player_ids": []}
+        assert before.json() == {
+            "is_public": False,
+            "entity_ids": [],
+            "player_ids": [],
+            "shared_with_participants": False,
+        }
         assert (await client.put(base + "/audience", json={"is_public": True})).status_code == 428
         seat = await reader_seat(tenant, test_user_id)
         outcomes = await asyncio.gather(

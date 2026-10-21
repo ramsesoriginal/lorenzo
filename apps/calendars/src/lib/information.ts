@@ -155,6 +155,7 @@ export function informationView(
   canWrite: boolean,
   refresh: () => void,
   canRecordLearning = false,
+  access?: { can_add_notes: boolean; editable_information_ids: string[] },
 ): HTMLElement {
   const host = el('section', '', 'stack');
   host.append(el('h2', 'Information'));
@@ -176,7 +177,7 @@ export function informationView(
     });
     card.append(content);
     if (canRecordLearning) card.append(informationLearning(tenantId, info.id));
-    if (canWrite) {
+    if (access ? access.editable_information_ids.includes(info.id) : canWrite) {
       card.append(
         button(
           'Edit information',
@@ -185,14 +186,19 @@ export function informationView(
           },
           true,
         ),
-        renderAudienceControl({ client, tenantId, informationId: info.id }),
+        renderAudienceControl({
+          client,
+          tenantId,
+          informationId: info.id,
+          allowParticipants: entry.kinds.includes('event'),
+        }),
       );
     }
     host.append(card);
   }
   if (!entry.information.length)
     host.append(el('p', 'No information is available to you here.', 'caption'));
-  if (canWrite)
+  if (access?.can_add_notes ?? canWrite)
     host.append(
       button(
         'Add information',

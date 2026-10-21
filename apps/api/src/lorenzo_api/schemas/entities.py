@@ -75,11 +75,17 @@ class EntityCreate(BaseModel):
     kinds: list[Literal["item", "being", "fact", "event"]] = []
     parents: list[uuid.UUID] = []
     in_public_catalog: bool | None = None
+    visibility: Literal["restricted", "participants", "library"] | None = None
 
     @model_validator(mode="after")
     def _catalog_needs_item(self) -> EntityCreate:
         if self.in_public_catalog is not None and "item" not in self.kinds:
             raise ValueError("in_public_catalog is only for an entry of the kind item")
+        if self.visibility is not None:
+            if set(self.kinds) not in ({"event"}, {"fact"}):
+                raise ValueError("Creation visibility is for Events and Facts")
+            if self.visibility == "participants" and self.kinds != ["event"]:
+                raise ValueError("Facts have no participants")
         return self
 
 
