@@ -931,6 +931,17 @@ class KnowledgeEntryOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class LearningOut(BaseModel):
+    event_entity_id: UUID = Field(..., title="Event Entity Id")
+    event_name: str = Field(..., title="Event Name")
+    being_entity_id: UUID = Field(..., title="Being Entity Id")
+    being_name: str = Field(..., title="Being Name")
+    information_id: UUID = Field(..., title="Information Id")
+    information_title: str | None = Field(..., title="Information Title")
+    information_entity_id: UUID = Field(..., title="Information Entity Id")
+    information_entity_name: str = Field(..., title="Information Entity Name")
+
+
 class LicenceIn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1249,6 +1260,14 @@ class PageEventSummary(BaseModel):
 
 class PageKnowledgeEntryOut(BaseModel):
     items: list[KnowledgeEntryOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageLearningOut(BaseModel):
+    items: list[LearningOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")

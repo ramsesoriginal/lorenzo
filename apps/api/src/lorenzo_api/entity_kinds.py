@@ -25,6 +25,7 @@ from lorenzo_api.exceptions import (
     InventoryItemKindError,
     ItemPrototypeInUseError,
 )
+from lorenzo_api.learning import require_no_learning
 from lorenzo_api.models import (
     Being,
     Calendar,
@@ -408,6 +409,7 @@ async def require_deletable(
         raise ItemPrototypeInUseError(
             detail=f"Entry {entity_id} is still a direct prototype of at least one inventory item"
         )
+    await require_no_learning(session, tenant_id, entity_id=entity_id)
     return kinds
 
 

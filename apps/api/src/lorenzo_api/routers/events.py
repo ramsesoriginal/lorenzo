@@ -26,6 +26,7 @@ from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import EntityNotFoundError, EventOrderPreconditionRequiredError
 from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.learning import require_no_learning
 from lorenzo_api.models import Being, Entity, EntitySlug, EventParticipant, StoryEvent
 from lorenzo_api.routers.event_order import graph, read_event, require_event_order_access
 
@@ -242,6 +243,7 @@ async def change_participation(
     present = await session.get(EventParticipant, key)
     if (present is not None) == removing:
         if removing:
+            await require_no_learning(session, tenant_id, event_id=event_id, being_id=being_id)
             await session.execute(
                 delete(EventParticipant).where(
                     EventParticipant.tenant_id == tenant_id,

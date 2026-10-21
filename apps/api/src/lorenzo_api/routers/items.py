@@ -44,6 +44,7 @@ from lorenzo_api.information_visibility import (
     resolve_information_visibility,
 )
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
+from lorenzo_api.learning import require_no_learning
 from lorenzo_api.models import (
     Entity,
     EntityPrototype,
@@ -650,6 +651,7 @@ async def delete_item(
         target_id=entity_id,
         detail=None,
     )
+    await require_no_learning(session, tenant_id, entity_id=entity_id)
     await session.delete(entity)
     await session.commit()
 

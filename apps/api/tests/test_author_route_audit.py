@@ -91,6 +91,10 @@ ADMIN_UNLESS_DRY_RUN = {
 
 # An Owner or an Organizer: `get_tenant_admin_context`.
 ADMIN = {
+    ("GET", T + "/event-learning"),
+    ("GET", T + "/events/{event_id}/learning-version"),
+    ("PUT", T + "/events/{event_id}/learning/{being_id}/{information_id}"),
+    ("DELETE", T + "/events/{event_id}/learning/{being_id}/{information_id}"),
     ("GET", T + "/events/{event_id}/participants"),
     ("PUT", T + "/events/{event_id}/participants/{being_id}"),
     ("DELETE", T + "/events/{event_id}/participants/{being_id}"),
@@ -230,6 +234,7 @@ def _url(path: str, world: World) -> str:
         "{entity_id}",
         "{event_id}",
         "{being_id}",
+        "{information_id}",
         "{other_event_id}",
         "{stat_definition_id}",
         "{stat_group_id}",

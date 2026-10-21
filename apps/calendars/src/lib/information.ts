@@ -12,6 +12,7 @@ import { rememberEntryAddress } from './addresses';
 import { blobUrl, client, unwrap } from './api';
 import { API_BASE_URL } from './config';
 import { button, calendarHref, el, entryHref, field, message } from './dom';
+import { informationLearning } from './learning';
 import type { Entry, Information } from './types';
 export async function renderText(tenantId: string, source: string): Promise<string> {
   const doc = parse(source);
@@ -153,6 +154,7 @@ export function informationView(
   entry: Entry,
   canWrite: boolean,
   refresh: () => void,
+  canRecordLearning = false,
 ): HTMLElement {
   const host = el('section', '', 'stack');
   host.append(el('h2', 'Information'));
@@ -173,6 +175,7 @@ export function informationView(
       },
     });
     card.append(content);
+    if (canRecordLearning) card.append(informationLearning(tenantId, info.id));
     if (canWrite) {
       card.append(
         button(

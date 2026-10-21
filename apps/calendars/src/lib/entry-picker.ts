@@ -3,7 +3,7 @@ import { button, el, field, message } from './dom';
 export function entryPicker(
   tenantId: string,
   label: string,
-  kind: 'being' | 'event',
+  kind: 'being' | 'event' | undefined,
   chosen: (entry: { id: string; name: string; slug?: string | null }) => void,
 ): HTMLElement {
   const host = el('div', '', 'stack-tight');
@@ -15,7 +15,7 @@ export function entryPicker(
   host.append(
     query.label,
     button(
-      `Search ${kind === 'being' ? 'beings' : 'Events'}`,
+      `Search ${kind === 'being' ? 'beings' : kind === 'event' ? 'Events' : 'entries'}`,
       async () => {
         const turn = ++request;
         status.textContent = 'Searching…';
@@ -24,7 +24,7 @@ export function entryPicker(
             await client.GET('/tenants/{tenant_id}/entities', {
               params: {
                 path: { tenant_id: tenantId },
-                query: { q: query.input.value, kind: [kind], size: 30 },
+                query: { q: query.input.value, kind: kind ? [kind] : undefined, size: 30 },
               },
             }),
           );
