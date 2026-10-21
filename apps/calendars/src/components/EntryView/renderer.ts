@@ -8,6 +8,7 @@ import { informationForm, informationView } from '../../lib/information';
 import { eventLearning, learningList } from '../../lib/learning';
 import { participants } from '../../lib/participants';
 import { start } from '../../lib/session';
+import { eventVisibility } from '../../lib/event-visibility';
 export async function mount() {
   const host = document.querySelector<HTMLElement>('#EntryView');
   if (!host || host.dataset.mounted) return;
@@ -95,6 +96,7 @@ export async function mount() {
     const refresh = () => {
       if (host.isConnected) location.reload();
     };
+    if (canWrite && entry.kinds.includes('event')) host.append(await eventVisibility(tenantId, id, refresh));
     if (canWrite) {
       const controls = el('details');
       controls.append(el('summary', 'Name, link name and audience'));
@@ -149,7 +151,7 @@ export async function mount() {
           },
           true,
         ),
-        renderAudienceControl({ client, tenantId, entityId: id }),
+        renderAudienceControl({ client, tenantId, entityId: id, allowParticipants: entry.kinds.includes('event') }),
       );
       host.append(controls);
     }

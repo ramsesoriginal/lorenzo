@@ -1,3 +1,4 @@
+import { creationVisibility } from './event-visibility';
 import { rememberEntryAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
 import { button, el, entryHref, field, link, message, select } from './dom';
@@ -41,12 +42,15 @@ export function createDatedEntry(tenantId: string, period: () => Promise<Period>
   const save = el('button', 'Create dated entry', 'btn');
   save.type = 'submit';
   const id = crypto.randomUUID();
+  const visibility = creationVisibility();
+  kind.input.addEventListener('change', () => visibility.setEvent(kind.input.value === 'event'));
   let created = false;
   let target: Period | undefined;
   form.append(
     kind.label,
     name.label,
-    el('p', 'Starts restricted. Choose who can read it after saving.', 'caption'),
+    visibility.label,
+    el('p', 'Notes have their own audiences.', 'caption'),
     save,
     status,
   );
@@ -65,6 +69,7 @@ export function createDatedEntry(tenantId: string, period: () => Promise<Period>
                 id,
                 name: name.input.value,
                 kinds: [kind.input.value as 'event' | 'fact'],
+                visibility: visibility.value(),
                 parents: [],
               },
             }),

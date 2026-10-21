@@ -67,6 +67,7 @@ from lorenzo_api.models import (
     CampaignGm,
     CharacterPlayer,
     EntityAudience,
+    EventParticipant,
     Fact,
     GroupMember,
     Information,
@@ -100,6 +101,7 @@ class InformationVisibility:
     author_entry_ids: frozenset[uuid.UUID] = frozenset()
 
     hidden_entry_ids: frozenset[uuid.UUID] = frozenset()
+    participant_event_ids: frozenset[uuid.UUID] = frozenset()
     manages_events: bool = False
     own_entry_ids: frozenset[uuid.UUID] = frozenset()
     event_fact_ids: frozenset[uuid.UUID] = frozenset()
@@ -132,6 +134,8 @@ class InformationVisibility:
         """
         if info.entity_id in self.hidden_entry_ids:
             return False
+        if info.shared_with_participants and info.entity_id in self.participant_event_ids:
+            return True
         if info.entity_id in self.event_fact_ids and info.created_by == self.user_id:
             return True
         if self.is_admin or self.author_sees_all or info.is_public:
@@ -191,6 +195,8 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
     if vis.knower_entity_ids:
         knower_matches.append(Knowledge.knower_entity_id.in_(vis.knower_entity_ids))
     clauses: list[ColumnElement[bool]] = [Information.is_public.is_(True)]
+    if vis.participant_event_ids:
+        clauses.append(Information.shared_with_participants.is_(True) & entity_id_among(Information.entity_id, vis.participant_event_ids))
     if vis.user_id is not None and vis.event_fact_ids:
         clauses.append(
             (Information.created_by == vis.user_id)
@@ -495,6 +501,7 @@ async def resolve_information_visibility(
     event_manager = await manages_events(session, tenant_id=tenant_id, user_id=user_id)
     if event_manager:
         gm_reachable_ids |= event_fact_ids
+    participant_event_ids = frozenset(await session.scalars(select(EventParticipant.event_entity_id).where(EventParticipant.tenant_id == tenant_id, EventParticipant.being_entity_id.in_(character_ids)))) if character_ids else frozenset()
     vis = InformationVisibility(
         is_orga=is_orga,
         is_admin=is_admin,
@@ -504,6 +511,7 @@ async def resolve_information_visibility(
         author_sees_all=author_sees_all,
         author_entry_ids=author_entry_ids,
         manages_events=event_manager,
+        participant_event_ids=participant_event_ids,
         own_entry_ids=own_entry_ids,
         event_fact_ids=event_fact_ids,
         user_id=user_id,

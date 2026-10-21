@@ -50,6 +50,7 @@ class Information(Base):
     # (RFC 0001). True bypasses the knower lookup entirely: "known to
     # everyone" doesn't need any Knowledge rows at all - see ADR 0028.
     is_public: Mapped[bool] = mapped_column(server_default=text("false"))
+    shared_with_participants: Mapped[bool] = mapped_column(server_default=text("false"))
     # Position among this entity's information rows (ADR 0101) - unique,
     # not dense: a delete leaves a gap and nothing renumbers.
     # Left unset on insert, a BEFORE INSERT trigger appends it after the

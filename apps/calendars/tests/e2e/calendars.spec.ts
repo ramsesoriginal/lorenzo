@@ -1183,3 +1183,33 @@ test('players create their own Events and Facts and contribute only their own no
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.context().close();
 });
+
+test('Event creation visibility and participant note audiences remain separate', async ({ browser }) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/events/?tenant=${world.tenantId}`);
+  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByLabel('Event name', { exact: true }).fill('The participants meet');
+  await page.getByLabel('Entry visibility', { exact: true }).selectOption('participants');
+  await page.getByRole('button', { name: 'Create Event', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'The participants meet', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Entry visibility', { exact: true })).toHaveValue('participants');
+  const id = new URL(page.url()).searchParams.get('id');
+  if (!id) throw new Error('Missing Event identity');
+  const audience = await ok(world.api.GET('/tenants/{tenant_id}/entities/{entity_id}/audience', { params: { path: { tenant_id: world.tenantId, entity_id: id } } }));
+  expect(audience.shared_with_participants).toBe(true);
+  expect(audience.is_public).toBe(false);
+  await page.getByRole('button', { name: 'Add information', exact: true }).click();
+  await page.getByLabel('Information title', { exact: true }).fill('Shared recollection');
+  await page.getByRole('textbox', { name: 'Text', exact: true }).fill('The lantern was blue.');
+  await page.getByRole('button', { name: 'Save information', exact: true }).click();
+  await expect(page.getByText('The lantern was blue.', { exact: true })).toBeVisible();
+  await page.getByText('Who can read this', { exact: true }).click();
+  await page.getByLabel('Participants in this Event', { exact: true }).check();
+  await page.getByRole('button', { name: 'Save audience', exact: true }).click();
+  await expect(page.getByText('Audience saved.', { exact: true })).toBeVisible();
+  await page.getByLabel('Entry visibility', { exact: true }).selectOption('restricted');
+  await page.getByRole('button', { name: 'Save Event visibility', exact: true }).click();
+  await expect(page.getByLabel('Entry visibility', { exact: true })).toHaveValue('restricted');
+  await page.context().close();
+});

@@ -3,6 +3,7 @@ import { client, unwrap } from '../../lib/api';
 import { button, el, entryHref, field, link, message, select } from '../../lib/dom';
 import { entryPicker } from '../../lib/entry-picker';
 import { start } from '../../lib/session';
+import { creationVisibility } from '../../lib/event-visibility';
 export async function mount() {
   const host = document.querySelector<HTMLElement>('#EventList');
   if (!host || host.dataset.mounted) return;
@@ -214,6 +215,7 @@ export async function mount() {
     const form = el('form', '', 'stack');
     const name = field('Event name');
     name.input.required = true;
+    const visibility = creationVisibility();
     const kind = el('select');
     kind.setAttribute('aria-label', 'Entry kind');
     for (const [value, label] of [
@@ -230,6 +232,7 @@ export async function mount() {
     save.type = 'submit';
     kind.addEventListener('change', () => {
       save.textContent = kind.value === 'event' ? 'Create Event' : 'Create Fact';
+      visibility.setEvent(kind.value === 'event');
     });
     const progress = el('p');
     progress.setAttribute('role', 'status');
@@ -237,11 +240,8 @@ export async function mount() {
     form.append(
       name.label,
       kindLabel,
-      el(
-        'p',
-        'Starts restricted and undated. You can add dates and Information after saving.',
-        'caption',
-      ),
+      visibility.label,
+      el('p', 'Starts undated. Notes have their own audiences.', 'caption'),
       save,
       progress,
     );
@@ -258,6 +258,7 @@ export async function mount() {
               id,
               name: name.input.value,
               kinds: [kind.value as 'event' | 'fact'],
+              visibility: visibility.value(),
               parents: [],
             },
           }),

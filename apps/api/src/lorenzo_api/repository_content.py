@@ -190,6 +190,8 @@ class Content:
     shared_event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    participant_entry_audiences: list[uuid.UUID] = field(default_factory=list)
+    participant_information_audiences: list[uuid.UUID] = field(default_factory=list)
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
     entry_knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     fact_about: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
@@ -577,6 +579,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             EntityAudience.entity_id, EntityAudience.is_public, where=EntityAudience.tenant_id == t
         )
     )
+    c.participant_entry_audiences = [e for (e,) in await rows(EntityAudience.entity_id, where=(EntityAudience.tenant_id == t) & EntityAudience.shared_with_participants.is_(True))]
+    c.participant_information_audiences = [i for (i,) in await rows(Information.id, where=(Information.tenant_id == t) & Information.shared_with_participants.is_(True))]
     c.entry_knowledge = [
         (e, k)
         for e, k in await rows(

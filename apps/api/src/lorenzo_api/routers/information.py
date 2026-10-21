@@ -33,7 +33,7 @@ from lorenzo_api.information_bundles import (
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.learning import require_no_learning
-from lorenzo_api.models import Entity, Information, Knowledge, Payload, Player, User
+from lorenzo_api.models import Entity, Information, Knowledge, Payload, Player, StoryEvent, User
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
 from lorenzo_api.routers.entities import (
     authorize_information_edit,
@@ -616,6 +616,7 @@ async def audience_of(session: SessionDep, information: Information) -> Informat
     ).all()
     return InformationAudience(
         is_public=information.is_public,
+        shared_with_participants=information.shared_with_participants,
         entity_ids=sorted((e for e, _ in pairs if e is not None), key=str),
         player_ids=sorted((p for _, p in pairs if p is not None), key=str),
     )
@@ -669,8 +670,12 @@ async def replace_information_audience(
             if found != wanted:
                 raise InvalidAudienceRecipientError(detail="Choose recipients from this library.")
     previous = await audience_of(session, information)
+    shared = body.shared_with_participants if "shared_with_participants" in body.model_fields_set else previous.shared_with_participants
+    if shared and await session.get(StoryEvent, information.entity_id) is None:
+        raise InvalidAudienceRecipientError(detail="Only Event Information has a participant audience")
     if (
         information.is_public != body.is_public
+        or previous.shared_with_participants != shared
         or set(previous.entity_ids) != entities
         or set(previous.player_ids) != players
     ):
@@ -706,6 +711,7 @@ async def replace_information_audience(
                 )
             )
         information.is_public = body.is_public
+        information.shared_with_participants = shared
         information.updated_at = datetime.now(UTC)
         await record_activity(
             session,

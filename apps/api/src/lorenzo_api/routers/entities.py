@@ -364,6 +364,12 @@ async def create_entity(
         in_public_catalog=bool(body.in_public_catalog),
         entity_id=body.id,
     )
+    if body.visibility is not None:
+        audience = await session.get(EntityAudience, entity.id)
+        assert audience is not None
+        audience.is_public = body.visibility == "library"
+        audience.shared_with_participants = body.visibility == "participants"
+        await session.flush()
     if "fact" in kinds or "event" in kinds:
         try:
             await require_visible_entry(
@@ -1686,6 +1692,7 @@ async def entry_audience_of(session: SessionDep, audience: EntityAudience) -> In
     ).all()
     return InformationAudience(
         is_public=audience.is_public,
+        shared_with_participants=audience.shared_with_participants,
         entity_ids=sorted((e for e, _ in links if e is not None), key=str),
         player_ids=sorted((p for _, p in links if p is not None), key=str),
     )
@@ -1815,8 +1822,12 @@ async def replace_entry_audience(
             if found != wanted:
                 raise InvalidAudienceRecipientError(detail="Choose recipients from this library.")
     previous = await entry_audience_of(session, audience)
+    shared = body.shared_with_participants if "shared_with_participants" in body.model_fields_set else previous.shared_with_participants
+    if shared and await session.get(StoryEvent, entity_id) is None:
+        raise InvalidAudienceRecipientError(detail="Only Events have a participant audience")
     if (
         previous.is_public != body.is_public
+        or previous.shared_with_participants != shared
         or set(previous.entity_ids) != entities
         or set(previous.player_ids) != players
     ):
@@ -1839,6 +1850,7 @@ async def replace_entry_audience(
             )
         session.info.pop("visible_entry_checks", None)
         audience.is_public = body.is_public
+        audience.shared_with_participants = shared
         audience.updated_at = datetime.now(UTC)
         await record_activity(
             session,

@@ -28,6 +28,8 @@ def _own_visible_entry_clause(
     if vis.knower_entity_ids:
         recipients.append(entity_id_among(EntityKnowledge.knower_entity_id, vis.knower_entity_ids))
     allowed: list[ColumnElement[bool]] = [EntityAudience.is_public.is_(True)]
+    if vis.participant_event_ids:
+        allowed.append(EntityAudience.shared_with_participants.is_(True) & entity_id_among(EntityAudience.entity_id, vis.participant_event_ids))
     if vis.own_entry_ids:
         allowed.append(entity_id_among(EntityAudience.entity_id, vis.own_entry_ids))
     if vis.gm_reachable_entity_ids:

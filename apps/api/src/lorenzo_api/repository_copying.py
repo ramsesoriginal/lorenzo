@@ -623,6 +623,7 @@ class _Planner:
                         "entity_id": new,
                         "tenant_id": tenant_id,
                         "is_public": c.entry_audiences.get(e, False),
+                        "shared_with_participants": e in c.participant_entry_audiences,
                     }
                 )
             slug = c.slugs.get(e)
@@ -804,6 +805,7 @@ class _Planner:
                     "title": info.title,
                     "type": info.type,
                     "is_public": info.is_public,
+                    "shared_with_participants": info_id in c.participant_information_audiences,
                     "order": info.order,
                     "created_by": user_id,
                 }

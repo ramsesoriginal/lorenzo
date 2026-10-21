@@ -28,5 +28,6 @@ class InformationAudience(BaseModel):
     """The explicit audience; privileged access is resolved separately (ADR 0304)."""
 
     is_public: bool
+    shared_with_participants: bool = False
     entity_ids: list[uuid.UUID] = Field(default_factory=list, max_length=1000)
     player_ids: list[uuid.UUID] = Field(default_factory=list, max_length=1000)
