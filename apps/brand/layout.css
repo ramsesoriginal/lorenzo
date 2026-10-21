@@ -110,6 +110,67 @@ body {
   display: block;
 }
 
+/* The spark alone is the compact form of the lockup (identity.md §12.2). A
+   .brand with .brand--compact shows the lockup at rest and the spark at phone
+   width (§8.5, 720px); a bare .brand-mark is left as it was. */
+.brand-spark {
+  display: none;
+  width: 32px;
+  height: 32px;
+}
+
+@media (max-width: 720px) {
+  .brand--compact .brand-mark,
+  [data-theme="dark"] .brand--compact .brand-mark--dark {
+    display: none;
+  }
+
+  .brand--compact .brand-spark {
+    display: block;
+  }
+}
+
+/* The product's own name beside the lockup ("Calendars"). */
+.brand-product {
+  color: var(--text-secondary);
+  font-size: 18px;
+}
+
+/* A link at the very top of the page that jumps past the header to the
+   content; invisible until the keyboard reaches it (WCAG 2.4.1). */
+.skip-link {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  top: var(--space-2);
+  z-index: 30;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+}
+
+.skip-link:not(:focus) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}
+
+/* Text for assistive technology only (a status that is announced, not
+   drawn). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 main {
   flex: 1 0 auto;
   padding: var(--space-4);
@@ -316,9 +377,15 @@ body:has(.full-width) {
     position: relative;
   }
 
+  /* An open menu takes its own line under the header row and is as wide as the
+     page, no wider: a fixed 100vw would run past the gutters. */
+  .site-navigation[open] {
+    flex-basis: 100%;
+  }
+
   .site-navigation nav {
     flex-direction: column;
-    width: 100vw;
+    align-items: stretch;
   }
 
   .row.v-mobile {
