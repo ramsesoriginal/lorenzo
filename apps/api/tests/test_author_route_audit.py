@@ -48,7 +48,6 @@ AUTHORING = {
     ("DELETE", T + "/items/{entity_id}"),
     ("PATCH", T + "/items/{entity_id}"),
     ("PUT", T + "/items/{entity_id}/prototypes"),
-    ("POST", T + "/entities"),
     ("DELETE", T + "/entities/{entity_id}"),
     ("PUT", T + "/entities/{entity_id}/kinds/{kind}"),
     ("DELETE", T + "/entities/{entity_id}/kinds/{kind}"),
@@ -91,16 +90,6 @@ ADMIN_UNLESS_DRY_RUN = {
 
 # An Owner or an Organizer: `get_tenant_admin_context`.
 ADMIN = {
-    ("PUT", T + "/events/{event_id}/relationships/{other_event_id}/sharing"),
-    ("GET", T + "/event-learning"),
-    ("GET", T + "/events/{event_id}/learning-version"),
-    ("PUT", T + "/events/{event_id}/learning/{being_id}/{information_id}"),
-    ("DELETE", T + "/events/{event_id}/learning/{being_id}/{information_id}"),
-    ("GET", T + "/events/{event_id}/participants"),
-    ("PUT", T + "/events/{event_id}/participants/{being_id}"),
-    ("DELETE", T + "/events/{event_id}/participants/{being_id}"),
-    ("PUT", T + "/events/{event_id}/relationships/{other_event_id}"),
-    ("DELETE", T + "/events/{event_id}/relationships/{other_event_id}"),
     ("PATCH", T),
     ("GET", T + "/activity-log"),
     ("POST", T + "/campaigns"),

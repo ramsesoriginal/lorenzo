@@ -115,14 +115,14 @@ async def test_participation_roles_opt_out_and_foreign_targets(client, test_user
             await s.commit()
         assert (await client.get(f"/tenants/{t}/events")).status_code == 200
         for params in [{"being_id": b}]:
-            assert (await client.get(f"/tenants/{t}/events", params=params)).status_code == 403
+            assert (await client.get(f"/tenants/{t}/events", params=params)).status_code == 404
         assert (
             await client.get(f"/tenants/{t}/events", params={"sort": "order"})
         ).status_code == 200
         assert (
             await client.get(f"/tenants/{t}/events", params={"causal_event_id": e})
         ).status_code == 200
-        assert (await client.get(f"/tenants/{t}/events/{e}/participants")).status_code == 403
+        assert (await client.get(f"/tenants/{t}/events/{e}/participants")).status_code == 200
         async with admin_session_factory() as s:
             member = await s.get_one(Membership, (t, test_user_id))
             member.role = MembershipRole.OWNER
@@ -139,6 +139,7 @@ async def test_participation_roles_opt_out_and_foreign_targets(client, test_user
         assert (await client.get(f"/tenants/{t}/events/access")).json() == {
             "can_order": False,
             "can_read_order": True,
+            "can_retain_private": False,
         }
         assert (
             await client.get(f"/tenants/{t}/events", params={"sort": "order"})

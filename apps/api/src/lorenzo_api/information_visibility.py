@@ -100,6 +100,10 @@ class InformationVisibility:
     author_entry_ids: frozenset[uuid.UUID] = frozenset()
 
     hidden_entry_ids: frozenset[uuid.UUID] = frozenset()
+    manages_events: bool = False
+    own_entry_ids: frozenset[uuid.UUID] = frozenset()
+    event_fact_ids: frozenset[uuid.UUID] = frozenset()
+    user_id: uuid.UUID | None = None
 
     def can_see_entry(self, entity_id: uuid.UUID) -> bool:
         return entity_id not in self.hidden_entry_ids
@@ -128,6 +132,8 @@ class InformationVisibility:
         """
         if info.entity_id in self.hidden_entry_ids:
             return False
+        if info.entity_id in self.event_fact_ids and info.created_by == self.user_id:
+            return True
         if self.is_admin or self.author_sees_all or info.is_public:
             return True
         if info.entity_id in self.gm_reachable_entity_ids:
@@ -185,6 +191,11 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
     if vis.knower_entity_ids:
         knower_matches.append(Knowledge.knower_entity_id.in_(vis.knower_entity_ids))
     clauses: list[ColumnElement[bool]] = [Information.is_public.is_(True)]
+    if vis.user_id is not None and vis.event_fact_ids:
+        clauses.append(
+            (Information.created_by == vis.user_id)
+            & entity_id_among(Information.entity_id, vis.event_fact_ids)
+        )
     if vis.gm_reachable_entity_ids:
         clauses.append(entity_id_among(Information.entity_id, vis.gm_reachable_entity_ids))
     if vis.author_entry_ids:
@@ -457,6 +468,33 @@ async def resolve_information_visibility(
                 .all()
             )
 
+    from lorenzo_api.event_fact_access import manages_events
+    from lorenzo_api.models import Entity
+
+    event_fact_ids = frozenset(
+        await session.scalars(
+            union_all(
+                select(Fact.entity_id).where(Fact.tenant_id == tenant_id),
+                select(StoryEvent.entity_id).where(StoryEvent.tenant_id == tenant_id),
+            )
+        )
+    )
+    own_entry_ids = (
+        frozenset(
+            await session.scalars(
+                select(Entity.id).where(
+                    Entity.tenant_id == tenant_id,
+                    Entity.created_by == user_id,
+                    Entity.id.in_(event_fact_ids),
+                )
+            )
+        )
+        if event_fact_ids
+        else frozenset()
+    )
+    event_manager = await manages_events(session, tenant_id=tenant_id, user_id=user_id)
+    if event_manager:
+        gm_reachable_ids |= event_fact_ids
     vis = InformationVisibility(
         is_orga=is_orga,
         is_admin=is_admin,
@@ -465,6 +503,10 @@ async def resolve_information_visibility(
         gm_reachable_entity_ids=gm_reachable_ids,
         author_sees_all=author_sees_all,
         author_entry_ids=author_entry_ids,
+        manages_events=event_manager,
+        own_entry_ids=own_entry_ids,
+        event_fact_ids=event_fact_ids,
+        user_id=user_id,
     )
 
     from sqlalchemy.orm import aliased

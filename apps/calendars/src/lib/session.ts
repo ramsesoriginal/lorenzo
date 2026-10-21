@@ -10,6 +10,7 @@ import { bindThemeToggle } from './theme';
 export type Session = {
   tenantId: string;
   canWrite: boolean;
+  canCreateEntries: boolean;
   canOrderEvents: boolean;
   canReadEventOrder: boolean;
 };
@@ -90,6 +91,7 @@ export async function start(): Promise<Session | null> {
       location.assign(`/?tenant=${encodeURIComponent(tenantAddress(picker.value))}`);
     });
 
+    let canRetainPrivate = false;
     let canOrderEvents = false;
     let canReadEventOrder = false;
     {
@@ -99,10 +101,11 @@ export async function start(): Promise<Session | null> {
         }),
       );
       canOrderEvents = access.can_order;
+      canRetainPrivate = access.can_retain_private;
       canReadEventOrder = access.can_read_order;
     }
     if (!status.isConnected) return null;
-    calendarReads.configure(viewer.id, tenant.id, tenant.role, canOrderEvents);
+    calendarReads.configure(viewer.id, tenant.id, tenant.role, canRetainPrivate);
     document.querySelector<HTMLElement>('[data-library-field]')?.removeAttribute('hidden');
     document.querySelector<HTMLElement>('[data-page]')?.removeAttribute('hidden');
     status.hidden = true;
@@ -110,6 +113,7 @@ export async function start(): Promise<Session | null> {
     return {
       tenantId: tenant.id,
       canWrite: ['owner', 'orga', 'author'].includes(tenant.role),
+      canCreateEntries: true,
       canOrderEvents,
       canReadEventOrder,
     };

@@ -17,13 +17,13 @@ from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
-    get_tenant_admin_context,
     get_tenant_or_404,
     require_tenant_participant,
     set_tenant_rls_context,
 )
 from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
+from lorenzo_api.event_fact_access import edits_event_fact
 from lorenzo_api.exceptions import EntityNotFoundError, EventOrderPreconditionRequiredError
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.learning import require_no_learning
@@ -51,13 +51,18 @@ class ParticipantOut(BaseModel):
 class EventAccess(BaseModel):
     can_order: bool
     can_read_order: bool
+    can_retain_private: bool
 
 
 @router.get("/access")
 async def event_access(tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> EventAccess:
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    return EventAccess(can_order=visibility.is_admin, can_read_order=True)
+    return EventAccess(
+        can_order=visibility.is_admin or visibility.manages_events,
+        can_read_order=True,
+        can_retain_private=visibility.is_admin,
+    )
 
 
 @router.get("")
@@ -177,7 +182,7 @@ async def browse_events(
     return cast(Page[EventSummary], create_page(summaries, total=len(ids), params=params))
 
 
-@router.get("/{event_id}/participants", dependencies=[Depends(get_tenant_admin_context)])
+@router.get("/{event_id}/participants", dependencies=[Depends(get_tenant_or_404)])
 async def list_event_participants(
     tenant_id: uuid.UUID,
     event_id: uuid.UUID,
@@ -185,7 +190,11 @@ async def list_event_participants(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[ParticipantOut]:
-    await require_event_order_access(session, user, tenant_id)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    if not await edits_event_fact(
+        session, tenant_id=tenant_id, user_id=user.id, entity_id=event_id
+    ):
+        await require_event_order_access(session, user, tenant_id)
     await session.execute(
         select(Entity.id)
         .where(Entity.tenant_id == tenant_id, Entity.id == event_id)
@@ -217,7 +226,11 @@ async def change_participation(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[ParticipantOut]:
-    await require_event_order_access(session, user, tenant_id)
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    if not await edits_event_fact(
+        session, tenant_id=tenant_id, user_id=user.id, entity_id=event_id
+    ):
+        await require_event_order_access(session, user, tenant_id)
     # Both endpoints are locked before existence/version checks; deletion uses the same rows.
     entries = {
         e.id: e
@@ -274,7 +287,7 @@ async def change_participation(
     return await list_event_participants(tenant_id, event_id, response, session, user)
 
 
-@router.put("/{event_id}/participants/{being_id}", dependencies=[Depends(get_tenant_admin_context)])
+@router.put("/{event_id}/participants/{being_id}", dependencies=[Depends(get_tenant_or_404)])
 async def add_event_participant(
     tenant_id: uuid.UUID,
     event_id: uuid.UUID,
@@ -289,9 +302,7 @@ async def add_event_participant(
     )
 
 
-@router.delete(
-    "/{event_id}/participants/{being_id}", dependencies=[Depends(get_tenant_admin_context)]
-)
+@router.delete("/{event_id}/participants/{being_id}", dependencies=[Depends(get_tenant_or_404)])
 async def remove_event_participant(
     tenant_id: uuid.UUID,
     event_id: uuid.UUID,

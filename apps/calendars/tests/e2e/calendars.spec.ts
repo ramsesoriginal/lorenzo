@@ -1137,3 +1137,41 @@ test('shared Event order is readable without exposing private relationships or e
   await reader.context().close();
   await staff.context().close();
 });
+
+test('players create their own Events and Facts and contribute only their own notes', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.readerSubject);
+  await page.goto(`/events/?tenant=${world.tenantId}`);
+  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByLabel('Event name', { exact: true }).fill('A player records arrival');
+  await page.getByRole('button', { name: 'Create Event', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'A player records arrival', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText('Learning', { exact: true })).toHaveCount(0);
+  await page.getByText('Name, link name and audience', { exact: true }).click();
+  await page.getByLabel('Entry name', { exact: true }).fill('Arrival, corrected');
+  await page.getByRole('button', { name: 'Save name', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Arrival, corrected', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Add information', exact: true }).click();
+  await page.getByLabel('Information title', { exact: true }).fill('My recollection');
+  await page.getByRole('textbox', { name: 'Text', exact: true }).fill('We arrived before supper.');
+  await page.getByRole('button', { name: 'Save information', exact: true }).click();
+  await expect(page.getByText('We arrived before supper.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit information', exact: true })).toHaveCount(1);
+  await page.goto(`/events/?tenant=${world.tenantId}`);
+  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByLabel('Entry kind', { exact: true }).selectOption('fact');
+  await page.getByLabel('Event name', { exact: true }).fill('The harbour has a beacon');
+  await page.getByRole('button', { name: 'Create Fact', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'The harbour has a beacon', exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.context().close();
+});

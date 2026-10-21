@@ -19,6 +19,7 @@ from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     AudiencePreconditionRequiredError,
     EntityNotFoundError,
+    InformationManagementForbiddenError,
     InvalidAudienceRecipientError,
     MainPictureThroughEntityError,
     PayloadReplayConflictError,
@@ -125,6 +126,17 @@ async def update_information(
     await authorize_information_edit(
         session, tenant_id=tenant_id, user=user, information=information
     )
+    from lorenzo_api.event_fact_access import is_event_fact, manages_events
+
+    if (
+        await is_event_fact(session, tenant_id=tenant_id, entity_id=information.entity_id)
+        and not await manages_events(session, tenant_id=tenant_id, user_id=user.id)
+        and (body.order is not None or (body.type is not None and body.type != "note"))
+    ):
+        raise InformationManagementForbiddenError(
+            detail="Readers edit their own note without changing its kind or position"
+        )
+
     check_if_match(if_match, updated_at=information.updated_at)
 
     update = body.model_dump(exclude_unset=True)

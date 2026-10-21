@@ -14,7 +14,8 @@ export async function mount() {
   host.dataset.mounted = 'true';
   const session = await start();
   if (!session || !host.isConnected) return;
-  const { tenantId, canWrite } = session;
+  const { tenantId } = session;
+  let canWrite = session.canWrite;
   const status = el('p');
   status.setAttribute('role', 'status');
   host.append(
@@ -30,6 +31,10 @@ export async function mount() {
       params: { path },
     });
     const entry = await unwrap(result);
+    const access = await unwrap(
+      await client.GET('/tenants/{tenant_id}/entities/{entity_id}/access', { params: { path } }),
+    );
+    canWrite = access.can_edit;
     if (!host.isConnected) return;
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, id);
@@ -73,10 +78,8 @@ export async function mount() {
       try {
         const ordering = await eventOrder(tenantId, id, session.canOrderEvents);
         if (ordering) host.append(ordering);
-        if (session.canOrderEvents) {
-          host.append(await participants(tenantId, id));
-          host.append(await eventLearning(tenantId, id));
-        }
+        if (canWrite) host.append(await participants(tenantId, id));
+        if (session.canOrderEvents) host.append(await eventLearning(tenantId, id));
       } catch (error) {
         host.append(el('p', `Could not load Event ordering. ${message(error)}`, 'caption'));
       }
@@ -263,8 +266,10 @@ export async function mount() {
       if (!subjects.length) about.append(el('p', 'No subjects are available to you.', 'caption'));
       host.append(about);
     }
-    host.append(informationView(tenantId, entry, canWrite, refresh, session.canOrderEvents));
-    if (canWrite && params.get('add') === 'information')
+    host.append(
+      informationView(tenantId, entry, canWrite, refresh, session.canOrderEvents, access),
+    );
+    if (access.can_add_notes && params.get('add') === 'information')
       host.append(informationForm(tenantId, id, refresh));
   } catch (e) {
     status.textContent = message(e);

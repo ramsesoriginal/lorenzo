@@ -52,6 +52,13 @@ async def make_event(client, t, name, n, public=True):
     e = result.json()["id"]
     async with admin_session_factory() as s:
         (await s.get_one(EntityAudience, uuid.UUID(e))).is_public = public
+        if not public:
+            from lorenzo_api.models import Entity, User
+
+            other = User(authgear_subject_id=str(uuid.uuid4()))
+            s.add(other)
+            await s.flush()
+            (await s.get_one(Entity, uuid.UUID(e))).created_by = other.id
         await s.commit()
     return e
 
@@ -158,12 +165,13 @@ async def test_sharing_is_versioned_independent_per_kind_and_does_not_open_endpo
         async with admin_session_factory() as s:
             (await s.get_one(Membership, (t, test_user_id))).role = MembershipRole.AUTHOR
             await s.commit()
+        # ADR 0316 admits this Author; the independent player denial remains below.
         assert (await client.get(base)).status_code == 200
         assert (
             await client.put(base + f"/{b}/sharing", json={"kind": "order", "is_shared": True})
-        ).status_code == 403
-        assert (await client.get(f"/tenants/{t}/events/{a}/participants")).status_code == 403
-        assert (await client.get(f"/tenants/{t}/event-learning")).status_code == 403
+        ).status_code == 428
+        assert (await client.get(f"/tenants/{t}/events/{a}/participants")).status_code == 200
+        assert (await client.get(f"/tenants/{t}/event-learning")).status_code == 200
     finally:
         await delete_tenant(t)
 
@@ -296,7 +304,7 @@ async def test_authors_gms_and_players_get_reader_graph_but_no_ordering_write(
             denied = await reader.put(
                 base + f"/{b}/sharing", json={"kind": "causes", "is_shared": False}
             )
-            assert denied.status_code in [403, 404]
+            assert denied.status_code == 428
         async with admin_session_factory() as s:
             await s.execute(
                 delete(CampaignGm).where(

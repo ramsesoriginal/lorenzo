@@ -3577,6 +3577,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Entry Collaboration Access */
+        get: operations["entry_collaboration_access"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/preview": {
         parameters: {
             query?: never;
@@ -7585,6 +7602,15 @@ export interface components {
             /** Quantity */
             quantity?: number | null;
         };
+        /** EntryCollaborationAccess */
+        EntryCollaborationAccess: {
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Add Notes */
+            can_add_notes: boolean;
+            /** Editable Information Ids */
+            editable_information_ids: string[];
+        };
         /**
          * EntryKnowerOut
          * @description An explicit outer recipient, without inventing a grant date.
@@ -7608,6 +7634,8 @@ export interface components {
             can_order: boolean;
             /** Can Read Order */
             can_read_order: boolean;
+            /** Can Retain Private */
+            can_retain_private: boolean;
         };
         /** EventComparison */
         EventComparison: {
@@ -25198,6 +25226,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_EntityListOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    entry_collaboration_access: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryCollaborationAccess"];
                 };
             };
             /** @description Validation Error */

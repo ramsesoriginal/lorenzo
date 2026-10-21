@@ -118,17 +118,14 @@ async def test_learning_roles_optout_and_cross_tenant(client, test_user_id):
         foreign = await information(client, other, await event(client, other))
         assert (await learn(client, t, e, b, i)).status_code == 200
         assert (await learn(client, t, e, b, foreign)).status_code == 404
-        for role in [MembershipRole.AUTHOR]:
-            async with admin_session_factory() as s:
-                (await s.get_one(Membership, (t, test_user_id))).role = role
-                await s.commit()
-            assert (await client.get(f"/tenants/{t}/event-learning")).status_code == 403
-            assert (
-                await client.get(f"/tenants/{t}/events/{e}/learning-version")
-            ).status_code == 403
-            assert (
-                await client.put(f"/tenants/{t}/events/{e}/learning/{b}/{i}")
-            ).status_code == 403
+        # ADR 0316 explicitly admits Authors. Player denials are covered in
+        # test_event_collaboration.test_player_creator_and_reader_notes_do_not_grant_other_editing.
+        async with admin_session_factory() as s:
+            (await s.get_one(Membership, (t, test_user_id))).role = MembershipRole.AUTHOR
+            await s.commit()
+        assert (await client.get(f"/tenants/{t}/event-learning")).status_code == 200
+        assert (await client.get(f"/tenants/{t}/events/{e}/learning-version")).status_code == 200
+        assert (await client.put(f"/tenants/{t}/events/{e}/learning/{b}/{i}")).status_code == 428
         async with admin_session_factory() as s:
             (await s.get_one(Membership, (t, test_user_id))).role = MembershipRole.OWNER
             campaign = await make_campaign(s, tenant_id=t)

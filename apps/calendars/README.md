@@ -16,16 +16,15 @@ The entry page reuses the shared text/image bundle editor, LorenzoScript, author
 
 Readers can open **Order and causes** on an Event they can see ([ADR 0315](../../docs/adr/0315-reader-scoped-event-order-and-sharing.md)). Their view uses explicitly shared relationships whose two Events are visible to them. Compare Events shows a permitted recorded causal chain, recorded ordering, or an explicitly linearized display order with no visible recorded path. Hidden Events and private relationships influence neither that reader's order nor its explanations, counts or pagination. Different readers may receive different linearized display orders; dates do not create assertions.
 
-Full-visibility Owners/Organizers can also add/remove assertions and use **Share relationship** or **Make relationship private** on each relationship. Existing and newly created assertions start private. Sharing does not open either Event or its Information. Happened before and Caused on the same pair have independent sharing choices. Conflicting edits retain the selection and require refreshing saved relationships before retrying. Ordering edits remain unavailable to Authors, campaign GMs, players and administrators with an opt-out.
+Authors, GMs and full-visibility Owners/Organizers can also add/remove assertions and use **Share relationship** or **Make relationship private** on each relationship. Existing and newly created assertions start private. Sharing does not open either Event or its Information. Happened before and Caused on the same pair have independent sharing choices. Conflicting edits retain the selection and require refreshing saved relationships before retrying. Ordering edits remain unavailable to players and administrators using an opt-out.
 
 Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, full historical knowledge and time travel remain later work.
 
-The **Events** page creates undated Events, searches their names, and offers full-visibility
-Owners/Organizers participant filters, and all readers permitted causal filters and story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
+The **Events** page creates undated Events, searches their names, and offers Authors/GM participant filters, and all readers permitted causal filters and story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
 Causal filters follow causes in either direction from one Event; branches remain independent.
 Story order derives the authorized graph before name/causal filters and pagination, and labels unconstrained positions as
 linearized. Full-visibility staff retains the complete canonical graph. Event pages add/remove participating beings with version checks. Participation
-records neither knowledge nor lived order and grants no visibility. Authors/readers may browse permitted Event names, shared order and shared causal relationships, but receive no structured participation surface.
+records neither knowledge nor lived order and grants no visibility. Readers may browse permitted Event names, shared order and shared causal relationships. Managers and Event creators can edit participation.
 
 Calendar, period and Event link names use the existing entry editor. Calendars URLs accept
 UUIDs or slugs and prefer an entry's defined slug; internal identities stay UUIDs. An explicit
@@ -81,10 +80,21 @@ The app is deployed at [lorenzo-calendars.pages.dev](https://lorenzo-calendars.p
 
 ## Optional learning records
 
-Full-visibility Owners and Organizers can open **Learning** on an Event page ([ADR 0314](../../docs/adr/0314-optional-event-learning-records.md)). Add the being as a participant first, refresh saved learning if needed, then choose the participant, find an entry and select its specific Information bundle. **Record learning** creates an explicit story association without sharing either the Information or its entry. Public Information needs no Knowledge grant for this association.
+Authors, GMs and full-visibility Owners and Organizers can open **Learning** on an Event page ([ADR 0314](../../docs/adr/0314-optional-event-learning-records.md)). Add the being as a participant first, refresh saved learning if needed, then choose the participant, find an entry and select its specific Information bundle. **Record learning** creates an explicit story association without sharing either the Information or its entry. Public Information needs no Knowledge grant for this association.
 
 The Event lists its recorded learning. Following the being link opens its recorded learning occasions in Calendars; Information cards offer **Recorded learning** on demand. These lists are associations, not a claimed lived or causal sequence. Readers outside the full-visibility capability receive no learning controls or background reads. Conflicting writes keep the selection and require **Refresh saved learning** before retrying.
 
 Removing a learning record corrects provenance; it does not revoke access, mean forgetting or remove participation. Remove dependent learning records before removing a participation or deleting its Information/entry. Records follow Information identity through wording edits and do not snapshot the earlier text. An empty list means no learning history is recorded, not that nobody knew. Existing audience grants and untimed workflows remain unchanged.
 
 Sharing a relationship through an Event that is hidden from a reader does not reveal a path through that Event. To disclose only that Arrival happened before Departure, record and share that direct ordering assertion. The reader is never told a hidden intermediary exists. Participation and learning records keep their full-visibility staff restriction in this slice; viewing an Event or its shared causes grants neither of those records.
+
+## Event and Fact collaboration
+
+Authors and GMs manage Events and Facts throughout the library, including private Event
+ordering assertions and learning records (ADR 0316). A GM grant in any campaign is sufficient;
+this does not widen access to unrelated inventory or beings' private Information. Learning
+sources still require their own visibility. Players can create Events and Facts from Events,
+edit their own entries, and add/edit their own notes on entries they can see. Entry creation
+does not grant ordering or learning editing. A private note by another author remains private
+to its permitted readers. The app asks the API for entry-specific editing capabilities.
+Private response retention remains limited to full-visibility administrators.

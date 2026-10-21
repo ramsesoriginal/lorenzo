@@ -18,18 +18,23 @@ from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
     SessionDep,
-    get_tenant_admin_context,
+    get_tenant_or_404,
     set_tenant_rls_context,
 )
+from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import EntityNotFoundError, EventOrderPreconditionRequiredError
+from lorenzo_api.information_visibility import (
+    resolve_information_visibility,
+    visible_information_clause,
+)
 from lorenzo_api.models import Entity, EventLearning, EventParticipant, Information
 from lorenzo_api.routers.event_order import read_event, require_event_order_access
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
     tags=["Event learning"],
-    dependencies=[Depends(get_tenant_admin_context)],
+    dependencies=[Depends(get_tenant_or_404)],
 )
 
 
@@ -55,6 +60,7 @@ async def list_learning(
     information_id: uuid.UUID | None = None,
 ) -> Page[LearningOut]:
     await require_event_order_access(session, user, tenant_id)
+    vis = await resolve_information_visibility(session, tenant_id=tenant_id, user_id=user.id)
     event, being, source = aliased(Entity), aliased(Entity), aliased(Entity)
     query = (
         select(
@@ -77,6 +83,8 @@ async def list_learning(
             being.tenant_id == tenant_id,
             Information.tenant_id == tenant_id,
             source.tenant_id == tenant_id,
+            visible_entry_clause(vis, being.id),
+            visible_information_clause(vis),
         )
         .order_by(
             EventLearning.event_entity_id,
@@ -155,6 +163,16 @@ async def change_learning(
         .with_for_update()
     )
     if info is None or source_id not in entries or being_id not in entries:
+        raise EntityNotFoundError(detail="No such learning endpoints in this library")
+    vis = await resolve_information_visibility(session, tenant_id=tenant_id, user_id=user.id)
+    visible_source = await session.scalar(
+        select(Information.id).where(
+            Information.id == information_id,
+            Information.tenant_id == tenant_id,
+            visible_information_clause(vis),
+        )
+    )
+    if visible_source is None or not vis.can_see_entry(being_id):
         raise EntityNotFoundError(detail="No such learning endpoints in this library")
     participant = await session.get(EventParticipant, (event_id, being_id))
     if participant is None or participant.tenant_id != tenant_id:

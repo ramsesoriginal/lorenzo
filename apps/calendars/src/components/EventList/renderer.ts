@@ -9,7 +9,7 @@ export async function mount() {
   host.dataset.mounted = 'true';
   const session = await start();
   if (!session || !host?.isConnected) return;
-  const { tenantId, canWrite, canOrderEvents, canReadEventOrder } = session;
+  const { tenantId, canOrderEvents, canReadEventOrder } = session;
   const initial = new URLSearchParams(location.search);
   let being = canOrderEvents ? (initial.get('being') ?? '') : '';
   let chain = initial.get('chain') ?? '';
@@ -208,19 +208,35 @@ export async function mount() {
     );
     filters.append(advanced);
   }
-  if (canWrite) {
+  if (session.canCreateEntries) {
     const create = el('details', '', 'panel');
     create.append(el('summary', 'Create an Event'));
     const form = el('form', '', 'stack');
     const name = field('Event name');
     name.input.required = true;
+    const kind = el('select');
+    kind.setAttribute('aria-label', 'Entry kind');
+    for (const [value, label] of [
+      ['event', 'Event'],
+      ['fact', 'Fact'],
+    ]) {
+      const option = el('option', label);
+      option.value = value;
+      kind.append(option);
+    }
+    const kindLabel = el('label', 'Entry kind');
+    kindLabel.append(kind);
     const save = el('button', 'Create Event', 'btn');
     save.type = 'submit';
+    kind.addEventListener('change', () => {
+      save.textContent = kind.value === 'event' ? 'Create Event' : 'Create Fact';
+    });
     const progress = el('p');
     progress.setAttribute('role', 'status');
     const id = crypto.randomUUID();
     form.append(
       name.label,
+      kindLabel,
       el(
         'p',
         'Starts restricted and undated. You can add dates and Information after saving.',
@@ -238,7 +254,12 @@ export async function mount() {
         await unwrap(
           await client.POST('/tenants/{tenant_id}/entities', {
             params: { path: { tenant_id: tenantId } },
-            body: { id, name: name.input.value, kinds: ['event'], parents: [] },
+            body: {
+              id,
+              name: name.input.value,
+              kinds: [kind.value as 'event' | 'fact'],
+              parents: [],
+            },
           }),
         );
         if (form.isConnected) location.assign(entryHref(tenantId, id));
@@ -247,7 +268,7 @@ export async function mount() {
           const existing = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
             params: { path: { tenant_id: tenantId, entity_id: id } },
           });
-          if (existing.data?.kinds.includes('event')) {
+          if (existing.data?.kinds.includes(kind.value as 'event' | 'fact')) {
             if (form.isConnected) location.assign(entryHref(tenantId, id));
             return;
           }
