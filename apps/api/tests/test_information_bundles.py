@@ -85,6 +85,7 @@ async def test_text_append_replay_order_and_removal(
         assert not remaining["is_public"]
         assert (await client.get(base + "/audience")).json() == {
             "is_public": False,
+            "shared_with_participants": False,
             "entity_ids": [],
             "player_ids": [],
         }

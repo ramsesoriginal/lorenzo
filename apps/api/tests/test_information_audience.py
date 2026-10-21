@@ -62,14 +62,22 @@ async def test_audience_replace_is_atomic_and_versioned(
             headers={"If-Match": changed.headers["etag"]},
         )
         assert bad.status_code == 422
-        assert (await client.get(base + "/audience")).json() == {**body, "shared_with_participants": False}
+        assert (await client.get(base + "/audience")).json() == {
+            **body,
+            "shared_with_participants": False,
+        }
         cleared = await client.put(
             base + "/audience",
             json={"is_public": True},
             headers={"If-Match": changed.headers["etag"]},
         )
         assert cleared.status_code == 200, cleared.text
-        assert cleared.json() == {"is_public": True, "shared_with_participants": False, "entity_ids": [], "player_ids": []}
+        assert cleared.json() == {
+            "is_public": True,
+            "shared_with_participants": False,
+            "entity_ids": [],
+            "player_ids": [],
+        }
         async with admin_session_factory() as session:
             assert not (
                 await session.execute(select(Knowledge.id).where(Knowledge.tenant_id == tenant))
