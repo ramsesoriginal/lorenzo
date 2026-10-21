@@ -87,5 +87,4 @@ The Event lists its recorded learning. Following the being link opens its record
 
 Removing a learning record corrects provenance; it does not revoke access, mean forgetting or remove participation. Remove dependent learning records before removing a participation or deleting its Information/entry. Records follow Information identity through wording edits and do not snapshot the earlier text. An empty list means no learning history is recorded, not that nobody knew. Existing audience grants and untimed workflows remain unchanged.
 
-
 Sharing a relationship through an Event that is hidden from a reader does not reveal a path through that Event. To disclose only that Arrival happened before Departure, record and share that direct ordering assertion. The reader is never told a hidden intermediary exists. Participation and learning records keep their full-visibility staff restriction in this slice; viewing an Event or its shared causes grants neither of those records.

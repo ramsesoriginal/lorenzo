@@ -91,7 +91,9 @@ export async function mount() {
               {
                 causal: 'Causal order',
                 ruled: 'Recorded order',
-                linearized: 'Linearized · no recorded ordering path',
+                linearized: canOrderEvents
+                  ? 'Linearized · no recorded ordering path'
+                  : 'Linearized · no visible recorded ordering path',
               }[entry.order_basis],
               'caption',
             ),

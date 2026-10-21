@@ -1113,6 +1113,9 @@ test('shared Event order is readable without exposing private relationships or e
   await reader.getByLabel('List order', { exact: true }).selectOption('order');
   await reader.getByRole('button', { name: 'Find Events', exact: true }).click();
   await expect(reader.getByRole('status')).toHaveText('3 Events.');
+  await expect(reader.locator('[data-event-list]')).toContainText(
+    'Linearized · no visible recorded ordering path',
+  );
   await expect(reader.locator('[data-event-list]')).not.toContainText(secret.name);
   await expect(reader.getByText('Participants and causes', { exact: true })).toHaveCount(0);
   await expect(reader.getByText('Causes', { exact: true })).toBeVisible();
