@@ -117,6 +117,7 @@ updates:
       - "/packages/stat-values"
       - "/packages/information-editor"
       - "/packages/app-shell"
+      - "/packages/period-picker"
     schedule:
       interval: "weekly"
     commit-message:

@@ -73,6 +73,10 @@
       "release-type": "node",
       "component": "app-shell"
     },
+    "packages/period-picker": {
+      "release-type": "node",
+      "component": "period-picker"
+    },
     "apps/inventory-ios": {
       "release-type": "simple",
       "component": "inventory-ios"
