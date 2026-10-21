@@ -160,7 +160,8 @@ import '../styles/bench.css';
 
         await bench.loadEntries();
         const first = bench.entries.find((e) => e.kinds.includes('item'));
-        if (first) shell.select(first.id);
+        // The author may already have selected or created an entry while the library loaded.
+        if (first && shell.selected === null) shell.select(first.id);
       }
     </script>
   </body>
