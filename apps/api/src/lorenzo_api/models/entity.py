@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.knowledge import Knowledge
     from lorenzo_api.models.ownership import Ownership
     from lorenzo_api.models.stat_group import StatGroup
+    from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
     from lorenzo_api.models.tenant import Tenant
     from lorenzo_api.models.v_effective_stat import VEffectiveStat
     from lorenzo_api.stat_evaluation import Contents
@@ -43,6 +44,19 @@ class Entity(Base):
     # Declarative class otherwise raises MappedAnnotationError - User's
     # authgear_roles precedent.
     __allow_unmapped__ = True
+
+    scene: Mapped[Scene | None] = relationship(
+        "Scene", foreign_keys="Scene.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+    scene_appearance: Mapped[SceneAppearance | None] = relationship(
+        "SceneAppearance",
+        foreign_keys="SceneAppearance.entity_id",
+        viewonly=True,
+        lazy="raise_on_sql",
+    )
+    story_session: Mapped[StorySession | None] = relationship(
+        "StorySession", foreign_keys="StorySession.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
 
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]

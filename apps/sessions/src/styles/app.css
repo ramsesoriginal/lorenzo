@@ -1,0 +1,142 @@
+/* Shared brand supplies the visual language; these rules arrange Session content. */
+.wrap {
+  width: 100%;
+  max-width: 70rem;
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+  box-sizing: border-box;
+}
+main.wrap {
+  padding-block: var(--space-5);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.stack,
+.stack-tight {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+}
+.stack-tight {
+  gap: var(--space-2);
+}
+.stack > button,
+.stack-tight > button {
+  justify-self: start;
+}
+.site-header,
+.site-header nav {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.product,
+.caption,
+.intro {
+  color: var(--text-secondary);
+}
+.product {
+  font-weight: 500;
+}
+.caption {
+  font-size: 0.875rem;
+}
+.welcome {
+  max-width: 42rem;
+  margin-block: var(--space-6);
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-block: 0;
+  overflow-wrap: anywhere;
+}
+[role="status"]:empty {
+  display: none;
+}
+[hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: hidden must override layout classes. */ display: none !important;
+}
+label {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+input,
+select,
+textarea {
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+input[type="checkbox"] {
+  justify-self: start;
+}
+textarea {
+  min-height: 8rem;
+}
+.panel {
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+summary {
+  cursor: pointer;
+}
+footer {
+  padding-block: var(--space-5);
+  color: var(--text-secondary);
+}
+.brand-mark {
+  max-width: 12rem;
+  height: auto;
+}
+.brand-mark--dark {
+  display: none;
+}
+[data-theme="dark"] .brand-mark--light {
+  display: none;
+}
+[data-theme="dark"] .brand-mark--dark {
+  display: block;
+}
+.skip-link:not(:focus) {
+  position: absolute;
+  clip-path: inset(100%);
+}
+.session-outline {
+  list-style: none;
+  padding: 0;
+}
+.session-outline > li {
+  border-inline-start: 2px solid var(--border-subtle);
+  padding-inline-start: var(--space-4);
+}
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.ls-editor-panes {
+  display: grid;
+  gap: var(--space-3);
+}
+.stack > *,
+.stack-tight > * {
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .wrap {
+    padding-inline: var(--space-3);
+  }
+  .brand-mark {
+    max-width: 10rem;
+  }
+}

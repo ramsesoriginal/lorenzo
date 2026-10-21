@@ -91,6 +91,14 @@ from lorenzo_api.models import (
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
 )
+from lorenzo_api.models.story_session import (
+    Scene,
+    SceneAppearance,
+    SessionCharacter,
+    SessionGm,
+    SessionPlayer,
+    StorySession,
+)
 
 # What a copy does with a table's rows:
 #   rows            the planner writes them under the key of the table's name, and `write_rows`
@@ -172,6 +180,7 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(Containment, "containment", counted_on_purge=True),
     _rows(Ownership, "ownership", counted_on_purge=True),
     _rows(GroupMember, "group_member", counted_on_purge=True),
+    _rows(Scene, "scene", carried_by="entity"),
     _rows(Information, "information"),
     _rows(EventLearning, "event_learning", counted_on_purge=True),
     _rows(Payload, "payload"),
@@ -213,6 +222,11 @@ REGISTRY: tuple[CopyableTable, ...] = (
     CopyableTable("campaign_gm", CampaignGm, False, "none"),
     CopyableTable("calendar_import", CalendarImport, False, "none"),
     CopyableTable("event_group_creation", EventGroupCreation, False, "none"),
+    CopyableTable("story_session", StorySession, False, "none"),
+    CopyableTable("scene_appearance", SceneAppearance, False, "none"),
+    CopyableTable("session_gm", SessionGm, False, "none"),
+    CopyableTable("session_player", SessionPlayer, False, "none"),
+    CopyableTable("session_character", SessionCharacter, False, "none"),
     CopyableTable("invite", Invite, False, "none"),
     CopyableTable("campaign_profile_picture", CampaignProfilePicture, False, "none"),
     CopyableTable("character_player", CharacterPlayer, False, "none"),

@@ -56,6 +56,7 @@ from lorenzo_api.models import (
     RepositoryReleaseDocument,
     RepositoryReleasedRow,
     RepositoryShowcase,
+    Scene,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -86,6 +87,7 @@ async def seed_every_content_table(
         entity("Harpers"),
         entity("Elminster"),
     )
+    scene = entity("Fixture Scene")
     calendar = entity("Fixture calendar")
     period = entity("Fixture year")
     event = entity("Fixture event")
@@ -106,6 +108,7 @@ async def seed_every_content_table(
                     "segments": [{"key": "month", "name": "Month", "days": 30}],
                 },
             ),
+            EntityAudience(entity_id=scene.id, tenant_id=tenant_id, is_public=False),
             Fact(entity_id=fact.id, tenant_id=tenant_id),
             EntityAudience(entity_id=fact.id, tenant_id=tenant_id, is_public=False),
         ]
@@ -144,6 +147,7 @@ async def seed_every_content_table(
         ]
     )
     await session.flush()
+    session.add(Scene(entity_id=scene.id, tenant_id=tenant_id, period_entity_id=period.id))
     session.add(
         EntryCalendarPeriod(entity_id=event.id, period_entity_id=period.id, tenant_id=tenant_id)
     )

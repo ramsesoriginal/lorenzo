@@ -99,6 +99,7 @@ from lorenzo_api.models import (
     VEffectiveStat,
     formula_load_options,
 )
+from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 from lorenzo_api.my_links import (
     MY_HINT,
     MY_PREFIX,
@@ -160,6 +161,9 @@ _KINDS: tuple[
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
+            | Scene
+            | SceneAppearance
+            | StorySession
         ],
     ],
     ...,
@@ -173,6 +177,9 @@ _KINDS: tuple[
     ("calendar_period", CalendarPeriod),
     ("event", StoryEvent),
     ("observance", CalendarObservance),
+    ("scene", Scene),
+    ("scene_appearance", SceneAppearance),
+    ("session", StorySession),
 )
 
 
@@ -585,6 +592,9 @@ async def get_entity_detail_or_404(
             selectinload(Entity.contained_links).joinedload(Containment.child),
             joinedload(Entity.slug),
             # What the entry is (ADR 0217).
+            joinedload(Entity.scene),
+            joinedload(Entity.scene_appearance),
+            joinedload(Entity.story_session),
             joinedload(Entity.fact),
             joinedload(Entity.calendar),
             joinedload(Entity.calendar_period),
@@ -1131,6 +1141,14 @@ async def authorize_entity_write(
     `forbidden` is what to raise instead of InformationManagementForbiddenError,
     for a write that isn't about information (an entity's slug, ADR 0107).
     """
+    from lorenzo_api.session_access import manages_planning_entry, planning_entry
+
+    if await planning_entry(session, tenant_id, entity_id):
+        if await manages_planning_entry(session, tenant_id, entity_id, user.id):
+            return
+        raise forbidden or InformationManagementForbiddenError(
+            detail="Only this Session's GMs can edit its preparation"
+        )
     if await is_event_fact(session, tenant_id=tenant_id, entity_id=entity_id):
         if await edits_event_fact(
             session, tenant_id=tenant_id, user_id=user.id, entity_id=entity_id
@@ -1253,11 +1271,18 @@ async def create_information(
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
 
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    collaborative = await is_event_fact(session, tenant_id=tenant_id, entity_id=entity_id)
+    from lorenzo_api.session_access import manages_planning_entry, planning_entry
+
+    session_note = await planning_entry(session, tenant_id, entity_id)
+    collaborative = session_note or await is_event_fact(
+        session, tenant_id=tenant_id, entity_id=entity_id
+    )
     if collaborative:
-        if not await manages_events(session, tenant_id=tenant_id, user_id=user.id) and (
-            body.type != "note" or body.order is not None
-        ):
+        if not (
+            await manages_planning_entry(session, tenant_id, entity_id, user.id)
+            if session_note
+            else await manages_events(session, tenant_id=tenant_id, user_id=user.id)
+        ) and (body.type != "note" or body.order is not None):
             raise InformationManagementForbiddenError(detail="Readers can append their own notes")
     else:
         await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)
@@ -1630,6 +1655,19 @@ async def authorize_information_edit(
         raise InformationNotFoundError(
             detail=f"No information with id {information.id} in tenant {tenant_id}"
         ) from None
+    from lorenzo_api.session_access import manages_planning_entry, planning_entry
+
+    if await planning_entry(session, tenant_id, information.entity_id):
+        if await manages_planning_entry(session, tenant_id, information.entity_id, user.id) or (
+            information.created_by == user.id and information.type == "note"
+        ):
+            return
+        reader = await resolve_information_reader(
+            session, user_id=user.id, tenant_id=tenant_id, information=[information]
+        )
+        if not reader.can_see(information):
+            raise InformationNotFoundError(detail="No such Information in this library")
+        raise InformationManagementForbiddenError(detail="Readers edit only their own notes")
     if await is_event_fact(session, tenant_id=tenant_id, entity_id=information.entity_id):
         await require_tenant_participant(session, tenant_id=tenant_id, user=user)
         if await manages_events(session, tenant_id=tenant_id, user_id=user.id):
@@ -1665,7 +1703,7 @@ async def editable_fact_audience(
     if not any(
         [
             await session.get(model, entity_id) is not None
-            for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance)
+            for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance, Scene)
         ]
     ):
         raise InvalidKindRequestError(
@@ -1998,7 +2036,11 @@ async def entry_collaboration_access(
 ) -> EntryCollaborationAccess:
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     await get_entity_or_404(session, entity_id, tenant_id)
-    collaborative = await is_event_fact(session, tenant_id=tenant_id, entity_id=entity_id)
+    from lorenzo_api.session_access import planning_entry
+
+    collaborative = await planning_entry(session, tenant_id, entity_id) or await is_event_fact(
+        session, tenant_id=tenant_id, entity_id=entity_id
+    )
     editable = False
     try:
         await authorize_entity_write(session, tenant_id=tenant_id, user=user, entity_id=entity_id)

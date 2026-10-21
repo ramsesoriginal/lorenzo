@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     inventory_web_url: str = "https://lorenzo-inventory-web.pages.dev"
     beings_url: str = "https://lorenzo-beings.pages.dev"
     bench_url: str = "https://lorenzo-bench.pages.dev"
+    sessions_url: str = "https://lorenzo-sessions.pages.dev"
     calendars_url: str = "https://lorenzo-calendars.pages.dev"
     # Optional per-link overrides in APP_LINK_TEMPLATES: space-separated `name=template`
     # pairs (like CORS_ALLOWED_ORIGINS, no commas and no JSON, for the deploy action's sake),
@@ -86,6 +87,7 @@ class Settings(BaseSettings):
         "beings_url",
         "bench_url",
         "calendars_url",
+        "sessions_url",
         mode="before",
     )
     @classmethod

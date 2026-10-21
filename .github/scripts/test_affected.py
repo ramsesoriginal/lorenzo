@@ -245,14 +245,14 @@ class ThisRepository(unittest.TestCase):
         tests = affected.affected(self.graph, ["packages/api-client/src/index.ts"]).tests
         self.assertEqual(
             tests,
-            {"packages/api-client", "apps/loot-bot", "apps/inventory-web", "apps/account-hub", "apps/bench", "apps/beings", "apps/calendars", "packages/stat-values", "packages/information-editor"},
+            {"packages/api-client", "apps/loot-bot", "apps/inventory-web", "apps/account-hub", "apps/bench", "apps/beings", "apps/calendars", "apps/sessions", "packages/stat-values", "packages/information-editor"},
         )
 
     def test_an_api_change_does_not_retest_the_typescript_apps(self) -> None:
         result = affected.affected(self.graph, ["apps/api/src/lorenzo_api/main.py"])
         self.assertEqual(result.tests, {"apps/api"})
         self.assertEqual(result.drift, {"apps/cli", "packages/api-client", "apps/inventory-mobile", "apps/inventory-ios"})
-        self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e", "account-hub-real-api", "beings-e2e", "bench-e2e", "calendars-e2e"})
+        self.assertEqual(result.suites, {"inventory-web-e2e", "cli-e2e", "account-hub-real-api", "beings-e2e", "bench-e2e", "calendars-e2e", "sessions-e2e"})
         self.assertTrue(result.openapi_diff)
 
     def test_a_hub_change_runs_the_hubs_real_api_suite(self) -> None:

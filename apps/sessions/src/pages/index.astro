@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base>
+  <div id="sessions-home" class="stack"></div>
+  <script>
+    import { mountHome } from '../lib/views';
+    document.addEventListener('astro:page-load', () => void mountHome());
+  </script>
+</Base>

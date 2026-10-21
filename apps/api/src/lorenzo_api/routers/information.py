@@ -127,10 +127,18 @@ async def update_information(
         session, tenant_id=tenant_id, user=user, information=information
     )
     from lorenzo_api.event_fact_access import is_event_fact, manages_events
+    from lorenzo_api.session_access import manages_planning_entry, planning_entry
 
     if (
-        await is_event_fact(session, tenant_id=tenant_id, entity_id=information.entity_id)
-        and not await manages_events(session, tenant_id=tenant_id, user_id=user.id)
+        (
+            await planning_entry(session, tenant_id, information.entity_id)
+            or await is_event_fact(session, tenant_id=tenant_id, entity_id=information.entity_id)
+        )
+        and not (
+            await manages_planning_entry(session, tenant_id, information.entity_id, user.id)
+            if await planning_entry(session, tenant_id, information.entity_id)
+            else await manages_events(session, tenant_id=tenant_id, user_id=user.id)
+        )
         and (body.order is not None or (body.type is not None and body.type != "note"))
     ):
         raise InformationManagementForbiddenError(

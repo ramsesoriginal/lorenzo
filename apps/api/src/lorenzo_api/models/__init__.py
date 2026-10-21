@@ -80,6 +80,12 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "Scene",
+    "SceneAppearance",
+    "SessionCharacter",
+    "SessionGm",
+    "SessionPlayer",
+    "StorySession",
     "EventRelationship",
     "EventParticipant",
     "EventLearning",
@@ -169,3 +175,12 @@ __all__ = [
     "VItem",
     "VItemInstance",
 ]
+
+from lorenzo_api.models.story_session import (
+    Scene,
+    SceneAppearance,
+    SessionCharacter,
+    SessionGm,
+    SessionPlayer,
+    StorySession,
+)
