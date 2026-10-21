@@ -1,4 +1,5 @@
 import { client, fetchAllPages, type Schema, unwrap } from './api';
+import { coveragePanel, referencePanel } from './context';
 import { button, el, field, link, message, select, sessionHref } from './dom';
 import { notes } from './notes';
 import { start } from './sign-in';
@@ -148,6 +149,7 @@ export async function mountSession() {
       host.replaceChildren(
         link('My sessions', '/'),
         el('h1', session.name),
+        link('Browse reusable scenes', `/scenes/?${new URLSearchParams({ tenant })}`),
         el('p', session.real_date ?? 'Real-world date not set', 'caption'),
       );
       if (session.can_manage)
@@ -155,20 +157,32 @@ export async function mountSession() {
           await detailsEditor(session, version, refresh),
           await rosterEditor(session, version, refresh),
         );
-      host.append(await notes(tenant, id, () => void refresh()));
+      host.append(
+        await notes(tenant, id, () => void refresh()),
+        await referencePanel(tenant, 'sessions', id, session.can_manage, refresh),
+        await coveragePanel(tenant, id, session.can_manage, refresh),
+      );
       const outline = el('section', '', 'stack');
       outline.append(el('h2', 'Scenes'));
       const list = el('ol', '', 'session-outline stack');
       for (const appearance of session.scenes) {
         const row = el('li', '', 'stack');
         row.append(
-          el('h3', appearance.name),
+          el('h3'),
           el(
             'p',
             appearance.is_shared ? 'Shared with session participants' : 'GM preparation',
             'caption',
           ),
         );
+        row
+          .querySelector('h3')
+          ?.append(
+            link(
+              appearance.name,
+              `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
+            ),
+          );
         if (session.can_manage) {
           const index = session.scenes.indexOf(appearance);
           const move = async (delta: number) => {
@@ -206,9 +220,34 @@ export async function mountSession() {
               },
             ),
           );
+          controls.append(
+            button('Remove scene appearance', async () => {
+              if (
+                !confirm(
+                  'Remove this appearance and its session-specific notes? The reusable scene remains.',
+                )
+              )
+                return;
+              await unwrap(
+                await client.DELETE(
+                  '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
+                  {
+                    params: {
+                      path: { ...path, appearance_id: appearance.id },
+                      header: { 'if-match': version },
+                    },
+                  },
+                ),
+              );
+              await refresh();
+            }),
+          );
           row.append(controls);
         }
-        row.append(await notes(tenant, appearance.id, () => void refresh()));
+        row.append(
+          await referencePanel(tenant, 'scenes', appearance.scene_entity_id, false, refresh),
+          await notes(tenant, appearance.id, () => void refresh()),
+        );
         list.append(row);
       }
       outline.append(list);

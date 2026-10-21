@@ -67,6 +67,7 @@ from lorenzo_api.models import (
     StatGroup,
     StoryEvent,
 )
+from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 KINDS = (
@@ -189,6 +190,9 @@ class Content:
     event_participants: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     event_learning: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID]] = field(default_factory=list)
     shared_event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
+    scene_facts: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
+    scene_events: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
+    scene_beings: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
     scenes: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
@@ -271,6 +275,39 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     )
     for entity_id in excluded:
         c.entities.pop(entity_id, None)
+    for field_name, source_column, target, sharing_column, tenant_column in [
+        (
+            "scene_facts",
+            SceneFact.scene_entity_id,
+            SceneFact.fact_entity_id,
+            SceneFact.is_shared,
+            SceneFact.tenant_id,
+        ),
+        (
+            "scene_events",
+            SceneEvent.scene_entity_id,
+            SceneEvent.event_entity_id,
+            SceneEvent.is_shared,
+            SceneEvent.tenant_id,
+        ),
+        (
+            "scene_beings",
+            SceneBeing.scene_entity_id,
+            SceneBeing.being_entity_id,
+            SceneBeing.is_shared,
+            SceneBeing.tenant_id,
+        ),
+    ]:
+        setattr(
+            c,
+            field_name,
+            {
+                (source, dest): shared
+                for source, dest, shared in await rows(
+                    source_column, target, sharing_column, where=tenant_column == t
+                )
+            },
+        )
     c.scenes = dict(await rows(Scene.entity_id, Scene.period_entity_id, where=Scene.tenant_id == t))
     for entity_id in c.scenes:
         c.kinds[entity_id].add("scene")
@@ -647,6 +684,15 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     ]
     c.entry_dates = [(e, p) for e, p in c.entry_dates if e not in excluded]
     c.prototypes = [(e, p) for e, p in c.prototypes if e not in excluded and p not in excluded]
+    c.entity_groups = [(e, g) for e, g in c.entity_groups if e not in excluded]
+    c.stats = {(e, d): value for (e, d), value in c.stats.items() if e not in excluded}
+    c.formulas = {(e, d): value for (e, d), value in c.formulas.items() if e not in excluded}
+    c.fact_about = [(f, e) for f, e in c.fact_about if e not in excluded]
+    c.event_learning = [(e, b, i) for e, b, i in c.event_learning if i not in excluded_information]
+    c.participant_information_audiences = [
+        i for i in c.participant_information_audiences if i not in excluded_information
+    ]
+    c.participant_entry_audiences = [e for e in c.participant_entry_audiences if e not in excluded]
     return c
 
 

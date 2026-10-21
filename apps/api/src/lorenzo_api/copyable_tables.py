@@ -91,6 +91,13 @@ from lorenzo_api.models import (
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
 )
+from lorenzo_api.models.story_context import (
+    SceneBeing,
+    SceneEvent,
+    SceneFact,
+    SessionEvent,
+    SessionFact,
+)
 from lorenzo_api.models.story_session import (
     Scene,
     SceneAppearance,
@@ -181,6 +188,9 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(Ownership, "ownership", counted_on_purge=True),
     _rows(GroupMember, "group_member", counted_on_purge=True),
     _rows(Scene, "scene", carried_by="entity"),
+    _rows(SceneFact, "scene_fact", counted_on_purge=True),
+    _rows(SceneEvent, "scene_event", counted_on_purge=True),
+    _rows(SceneBeing, "scene_being", counted_on_purge=True),
     _rows(Information, "information"),
     _rows(EventLearning, "event_learning", counted_on_purge=True),
     _rows(Payload, "payload"),
@@ -227,6 +237,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     CopyableTable("session_gm", SessionGm, False, "none"),
     CopyableTable("session_player", SessionPlayer, False, "none"),
     CopyableTable("session_character", SessionCharacter, False, "none"),
+    CopyableTable("session_fact", SessionFact, False, "none"),
+    CopyableTable("session_event", SessionEvent, False, "none"),
     CopyableTable("invite", Invite, False, "none"),
     CopyableTable("campaign_profile_picture", CampaignProfilePicture, False, "none"),
     CopyableTable("character_player", CharacterPlayer, False, "none"),

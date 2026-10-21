@@ -64,9 +64,12 @@ from lorenzo_api.models import (
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
     RepositorySubscription,
+    Scene,
+    SceneAppearance,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
+    StorySession,
     Tenant,
     TenantKind,
 )
@@ -901,6 +904,25 @@ class _Planner:
                         "parent_entity_id": parent_id,
                     }
                 )
+        for field_name, table, target_column in [
+            ("scene_facts", "scene_fact", "fact_entity_id"),
+            ("scene_events", "scene_event", "event_entity_id"),
+            ("scene_beings", "scene_being", "being_entity_id"),
+        ]:
+            for (source, target), shared in getattr(c, field_name).items():
+                if copies("entity", source):
+                    local_target = self._local(c, "entity", target)
+                    if local_target is None:
+                        drop(table, source, "its target was not copied")
+                    else:
+                        self.rows[table].append(
+                            {
+                                "tenant_id": tenant_id,
+                                "scene_entity_id": self.local["entity"][source],
+                                target_column: local_target,
+                                "is_shared": shared,
+                            }
+                        )
         for e, observance in c.observances.items():
             if copies("entity", e):
                 calendar_id = self._local(c, "entity", observance["calendar"])
@@ -1399,7 +1421,40 @@ async def forget_copy(
                 )
             )
         )
-        if local_period or local_date or local_rule:
+        local_story = await session.scalar(
+            select(
+                exists().where(
+                    SceneAppearance.tenant_id == t,
+                    SceneAppearance.scene_entity_id.in_(entities),
+                    SceneAppearance.entity_id.not_in(entities),
+                )
+            )
+        )
+        local_story_period = await session.scalar(
+            select(
+                exists().where(
+                    StorySession.tenant_id == t,
+                    StorySession.start_period_id.in_(entities),
+                )
+            )
+        )
+        local_scene_period = await session.scalar(
+            select(
+                exists().where(
+                    Scene.tenant_id == t,
+                    Scene.entity_id.not_in(entities),
+                    Scene.period_entity_id.in_(entities),
+                )
+            )
+        )
+        if (
+            local_period
+            or local_date
+            or local_rule
+            or local_story
+            or local_story_period
+            or local_scene_period
+        ):
             raise EntityKindInUseError(
                 detail="Local dated material still references this copy. Resolve it before purging."
             )
@@ -1574,6 +1629,20 @@ async def forget_copy(
                 ),
             ),
         }
+        from lorenzo_api.story_context import SCENE_REFERENCES
+
+        for binding in SCENE_REFERENCES.values():
+            source = getattr(binding.model, binding.source)
+            target = getattr(binding.model, binding.target)
+            also[binding.model.__tablename__] = await _count(
+                session,
+                binding.model,
+                binding.model.tenant_id == t,
+                or_(
+                    source.in_(entities) & target.not_in(entities),
+                    target.in_(entities) & source.not_in(entities),
+                ),
+            )
         # The counts above are hand-written; the registry says which tables they are for.
         assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED
         previous.also_removed = {kind: n for kind, n in also.items() if n}
@@ -1636,6 +1705,18 @@ async def forget_copy(
                 ),
             )
         )
+        from lorenzo_api.story_context import SCENE_REFERENCES, SESSION_REFERENCES
+
+        for binding in [*SCENE_REFERENCES.values(), *SESSION_REFERENCES.values()]:
+            await session.execute(
+                delete(binding.model).where(
+                    binding.model.tenant_id == t,
+                    or_(
+                        getattr(binding.model, binding.source).in_(entities),
+                        getattr(binding.model, binding.target).in_(entities),
+                    ),
+                )
+            )
         await session.execute(delete(Entity).where(Entity.tenant_id == t, Entity.id.in_(entities)))
         await session.execute(
             delete(StatDefinition).where(

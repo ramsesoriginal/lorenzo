@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base>
+  <div id="scenes-view" class="stack"></div>
+  <script>
+    import { mountScenes } from '../../lib/scenes';
+    document.addEventListener('astro:page-load', () => void mountScenes());
+  </script>
+</Base>
