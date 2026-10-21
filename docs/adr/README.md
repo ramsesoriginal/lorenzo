@@ -327,3 +327,6 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0318 - Explicit Session and play order](0318-explicit-session-and-play-order.md)
 
 - [0319 - Personal lived order as Event evidence](0319-personal-lived-order-as-event-evidence.md)
+
+- [0320 - Explicit clocks, Event readings and calendar reckonings](0320-explicit-clocks-readings-and-reckonings.md) — optional Clock entries and exact entered readings, independent of dates and order
+- [0321 - Constant clock ratios and reader-scoped conversion](0321-constant-clock-ratios-and-reader-conversion.md) — exact signed ratios, anchors, permitted derivation and visible conflicts

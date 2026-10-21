@@ -2,6 +2,12 @@
 
 Status: partially accepted — calendar/date-association slice accepted 2026-10-19; causal and historical Decision open
 
+Clock scope update (2026-10-22): ADRs [0320](../adr/0320-explicit-clocks-readings-and-reckonings.md)
+and [0321](../adr/0321-constant-clock-ratios-and-reader-conversion.md) accept explicit clocks,
+readings, reckonings and constant signed ratios with optional anchors. They supersede the
+amendment's automatic traveller sync-point priority and conflict-write rejection for this slice.
+The remaining candidate designs and historical proposals below remain proposals.
+
 ## Accepted calendar slice (2026-10-19)
 
 The maintainer accepted [ADR 0308](../adr/0308-authored-calendars-and-calculation.md) to
