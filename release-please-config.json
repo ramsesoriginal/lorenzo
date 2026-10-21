@@ -77,6 +77,10 @@
       "release-type": "node",
       "component": "period-picker"
     },
+    "packages/read-cache": {
+      "release-type": "node",
+      "component": "read-cache"
+    },
     "apps/inventory-ios": {
       "release-type": "simple",
       "component": "inventory-ios"
