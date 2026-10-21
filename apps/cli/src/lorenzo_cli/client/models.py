@@ -711,6 +711,12 @@ class EntitySummary(BaseModel):
     quantity: int | None = Field(None, title="Quantity")
 
 
+class EntryCollaborationAccess(BaseModel):
+    can_edit: bool = Field(..., title="Can Edit")
+    can_add_notes: bool = Field(..., title="Can Add Notes")
+    editable_information_ids: list[UUID] = Field(..., title="Editable Information Ids")
+
+
 class Kind12(StrEnum):
     entity = "entity"
     player = "player"
@@ -726,6 +732,7 @@ class EntryKnowerOut(BaseModel):
 class EventAccess(BaseModel):
     can_order: bool = Field(..., title="Can Order")
     can_read_order: bool = Field(..., title="Can Read Order")
+    can_retain_private: bool = Field(..., title="Can Retain Private")
 
 
 class Relation(StrEnum):

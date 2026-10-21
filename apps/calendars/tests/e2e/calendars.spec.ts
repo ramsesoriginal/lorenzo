@@ -1,5 +1,5 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
-import { ok, refreshTokenFor } from './support/api.ts';
+import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { AUTHGEAR_URL, REFRESH_TOKEN_KEY, SITE_URL, SUBJECT_COOKIE } from './support/env.ts';
 import { buildWorld } from './support/world.ts';
 
@@ -178,7 +178,7 @@ test('readers see permitted names and dates without private information or autho
   ).toBeVisible();
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toHaveCount(0);
   await expect(page.getByText('No information is available to you here.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add information', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add information', exact: true })).toHaveCount(1);
   await page.context().close();
 });
 test('a calendar can be created through structured preview and opened on a phone after PKCE login', async ({
@@ -617,7 +617,7 @@ test('standalone Events can be found by participating being without acquiring a 
     reader.getByRole('heading', { name: 'Events', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(reader.getByText('Participants and causes', { exact: true })).toHaveCount(0);
-  await expect(reader.getByText('Create an Event', { exact: true })).toHaveCount(0);
+  await expect(reader.getByText('Create an Event', { exact: true })).toHaveCount(1);
   await expect(reader.getByRole('link', { name: 'The beacon is lit', exact: true })).toHaveCount(0);
   await page.context().close();
   await reader.context().close();
@@ -691,8 +691,16 @@ test('prefetched Event information survives in-app navigation only after fresh a
 }) => {
   const world = await buildWorld();
   const tenant_id = world.tenantId;
+  const author = await apiAs(`calendar-other-author-${crypto.randomUUID()}`);
+  const me = await ok(author.GET('/me'));
+  await ok(
+    world.api.POST('/tenants/{tenant_id}/memberships', {
+      params: { path: { tenant_id } },
+      body: { user_id: me.id, role: 'author' },
+    }),
+  );
   const event = await ok(
-    world.api.POST('/tenants/{tenant_id}/entities', {
+    author.POST('/tenants/{tenant_id}/entities', {
       params: { path: { tenant_id } },
       body: {
         name: 'A private departure',
@@ -703,7 +711,7 @@ test('prefetched Event information survives in-app navigation only after fresh a
     }),
   );
   await ok(
-    world.api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+    author.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
       params: { path: { tenant_id, entity_id: event.id } },
       body: {
         title: 'Private record',

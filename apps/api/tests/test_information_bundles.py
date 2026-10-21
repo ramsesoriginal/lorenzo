@@ -225,6 +225,14 @@ async def test_an_author_of_a_private_note_can_read_it_for_editing(
         )
         assert fact.status_code == 201, fact.text
         fact_id = fact.json()["id"]
+        from lorenzo_api.models import Entity, User
+
+        async with admin_session_factory() as session:
+            author = User(authgear_subject_id=str(uuid.uuid4()))
+            session.add(author)
+            await session.flush()
+            (await session.get_one(Entity, uuid.UUID(fact_id))).created_by = author.id
+            await session.commit()
         grant = await client.put(base + "/knowers/" + fact_id)
         assert grant.status_code == 200, grant.text
         async with admin_session_factory() as session:
@@ -296,6 +304,14 @@ async def test_picture_conditional_reads_recheck_both_fact_audiences(
         assert original.status_code == 200
         conditional = {"If-None-Match": original.headers["etag"]}
         async with admin_session_factory() as session:
+            # Exercise both audience gates as a reader, not as this fact/note's creator.
+            from lorenzo_api.models import Entity, User
+
+            author = User(authgear_subject_id=str(uuid.uuid4()))
+            session.add(author)
+            await session.flush()
+            (await session.get_one(Entity, uuid.UUID(entry_id))).created_by = author.id
+            (await session.get_one(Information, uuid.UUID(info_id))).created_by = author.id
             campaign = await make_campaign(session, tenant_id=tenant)
             session.add(Player(tenant_id=tenant, user_id=test_user_id, campaign_id=campaign.id))
             await session.delete(await session.get_one(Membership, (tenant, test_user_id)))
