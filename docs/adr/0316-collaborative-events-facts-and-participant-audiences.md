@@ -65,10 +65,13 @@ remains one-level; this does not add nested-group inheritance. Removing Characte
 tracking preserves membership; deleting the Being removes its membership.
 
 GMs and Authors can create a named ordinary group from an Event's participants.
-The app previews the exact current beings before confirmation. Creation copies
+The app previews the exact current beings before confirmation and explains that ordinary
+group names and member lists are readable by library participants. Creation copies
 membership once, under a version precondition and in one transaction; later
 participation changes do not synchronize the group. Retry-safe client ids prevent
-duplicate groups and must not add members to an unrelated existing group. Creating
+duplicate groups and must not add members to an unrelated existing group. A local,
+tenant-isolated creation receipt keeps the actor and request digest, without a persistent
+source-Event relationship; it is operational state and is never copied as repository content. Creating
 the group grants no Event or Information access automatically.
 
 Any new tenant tables force RLS, use composite same-tenant foreign keys and join

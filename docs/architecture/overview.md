@@ -279,3 +279,14 @@ Lorenzo Inventory is the first native Android client ([ADR 0291](../adr/0291-inv
 ### iOS inventory companion (ADR 0307)
 
 [apps/inventory-ios](../../apps/inventory-ios) brings the native inventory/note scope to SwiftUI with encrypted offline data, explicit audiences and gallery/camera pictures. Standard macOS CI builds and simulator-tests it; an unsigned device IPA is signed locally using AltStore Classic. TestFlight is outside this slice.
+
+Event and Fact collaboration ([ADR 0316](../adr/0316-collaborative-events-facts-and-participant-audiences.md), 2026-10-21):
+
+Authors and campaign GMs manage Events and Facts throughout a library, including explicit
+ordering/causal assertions and learning records. Players create entries, edit their own and
+contribute their own notes to visible entries; ordering and learning edits remain privileged.
+Event existence/name and each Information bundle can independently follow current participants,
+without implying learning or permanent memory. Groups accept all beings, including untracked
+NPCs, and managers can create a named, versioned group snapshot from an Event's participants.
+Character tracking remains required for player control and roster seats. Clocks and historical
+state remain later decisions.
