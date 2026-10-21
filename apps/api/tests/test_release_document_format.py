@@ -99,12 +99,13 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 12
+    assert rd.FORMAT == 13
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
         "scenes": {},
         "scene_facts": [],
+        "lived_before": [],
         "scene_events": [],
         "scene_beings": [],
         "observances": {},

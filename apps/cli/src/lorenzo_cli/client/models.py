@@ -1021,6 +1021,27 @@ class LinkPreviewStatOut(BaseModel):
     value: int | str | float = Field(..., title="Value")
 
 
+class LivedAssertion(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    from_event_id: UUID = Field(..., title="From Event Id")
+    to_event_id: UUID = Field(..., title="To Event Id")
+    is_shared: bool | None = Field(False, title="Is Shared")
+
+
+class LivedOrderWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    assertions: list[LivedAssertion] = Field(..., max_length=200, min_length=1, title="Assertions")
+
+
+class LivedParticipation(BaseModel):
+    event_id: UUID = Field(..., title="Event Id")
+    name: str = Field(..., title="Name")
+
+
 class MadePrivateOut(BaseModel):
     revoked: int = Field(..., title="Revoked")
 
@@ -1724,6 +1745,11 @@ class Kind17(StrEnum):
     causes = "causes"
 
 
+class Evidence(StrEnum):
+    assertion = "assertion"
+    lived = "lived"
+
+
 class RelationshipOut(BaseModel):
     from_event_id: UUID = Field(..., title="From Event Id")
     to_event_id: UUID = Field(..., title="To Event Id")
@@ -1731,6 +1757,9 @@ class RelationshipOut(BaseModel):
     to_name: str = Field(..., title="To Name")
     kind: Kind17 = Field(..., title="Kind")
     is_shared: bool | None = Field(False, title="Is Shared")
+    evidence: Evidence | None = Field("assertion", title="Evidence")
+    being_entity_id: UUID | None = Field(None, title="Being Entity Id")
+    being_name: str | None = Field(None, title="Being Name")
 
 
 class Direction(StrEnum):
@@ -2795,6 +2824,14 @@ class LinkPreviewOut(BaseModel):
     picture_url: str | None = Field(..., title="Picture Url")
     stats: list[LinkPreviewStatOut] = Field(..., title="Stats")
     excerpt: str = Field(..., title="Excerpt")
+
+
+class LivedOrderOut(BaseModel):
+    being_id: UUID = Field(..., title="Being Id")
+    name: str = Field(..., title="Name")
+    can_manage: bool = Field(..., title="Can Manage")
+    participations: list[LivedParticipation] = Field(..., title="Participations")
+    assertions: list[RelationshipOut] = Field(..., title="Assertions")
 
 
 class ManagedTenantOut(BaseModel):

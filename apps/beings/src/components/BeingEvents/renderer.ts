@@ -1,5 +1,5 @@
 import { client, unwrap } from '../../lib/api';
-import { calendarUrl, loadAppLinks } from '../../lib/appLinks';
+import { calendarUrl, livedOrderUrl, loadAppLinks } from '../../lib/appLinks';
 import { errorMessage } from '../../lib/errorMessage';
 import { requiredIn } from '../../lib/template';
 
@@ -15,6 +15,7 @@ export function renderBeingEvents(root: HTMLElement) {
       const turn = ++generation;
       root.hidden = true;
       list.replaceChildren();
+      root.querySelector('[data-lived-order]')?.remove();
       more.hidden = true;
       let page = 1;
       async function read() {
@@ -42,6 +43,14 @@ export function renderBeingEvents(root: HTMLElement) {
           );
           if (turn !== generation || !root.isConnected) return;
           root.hidden = false;
+          const lived = livedOrderUrl(tenantAddress, beingId);
+          if (lived && !root.querySelector('[data-lived-order]')) {
+            const anchor = document.createElement('a');
+            anchor.dataset.livedOrder = '';
+            anchor.href = lived;
+            anchor.textContent = 'Personal lived order';
+            root.append(anchor);
+          }
           for (const event of events.items) {
             const row = document.createElement('li');
             const href = calendarUrl(tenantAddress, { ...event, kinds: ['event'] });

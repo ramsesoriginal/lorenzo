@@ -44,3 +44,12 @@ preserve the played record. Event presentations have independent identities and 
 relationships until shared; readers still need access to both appearance and Event. Campaign
 Session order is explicit, with unplaced Sessions preserved. GMs reorder only Sessions they
 manage. Dates and play records never become Event-order evidence or learning history.
+
+## Personal lived order
+
+Follow **Personal lived order** to review a being's existing Event participations and explicitly
+record lived-before assertions. Evidence starts private. A reviewed proposal can use permitted
+played presentations as a starting point; repeated presentations name the same participation.
+Reorder or omit participations before saving. The proposal saves atomically, rejects cycles and
+never creates Event participation, causation or learning. Authoring retains Event-order manager
+restrictions. Ordinary order rulings and each being's support remain independently removable.

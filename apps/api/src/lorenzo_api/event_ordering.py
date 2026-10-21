@@ -18,11 +18,15 @@ class Edge:
     kind: Kind
     # Disclosure metadata does not change assertion identity or ordering semantics.
     is_shared: bool = field(default=False, compare=False)
+    being_id: uuid.UUID | None = None
+    being_name: str | None = field(default=None, compare=False)
 
 
 class EventOrder:
     def __init__(self, nodes: set[uuid.UUID], edges: list[Edge]):
-        self.edges = sorted(edges, key=lambda e: (e.source, e.target, e.kind))
+        self.edges = sorted(
+            edges, key=lambda e: (e.source, e.target, e.kind, str(e.being_id or ""))
+        )
         self.outgoing: dict[uuid.UUID, list[Edge]] = {n: [] for n in nodes}
         incoming = dict.fromkeys(nodes, 0)
         pairs = set()

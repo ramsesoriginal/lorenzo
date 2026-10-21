@@ -29,7 +29,7 @@ from lorenzo_api.exceptions import (
     EventOrderPreconditionRequiredError,
 )
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
-from lorenzo_api.models import Entity, EventRelationship, StoryEvent
+from lorenzo_api.models import Entity, EventRelationship, LivedBefore, StoryEvent
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}/events",
@@ -45,6 +45,9 @@ class RelationshipOut(BaseModel):
     to_name: str
     kind: Kind
     is_shared: bool = False
+    evidence: Literal["assertion", "lived"] = "assertion"
+    being_entity_id: uuid.UUID | None = None
+    being_name: str | None = None
 
 
 class RelationshipWrite(BaseModel):
@@ -118,6 +121,8 @@ async def graph(
         literal(None, type_=Uuid),
         literal(None, type_=String),
         literal(False, type_=Boolean),
+        literal(None, type_=Uuid),
+        literal(None, type_=String),
     ).where(StoryEvent.tenant_id == tenant_id)
     edges = select(
         EventRelationship.from_event_id,
@@ -125,6 +130,8 @@ async def graph(
         EventRelationship.to_event_id,
         EventRelationship.kind,
         EventRelationship.is_shared,
+        literal(None, type_=Uuid),
+        literal(None, type_=String),
     ).where(EventRelationship.tenant_id == tenant_id)
     if visibility is not None and not (visibility.is_admin or visibility.manages_events):
         nodes = nodes.where(visible_entry_clause(visibility, StoryEvent.entity_id))
@@ -133,13 +140,48 @@ async def graph(
             visible_entry_clause(visibility, EventRelationship.from_event_id),
             visible_entry_clause(visibility, EventRelationship.to_event_id),
         )
+    being_name = (
+        select(Entity.name)
+        .where(Entity.id == LivedBefore.being_entity_id, Entity.tenant_id == tenant_id)
+        .correlate(LivedBefore)
+        .offset(0)
+        .scalar_subquery()
+    )
+    lived = select(
+        LivedBefore.from_event_id,
+        literal(None, type_=String),
+        LivedBefore.to_event_id,
+        literal("order", type_=String),
+        LivedBefore.is_shared,
+        LivedBefore.being_entity_id,
+        being_name,
+    ).where(LivedBefore.tenant_id == tenant_id)
+    if visibility is not None:
+        lived = lived.where(
+            visible_entry_clause(visibility, LivedBefore.being_entity_id),
+            visible_entry_clause(visibility, LivedBefore.from_event_id),
+            visible_entry_clause(visibility, LivedBefore.to_event_id),
+        )
+        if not (visibility.is_admin or visibility.manages_events):
+            lived = lived.where(LivedBefore.is_shared.is_(True))
     names: dict[uuid.UUID, str] = {}
     assertions = []
-    for source, name, target, kind, shared in await session.execute(union_all(nodes, edges)):
+    for source, name, target, kind, shared, being, being_name in await session.execute(
+        union_all(nodes, edges, lived)
+    ):
         if target is None:
             names[source] = name
         else:
-            assertions.append(Edge(source, target, cast(Kind, kind), is_shared=shared))
+            assertions.append(
+                Edge(
+                    source,
+                    target,
+                    cast(Kind, kind),
+                    is_shared=shared,
+                    being_id=being,
+                    being_name=being_name,
+                )
+            )
     return EventOrder(set(names), assertions), names
 
 
@@ -151,6 +193,9 @@ def output(edge: Edge, names: dict[uuid.UUID, str]) -> RelationshipOut:
         to_name=names[edge.target],
         kind=edge.kind,
         is_shared=edge.is_shared,
+        evidence="lived" if edge.being_id is not None else "assertion",
+        being_entity_id=edge.being_id,
+        being_name=edge.being_name,
     )
 
 

@@ -290,3 +290,14 @@ without implying learning or permanent memory. Groups accept all beings, includi
 NPCs, and managers can create a named, versioned group snapshot from an Event's participants.
 Character tracking remains required for player control and roster seats. Clocks and historical
 state remain later decisions.
+
+Sessions, Scenes and explicitly authored lived order (RFC 0046, ADR 0317–0319, 2026-10-21):
+
+The Sessions Astro app adds campaign Session planning, explicit rosters, calendar-period coverage,
+reusable Scenes and entry-backed Scene appearances with separate Information notes. References
+are private until shared and do not create Knowledge, Event participation or learning. Operational
+Sessions, attendance and played presentations stay local; reusable Scene content and lived-before
+assertions participate in repository copy and release. Played Scene/Event order is independent of
+preparation. Explicit lived-before support joins the guarded Event graph with participation
+provenance and independent sharing; raw SQL and concurrent writers share its cycle protection.
+Clocks, repeated personal participation and historical state remain outside this slice.

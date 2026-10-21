@@ -316,3 +316,183 @@ test('GM reviews a played-order proposal and records repeated Event presentation
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
   }
 });
+
+test('a flashback proposal needs explicit review and correction before it becomes lived evidence', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'Flashback and life', campaign_id: w.campaign.id },
+      }),
+    );
+    const path = { ...w.path, session_id: session.id };
+    const scene = await ok(
+      w.gm.POST('/tenants/{tenant_id}/scenes', {
+        params: { path: w.path },
+        body: { name: 'Looking back', is_public: true },
+      }),
+    );
+    let current = await w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+      params: { path },
+    });
+    const outline = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
+        params: { path, header: { 'if-match': current.response.headers.get('etag') ?? '' } },
+        body: { scene_entity_id: scene.id, is_shared: true },
+      }),
+    );
+    const appearance = outline.scenes[0].id;
+    const events = [];
+    for (const name of ['The launch', 'The wreck'])
+      events.push(
+        await ok(
+          w.gm.POST('/tenants/{tenant_id}/entities', {
+            params: { path: w.path },
+            body: { name, kinds: ['event'], parents: [], visibility: 'library' },
+          }),
+        ),
+      );
+    const being = await ok(
+      w.gm.POST('/tenants/{tenant_id}/entities', {
+        params: { path: w.path },
+        body: { name: 'Mara', kinds: ['being'], parents: [] },
+      }),
+    );
+    for (const event of events) {
+      const eventPath = { ...w.path, event_id: event.id };
+      const result = await w.gm.GET('/tenants/{tenant_id}/events/{event_id}/participants', {
+        params: { path: eventPath },
+      });
+      await ok(
+        w.gm.PUT('/tenants/{tenant_id}/events/{event_id}/participants/{being_id}', {
+          params: {
+            path: { ...eventPath, being_id: being.id },
+            header: { 'if-match': result.response.headers.get('etag') ?? '' },
+          },
+        }),
+      );
+    }
+    const relationPath = { ...w.path, event_id: events[0].id };
+    const relation = await w.gm.GET('/tenants/{tenant_id}/events/{event_id}/relationships', {
+      params: { path: relationPath },
+    });
+    await ok(
+      w.gm.PUT('/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}', {
+        params: {
+          path: { ...relationPath, other_event_id: events[1].id },
+          header: { 'if-match': relation.response.headers.get('etag') ?? '' },
+        },
+        body: { kind: 'causes', direction: 'outgoing' },
+      }),
+    );
+    for (const event of [...events].reverse()) {
+      current = await w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', { params: { path } });
+      await ok(
+        w.gm.POST(
+          '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}/presentations',
+          {
+            params: {
+              path: { ...path, appearance_id: appearance },
+              header: { 'if-match': current.response.headers.get('etag') ?? '' },
+            },
+            body: { event_id: event.id, is_shared: false },
+          },
+        ),
+      );
+    }
+    current = await w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', { params: { path } });
+    await ok(
+      w.gm.PUT('/tenants/{tenant_id}/sessions/{session_id}/play', {
+        params: { path, header: { 'if-match': current.response.headers.get('etag') ?? '' } },
+        body: { played_appearance_ids: [appearance] },
+      }),
+    );
+    await page.goto(`/lived/?tenant=${w.tenant.id}&being=${being.id}&session=${session.id}`);
+    await expect(
+      page.getByRole('heading', { name: 'Mara · personal lived order', exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole('button', { name: 'Propose from played participations', exact: true })
+      .click();
+    const livedPath = { ...w.path, being_id: being.id };
+    expect(
+      (
+        await ok(
+          w.gm.GET('/tenants/{tenant_id}/beings/{being_id}/lived-order', {
+            params: { path: livedPath },
+          }),
+        )
+      ).assertions,
+    ).toEqual([]);
+    await page.getByRole('button', { name: 'Save reviewed lived proposal', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('conflicts with recorded Event order');
+    await page.getByRole('button', { name: 'Experienced later in proposal', exact: true }).click();
+    await page.getByRole('button', { name: 'Save reviewed lived proposal', exact: true }).click();
+    await expect(page.getByText('The launch → The wreck', { exact: true })).toBeVisible();
+    const lived = await ok(
+      w.gm.GET('/tenants/{tenant_id}/beings/{being_id}/lived-order', {
+        params: { path: livedPath },
+      }),
+    );
+    expect(lived.assertions[0].evidence).toBe('lived');
+    expect(lived.assertions[0].is_shared).toBe(false);
+    const play = await ok(
+      w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}/play', { params: { path } }),
+    );
+    expect(play.presentations.map((p) => p.event_id)).toEqual([events[1].id, events[0].id]);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('a refresh replaces the whole Session view only after its permitted context is ready', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  let release = () => {};
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'Saved session', campaign_id: w.campaign.id },
+      }),
+    );
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await expect(page.getByRole('heading', { name: 'Saved session', exact: true })).toBeVisible();
+    await page.getByText('Session details', { exact: true }).click();
+    await page.getByLabel('Session title', { exact: true }).fill('New complete view');
+    const hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let arrived = () => {};
+    const reached = new Promise<void>((resolve) => {
+      arrived = resolve;
+    });
+    await page.route(`**/sessions/${session.id}/references`, async (route) => {
+      arrived();
+      await hold;
+      await route.continue();
+    });
+    await page.getByRole('button', { name: 'Save session details', exact: true }).click();
+    await reached;
+    await expect(page.getByRole('heading', { name: 'Saved session', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'New complete view', exact: true })).toHaveCount(
+      0,
+    );
+    release();
+    await expect(
+      page.getByRole('heading', { name: 'New complete view', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Recorded play', exact: true })).toBeVisible();
+  } finally {
+    release();
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});

@@ -56,7 +56,7 @@ async def require_no_context_references(
         is not None
     ):
         raise EntityKindInUseError(
-            detail="This entry has recorded presentations; resolve them before deletion"
+            detail="This entry has references that prevent deletion or kind removal."
         )
     for binding in [*SCENE_REFERENCES.values(), *SESSION_REFERENCES.values()]:
         if (

@@ -95,6 +95,7 @@ __all__ = [
     "StorySession",
     "EventRelationship",
     "EventParticipant",
+    "LivedBefore",
     "EventLearning",
     "EventGroupCreation",
     "CalendarImport",
@@ -183,6 +184,7 @@ __all__ = [
     "VItemInstance",
 ]
 
+from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (
     SceneBeing,

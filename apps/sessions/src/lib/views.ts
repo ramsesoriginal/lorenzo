@@ -1,6 +1,7 @@
 import { client, fetchAllPages, type Schema, unwrap } from './api';
 import { coveragePanel, referencePanel } from './context';
-import { button, el, field, link, message, select, sessionHref } from './dom';
+import { button, el, field, link, message, select, sessionHref, suspendControls } from './dom';
+import { livedLinkPanel } from './lived';
 import { notes } from './notes';
 import { playPanel, sequencePanel } from './play';
 import { start } from './sign-in';
@@ -135,131 +136,150 @@ export async function mountSession() {
       tenant = t.id;
     }
     const id = await resolveSession(tenant, address, query.has('slug'));
-    let version = '';
-    let session: StorySession;
+    let generation = 0;
+    let releaseControls: (() => void) | undefined;
     const path = { tenant_id: tenant, session_id: id };
     const refresh = async () => {
-      const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
-        params: { path },
-        cache: 'no-store',
-      });
-      session = await unwrap(result);
-      version = result.response.headers.get('etag') ?? '';
-      if (!host.isConnected) return;
-      history.replaceState(history.state, '', sessionHref(tenant, id, session.slug));
-      host.replaceChildren(
-        link('My sessions', '/'),
-        el('h1', session.name),
-        link('Browse reusable scenes', `/scenes/?${new URLSearchParams({ tenant })}`),
-        el('p', session.real_date ?? 'Real-world date not set', 'caption'),
-      );
-      if (session.can_manage)
-        host.append(
-          await detailsEditor(session, version, refresh),
-          await rosterEditor(session, version, refresh),
+      const turn = ++generation;
+      releaseControls ??= suspendControls(host);
+      try {
+        const view = el('div', '', 'stack');
+        const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+          params: { path },
+          cache: 'no-store',
+        });
+        const session = await unwrap(result);
+        const version = result.response.headers.get('etag') ?? '';
+        if (!host.isConnected || turn !== generation) return;
+        view.replaceChildren(
+          link('My sessions', '/'),
+          el('h1', session.name),
+          link('Browse reusable scenes', `/scenes/?${new URLSearchParams({ tenant })}`),
+          el('p', session.real_date ?? 'Real-world date not set', 'caption'),
         );
-      host.append(
-        await notes(tenant, id, () => void refresh()),
-        await referencePanel(tenant, 'sessions', id, session.can_manage, refresh),
-        await coveragePanel(tenant, id, session.can_manage, refresh),
-      );
-      const outline = el('section', '', 'stack');
-      outline.append(el('h2', 'Scenes'));
-      const list = el('ol', '', 'session-outline stack');
-      for (const appearance of session.scenes) {
-        const row = el('li', '', 'stack');
-        row.append(
-          el('h3'),
-          el(
-            'p',
-            appearance.is_shared ? 'Shared with session participants' : 'GM preparation',
-            'caption',
-          ),
+        if (session.can_manage)
+          view.append(
+            await detailsEditor(session, version, refresh),
+            await rosterEditor(session, version, refresh),
+          );
+        view.append(
+          await notes(tenant, id, () => void refresh()),
+          await referencePanel(tenant, 'sessions', id, session.can_manage, refresh),
+          await coveragePanel(tenant, id, session.can_manage, refresh),
         );
-        row
-          .querySelector('h3')
-          ?.append(
-            link(
-              appearance.name,
-              `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
+        const outline = el('section', '', 'stack');
+        outline.append(el('h2', 'Scenes'));
+        const list = el('ol', '', 'session-outline stack');
+        for (const appearance of session.scenes) {
+          const row = el('li', '', 'stack');
+          row.append(
+            el('h3'),
+            el(
+              'p',
+              appearance.is_shared ? 'Shared with session participants' : 'GM preparation',
+              'caption',
             ),
           );
-        if (session.can_manage) {
-          const index = session.scenes.indexOf(appearance);
-          const move = async (delta: number) => {
-            const ids = session.scenes.map((s) => s.id);
-            [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
-            await unwrap(
-              await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/scenes/order', {
-                params: { path, header: { 'if-match': version } },
-                body: { appearance_ids: ids },
-              }),
+          row
+            .querySelector('h3')
+            ?.append(
+              link(
+                appearance.name,
+                `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
+              ),
             );
-            await refresh();
-          };
-          const controls = el('div', '', 'row');
-          if (index > 0) controls.append(button('Move up', () => move(-1)));
-          if (index < session.scenes.length - 1)
-            controls.append(button('Move down', () => move(1)));
-          controls.append(
-            button(
-              appearance.is_shared ? 'Make preparation private' : 'Share with session participants',
-              async () => {
+          if (session.can_manage) {
+            const index = session.scenes.indexOf(appearance);
+            const move = async (delta: number) => {
+              const ids = session.scenes.map((s) => s.id);
+              [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
+              await unwrap(
+                await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/scenes/order', {
+                  params: { path, header: { 'if-match': version } },
+                  body: { appearance_ids: ids },
+                }),
+              );
+              await refresh();
+            };
+            const controls = el('div', '', 'row');
+            if (index > 0) controls.append(button('Move up', () => move(-1)));
+            if (index < session.scenes.length - 1)
+              controls.append(button('Move down', () => move(1)));
+            controls.append(
+              button(
+                appearance.is_shared
+                  ? 'Make preparation private'
+                  : 'Share with session participants',
+                async () => {
+                  await unwrap(
+                    await client.PATCH(
+                      '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
+                      {
+                        params: {
+                          path: { ...path, appearance_id: appearance.id },
+                          header: { 'if-match': version },
+                        },
+                        body: { is_shared: !appearance.is_shared },
+                      },
+                    ),
+                  );
+                  await refresh();
+                },
+              ),
+            );
+            controls.append(
+              button('Remove scene appearance', async () => {
+                if (
+                  !confirm(
+                    'Remove this appearance and its session-specific notes? The reusable scene remains.',
+                  )
+                )
+                  return;
                 await unwrap(
-                  await client.PATCH(
+                  await client.DELETE(
                     '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
                     {
                       params: {
                         path: { ...path, appearance_id: appearance.id },
                         header: { 'if-match': version },
                       },
-                      body: { is_shared: !appearance.is_shared },
                     },
                   ),
                 );
                 await refresh();
-              },
-            ),
+              }),
+            );
+            row.append(controls);
+          }
+          row.append(
+            await referencePanel(tenant, 'scenes', appearance.scene_entity_id, false, refresh),
+            await notes(tenant, appearance.id, () => void refresh()),
           );
-          controls.append(
-            button('Remove scene appearance', async () => {
-              if (
-                !confirm(
-                  'Remove this appearance and its session-specific notes? The reusable scene remains.',
-                )
-              )
-                return;
-              await unwrap(
-                await client.DELETE(
-                  '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
-                  {
-                    params: {
-                      path: { ...path, appearance_id: appearance.id },
-                      header: { 'if-match': version },
-                    },
-                  },
-                ),
-              );
-              await refresh();
-            }),
-          );
-          row.append(controls);
+          list.append(row);
         }
-        row.append(
-          await referencePanel(tenant, 'scenes', appearance.scene_entity_id, false, refresh),
-          await notes(tenant, appearance.id, () => void refresh()),
+        outline.append(list);
+        if (!session.scenes.length)
+          outline.append(el('p', 'No scenes are available to you here.', 'caption'));
+        view.append(
+          outline,
+          await playPanel(tenant, id, session.can_manage, refresh),
+          await sequencePanel(tenant, session.campaign_id, refresh),
         );
-        list.append(row);
+        if (session.can_manage)
+          view.append(
+            await sceneAdder(session, version, refresh),
+            await livedLinkPanel(tenant, id),
+          );
+        if (host.isConnected && turn === generation) {
+          history.replaceState(history.state, '', sessionHref(tenant, id, session.slug));
+          host.replaceChildren(...view.childNodes);
+        }
+      } finally {
+        if (turn === generation) {
+          releaseControls?.();
+          releaseControls = undefined;
+        }
       }
-      outline.append(list);
-      if (!session.scenes.length)
-        outline.append(el('p', 'No scenes are available to you here.', 'caption'));
-      host.append(
-        outline,
-        await playPanel(tenant, id, session.can_manage, refresh),
-        await sequencePanel(tenant, session.campaign_id, refresh),
-      );
-      if (session.can_manage) host.append(await sceneAdder(session, version, refresh));
     };
     await refresh();
   } catch (error) {

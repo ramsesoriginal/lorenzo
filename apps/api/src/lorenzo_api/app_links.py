@@ -27,8 +27,9 @@ _DEFAULTS: dict[str, tuple[str, str]] = {
     "inventory": ("inventory_web", "/board/?tenant={tenant}&character={id}"),
     "board": ("inventory_web", "/board/?tenant={tenant}&character={id}"),
     # Lorenzo Beings: a being's page, by id or by slug.
+    "lived_order": ("sessions", "/lived/?tenant={tenant}&being={id}"),
     "session": ("sessions", "/session/?tenant={tenant}&id={id}"),
-    "scene": ("sessions", "/scene/?tenant={tenant}&id={entity}"),
+    "scene": ("sessions", "/scene/?tenant={tenant}&id={id}"),
     "scene_by_slug": ("sessions", "/scene/?tenant={tenant}&slug={slug}"),
     "session_by_slug": ("sessions", "/session/?tenant={tenant}&slug={slug}"),
     "calendar": ("calendars", "/calendar/?tenant={tenant}&id={id}"),

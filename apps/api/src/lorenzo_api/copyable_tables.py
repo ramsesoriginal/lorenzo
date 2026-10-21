@@ -91,6 +91,7 @@ from lorenzo_api.models import (
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
 )
+from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (
     SceneBeing,
@@ -193,6 +194,7 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(SceneEvent, "scene_event", counted_on_purge=True),
     _rows(SceneBeing, "scene_being", counted_on_purge=True),
     _rows(Information, "information"),
+    _rows(LivedBefore, "lived_before", counted_on_purge=True),
     _rows(EventLearning, "event_learning", counted_on_purge=True),
     _rows(Payload, "payload"),
     _rows(PayloadDescription, "payload_description", carried_by="payload"),

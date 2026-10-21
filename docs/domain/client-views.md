@@ -17,3 +17,9 @@ This is part of why [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md) allo
 ## Future direction (not being built yet)
 
 The inventory-manager idea was described as a possible first step toward something bigger: connecting inventory to **events** (past, present, predicted future), and a **ledger of ownership** — tracking ownership provenance over time, not just current possession. This is deliberately not scoped yet; it's recorded here so it doesn't get lost, not as a commitment to build it next.
+
+Lorenzo Sessions is the shared planning and note-taking surface for a campaign's Sessions.
+People see Sessions they GM or play in. A player can keep Information with its author and
+Session GMs, or share it with Session participants; reusable Scene notes remain separate from
+notes on a particular appearance. GMs prepare an outline and explicitly record played material.
+Personal lived-before assertions have their own reviewed editor and retain privileged authoring.
