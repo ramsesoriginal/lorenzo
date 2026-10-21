@@ -92,6 +92,21 @@ async def _authorize_entity_stat_write(
     an Author (ADR 0219) is let through for an entry in their reach
     (campaign_access.can_author_entry): a repository's, or a library's catalog.
     """
+    from lorenzo_api.session_access import planning_entry
+
+    if await planning_entry(session, tenant_id, entity_id):
+        from lorenzo_api.routers.entities import authorize_entity_write
+
+        await authorize_entity_write(
+            session,
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            user=user,
+            forbidden=EntityStatManagementForbiddenError(
+                detail="Only this Session's GMs can edit its stats"
+            ),
+        )
+        return
     if await can_self_manage_entity(
         session, entity_id=entity_id, user_id=user.id, tenant_id=tenant_id
     ):

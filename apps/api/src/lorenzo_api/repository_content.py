@@ -51,6 +51,7 @@ from lorenzo_api.models import (
     Item,
     ItemInstance,
     Knowledge,
+    LivedBefore,
     Ownership,
     Payload,
     PayloadDescription,
@@ -67,6 +68,8 @@ from lorenzo_api.models import (
     StatGroup,
     StoryEvent,
 )
+from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
+from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 KINDS = (
     "item",
@@ -187,7 +190,12 @@ class Content:
     event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
     event_participants: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     event_learning: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    lived_before: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID, bool]] = field(default_factory=list)
     shared_event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
+    scene_facts: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
+    scene_events: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
+    scene_beings: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
+    scenes: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     participant_entry_audiences: list[uuid.UUID] = field(default_factory=list)
@@ -260,6 +268,51 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
 
     for entity_id, name in await rows(Entity.id, Entity.name, where=Entity.tenant_id == t):
         c.entities[entity_id] = name
+    excluded = set(
+        await session.scalars(select(StorySession.entity_id).where(StorySession.tenant_id == t))
+    ) | set(
+        await session.scalars(
+            select(SceneAppearance.entity_id).where(SceneAppearance.tenant_id == t)
+        )
+    )
+    for entity_id in excluded:
+        c.entities.pop(entity_id, None)
+    for field_name, source_column, target, sharing_column, tenant_column in [
+        (
+            "scene_facts",
+            SceneFact.scene_entity_id,
+            SceneFact.fact_entity_id,
+            SceneFact.is_shared,
+            SceneFact.tenant_id,
+        ),
+        (
+            "scene_events",
+            SceneEvent.scene_entity_id,
+            SceneEvent.event_entity_id,
+            SceneEvent.is_shared,
+            SceneEvent.tenant_id,
+        ),
+        (
+            "scene_beings",
+            SceneBeing.scene_entity_id,
+            SceneBeing.being_entity_id,
+            SceneBeing.is_shared,
+            SceneBeing.tenant_id,
+        ),
+    ]:
+        setattr(
+            c,
+            field_name,
+            {
+                (source, dest): shared
+                for source, dest, shared in await rows(
+                    source_column, target, sharing_column, where=tenant_column == t
+                )
+            },
+        )
+    c.scenes = dict(await rows(Scene.entity_id, Scene.period_entity_id, where=Scene.tenant_id == t))
+    for entity_id in c.scenes:
+        c.kinds[entity_id].add("scene")
     for entity_id, public in await rows(
         Item.entity_id, Item.in_public_catalog, where=Item.tenant_id == t
     ):
@@ -536,6 +589,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=EventParticipant.tenant_id == t,
         )
     ]
+    c.lived_before = [
+        (b, a, z, shared)
+        for b, a, z, shared in await rows(
+            LivedBefore.being_entity_id,
+            LivedBefore.from_event_id,
+            LivedBefore.to_event_id,
+            LivedBefore.is_shared,
+            where=LivedBefore.tenant_id == t,
+        )
+    ]
     c.shared_event_relationships = [
         (source, target, kind)
         for source, target, kind in await rows(
@@ -617,6 +680,31 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         )
     ]
     c.links = await load_links(session, t)
+    excluded_information = {i for i, info in c.information.items() if info.entity_id in excluded}
+    for i in excluded_information:
+        del c.information[i]
+    c.payloads = {
+        i: p for i, p in c.payloads.items() if p.information_id not in excluded_information
+    }
+    c.knowledge = [
+        (i, k) for i, k in c.knowledge if i not in excluded_information and k not in excluded
+    ]
+    c.slugs = {e: slug for e, slug in c.slugs.items() if e not in excluded}
+    c.entry_audiences = {e: public for e, public in c.entry_audiences.items() if e not in excluded}
+    c.entry_knowledge = [
+        (e, k) for e, k in c.entry_knowledge if e not in excluded and k not in excluded
+    ]
+    c.entry_dates = [(e, p) for e, p in c.entry_dates if e not in excluded]
+    c.prototypes = [(e, p) for e, p in c.prototypes if e not in excluded and p not in excluded]
+    c.entity_groups = [(e, g) for e, g in c.entity_groups if e not in excluded]
+    c.stats = {(e, d): value for (e, d), value in c.stats.items() if e not in excluded}
+    c.formulas = {(e, d): value for (e, d), value in c.formulas.items() if e not in excluded}
+    c.fact_about = [(f, e) for f, e in c.fact_about if e not in excluded]
+    c.event_learning = [(e, b, i) for e, b, i in c.event_learning if i not in excluded_information]
+    c.participant_information_audiences = [
+        i for i in c.participant_information_audiences if i not in excluded_information
+    ]
+    c.participant_entry_audiences = [e for e in c.participant_entry_audiences if e not in excluded]
     return c
 
 

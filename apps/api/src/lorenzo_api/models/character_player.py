@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, TenantFk, same_tenant_fk
@@ -30,6 +31,9 @@ class CharacterPlayer(Base):
 
     __tablename__ = "character_player"
     __table_args__ = (
+        UniqueConstraint(
+            "character_entity_id", "player_id", "tenant_id", name="character_player_tenant_key"
+        ),
         same_tenant_fk(
             "character_player_character_entity_id_fkey",
             ["character_entity_id"],

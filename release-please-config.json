@@ -80,6 +80,10 @@
     "apps/calendars": {
       "release-type": "node",
       "component": "calendars"
+    },
+    "apps/sessions": {
+      "release-type": "node",
+      "component": "calendars"
     }
   }
 }

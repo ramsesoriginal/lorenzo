@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base>
+  <div id="lived-view" class="stack"></div>
+  <script>
+    import { mountLived } from '../../lib/lived';
+    document.addEventListener('astro:page-load', () => void mountLived());
+  </script>
+</Base>

@@ -49,3 +49,8 @@ export function calendarUrl(
 ): string | null {
   return calendarEntryHref(registry, tenant, entry, hint);
 }
+
+export function livedOrderUrl(tenant: string, beingId: string): string | null {
+  const template = registry?.links.lived_order;
+  return template ? fill(template, { tenant, id: beingId }) : null;
+}

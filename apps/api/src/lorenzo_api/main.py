@@ -117,6 +117,18 @@ def create_app() -> FastAPI:
     app.add_middleware(ForwardedSchemeMiddleware)
 
     register_error_handlers(app)
+    from lorenzo_api.routers.story_sessions import my_router as my_sessions_router
+    from lorenzo_api.routers.story_sessions import router as story_sessions_router
+
+    app.include_router(my_sessions_router)
+    from lorenzo_api.routers.lived_order import router as lived_order_router
+    from lorenzo_api.routers.session_play import router as session_play_router
+    from lorenzo_api.routers.story_context import router as story_context_router
+
+    app.include_router(lived_order_router)
+    app.include_router(session_play_router)
+    app.include_router(story_context_router)
+    app.include_router(story_sessions_router)
     app.include_router(health_router)
     app.include_router(app_links_router)
     app.include_router(admin_router)

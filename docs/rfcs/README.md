@@ -48,3 +48,5 @@ To start one: copy an [ADR](../adr/0000-template.md)'s structure but title it "R
 - [0043 - The being sheet: a page to read, play and edit a being, and the API it needs](0043-the-being-sheet.md) — accepted and built (2026-10-12), decided with the maintainer from a clickable prototype kept under docs/design/beings; Read, Play and Edit, a Sheet and a Datasheet layout, stats drawn from the library's vocabulary; the API slices A1 to A6 (ADR 0276 to 0281) and the Beings slices U1 to U3
 - [0044 - Facts, explicit audiences and information bundles](0044-facts-audiences-and-information-bundles.md) — accepted, tenant-wide fact entries, explicit outer audiences and ordered text/image editing across the existing apps
 - [0045 - Lorenzo Inventory on iOS](0045-inventory-on-ios.md) — accepted; Android feature parity with native SwiftUI and free AltStore Classic testing, ADR 0307
+
+- [0046 - Sessions, Scenes, play order and lived order](0046-sessions-scenes-and-lived-order.md)

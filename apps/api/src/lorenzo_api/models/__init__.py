@@ -80,8 +80,22 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "SceneFact",
+    "SceneEvent",
+    "SceneBeing",
+    "SessionFact",
+    "SessionEvent",
+    "Scene",
+    "SceneAppearance",
+    "EventPresentation",
+    "SessionSequence",
+    "SessionCharacter",
+    "SessionGm",
+    "SessionPlayer",
+    "StorySession",
     "EventRelationship",
     "EventParticipant",
+    "LivedBefore",
     "EventLearning",
     "EventGroupCreation",
     "CalendarImport",
@@ -169,3 +183,21 @@ __all__ = [
     "VItem",
     "VItemInstance",
 ]
+
+from lorenzo_api.models.lived_order import LivedBefore
+from lorenzo_api.models.session_play import EventPresentation, SessionSequence
+from lorenzo_api.models.story_context import (
+    SceneBeing,
+    SceneEvent,
+    SceneFact,
+    SessionEvent,
+    SessionFact,
+)
+from lorenzo_api.models.story_session import (
+    Scene,
+    SceneAppearance,
+    SessionCharacter,
+    SessionGm,
+    SessionPlayer,
+    StorySession,
+)

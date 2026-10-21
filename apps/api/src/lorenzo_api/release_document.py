@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 10
+FORMAT = 13
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -399,11 +399,21 @@ _CONTENT = _dataclass(
             lambda rows, f: [[str(a), str(b), k] for a, b, k in rows],
             lambda rows, f: [(uuid.UUID(a), uuid.UUID(b), k) for a, b, k in rows],
         ),
+        "lived_before": _Codec(
+            lambda rows, f: [[str(b), str(a), str(z), shared] for b, a, z, shared in rows],
+            lambda rows, f: [
+                (uuid.UUID(b), uuid.UUID(a), uuid.UUID(z), shared) for b, a, z, shared in rows
+            ],
+        ),
         "event_relationships": _Codec(
             lambda rows, f: [[str(a), str(b), k] for a, b, k in rows],
             lambda rows, f: [(uuid.UUID(a), uuid.UUID(b), k) for a, b, k in rows],
         ),
         "calendars": _id_map(_PLAIN),
+        "scene_facts": _keyed(_PLAIN),
+        "scene_events": _keyed(_PLAIN),
+        "scene_beings": _keyed(_PLAIN),
+        "scenes": _id_map(_optional(_ID)),
         "observances": _id_map(
             _record({"calendar": _ID, "rule": _PLAIN}, name="Content.observances")
         ),
@@ -474,6 +484,18 @@ def _read_v9(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v10(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v11({**document, "scenes": {}}, files)
+
+
+def _read_v11(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v12({**document, "scene_facts": [], "scene_events": [], "scene_beings": []}, files)
+
+
+def _read_v12(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v13({**document, "lived_before": []}, files)
+
+
+def _read_v13(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -491,6 +513,9 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     8: _read_v8,
     9: _read_v9,
     10: _read_v10,
+    11: _read_v11,
+    12: _read_v12,
+    13: _read_v13,
 }
 
 

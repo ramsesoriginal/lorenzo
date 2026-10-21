@@ -26,7 +26,20 @@ test('a fact keeps separate audiences, explicit subjects and targeted picture bu
   );
   const page = await as(world.gm);
   await page.setViewportSize({ width: 1440, height: 1000 });
+  // Keep startup pending while the author creates and selects a Fact. Completing the
+  // initial library read must not replace that selection with the first Item.
+  let releaseDefinitions!: () => void;
+  const definitionsReady = new Promise<void>((resolve) => {
+    releaseDefinitions = resolve;
+  });
+  await page.route('**/stat-definitions?*', async (route) => {
+    const response = await route.fetch();
+    await definitionsReady;
+    await route.fulfill({ response });
+  });
+  const definitionsRequested = page.waitForRequest('**/stat-definitions?*');
   await page.goto('/');
+  await definitionsRequested;
   await expect(page.locator('#titlebar')).toContainText(repository.name);
   await page.getByRole('button', { name: 'New', exact: true }).click();
   const form = page.locator('.new-entry');
@@ -35,7 +48,9 @@ test('a fact keeps separate audiences, explicit subjects and targeted picture bu
   await form.getByLabel('Parent of the new entry').selectOption('');
   await form.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('The tether');
+  releaseDefinitions();
   await expect(page.locator('.pane-entry .status-synced')).toHaveText('Synced');
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('The tether');
   const facts = await ok(
     api.GET('/tenants/{tenant_id}/entities/resolve', {
       params: { path, query: { slug: ['the-tether'] } },
@@ -115,6 +130,7 @@ test('a fact keeps separate audiences, explicit subjects and targeted picture bu
     )
     .toBe(true);
   expect((await detail()).information[0]?.is_public).toBe(false);
+  await expect(page.locator('.pane-entry .status-synced')).toHaveText('Synced');
   await page.getByText('Who can read this', { exact: true }).click();
   const inner = page
     .locator('.entry-audience')

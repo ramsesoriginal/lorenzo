@@ -459,6 +459,62 @@ jobs:
             apps/calendars/test-results/
           retention-days: 7
 
+  e2e-sessions:
+    name: e2e (sessions)
+    needs: discover
+    if: contains(fromJson(needs.discover.outputs.suites), 'sessions-e2e')
+    runs-on: ubuntu-latest
+    steps:
+      # Postgres in the background and a cached headless shell: see the inventory-web job.
+      - name: Start Postgres
+        run: |
+          nohup docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
+            postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+        with:
+          version: ${{ env.MISE_VERSION }}
+      - run: npm install --global corepack@latest && corepack enable
+      - name: Build the API's environment
+        run: |
+          nohup sh -c 'uv sync --frozen --no-dev --project apps/api; echo $? > "$RUNNER_TEMP/api-env.status"' \
+            > "$RUNNER_TEMP/api-env.log" 2>&1 < /dev/null &
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/sessions
+      - name: Wait for Postgres and the API's environment
+        run: |
+          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
+            || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
+          timeout 120 sh -c 'until [ -f "$RUNNER_TEMP/api-env.status" ]; do sleep 1; done'
+          [ "$(cat "$RUNNER_TEMP/api-env.status")" = 0 ] || { cat "$RUNNER_TEMP/api-env.log"; exit 1; }
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        working-directory: apps/sessions
+      - uses: actions/cache@v6
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-headless-shell-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - run: pnpm exec playwright install chromium-headless-shell
+        if: steps.browsers.outputs.cache-hit != 'true'
+        working-directory: apps/sessions
+      - run: pnpm exec playwright test
+        working-directory: apps/sessions
+        env:
+          UV_NO_DEV: 1
+          E2E_POSTGRES_URL: postgres://lorenzo:lorenzo@127.0.0.1:5432/postgres
+          E2E_APP_POSTGRES_URL: postgres://lorenzo_app:lorenzo_app@127.0.0.1:5432/postgres
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-sessions
+          path: |
+            apps/sessions/playwright-report/
+            apps/sessions/test-results/
+          retention-days: 7
+
   # apps/bench's browser tests: the sample workbench and real information editing.
   # The real-API suite reuses beings' API/Authgear launchers. The `bench-e2e` suite in .github/ci-graph.toml: it runs when bench or anything it
   # depends on is affected.
@@ -651,7 +707,7 @@ jobs:
           retention-days: 1
 
   ci-summary:
-    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-calendars, e2e-bench, account-hub-real-api, cli-e2e, mobile-build, ios-build]
+    needs: [discover, ci-tools, test, openapi-diff, client-drift, e2e, e2e-beings, e2e-calendars, e2e-sessions, e2e-bench, account-hub-real-api, cli-e2e, mobile-build, ios-build]
     if: always()
     runs-on: ubuntu-latest
     steps:

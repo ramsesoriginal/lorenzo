@@ -57,6 +57,7 @@ from lorenzo_api.models import (
     GroupMember,
     Information,
     Knowledge,
+    LivedBefore,
     Ownership,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
@@ -64,9 +65,12 @@ from lorenzo_api.models import (
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
     RepositorySubscription,
+    Scene,
+    SceneAppearance,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
+    StorySession,
     Tenant,
     TenantKind,
 )
@@ -338,9 +342,18 @@ class _Planner:
         # this plan writes: what an attachment finds already there (ADR 0172).
         self.edges: set[tuple[uuid.UUID, uuid.UUID]] = set()
         self.attachments: list[PlannedAttachment] = []
+        self.participations: set[tuple[uuid.UUID, uuid.UUID]] = set()
 
     async def load_local_names(self, session: AsyncSession) -> None:
         t = self.tenant_id
+        self.participations = {
+            (e, b)
+            for e, b in await session.execute(
+                select(EventParticipant.event_entity_id, EventParticipant.being_entity_id).where(
+                    EventParticipant.tenant_id == t
+                )
+            )
+        }
         for group_id, name in await session.execute(
             select(StatGroup.id, StatGroup.name).where(StatGroup.tenant_id == t)
         ):
@@ -601,6 +614,16 @@ class _Planner:
                         "created_by": user_id,
                         "updated_by": user_id,
                     }
+                )
+            if "scene" in kinds:
+                source_period = c.scenes.get(e)
+                target_period = self._local(c, "entity", source_period) if source_period else None
+                if source_period and target_period is None:
+                    raise InvalidRepositoryUpdateError(
+                        detail="Copy the calendar period before its Scene"
+                    )
+                self.rows["scene"].append(
+                    {"entity_id": new, "tenant_id": tenant_id, "period_entity_id": target_period}
                 )
             if "event" in kinds:
                 self.rows["story_event"].append({"entity_id": new, "tenant_id": tenant_id})
@@ -891,6 +914,25 @@ class _Planner:
                         "parent_entity_id": parent_id,
                     }
                 )
+        for field_name, table, target_column in [
+            ("scene_facts", "scene_fact", "fact_entity_id"),
+            ("scene_events", "scene_event", "event_entity_id"),
+            ("scene_beings", "scene_being", "being_entity_id"),
+        ]:
+            for (source, target), shared in getattr(c, field_name).items():
+                if copies("entity", source):
+                    local_target = self._local(c, "entity", target)
+                    if local_target is None:
+                        drop(table, source, "its target was not copied")
+                    else:
+                        self.rows[table].append(
+                            {
+                                "tenant_id": tenant_id,
+                                "scene_entity_id": self.local["entity"][source],
+                                target_column: local_target,
+                                "is_shared": shared,
+                            }
+                        )
         for e, observance in c.observances.items():
             if copies("entity", e):
                 calendar_id = self._local(c, "entity", observance["calendar"])
@@ -934,6 +976,32 @@ class _Planner:
                             "being_entity_id": target,
                         }
                     )
+        self.participations.update(
+            (row["event_entity_id"], row["being_entity_id"])
+            for row in self.rows["event_participant"]
+        )
+        for being, source, target, shared in c.lived_before:
+            if not copies("entity", source):
+                continue
+            b, a, z = (self._local(c, "entity", i) for i in (being, source, target))
+            if (
+                b is None
+                or a is None
+                or z is None
+                or (a, b) not in self.participations
+                or (z, b) not in self.participations
+            ):
+                drop("lived_before", source, "its being or participations were not copied")
+                continue
+            self.rows["lived_before"].append(
+                {
+                    "tenant_id": tenant_id,
+                    "being_entity_id": b,
+                    "from_event_id": a,
+                    "to_event_id": z,
+                    "is_shared": shared,
+                }
+            )
         shared_relationships = set(c.shared_event_relationships)
         for source, target, kind in c.event_relationships:
             if copies("entity", source):
@@ -1103,7 +1171,9 @@ async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]
     # Acquire the graph lock before any row locks or insert snapshots, also for copy/update.
     from lorenzo_api.event_order_lock import lock_event_order
 
-    for tenant_id in sorted({r["tenant_id"] for r in rows.get("event_relationship", [])}):
+    for tenant_id in sorted(
+        {r["tenant_id"] for r in rows.get("event_relationship", []) + rows.get("lived_before", [])}
+    ):
         await lock_event_order(session, tenant_id)
     bound_rows = rows.get("calendar_period", []) + rows.get("calendar_observance", [])
     calendars = {(r["tenant_id"], r["calendar_entity_id"]) for r in bound_rows}
@@ -1275,7 +1345,8 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
     await check_formula_cycles(session, plan.tenant_id)
     for step in plan.to_copy:
         reported_dropped = sum(
-            d.kind not in ("event_relationship", "event_participant", "event_learning")
+            d.kind
+            not in ("event_relationship", "event_participant", "event_learning", "lived_before")
             for d in step.dropped
         )
         await record_activity(
@@ -1389,7 +1460,51 @@ async def forget_copy(
                 )
             )
         )
-        if local_period or local_date or local_rule:
+        from lorenzo_api.models import EventPresentation
+
+        local_presentation = await session.scalar(
+            select(
+                exists().where(
+                    EventPresentation.tenant_id == t,
+                    EventPresentation.event_entity_id.in_(entities),
+                )
+            )
+        )
+        local_story = await session.scalar(
+            select(
+                exists().where(
+                    SceneAppearance.tenant_id == t,
+                    SceneAppearance.scene_entity_id.in_(entities),
+                    SceneAppearance.entity_id.not_in(entities),
+                )
+            )
+        )
+        local_story_period = await session.scalar(
+            select(
+                exists().where(
+                    StorySession.tenant_id == t,
+                    StorySession.start_period_id.in_(entities),
+                )
+            )
+        )
+        local_scene_period = await session.scalar(
+            select(
+                exists().where(
+                    Scene.tenant_id == t,
+                    Scene.entity_id.not_in(entities),
+                    Scene.period_entity_id.in_(entities),
+                )
+            )
+        )
+        if (
+            local_period
+            or local_date
+            or local_rule
+            or local_story
+            or local_presentation
+            or local_story_period
+            or local_scene_period
+        ):
             raise EntityKindInUseError(
                 detail="Local dated material still references this copy. Resolve it before purging."
             )
@@ -1564,6 +1679,30 @@ async def forget_copy(
                 ),
             ),
         }
+        from lorenzo_api.story_context import SCENE_REFERENCES
+
+        for binding in SCENE_REFERENCES.values():
+            source = getattr(binding.model, binding.source)
+            target = getattr(binding.model, binding.target)
+            also[binding.model.__tablename__] = await _count(
+                session,
+                binding.model,
+                binding.model.tenant_id == t,
+                or_(
+                    source.in_(entities) & target.not_in(entities),
+                    target.in_(entities) & source.not_in(entities),
+                ),
+            )
+        also["lived_before"] = await _count(
+            session,
+            LivedBefore,
+            LivedBefore.tenant_id == t,
+            or_(
+                LivedBefore.being_entity_id.in_(entities),
+                LivedBefore.from_event_id.in_(entities),
+                LivedBefore.to_event_id.in_(entities),
+            ),
+        )
         # The counts above are hand-written; the registry says which tables they are for.
         assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED
         previous.also_removed = {kind: n for kind, n in also.items() if n}
@@ -1607,6 +1746,16 @@ async def forget_copy(
             )
         )
         await session.execute(
+            delete(LivedBefore).where(
+                LivedBefore.tenant_id == t,
+                or_(
+                    LivedBefore.being_entity_id.in_(entities),
+                    LivedBefore.from_event_id.in_(entities),
+                    LivedBefore.to_event_id.in_(entities),
+                ),
+            )
+        )
+        await session.execute(
             delete(EventParticipant).where(
                 EventParticipant.tenant_id == t,
                 or_(
@@ -1626,6 +1775,18 @@ async def forget_copy(
                 ),
             )
         )
+        from lorenzo_api.story_context import SCENE_REFERENCES, SESSION_REFERENCES
+
+        for binding in [*SCENE_REFERENCES.values(), *SESSION_REFERENCES.values()]:
+            await session.execute(
+                delete(binding.model).where(
+                    binding.model.tenant_id == t,
+                    or_(
+                        getattr(binding.model, binding.source).in_(entities),
+                        getattr(binding.model, binding.target).in_(entities),
+                    ),
+                )
+            )
         await session.execute(delete(Entity).where(Entity.tenant_id == t, Entity.id.in_(entities)))
         await session.execute(
             delete(StatDefinition).where(
@@ -1648,7 +1809,7 @@ async def forget_copy(
     reported_removed = sum(
         count
         for kind, count in previous.also_removed.items()
-        if kind not in ("event_relationship", "event_participant", "event_learning")
+        if kind not in ("event_relationship", "event_participant", "event_learning", "lived_before")
     )
     await record_activity(
         session,

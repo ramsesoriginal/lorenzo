@@ -247,6 +247,9 @@ async def change_participation(
         session, tenant_id=tenant_id, user_id=user.id, entity_id=event_id
     ):
         await require_event_order_access(session, user, tenant_id)
+    from lorenzo_api.event_order_lock import lock_event_order
+
+    await lock_event_order(session, tenant_id)
     # Both endpoints are locked before existence/version checks; deletion uses the same rows.
     entries = {
         e.id: e

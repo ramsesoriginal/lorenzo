@@ -49,6 +49,23 @@ async def require_no_learning(
                 EventLearning.being_entity_id == being_id,
             )
         )
+    if event_id is not None and being_id is not None:
+        from sqlalchemy import or_
+
+        from lorenzo_api.models import LivedBefore
+
+        if await session.scalar(
+            select(
+                exists().where(
+                    LivedBefore.tenant_id == tenant_id,
+                    LivedBefore.being_entity_id == being_id,
+                    or_(LivedBefore.from_event_id == event_id, LivedBefore.to_event_id == event_id),
+                )
+            )
+        ):
+            raise EntityKindInUseError(
+                detail="This entry has references that prevent deletion or kind removal."
+            )
     if await session.scalar(query):
         raise EntityKindInUseError(
             detail="This entry has references that prevent deletion or kind removal."

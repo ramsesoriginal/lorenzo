@@ -321,3 +321,9 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 
 - [0315 - Reader-scoped Event order and explicit sharing](0315-reader-scoped-event-order-and-sharing.md)
 | [0316](0316-collaborative-events-facts-and-participant-audiences.md) | Collaborative Events, Facts and participant audiences | accepted |
+
+- [0317 - Sessions, Scenes and collaborative planning](0317-sessions-scenes-and-collaborative-planning.md)
+
+- [0318 - Explicit Session and play order](0318-explicit-session-and-play-order.md)
+
+- [0319 - Personal lived order as Event evidence](0319-personal-lived-order-as-event-evidence.md)
