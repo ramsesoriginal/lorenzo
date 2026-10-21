@@ -20,6 +20,18 @@ Assigned Session GMs author play records with version preconditions and atomic r
 Players read permitted played material; hidden appearances/Events do not produce placeholders,
 global ranks, counts or pagination gaps. Records and attendance remain local on repository copy.
 
+## Scope and disclosure
+
+Campaign sequence edits reorder only the Sessions the caller manages. Inaccessible slots and
+relative positions remain intact. Read responses omit global positions, and the write precondition
+is computed from the manageable subset rather than a hidden campaign-wide revision. Unplaced
+Sessions stay explicitly unplaced. This preserves assigned-Session GM scope.
+
+Event presentation relationships start private and require explicit sharing. Reading a shared
+presentation also requires access to the Session, appearance, reusable Scene and Event. A played
+or skipped appearance, or one with presentation records, must have those records resolved before
+it can be removed. Preparation can be copied only as a reviewed, explicitly saved proposal.
+
 ## Validation
 
 Real-API/browser tests cover flashbacks, a continued Scene, repeated Event presentation,
