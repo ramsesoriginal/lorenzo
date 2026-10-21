@@ -141,6 +141,7 @@ async def test_hidden_play_has_no_placeholders_and_retries_and_stale_order_are_s
             f"/tenants/{t}/entities/{public}", headers=w.author.headers
         )
         assert delete.status_code == 409
+        assert "presentation" not in delete.text.lower()
     finally:
         await w.clean_up()
 

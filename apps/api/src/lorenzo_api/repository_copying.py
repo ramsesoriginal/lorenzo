@@ -57,6 +57,7 @@ from lorenzo_api.models import (
     GroupMember,
     Information,
     Knowledge,
+    LivedBefore,
     Ownership,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
@@ -341,9 +342,18 @@ class _Planner:
         # this plan writes: what an attachment finds already there (ADR 0172).
         self.edges: set[tuple[uuid.UUID, uuid.UUID]] = set()
         self.attachments: list[PlannedAttachment] = []
+        self.participations: set[tuple[uuid.UUID, uuid.UUID]] = set()
 
     async def load_local_names(self, session: AsyncSession) -> None:
         t = self.tenant_id
+        self.participations = {
+            (e, b)
+            for e, b in await session.execute(
+                select(EventParticipant.event_entity_id, EventParticipant.being_entity_id).where(
+                    EventParticipant.tenant_id == t
+                )
+            )
+        }
         for group_id, name in await session.execute(
             select(StatGroup.id, StatGroup.name).where(StatGroup.tenant_id == t)
         ):
@@ -966,6 +976,32 @@ class _Planner:
                             "being_entity_id": target,
                         }
                     )
+        self.participations.update(
+            (row["event_entity_id"], row["being_entity_id"])
+            for row in self.rows["event_participant"]
+        )
+        for being, source, target, shared in c.lived_before:
+            if not copies("entity", source):
+                continue
+            b, a, z = (self._local(c, "entity", i) for i in (being, source, target))
+            if (
+                b is None
+                or a is None
+                or z is None
+                or (a, b) not in self.participations
+                or (z, b) not in self.participations
+            ):
+                drop("lived_before", source, "its being or participations were not copied")
+                continue
+            self.rows["lived_before"].append(
+                {
+                    "tenant_id": tenant_id,
+                    "being_entity_id": b,
+                    "from_event_id": a,
+                    "to_event_id": z,
+                    "is_shared": shared,
+                }
+            )
         shared_relationships = set(c.shared_event_relationships)
         for source, target, kind in c.event_relationships:
             if copies("entity", source):
@@ -1135,7 +1171,9 @@ async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]
     # Acquire the graph lock before any row locks or insert snapshots, also for copy/update.
     from lorenzo_api.event_order_lock import lock_event_order
 
-    for tenant_id in sorted({r["tenant_id"] for r in rows.get("event_relationship", [])}):
+    for tenant_id in sorted(
+        {r["tenant_id"] for r in rows.get("event_relationship", []) + rows.get("lived_before", [])}
+    ):
         await lock_event_order(session, tenant_id)
     bound_rows = rows.get("calendar_period", []) + rows.get("calendar_observance", [])
     calendars = {(r["tenant_id"], r["calendar_entity_id"]) for r in bound_rows}
@@ -1307,7 +1345,8 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
     await check_formula_cycles(session, plan.tenant_id)
     for step in plan.to_copy:
         reported_dropped = sum(
-            d.kind not in ("event_relationship", "event_participant", "event_learning")
+            d.kind
+            not in ("event_relationship", "event_participant", "event_learning", "lived_before")
             for d in step.dropped
         )
         await record_activity(
@@ -1654,6 +1693,16 @@ async def forget_copy(
                     target.in_(entities) & source.not_in(entities),
                 ),
             )
+        also["lived_before"] = await _count(
+            session,
+            LivedBefore,
+            LivedBefore.tenant_id == t,
+            or_(
+                LivedBefore.being_entity_id.in_(entities),
+                LivedBefore.from_event_id.in_(entities),
+                LivedBefore.to_event_id.in_(entities),
+            ),
+        )
         # The counts above are hand-written; the registry says which tables they are for.
         assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED
         previous.also_removed = {kind: n for kind, n in also.items() if n}
@@ -1693,6 +1742,16 @@ async def forget_copy(
                             Information.tenant_id == t, Information.entity_id.in_(entities)
                         )
                     ),
+                ),
+            )
+        )
+        await session.execute(
+            delete(LivedBefore).where(
+                LivedBefore.tenant_id == t,
+                or_(
+                    LivedBefore.being_entity_id.in_(entities),
+                    LivedBefore.from_event_id.in_(entities),
+                    LivedBefore.to_event_id.in_(entities),
                 ),
             )
         )
@@ -1750,7 +1809,7 @@ async def forget_copy(
     reported_removed = sum(
         count
         for kind, count in previous.also_removed.items()
-        if kind not in ("event_relationship", "event_participant", "event_learning")
+        if kind not in ("event_relationship", "event_participant", "event_learning", "lived_before")
     )
     await record_activity(
         session,

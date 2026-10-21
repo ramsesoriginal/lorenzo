@@ -1,6 +1,6 @@
 import { client, fetchAllPages, unwrap } from './api';
 import { referencePanel } from './context';
-import { button, el, field, link, message, select } from './dom';
+import { button, el, field, link, message, select, suspendControls } from './dom';
 import { notes } from './notes';
 import { start } from './sign-in';
 
@@ -85,80 +85,96 @@ export async function mountScene() {
       id = found.entity_id;
     }
     const path = { tenant_id: tenant, scene_id: id };
+    let generation = 0;
+    let releaseControls: (() => void) | undefined;
     const refresh = async () => {
-      const result = await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
-        params: { path },
-        cache: 'no-store',
-      });
-      const scene = await unwrap(result);
-      let version = result.response.headers.get('etag') ?? '';
-      history.replaceState(history.state, '', href(tenant, id, scene.slug));
-      host.replaceChildren(
-        link('Reusable scenes', `/scenes/?${new URLSearchParams({ tenant })}`),
-        el('h1', scene.name),
-      );
-      if (scene.can_manage) {
-        const details = el('details', '', 'panel stack');
-        details.append(el('summary', 'Scene details'));
-        const name = field('Scene title', scene.name);
-        const slug = field('Link name', scene.slug ?? '');
-        const shared = field('Visible in this library', '', 'checkbox');
-        shared.input.checked = scene.is_public;
-        const periods = await fetchAllPages(async (page) =>
-          unwrap(
-            await client.GET('/tenants/{tenant_id}/entities', {
-              params: {
-                path: { tenant_id: tenant },
-                query: { kind: ['calendar_period'], page, size: 100 },
-              },
-            }),
-          ),
+      const turn = ++generation;
+      releaseControls ??= suspendControls(host);
+      try {
+        const view = el('div', '', 'stack');
+        const publish = () => {
+          if (host.isConnected && turn === generation) host.replaceChildren(...view.childNodes);
+        };
+        const result = await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
+          params: { path },
+          cache: 'no-store',
+        });
+        const scene = await unwrap(result);
+        let version = result.response.headers.get('etag') ?? '';
+        history.replaceState(history.state, '', href(tenant, id, scene.slug));
+        view.replaceChildren(
+          link('Reusable scenes', `/scenes/?${new URLSearchParams({ tenant })}`),
+          el('h1', scene.name),
         );
-        const period = select(
-          'Scene period',
-          [['', 'Not set'], ...periods.map((p) => [p.id, p.name] as [string, string])],
-          scene.period_entity_id ?? '',
-        );
-        const status = el('p');
-        status.setAttribute('role', 'status');
-        details.append(
-          name.label,
-          slug.label,
-          shared.label,
-          period.label,
-          button('Review saved scene', async () => {
-            const saved = await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
-              params: { path },
-              cache: 'no-store',
-            });
-            const current = await unwrap(saved);
-            version = saved.response.headers.get('etag') ?? '';
-            status.textContent = `Saved scene: ${current.name}; link name ${current.slug ?? 'not set'}. Your draft is unchanged. Review before retrying.`;
-          }),
-          button('Save scene', async () => {
-            await unwrap(
-              await client.PATCH('/tenants/{tenant_id}/scenes/{scene_id}', {
-                params: { path, header: { 'if-match': version } },
-                body: {
-                  name: name.input.value,
-                  slug: slug.input.value || null,
-                  is_public: shared.input.checked,
-                  ...(period.input.value !== (scene.period_entity_id ?? '')
-                    ? { period_entity_id: period.input.value || null }
-                    : {}),
+        if (scene.can_manage) {
+          const details = el('details', '', 'panel stack');
+          details.append(el('summary', 'Scene details'));
+          const name = field('Scene title', scene.name);
+          const slug = field('Link name', scene.slug ?? '');
+          const shared = field('Visible in this library', '', 'checkbox');
+          shared.input.checked = scene.is_public;
+          const periods = await fetchAllPages(async (page) =>
+            unwrap(
+              await client.GET('/tenants/{tenant_id}/entities', {
+                params: {
+                  path: { tenant_id: tenant },
+                  query: { kind: ['calendar_period'], page, size: 100 },
                 },
               }),
-            );
-            await refresh();
-          }),
-          status,
+            ),
+          );
+          const period = select(
+            'Scene period',
+            [['', 'Not set'], ...periods.map((p) => [p.id, p.name] as [string, string])],
+            scene.period_entity_id ?? '',
+          );
+          const status = el('p');
+          status.setAttribute('role', 'status');
+          details.append(
+            name.label,
+            slug.label,
+            shared.label,
+            period.label,
+            button('Review saved scene', async () => {
+              const saved = await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
+                params: { path },
+                cache: 'no-store',
+              });
+              const current = await unwrap(saved);
+              version = saved.response.headers.get('etag') ?? '';
+              status.textContent = `Saved scene: ${current.name}; link name ${current.slug ?? 'not set'}. Your draft is unchanged. Review before retrying.`;
+            }),
+            button('Save scene', async () => {
+              await unwrap(
+                await client.PATCH('/tenants/{tenant_id}/scenes/{scene_id}', {
+                  params: { path, header: { 'if-match': version } },
+                  body: {
+                    name: name.input.value,
+                    slug: slug.input.value || null,
+                    is_public: shared.input.checked,
+                    ...(period.input.value !== (scene.period_entity_id ?? '')
+                      ? { period_entity_id: period.input.value || null }
+                      : {}),
+                  },
+                }),
+              );
+              await refresh();
+            }),
+            status,
+          );
+          view.append(details);
+        }
+        view.append(
+          await referencePanel(tenant, 'scenes', id, scene.can_manage, refresh),
+          await notes(tenant, id, () => void refresh(), 'scene'),
         );
-        host.append(details);
+        publish();
+      } finally {
+        if (turn === generation) {
+          releaseControls?.();
+          releaseControls = undefined;
+        }
       }
-      host.append(
-        await referencePanel(tenant, 'scenes', id, scene.can_manage, refresh),
-        await notes(tenant, id, () => void refresh(), 'scene'),
-      );
     };
     await refresh();
   } catch (error) {

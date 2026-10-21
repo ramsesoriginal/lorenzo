@@ -324,6 +324,10 @@ async def delete_scene_appearance(
     if appearance.session_entity_id != session_id or appearance.tenant_id != tenant_id:
         raise EntityNotFoundError(detail="No such Scene appearance")
     from lorenzo_api.exceptions import EntityKindInUseError
+
+    await require_visible_entry(
+        session, tenant_id=tenant_id, entity_id=appearance_id, user_id=user.id
+    )
     from lorenzo_api.models import EventPresentation
 
     if (

@@ -51,6 +51,7 @@ from lorenzo_api.models import (
     Item,
     ItemInstance,
     Knowledge,
+    LivedBefore,
     Ownership,
     Payload,
     PayloadDescription,
@@ -189,6 +190,7 @@ class Content:
     event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
     event_participants: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     event_learning: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    lived_before: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID, bool]] = field(default_factory=list)
     shared_event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
     scene_facts: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
     scene_events: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
@@ -585,6 +587,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             EventParticipant.event_entity_id,
             EventParticipant.being_entity_id,
             where=EventParticipant.tenant_id == t,
+        )
+    ]
+    c.lived_before = [
+        (b, a, z, shared)
+        for b, a, z, shared in await rows(
+            LivedBefore.being_entity_id,
+            LivedBefore.from_event_id,
+            LivedBefore.to_event_id,
+            LivedBefore.is_shared,
+            where=LivedBefore.tenant_id == t,
         )
     ]
     c.shared_event_relationships = [

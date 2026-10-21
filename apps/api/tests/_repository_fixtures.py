@@ -41,6 +41,7 @@ from lorenzo_api.models import (
     Item,
     ItemInstance,
     Knowledge,
+    LivedBefore,
     Ownership,
     Payload,
     PayloadDescription,
@@ -319,6 +320,21 @@ async def seed_every_content_table(
         )
     )
     await session.flush()
+    session.add(
+        EventParticipant(
+            tenant_id=tenant_id, event_entity_id=later_event.id, being_entity_id=elminster.id
+        )
+    )
+    await session.flush()
+    session.add(
+        LivedBefore(
+            tenant_id=tenant_id,
+            being_entity_id=elminster.id,
+            from_event_id=event.id,
+            to_event_id=later_event.id,
+            is_shared=True,
+        )
+    )
     session.add(
         EventLearning(
             tenant_id=tenant_id,

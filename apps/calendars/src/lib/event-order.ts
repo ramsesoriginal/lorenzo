@@ -1,4 +1,6 @@
+import { fill, getAppLinks } from '@lorenzo/api-client';
 import { client, type components, LorenzoApiError, unwrap } from './api';
+import { API_BASE_URL } from './config';
 import { button, el, entryHref, field, link, message, select } from './dom';
 
 type Relationship = components['schemas']['RelationshipOut'];
@@ -9,6 +11,7 @@ export async function eventOrder(
   eventId: string,
   canEdit = false,
 ): Promise<HTMLElement | null> {
+  const registry = await getAppLinks(API_BASE_URL).catch(() => null);
   const path = { tenant_id: tenantId, event_id: eventId };
   const host = el('details', '', 'panel stack');
   host.dataset.eventOrder = '';
@@ -75,6 +78,21 @@ export async function eventOrder(
             : 'Happened before';
       const line = el('div', '', 'row');
       line.append(el('span', label), link(otherName, entryHref(tenantId, otherId)));
+      if (row.evidence === 'lived') {
+        line.append(
+          el('span', `Lived order · ${row.being_name ?? 'participating being'}`, 'caption'),
+        );
+        const template = registry?.links.lived_order;
+        if (template && row.being_entity_id)
+          line.append(
+            link(
+              'Review lived evidence',
+              fill(template, { tenant: tenantId, id: row.being_entity_id }),
+            ),
+          );
+        assertions.append(line);
+        continue;
+      }
       if (canEdit)
         line.append(
           el(
@@ -270,6 +288,12 @@ export async function eventOrder(
               document.createTextNode(edge.kind === 'causes' ? ' caused ' : ' happened before '),
               link(edge.to_name, entryHref(tenantId, edge.to_event_id)),
             );
+            if (edge.evidence === 'lived')
+              line.append(
+                document.createTextNode(
+                  ` · Lived order of ${edge.being_name ?? 'a participating being'}`,
+                ),
+              );
             comparison.append(line);
           }
         }),

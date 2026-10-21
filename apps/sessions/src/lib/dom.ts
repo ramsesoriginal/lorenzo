@@ -56,3 +56,18 @@ export function link(name: string, href: string) {
 export function sessionHref(tenant: string, id: string, slug?: string | null) {
   return `/session/?${new URLSearchParams({ tenant, ...(slug ? { slug } : { id }) })}`;
 }
+
+/** Keep a saved view readable while preventing edits against its superseded revision. */
+export function suspendControls(root: HTMLElement) {
+  const controls = [
+    ...root.querySelectorAll<
+      HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement
+    >('button, input, select, textarea'),
+  ].map((node) => ({ node, disabled: node.disabled }));
+  root.setAttribute('aria-busy', 'true');
+  for (const { node } of controls) node.disabled = true;
+  return () => {
+    for (const { node, disabled } of controls) if (node.isConnected) node.disabled = disabled;
+    root.removeAttribute('aria-busy');
+  };
+}

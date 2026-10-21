@@ -18,3 +18,21 @@ It's tempting to want one tree that contains all of this ("planet → sphere →
 Every one of these axes can keep time differently, and not just "different calendar, same clock speed" — a plane can sit outside time entirely, a ship traveling near light speed experiences time differently than the world it left, and parallel timelines aren't necessarily synchronized at all.
 
 Exactly how far this needs to be modeled — a shared "true" timeline vs. many independent local ones, and how causality gets tracked across them — is genuinely open. Flagged here rather than decided; the proposed [RFC 0028](../rfcs/0028-time-causality-and-calendars.md) explores time and causality without making them implemented behavior. The non-containment address axes are likewise proposed in [RFC 0026](../rfcs/0026-world-model-axes-and-address.md).
+
+## Sessions, Scenes and personal lived order
+
+A Scene is a reusable entry that brings together Facts, Events, participating beings and an
+optional calendar period. A Session belongs to one campaign, has a real-world date and optional
+in-world start, and can cover several calendar periods. Its GMs, players and selected Characters
+form an explicit roster. Each Scene appearance in a Session has its own notes, so another group
+can use the same Scene without receiving those notes. Session and Scene references have their
+own sharing controls and never grant knowledge of their targets.
+
+Preparation order, recorded play order and personal lived order are distinct. Played Event
+presentations can repeat and can include flashbacks. They do not establish Event order. An
+explicit lived-before assertion instead names two existing participations of one being and is
+order evidence in the shared Event graph. Its source and audience remain explicit; it does not
+assert causation or learning. Unknown and unplaced history stays unknown or unplaced. See
+[ADR 0317](../adr/0317-sessions-scenes-and-collaborative-planning.md),
+[ADR 0318](../adr/0318-explicit-session-and-play-order.md) and
+[ADR 0319](../adr/0319-personal-lived-order-as-event-evidence.md).
