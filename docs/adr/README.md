@@ -316,3 +316,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0311 - Calendar documents, donjon import and the calendar app](0311-calendar-documents-import-and-app.md)
 - [0312 - Explicit Event order and causal relationships](0312-explicit-event-order-and-causality.md)
 - [0313 - Event participation, browsing and calendar addresses](0313-event-participation-browsing-and-calendar-addresses.md)
+
+- [0314 - Optional Event learning records](0314-optional-event-learning-records.md)
