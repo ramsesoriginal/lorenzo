@@ -50,13 +50,14 @@ class ParticipantOut(BaseModel):
 
 class EventAccess(BaseModel):
     can_order: bool
+    can_read_order: bool
 
 
 @router.get("/access")
 async def event_access(tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> EventAccess:
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
-    return EventAccess(can_order=visibility.is_admin)
+    return EventAccess(can_order=visibility.is_admin, can_read_order=True)
 
 
 @router.get("")
@@ -73,7 +74,7 @@ async def browse_events(
 ) -> Page[EventSummary]:
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     structured = being_id is not None or causal_event_id is not None or sort == "order"
-    if structured:
+    if being_id is not None:
         await require_event_order_access(session, user, tenant_id)
     vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     if not structured:
@@ -111,7 +112,7 @@ async def browse_events(
             ],
         )
         return cast(Page[EventSummary], page)
-    order, names = await graph(session, tenant_id)
+    order, names = await graph(session, tenant_id, vis)
     selected = set(names)
     if being_id is not None:
         if not await session.scalar(

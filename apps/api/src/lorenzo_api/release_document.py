@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 8
+FORMAT = 9
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -395,6 +395,10 @@ _CONTENT = _dataclass(
             lambda rows, f: [[str(a), str(b), str(i)] for a, b, i in rows],
             lambda rows, f: [(uuid.UUID(a), uuid.UUID(b), uuid.UUID(i)) for a, b, i in rows],
         ),
+        "shared_event_relationships": _Codec(
+            lambda rows, f: [[str(a), str(b), k] for a, b, k in rows],
+            lambda rows, f: [(uuid.UUID(a), uuid.UUID(b), k) for a, b, k in rows],
+        ),
         "event_relationships": _Codec(
             lambda rows, f: [[str(a), str(b), k] for a, b, k in rows],
             lambda rows, f: [(uuid.UUID(a), uuid.UUID(b), k) for a, b, k in rows],
@@ -453,6 +457,10 @@ def _read_v7(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v8(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v9({**document, "shared_event_relationships": []}, files)
+
+
+def _read_v9(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -468,6 +476,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     6: _read_v6,
     7: _read_v7,
     8: _read_v8,
+    9: _read_v9,
 }
 
 

@@ -7,7 +7,12 @@ import { message } from './dom';
 import { currentTenant, rememberTenant } from './lastTenant';
 import { calendarReads } from './read-cache';
 import { bindThemeToggle } from './theme';
-export type Session = { tenantId: string; canWrite: boolean; canOrderEvents: boolean };
+export type Session = {
+  tenantId: string;
+  canWrite: boolean;
+  canOrderEvents: boolean;
+  canReadEventOrder: boolean;
+};
 export async function start(): Promise<Session | null> {
   calendarReads.suspend();
   const status = document.querySelector<HTMLElement>('[data-session]');
@@ -86,14 +91,15 @@ export async function start(): Promise<Session | null> {
     });
 
     let canOrderEvents = false;
-    if (['owner', 'orga'].includes(tenant.role)) {
-      canOrderEvents = (
-        await unwrap(
-          await client.GET('/tenants/{tenant_id}/events/access', {
-            params: { path: { tenant_id: tenant.id } },
-          }),
-        )
-      ).can_order;
+    let canReadEventOrder = false;
+    {
+      const access = await unwrap(
+        await client.GET('/tenants/{tenant_id}/events/access', {
+          params: { path: { tenant_id: tenant.id } },
+        }),
+      );
+      canOrderEvents = access.can_order;
+      canReadEventOrder = access.can_read_order;
     }
     if (!status.isConnected) return null;
     calendarReads.configure(viewer.id, tenant.id, tenant.role, canOrderEvents);
@@ -105,6 +111,7 @@ export async function start(): Promise<Session | null> {
       tenantId: tenant.id,
       canWrite: ['owner', 'orga', 'author'].includes(tenant.role),
       canOrderEvents,
+      canReadEventOrder,
     };
   } catch (e) {
     calendarReads.clear();

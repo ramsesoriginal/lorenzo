@@ -125,14 +125,14 @@ async def test_authors_opt_out_and_other_tenant_disclose_no_graph(client, test_u
             member = await session.get_one(Membership, (tenant, test_user_id))
             member.role = MembershipRole.AUTHOR
             await session.commit()
-        for method, path, body in [
-            ("get", f"/{a}/relationships", None),
-            ("post", "/compare", {"pairs": [{"left": a, "right": a}]}),
-            ("put", f"/{a}/relationships/{b}", {"kind": "order"}),
-        ]:
-            response = await client.request(method, f"/tenants/{tenant}/events" + path, json=body)
-            assert response.status_code == 403, response.text
-            assert "Hidden Event" not in response.text and "Foreign Event" not in response.text
+        rows = await client.get(f"/tenants/{tenant}/events/{a}/relationships")
+        assert rows.status_code == 200 and rows.json() == []
+        assert "etag" not in rows.headers
+        assert (await compare(client, tenant, a, own_other))["basis"] == "linearized"
+        response = await client.put(
+            f"/tenants/{tenant}/events/{a}/relationships/{b}", json={"kind": "order"}
+        )
+        assert response.status_code == 403
         async with admin_session_factory() as session:
             member = await session.get_one(Membership, (tenant, test_user_id))
             member.role = MembershipRole.OWNER
@@ -148,7 +148,7 @@ async def test_authors_opt_out_and_other_tenant_disclose_no_graph(client, test_u
                 )
             )
             await session.commit()
-        assert (await client.get(f"/tenants/{tenant}/events/{a}/relationships")).status_code == 403
+        assert (await client.get(f"/tenants/{tenant}/events/{a}/relationships")).status_code == 404
         log = await client.get(log_url)
         assert log.status_code == 200, log.text
         assert all(
@@ -323,6 +323,22 @@ async def test_dates_remain_annotations_and_comparison_scales(client, test_user_
             )
             assert dated.status_code == 200, dated.text
         assert await compare(client, tenant, str(ids[0]), str(ids[19])) == initial
+        # The same 200-session fixture also exercises the reader projection and role resolver.
+        from sqlalchemy import update
+
+        async with admin_session_factory() as session:
+            await session.execute(
+                update(EventRelationship)
+                .where(EventRelationship.tenant_id == tenant)
+                .values(is_shared=True)
+            )
+            (await session.get_one(Membership, (tenant, test_user_id))).role = MembershipRole.AUTHOR
+            await session.commit()
+        start = time.perf_counter()
+        permitted = await compare(client, tenant, str(ids[0]), str(ids[19]))
+        elapsed = time.perf_counter() - start
+        assert permitted["basis"] == "causal" and len(permitted["path"]) == 19
+        assert elapsed < 5, f"4,000-Event reader comparison took {elapsed:.2f}s"
     finally:
         await delete_tenant(tenant)
 

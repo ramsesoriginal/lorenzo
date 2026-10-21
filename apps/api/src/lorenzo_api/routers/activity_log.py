@@ -45,6 +45,7 @@ async def list_activity_log(
                 [
                     "event.relationship_added",
                     "event.relationship_removed",
+                    "event.relationship_sharing_changed",
                     "event.participant_added",
                     "event.participant_removed",
                     "event.learning_recorded",

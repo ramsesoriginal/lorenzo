@@ -187,6 +187,7 @@ class Content:
     event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
     event_participants: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     event_learning: list[tuple[uuid.UUID, uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    shared_event_relationships: list[tuple[uuid.UUID, uuid.UUID, str]] = field(default_factory=list)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
@@ -531,6 +532,15 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             EventParticipant.event_entity_id,
             EventParticipant.being_entity_id,
             where=EventParticipant.tenant_id == t,
+        )
+    ]
+    c.shared_event_relationships = [
+        (source, target, kind)
+        for source, target, kind in await rows(
+            EventRelationship.from_event_id,
+            EventRelationship.to_event_id,
+            EventRelationship.kind,
+            where=(EventRelationship.tenant_id == t) & EventRelationship.is_shared.is_(True),
         )
     ]
     c.event_relationships = [

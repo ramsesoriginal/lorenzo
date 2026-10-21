@@ -932,6 +932,7 @@ class _Planner:
                             "being_entity_id": target,
                         }
                     )
+        shared_relationships = set(c.shared_event_relationships)
         for source, target, kind in c.event_relationships:
             if copies("entity", source):
                 local_target = self._local(c, "entity", target)
@@ -944,6 +945,7 @@ class _Planner:
                             "from_event_id": self.local["entity"][source],
                             "to_event_id": local_target,
                             "kind": kind,
+                            "is_shared": (source, target, kind) in shared_relationships,
                         }
                     )
         for e, period_id in c.entry_dates:

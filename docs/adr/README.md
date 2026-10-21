@@ -318,3 +318,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0313 - Event participation, browsing and calendar addresses](0313-event-participation-browsing-and-calendar-addresses.md)
 
 - [0314 - Optional Event learning records](0314-optional-event-learning-records.md)
+
+- [0315 - Reader-scoped Event order and explicit sharing](0315-reader-scoped-event-order-and-sharing.md)

@@ -14,17 +14,18 @@ Opening a date offers Information on that one period, a new Fact or Event, an as
 
 The entry page reuses the shared text/image bundle editor, LorenzoScript, authorship and independent audience controls. An entry's existence/name gate and each Information audience are separate; a visible event need not expose its private Information. Missing and hidden LorenzoScript links both remain plain text. External images embedded in text are not fetched; authored image payloads use the authenticated file loader. Names, link names, observance rules and existing date associations can be edited here. Fact About relations are shown independently of date associations and LorenzoScript links.
 
-Owners and Organizers using full visibility can open **Order and causes** on an Event page ([ADR 0312](../../docs/adr/0312-explicit-event-order-and-causality.md)). Search for another Event, choose Happened before/after or Caused/Was caused by, and add the relationship. Compare Events shows a recorded causal chain, recorded ordering, or an explicitly linearized display order with no recorded path. Dates do not create assertions. Conflicting edits keep the selection; refresh the saved relationships and review before retrying. Removing an assertion changes the derived order, and linked Events must be unlinked before deletion. Authors, players and administrators with a visibility opt-out get no ordering panel.
+Readers can open **Order and causes** on an Event they can see ([ADR 0315](../../docs/adr/0315-reader-scoped-event-order-and-sharing.md)). Their view uses explicitly shared relationships whose two Events are visible to them. Compare Events shows a permitted recorded causal chain, recorded ordering, or an explicitly linearized display order with no visible recorded path. Hidden Events and private relationships influence neither that reader's order nor its explanations, counts or pagination. Different readers may receive different linearized display orders; dates do not create assertions.
+
+Full-visibility Owners/Organizers can also add/remove assertions and use **Share relationship** or **Make relationship private** on each relationship. Existing and newly created assertions start private. Sharing does not open either Event or its Information. Happened before and Caused on the same pair have independent sharing choices. Conflicting edits retain the selection and require refreshing saved relationships before retrying. Ordering edits remain unavailable to Authors, campaign GMs, players and administrators with an opt-out.
 
 Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, full historical knowledge and time travel remain later work.
 
 The **Events** page creates undated Events, searches their names, and offers full-visibility
-Owners/Organizers participant and causal filters plus story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
+Owners/Organizers participant filters, and all readers permitted causal filters and story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
 Causal filters follow causes in either direction from one Event; branches remain independent.
-Story order derives the full graph before filtering and labels unconstrained positions as
-linearized. Event pages add/remove participating beings with version checks. Participation
-records neither knowledge nor lived order and grants no visibility. Authors/readers may browse
-ordinary permitted Event names but receive no structured participation or order surface.
+Story order derives the authorized graph before name/causal filters and pagination, and labels unconstrained positions as
+linearized. Full-visibility staff retains the complete canonical graph. Event pages add/remove participating beings with version checks. Participation
+records neither knowledge nor lived order and grants no visibility. Authors/readers may browse permitted Event names, shared order and shared causal relationships, but receive no structured participation surface.
 
 Calendar, period and Event link names use the existing entry editor. Calendars URLs accept
 UUIDs or slugs and prefer an entry's defined slug; internal identities stay UUIDs. An explicit
@@ -85,3 +86,5 @@ Full-visibility Owners and Organizers can open **Learning** on an Event page ([A
 The Event lists its recorded learning. Following the being link opens its recorded learning occasions in Calendars; Information cards offer **Recorded learning** on demand. These lists are associations, not a claimed lived or causal sequence. Readers outside the full-visibility capability receive no learning controls or background reads. Conflicting writes keep the selection and require **Refresh saved learning** before retrying.
 
 Removing a learning record corrects provenance; it does not revoke access, mean forgetting or remove participation. Remove dependent learning records before removing a participation or deleting its Information/entry. Records follow Information identity through wording edits and do not snapshot the earlier text. An empty list means no learning history is recorded, not that nobody knew. Existing audience grants and untimed workflows remain unchanged.
+
+Sharing a relationship through an Event that is hidden from a reader does not reveal a path through that Event. To disclose only that Arrival happened before Departure, record and share that direct ordering assertion. The reader is never told a hidden intermediary exists. Participation and learning records keep their full-visibility staff restriction in this slice; viewing an Event or its shared causes grants neither of those records.
