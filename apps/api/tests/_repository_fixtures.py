@@ -63,6 +63,7 @@ from lorenzo_api.models import (
     StatValueType,
     StoryEvent,
 )
+from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
 from lorenzo_api.repository_content import Content
 
 
@@ -148,6 +149,12 @@ async def seed_every_content_table(
     )
     await session.flush()
     session.add(Scene(entity_id=scene.id, tenant_id=tenant_id, period_entity_id=period.id))
+    await session.flush()
+    context_rows = [
+        SceneFact(tenant_id=tenant_id, scene_entity_id=scene.id, fact_entity_id=fact.id),
+        SceneEvent(tenant_id=tenant_id, scene_entity_id=scene.id, event_entity_id=event.id),
+        SceneBeing(tenant_id=tenant_id, scene_entity_id=scene.id, being_entity_id=elminster.id),
+    ]
     session.add(
         EntryCalendarPeriod(entity_id=event.id, period_entity_id=period.id, tenant_id=tenant_id)
     )
@@ -345,6 +352,8 @@ async def seed_every_content_table(
             tenant_id=tenant_id, kind="entity", row_id=sword.id, hash="0" * 64, name="Sword"
         )
     )
+    session.add_all(context_rows)
+    await session.flush()
     if not with_copy_records:
         await session.flush()
         return

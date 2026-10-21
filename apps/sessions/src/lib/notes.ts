@@ -34,7 +34,9 @@ async function renderText(tenant: string, source: string) {
           ? registry.links.session_by_slug
           : entry.kinds.includes('being')
             ? registry.links.being_by_slug
-            : registry.links.calendar_entry_by_slug;
+            : entry.kinds.includes('scene')
+              ? registry.links.scene_by_slug
+              : registry.links.calendar_entry_by_slug;
         return template
           ? { href: fill(template, { tenant, slug: entry.slug }), title: entry.name }
           : null;
@@ -42,15 +44,21 @@ async function renderText(tenant: string, source: string) {
     },
   });
 }
-function noteForm(tenant: string, entry: string, refresh: () => void, original?: Note) {
+function noteForm(
+  tenant: string,
+  entry: string,
+  refresh: () => void,
+  original?: Note,
+  scope: 'session' | 'scene' = 'session',
+) {
   const form = el('form', '', 'panel stack');
   const title = field('Note title', original?.title ?? '');
   title.input.required = true;
   const audience = select(
     'Who can read this',
     [
-      ['restricted', 'Me and Session GMs'],
-      ['shared', 'Session participants'],
+      ['restricted', scope === 'session' ? 'Me and Session GMs' : 'Me and entry managers'],
+      ['shared', scope === 'session' ? 'Session participants' : 'Everyone in this library'],
     ],
     original?.is_public ? 'shared' : 'restricted',
   );
@@ -126,7 +134,12 @@ function noteForm(tenant: string, entry: string, refresh: () => void, original?:
   });
   return form;
 }
-export async function notes(tenant: string, entry: string, refresh: () => void) {
+export async function notes(
+  tenant: string,
+  entry: string,
+  refresh: () => void,
+  scope: 'session' | 'scene' = 'session',
+) {
   const [data, access] = await Promise.all([
     unwrap(
       await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
@@ -149,7 +162,7 @@ export async function notes(tenant: string, entry: string, refresh: () => void) 
       el('h4', note.title),
       el(
         'p',
-        `${note.created_by_name ? `By ${note.created_by_name} · ` : ''}${note.is_public ? 'Session participants' : 'Author and Session GMs'}`,
+        `${note.created_by_name ? `By ${note.created_by_name} · ` : ''}${scope === 'session' ? (note.is_public ? 'Session participants' : 'Author and Session GMs') : note.is_public ? 'Everyone in this library' : 'Author and entry managers'}`,
         'caption',
       ),
     );
@@ -169,7 +182,7 @@ export async function notes(tenant: string, entry: string, refresh: () => void) 
     if (access.editable_information_ids.includes(note.id))
       card.append(
         button('Edit note', () => {
-          card.replaceChildren(noteForm(tenant, entry, refresh, note));
+          card.replaceChildren(noteForm(tenant, entry, refresh, note, scope));
         }),
       );
     host.append(card);
@@ -179,7 +192,8 @@ export async function notes(tenant: string, entry: string, refresh: () => void) 
   if (access.can_add_notes)
     host.append(
       button('Add note', () => {
-        if (!host.querySelector('form')) host.append(noteForm(tenant, entry, refresh));
+        if (!host.querySelector('form'))
+          host.append(noteForm(tenant, entry, refresh, undefined, scope));
       }),
     );
   return host;

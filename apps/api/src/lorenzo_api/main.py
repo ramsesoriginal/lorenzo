@@ -121,6 +121,9 @@ def create_app() -> FastAPI:
     from lorenzo_api.routers.story_sessions import router as story_sessions_router
 
     app.include_router(my_sessions_router)
+    from lorenzo_api.routers.story_context import router as story_context_router
+
+    app.include_router(story_context_router)
     app.include_router(story_sessions_router)
     app.include_router(health_router)
     app.include_router(app_links_router)

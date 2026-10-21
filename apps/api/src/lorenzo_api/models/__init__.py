@@ -80,6 +80,11 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "SceneFact",
+    "SceneEvent",
+    "SceneBeing",
+    "SessionFact",
+    "SessionEvent",
     "Scene",
     "SceneAppearance",
     "SessionCharacter",
@@ -176,6 +181,13 @@ __all__ = [
     "VItemInstance",
 ]
 
+from lorenzo_api.models.story_context import (
+    SceneBeing,
+    SceneEvent,
+    SceneFact,
+    SessionEvent,
+    SessionFact,
+)
 from lorenzo_api.models.story_session import (
     Scene,
     SceneAppearance,

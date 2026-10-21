@@ -178,3 +178,58 @@ test('a concurrent session edit keeps the draft until the GM reviews the saved r
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
   }
 });
+
+test('reusable Scene context stays separate from session notes and sharing is explicit', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const fact = await ok(
+      w.gm.POST('/tenants/{tenant_id}/entities', {
+        params: { path: w.path },
+        body: { name: 'Guild ownership', kinds: ['fact'], parents: [], visibility: 'library' },
+      }),
+    );
+    await page.goto(`/scenes/?tenant=${w.tenant.id}`);
+    await page.getByLabel('Scene title', { exact: true }).fill('At the lighthouse');
+    await page.getByLabel('Link name (optional)').fill('lighthouse-scene');
+    await page.getByRole('button', { name: 'Create scene', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'At the lighthouse', exact: true }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/slug=lighthouse-scene/);
+    await page.getByLabel('Reference to add').selectOption({ label: 'Guild ownership · facts' });
+    await page.getByRole('button', { name: 'Add reference', exact: true }).click();
+    await expect(
+      page.getByText('Guild ownership · facts · Private relationship', { exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Share relationship', exact: true }).click();
+    await expect(
+      page.getByText('Guild ownership · facts · Shared relationship', { exact: true }),
+    ).toBeVisible();
+    await page.getByText('Scene details', { exact: true }).click();
+    await page.getByLabel('Visible in this library').check();
+    await page.getByRole('button', { name: 'Save scene', exact: true }).click();
+    const scene = (
+      await ok(
+        w.gm.GET('/tenants/{tenant_id}/entities/resolve', {
+          params: { path: w.path, query: { slug: ['lighthouse-scene'] } },
+        }),
+      )
+    )[0];
+    const refs = await ok(
+      w.player.GET('/tenants/{tenant_id}/{source_kind}/{source_id}/references', {
+        params: { path: { ...w.path, source_kind: 'scenes', source_id: scene.entity_id } },
+      }),
+    );
+    expect(refs.map((r) => r.id)).toEqual([fact.id]);
+    await page.getByRole('button', { name: 'Remove reference', exact: true }).click();
+    await expect(
+      page.getByText('Guild ownership · facts · Shared relationship', { exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});

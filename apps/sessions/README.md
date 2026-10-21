@@ -25,3 +25,13 @@ No private bodies are persisted in browser storage. Appearance preference alone 
 
 See docs/operations/sessions-setup.md. The planned Pages address is a fallback until configured;
 all cross-app destinations are resolved through GET /app-links.
+
+## Reusable Scene context
+
+Open **Browse reusable scenes** from a Session to create or edit an independent Scene, its
+link name and optional calendar period. Scene Facts, Events and participating Beings have
+private relationships until explicitly shared. Readers must still see both entries. These
+references never create Event participation or learning. Session references are shown separately
+from Scene references; **Game time covered** selects existing calendar periods independently
+of the Session start date. Session-specific notes belong to each appearance, not its reusable
+Scene. Removing an appearance explicitly removes its notes and preserves the Scene.

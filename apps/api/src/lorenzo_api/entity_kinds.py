@@ -265,6 +265,10 @@ async def remove_kind(
     (ADR 0032), and `being` while the entry is a character, whose key would cascade away with it:
     demote it first (ADR 0036)."""
     entity_id = entity.id
+    from lorenzo_api.story_context import require_no_context_references
+
+    if kind in ("being", "fact", "event"):
+        await require_no_context_references(session, tenant_id, entity_id)
     if kind == "being":
         await require_no_participations(session, tenant_id, entity_id)
     if kind == "event":
@@ -357,6 +361,9 @@ async def require_deletable(
     campaign's own entry stays with the campaign. A being that is no character, an item and a
     bare entry go. The permanent being-deletion route explicitly allows a character here."""
     kinds = await kinds_of_entry(session, entity_id)
+    from lorenzo_api.story_context import require_no_context_references
+
+    await require_no_context_references(session, tenant_id, entity_id)
     if kinds & {"session", "scene_appearance"}:
         raise EntityKindInUseError(
             detail="Remove this Session or Scene appearance through its preparation page"
