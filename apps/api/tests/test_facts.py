@@ -162,7 +162,12 @@ async def test_outer_audience_is_atomic_and_does_not_change_information(
         )
         assert note.status_code == 201, note.text
         before = await client.get(base + "/audience")
-        assert before.json() == {"is_public": False, "entity_ids": [], "player_ids": []}
+        assert before.json() == {
+            "is_public": False,
+            "entity_ids": [],
+            "player_ids": [],
+            "shared_with_participants": False,
+        }
         assert (await client.put(base + "/audience", json={"is_public": True})).status_code == 428
         seat = await reader_seat(tenant, test_user_id)
         outcomes = await asyncio.gather(
