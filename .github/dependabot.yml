@@ -118,6 +118,7 @@ updates:
       - "/packages/information-editor"
       - "/packages/app-shell"
       - "/packages/period-picker"
+      - "/packages/read-cache"
     schedule:
       interval: "weekly"
     commit-message:
