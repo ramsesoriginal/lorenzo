@@ -374,6 +374,8 @@ async def update_session(
         raise EntityNotFoundError(detail="No such Session")
     require_version(if_match, entity)
     if "start_period_id" in body.model_fields_set:
+        if row.start_period_id is not None and row.start_period_id != body.start_period_id:
+            await check_period(session, tenant_id, row.start_period_id, user)
         await check_period(session, tenant_id, body.start_period_id, user)
     for key, value in body.model_dump(exclude_unset=True).items():
         if key == "slug":

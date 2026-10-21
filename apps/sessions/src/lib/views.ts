@@ -236,6 +236,15 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
   const status = el('p');
   status.setAttribute('role', 'status');
   details.append(
+    button('Review saved session', async () => {
+      const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+        params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
+        cache: 'no-store',
+      });
+      const saved = await unwrap(result);
+      version = result.response.headers.get('etag') ?? '';
+      status.textContent = `Saved session: ${saved.name}; date ${saved.real_date ?? 'not set'}; link name ${saved.slug ?? 'not set'}. Your draft is unchanged. Review it before saving again.`;
+    }),
     name.label,
     date.label,
     slug.label,
@@ -251,7 +260,9 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
             body: {
               name: name.input.value,
               real_date: date.input.value || null,
-              start_period_id: period.input.value || null,
+              ...((period.input.value || null) !== session.start_period_id
+                ? { start_period_id: period.input.value || null }
+                : {}),
               slug: slug.input.value || null,
             },
           }),
@@ -306,6 +317,21 @@ async function rosterEditor(session: StorySession, version: string, refresh: () 
   const status = el('p');
   status.setAttribute('role', 'status');
   details.append(
+    button('Review saved roster', async () => {
+      const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+        params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
+        cache: 'no-store',
+      });
+      const saved = await unwrap(result);
+      version = result.response.headers.get('etag') ?? '';
+      const gmNames = gms
+        .filter((g) => saved.gm_user_ids.includes(g.user_id))
+        .map((g) => g.display_name ?? g.nickname ?? 'GM');
+      const playerNames = players
+        .filter((p) => saved.players.some((s) => s.player_id === p.id))
+        .map((p) => p.display_name ?? p.nickname ?? 'Player');
+      status.textContent = `Saved roster: GMs ${gmNames.join(', ')}; players ${playerNames.join(', ') || 'none'}. Your selection is unchanged. Review it before saving again.`;
+    }),
     button('Save roster', async () => {
       try {
         await unwrap(
@@ -370,6 +396,15 @@ async function sceneAdder(session: StorySession, version: string, refresh: () =>
       'A reusable scene and its session appearance have separate audiences. Sharing this appearance does not open a restricted scene.',
       'caption',
     ),
+    button('Review saved outline', async () => {
+      const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+        params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
+        cache: 'no-store',
+      });
+      const saved = await unwrap(result);
+      version = result.response.headers.get('etag') ?? '';
+      status.textContent = `Saved scenes: ${saved.scenes.map((s) => s.name).join(', ') || 'none'}. Your scene draft and retry identity are unchanged.`;
+    }),
     button('Add scene', async () => {
       try {
         let scene = picker.input.value;
