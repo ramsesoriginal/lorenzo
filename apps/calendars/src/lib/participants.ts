@@ -1,7 +1,12 @@
 import { client, unwrap } from './api';
 import { button, el, entryHref, link, message } from './dom';
 import { entryPicker } from './entry-picker';
-export async function participants(tenantId: string, eventId: string): Promise<HTMLElement> {
+import { groupFromParticipants } from './event-groups';
+export async function participants(
+  tenantId: string,
+  eventId: string,
+  canCreateGroup = false,
+): Promise<HTMLElement> {
   const path = { tenant_id: tenantId, event_id: eventId };
   const host = el('details', '', 'panel');
   const body = el('div', '', 'stack');
@@ -57,6 +62,7 @@ export async function participants(tenantId: string, eventId: string): Promise<H
   async function read() {
     const result = await client.GET('/tenants/{tenant_id}/events/{event_id}/participants', {
       params: { path },
+      cache: 'no-store',
     });
     const rows = await unwrap(result);
     version = result.response.headers.get('etag') ?? '';
@@ -106,5 +112,6 @@ export async function participants(tenantId: string, eventId: string): Promise<H
     ),
     status,
   );
+  if (canCreateGroup) body.append(groupFromParticipants(tenantId, eventId));
   return host;
 }

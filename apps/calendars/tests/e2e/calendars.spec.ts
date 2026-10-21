@@ -1221,3 +1221,66 @@ test('Event creation visibility and participant note audiences remain separate',
   await expect(page.getByLabel('Entry visibility', { exact: true })).toHaveValue('restricted');
   await page.context().close();
 });
+
+test('Event managers create an ordinary group snapshot including an untracked NPC', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const tenant_id = world.tenantId;
+  const event = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id } },
+      body: { name: 'The council gathers', kinds: ['event'], parents: [] },
+    }),
+  );
+  const being = await ok(
+    world.api.POST('/tenants/{tenant_id}/entities', {
+      params: { path: { tenant_id } },
+      body: { name: 'Untracked guide', kinds: ['being'], parents: [] },
+    }),
+  );
+  const roster = await world.api.GET('/tenants/{tenant_id}/events/{event_id}/participants', {
+    params: { path: { tenant_id, event_id: event.id } },
+  });
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/events/{event_id}/participants/{being_id}', {
+      params: {
+        path: { tenant_id, event_id: event.id, being_id: being.id },
+        header: { 'if-match': roster.response.headers.get('etag') ?? '' },
+      },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/entry/?tenant=${tenant_id}&id=${event.id}`);
+  const participants = page.locator('[data-participants]');
+  await participants.getByText('Participating beings', { exact: true }).click();
+  await participants.getByText('Create group from event participants', { exact: true }).click();
+  await expect(
+    participants.getByText('1 participating being(s) will be copied.', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    participants.getByText(/Groups and their members are readable by library participants/),
+  ).toBeVisible();
+  await participants.getByLabel('Group name', { exact: true }).fill('Council companions');
+  await participants.getByRole('button', { name: 'Create group', exact: true }).click();
+  const open = participants.getByRole('link', { name: 'Council companions', exact: true });
+  await expect(open).toBeVisible();
+  const groupId = new URL(
+    (await open.getAttribute('href')) ?? '',
+    'http://example.test',
+  ).searchParams.get('id');
+  if (!groupId) throw new Error('Group identity missing');
+  const members = await ok(
+    world.api.GET('/tenants/{tenant_id}/groups/{group_entity_id}/members', {
+      params: { path: { tenant_id, group_entity_id: groupId } },
+    }),
+  );
+  expect(members.map((member) => member.id)).toEqual([being.id]);
+  const tracked = await world.api.GET('/tenants/{tenant_id}/characters/{character_id}', {
+    params: { path: { tenant_id, character_id: being.id } },
+  });
+  expect(tracked.response.status).toBe(404);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.context().close();
+});

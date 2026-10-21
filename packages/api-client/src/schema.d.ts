@@ -2389,8 +2389,8 @@ export interface paths {
         post?: never;
         /**
          * Delete Character
-         * @description Demotes - deletes only the `character` row (CharacterPlayer/
-         *     GroupMember rows referencing it cascade away with it); `being`/`entity`
+         * @description Demotes - deletes only the `character` row and its CharacterPlayer roster links.
+         *     Group membership follows Being (ADR 0316) and survives; `being`/`entity`
          *     survive untouched, along with anything the character owned, contained,
          *     or knew (ADR 0036/RFC 0007, resolving ADR 0031/RFC 0004's own open
          *     question). Authorization uses the every-campaign tier: demotion ends
@@ -2861,6 +2861,23 @@ export interface paths {
         post?: never;
         /** Remove Event Participant */
         delete: operations["remove_event_participant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/events/{event_id}/participant-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Group From Participants */
+        post: operations["group_from_participants"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7874,7 +7891,7 @@ export interface components {
         /**
          * GroupCreate
          * @description POST /groups - see ADR 0064. Creates a fresh bare Entity to serve as
-         *     the group, plus one GroupMember row per id in member_character_ids
+         *     the group, plus one GroupMember row per being id in the legacy member_character_ids
          *     (each individually validated and authorized, same as the single-member
          *     PUT route below).
          */
@@ -9691,6 +9708,16 @@ export interface components {
             size: number;
             /** Pages */
             pages: number;
+        };
+        /** ParticipantGroupCreate */
+        ParticipantGroupCreate: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** ParticipantOut */
         ParticipantOut: {
@@ -22335,6 +22362,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ParticipantOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    group_from_participants: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParticipantGroupCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitySummary"];
                 };
             };
             /** @description Validation Error */

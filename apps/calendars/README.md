@@ -106,3 +106,12 @@ checkbox. These live audiences follow current participating beings controlled th
 seats; removing participation removes this route to access, without recording learning or
 permanent memory. Facts have no Participants audience. Copies retain the flags locally and
 release format 10 preserves them; older releases default false.
+
+Event managers can open Create group from event participants, review the current beings and
+choose a group name. Creation takes a versioned snapshot, including untracked NPCs. It never
+promotes a being to Character and later participant changes do not change the group. Ordinary
+groups expose their member list to library participants, explained before confirmation; this
+action does not open the source Event or its notes. Stable request identities make a lost-response
+retry return the existing group without restoring membership or renaming it. General group APIs
+also accept all beings through their existing member fields; roster/player control still needs
+Character, and group knowledge remains direct rather than inherited through nested groups.

@@ -28,6 +28,7 @@ from lorenzo_api.models.entity_prototype import EntityPrototype
 from lorenzo_api.models.entity_slug import EntitySlug
 from lorenzo_api.models.entity_stat import EntityStat
 from lorenzo_api.models.entity_stat_group import EntityStatGroup
+from lorenzo_api.models.event_group_creation import EventGroupCreation
 from lorenzo_api.models.event_learning import EventLearning
 from lorenzo_api.models.event_participant import EventParticipant
 from lorenzo_api.models.event_relationship import EventRelationship
@@ -82,6 +83,7 @@ __all__ = [
     "EventRelationship",
     "EventParticipant",
     "EventLearning",
+    "EventGroupCreation",
     "CalendarImport",
     "CalendarObservance",
     "EntityAudience",

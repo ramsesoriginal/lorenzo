@@ -15,7 +15,7 @@ __all__ = [
 
 class GroupCreate(BaseModel):
     """POST /groups - see ADR 0064. Creates a fresh bare Entity to serve as
-    the group, plus one GroupMember row per id in member_character_ids
+    the group, plus one GroupMember row per being id in the legacy member_character_ids
     (each individually validated and authorized, same as the single-member
     PUT route below).
     """

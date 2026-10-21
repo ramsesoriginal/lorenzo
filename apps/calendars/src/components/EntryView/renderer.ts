@@ -79,7 +79,7 @@ export async function mount() {
       try {
         const ordering = await eventOrder(tenantId, id, session.canOrderEvents);
         if (ordering) host.append(ordering);
-        if (canWrite) host.append(await participants(tenantId, id));
+        if (canWrite) host.append(await participants(tenantId, id, session.canOrderEvents));
         if (session.canOrderEvents) host.append(await eventLearning(tenantId, id));
       } catch (error) {
         host.append(el('p', `Could not load Event ordering. ${message(error)}`, 'caption'));

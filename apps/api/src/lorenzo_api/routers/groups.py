@@ -11,7 +11,7 @@ from fastapi_problem.error import Problem
 from sqlalchemy import delete, exists, func, or_, select
 
 from lorenzo_api.activity_log import record_activity
-from lorenzo_api.campaign_access import can_manage_character
+from lorenzo_api.campaign_access import can_manage_character, can_manage_owner
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -31,6 +31,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
+    Being,
     Calendar,
     CalendarObservance,
     CalendarPeriod,
@@ -144,6 +145,18 @@ async def list_group_members(
     return [EntitySummary.from_entity(member) for member in members]
 
 
+async def _can_manage_member(
+    session: SessionDep, *, user_id: uuid.UUID, tenant_id: uuid.UUID, character_entity_id: uuid.UUID
+) -> bool:
+    if await session.scalar(select(Character.entity_id).where(Character.entity_id == character_entity_id, Character.tenant_id == tenant_id)) is not None:
+        return await can_manage_character(
+            session, user_id=user_id, tenant_id=tenant_id, character_entity_id=character_entity_id
+        )
+    return await can_manage_owner(
+        session, user_id=user_id, tenant_id=tenant_id, owner_entity_id=character_entity_id
+    )
+
+
 async def _require_can_manage_group(
     session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, group_entity_id: uuid.UUID
 ) -> None:
@@ -179,7 +192,7 @@ async def _require_can_manage_group(
         )
     ).scalars()
     for character_entity_id in member_ids:
-        if not await can_manage_character(
+        if not await _can_manage_member(
             session, user_id=user.id, tenant_id=tenant_id, character_entity_id=character_entity_id
         ):
             raise CharacterManagementForbiddenError(
@@ -213,16 +226,16 @@ async def _authorize_add_member(
     """
     exists = (
         await session.execute(
-            select(Character.entity_id).where(
-                Character.entity_id == character_entity_id, Character.tenant_id == tenant_id
+            select(Being.entity_id).where(
+                Being.entity_id == character_entity_id, Being.tenant_id == tenant_id
             )
         )
     ).first()
     if exists is None:
         raise InvalidCharacterError(
-            detail=f"{character_entity_id} is not an existing character in tenant {tenant_id}"
+            detail=f"{character_entity_id} is not an existing being in tenant {tenant_id}"
         )
-    if not await can_manage_character(
+    if not await _can_manage_member(
         session, user_id=user.id, tenant_id=tenant_id, character_entity_id=character_entity_id
     ):
         raise CharacterManagementForbiddenError(

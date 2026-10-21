@@ -106,3 +106,20 @@ async def test_player_creator_and_reader_notes_do_not_grant_other_editing(client
         assert (await client.get(f"/tenants/{t}/event-learning")).status_code == 403
     finally:
         await delete_tenant(t)
+
+
+async def test_event_management_does_not_reveal_private_learning_sources(client, test_user_id):
+    t = await make_tenant(test_user_id)
+    try:
+        e = await event(client, t, "A meeting")
+        b = await being(client, t, "A private source")
+        i = await information(client, t, b, False)
+        await participate(client, t, e, b)
+        assert (await learn(client, t, e, b, i)).status_code == 200
+        await role(t, test_user_id, "author")
+        assert (await client.get(f"/tenants/{t}/information/{i}")).status_code == 404
+        rows = await client.get(f"/tenants/{t}/event-learning", params={"event_id": e})
+        assert rows.status_code == 200 and rows.json()["total"] == 0
+        assert (await learn(client, t, e, b, i)).status_code == 404
+    finally:
+        await delete_tenant(t)
