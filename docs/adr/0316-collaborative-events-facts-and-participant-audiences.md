@@ -54,6 +54,16 @@ a concurrent edit. Reader responses and caches must be reauthorized against
 current participation. Wider Event management alone does not qualify for the
 existing full-visibility private-body cache retention.
 
+Groups can contain all beings, including NPCs with no Character component, as
+explicitly agreed after checking ADR 0031. Player ownership and roster seats still
+require Characters. The existing group_member member key now references Being
+through its composite same-tenant FK; legacy column and API field names containing
+"character" remain accepted for compatibility, and now accept being ids. Ordinary
+group writes retain per-member standing: tracked Characters use existing character
+management and bare beings use existing NPC/holder management. Group knowledge
+remains one-level; this does not add nested-group inheritance. Removing Character
+tracking preserves membership; deleting the Being removes its membership.
+
 GMs and Authors can create a named ordinary group from an Event's participants.
 The app previews the exact current beings before confirmation. Creation copies
 membership once, under a version precondition and in one transaction; later
@@ -62,8 +72,8 @@ duplicate groups and must not add members to an unrelated existing group. Creati
 the group grants no Event or Information access automatically.
 
 Any new tenant tables force RLS, use composite same-tenant foreign keys and join
-the copyable-table registry. Audience flags participate in repository copy,
-release, explicit update review and purge, with old releases defaulting false.
+the copyable-table registry. Audience flags travel with repository copies and releases and remain local after
+copying; upstream updates never silently change sharing. Old releases default false.
 No source identities, private learning records or participant counts leak through
 reader exports or activity summaries.
 
