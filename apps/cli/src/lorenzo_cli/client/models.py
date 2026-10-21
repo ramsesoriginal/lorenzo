@@ -1187,6 +1187,12 @@ class OccurrenceOut(BaseModel):
     date: CalendarDate
 
 
+class OrderedSession(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    can_manage: bool = Field(..., title="Can Manage")
+
+
 class OutlineOrder(BaseModel):
     appearance_ids: list[UUID] = Field(..., title="Appearance Ids")
 
@@ -1475,6 +1481,28 @@ class PictureRefOut(BaseModel):
     from_entity: EntitySummary | None
 
 
+class Status8(StrEnum):
+    planned = "planned"
+    played = "played"
+    skipped = "skipped"
+
+
+class PlayAppearance(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    status: Status8 = Field(..., title="Status")
+
+
+class PlayWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    played_appearance_ids: list[UUID] = Field(..., max_length=1000, title="Played Appearance Ids")
+    skipped_appearance_ids: list[UUID] | None = Field(
+        None, max_length=1000, title="Skipped Appearance Ids"
+    )
+
+
 class PlayerContextOut(BaseModel):
     id: UUID = Field(..., title="Id")
     tenant_id: UUID = Field(..., title="Tenant Id")
@@ -1528,6 +1556,37 @@ class PlayerSummaryOut(BaseModel):
 
 class PlayerUpdate(BaseModel):
     self_service: bool | None = Field(None, title="Self Service")
+
+
+class PresentationCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID | None = Field(None, title="Id")
+    event_id: UUID = Field(..., title="Event Id")
+    is_shared: bool | None = Field(False, title="Is Shared")
+
+
+class PresentationOrder(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    presentation_ids: list[UUID] = Field(..., max_length=1000, title="Presentation Ids")
+
+
+class PresentationOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    appearance_id: UUID = Field(..., title="Appearance Id")
+    event_id: UUID = Field(..., title="Event Id")
+    name: str = Field(..., title="Name")
+    is_shared: bool = Field(..., title="Is Shared")
+
+
+class PresentationUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    is_shared: bool = Field(..., title="Is Shared")
 
 
 class PreviewDescriptionOut(BaseModel):
@@ -1967,6 +2026,18 @@ class SessionOut(BaseModel):
 class SessionRoster(BaseModel):
     gm_user_ids: list[UUID] = Field(..., min_length=1, title="Gm User Ids")
     players: list[Attendee] | None = Field([], title="Players", validate_default=True)
+
+
+class SessionSequenceOut(BaseModel):
+    ordered: list[OrderedSession] = Field(..., title="Ordered")
+    unplaced: list[OrderedSession] = Field(..., title="Unplaced")
+
+
+class SessionSequenceWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    session_ids: list[UUID] = Field(..., max_length=1000, title="Session Ids")
 
 
 class SessionUpdate(BaseModel):
@@ -2909,6 +2980,12 @@ class PageTenantSummaryOut(BaseModel):
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
     pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PlayOut(BaseModel):
+    appearances: list[PlayAppearance] = Field(..., title="Appearances")
+    played_appearance_ids: list[UUID] = Field(..., title="Played Appearance Ids")
+    presentations: list[PresentationOut] = Field(..., title="Presentations")
 
 
 class PreviewInformationOut(BaseModel):

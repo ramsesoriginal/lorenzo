@@ -233,3 +233,86 @@ test('reusable Scene context stays separate from session notes and sharing is ex
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
   }
 });
+
+test('GM reviews a played-order proposal and records repeated Event presentation independently', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'Flashback session', campaign_id: w.campaign.id },
+      }),
+    );
+    const scene = await ok(
+      w.gm.POST('/tenants/{tenant_id}/scenes', {
+        params: { path: w.path },
+        body: { name: 'The memory', is_public: true },
+      }),
+    );
+    const path = { ...w.path, session_id: session.id };
+    const initial = await w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+      params: { path },
+    });
+    await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
+        params: { path, header: { 'if-match': initial.response.headers.get('etag') ?? '' } },
+        body: { scene_entity_id: scene.id, is_shared: true },
+      }),
+    );
+    await ok(
+      w.gm.POST('/tenants/{tenant_id}/entities', {
+        params: { path: w.path },
+        body: { name: 'The earlier launch', kinds: ['event'], parents: [], visibility: 'library' },
+      }),
+    );
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await page.getByText('Review and record played scenes', { exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Propose played order from preparation', exact: true })
+      .click();
+    await expect(
+      page.getByText('Proposal only. Review the scene statuses and order, then save explicitly.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    let read = await ok(
+      w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}/play', { params: { path } }),
+    );
+    expect(read.played_appearance_ids).toEqual([]);
+    await page.getByRole('button', { name: 'Save played scenes', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'The memory · played', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Record Event presentation', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Share presentation', exact: true })).toHaveCount(
+      1,
+    );
+    await page.getByRole('button', { name: 'Record Event presentation', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Share presentation', exact: true })).toHaveCount(
+      2,
+    );
+    read = await ok(
+      w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}/play', { params: { path } }),
+    );
+    expect(read.presentations).toHaveLength(2);
+    expect(read.presentations[0].id).not.toBe(read.presentations[1].id);
+    await page.getByText('Edit order of sessions I manage', { exact: true }).click();
+    await page.getByRole('button', { name: 'Place session at end', exact: true }).click();
+    await page.getByRole('button', { name: 'Save session order', exact: true }).click();
+    await expect(
+      page.getByText('Unplaced sessions available to you: none', { exact: true }),
+    ).toBeVisible();
+    const ordered = await ok(
+      w.gm.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/session-sequence', {
+        params: { path: { ...w.path, campaign_id: w.campaign.id } },
+      }),
+    );
+    expect(ordered.ordered.map((s) => s.id)).toEqual([session.id]);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});

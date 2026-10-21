@@ -134,6 +134,24 @@ class SceneAppearance(Base):
             initially="DEFERRED",
         ),
         CheckConstraint("position >= 0", name="scene_appearance_position"),
+        CheckConstraint(
+            "play_status IN ('planned', 'played', 'skipped')", name="scene_appearance_play_status"
+        ),
+        CheckConstraint(
+            "(play_status = 'played') = (played_position IS NOT NULL)",
+            name="scene_appearance_play_shape",
+        ),
+        CheckConstraint(
+            "played_position IS NULL OR played_position >= 0",
+            name="scene_appearance_played_position",
+        ),
+        UniqueConstraint(
+            "session_entity_id",
+            "played_position",
+            name="scene_appearance_played_position_key",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
         same_tenant_fk("scene_appearance_entity_fkey", ["entity_id"], "entity", ondelete="CASCADE"),
         same_tenant_fk(
             "scene_appearance_session_fkey",
@@ -156,3 +174,5 @@ class SceneAppearance(Base):
     scene_entity_id: Mapped[uuid.UUID]
     position: Mapped[int]
     is_shared: Mapped[bool] = mapped_column(server_default=text("false"))
+    play_status: Mapped[str] = mapped_column(server_default="planned")
+    played_position: Mapped[int | None]

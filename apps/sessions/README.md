@@ -35,3 +35,12 @@ references never create Event participation or learning. Session references are 
 from Scene references; **Game time covered** selects existing calendar periods independently
 of the Session start date. Session-specific notes belong to each appearance, not its reusable
 Scene. Removing an appearance explicitly removes its notes and preserves the Scene.
+
+## Recorded play
+
+Recorded play keeps played and skipped appearances separately from preparation. A GM can
+propose the outline as played, review the draft, then explicitly save. Later preparation edits
+preserve the played record. Event presentations have independent identities and private
+relationships until shared; readers still need access to both appearance and Event. Campaign
+Session order is explicit, with unplaced Sessions preserved. GMs reorder only Sessions they
+manage. Dates and play records never become Event-order evidence or learning history.

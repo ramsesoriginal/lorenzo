@@ -87,6 +87,8 @@ __all__ = [
     "SessionEvent",
     "Scene",
     "SceneAppearance",
+    "EventPresentation",
+    "SessionSequence",
     "SessionCharacter",
     "SessionGm",
     "SessionPlayer",
@@ -181,6 +183,7 @@ __all__ = [
     "VItemInstance",
 ]
 
+from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (
     SceneBeing,
     SceneEvent,
