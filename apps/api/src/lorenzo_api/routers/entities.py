@@ -1822,7 +1822,11 @@ async def replace_entry_audience(
             if found != wanted:
                 raise InvalidAudienceRecipientError(detail="Choose recipients from this library.")
     previous = await entry_audience_of(session, audience)
-    shared = body.shared_with_participants if "shared_with_participants" in body.model_fields_set else previous.shared_with_participants
+    shared = (
+        body.shared_with_participants
+        if "shared_with_participants" in body.model_fields_set
+        else previous.shared_with_participants
+    )
     if shared and await session.get(StoryEvent, entity_id) is None:
         raise InvalidAudienceRecipientError(detail="Only Events have a participant audience")
     if (

@@ -25,6 +25,12 @@ describe('explicit audience selection', () => {
 });
 
 it('retains a live participant audience when editing explicit recipients', () => {
-  expect(audienceWithRecipients({ is_public: false, shared_with_participants: true }, ['being'], []))
-    .toEqual({ is_public: false, shared_with_participants: true, entity_ids: ['being'], player_ids: [] });
+  expect(
+    audienceWithRecipients({ is_public: false, shared_with_participants: true }, ['being'], []),
+  ).toEqual({
+    is_public: false,
+    shared_with_participants: true,
+    entity_ids: ['being'],
+    player_ids: [],
+  });
 });

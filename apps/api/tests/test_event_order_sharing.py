@@ -196,9 +196,14 @@ async def test_shared_assertions_copy_and_old_release_defaults_are_private(clien
         a, b, c = [await event(client, source, name) for name in ["A", "B", "C"]]
         await relation(client, source, a, b, "causes")
         await relation(client, source, b, c, "order")
-        from lorenzo_api.models import EntityAudience
+        from test_event_learning import information
+
+        from lorenzo_api.models import EntityAudience, Information
+
+        note = await information(client, source, a, False)
         async with admin_session_factory() as s:
             (await s.get_one(EntityAudience, uuid.UUID(a))).shared_with_participants = True
+            (await s.get_one(Information, uuid.UUID(note))).shared_with_participants = True
             await s.commit()
         await share(client, source, a, b, "causes")
         async with admin_session_factory() as s:
@@ -223,8 +228,36 @@ async def test_shared_assertions_copy_and_old_release_defaults_are_private(clien
                 False,
                 True,
             ]
+            assert sum(row["shared_with_participants"] for row in plan.rows["entity_audience"]) == 1
+            assert sum(row["shared_with_participants"] for row in plan.rows["information"]) == 1
             await apply_plan(s, plan, user_id=test_user_id)
             await s.commit()
+            assert (
+                len(
+                    (
+                        await s.scalars(
+                            select(EntityAudience).where(
+                                EntityAudience.tenant_id == target,
+                                EntityAudience.shared_with_participants.is_(True),
+                            )
+                        )
+                    ).all()
+                )
+                == 1
+            )
+            assert (
+                len(
+                    (
+                        await s.scalars(
+                            select(Information).where(
+                                Information.tenant_id == target,
+                                Information.shared_with_participants.is_(True),
+                            )
+                        )
+                    ).all()
+                )
+                == 1
+            )
             rows = (
                 await s.scalars(
                     select(EventRelationship).where(EventRelationship.tenant_id == target)
@@ -331,8 +364,9 @@ async def test_authors_gms_and_players_get_reader_graph_but_no_ordering_write(
 
 
 def test_participant_audiences_release_v9_defaults_private():
+    from lorenzo_api.release_document import decode, encode
     from lorenzo_api.repository_content import Content
-    from lorenzo_api.release_document import encode, decode
+
     c = Content(tenant_id=uuid.uuid4())
     c.participant_entry_audiences = [uuid.uuid4()]
     c.participant_information_audiences = [uuid.uuid4()]
@@ -340,7 +374,11 @@ def test_participant_audiences_release_v9_defaults_private():
     back = decode(document, files)
     assert back.participant_entry_audiences == c.participant_entry_audiences
     assert back.participant_information_audiences == c.participant_information_audiences
-    old = {k:v for k,v in document.items() if k not in {"participant_entry_audiences", "participant_information_audiences"}}
+    old = {
+        k: v
+        for k, v in document.items()
+        if k not in {"participant_entry_audiences", "participant_information_audiences"}
+    }
     back = decode(old, files, format=9)
     assert back.participant_entry_audiences == []
     assert back.participant_information_audiences == []

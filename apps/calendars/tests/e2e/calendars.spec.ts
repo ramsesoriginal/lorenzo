@@ -1184,7 +1184,9 @@ test('players create their own Events and Facts and contribute only their own no
   await page.context().close();
 });
 
-test('Event creation visibility and participant note audiences remain separate', async ({ browser }) => {
+test('Event creation visibility and participant note audiences remain separate', async ({
+  browser,
+}) => {
   const world = await buildWorld();
   const page = await signedIn(browser, world.subject);
   await page.goto(`/events/?tenant=${world.tenantId}`);
@@ -1192,11 +1194,17 @@ test('Event creation visibility and participant note audiences remain separate',
   await page.getByLabel('Event name', { exact: true }).fill('The participants meet');
   await page.getByLabel('Entry visibility', { exact: true }).selectOption('participants');
   await page.getByRole('button', { name: 'Create Event', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'The participants meet', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'The participants meet', exact: true }),
+  ).toBeVisible();
   await expect(page.getByLabel('Entry visibility', { exact: true })).toHaveValue('participants');
   const id = new URL(page.url()).searchParams.get('id');
   if (!id) throw new Error('Missing Event identity');
-  const audience = await ok(world.api.GET('/tenants/{tenant_id}/entities/{entity_id}/audience', { params: { path: { tenant_id: world.tenantId, entity_id: id } } }));
+  const audience = await ok(
+    world.api.GET('/tenants/{tenant_id}/entities/{entity_id}/audience', {
+      params: { path: { tenant_id: world.tenantId, entity_id: id } },
+    }),
+  );
   expect(audience.shared_with_participants).toBe(true);
   expect(audience.is_public).toBe(false);
   await page.getByRole('button', { name: 'Add information', exact: true }).click();

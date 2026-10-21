@@ -98,3 +98,11 @@ edit their own entries, and add/edit their own notes on entries they can see. En
 does not grant ordering or learning editing. A private note by another author remains private
 to its permitted readers. The app asks the API for entry-specific editing capabilities.
 Private response retention remains limited to full-visibility administrators.
+
+Event creation offers Restricted, Participants and Everyone in this library, saved atomically
+with the entry. Event pages have a quick visibility selector plus the full explicit audience
+control; individual grants remain additive. Information on an Event has its own Participants
+checkbox. These live audiences follow current participating beings controlled through player
+seats; removing participation removes this route to access, without recording learning or
+permanent memory. Facts have no Participants audience. Copies retain the flags locally and
+release format 10 preserves them; older releases default false.

@@ -68,7 +68,7 @@ export async function participants(tenantId: string, eventId: string): Promise<H
   body.append(
     el(
       'p',
-      'Participation records who took part. It does not grant access or record what they learned.',
+      'Participation records who took part. Participant sharing is chosen separately for the Event and its notes; learning is recorded separately.',
       'caption',
     ),
     list,

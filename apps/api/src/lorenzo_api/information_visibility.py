@@ -196,7 +196,10 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
         knower_matches.append(Knowledge.knower_entity_id.in_(vis.knower_entity_ids))
     clauses: list[ColumnElement[bool]] = [Information.is_public.is_(True)]
     if vis.participant_event_ids:
-        clauses.append(Information.shared_with_participants.is_(True) & entity_id_among(Information.entity_id, vis.participant_event_ids))
+        clauses.append(
+            Information.shared_with_participants.is_(True)
+            & entity_id_among(Information.entity_id, vis.participant_event_ids)
+        )
     if vis.user_id is not None and vis.event_fact_ids:
         clauses.append(
             (Information.created_by == vis.user_id)
@@ -501,7 +504,18 @@ async def resolve_information_visibility(
     event_manager = await manages_events(session, tenant_id=tenant_id, user_id=user_id)
     if event_manager:
         gm_reachable_ids |= event_fact_ids
-    participant_event_ids = frozenset(await session.scalars(select(EventParticipant.event_entity_id).where(EventParticipant.tenant_id == tenant_id, EventParticipant.being_entity_id.in_(character_ids)))) if character_ids else frozenset()
+    participant_event_ids = (
+        frozenset(
+            await session.scalars(
+                select(EventParticipant.event_entity_id).where(
+                    EventParticipant.tenant_id == tenant_id,
+                    EventParticipant.being_entity_id.in_(character_ids),
+                )
+            )
+        )
+        if character_ids
+        else frozenset()
+    )
     vis = InformationVisibility(
         is_orga=is_orga,
         is_admin=is_admin,

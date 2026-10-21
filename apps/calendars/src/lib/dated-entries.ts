@@ -1,7 +1,7 @@
-import { creationVisibility } from './event-visibility';
 import { rememberEntryAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
 import { button, el, entryHref, field, link, message, select } from './dom';
+import { creationVisibility } from './event-visibility';
 import type { Definition, Period, Rule } from './types';
 export async function attachDate(
   tenantId: string,

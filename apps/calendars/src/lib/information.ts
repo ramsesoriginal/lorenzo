@@ -186,7 +186,12 @@ export function informationView(
           },
           true,
         ),
-        renderAudienceControl({ client, tenantId, informationId: info.id, allowParticipants: entry.kinds.includes('event') }),
+        renderAudienceControl({
+          client,
+          tenantId,
+          informationId: info.id,
+          allowParticipants: entry.kinds.includes('event'),
+        }),
       );
     }
     host.append(card);

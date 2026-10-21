@@ -2,8 +2,8 @@ import { rememberEntryAddress, tenantAddress } from '../../lib/addresses';
 import { client, unwrap } from '../../lib/api';
 import { button, el, entryHref, field, link, message, select } from '../../lib/dom';
 import { entryPicker } from '../../lib/entry-picker';
-import { start } from '../../lib/session';
 import { creationVisibility } from '../../lib/event-visibility';
+import { start } from '../../lib/session';
 export async function mount() {
   const host = document.querySelector<HTMLElement>('#EventList');
   if (!host || host.dataset.mounted) return;

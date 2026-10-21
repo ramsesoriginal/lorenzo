@@ -7324,6 +7324,8 @@ export interface components {
             parents: string[];
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
+            /** Visibility */
+            visibility?: ("restricted" | "participants" | "library") | null;
         };
         /**
          * EntityDetailOut
@@ -7967,6 +7969,8 @@ export interface components {
         InformationAudience: {
             /** Is Public */
             is_public: boolean;
+            /** Shared With Participants */
+            shared_with_participants?: boolean;
             /** Entity Ids */
             entity_ids?: string[];
             /** Player Ids */

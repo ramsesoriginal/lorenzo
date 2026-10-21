@@ -579,8 +579,21 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             EntityAudience.entity_id, EntityAudience.is_public, where=EntityAudience.tenant_id == t
         )
     )
-    c.participant_entry_audiences = [e for (e,) in await rows(EntityAudience.entity_id, where=(EntityAudience.tenant_id == t) & EntityAudience.shared_with_participants.is_(True))]
-    c.participant_information_audiences = [i for (i,) in await rows(Information.id, where=(Information.tenant_id == t) & Information.shared_with_participants.is_(True))]
+    c.participant_entry_audiences = [
+        e
+        for (e,) in await rows(
+            EntityAudience.entity_id,
+            where=(EntityAudience.tenant_id == t)
+            & EntityAudience.shared_with_participants.is_(True),
+        )
+    ]
+    c.participant_information_audiences = [
+        i
+        for (i,) in await rows(
+            Information.id,
+            where=(Information.tenant_id == t) & Information.shared_with_participants.is_(True),
+        )
+    ]
     c.entry_knowledge = [
         (e, k)
         for e, k in await rows(

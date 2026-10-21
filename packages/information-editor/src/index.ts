@@ -16,7 +16,9 @@ export function audienceWithRecipients(
 ): Audience {
   return {
     is_public: audience.is_public,
-    ...(audience.shared_with_participants === undefined ? {} : { shared_with_participants: audience.shared_with_participants }),
+    ...(audience.shared_with_participants === undefined
+      ? {}
+      : { shared_with_participants: audience.shared_with_participants }),
     entity_ids: [...new Set(entities)].sort(),
     player_ids: [...new Set(players)].sort(),
   };
@@ -194,7 +196,13 @@ export function renderAudienceControl(options: Options): HTMLDetailsElement {
         status.textContent = 'Saving…';
         try {
           const replacement = audienceWithRecipients(
-            { ...audience, is_public: isPublic.checked, ...(options.allowParticipants ? { shared_with_participants: participants.checked } : {}) },
+            {
+              ...audience,
+              is_public: isPublic.checked,
+              ...(options.allowParticipants
+                ? { shared_with_participants: participants.checked }
+                : {}),
+            },
             entities,
             players,
           );

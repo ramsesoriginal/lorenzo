@@ -651,6 +651,12 @@ class Kind7(StrEnum):
     event = "event"
 
 
+class Visibility(StrEnum):
+    restricted = "restricted"
+    participants = "participants"
+    library = "library"
+
+
 class EntityCreate(BaseModel):
     id: UUID | None = Field(None, title="Id")
     name: str = Field(..., title="Name")
@@ -660,6 +666,7 @@ class EntityCreate(BaseModel):
     kinds: list[Kind7] | None = Field([], title="Kinds")
     parents: list[UUID] | None = Field([], title="Parents")
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+    visibility: Visibility | None = Field(None, title="Visibility")
 
 
 class Kind8(StrEnum):
@@ -790,7 +797,7 @@ class FieldChangeOut(BaseModel):
     removed: list[Any] | None = Field(..., title="Removed")
 
 
-class Visibility(StrEnum):
+class Visibility1(StrEnum):
     private = "private"
     public = "public"
 
@@ -838,6 +845,7 @@ class GroupUpdate(BaseModel):
 
 class InformationAudience(BaseModel):
     is_public: bool = Field(..., title="Is Public")
+    shared_with_participants: bool | None = Field(None, title="Shared With Participants")
     entity_ids: list[UUID] | None = Field(None, max_length=1000, title="Entity Ids")
     player_ids: list[UUID] | None = Field(None, max_length=1000, title="Player Ids")
 
@@ -1031,7 +1039,7 @@ class MePlayerOut(BaseModel):
 
 
 class MemberProfileOut(BaseModel):
-    visibility: Visibility = Field(..., title="Visibility")
+    visibility: Visibility1 = Field(..., title="Visibility")
     preview: Preview = Field(..., title="Preview")
     summary: str = Field(..., title="Summary")
     licence: LicenceOut | None
@@ -1689,7 +1697,7 @@ class RepositoryEntityOut(BaseModel):
 
 
 class RepositoryProfileOut(BaseModel):
-    visibility: Visibility = Field(..., title="Visibility")
+    visibility: Visibility1 = Field(..., title="Visibility")
     preview: Preview = Field(..., title="Preview")
     summary: str = Field(..., title="Summary")
     licence: LicenceOut | None
@@ -1705,7 +1713,7 @@ class RepositoryProfileUpdate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    visibility: Visibility | None = Field(None, title="Visibility")
+    visibility: Visibility1 | None = Field(None, title="Visibility")
     preview: Preview | None = Field(None, title="Preview")
     summary: constr(max_length=2000) | None = Field(None, title="Summary")
     licence: LicenceIn | None = None
@@ -2388,7 +2396,7 @@ class EventComparison(BaseModel):
 
 class FlipCheckOut(BaseModel):
     available: bool = Field(..., title="Available")
-    visibility: Visibility = Field(..., title="Visibility")
+    visibility: Visibility1 = Field(..., title="Visibility")
     has_summary: bool = Field(..., title="Has Summary")
     built_on_not_public: list[BuiltOnPublicOut] = Field(..., title="Built On Not Public")
     built_on_behind: list[BuiltOnBehindOut] = Field(..., title="Built On Behind")
