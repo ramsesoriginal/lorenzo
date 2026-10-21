@@ -152,3 +152,10 @@ batch = "web-2"
 [suites.calendars-e2e]
 node = "apps/calendars"
 depends_on = ["apps/api"]
+
+[nodes."apps/sessions"]
+batch = "web-2"
+
+[suites.sessions-e2e]
+node = "apps/sessions"
+depends_on = ["apps/api"]

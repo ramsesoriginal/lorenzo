@@ -1,0 +1,27 @@
+# Lorenzo Sessions
+
+Static Astro app for campaign Session planning, reusable Scenes and personal/shared notes.
+RFC 0046, ADR 0317. Uses the shared brand, Authgear, typed API client and Information editor.
+
+My sessions lists Sessions where you are an assigned GM or player. A Session has one campaign,
+optional real-world date and in-world starting period, GMs and an initially empty player roster.
+Players and their controlled Characters are selected separately. GMs create/reuse Scenes and
+order their appearances. A reusable Scene and its Session appearance have separate audiences;
+each appearance keeps this group's notes. Sharing an appearance does not open its Scene.
+
+Notes offer Me and Session GMs or Session participants. Shared never means the whole library.
+Existing administrators retain their access. Another campaign GM gains no Session-private notes
+merely by GMing elsewhere. Removed roster members lose this route of access. Notes, references
+and preparation order do not infer learning, lived order, causes or occurrence.
+
+## Development
+
+Set PUBLIC_API_BASE_URL, PUBLIC_AUTHGEAR_ENDPOINT and PUBLIC_AUTHGEAR_CLIENT_ID from .env.example.
+Use Node/pnpm from the repository. `mise run //apps/sessions:dev` serves port 4326. The app owns
+lint, test, build and test-e2e tasks; browser tests run against the real API and disposable DB.
+No private bodies are persisted in browser storage. Appearance preference alone is remembered.
+
+## Hosting
+
+See docs/operations/sessions-setup.md. The planned Pages address is a fallback until configured;
+all cross-app destinations are resolved through GET /app-links.

@@ -39,7 +39,10 @@ from lorenzo_api.models import (
     Entity,
     Fact,
     GroupMember,
+    Scene,
+    SceneAppearance,
     StoryEvent,
+    StorySession,
     User,
 )
 from lorenzo_api.notifications import create_group_notification
@@ -183,7 +186,16 @@ async def _require_can_manage_group(
             or_(
                 *(
                     exists().where(model.entity_id == group_entity_id)
-                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance)
+                    for model in (
+                        Fact,
+                        Calendar,
+                        CalendarPeriod,
+                        StoryEvent,
+                        CalendarObservance,
+                        Scene,
+                        SceneAppearance,
+                        StorySession,
+                    )
                 )
             )
         )
@@ -604,7 +616,16 @@ async def duplicate_group(
             or_(
                 *(
                     exists().where(model.entity_id == group_entity_id)
-                    for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance)
+                    for model in (
+                        Fact,
+                        Calendar,
+                        CalendarPeriod,
+                        StoryEvent,
+                        CalendarObservance,
+                        Scene,
+                        SceneAppearance,
+                        StorySession,
+                    )
                 )
             )
         )

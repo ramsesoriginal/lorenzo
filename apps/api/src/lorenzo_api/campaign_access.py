@@ -122,7 +122,14 @@ async def entry_in_author_reach(
             )
             is not None
         )
-    from lorenzo_api.models import Calendar, CalendarObservance, CalendarPeriod, Fact, StoryEvent
+    from lorenzo_api.models import (
+        Calendar,
+        CalendarObservance,
+        CalendarPeriod,
+        Fact,
+        Scene,
+        StoryEvent,
+    )
 
     return any(
         [
@@ -132,7 +139,15 @@ async def entry_in_author_reach(
                 )
             )
             is not None
-            for model in (Item, Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance)
+            for model in (
+                Item,
+                Fact,
+                Calendar,
+                CalendarPeriod,
+                StoryEvent,
+                CalendarObservance,
+                Scene,
+            )
         ]
     )
 

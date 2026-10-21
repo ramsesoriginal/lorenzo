@@ -105,6 +105,7 @@ updates:
       - "/apps/account-hub"
       - "/apps/beings"
       - "/apps/calendars"
+      - "/apps/sessions"
       - "/apps/bench"
       - "/apps/inventory-web"
       - "/apps/loot-bot"

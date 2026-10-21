@@ -49,6 +49,7 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("calendar_period",): None,
     ("event",): None,
     ("observance",): None,
+    ("scene",): None,
     ("being",): "item",
     ("being", "item"): "being",
     ("item_instance",): None,
@@ -64,6 +65,7 @@ _ORDER = [
     "calendar_period",
     "event",
     "observance",
+    "scene",
 ]
 
 
@@ -137,6 +139,16 @@ async def _make(
 ) -> uuid.UUID:
     """An entry of those kinds in a repository: through the route where one exists, and straight
     in the database for an inventory item and a character, which no route makes this way."""
+    if kinds == ("scene",):
+        response = await scene_author.post(f"/tenants/{repository}/scenes", json={"name": name})
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        parents_response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert parents_response.status_code == 200, parents_response.text
+        return uuid.UUID(entity_id)
     if kinds == ("calendar",):
         response = await scene_author.post(
             f"/tenants/{repository}/calendars",

@@ -106,6 +106,8 @@ class InformationVisibility:
     own_entry_ids: frozenset[uuid.UUID] = frozenset()
     event_fact_ids: frozenset[uuid.UUID] = frozenset()
     user_id: uuid.UUID | None = None
+    session_entry_ids: frozenset[uuid.UUID] = frozenset()
+    session_reader_ids: frozenset[uuid.UUID] = frozenset()
 
     def can_see_entry(self, entity_id: uuid.UUID) -> bool:
         return entity_id not in self.hidden_entry_ids
@@ -135,6 +137,8 @@ class InformationVisibility:
         if info.entity_id in self.hidden_entry_ids:
             return False
         if info.shared_with_participants and info.entity_id in self.participant_event_ids:
+            return True
+        if info.entity_id in self.session_entry_ids and info.created_by == self.user_id:
             return True
         if info.entity_id in self.event_fact_ids and info.created_by == self.user_id:
             return True
@@ -195,6 +199,11 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
     if vis.knower_entity_ids:
         knower_matches.append(Knowledge.knower_entity_id.in_(vis.knower_entity_ids))
     clauses: list[ColumnElement[bool]] = [Information.is_public.is_(True)]
+    if vis.user_id is not None and vis.session_entry_ids:
+        clauses.append(
+            (Information.created_by == vis.user_id)
+            & entity_id_among(Information.entity_id, vis.session_entry_ids)
+        )
     if vis.participant_event_ids:
         clauses.append(
             Information.shared_with_participants.is_(True)
@@ -516,7 +525,23 @@ async def resolve_information_visibility(
         if character_ids
         else frozenset()
     )
+    from lorenzo_api.models import Scene
+    from lorenzo_api.session_access import session_scope
+
+    scope = await session_scope(session, tenant_id, user_id)
+    gm_reachable_ids = (gm_reachable_ids - scope.entries) | scope.managers
+    author_entry_ids -= scope.entries
+    if (
+        author_sees_all
+        or await membership_role_of(session, tenant_id=tenant_id, user_id=user_id)
+        is MembershipRole.AUTHOR
+    ):
+        author_entry_ids |= frozenset(
+            await session.scalars(select(Scene.entity_id).where(Scene.tenant_id == tenant_id))
+        )
     vis = InformationVisibility(
+        session_entry_ids=scope.entries,
+        session_reader_ids=scope.readers,
         is_orga=is_orga,
         is_admin=is_admin,
         player_ids=frozenset(player_ids),

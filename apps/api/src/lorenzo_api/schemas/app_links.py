@@ -11,6 +11,7 @@ class AppsOut(BaseModel):
     beings: AppOut
     bench: AppOut
     calendars: AppOut
+    sessions: AppOut | None = None
 
 
 class AppLinksOut(BaseModel):

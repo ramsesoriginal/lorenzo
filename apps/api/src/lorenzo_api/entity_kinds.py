@@ -44,6 +44,7 @@ from lorenzo_api.models import (
     ItemInstance,
     StoryEvent,
 )
+from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 # The kinds a route may add or remove.
 Kind = Literal["item", "being", "fact", "event"]
@@ -64,6 +65,7 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("calendar_period",),
         ("event",),
         ("observance",),
+        ("scene",),
         ("being",),
         ("being", "item"),
         ("item_instance",),
@@ -166,6 +168,10 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
+    if existing_kinds & {"scene", "scene_appearance", "session"}:
+        raise InvalidKindRequestError(
+            detail="Session and Scene kinds do not combine with other kinds"
+        )
     if (
         "calendar_period" in existing_kinds
         or "observance" in existing_kinds
@@ -321,6 +327,9 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
         kind
         for kind, model in (
             ("item", Item),
+            ("scene", Scene),
+            ("scene_appearance", SceneAppearance),
+            ("session", StorySession),
             ("fact", Fact),
             ("calendar", Calendar),
             ("calendar_period", CalendarPeriod),
@@ -348,6 +357,20 @@ async def require_deletable(
     campaign's own entry stays with the campaign. A being that is no character, an item and a
     bare entry go. The permanent being-deletion route explicitly allows a character here."""
     kinds = await kinds_of_entry(session, entity_id)
+    if kinds & {"session", "scene_appearance"}:
+        raise EntityKindInUseError(
+            detail="Remove this Session or Scene appearance through its preparation page"
+        )
+    if (
+        "scene" in kinds
+        and await session.scalar(
+            select(SceneAppearance.entity_id)
+            .where(SceneAppearance.scene_entity_id == entity_id)
+            .limit(1)
+        )
+        is not None
+    ):
+        raise EntityKindInUseError(detail="This Scene is used in a Session")
     if "event" in kinds:
         from lorenzo_api.event_order_lock import lock_event_order
         from lorenzo_api.models import EventRelationship
@@ -385,6 +408,8 @@ async def require_deletable(
         or await session.scalar(
             select(exists().where(EntryCalendarPeriod.period_entity_id == entity_id))
         )
+        or await session.scalar(select(exists().where(Scene.period_entity_id == entity_id)))
+        or await session.scalar(select(exists().where(StorySession.start_period_id == entity_id)))
     ):
         raise EntityKindInUseError(
             detail="This period has references. Resolve them before deleting it."
@@ -414,6 +439,9 @@ async def require_deletable(
 
 
 KIND_WORDS = {
+    "scene": "scene",
+    "session": "session",
+    "scene_appearance": "scene appearance",
     "fact": "fact",
     "calendar": "calendar",
     "calendar_period": "calendar period",

@@ -28,6 +28,8 @@ def _own_visible_entry_clause(
     if vis.knower_entity_ids:
         recipients.append(entity_id_among(EntityKnowledge.knower_entity_id, vis.knower_entity_ids))
     allowed: list[ColumnElement[bool]] = [EntityAudience.is_public.is_(True)]
+    if vis.session_reader_ids:
+        allowed.append(entity_id_among(EntityAudience.entity_id, vis.session_reader_ids))
     if vis.participant_event_ids:
         allowed.append(
             EntityAudience.shared_with_participants.is_(True)
@@ -55,8 +57,20 @@ def visible_entry_clause(
     period = aliased(CalendarPeriod)
     observance = aliased(CalendarObservance)
     own = _own_visible_entry_clause(vis, entity_id)
+    if vis.session_entry_ids:
+        own = own & (
+            ~entity_id_among(entity_id, vis.session_entry_ids)
+            | entity_id_among(entity_id, vis.session_reader_ids)
+        )
+    from lorenzo_api.models import SceneAppearance
+
+    appearance = aliased(SceneAppearance)
     return (
-        own
+        ~exists().where(
+            appearance.entity_id == entity_id,
+            ~_own_visible_entry_clause(vis, appearance.scene_entity_id),
+        )
+        & own
         & ~exists().where(
             period.entity_id == entity_id,
             ~_own_visible_entry_clause(vis, period.calendar_entity_id),
@@ -83,17 +97,28 @@ async def require_visible_entry(
     key = (tenant_id, entity_id, user_id)
     if key in checked:
         return
-    gate = await session.scalar(
-        select(EntityAudience.entity_id).where(
-            EntityAudience.entity_id == entity_id,
-            EntityAudience.tenant_id == tenant_id,
-            or_(
-                EntityAudience.is_public.is_(False),
-                exists().where(CalendarPeriod.entity_id == entity_id),
-                exists().where(CalendarObservance.entity_id == entity_id),
-            ),
+    from lorenzo_api.models import SceneAppearance, StorySession
+
+    planning_cache = session.info.setdefault("planning_entry_checks", {})
+    result = (
+        await session.execute(
+            select(
+                EntityAudience.entity_id,
+                exists().where(StorySession.entity_id == EntityAudience.entity_id),
+                exists().where(SceneAppearance.entity_id == EntityAudience.entity_id),
+            ).where(
+                EntityAudience.entity_id == entity_id,
+                EntityAudience.tenant_id == tenant_id,
+                or_(
+                    EntityAudience.is_public.is_(False),
+                    exists().where(CalendarPeriod.entity_id == entity_id),
+                    exists().where(CalendarObservance.entity_id == entity_id),
+                ),
+            )
         )
-    )
+    ).first()
+    gate = result[0] if result else None
+    planning_cache[(tenant_id, entity_id)] = bool(result and (result[1] or result[2]))
     if gate is None:
         checked.add(key)
         return

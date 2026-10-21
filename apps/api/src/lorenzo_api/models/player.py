@@ -36,6 +36,7 @@ class Player(Base):
 
     __tablename__ = "player"
     __table_args__ = (
+        UniqueConstraint("id", "campaign_id", "tenant_id", name="player_campaign_tenant_key"),
         # ADR 0117: what same-tenant keys into this table reference.
         UniqueConstraint("id", "tenant_id", name="player_id_tenant_id_key"),
         same_tenant_fk("player_campaign_id_fkey", ["campaign_id"], "campaign", ondelete="CASCADE"),

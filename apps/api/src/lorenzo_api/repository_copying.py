@@ -602,6 +602,16 @@ class _Planner:
                         "updated_by": user_id,
                     }
                 )
+            if "scene" in kinds:
+                source_period = c.scenes.get(e)
+                target_period = self._local(c, "entity", source_period) if source_period else None
+                if source_period and target_period is None:
+                    raise InvalidRepositoryUpdateError(
+                        detail="Copy the calendar period before its Scene"
+                    )
+                self.rows["scene"].append(
+                    {"entity_id": new, "tenant_id": tenant_id, "period_entity_id": target_period}
+                )
             if "event" in kinds:
                 self.rows["story_event"].append({"entity_id": new, "tenant_id": tenant_id})
             if "calendar" in kinds:
