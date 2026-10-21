@@ -1,0 +1,50 @@
+/* The picker's own layout (ADR 0323): everything else is the brand's classes and tokens. */
+
+.period-picker .period-controls {
+  align-items: end;
+}
+
+.period-year {
+  width: 9rem;
+}
+
+/* The days of one month or festival, as buttons that take a choice. */
+.period-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.5rem, 1fr));
+  gap: var(--space-1);
+}
+
+.period-day {
+  position: relative;
+  justify-content: center;
+  min-height: var(--target-min);
+}
+
+.period-day[aria-pressed="true"],
+.period-actions .btn[aria-pressed="true"] {
+  background: var(--surface-selected);
+  border-color: var(--action);
+  color: var(--text-primary);
+}
+
+/* A day that already exists carries a small mark, and its name says "saved" as well. */
+.period-day[data-saved="true"]::after {
+  content: "";
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-1);
+  width: var(--space-1);
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--text-tertiary);
+}
+
+.period-chosen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
