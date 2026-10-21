@@ -30,6 +30,16 @@ test('the header offers the skip link, the page links and the account once signe
   await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeHidden();
   await page.getByRole('link', { name: 'Skip to content' }).focus();
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeVisible();
+  // One library needs no switcher; with two it is in the header and switching reopens the list.
+  await expect(page.getByRole('combobox', { name: 'Library or repository' })).toBeHidden();
+  await ok(world.api.POST('/tenants', { body: { name: 'Second library' } }));
+  await page.reload();
+  const switcher = page.getByRole('combobox', { name: 'Library or repository' });
+  await expect(switcher).toBeVisible();
+  await expect(switcher.locator('option')).toHaveCount(2);
+  await switcher.selectOption({ label: 'Second library' });
+  await expect(page).toHaveURL(/\/\?tenant=/);
+  await expect(switcher.locator('option:checked')).toHaveText('Second library');
   await page.context().close();
 });
 test('imported irregular year is browsable without creating periods, and dated information stays separate', async ({
