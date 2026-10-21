@@ -817,3 +817,86 @@ test('a write finishing after leaving an Event does not reload the new view', as
   expect(await page.evaluate(() => Reflect.get(window, 'pendingWriteMarker'))).toBe('still here');
   await page.context().close();
 });
+
+for (const preferred of ['dark', 'light'] as const) {
+  test(`explicit ${preferred} appearance choice survives navigation, history and reloads`, async ({
+    browser,
+  }) => {
+    const world = await buildWorld();
+    const page = await signedIn(browser, world.subject);
+    await page.emulateMedia({ colorScheme: preferred === 'dark' ? 'light' : 'dark' });
+    await page.goto(`/?tenant=${world.tenantId}`);
+    await expect(page.getByRole('link', { name: 'Isles calendar', exact: true })).toBeVisible();
+    await page
+      .getByRole('button', {
+        name: preferred === 'dark' ? 'Dark theme' : 'Light theme',
+        exact: true,
+      })
+      .click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
+    await page.getByRole('link', { name: 'Isles calendar', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
+    ).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
+    await page.goBack();
+    await expect(
+      page.getByRole('heading', { name: 'Calendars', exact: true, level: 1 }),
+    ).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
+    await page.goForward();
+    await expect(
+      page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
+    ).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
+    ).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
+    await expect(
+      page.getByRole('button', {
+        name: preferred === 'dark' ? 'Light theme' : 'Dark theme',
+        exact: true,
+      }),
+    ).toHaveAttribute('aria-pressed', String(preferred === 'dark'));
+    await page.context().close();
+  });
+}
+
+test('appearance choice survives page swaps when preference storage is unavailable', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.addInitScript(() => {
+    const get = Storage.prototype.getItem;
+    const set = Storage.prototype.setItem;
+    Storage.prototype.getItem = function (key) {
+      if (key === 'lorenzo:calendars:theme')
+        throw new DOMException('Storage unavailable', 'SecurityError');
+      return get.call(this, key);
+    };
+    Storage.prototype.setItem = function (key, value) {
+      if (key === 'lorenzo:calendars:theme')
+        throw new DOMException('Storage unavailable', 'SecurityError');
+      set.call(this, key, value);
+    };
+  });
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(`/?tenant=${world.tenantId}`);
+  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await page.getByRole('link', { name: 'Isles calendar', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(errors).toEqual([]);
+  await page.context().close();
+});

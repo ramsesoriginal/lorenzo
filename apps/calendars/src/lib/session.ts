@@ -6,23 +6,13 @@ import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { currentTenant, rememberTenant } from './lastTenant';
 import { calendarReads } from './read-cache';
+import { bindThemeToggle } from './theme';
 export type Session = { tenantId: string; canWrite: boolean; canOrderEvents: boolean };
 export async function start(): Promise<Session | null> {
   calendarReads.suspend();
   const status = document.querySelector<HTMLElement>('[data-session]');
   if (!status) return null;
-  const theme = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
-  function applyTheme(dark: boolean) {
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    if (theme) {
-      theme.textContent = dark ? 'Light theme' : 'Dark theme';
-      theme.setAttribute('aria-pressed', String(dark));
-    }
-  }
-  applyTheme(document.documentElement.dataset.theme === 'dark');
-  theme?.addEventListener('click', () =>
-    applyTheme(document.documentElement.dataset.theme !== 'dark'),
-  );
+  bindThemeToggle();
   const signIn = document.querySelector<HTMLButtonElement>('[data-login]');
   signIn?.addEventListener('click', () => {
     sessionStorage.setItem('lorenzo:calendars:return', location.pathname + location.search);

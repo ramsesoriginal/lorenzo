@@ -54,6 +54,10 @@ check, does not change the selected date and never authors periods. Existing fou
 loading for visible month content remains in place. In-app navigation uses Astro's built-in
 client router; every new page remounts behind its fresh session check.
 
+The appearance toggle remembers an explicit light/dark choice in this browser and preserves it
+through page navigation and browser history. Without a saved choice, the system appearance is
+used. When preference storage is unavailable, the toggle still works throughout the visit.
+
 ## Development and checks
 
 Use Node from the root `mise.toml` and the workspace pnpm version. Copy `.env.example` to `.env` and set this app's Authgear endpoint/client; register the slash-suffixed callback. The API must allow the local origin through CORS.
