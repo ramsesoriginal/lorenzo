@@ -6,7 +6,9 @@ Status: accepted with the maintainer on 2026-10-21; RFC 0046 slices 1-2.
 
 Session, Scene and Scene appearance are entity kinds. They receive ordinary entry identity,
 slugs, Information bundles and the existing entry features, with explicit kind combinations
-and access gates. Narrative Scenes do not represent physical containment or prototype links.
+and access gates. The generic entry-kind response enum gains scene, scene_appearance and
+session; this accepted protocol extension refreshes bundled client contracts, and external
+consumers must handle these values. Narrative Scenes do not represent physical containment or prototype links.
 A Scene is reusable and has no required campaign or Session. An appearance has exactly one
 Session and one Scene, its own preparation position and its own Information anchor. Notes
 on a Scene describe the shared Scene; notes on an appearance belong to that group's Session.
@@ -38,6 +40,8 @@ must not be bypassed by the generic entity or Information surfaces, payloads or 
 Scene has n:m Facts, Events and participating beings. Session has n:m Facts, Events, periods
 and Scene appearances. Direct references are distinct from references through Scenes. None
 of these relations infers Event participation, learning, occurrence, causal order or sharing.
+Reference links start private and are explicitly shared independently of their endpoints;
+readers still need both ends. Copies preserve the explicit flag without upstream sharing sync.
 Reusing a Scene leaves each appearance's notes separate. A single Scene can appear repeatedly.
 
 Lorenzo Sessions is a static Astro app using shared brand, Authgear, typed API client,
