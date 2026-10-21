@@ -1421,6 +1421,16 @@ async def forget_copy(
                 )
             )
         )
+        from lorenzo_api.models import EventPresentation
+
+        local_presentation = await session.scalar(
+            select(
+                exists().where(
+                    EventPresentation.tenant_id == t,
+                    EventPresentation.event_entity_id.in_(entities),
+                )
+            )
+        )
         local_story = await session.scalar(
             select(
                 exists().where(
@@ -1452,6 +1462,7 @@ async def forget_copy(
             or local_date
             or local_rule
             or local_story
+            or local_presentation
             or local_story_period
             or local_scene_period
         ):

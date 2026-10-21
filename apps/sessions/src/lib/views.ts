@@ -2,6 +2,7 @@ import { client, fetchAllPages, type Schema, unwrap } from './api';
 import { coveragePanel, referencePanel } from './context';
 import { button, el, field, link, message, select, sessionHref } from './dom';
 import { notes } from './notes';
+import { playPanel, sequencePanel } from './play';
 import { start } from './sign-in';
 
 type StorySession = Schema<'SessionOut'>;
@@ -253,7 +254,11 @@ export async function mountSession() {
       outline.append(list);
       if (!session.scenes.length)
         outline.append(el('p', 'No scenes are available to you here.', 'caption'));
-      host.append(outline);
+      host.append(
+        outline,
+        await playPanel(tenant, id, session.can_manage, refresh),
+        await sequencePanel(tenant, session.campaign_id, refresh),
+      );
       if (session.can_manage) host.append(await sceneAdder(session, version, refresh));
     };
     await refresh();

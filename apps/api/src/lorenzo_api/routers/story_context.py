@@ -323,6 +323,24 @@ async def delete_scene_appearance(
         return
     if appearance.session_entity_id != session_id or appearance.tenant_id != tenant_id:
         raise EntityNotFoundError(detail="No such Scene appearance")
+    from lorenzo_api.exceptions import EntityKindInUseError
+    from lorenzo_api.models import EventPresentation
+
+    if (
+        appearance.play_status != "planned"
+        or await session.scalar(
+            select(EventPresentation.id)
+            .where(
+                EventPresentation.tenant_id == tenant_id,
+                EventPresentation.appearance_entity_id == appearance_id,
+            )
+            .limit(1)
+        )
+        is not None
+    ):
+        raise EntityKindInUseError(
+            detail="Resolve this appearance's played record and presentations before removing it"
+        )
     from lorenzo_api.learning import require_no_learning
 
     await require_no_learning(session, tenant_id, entity_id=appearance_id)

@@ -26,7 +26,7 @@ export function select(name: string, options: [string, string][], value = '') {
     option.value = id;
     input.append(option);
   }
-  input.value = value;
+  input.value = options.some(([id]) => id === value) ? value : (options[0]?.[0] ?? '');
   label.append(input);
   return { label, input };
 }

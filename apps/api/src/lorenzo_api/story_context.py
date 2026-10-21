@@ -42,6 +42,22 @@ SESSION_REFERENCES = {
 async def require_no_context_references(
     session: AsyncSession, tenant_id: uuid.UUID, entity_id: uuid.UUID
 ) -> None:
+    from lorenzo_api.models import EventPresentation
+
+    if (
+        await session.scalar(
+            select(EventPresentation.id)
+            .where(
+                EventPresentation.tenant_id == tenant_id,
+                EventPresentation.event_entity_id == entity_id,
+            )
+            .limit(1)
+        )
+        is not None
+    ):
+        raise EntityKindInUseError(
+            detail="This entry has recorded presentations; resolve them before deletion"
+        )
     for binding in [*SCENE_REFERENCES.values(), *SESSION_REFERENCES.values()]:
         if (
             await session.scalar(

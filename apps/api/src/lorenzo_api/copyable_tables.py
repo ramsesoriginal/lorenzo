@@ -91,6 +91,7 @@ from lorenzo_api.models import (
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
 )
+from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (
     SceneBeing,
     SceneEvent,
@@ -232,6 +233,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     CopyableTable("campaign_gm", CampaignGm, False, "none"),
     CopyableTable("calendar_import", CalendarImport, False, "none"),
     CopyableTable("event_group_creation", EventGroupCreation, False, "none"),
+    CopyableTable("session_sequence", SessionSequence, False, "none"),
+    CopyableTable("event_presentation", EventPresentation, False, "none"),
     CopyableTable("story_session", StorySession, False, "none"),
     CopyableTable("scene_appearance", SceneAppearance, False, "none"),
     CopyableTable("session_gm", SessionGm, False, "none"),
