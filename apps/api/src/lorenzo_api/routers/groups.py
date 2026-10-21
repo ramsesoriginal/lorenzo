@@ -148,7 +148,14 @@ async def list_group_members(
 async def _can_manage_member(
     session: SessionDep, *, user_id: uuid.UUID, tenant_id: uuid.UUID, character_entity_id: uuid.UUID
 ) -> bool:
-    if await session.scalar(select(Character.entity_id).where(Character.entity_id == character_entity_id, Character.tenant_id == tenant_id)) is not None:
+    if (
+        await session.scalar(
+            select(Character.entity_id).where(
+                Character.entity_id == character_entity_id, Character.tenant_id == tenant_id
+            )
+        )
+        is not None
+    ):
         return await can_manage_character(
             session, user_id=user_id, tenant_id=tenant_id, character_entity_id=character_entity_id
         )

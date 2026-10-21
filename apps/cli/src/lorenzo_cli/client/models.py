@@ -1306,6 +1306,11 @@ class PageOccurrenceOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class ParticipantGroupCreate(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: constr(min_length=1, max_length=300) = Field(..., title="Name")
+
+
 class ParticipantOut(BaseModel):
     being_entity_id: UUID = Field(..., title="Being Entity Id")
     name: str = Field(..., title="Name")

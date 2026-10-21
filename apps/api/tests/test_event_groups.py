@@ -145,10 +145,13 @@ async def test_group_receipt_and_member_reject_cross_tenant_keys(client, test_us
 
 async def test_general_group_writes_keep_existing_private_npc_standing(client, test_user_id):
     from lorenzo_api.models import Tenant, User
+
     t = await make_tenant(test_user_id)
     try:
         b = await being(client, t, "Another author's NPC")
-        group = (await client.post(f"/tenants/{t}/groups", json={"name":"Empty group"})).json()["id"]
+        group = (await client.post(f"/tenants/{t}/groups", json={"name": "Empty group"})).json()[
+            "id"
+        ]
         async with admin_session_factory() as s:
             other = User(authgear_subject_id=str(uuid.uuid4()))
             s.add(other)
