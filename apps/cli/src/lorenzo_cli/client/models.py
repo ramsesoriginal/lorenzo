@@ -128,6 +128,7 @@ class Kind1(StrEnum):
     character = "character"
     fact = "fact"
     calendar = "calendar"
+    clock = "clock"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -404,6 +405,42 @@ class CharacterSummaryOut(BaseModel):
 class CharacterUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
+
+
+class ClockCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    ticking: bool | None = Field(True, title="Ticking")
+    is_public: bool | None = Field(False, title="Is Public")
+
+
+class ClockDateIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    date: CalendarDate
+
+
+class ClockEdit(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    ticking: bool = Field(..., title="Ticking")
+
+
+class ClockOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    ticking: bool = Field(..., title="Ticking")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
 
 
 class Kind3(StrEnum):
@@ -703,6 +740,7 @@ class Kind8(StrEnum):
     character = "character"
     fact = "fact"
     calendar = "calendar"
+    clock = "clock"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -1008,6 +1046,7 @@ class Kind14(StrEnum):
     character = "character"
     fact = "fact"
     calendar = "calendar"
+    clock = "clock"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -1714,6 +1753,41 @@ class PublisherOut(BaseModel):
     display_name: str = Field(..., title="Display Name")
 
 
+class ReadingRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    lo: constr(max_length=80) = Field(..., title="Lo")
+    hi: constr(max_length=80) = Field(..., title="Hi")
+    lo_inclusive: bool | None = Field(True, title="Lo Inclusive")
+    hi_inclusive: bool | None = Field(True, title="Hi Inclusive")
+
+
+class ReckoningIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    date: CalendarDate
+    reading: constr(max_length=80) = Field(..., title="Reading")
+    is_shared: bool | None = Field(False, title="Is Shared")
+
+
+class ReckoningOut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    date: CalendarDate
+    reading: constr(max_length=80) = Field(..., title="Reading")
+    is_shared: bool | None = Field(False, title="Is Shared")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    calendar_name: str = Field(..., title="Calendar Name")
+
+
+class ReckoningsOut(BaseModel):
+    items: list[ReckoningOut] = Field(..., title="Items")
+    can_manage: bool = Field(..., title="Can Manage")
+
+
 class RecurrenceRule(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1916,6 +1990,7 @@ class Kind22(StrEnum):
     character = "character"
     fact = "fact"
     calendar = "calendar"
+    clock = "clock"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -2544,6 +2619,24 @@ class CharacterOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
 
 
+class ClockDateOut(BaseModel):
+    reading: ReadingRange
+
+
+class ClockDateReadingIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    reading: ReadingRange
+
+
+class ClockDateReadingOut(BaseModel):
+    first_date: CalendarDate
+    last_date: CalendarDate
+    reading: ReadingRange
+
+
 class ComparisonRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -3031,6 +3124,29 @@ class PreviewInformationOut(BaseModel):
     type: str = Field(..., title="Type")
     descriptions: list[PreviewDescriptionOut] = Field(..., title="Descriptions")
     pictures: list[PreviewPictureOut] = Field(..., title="Pictures")
+
+
+class ReadingIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    reading: ReadingRange
+    is_shared: bool | None = Field(False, title="Is Shared")
+
+
+class ReadingOut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    reading: ReadingRange
+    is_shared: bool | None = Field(False, title="Is Shared")
+    clock_entity_id: UUID = Field(..., title="Clock Entity Id")
+    clock_name: str = Field(..., title="Clock Name")
+
+
+class ReadingsOut(BaseModel):
+    items: list[ReadingOut] = Field(..., title="Items")
+    can_manage: bool = Field(..., title="Can Manage")
 
 
 class ReleaseAuthoredOut(BaseModel):

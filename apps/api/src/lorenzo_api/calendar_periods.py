@@ -24,6 +24,31 @@ async def validate_materialized_periods(
     calendar_id: uuid.UUID,
     definition: CalendarDefinition,
 ) -> None:
+    from lorenzo_api.models import Calendar, CalendarReckoning
+
+    def mapping(value: CalendarDefinition) -> list[tuple[object, ...]]:
+        return [(s.key, s.days, s.when.model_dump() if s.when else None) for s in value.segments]
+
+    old = await session.scalar(
+        select(Calendar.definition).where(
+            Calendar.entity_id == calendar_id, Calendar.tenant_id == tenant_id
+        )
+    )
+    if (
+        old is not None
+        and mapping(CalendarDefinition.model_validate(old)) != mapping(definition)
+        and await session.scalar(
+            select(CalendarReckoning.calendar_entity_id)
+            .where(
+                CalendarReckoning.tenant_id == tenant_id,
+                CalendarReckoning.calendar_entity_id == calendar_id,
+            )
+            .limit(1)
+        )
+    ):
+        raise CalendarDefinitionInUseError(
+            detail="Review and remove reckonings before changing this calendar's day mapping"
+        )
     periods = (
         await session.scalars(
             select(CalendarPeriod).where(

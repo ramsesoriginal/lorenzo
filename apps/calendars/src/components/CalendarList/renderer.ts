@@ -12,6 +12,7 @@ export async function mount() {
 
   host.append(
     el('h1', 'Calendars'),
+    link('Browse clocks', `/clocks/?tenant=${encodeURIComponent(session.tenantId)}`),
     link('Browse Events', `/events/?tenant=${encodeURIComponent(session.tenantId)}`),
     el('p', 'Choose a calendar to explore its dates, notes and story events.', 'intro'),
   );

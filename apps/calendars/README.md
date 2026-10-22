@@ -115,3 +115,27 @@ action does not open the source Event or its notes. Stable request identities ma
 retry return the existing group without restoring membership or renaming it. General group APIs
 also accept all beings through their existing member fields; roster/player control still needs
 Character, and group knowledge remains direct rather than inherited through nested groups.
+
+## Optional clocks and readings
+
+**Browse clocks** opens independently authored Clock entries (ADR 0320). Create a ticking
+clock or declare it timeless; calendars continue to work without either. Clock entries reuse
+names, link names, Information and outer audiences. Authors, GMs and full-visibility
+administrators manage structured records; players retain their existing Event capabilities.
+
+On a ticking Clock, open **Clock and calendar reckonings**, choose a calendar and pair the
+start of one date with an exact Clock reading. A clock can have several reckonings. On an
+Event, **Clock readings** accepts an exact value, a range, or a calendar day through a permitted
+reckoning. Whole days remain half-open ranges. Numbers accept fractions such as `1/3` and use
+exact arithmetic. These are entered coordinates, never causal, lived or play-order evidence.
+
+Readings and reckonings start private. Sharing requires visible endpoints and opens no
+Information. Refresh saved records reviews current values while keeping a conflicting draft.
+Calendar edits that change an existing reckoning's day mapping require resolving the reckoning
+first. A timeless Clock has no readings or reckonings; referenced clocks cannot become timeless
+or be deleted until dependencies are resolved. Browsing creates no periods or readings.
+
+Repository copies remap clock dependencies, retain local values and preserve sharing choices.
+Entered records participate in release digests and explicit three-way update review. Missing
+clock dependencies are reported in copy plans. Release format 14 retains earlier readers.
+Ratios and automatic conversion belong to the separately stacked ADR 0321 slice.

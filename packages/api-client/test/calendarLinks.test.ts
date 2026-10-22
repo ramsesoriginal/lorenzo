@@ -28,6 +28,9 @@ test('calendar addresses prefer slugs, encode names and preserve UUID fallback',
     'https://calendar.example/calendar/?tenant=library&id=id',
   );
   expect(
+    calendarEntryHref(registry, 'library', { entity_id: 'id', slug: 'mainland', kinds: ['clock'] }),
+  ).toBe('https://calendar.example/entry/?tenant=library&slug=mainland');
+  expect(
     calendarEntryHref(undefined, 'library', { entity_id: 'id', kinds: ['calendar'] }),
   ).toBeNull();
 });

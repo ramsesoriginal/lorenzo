@@ -45,6 +45,7 @@ EntityKind = Literal[
     "character",
     "fact",
     "calendar",
+    "clock",
     "calendar_period",
     "event",
     "observance",
@@ -299,6 +300,8 @@ class KnowerOut(BaseModel):
 def _kinds_out(entity: Entity) -> list[EntityKind]:
     """Needs entity.item, item_instance and being loaded, and being.character."""
     kinds: list[EntityKind] = []
+    if entity.__dict__.get("clock") is not None:
+        kinds.append("clock")
     if entity.__dict__.get("scene") is not None:
         kinds.append("scene")
     if entity.__dict__.get("scene_appearance") is not None:

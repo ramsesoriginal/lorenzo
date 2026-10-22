@@ -118,3 +118,16 @@ A repeated successful request returns its receipt. Source keys and annotation bi
 local tenant data with forced RLS and same-tenant references, explicitly excluded from repository
 content. `GET .../calendar-imports/{source_key}/document` exports the current managed text source
 with the same visibility/authoring checks. See the CLI's calendar-file workflow and ADR 0311.
+
+## Explicit clocks
+
+ADR 0320 adds optional `/tenants/{tenant_id}/clocks` entries, per-clock `/reckonings`, and
+`/events/{event_id}/clock-readings`. Collection reads return ETags; reading/reckoning writes
+require that collection's If-Match. Clock mode edits use the Clock ETag. Whole calendar days
+convert to ranges through `/clocks/{clock_id}/date-reading`; `/reading-dates` formats a reading
+without authoring periods. Rational strings preserve exact values and endpoint inclusion.
+
+Timeless clocks reject readings and reckonings. Private relations and hidden endpoints are
+filtered before returned lists and response versions. Existing period associations, current
+knowledge grants and all ordering semantics stay unchanged. New clock content participates in
+repository copy, explicit update review, release documents and purge. No clock is seeded.

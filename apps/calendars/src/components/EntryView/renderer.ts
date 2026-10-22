@@ -1,6 +1,7 @@
 import { renderAudienceControl } from '@lorenzo/information-editor';
 import { canonicalAddress, rememberEntryAddress, resolveAddress } from '../../lib/addresses';
 import { client, unwrap } from '../../lib/api';
+import { clockPanel, eventReadings } from '../../lib/clocks';
 import { datedEntries, recurrenceFields } from '../../lib/dated-entries';
 import { button, calendarHref, el, entryHref, field, link, message } from '../../lib/dom';
 import { eventOrder } from '../../lib/event-order';
@@ -54,6 +55,7 @@ export async function mount() {
                   fact: 'Canonical fact',
                   observance: 'Recurring observance',
                   calendar: 'Calendar',
+                  clock: 'Clock',
                 }) as Partial<Record<string, string>>
               )[k] ?? k,
           )
@@ -61,6 +63,9 @@ export async function mount() {
         'caption',
       ),
     );
+    if (entry.kinds.includes('clock'))
+      host.append(await clockPanel(tenantId, id, session.canOrderEvents));
+    if (entry.kinds.includes('event')) host.append(await eventReadings(tenantId, id));
     if (entry.kinds.includes('calendar'))
       host.append(link('Browse this calendar', calendarHref(tenantId, id)));
     if (entry.kinds.includes('calendar_period')) {

@@ -1,0 +1,12 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Clocks — Lorenzo">
+  <section id="ClockList" class="stack"></section>
+</Base>
+<script>
+  import { onPage } from '../../lib/page';
+  import { mountClocks } from '../../lib/clocks';
+  onPage('ClockList', mountClocks);
+</script>

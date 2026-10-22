@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.calendar_observance import CalendarObservance
     from lorenzo_api.models.calendar_period import CalendarPeriod, StoryEvent
     from lorenzo_api.models.campaign import Campaign
+    from lorenzo_api.models.clock import Clock
     from lorenzo_api.models.containment import Containment
     from lorenzo_api.models.entity_prototype import EntityPrototype
     from lorenzo_api.models.entity_slug import EntitySlug
@@ -44,6 +45,10 @@ class Entity(Base):
     # Declarative class otherwise raises MappedAnnotationError - User's
     # authgear_roles precedent.
     __allow_unmapped__ = True
+
+    clock: Mapped[Clock | None] = relationship(
+        "Clock", foreign_keys="Clock.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
 
     scene: Mapped[Scene | None] = relationship(
         "Scene", foreign_keys="Scene.entity_id", viewonly=True, lazy="raise_on_sql"

@@ -723,6 +723,89 @@ class _Applier:
                 .values(updated_at=func.now())
             )
             return True
+        if name in {"clock_readings", "calendar_reckonings"}:
+            from lorenzo_api.clock_values import ReadingRange
+            from lorenzo_api.models import CalendarReckoning, Clock, EventClockReading
+            from lorenzo_api.routers.clocks import ReckoningIn, mutation_lock
+
+            await mutation_lock(s, t)
+            clock_model: type[EventClockReading] | type[CalendarReckoning] = (
+                EventClockReading if name == "clock_readings" else CalendarReckoning
+            )
+            source_column = (
+                EventClockReading.event_entity_id
+                if name == "clock_readings"
+                else CalendarReckoning.calendar_entity_id
+            )
+            replacements = []
+            for record in change.upstream or []:
+                clock_id = self.resolve("entity", record["clock"])
+                clock = await s.get(Clock, clock_id) if clock_id else None
+                if clock is None or clock.tenant_id != t or not clock.ticking:
+                    self.skip(row, name, "Copy a ticking Clock before its records")
+                    return False
+                try:
+                    if name == "clock_readings":
+                        data = ReadingRange.model_validate(record["data"]).model_dump()
+                    else:
+                        from lorenzo_calendar import CalendarDefinition, to_day
+
+                        parsed = ReckoningIn.model_validate(record["data"])
+                        definition = await s.scalar(
+                            select(Calendar.definition)
+                            .where(Calendar.entity_id == e, Calendar.tenant_id == t)
+                            .with_for_update()
+                        )
+                        to_day(CalendarDefinition.model_validate(definition), parsed.date)
+                        data = parsed.model_dump(mode="json", exclude={"is_shared"})
+                except ValueError:
+                    self.skip(row, name, "Review records against the local calendar and clocks")
+                    return False
+                replacements.append(
+                    clock_model(
+                        **{
+                            source_column.key: e,
+                            "clock_entity_id": clock_id,
+                            "tenant_id": t,
+                            "data": data,
+                            "is_shared": record["is_shared"],
+                        }
+                    )
+                )
+            await s.execute(
+                delete(clock_model).where(source_column == e, clock_model.tenant_id == t)
+            )
+            s.add_all(replacements)
+            await s.flush()
+            return True
+        if name == "clock_ticking":
+            from lorenzo_api.models import CalendarReckoning, Clock, EventClockReading
+            from lorenzo_api.routers.clocks import mutation_lock
+
+            await mutation_lock(s, t)
+            clock = await s.scalar(
+                select(Clock).where(Clock.entity_id == e, Clock.tenant_id == t).with_for_update()
+            )
+            if clock is None:
+                self.skip(row, name, "The local entry is no longer a Clock")
+                return False
+            if not change.upstream and (
+                await s.scalar(
+                    select(EventClockReading.clock_entity_id)
+                    .where(EventClockReading.clock_entity_id == e)
+                    .limit(1)
+                )
+                or await s.scalar(
+                    select(CalendarReckoning.clock_entity_id)
+                    .where(CalendarReckoning.clock_entity_id == e)
+                    .limit(1)
+                )
+            ):
+                self.skip(row, name, "Resolve dependent clock records before changing Clock mode")
+                return False
+            clock.ticking = bool(change.upstream)
+            clock.updated_at = datetime.now(UTC)
+            return True
         if name == "calendar_definition":
             from lorenzo_calendar import CalendarDefinition
 
