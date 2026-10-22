@@ -8,12 +8,28 @@ import {
   datedEntries,
 } from '../../lib/dated-entries';
 import { definitionEditor } from '../../lib/definition-editor';
-import { button, el, entryHref, field, link, message, select } from '../../lib/dom';
+import {
+  button,
+  disclosure,
+  el,
+  entryHref,
+  failure,
+  feedback,
+  field,
+  icon,
+  iconLink,
+  link,
+  linkButton,
+  loading,
+  message,
+  select,
+} from '../../lib/dom';
 import { informationView, renderText } from '../../lib/information';
 import { prefetchEntry, prefetchYear } from '../../lib/prefetch';
 import { start } from '../../lib/session';
 import type { Period, YearPreview } from '../../lib/types';
 
+// Phase n of the calendar engine's int(fraction * 8): the words, and the atlas symbol (ADR 0326).
 const phases = [
   'New moon',
   'Waxing crescent',
@@ -24,7 +40,17 @@ const phases = [
   'Last quarter',
   'Waning crescent',
 ];
-const phaseSymbols = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+const phaseIcons = [
+  'moon-new',
+  'moon-waxing-crescent',
+  'moon-first-quarter',
+  'moon-waxing-gibbous',
+  'moon-full',
+  'moon-waning-gibbous',
+  'moon-last-quarter',
+  'moon-waning-crescent',
+];
+const moonIcon = (phase: number) => icon(phaseIcons[phase] ?? 'moon-new');
 
 export async function mount() {
   const host = document.querySelector<HTMLElement>('#CalendarView');
@@ -34,9 +60,8 @@ export async function mount() {
   if (!session || !host?.isConnected) return;
   const { tenantId, canWrite } = session;
   const params = new URLSearchParams(location.search);
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  host.append(link('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`), status);
+  const wait = loading('Opening calendar…');
+  host.append(iconLink('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`, 'back'), wait);
   try {
     const calendarId = await resolveAddress(tenantId, params, 'calendar');
     const calendar = await unwrap(
@@ -52,18 +77,19 @@ export async function mount() {
     if (!host?.isConnected) return;
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, calendarId);
-    host.append(el('h1', calendar.name));
-    const tools = el('div', '', 'row');
-    tools.append(link('Calendar information', entryHref(tenantId, calendarId)));
-    host.append(tools);
+    const head = el('div', '', 'page-header');
+    head.append(
+      el('h1', calendar.name),
+      linkButton('Calendar entry', entryHref(tenantId, calendarId), 'kind-calendar'),
+    );
+    wait.replaceWith(head);
     if (canWrite) {
-      const edit = el('details');
-      edit.append(
-        el('summary', 'Edit calendar definition'),
+      const edit = disclosure('Edit calendar definition', true);
+      edit.body.append(
         definitionEditor(tenantId, calendar),
         renderAudienceControl({ client, tenantId, entityId: calendarId }),
       );
-      host.append(edit);
+      host.append(edit.root);
     }
     const fallback =
       calendar.definition.week?.reference.year ?? calendar.definition.moons[0]?.reference.year ?? 0;
@@ -71,19 +97,21 @@ export async function mount() {
     const y = field('Year', String(year), 'number');
     y.input.min = '-1000000';
     y.input.max = '1000000';
-    const yearNav = el('form', '', 'row year-nav');
-    const go = el('button', 'Open year', 'btn');
+    y.label.classList.add('year-field');
+    const yearNav = el('form', '', 'toolbar year-nav');
+    const go = el('button', 'Open year', 'btn btn-secondary');
     go.type = 'submit';
     yearNav.append(
-      button('Previous year', () => openYear(year - 1), true),
+      button('Previous year', () => openYear(year - 1), true, 'previous'),
       y.label,
+      button('Next year', () => openYear(year + 1), true, 'next'),
       go,
-      button('Next year', () => openYear(year + 1), true),
     );
-    host.append(yearNav);
+    const status = feedback();
+    host.append(yearNav, status.node);
     const body = el('div', '', 'calendar-layout');
     const grid = el('section', '', 'stack');
-    const detail = el('aside', '', 'panel stack');
+    const detail = el('aside', '', 'card card-body stack');
     detail.setAttribute('aria-live', 'polite');
     body.append(grid, detail);
     host.append(body);
@@ -164,19 +192,11 @@ export async function mount() {
               ...summary.notes.map((note) => el('span', `Note · ${note}`, 'day-item day-note')),
               ...summary.entries.map((name) => el('span', name, 'day-item day-entry')),
             );
-            const cell = content.closest('.day');
-            cell?.setAttribute(
-              'aria-description',
-              [
-                cell.getAttribute('aria-description'),
-                ...summary.notes.map((note) => `Note: ${note}`),
-                ...summary.entries,
-              ]
-                .filter(Boolean)
-                .join('; '),
-            );
           } catch {
-            if (content.isConnected) content.textContent = 'Could not load notes and entries.';
+            if (content.isConnected)
+              content.replaceChildren(
+                el('span', 'Could not load notes and entries.', 'day-item error-text'),
+              );
           }
         })().finally(() => {
           activeDays--;
@@ -186,13 +206,15 @@ export async function mount() {
     }
     let generation = 0;
     let selection = 0;
+    // The day the panel is about, shown pressed in the grid.
+    let selectedDay: { segment: string; day: number } | null = null;
     yearNav.addEventListener('submit', (event) => {
       event.preventDefault();
       void openYear(Number(y.input.value));
     });
     async function openYear(next: number) {
       if (!Number.isInteger(next) || Math.abs(next) > 1000000) {
-        status.textContent = 'Enter a whole year between −1000000 and 1000000.';
+        status.fail('Enter a whole year between −1000000 and 1000000.');
         return;
       }
       const turn = ++generation;
@@ -201,7 +223,7 @@ export async function mount() {
       requestedDate = false;
       requestedDay = null;
       contentCache.clear();
-      status.textContent = 'Opening year…';
+      status.busy('Opening year…');
       try {
         const [calculated, saved, observances] = await Promise.all([
           unwrap(
@@ -240,7 +262,7 @@ export async function mount() {
         periods = saved;
         for (const period of saved) rememberEntryAddress(tenantId, period);
         occurrences = observances;
-        status.textContent = '';
+        status.clear();
         const url = new URL(location.href);
         url.searchParams.set('year', String(year));
         history.replaceState(history.state, '', url);
@@ -261,7 +283,7 @@ export async function mount() {
         )
           prefetchYear(tenantId, calendarId, year + 1);
       } catch (e) {
-        if (turn === generation) status.textContent = message(e);
+        if (turn === generation) status.fail(message(e));
       }
     }
     function showYear() {
@@ -306,12 +328,17 @@ export async function mount() {
         tabs.append(tab);
         return tab;
       });
-      grid.append(
-        button(`Year ${year}: notes and dated entries`, () => showPeriod(), true),
+      const bar = el('div', '', 'view-bar');
+      bar.append(
         tabs,
-        monthPanel,
-        yearPanel,
+        button(
+          `Year ${year}: notes and dated entries`,
+          () => showPeriod(),
+          true,
+          'kind-calendar-pin',
+        ),
       );
+      grid.append(bar, monthPanel, yearPanel);
       function activate(index: number) {
         wholeYear = index === 1;
         detail.querySelector('[data-calendar-return]')?.remove();
@@ -343,7 +370,8 @@ export async function mount() {
             ]),
             chosenSegment,
           );
-          const days = el('div');
+          picker.label.classList.add('narrow-field');
+          const days = el('div', '', 'stack');
           monthPanel.append(picker.label, days);
           picker.input.addEventListener('change', () => {
             chosenSegment = picker.input.value;
@@ -362,8 +390,11 @@ export async function mount() {
         'Month or festival notes',
         () => showPeriod(key, undefined, notes),
         true,
+        'kind-calendar-pin',
       );
-      container.append(el('h2', segment.name), notes);
+      const title = el('div', '', 'section-head');
+      title.append(el('h2', segment.name), notes);
+      container.append(title);
       const definition = calendar.definition.segments.find((s) => s.key === key);
       const week = calendar.definition.week;
       const useWeek = Boolean(week && definition?.in_week);
@@ -389,10 +420,19 @@ export async function mount() {
       }
       const pending: Array<{ period: Period; content: HTMLElement }> = [];
       for (const day of segment.days) {
-        const cell = button('', () => showPeriod(key, day.date.day, cell), true);
-        cell.className = 'day';
-        cell.setAttribute('aria-label', `${day.date.day} ${segment.name} ${year}`);
-        cell.dataset.day = String(day.date.day);
+        // A cell is the date's button, which carries its name and its moons, and beneath it what
+        // is written for the day. The button's own text is only the date, so its name holds it.
+        const cell = el('div', '', 'day');
+        const press = el('button', '', 'day-button');
+        press.type = 'button';
+        press.addEventListener('click', () => {
+          void showPeriod(key, day.date.day, press);
+        });
+        press.setAttribute('aria-label', `${day.date.day} ${segment.name} ${year}`);
+        press.dataset.day = String(day.date.day);
+        press.dataset.segment = key;
+        if (selectedDay && selectedDay.segment === key && selectedDay.day === day.date.day)
+          press.setAttribute('aria-pressed', 'true');
         const header = el('span', '', 'day-header');
         header.append(el('span', String(day.date.day), 'day-number'));
         const moons = el('span', '', 'moon-phases');
@@ -401,38 +441,32 @@ export async function mount() {
           const phase = day.moons[moon.key];
           if (phase !== undefined) {
             const label = `${moon.name}: ${phases[phase] ?? phase}`;
-            const icon = el('span', phaseSymbols[phase] ?? '○', 'moon-phase');
-            icon.title = label;
-            icon.setAttribute('role', 'img');
-            icon.setAttribute('aria-label', label);
-            moons.append(icon);
+            // The symbol is decorative; the words are in the day's description and its panel.
+            const mark = el('span', '', 'moon-phase');
+            mark.title = label;
+            mark.append(moonIcon(phase));
+            moons.append(mark);
             moonLabels.push(label);
           }
         }
         if (moonLabels.length) {
           header.append(moons);
-          cell.setAttribute('aria-description', moonLabels.join('; '));
+          press.setAttribute('aria-description', moonLabels.join('; '));
         }
-        const content = el('span', '', 'day-content');
-        cell.append(header, content);
+        press.append(header);
+        const content = el('div', '', 'day-content');
+        cell.append(press, content);
         const saved = periods.find((p) => p.segment === key && p.day === day.date.day);
         if (saved) {
-          cell.addEventListener('pointerenter', () => prefetchEntry(tenantId, saved.entity_id));
-          cell.addEventListener('focus', () => prefetchEntry(tenantId, saved.entity_id));
-          content.textContent = 'Loading notes…';
+          press.addEventListener('pointerenter', () => prefetchEntry(tenantId, saved.entity_id));
+          press.addEventListener('focus', () => prefetchEntry(tenantId, saved.entity_id));
+          content.append(el('span', 'Loading notes…', 'skeleton day-item day-loading'));
           pending.push({ period: saved, content });
         }
         for (const occurrence of occurrences.filter(
           (o) => o.date.segment === key && o.date.day === day.date.day,
-        )) {
+        ))
           cell.append(el('span', `Recurring · ${occurrence.name}`, 'day-item day-observance'));
-          cell.setAttribute(
-            'aria-description',
-            [cell.getAttribute('aria-description'), `Recurring: ${occurrence.name}`]
-              .filter(Boolean)
-              .join('; '),
-          );
-        }
         cells.append(cell);
       }
       container.append(cells);
@@ -452,24 +486,37 @@ export async function mount() {
         ? `${day === undefined ? '' : `${day} `}${calendar.definition.segments.find((s) => s.key === segment)?.name ?? segment} ${year}`
         : `Year ${year}`;
       detail.replaceChildren(el('h2', title));
+      selectedDay = segment && day !== undefined ? { segment, day } : null;
+      for (const pressed of grid.querySelectorAll('.day-button[aria-pressed]'))
+        pressed.removeAttribute('aria-pressed');
+      if (selectedDay)
+        grid
+          .querySelector(
+            `.day-button[data-segment="${CSS.escape(segment ?? '')}"][data-day="${day}"]`,
+          )
+          ?.setAttribute('aria-pressed', 'true');
       if (segment && day !== undefined) {
         const reading = preview.segments
           .find((s) => s.key === segment)
           ?.days.find((d) => d.date.day === day);
-        const moons = el('p', '', 'caption selected-moons');
+        const moons = el('ul', '', 'selected-moons');
         for (const moon of calendar.definition.moons) {
           const phase = reading?.moons[moon.key];
-          if (phase !== undefined)
-            moons.append(
-              el('span', `${phaseSymbols[phase] ?? '○'} ${moon.name}: ${phases[phase] ?? phase}`),
+          if (phase !== undefined) {
+            const item = el('li', '', 'row-tight');
+            item.append(
+              moonIcon(phase),
+              document.createTextNode(`${moon.name}: ${phases[phase] ?? phase}`),
             );
+            moons.append(item);
+          }
         }
         if (moons.childElementCount) detail.append(moons);
       }
       const saved = periods.find((p) => p.segment === (segment ?? null) && p.day === (day ?? null));
-      const localStatus = el('p');
-      localStatus.setAttribute('role', 'status');
+      const localStatus = feedback();
       let materialized = saved;
+      const waiting = loading('Opening notes…');
       async function materialize() {
         if (!materialized)
           materialized = await unwrap(
@@ -487,6 +534,7 @@ export async function mount() {
       }
       try {
         if (saved) {
+          detail.append(waiting);
           const entry = await unwrap(
             await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
               params: { path: { tenant_id: tenantId, entity_id: saved.entity_id } },
@@ -495,17 +543,19 @@ export async function mount() {
           rememberEntryAddress(tenantId, entry);
           const dates = await datedEntries(tenantId, saved.entity_id);
           if (turn !== selection || !host?.isConnected) return;
+          waiting.remove();
           detail.append(
-            link(
+            linkButton(
               'Open date entry',
               `${entryHref(tenantId, saved.entity_id)}&calendar=${encodeURIComponent(calendarId)}&year=${chosenYear}`,
+              'next',
             ),
-            informationView(tenantId, entry, false, () => {}),
+            informationView(tenantId, entry, false, () => {}, false, undefined, true),
             dates,
           );
         } else
           detail.append(
-            el('p', 'No notes or dated entries are available to you for this date.', 'caption'),
+            el('p', 'Nothing is written for this date yet, or none of it is open to you.', 'lede'),
           );
         if (turn !== selection || !host?.isConnected) return;
         for (const o of occurrences.filter(
@@ -522,7 +572,7 @@ export async function mount() {
         if (canWrite) {
           detail.append(
             button(
-              'Add information to this date',
+              'Add a note to this date',
               async () => {
                 try {
                   const period = await materialize();
@@ -531,37 +581,31 @@ export async function mount() {
                     `${entryHref(tenantId, period.entity_id)}&calendar=${encodeURIComponent(calendarId)}&year=${chosenYear}&add=information`,
                   );
                 } catch (e) {
-                  localStatus.textContent = message(e);
+                  localStatus.fail(message(e));
                 }
               },
               true,
+              'add',
             ),
           );
-          const create = el('details');
-          create.append(
-            el('summary', 'Create a fact or story event'),
-            createDatedEntry(tenantId, materialize),
-          );
-          const existing = el('details');
-          existing.append(
-            el('summary', 'Associate an existing fact or event'),
-            attachExisting(tenantId, materialize),
-          );
-          detail.append(create, existing);
+          const create = disclosure('Create a fact or story event');
+          create.body.append(createDatedEntry(tenantId, materialize));
+          const existing = disclosure('Associate an existing fact or event');
+          existing.body.append(attachExisting(tenantId, materialize));
+          detail.append(create.root, existing.root);
           if (segment && day !== undefined) {
-            const recurring = el('details');
-            recurring.append(
-              el('summary', 'Create a recurring observance'),
+            const recurring = disclosure('Create a recurring observance');
+            recurring.body.append(
               createObservance(tenantId, calendarId, calendar.definition, {
                 segment,
                 day,
                 when: { every: 1, offset: 0 },
               }),
             );
-            detail.append(recurring);
+            detail.append(recurring.root);
           }
         }
-        detail.append(localStatus);
+        detail.append(localStatus.node);
         if (wholeYear && target?.isConnected && window.matchMedia('(max-width: 720px)').matches) {
           const back = button(
             'Back to calendar',
@@ -570,6 +614,7 @@ export async function mount() {
               target.focus({ preventScroll: true });
             },
             true,
+            'back',
           );
           back.dataset.calendarReturn = '';
           detail.prepend(back);
@@ -577,12 +622,15 @@ export async function mount() {
           back.focus({ preventScroll: true });
         }
       } catch (e) {
-        if (turn === selection) localStatus.textContent = message(e);
-        detail.append(localStatus);
+        waiting.remove();
+        if (turn === selection) localStatus.fail(message(e));
+        detail.append(localStatus.node);
       }
     }
     await openYear(year);
   } catch (e) {
-    status.textContent = message(e);
+    const problem = failure(message(e));
+    if (wait.isConnected) wait.replaceWith(problem);
+    else host.append(problem);
   }
 }
