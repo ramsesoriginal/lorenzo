@@ -43,12 +43,15 @@ from lorenzo_api.models import (
     CampaignGm,
     Character,
     CharacterPlayer,
+    EventPresentation,
     Membership,
     MembershipRole,
     Player,
     RepositoryProfile,
     RepositorySubscription,
+    SceneAppearance,
     StatGroup,
+    StorySession,
     Tenant,
     TenantKind,
     User,
@@ -364,7 +367,8 @@ async def delete_tenant(
     the tenant row (ADR 0018), so one DELETE takes everything; the
     campaigns go first because `campaign.entity_id` is the one reference to
     `entity` that restricts rather than cascades, and a cascade doesn't
-    promise an order.
+    promise an order; the Sessions go before them, because a Session's
+    reference to its campaign does not cascade either.
 
     Nothing records this in the tenant's own activity log, which goes with
     it. The people with a stake in it are told (platform-scope
@@ -404,6 +408,10 @@ async def delete_tenant(
     await create_tenant_deleted_notifications(
         session, tenant_id=tenant_id, tenant_name=name, deleted_by=user.id
     )
+    # A Session names its campaign without cascading (ADR 0317), and its Scene appearances and the
+    # Events presented in them name the Session the same way, so they go first, innermost out.
+    for model in (EventPresentation, SceneAppearance, StorySession):
+        await session.execute(delete(model).where(model.tenant_id == tenant_id))
     await session.execute(delete(Campaign).where(Campaign.tenant_id == tenant_id))
     await session.execute(delete(Tenant).where(Tenant.id == tenant_id))
     await session.commit()

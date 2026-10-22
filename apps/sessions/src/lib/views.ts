@@ -33,6 +33,8 @@ import { playPanel, sequencePanel } from './play';
 import { start } from './sign-in';
 
 type StorySession = Schema<'SessionOut'>;
+/** What the Session page shares between its panels: the Session as last read and its version, which every conditional write sends and every write to the Session moves on. */
+type PageState = { session: StorySession; version: string };
 /** Controls laid out in columns that give way to one on a phone. */
 function fields(...nodes: HTMLElement[]) {
   const grid = el('div', '', 'grid');
@@ -167,25 +169,150 @@ export async function mountSession() {
       tenant = t.id;
     }
     const id = await resolveSession(tenant, address, query.has('slug'));
-    let generation = 0;
-    let releaseControls: (() => void) | undefined;
     const path = { tenant_id: tenant, session_id: id };
-    const refresh = async () => {
-      const turn = ++generation;
-      releaseControls ??= suspendControls(host);
-      try {
-        const view = el('div', '', 'stack view');
-        const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
-          params: { path },
-        });
-        const session = await unwrap(result);
-        const version = result.response.headers.get('etag') ?? '';
-        if (!host.isConnected || turn !== generation) return;
+    // The Session as last read and its version, shared by every panel: a conditional write sends
+    // the version the page holds now, whichever panel read it last.
+    const ctx: PageState = { session: undefined as unknown as StorySession, version: '' };
+    const readSession = async () => {
+      const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+        params: { path },
+      });
+      ctx.session = await unwrap(result);
+      ctx.version = result.response.headers.get('etag') ?? '';
+      history.replaceState(history.state, '', sessionHref(tenant, id, ctx.session.slug));
+    };
+
+    // The page is drawn in regions. A save reads the Session again and then draws again only the
+    // regions it can have changed, each when its own data is ready, so what is being typed in the
+    // other panels, and which panels are open, is left as it is.
+    const regionOf = (name: string) =>
+      host.querySelector<HTMLElement>(`[data-region="${CSS.escape(name)}"]`);
+    const region = <T extends HTMLElement>(node: T, name: string): T => {
+      node.dataset.region = name;
+      return node;
+    };
+    const refreshOf =
+      (...names: string[]) =>
+      () =>
+        refreshRegions(names);
+    const sceneRefresh = (appearance: string) => refreshOf(`scene:${appearance}`);
+
+    const sceneCard = async (
+      appearance: StorySession['scenes'][number],
+      index: number,
+    ): Promise<HTMLElement> => {
+      const session = ctx.session;
+      const row = region(el('li', '', 'card'), `scene:${appearance.id}`);
+      row.dataset.index = String(index);
+      const body = el('div', '', 'card-body stack');
+      row.append(body);
+      const heading = el('h3', '', 'item-title grow');
+      heading.append(
+        link(
+          appearance.name,
+          `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
+        ),
+      );
+      const number = el('span', String(index + 1), 'chip');
+      number.setAttribute('aria-hidden', 'true');
+      const title = el('div', '', 'row');
+      title.append(
+        number,
+        heading,
+        audienceBadge(
+          appearance.is_shared ? 'Shared with Session participants' : 'GM preparation',
+          appearance.is_shared,
+        ),
+      );
+      body.append(title);
+      if (session.can_manage) {
+        const move = async (delta: number) => {
+          const ids = ctx.session.scenes.map((s) => s.id);
+          [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
+          await unwrap(
+            await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/scenes/order', {
+              params: { path, header: { 'if-match': ctx.version } },
+              body: { appearance_ids: ids },
+            }),
+          );
+          await refreshRegions(['order', 'play']);
+        };
+        const controls = el('div', '', 'row');
+        if (index > 0) controls.append(button('Move up', () => move(-1), { icon: 'up' }));
+        if (index < session.scenes.length - 1)
+          controls.append(button('Move down', () => move(1), { icon: 'down' }));
+        controls.append(
+          button(
+            appearance.is_shared ? 'Make preparation private' : 'Share with Session participants',
+            async () => {
+              await unwrap(
+                await client.PATCH(
+                  '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
+                  {
+                    params: {
+                      path: { ...path, appearance_id: appearance.id },
+                      header: { 'if-match': ctx.version },
+                    },
+                    body: { is_shared: !appearance.is_shared },
+                  },
+                ),
+              );
+              await refreshRegions([`scene:${appearance.id}`]);
+            },
+          ),
+        );
+        controls.append(
+          button(
+            'Remove Scene appearance',
+            async () => {
+              if (
+                !confirm(
+                  'Remove this appearance and its Session-specific notes? The reusable Scene remains.',
+                )
+              )
+                return;
+              await unwrap(
+                await client.DELETE(
+                  '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
+                  {
+                    params: {
+                      path: { ...path, appearance_id: appearance.id },
+                      header: { 'if-match': ctx.version },
+                    },
+                  },
+                ),
+              );
+              await refreshRegions(['scenes', 'play']);
+            },
+            { variant: 'danger', icon: 'delete' },
+          ),
+        );
+        body.append(controls);
+      }
+      body.append(
+        ...(await Promise.all([
+          referencePanel(
+            tenant,
+            'scenes',
+            appearance.scene_entity_id,
+            false,
+            sceneRefresh(appearance.id),
+            4,
+          ),
+          notes(tenant, appearance.id, () => void sceneRefresh(appearance.id)(), 'session', 4),
+        ])),
+      );
+      return row;
+    };
+
+    const build: Record<string, () => Promise<HTMLElement | null>> = {
+      head: async () => {
+        const session = ctx.session;
         const [library, campaign] = await Promise.all([
           libraryName(tenant),
           campaignName(tenant, session.campaign_id),
         ]);
-        view.replaceChildren(
+        return region(
           pageHead(session.name, {
             crumbs: [backLink('My Sessions', '/')],
             lede: [library, campaign].filter(Boolean).join(' · ') || undefined,
@@ -197,183 +324,191 @@ export async function mountSession() {
               linkButton('Browse reusable Scenes', `/scenes/?${new URLSearchParams({ tenant })}`),
             ],
           }),
+          'head',
         );
-        // Every panel asks for its own data, so they are all started together and put in order
-        // once they have answered; a page of a dozen panels used to ask for them one by one.
-        const started = {
-          editors: session.can_manage
-            ? Promise.all([
-                detailsEditor(session, version, refresh),
-                rosterEditor(session, version, refresh),
-              ])
-            : null,
-          notes: notes(tenant, id, () => void refresh()),
-          references: referencePanel(tenant, 'sessions', id, session.can_manage, refresh),
-          coverage: coveragePanel(tenant, id, session.can_manage, refresh),
-          play: playPanel(tenant, id, session.can_manage, refresh),
-          sequence: sequencePanel(tenant, session.campaign_id, refresh, id),
-          adder: session.can_manage ? sceneAdder(session, version, refresh) : null,
-          lived: session.can_manage ? livedLinkPanel(tenant, id) : null,
-        };
-        const outline = el('section', '', 'stack');
+      },
+      details: async () =>
+        ctx.session.can_manage
+          ? region(await detailsEditor(ctx, refreshOf('head', 'details')), 'details')
+          : null,
+      roster: async () =>
+        ctx.session.can_manage ? region(rosterEditor(ctx, refreshOf('roster')), 'roster') : null,
+      notes: async () => region(await notes(tenant, id, () => void refreshOf('notes')()), 'notes'),
+      references: async () =>
+        region(
+          await referencePanel(
+            tenant,
+            'sessions',
+            id,
+            ctx.session.can_manage,
+            refreshOf('references'),
+          ),
+          'references',
+        ),
+      coverage: async () =>
+        region(
+          await coveragePanel(tenant, id, ctx.session.can_manage, refreshOf('coverage')),
+          'coverage',
+        ),
+      scenes: async () => {
+        const session = ctx.session;
+        const outline = region(el('section', '', 'stack'), 'scenes');
         outline.append(sectionHead('Scenes', { count: session.scenes.length }));
-        const list = el('ol', '', 'stack');
-        const rows = Promise.all(
-          session.scenes.map(async (appearance) => {
-            const row = el('li', '', 'card');
-            const body = el('div', '', 'card-body stack');
-            row.append(body);
-            const heading = el('h3', '', 'item-title grow');
-            heading.append(
-              link(
-                appearance.name,
-                `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
-              ),
-            );
-            const number = el('span', String(session.scenes.indexOf(appearance) + 1), 'chip');
-            number.setAttribute('aria-hidden', 'true');
-            const title = el('div', '', 'row');
-            title.append(
-              number,
-              heading,
-              audienceBadge(
-                appearance.is_shared ? 'Shared with Session participants' : 'GM preparation',
-                appearance.is_shared,
-              ),
-            );
-            body.append(title);
-            if (session.can_manage) {
-              const index = session.scenes.indexOf(appearance);
-              const move = async (delta: number) => {
-                const ids = session.scenes.map((s) => s.id);
-                [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
-                await unwrap(
-                  await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/scenes/order', {
-                    params: { path, header: { 'if-match': version } },
-                    body: { appearance_ids: ids },
-                  }),
-                );
-                await refresh();
-              };
-              const controls = el('div', '', 'row');
-              if (index > 0) controls.append(button('Move up', () => move(-1), { icon: 'up' }));
-              if (index < session.scenes.length - 1)
-                controls.append(button('Move down', () => move(1), { icon: 'down' }));
-              controls.append(
-                button(
-                  appearance.is_shared
-                    ? 'Make preparation private'
-                    : 'Share with Session participants',
-                  async () => {
-                    await unwrap(
-                      await client.PATCH(
-                        '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
-                        {
-                          params: {
-                            path: { ...path, appearance_id: appearance.id },
-                            header: { 'if-match': version },
-                          },
-                          body: { is_shared: !appearance.is_shared },
-                        },
-                      ),
-                    );
-                    await refresh();
-                  },
-                ),
-              );
-              controls.append(
-                button(
-                  'Remove Scene appearance',
-                  async () => {
-                    if (
-                      !confirm(
-                        'Remove this appearance and its Session-specific notes? The reusable Scene remains.',
-                      )
-                    )
-                      return;
-                    await unwrap(
-                      await client.DELETE(
-                        '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
-                        {
-                          params: {
-                            path: { ...path, appearance_id: appearance.id },
-                            header: { 'if-match': version },
-                          },
-                        },
-                      ),
-                    );
-                    await refresh();
-                  },
-                  { variant: 'danger', icon: 'delete' },
-                ),
-              );
-              body.append(controls);
-            }
-            body.append(
-              await referencePanel(tenant, 'scenes', appearance.scene_entity_id, false, refresh, 4),
-              await notes(tenant, appearance.id, () => void refresh(), 'session', 4),
-            );
-            return row;
-          }),
-        );
-        const [
-          editorPair,
-          notesPanel,
-          references,
-          coverage,
-          sceneRows,
-          play,
-          sequence,
-          adder,
-          lived,
-        ] = await Promise.all([
-          started.editors,
-          started.notes,
-          started.references,
-          started.coverage,
-          rows,
-          started.play,
-          started.sequence,
-          started.adder,
-          started.lived,
-        ]);
-        if (editorPair) {
-          const editors = el('div', '', 'stack-tight');
-          editors.append(...editorPair);
-          view.append(editors);
-        }
-        view.append(notesPanel, references, coverage);
-        list.append(...sceneRows);
-        if (session.scenes.length) outline.append(list);
-        else outline.append(empty('No Scenes are available to you here.'));
-        view.append(outline, play, sequence);
-        if (adder) outline.append(adder);
-        if (lived) view.append(lived);
-        if (host.isConnected && turn === generation) {
-          history.replaceState(history.state, '', sessionHref(tenant, id, session.slug));
-          // A panel that was open stays open when the page draws itself again after a save.
-          const key = (d: HTMLDetailsElement) => d.querySelector('summary')?.textContent ?? '';
-          const open = new Set(
-            [...host.querySelectorAll<HTMLDetailsElement>('details[open]')].map(key),
-          );
-          host.replaceChildren(...view.childNodes);
-          for (const d of host.querySelectorAll<HTMLDetailsElement>('details.panel')) {
-            if (open.has(key(d))) d.open = true;
-          }
-        }
-      } finally {
-        if (turn === generation) {
-          releaseControls?.();
-          releaseControls = undefined;
-        }
+        if (session.scenes.length) {
+          const list = el('ol', '', 'stack');
+          list.append(...(await Promise.all(session.scenes.map(sceneCard))));
+          outline.append(list);
+        } else outline.append(empty('No Scenes are available to you here.'));
+        return outline;
+      },
+      adder: async () =>
+        ctx.session.can_manage
+          ? region(await sceneAdder(ctx, refreshOf('scenes', 'adder', 'play')), 'adder')
+          : null,
+      play: async () =>
+        region(await playPanel(tenant, id, ctx.session.can_manage, refreshOf('play')), 'play'),
+      sequence: async () =>
+        region(
+          await sequencePanel(tenant, ctx.session.campaign_id, refreshOf('sequence'), id),
+          'sequence',
+        ),
+      lived: async () =>
+        ctx.session.can_manage ? region(await livedLinkPanel(tenant, id), 'lived') : null,
+    };
+
+    const openPanels = () =>
+      new Set(
+        [...host.querySelectorAll<HTMLDetailsElement>('details[open]')].map(
+          (d) => d.querySelector('summary')?.textContent ?? '',
+        ),
+      );
+    const reopen = (root: ParentNode, open: Set<string>) => {
+      for (const d of root.querySelectorAll<HTMLDetailsElement>('details.panel')) {
+        if (open.has(d.querySelector('summary')?.textContent ?? '')) d.open = true;
       }
     };
-    await refresh();
+
+    // Everything drawn again: the first time, and when what the person may do has changed.
+    const drawAll = async () => {
+      const names = Object.keys(build);
+      const nodes = new Map(
+        await Promise.all(names.map(async (name) => [name, await build[name]?.()] as const)),
+      );
+      if (!host.isConnected) return;
+      const view = el('div', '', 'stack view');
+      const editors = el('div', '', 'stack-tight');
+      for (const name of ['details', 'roster']) {
+        const node = nodes.get(name);
+        if (node) editors.append(node);
+      }
+      const outline = el('div', '', 'stack');
+      for (const name of ['scenes', 'adder']) {
+        const node = nodes.get(name);
+        if (node) outline.append(node);
+      }
+      const put = (name: string) => nodes.get(name) ?? [];
+      view.append(
+        ...[put('head')].flat(),
+        ...(editors.childElementCount ? [editors] : []),
+        ...[put('notes'), put('references'), put('coverage')].flat(),
+        outline,
+        ...[put('play'), put('sequence'), put('lived')].flat(),
+      );
+      const open = openPanels();
+      host.replaceChildren(...view.childNodes);
+      reopen(host, open);
+    };
+
+    const turns = new Map<string, number>();
+    const stamp = (name: string) => {
+      const turn = (turns.get(name) ?? 0) + 1;
+      turns.set(name, turn);
+      return turn;
+    };
+
+    // A region drawn again, its open panels kept open. Null leaves the page as it is.
+    const swap = (old: HTMLElement | null, next: HTMLElement | null) => {
+      if (!old) return false;
+      const open = openPanels();
+      if (next) {
+        old.replaceWith(next);
+        reopen(next, open);
+      } else old.remove();
+      return true;
+    };
+
+    const drawRegion = async (name: string): Promise<boolean> => {
+      const turn = stamp(name);
+      if (name === 'order') {
+        const list = host.querySelector<HTMLElement>('[data-region="scenes"] > ol');
+        if (!list) return false;
+        const have = new Map(
+          [...list.children].map((card) => [
+            (card as HTMLElement).dataset.region ?? '',
+            card as HTMLElement,
+          ]),
+        );
+        const cards = await Promise.all(
+          ctx.session.scenes.map(async (appearance, index) => {
+            const known = have.get(`scene:${appearance.id}`);
+            // A card keeps its drafts unless its number, and so its buttons, changed.
+            return known && Number(known.dataset.index) === index
+              ? known
+              : sceneCard(appearance, index);
+          }),
+        );
+        if (turns.get(name) !== turn || !host.isConnected) return true;
+        list.replaceChildren(...cards);
+        return true;
+      }
+      if (name.startsWith('scene:')) {
+        const appearance = ctx.session.scenes.find((s) => `scene:${s.id}` === name);
+        const next = appearance
+          ? await sceneCard(appearance, ctx.session.scenes.indexOf(appearance))
+          : null;
+        if (turns.get(name) !== turn || !host.isConnected) return true;
+        return swap(regionOf(name), next);
+      }
+      const make = build[name];
+      if (!make) return false;
+      const next = await make();
+      if (turns.get(name) !== turn || !host.isConnected) return true;
+      return swap(regionOf(name), next);
+    };
+
+    const refreshRegions = async (names: string[]) => {
+      const wasManager = ctx.session.can_manage;
+      const nodes = names
+        .map((name) =>
+          name === 'order'
+            ? host.querySelector<HTMLElement>('[data-region="scenes"] > ol')
+            : regionOf(name),
+        )
+        .filter((node): node is HTMLElement => node !== null);
+      const releases = nodes.map((node) => suspendControls(node));
+      try {
+        await readSession();
+        if (!host.isConnected) return;
+        if (ctx.session.can_manage !== wasManager) {
+          await drawAll();
+          return;
+        }
+        const drawn = await Promise.all(names.map(drawRegion));
+        // A region that is not on the page cannot be drawn in place: draw the page again.
+        if (drawn.includes(false)) await drawAll();
+      } finally {
+        for (const release of releases) release();
+      }
+    };
+
+    await readSession();
+    await drawAll();
   } catch (error) {
     host.replaceChildren(backLink('My Sessions', '/'), errorNotice(error));
   }
 }
-async function detailsEditor(session: StorySession, version: string, refresh: () => Promise<void>) {
+async function detailsEditor(ctx: PageState, refresh: () => Promise<void>) {
+  const session = ctx.session;
   const details = panel('Session details', 'title, date, link name, starting period');
   const name = field('Session title', session.name);
   const date = field('Real-world date', session.real_date ?? '', 'date');
@@ -397,7 +532,7 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
               await client.PATCH('/tenants/{tenant_id}/sessions/{session_id}', {
                 params: {
                   path: { tenant_id: session.tenant_id, session_id: session.id },
-                  header: { 'if-match': version },
+                  header: { 'if-match': ctx.version },
                 },
                 body: {
                   name: name.input.value,
@@ -424,7 +559,7 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
           cache: 'no-store',
         });
         const saved = await unwrap(result);
-        version = result.response.headers.get('etag') ?? '';
+        ctx.version = result.response.headers.get('etag') ?? '';
         say(
           status,
           `Saved Session: ${saved.name}; date ${saved.real_date ?? 'not set'}; link name ${saved.slug ?? 'not set'}. Your draft is unchanged. Review it before saving again.`,
@@ -435,7 +570,8 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
   );
   return details.root;
 }
-function rosterEditor(session: StorySession, version: string, refresh: () => Promise<void>) {
+function rosterEditor(ctx: PageState, refresh: () => Promise<void>) {
+  const session = ctx.session;
   const details = panel(
     'GMs and players',
     `${session.gm_user_ids.length} GMs, ${session.players.length} players`,
@@ -446,18 +582,14 @@ function rosterEditor(session: StorySession, version: string, refresh: () => Pro
     if (!details.root.open || started) return;
     started = true;
     details.body.append(loading('Loading the campaign…'));
-    void rosterContent(details.body, session, version, refresh).catch((error) =>
+    void rosterContent(details.body, ctx, refresh).catch((error) =>
       details.body.replaceChildren(errorNotice(error)),
     );
   });
   return details.root;
 }
-async function rosterContent(
-  body: HTMLElement,
-  session: StorySession,
-  version: string,
-  refresh: () => Promise<void>,
-) {
+async function rosterContent(body: HTMLElement, ctx: PageState, refresh: () => Promise<void>) {
+  const session = ctx.session;
   const path = { tenant_id: session.tenant_id, campaign_id: session.campaign_id };
   const [gms, players] = await Promise.all([
     unwrap(
@@ -512,7 +644,7 @@ async function rosterContent(
               await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/roster', {
                 params: {
                   path: { tenant_id: session.tenant_id, session_id: session.id },
-                  header: { 'if-match': version },
+                  header: { 'if-match': ctx.version },
                 },
                 body: {
                   gm_user_ids: gmChecks.filter((c) => c.input.checked).map((c) => c.id),
@@ -538,7 +670,7 @@ async function rosterContent(
           cache: 'no-store',
         });
         const saved = await unwrap(result);
-        version = result.response.headers.get('etag') ?? '';
+        ctx.version = result.response.headers.get('etag') ?? '';
         const gmNames = gms
           .filter((g) => saved.gm_user_ids.includes(g.user_id))
           .map((g) => g.display_name ?? g.nickname ?? 'GM');
@@ -554,7 +686,8 @@ async function rosterContent(
     status,
   );
 }
-async function sceneAdder(session: StorySession, version: string, refresh: () => Promise<void>) {
+async function sceneAdder(ctx: PageState, refresh: () => Promise<void>) {
+  const session = ctx.session;
   const existing = await fetchAllPages(async (page) =>
     unwrap(
       await client.GET('/tenants/{tenant_id}/entities', {
@@ -619,7 +752,7 @@ async function sceneAdder(session: StorySession, version: string, refresh: () =>
               await client.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
                 params: {
                   path: { tenant_id: session.tenant_id, session_id: session.id },
-                  header: { 'if-match': version },
+                  header: { 'if-match': ctx.version },
                 },
                 body: {
                   id: appearanceId,
@@ -645,7 +778,7 @@ async function sceneAdder(session: StorySession, version: string, refresh: () =>
           cache: 'no-store',
         });
         const saved = await unwrap(result);
-        version = result.response.headers.get('etag') ?? '';
+        ctx.version = result.response.headers.get('etag') ?? '';
         say(
           status,
           `Saved Scenes: ${saved.scenes.map((s) => s.name).join(', ') || 'none'}. Your Scene draft and retry identity are unchanged.`,
