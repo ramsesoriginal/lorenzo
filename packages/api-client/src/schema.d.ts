@@ -1046,7 +1046,8 @@ export interface paths {
          *     the tenant row (ADR 0018), so one DELETE takes everything; the
          *     campaigns go first because `campaign.entity_id` is the one reference to
          *     `entity` that restricts rather than cascades, and a cascade doesn't
-         *     promise an order.
+         *     promise an order; the Sessions go before them, because a Session's
+         *     reference to its campaign does not cascade either.
          *
          *     Nothing records this in the tenant's own activity log, which goes with
          *     it. The people with a stake in it are told (platform-scope
