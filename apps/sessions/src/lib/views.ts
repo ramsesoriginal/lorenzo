@@ -1,7 +1,32 @@
 import { client, fetchAllPages, type Schema, unwrap } from './api';
 import { coveragePanel, referencePanel } from './context';
-import { button, el, field, link, message, select, sessionHref, suspendControls } from './dom';
+import {
+  actions,
+  audienceBadge,
+  backLink,
+  button,
+  card,
+  el,
+  empty,
+  errorNotice,
+  field,
+  link,
+  linkButton,
+  loading,
+  message,
+  metaLine,
+  pageHead,
+  panel,
+  say,
+  sectionHead,
+  select,
+  sessionHref,
+  statusLine,
+  submit,
+  suspendControls,
+} from './dom';
 import { livedLinkPanel } from './lived';
+import { campaignName, libraryName, libraryNames } from './names';
 import { notes } from './notes';
 import { playPanel, sequencePanel } from './play';
 import { start } from './sign-in';
@@ -24,32 +49,50 @@ async function periodPicker(tenant: string, label: string, current: string | nul
     current ?? '',
   );
 }
+/** Controls laid out in columns that give way to one on a phone. */
+function fields(...nodes: HTMLElement[]) {
+  const grid = el('div', '', 'grid');
+  grid.style.setProperty('--grid-min', '240px');
+  grid.append(...nodes);
+  return grid;
+}
+const roleBadge = (manager: boolean) => el('span', manager ? 'GM' : 'Player', 'chip');
 export async function mountHome() {
   const host = document.querySelector<HTMLElement>('#sessions-home');
   if (!host) return;
   const me = await start();
   if (!me || !host.isConnected) return;
   try {
-    host.replaceChildren(el('h1', 'My sessions'));
+    host.replaceChildren(loading('Opening your Sessions…'));
     const sessions = await unwrap(await client.GET('/me/sessions', { cache: 'no-store' }));
-    const list = el('ul', '', 'session-outline stack');
-    for (const session of sessions) {
-      const row = el('li', '', 'stack-tight');
-      row.append(
-        link(session.name, sessionHref(session.tenant_id, session.id, session.slug)),
-        el(
-          'p',
-          `${session.real_date ?? 'Date not set'} · ${session.can_manage ? 'GM' : 'Player'}`,
-          'caption',
-        ),
-      );
-      list.append(row);
-    }
-    host.append(list);
-    if (!sessions.length)
-      host.append(
-        el('p', 'Your sessions will appear here when you are added as a GM or player.', 'caption'),
-      );
+    const names = await libraryNames();
+    const view = el('div', '', 'stack view');
+    view.append(
+      pageHead('My Sessions', {
+        lede: 'Sessions where you are a GM or a player, across your libraries.',
+      }),
+    );
+    if (sessions.length) {
+      const list = el('ul', '', 'list');
+      for (const session of sessions) {
+        const row = el('li');
+        const text = el('div', '', 'stack-tight grow');
+        const where = names.get(session.tenant_id);
+        text.append(
+          link(session.name, sessionHref(session.tenant_id, session.id, session.slug)),
+          el(
+            'p',
+            [where, session.real_date ?? 'Date not set'].filter(Boolean).join(' · '),
+            'status-text',
+          ),
+        );
+        row.append(text, roleBadge(session.can_manage));
+        list.append(row);
+      }
+      view.append(list);
+    } else
+      view.append(empty('No Sessions yet. One appears here when you are added as a GM or player.'));
+    host.replaceChildren(view);
     const managed = await unwrap(await client.GET('/me/managed'));
     const campaigns = managed.tenants.flatMap((t) =>
       t.campaigns
@@ -57,8 +100,7 @@ export async function mountHome() {
         .map((c) => ({ tenant: t.tenant_id, id: c.campaign_id, name: `${t.name} · ${c.name}` })),
     );
     if (!campaigns.length) return;
-    const form = el('form', '', 'panel stack');
-    form.append(el('h2', 'Prepare a session'));
+    const form = el('form', '', 'stack');
     const name = field('Session title');
     name.input.required = true;
     const campaign = select(
@@ -68,12 +110,10 @@ export async function mountHome() {
     );
     const date = field('Real-world date', '', 'date');
     const slug = field('Link name (optional)');
-    const status = el('p');
-    status.setAttribute('role', 'status');
-    const save = el('button', 'Create session', 'btn');
-    save.type = 'submit';
+    const status = statusLine();
+    const save = submit('Create Session');
     const id = crypto.randomUUID();
-    form.append(name.label, campaign.label, date.label, slug.label, save, status);
+    form.append(fields(name.label, campaign.label, date.label, slug.label), actions(save), status);
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
@@ -96,14 +136,17 @@ export async function mountHome() {
           );
           location.assign(sessionHref(chosen.tenant, session.id, session.slug));
         } catch (error) {
-          status.textContent = `${message(error)} Your draft is still here.`;
+          say(status, `${message(error)} Your draft is still here.`, true);
           save.disabled = false;
         }
       })();
     });
-    host.append(form);
+    const section = el('section', '', 'stack');
+    section.append(sectionHead('Prepare a Session'), card(form).root);
+    host.firstElementChild?.append(section);
   } catch (error) {
-    host.append(el('p', message(error)));
+    host.querySelector('[data-loading]')?.remove();
+    host.append(errorNotice(error));
   }
 }
 async function resolveSession(tenant: string, address: string, forceSlug = false) {
@@ -114,7 +157,7 @@ async function resolveSession(tenant: string, address: string, forceSlug = false
     }),
   );
   const match = rows.find((r) => r.slug === address && r.kinds.includes('session'));
-  if (!match) throw new Error('This session is not available.');
+  if (!match) throw new Error('This Session is not available.');
   return match.entity_id;
 }
 export async function mountSession() {
@@ -126,7 +169,8 @@ export async function mountSession() {
   let tenant = query.get('tenant') ?? '';
   const address = query.get('slug') ?? query.get('id') ?? '';
   try {
-    if (!tenant || !address) throw new Error('Open a session from My sessions.');
+    host.replaceChildren(loading('Opening this Session…'));
+    if (!tenant || !address) throw new Error('Open a Session from My Sessions.');
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(tenant)) {
       const tenants = await fetchAllPages(async (page) =>
         unwrap(await client.GET('/tenants', { params: { query: { page, size: 100 } } })),
@@ -143,7 +187,7 @@ export async function mountSession() {
       const turn = ++generation;
       releaseControls ??= suspendControls(host);
       try {
-        const view = el('div', '', 'stack');
+        const view = el('div', '', 'stack view');
         const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
           params: { path },
           cache: 'no-store',
@@ -151,43 +195,62 @@ export async function mountSession() {
         const session = await unwrap(result);
         const version = result.response.headers.get('etag') ?? '';
         if (!host.isConnected || turn !== generation) return;
+        const [library, campaign] = await Promise.all([
+          libraryName(tenant),
+          campaignName(tenant, session.campaign_id),
+        ]);
         view.replaceChildren(
-          link('My sessions', '/'),
-          el('h1', session.name),
-          link('Browse reusable scenes', `/scenes/?${new URLSearchParams({ tenant })}`),
-          el('p', session.real_date ?? 'Real-world date not set', 'caption'),
+          pageHead(session.name, {
+            crumbs: [backLink('My Sessions', '/')],
+            lede: [library, campaign].filter(Boolean).join(' · ') || undefined,
+            meta: [
+              metaLine('kind-calendar', session.real_date ?? 'Real-world date not set'),
+              roleBadge(session.can_manage),
+            ],
+            actions: [
+              linkButton('Browse reusable Scenes', `/scenes/?${new URLSearchParams({ tenant })}`),
+            ],
+          }),
         );
-        if (session.can_manage)
-          view.append(
+        if (session.can_manage) {
+          const editors = el('div', '', 'stack-tight');
+          editors.append(
             await detailsEditor(session, version, refresh),
             await rosterEditor(session, version, refresh),
           );
+          view.append(editors);
+        }
         view.append(
           await notes(tenant, id, () => void refresh()),
           await referencePanel(tenant, 'sessions', id, session.can_manage, refresh),
           await coveragePanel(tenant, id, session.can_manage, refresh),
         );
         const outline = el('section', '', 'stack');
-        outline.append(el('h2', 'Scenes'));
-        const list = el('ol', '', 'session-outline stack');
+        outline.append(sectionHead('Scenes', { count: session.scenes.length }));
+        const list = el('ol', '', 'stack');
         for (const appearance of session.scenes) {
-          const row = el('li', '', 'stack');
-          row.append(
-            el('h3'),
-            el(
-              'p',
-              appearance.is_shared ? 'Shared with session participants' : 'GM preparation',
-              'caption',
+          const row = el('li', '', 'card');
+          const body = el('div', '', 'card-body stack');
+          row.append(body);
+          const heading = el('h3', '', 'item-title grow');
+          heading.append(
+            link(
+              appearance.name,
+              `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
             ),
           );
-          row
-            .querySelector('h3')
-            ?.append(
-              link(
-                appearance.name,
-                `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
-              ),
-            );
+          const number = el('span', String(session.scenes.indexOf(appearance) + 1), 'chip');
+          number.setAttribute('aria-hidden', 'true');
+          const title = el('div', '', 'row');
+          title.append(
+            number,
+            heading,
+            audienceBadge(
+              appearance.is_shared ? 'Shared with Session participants' : 'GM preparation',
+              appearance.is_shared,
+            ),
+          );
+          body.append(title);
           if (session.can_manage) {
             const index = session.scenes.indexOf(appearance);
             const move = async (delta: number) => {
@@ -202,14 +265,14 @@ export async function mountSession() {
               await refresh();
             };
             const controls = el('div', '', 'row');
-            if (index > 0) controls.append(button('Move up', () => move(-1)));
+            if (index > 0) controls.append(button('Move up', () => move(-1), { icon: 'up' }));
             if (index < session.scenes.length - 1)
-              controls.append(button('Move down', () => move(1)));
+              controls.append(button('Move down', () => move(1), { icon: 'down' }));
             controls.append(
               button(
                 appearance.is_shared
                   ? 'Make preparation private'
-                  : 'Share with session participants',
+                  : 'Share with Session participants',
                 async () => {
                   await unwrap(
                     await client.PATCH(
@@ -228,48 +291,50 @@ export async function mountSession() {
               ),
             );
             controls.append(
-              button('Remove scene appearance', async () => {
-                if (
-                  !confirm(
-                    'Remove this appearance and its session-specific notes? The reusable scene remains.',
+              button(
+                'Remove Scene appearance',
+                async () => {
+                  if (
+                    !confirm(
+                      'Remove this appearance and its Session-specific notes? The reusable Scene remains.',
+                    )
                   )
-                )
-                  return;
-                await unwrap(
-                  await client.DELETE(
-                    '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
-                    {
-                      params: {
-                        path: { ...path, appearance_id: appearance.id },
-                        header: { 'if-match': version },
+                    return;
+                  await unwrap(
+                    await client.DELETE(
+                      '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
+                      {
+                        params: {
+                          path: { ...path, appearance_id: appearance.id },
+                          header: { 'if-match': version },
+                        },
                       },
-                    },
-                  ),
-                );
-                await refresh();
-              }),
+                    ),
+                  );
+                  await refresh();
+                },
+                { variant: 'danger', icon: 'delete' },
+              ),
             );
-            row.append(controls);
+            body.append(controls);
           }
-          row.append(
-            await referencePanel(tenant, 'scenes', appearance.scene_entity_id, false, refresh),
-            await notes(tenant, appearance.id, () => void refresh()),
+          body.append(
+            await referencePanel(tenant, 'scenes', appearance.scene_entity_id, false, refresh, 4),
+            await notes(tenant, appearance.id, () => void refresh(), 'session', 4),
           );
           list.append(row);
         }
-        outline.append(list);
-        if (!session.scenes.length)
-          outline.append(el('p', 'No scenes are available to you here.', 'caption'));
+        if (session.scenes.length) outline.append(list);
+        else outline.append(empty('No Scenes are available to you here.'));
         view.append(
           outline,
           await playPanel(tenant, id, session.can_manage, refresh),
-          await sequencePanel(tenant, session.campaign_id, refresh),
+          await sequencePanel(tenant, session.campaign_id, refresh, id),
         );
-        if (session.can_manage)
-          view.append(
-            await sceneAdder(session, version, refresh),
-            await livedLinkPanel(tenant, id),
-          );
+        if (session.can_manage) {
+          outline.append(await sceneAdder(session, version, refresh));
+          view.append(await livedLinkPanel(tenant, id));
+        }
         if (host.isConnected && turn === generation) {
           history.replaceState(history.state, '', sessionHref(tenant, id, session.slug));
           host.replaceChildren(...view.childNodes);
@@ -283,12 +348,11 @@ export async function mountSession() {
     };
     await refresh();
   } catch (error) {
-    host.replaceChildren(link('My sessions', '/'), el('p', message(error)));
+    host.replaceChildren(backLink('My Sessions', '/'), errorNotice(error));
   }
 }
 async function detailsEditor(session: StorySession, version: string, refresh: () => Promise<void>) {
-  const details = el('details', '', 'panel stack');
-  details.append(el('summary', 'Session details'));
+  const details = panel('Session details', 'title, date, link name, starting period');
   const name = field('Session title', session.name);
   const date = field('Real-world date', session.real_date ?? '', 'date');
   const slug = field('Link name', session.slug ?? '');
@@ -297,48 +361,57 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
     'In-world starting period',
     session.start_period_id,
   );
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  details.append(
-    button('Review saved session', async () => {
-      const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
-        params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
-        cache: 'no-store',
-      });
-      const saved = await unwrap(result);
-      version = result.response.headers.get('etag') ?? '';
-      status.textContent = `Saved session: ${saved.name}; date ${saved.real_date ?? 'not set'}; link name ${saved.slug ?? 'not set'}. Your draft is unchanged. Review it before saving again.`;
-    }),
-    name.label,
-    date.label,
-    slug.label,
-    period.label,
-    button('Save session details', async () => {
-      try {
-        await unwrap(
-          await client.PATCH('/tenants/{tenant_id}/sessions/{session_id}', {
-            params: {
-              path: { tenant_id: session.tenant_id, session_id: session.id },
-              header: { 'if-match': version },
-            },
-            body: {
-              name: name.input.value,
-              real_date: date.input.value || null,
-              ...((period.input.value || null) !== session.start_period_id
-                ? { start_period_id: period.input.value || null }
-                : {}),
-              slug: slug.input.value || null,
-            },
-          }),
+  const status = statusLine();
+  details.body.append(
+    fields(name.label, date.label, slug.label, period.label),
+    actions(
+      button(
+        'Save Session details',
+        async () => {
+          try {
+            await unwrap(
+              await client.PATCH('/tenants/{tenant_id}/sessions/{session_id}', {
+                params: {
+                  path: { tenant_id: session.tenant_id, session_id: session.id },
+                  header: { 'if-match': version },
+                },
+                body: {
+                  name: name.input.value,
+                  real_date: date.input.value || null,
+                  ...((period.input.value || null) !== session.start_period_id
+                    ? { start_period_id: period.input.value || null }
+                    : {}),
+                  slug: slug.input.value || null,
+                },
+              }),
+            );
+            await refresh();
+          } catch (error) {
+            say(
+              status,
+              `${message(error)} Your draft is still here. Refresh the Session before retrying a conflict.`,
+              true,
+            );
+          }
+        },
+        { variant: 'primary' },
+      ),
+      button('Review saved Session', async () => {
+        const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+          params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
+          cache: 'no-store',
+        });
+        const saved = await unwrap(result);
+        version = result.response.headers.get('etag') ?? '';
+        say(
+          status,
+          `Saved Session: ${saved.name}; date ${saved.real_date ?? 'not set'}; link name ${saved.slug ?? 'not set'}. Your draft is unchanged. Review it before saving again.`,
         );
-        await refresh();
-      } catch (error) {
-        status.textContent = `${message(error)} Your draft is still here. Refresh the session before retrying a conflict.`;
-      }
-    }),
+      }),
+    ),
     status,
   );
-  return details;
+  return details.root;
 }
 async function rosterEditor(session: StorySession, version: string, refresh: () => Promise<void>) {
   const path = { tenant_id: session.tenant_id, campaign_id: session.campaign_id };
@@ -354,79 +427,92 @@ async function rosterEditor(session: StorySession, version: string, refresh: () 
       ),
     ),
   ]);
-  const details = el('details', '', 'panel stack');
-  details.append(el('summary', 'GMs and players'));
+  const details = panel('GMs and players', `${gms.length} GMs, ${players.length} players`);
+  const gmGroup = el('fieldset');
+  gmGroup.append(el('legend', 'GMs'));
   const gmChecks = gms.map((gm) => {
     const f = field(gm.display_name ?? gm.nickname ?? 'GM', '', 'checkbox');
     f.input.checked = session.gm_user_ids.includes(gm.user_id);
-    details.append(f.label);
+    gmGroup.append(f.label);
     return { id: gm.user_id, input: f.input };
   });
+  const playerGroup = el('fieldset');
+  playerGroup.append(el('legend', 'Players and their Characters'));
   const playerChecks = players.map((player) => {
     const f = field(player.display_name ?? player.nickname ?? 'Player', '', 'checkbox');
     f.input.checked = session.players.some((p) => p.player_id === player.id);
-    const group = el('fieldset', '', 'stack-tight');
+    const group = el('div', '', 'stack-tight');
     group.append(f.label);
     const chars = player.characters.map((c) => {
       const check = field(c.name, '', 'checkbox');
       check.input.checked = session.players.some(
         (p) => p.player_id === player.id && p.character_ids.includes(c.entity_id),
       );
+      check.label.classList.add('nested');
       group.append(check.label);
       return { id: c.entity_id, input: check.input };
     });
-    details.append(group);
+    playerGroup.append(group);
     return { id: player.id, input: f.input, chars };
   });
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  details.append(
-    button('Review saved roster', async () => {
-      const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
-        params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
-        cache: 'no-store',
-      });
-      const saved = await unwrap(result);
-      version = result.response.headers.get('etag') ?? '';
-      const gmNames = gms
-        .filter((g) => saved.gm_user_ids.includes(g.user_id))
-        .map((g) => g.display_name ?? g.nickname ?? 'GM');
-      const playerNames = players
-        .filter((p) => saved.players.some((s) => s.player_id === p.id))
-        .map((p) => p.display_name ?? p.nickname ?? 'Player');
-      status.textContent = `Saved roster: GMs ${gmNames.join(', ')}; players ${playerNames.join(', ') || 'none'}. Your selection is unchanged. Review it before saving again.`;
-    }),
-    button('Save roster', async () => {
-      try {
-        await unwrap(
-          await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/roster', {
-            params: {
-              path: { tenant_id: session.tenant_id, session_id: session.id },
-              header: { 'if-match': version },
-            },
-            body: {
-              gm_user_ids: gmChecks.filter((c) => c.input.checked).map((c) => c.id),
-              players: playerChecks
-                .filter((c) => c.input.checked)
-                .map((c) => ({
-                  player_id: c.id,
-                  character_ids: c.chars.filter((c) => c.input.checked).map((c) => c.id),
-                })),
-            },
-          }),
+  if (!gms.length) gmGroup.append(empty('This campaign has no GMs.'));
+  if (!players.length) playerGroup.append(empty('This campaign has no players.'));
+  const status = statusLine();
+  details.body.append(
+    fields(gmGroup, playerGroup),
+    actions(
+      button(
+        'Save roster',
+        async () => {
+          try {
+            await unwrap(
+              await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/roster', {
+                params: {
+                  path: { tenant_id: session.tenant_id, session_id: session.id },
+                  header: { 'if-match': version },
+                },
+                body: {
+                  gm_user_ids: gmChecks.filter((c) => c.input.checked).map((c) => c.id),
+                  players: playerChecks
+                    .filter((c) => c.input.checked)
+                    .map((c) => ({
+                      player_id: c.id,
+                      character_ids: c.chars.filter((c) => c.input.checked).map((c) => c.id),
+                    })),
+                },
+              }),
+            );
+            await refresh();
+          } catch (error) {
+            say(status, `${message(error)} Your roster selection is still here.`, true);
+          }
+        },
+        { variant: 'primary' },
+      ),
+      button('Review saved roster', async () => {
+        const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+          params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
+          cache: 'no-store',
+        });
+        const saved = await unwrap(result);
+        version = result.response.headers.get('etag') ?? '';
+        const gmNames = gms
+          .filter((g) => saved.gm_user_ids.includes(g.user_id))
+          .map((g) => g.display_name ?? g.nickname ?? 'GM');
+        const playerNames = players
+          .filter((p) => saved.players.some((s) => s.player_id === p.id))
+          .map((p) => p.display_name ?? p.nickname ?? 'Player');
+        say(
+          status,
+          `Saved roster: GMs ${gmNames.join(', ')}; players ${playerNames.join(', ') || 'none'}. Your selection is unchanged. Review it before saving again.`,
         );
-        await refresh();
-      } catch (error) {
-        status.textContent = `${message(error)} Your roster selection is still here.`;
-      }
-    }),
+      }),
+    ),
     status,
   );
-  return details;
+  return details.root;
 }
 async function sceneAdder(session: StorySession, version: string, refresh: () => Promise<void>) {
-  const host = el('section', '', 'panel stack');
-  host.append(el('h2', 'Add a scene'));
   const existing = await fetchAllPages(async (page) =>
     unwrap(
       await client.GET('/tenants/{tenant_id}/entities', {
@@ -437,72 +523,88 @@ async function sceneAdder(session: StorySession, version: string, refresh: () =>
       }),
     ),
   );
-  const picker = select('Existing scene', [
-    ['', 'Create a new scene'],
+  const picker = select('Existing Scene', [
+    ['', 'Create a new Scene'],
     ...existing.map((s) => [s.id, s.name] as [string, string]),
   ]);
-  const title = field('New scene title');
+  const title = field('New Scene title');
   const period = await periodPicker(session.tenant_id, 'Scene period');
-  const publicScene = field('Make the reusable scene visible in this library', '', 'checkbox');
-  const shared = field('Share this scene appearance with session participants', '', 'checkbox');
-  const status = el('p');
-  status.setAttribute('role', 'status');
+  const publicScene = field('Make the reusable Scene visible in this library', '', 'checkbox');
+  const shared = field('Share this Scene appearance with Session participants', '', 'checkbox');
+  const status = statusLine();
   const sceneId = crypto.randomUUID();
   const appearanceId = crypto.randomUUID();
-  host.append(
-    picker.label,
-    title.label,
-    period.label,
-    publicScene.label,
-    shared.label,
+  const choices = el('div', '', 'stack-tight');
+  choices.append(publicScene.label, shared.label);
+  const added = card(el('h3', 'Add a Scene', 'item-title'));
+  added.body.append(
+    fields(picker.label, title.label, period.label),
+    choices,
     el(
       'p',
-      'A reusable scene and its session appearance have separate audiences. Sharing this appearance does not open a restricted scene.',
-      'caption',
+      'A reusable Scene and its Session appearance have separate audiences. Sharing this appearance does not open a restricted Scene.',
+      'status-text',
     ),
-    button('Review saved outline', async () => {
-      const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
-        params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
-        cache: 'no-store',
-      });
-      const saved = await unwrap(result);
-      version = result.response.headers.get('etag') ?? '';
-      status.textContent = `Saved scenes: ${saved.scenes.map((s) => s.name).join(', ') || 'none'}. Your scene draft and retry identity are unchanged.`;
-    }),
-    button('Add scene', async () => {
-      try {
-        let scene = picker.input.value;
-        if (!scene) {
-          if (!title.input.value) throw new Error('Give the new scene a title.');
-          scene = (
+    actions(
+      button(
+        'Add Scene',
+        async () => {
+          try {
+            let scene = picker.input.value;
+            if (!scene) {
+              if (!title.input.value) throw new Error('Give the new Scene a title.');
+              scene = (
+                await unwrap(
+                  await client.POST('/tenants/{tenant_id}/scenes', {
+                    params: { path: { tenant_id: session.tenant_id } },
+                    body: {
+                      id: sceneId,
+                      name: title.input.value,
+                      period_entity_id: period.input.value || null,
+                      is_public: publicScene.input.checked,
+                    },
+                  }),
+                )
+              ).id;
+            }
             await unwrap(
-              await client.POST('/tenants/{tenant_id}/scenes', {
-                params: { path: { tenant_id: session.tenant_id } },
+              await client.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
+                params: {
+                  path: { tenant_id: session.tenant_id, session_id: session.id },
+                  header: { 'if-match': version },
+                },
                 body: {
-                  id: sceneId,
-                  name: title.input.value,
-                  period_entity_id: period.input.value || null,
-                  is_public: publicScene.input.checked,
+                  id: appearanceId,
+                  scene_entity_id: scene,
+                  is_shared: shared.input.checked,
                 },
               }),
-            )
-          ).id;
-        }
-        await unwrap(
-          await client.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
-            params: {
-              path: { tenant_id: session.tenant_id, session_id: session.id },
-              header: { 'if-match': version },
-            },
-            body: { id: appearanceId, scene_entity_id: scene, is_shared: shared.input.checked },
-          }),
+            );
+            await refresh();
+          } catch (error) {
+            say(
+              status,
+              `${message(error)} Your Scene selection and retry identity are kept.`,
+              true,
+            );
+          }
+        },
+        { variant: 'primary', icon: 'add' },
+      ),
+      button('Review saved outline', async () => {
+        const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+          params: { path: { tenant_id: session.tenant_id, session_id: session.id } },
+          cache: 'no-store',
+        });
+        const saved = await unwrap(result);
+        version = result.response.headers.get('etag') ?? '';
+        say(
+          status,
+          `Saved Scenes: ${saved.scenes.map((s) => s.name).join(', ') || 'none'}. Your Scene draft and retry identity are unchanged.`,
         );
-        await refresh();
-      } catch (error) {
-        status.textContent = `${message(error)} Your scene selection and retry identity are kept.`;
-      }
-    }),
+      }),
+    ),
     status,
   );
-  return host;
+  return added.root;
 }

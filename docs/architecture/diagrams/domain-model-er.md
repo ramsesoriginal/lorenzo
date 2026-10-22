@@ -1,6 +1,6 @@
 # ER diagram: domain model
 
-A snapshot of the stored API tables, checked against [`models/`](../../../apps/api/src/lorenzo_api/models) on 2026-10-15. The diagrams are grouped to keep the entry/component core, stat vocabulary, information, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
+A snapshot of the 89 stored API tables, checked against [`models/`](../../../apps/api/src/lorenzo_api/models) on 2026-10-22. The diagrams are grouped to keep the entry/component core, stat vocabulary, information, calendars, Events and Facts, Sessions and Scenes, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
 
 Columns show primary and foreign keys and nullable values. Routine `created_at`/`updated_at` and `created_by`/`updated_by` columns and their attribution edges are omitted; timestamps and attribution differ by table, so consult the model and [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md) for their exact shape. Views (`v_item`, `v_item_instance`, `v_character`, `v_effective_stat`) are reads over these tables, not stored tables.
 
@@ -219,6 +219,7 @@ erDiagram
         string title
         string type
         boolean is_public
+        boolean shared_with_participants
         int order
     }
     INFORMATION_TYPE {
@@ -290,7 +291,9 @@ erDiagram
     REPOSITORY_RELEASE |o..o{ TENANT : "current_release_id"
     REPOSITORY_RELEASE ||..o{ TENANT : "id"
     STAT_GROUP ||..o{ TENANT : "id"
+    STAT_GROUP |o..o{ TENANT : "being_stat_group_id"
     STAT_GROUP |o..o{ TENANT : "weapon_stat_group_id"
+    APP_USER |o..o{ TENANT : "delisted_by"
     CAMPAIGN ||..o{ TENANT_ADMIN_CAMPAIGN_OPT_OUT : "campaign_id"
     APP_USER ||..o{ TENANT_ADMIN_CAMPAIGN_OPT_OUT : "user_id"
     PROFILE_PICTURE ||..o{ TENANT_PROFILE_PICTURE : "profile_picture_id"
@@ -329,6 +332,8 @@ erDiagram
         string description
         boolean secret
         boolean player_self_service
+        string gm_title "nullable"
+        string gm_title_plural "nullable"
         uuid entity_id FK
     }
     CAMPAIGN_GM {
@@ -429,9 +434,13 @@ erDiagram
         string description
         string kind
         datetime published_at "nullable"
+        datetime delisted_at "nullable"
+        uuid delisted_by FK "nullable"
+        string delist_reason "nullable"
         uuid current_release_id FK "nullable"
         boolean npcs_shared_with_gms
         int export_revision
+        uuid being_stat_group_id FK "nullable"
         uuid weapon_stat_group_id FK "nullable"
         string ability_information_type "nullable"
     }
@@ -459,6 +468,7 @@ erDiagram
     STAT_DEFINITION |o..o{ REPOSITORY_COPY_LINK_STAT_DEFINITION : "stat_definition_id"
     STAT_GROUP |o..o{ REPOSITORY_COPY_LINK_STAT_GROUP : "stat_group_id"
     PROFILE_PICTURE |o..o{ REPOSITORY_PROFILE : "cover_picture_id"
+    REPOSITORY_RELEASE |o..o{ RELEASE_FANOUT : "release_id"
     REPOSITORY_RELEASE ||..o{ REPOSITORY_RELEASE_DOCUMENT : "release_id"
     ENTITY ||..o{ REPOSITORY_SHOWCASE : "entity_id"
     TENANT ||..o{ REPOSITORY_SUBSCRIPTION : "repository_tenant_id"
@@ -480,15 +490,30 @@ erDiagram
         datetime copied_at
     }
     REPOSITORY_COPY_LINK_ENTITY {
+        uuid tenant_id PK,FK
+        uuid source_id PK
+        uuid source_tenant_id
         uuid entity_id FK "nullable"
+        json snapshot
+        datetime copied_at
     }
     REPOSITORY_COPY_LINK_STAT_DEFINITION {
+        uuid tenant_id PK,FK
+        uuid source_id PK
+        uuid source_tenant_id
         uuid stat_definition_id FK "nullable"
         string mode
+        json snapshot
+        datetime copied_at
     }
     REPOSITORY_COPY_LINK_STAT_GROUP {
+        uuid tenant_id PK,FK
+        uuid source_id PK
+        uuid source_tenant_id
         uuid stat_group_id FK "nullable"
         string mode
+        json snapshot
+        datetime copied_at
     }
     REPOSITORY_PROFILE {
         uuid tenant_id PK,FK
@@ -518,6 +543,17 @@ erDiagram
         json counts "nullable"
         json breaking_rows
         json warning_rows
+    }
+    RELEASE_FANOUT {
+        uuid id PK
+        uuid tenant_id FK
+        uuid release_id FK "nullable"
+        string type
+        string title
+        string body
+        array recipients
+        int cursor
+        datetime done_at "nullable"
     }
     REPOSITORY_RELEASE_BLOB {
         uuid tenant_id PK,FK
@@ -553,6 +589,251 @@ erDiagram
     }
 ```
 
+## Calendars and dates
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ CALENDAR : "entity_id"
+    CALENDAR ||..o{ CALENDAR_IMPORT : "calendar_entity_id"
+    ENTITY ||..o{ CALENDAR_OBSERVANCE : "entity_id"
+    CALENDAR ||..o{ CALENDAR_OBSERVANCE : "calendar_entity_id"
+    ENTITY ||..o{ CALENDAR_PERIOD : "entity_id"
+    CALENDAR ||..o{ CALENDAR_PERIOD : "calendar_entity_id"
+    CALENDAR_PERIOD |o..o{ CALENDAR_PERIOD : "parent_entity_id"
+    ENTITY ||..o{ ENTRY_CALENDAR_PERIOD : "entity_id"
+    CALENDAR_PERIOD ||..o{ ENTRY_CALENDAR_PERIOD : "period_entity_id"
+    CALENDAR {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        json definition
+    }
+    CALENDAR_IMPORT {
+        uuid tenant_id PK,FK
+        string source_key PK
+        uuid calendar_entity_id FK
+        json document
+        json bindings
+        string last_token "nullable"
+        string last_request_hash "nullable"
+        json receipt
+    }
+    CALENDAR_OBSERVANCE {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid calendar_entity_id FK
+        json rule
+    }
+    CALENDAR_PERIOD {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid calendar_entity_id FK
+        int year
+        string segment "nullable"
+        int day "nullable"
+        uuid parent_entity_id FK "nullable"
+    }
+    ENTRY_CALENDAR_PERIOD {
+        uuid entity_id PK,FK
+        uuid period_entity_id PK,FK
+        uuid tenant_id FK
+    }
+```
+
+## Events, Facts and audiences
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ ENTITY_AUDIENCE : "entity_id"
+    ENTITY_AUDIENCE ||..o{ ENTITY_KNOWLEDGE : "entity_id"
+    ENTITY |o..o{ ENTITY_KNOWLEDGE : "knower_entity_id"
+    PLAYER |o..o{ ENTITY_KNOWLEDGE : "knower_player_id"
+    ENTITY ||..o{ EVENT_GROUP_CREATION : "group_entity_id"
+    EVENT_PARTICIPANT ||..o{ EVENT_LEARNING : "event_entity_id, being_entity_id"
+    INFORMATION ||..o{ EVENT_LEARNING : "information_id"
+    STORY_EVENT ||..o{ EVENT_PARTICIPANT : "event_entity_id"
+    BEING ||..o{ EVENT_PARTICIPANT : "being_entity_id"
+    STORY_EVENT ||..o{ EVENT_RELATIONSHIP : "from_event_id"
+    STORY_EVENT ||..o{ EVENT_RELATIONSHIP : "to_event_id"
+    ENTITY ||..o{ FACT : "entity_id"
+    FACT ||..o{ FACT_ABOUT : "fact_entity_id"
+    ENTITY ||..o{ FACT_ABOUT : "subject_entity_id"
+    EVENT_PARTICIPANT ||..o{ LIVED_BEFORE : "from_event_id, being_entity_id"
+    EVENT_PARTICIPANT ||..o{ LIVED_BEFORE : "to_event_id, being_entity_id"
+    ENTITY ||..o{ STORY_EVENT : "entity_id"
+    ENTITY_AUDIENCE {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        boolean is_public
+        boolean shared_with_participants
+    }
+    ENTITY_KNOWLEDGE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid entity_id FK
+        uuid knower_entity_id FK "nullable"
+        uuid knower_player_id FK "nullable"
+    }
+    EVENT_GROUP_CREATION {
+        uuid group_entity_id PK,FK
+        uuid tenant_id FK
+        string request_hash
+    }
+    EVENT_LEARNING {
+        uuid event_entity_id PK,FK
+        uuid being_entity_id PK,FK
+        uuid information_id PK,FK
+        uuid tenant_id FK
+    }
+    EVENT_PARTICIPANT {
+        uuid event_entity_id PK,FK
+        uuid being_entity_id PK,FK
+        uuid tenant_id FK
+    }
+    EVENT_RELATIONSHIP {
+        uuid from_event_id PK,FK
+        uuid to_event_id PK,FK
+        string kind PK
+        uuid tenant_id FK
+        boolean is_shared
+    }
+    FACT {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+    }
+    FACT_ABOUT {
+        uuid fact_entity_id PK,FK
+        uuid subject_entity_id PK,FK
+        uuid tenant_id FK
+    }
+    LIVED_BEFORE {
+        uuid being_entity_id PK,FK
+        uuid from_event_id PK,FK
+        uuid to_event_id PK,FK
+        uuid tenant_id FK
+        boolean is_shared
+    }
+    STORY_EVENT {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+    }
+```
+
+## Sessions and Scenes
+
+```mermaid
+erDiagram
+    CALENDAR_PERIOD |o..o{ SCENE : "period_entity_id"
+    ENTITY ||..o{ SCENE : "entity_id"
+    ENTITY ||..o{ SCENE_APPEARANCE : "entity_id"
+    SCENE ||..o{ SCENE_APPEARANCE : "scene_entity_id"
+    STORY_SESSION ||..o{ SCENE_APPEARANCE : "session_entity_id"
+    SCENE ||..o{ SCENE_BEING : "scene_entity_id"
+    BEING ||..o{ SCENE_BEING : "being_entity_id"
+    SCENE ||..o{ SCENE_EVENT : "scene_entity_id"
+    STORY_EVENT ||..o{ SCENE_EVENT : "event_entity_id"
+    SCENE ||..o{ SCENE_FACT : "scene_entity_id"
+    FACT ||..o{ SCENE_FACT : "fact_entity_id"
+    SCENE_APPEARANCE ||..o{ EVENT_PRESENTATION : "appearance_entity_id"
+    STORY_EVENT ||..o{ EVENT_PRESENTATION : "event_entity_id"
+    SESSION_PLAYER ||..o{ SESSION_CHARACTER : "session_entity_id, player_id"
+    CHARACTER_PLAYER ||..o{ SESSION_CHARACTER : "character_entity_id, player_id"
+    STORY_SESSION ||..o{ SESSION_EVENT : "session_entity_id"
+    STORY_EVENT ||..o{ SESSION_EVENT : "event_entity_id"
+    STORY_SESSION ||..o{ SESSION_FACT : "session_entity_id"
+    FACT ||..o{ SESSION_FACT : "fact_entity_id"
+    STORY_SESSION ||..o{ SESSION_GM : "session_entity_id"
+    APP_USER ||..o{ SESSION_GM : "user_id"
+    STORY_SESSION ||..o{ SESSION_PLAYER : "session_entity_id, campaign_id"
+    PLAYER ||..o{ SESSION_PLAYER : "player_id, campaign_id"
+    STORY_SESSION ||..o{ SESSION_SEQUENCE : "session_entity_id, campaign_id"
+    ENTITY ||..o{ STORY_SESSION : "entity_id"
+    CAMPAIGN ||..o{ STORY_SESSION : "campaign_id"
+    CALENDAR_PERIOD |o..o{ STORY_SESSION : "start_period_id"
+    EVENT_PRESENTATION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid appearance_entity_id FK
+        uuid event_entity_id FK
+        int position
+        boolean is_shared
+    }
+    SCENE {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid period_entity_id FK "nullable"
+    }
+    SCENE_APPEARANCE {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid session_entity_id FK
+        uuid scene_entity_id FK
+        int position
+        boolean is_shared
+        string play_status
+        int played_position "nullable"
+    }
+    SCENE_BEING {
+        uuid scene_entity_id PK,FK
+        uuid being_entity_id PK,FK
+        uuid tenant_id FK
+        boolean is_shared
+    }
+    SCENE_EVENT {
+        uuid scene_entity_id PK,FK
+        uuid event_entity_id PK,FK
+        uuid tenant_id FK
+        boolean is_shared
+    }
+    SCENE_FACT {
+        uuid scene_entity_id PK,FK
+        uuid fact_entity_id PK,FK
+        uuid tenant_id FK
+        boolean is_shared
+    }
+    SESSION_CHARACTER {
+        uuid session_entity_id PK,FK
+        uuid player_id PK,FK
+        uuid character_entity_id PK,FK
+        uuid tenant_id FK
+    }
+    SESSION_EVENT {
+        uuid session_entity_id PK,FK
+        uuid event_entity_id PK,FK
+        uuid tenant_id FK
+        boolean is_shared
+    }
+    SESSION_FACT {
+        uuid session_entity_id PK,FK
+        uuid fact_entity_id PK,FK
+        uuid tenant_id FK
+        boolean is_shared
+    }
+    SESSION_GM {
+        uuid session_entity_id PK,FK
+        uuid user_id PK,FK
+        uuid tenant_id FK
+    }
+    SESSION_PLAYER {
+        uuid session_entity_id PK,FK
+        uuid player_id PK,FK
+        uuid tenant_id FK
+        uuid campaign_id FK
+    }
+    SESSION_SEQUENCE {
+        uuid session_entity_id PK,FK
+        uuid tenant_id FK
+        uuid campaign_id FK
+        int position
+    }
+    STORY_SESSION {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid campaign_id FK
+        date real_date "nullable"
+        uuid start_period_id FK "nullable"
+    }
+```
+
 ## Rules the lines do not show
 
 - **Tenant isolation:** tenant data has `tenant_id` and `FORCE ROW LEVEL SECURITY`, read through a restricted app role (ADR 0002, 0021). Tenant-to-tenant foreign keys include `tenant_id` (ADR 0117). `repository_subscription` is the deliberate cross-tenant grant table, with policies on both ends.
@@ -560,5 +841,8 @@ erDiagram
 - **Knowledge and visibility:** public, character, player and group audiences determine which information a caller reads (ADR 0028, 0109); the lines do not imply access. A content reference is keyed by its textual target, not a foreign key to the entity it resolves to (ADR 0110).
 - **Repositories:** a repository is a tenant of kind `repository`, with no campaigns. Copies have local rows, plain source identifiers and snapshots; source identifiers deliberately outlive the source repository. Attachments carry parents a bridge adds to copied entries (ADR 0118 to 0121, 0172).
 - **Releases:** release documents and blobs preserve public content; `tenant.current_release_id` selects the current release, with retention and rollback (ADR 0214, 0288). Private repository reads remain live. Public reads and previews use the current document and the read/preview gates (ADR 0286, 0287, 0293).
+- **Calendars:** a calendar's `definition` is a validated document (ADR 0308). A `calendar_period` row exists only once something is authored against it; browsing a year creates none, and `entry_calendar_period` is the date association of an entry (ADR 0309). An observance stores a rule, never its occurrences (ADR 0310). `calendar_import` is local provenance and retry receipts for a CLI import, not content (ADR 0311).
+- **Events and Facts:** `event_relationship` stores explicit `order` and `causes` assertions between Events with a per-assertion `is_shared`; the order a reader sees is derived from them (ADR 0312, 0315). `event_participant` records who took part and nothing more: `event_learning` is a separate, optional record of what a participant learned (ADR 0313, 0314), and `lived_before` is a being's own lived order, anchored to two of its participations (ADR 0319). `entity_audience` and `entity_knowledge` hold the explicit outer audience of an entry such as an Event or Fact (ADR 0305, 0316). `event_group_creation` is a retry receipt for creating a group from an Event's participants.
+- **Sessions and Scenes:** a Session belongs to one campaign; its GMs, players and the characters players bring are explicit rows. A Scene is reusable and carries its own references (`scene_fact`, `scene_event`, `scene_being`); a `scene_appearance` places one in a Session, with its own preparation `position`, optional played position and sharing flag (ADR 0317, 0318). References and presentations record no learning, participation or lived order. Repository copies and releases carry the reusable rows (calendars, periods, observances, Events, Facts, Scenes and their references, lived-before assertions); the operational rows (`story_session`, `session_*`, `scene_appearance`, `event_presentation`, `calendar_import`, `event_group_creation`, `release_fanout`) are local and never copied (`copyable_tables.py`).
 - **Credentials:** personal tokens and device authorizations belong to a user, not a tenant; only hashes of credentials are stored (ADR 0268).
 - **Activity:** logs and change-feed records keep identifiers of deleted objects without foreign keys to those objects. A notification can later be marked read; its `read_at` changes even though its authored message stays fixed (ADR 0058, 0099).

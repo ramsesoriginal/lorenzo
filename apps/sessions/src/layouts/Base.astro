@@ -10,7 +10,7 @@ interface Props {
   status?: string;
 }
 
-const { title = 'Lorenzo Sessions', status = 'Opening your sessions…' } = Astro.props;
+const { title = 'Lorenzo Sessions', status = 'Opening your Sessions…' } = Astro.props;
 ---
 
 <AppPage
@@ -19,7 +19,7 @@ const { title = 'Lorenzo Sessions', status = 'Opening your sessions…' } = Astr
   brandingUrl={BRANDING_CSS_URL}
   themeKey="lorenzo:sessions:theme"
   nav={[
-    { label: 'My sessions', href: '/' },
+    { label: 'My Sessions', href: '/' },
     { label: 'Scenes', href: '/scenes/', needsLibrary: true },
   ]}
   path="apps/sessions"

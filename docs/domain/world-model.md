@@ -17,7 +17,14 @@ It's tempting to want one tree that contains all of this ("planet → sphere →
 
 Every one of these axes can keep time differently, and not just "different calendar, same clock speed" — a plane can sit outside time entirely, a ship traveling near light speed experiences time differently than the world it left, and parallel timelines aren't necessarily synchronized at all.
 
-Exactly how far this needs to be modeled — a shared "true" timeline vs. many independent local ones, and how causality gets tracked across them — is genuinely open. Flagged here rather than decided; the proposed [RFC 0028](../rfcs/0028-time-causality-and-calendars.md) explores time and causality without making them implemented behavior. The non-containment address axes are likewise proposed in [RFC 0026](../rfcs/0026-world-model-axes-and-address.md).
+How far this needs to be modeled — a shared "true" timeline versus many independent local ones, and how causality is tracked across them — is still partly open, and [RFC 0028](../rfcs/0028-time-causality-and-calendars.md) is only partly accepted. What is built is deliberately narrow:
+
+- **Authored calendars.** A calendar is an entry with its own months, festivals, weeks and moons. Dates are positions in that calendar, calculated by the API, and never a clock reading or a "today" ([ADR 0308](../adr/0308-authored-calendars-and-calculation.md) to [0311](../adr/0311-calendar-documents-import-and-app.md)).
+- **Explicit Event order.** Events relate by explicit "happened before" and "causes" assertions in one graph that cannot loop. A date, a Scene or a Session never creates an assertion ([ADR 0312](../adr/0312-explicit-event-order-and-causality.md), [0315](../adr/0315-reader-scoped-event-order-and-sharing.md)).
+- **Participation and learning.** Who took part in an Event, and optionally when someone learned of it, are separate records ([ADR 0313](../adr/0313-event-participation-browsing-and-calendar-addresses.md), [0314](../adr/0314-optional-event-learning-records.md)).
+- **Personal lived order.** What one being experienced before what, below.
+
+Clocks that run at different rates, branching or looping timelines, and the state of the world as of a date are not built. The non-containment address axes are likewise proposed in [RFC 0026](../rfcs/0026-world-model-axes-and-address.md).
 
 ## Sessions, Scenes and personal lived order
 
