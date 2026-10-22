@@ -329,3 +329,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0324 - Bulk reads for calendar periods and day content](0324-bulk-reads-for-calendar-periods-and-day-content.md) — periods with coordinates and by id, per-year period summaries in one request, and an idempotent batch materialize, all additive and visibility-gated
 - [0325 - One read cache, and what it may hold](0325-one-read-cache-and-what-it-may-hold.md) — `packages/read-cache`: viewer-scoped stale-while-revalidate in memory for private data, `sessionStorage` only for `/me`, `/tenants` and `/app-links`, access revalidated before private data is drawn
 - [0326 - Moon phases in the icon atlas](0326-moon-phases-in-the-icon-atlas.md) — eight custom `icon-moon-*` symbols in Tabler's grammar replace the emoji
+- [0327 - Lorenzo Writing: manuscripts, editions and carriers](0327-lorenzo-writing.md) — accepted writing model and stacked vertical delivery; RFC 0047
