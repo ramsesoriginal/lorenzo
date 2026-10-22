@@ -1,0 +1,19 @@
+---
+interface Props {
+  // "Lorenzo Calendars"
+  app: string;
+  // Where its source is in the repository: "apps/calendars"
+  path: string;
+}
+
+const { app, path } = Astro.props;
+---
+
+<footer>
+  <div class="wrap">
+    {app} &middot; source in{' '}
+    <a href={`https://github.com/ramsesoriginal/lorenzo/tree/main/${path}`}>
+      <code>{path}</code>
+    </a>
+  </div>
+</footer>

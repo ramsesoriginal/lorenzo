@@ -69,6 +69,10 @@
       "release-type": "node",
       "component": "information-editor"
     },
+    "packages/app-shell": {
+      "release-type": "node",
+      "component": "app-shell"
+    },
     "apps/inventory-ios": {
       "release-type": "simple",
       "component": "inventory-ios"

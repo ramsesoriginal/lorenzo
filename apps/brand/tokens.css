@@ -58,7 +58,7 @@
     var(--brand-ink) 70%,
     var(--brand-paper)
   );
-  --text-tertiary: color-mix(in srgb, var(--brand-ink) 55%, var(--brand-paper));
+  --text-tertiary: color-mix(in srgb, var(--brand-ink) 62%, var(--brand-paper));
   --text-inverse: var(--brand-paper);
 
   /* Borders */

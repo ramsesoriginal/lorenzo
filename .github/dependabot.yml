@@ -116,6 +116,7 @@ updates:
       - "/packages/lorenzoscript-editor"
       - "/packages/stat-values"
       - "/packages/information-editor"
+      - "/packages/app-shell"
     schedule:
       interval: "weekly"
     commit-message:

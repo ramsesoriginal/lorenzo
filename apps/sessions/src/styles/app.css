@@ -1,142 +1,205 @@
-/* Shared brand supplies the visual language; these rules arrange Session content. */
-.wrap {
-  width: 100%;
-  max-width: 70rem;
-  margin-inline: auto;
-  padding-inline: var(--space-4);
-  box-sizing: border-box;
+/*
+ * Sessions' own arrangement of its pages (ADR 0322). Everything else is the brand's: surfaces are
+ * .card, controls are .text-input and .btn, messages are .status-text and .error-text, and this
+ * sheet uses tokens only.
+ */
+
+/* A page is a stack of ruled sections with room between them. The brand's bare <section> adds a
+   bottom margin of its own, which the stack's gap already supplies. */
+.stack.view {
+  gap: var(--space-6);
 }
-main.wrap {
-  padding-block: var(--space-5);
+
+[data-page] section {
+  margin-bottom: 0;
 }
-.row {
+
+/* Text that sits directly in a stack, a row or a card takes its spacing from the gap, not from the
+   browser's paragraph margin. Rendered notes keep theirs. */
+[data-page] :is(.stack, .stack-tight, .page-head, .row, .card-body) > p {
+  margin: 0;
+}
+
+/* A long name wraps instead of pushing the page sideways. */
+[data-page] :is(h1, h2, h3, h4, h5, p, li, a, span) {
+  overflow-wrap: anywhere;
+}
+
+/* The top of a page: the way back, the title, where it is, what to know at a glance. */
+.page-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.page-head h1 {
+  margin: 0;
+}
+
+.crumbs {
+  gap: var(--space-3);
+}
+
+/* One heading style for every section: the title, a count, the section's own actions, and a rule. */
+.section-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
 }
-.stack,
-.stack-tight {
-  display: grid;
-  align-content: start;
-  gap: var(--space-4);
+
+.section-head h2 {
+  margin: 0;
 }
-.stack-tight {
+
+/* A title inside a card, and the quieter title of a group inside a card. */
+.item-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* A title keeps at least half of its row; whatever else is on the row goes under it on a phone. */
+.row > .item-title {
+  flex-basis: 50%;
+}
+
+.group-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* A checkbox with its words. */
+.check {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
 }
-.stack > button,
-.stack-tight > button {
-  justify-self: start;
-}
-.site-header,
-.site-header nav {
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-.product,
-.caption,
-.intro {
-  color: var(--text-secondary);
-}
-.product {
-  font-weight: 500;
-}
-.caption {
-  font-size: 0.875rem;
-}
-.welcome {
-  max-width: 42rem;
-  margin-block: var(--space-6);
-}
-h1,
-h2,
-h3,
-h4,
-p {
-  margin-block: 0;
-  overflow-wrap: anywhere;
-}
-[role="status"]:empty {
-  display: none;
-}
-[hidden] {
-  /* biome-ignore lint/complexity/noImportantStyles: hidden must override layout classes. */ display: none !important;
-}
-label {
-  display: grid;
-  gap: var(--space-1);
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-input,
-select,
-textarea {
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-input[type="checkbox"] {
-  justify-self: start;
-}
-textarea {
-  min-height: 8rem;
-}
-.panel {
-  padding: var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
-}
-summary {
-  cursor: pointer;
-}
-footer {
-  padding-block: var(--space-5);
-  color: var(--text-secondary);
-}
-.brand-mark {
-  max-width: 12rem;
-  height: auto;
-}
-.brand-mark--dark {
-  display: none;
-}
-[data-theme="dark"] .brand-mark--light {
-  display: none;
-}
-[data-theme="dark"] .brand-mark--dark {
-  display: block;
-}
-.skip-link:not(:focus) {
-  position: absolute;
-  clip-path: inset(100%);
-}
-.session-outline {
-  list-style: none;
-  padding: 0;
-}
-.session-outline > li {
-  border-inline-start: 2px solid var(--border-subtle);
+
+.nested {
   padding-inline-start: var(--space-4);
 }
-.editor-toolbar {
+
+.status-text:empty,
+.list:empty {
+  display: none;
+}
+
+/* A list whose order matters says its number. */
+.ordered {
+  counter-reset: step;
+}
+
+.ordered > li {
+  counter-increment: step;
+}
+
+.ordered > li::before {
+  content: counter(step);
+  min-width: var(--space-3);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* An editor or a longer list behind one row: a chevron, a title, a few words about what is inside. */
+.panel-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  list-style: none;
 }
-.ls-editor-panes {
-  display: grid;
-  gap: var(--space-3);
+
+.panel-summary::-webkit-details-marker {
+  display: none;
 }
-.stack > *,
-.stack-tight > * {
-  min-width: 0;
+
+.panel-summary::marker {
+  content: "";
 }
-@media (max-width: 720px) {
-  .wrap {
-    padding-inline: var(--space-3);
+
+.panel-summary:hover {
+  background: var(--fill-soft);
+}
+
+.panel-title {
+  font-weight: 600;
+}
+
+.panel-summary .status-text {
+  margin-inline-start: auto;
+}
+
+.panel[open] > .panel-summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.panel-chevron {
+  flex: none;
+}
+
+.panel[open] > .panel-summary .panel-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .panel-chevron {
+    transition: transform 150ms ease;
   }
-  .brand-mark {
-    max-width: 10rem;
+
+  [aria-busy="true"] {
+    transition: opacity 150ms ease;
+  }
+}
+
+/* What waits for a read: a block where the content will be. */
+.skeleton-block {
+  height: var(--space-7);
+}
+
+/* While a saved view is refreshed its controls are off and it says so; it stays readable. */
+[aria-busy="true"] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.text-input:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* On a phone the title of a page gives the width to its own line, and a panel's hint goes under
+   its title instead of squeezing it. */
+@media (max-width: 720px) {
+  .page-head h1 {
+    flex-basis: 100%;
+  }
+
+  .panel-summary .status-text {
+    flex-basis: 100%;
+    margin-inline-start: var(--space-4);
+  }
+}
+
+/* What is pressed is at least --target-min tall on a phone or a coarse pointer (identity 8.5);
+   the brand covers buttons and fields, this covers what Sessions adds. */
+@media (max-width: 720px), (pointer: coarse) {
+  .panel-summary,
+  .check,
+  .crumbs a,
+  .list a {
+    min-height: var(--target-min);
+  }
+
+  .crumbs a,
+  .list a {
+    display: inline-flex;
+    align-items: center;
   }
 }

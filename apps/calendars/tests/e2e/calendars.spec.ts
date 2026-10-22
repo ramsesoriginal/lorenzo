@@ -13,6 +13,35 @@ async function signedIn(browser: Browser, subject: string): Promise<Page> {
   });
   return context.newPage();
 }
+test('the header offers the skip link, the page links and the account once signed in', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/?tenant=${world.tenantId}`);
+  await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeAttached();
+  const pages = page.getByRole('navigation', { name: 'Pages' });
+  await expect(pages.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+  await expect(pages.getByRole('link', { name: 'Events' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Account' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeHidden();
+  await page.getByRole('link', { name: 'Skip to content' }).focus();
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeVisible();
+  // One library needs no switcher; with two it is in the header and switching reopens the list.
+  await expect(page.getByRole('combobox', { name: 'Library or repository' })).toBeHidden();
+  await ok(world.api.POST('/tenants', { body: { name: 'Second library' } }));
+  await page.reload();
+  const switcher = page.getByRole('combobox', { name: 'Library or repository' });
+  await expect(switcher).toBeVisible();
+  await expect(switcher.locator('option')).toHaveCount(2);
+  await switcher.selectOption({ label: 'Second library' });
+  await expect(page).toHaveURL(/\/\?tenant=/);
+  await expect(switcher.locator('option:checked')).toHaveText('Second library');
+  await page.context().close();
+});
 test('imported irregular year is browsable without creating periods, and dated information stays separate', async ({
   browser,
 }) => {
@@ -269,22 +298,17 @@ test('signed-out welcome and appearance controls work in light and dark themes',
   });
   const page = await context.newPage();
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Calendars for your worlds' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
-  await expect(page.locator('.brand-mark--light')).toBeVisible();
+  // At phone width the header shows the spark alone (identity 12.2); the lockup is for wider screens.
+  await expect(page.locator('.brand-spark')).toBeVisible();
+  await expect(page.locator('.brand-mark--light')).toBeHidden();
   expect(
-    await page
-      .locator('.brand-mark--light')
-      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
+    await page.locator('.brand-spark').evaluate((node) => (node as HTMLImageElement).naturalWidth),
   ).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('.brand-mark--dark')).toBeVisible();
-  expect(
-    await page
-      .locator('.brand-mark--dark')
-      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
-  ).toBeGreaterThan(0);
+  await expect(page.locator('.brand-spark')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -294,6 +318,21 @@ test('signed-out welcome and appearance controls work in light and dark themes',
   await page.getByRole('button', { name: 'Light theme', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.locator('.brand-spark')).toBeHidden();
+  await expect(page.locator('.brand-mark--light')).toBeVisible();
+  expect(
+    await page
+      .locator('.brand-mark--light')
+      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
+  ).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await expect(page.locator('.brand-mark--dark')).toBeVisible();
+  expect(
+    await page
+      .locator('.brand-mark--dark')
+      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
+  ).toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
   await page.screenshot({
     path: test.info().outputPath('welcome-light-desktop.png'),
     fullPage: true,
