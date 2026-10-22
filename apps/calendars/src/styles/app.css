@@ -5,13 +5,6 @@
 
 /* Pages --------------------------------------------------------------------------------- */
 
-/* The brand's tertiary text is 4.1:1 on paper, under the 4.5:1 that small print needs (axe finds it
-   on captions, badges and the footer). Until the token itself is darkened, small print here is
-   drawn with the secondary text colour. */
-:root {
-  --text-tertiary: var(--text-secondary);
-}
-
 /* The page's own rhythm is the stack's gap; a bare section's brand margin would double it. */
 [data-page] section {
   margin-bottom: 0;
