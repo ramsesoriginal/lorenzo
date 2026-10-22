@@ -135,6 +135,17 @@ async def mutation_lock(session: SessionDep, tenant: uuid.UUID) -> None:
     )
 
 
+async def lock_clock_entries(
+    session: SessionDep, tenant: uuid.UUID, identities: list[uuid.UUID]
+) -> None:
+    await session.execute(
+        select(Entity.id)
+        .where(Entity.tenant_id == tenant, Entity.id.in_(identities))
+        .order_by(Entity.id)
+        .with_for_update()
+    )
+
+
 async def manager(session: SessionDep, user: CurrentUser, tenant: uuid.UUID) -> bool:
     vis = await resolve_information_visibility(session, tenant_id=tenant, user_id=user.id)
     return vis.is_admin or vis.manages_events
@@ -276,6 +287,7 @@ async def edit_clock(
 ) -> ClockOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [clock_id])
     await endpoint(session, user, tenant_id, clock_id, Clock)
     clock = await session.scalar(select(Clock).where(Clock.entity_id == clock_id).with_for_update())
     assert clock is not None
@@ -371,6 +383,7 @@ async def save_reading(
 ) -> ReadingsOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [event_id, clock_id])
     rows, _ = await reading_rows(session, user, tenant_id, event_id)
     conditional(if_match, reading_revision(rows))
     await ticking_clock(session, user, tenant_id, clock_id)
@@ -399,6 +412,7 @@ async def remove_reading(
 ) -> ReadingsOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [event_id, clock_id])
     rows, _ = await reading_rows(session, user, tenant_id, event_id)
     conditional(if_match, reading_revision(rows))
     await endpoint(session, user, tenant_id, clock_id, Clock)
@@ -478,6 +492,7 @@ async def save_reckoning(
 ) -> ReckoningsOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [clock_id, calendar_id])
     rows, _ = await reckoning_rows(session, user, tenant_id, clock_id)
     conditional(if_match, reckoning_revision(rows))
     await ticking_clock(session, user, tenant_id, clock_id)
@@ -515,6 +530,7 @@ async def remove_reckoning(
 ) -> ReckoningsOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [clock_id, calendar_id])
     rows, _ = await reckoning_rows(session, user, tenant_id, clock_id)
     conditional(if_match, reckoning_revision(rows))
     await endpoint(session, user, tenant_id, calendar_id, Calendar)

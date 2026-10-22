@@ -331,3 +331,32 @@ def test_clock_record_changes_affect_release_hashes_and_three_way_review():
     local["clock_readings"][0]["data"]["lo"] = "2"
     local["clock_readings"][0]["data"]["hi"] = "2"
     assert diff(base, upstream, local, {})[0].state == "conflict"
+
+
+async def test_event_deletion_and_reading_creation_have_clean_race_outcomes(client, test_user_id):
+    import asyncio
+
+    t = await make_tenant(test_user_id)
+    try:
+        clock = await make_clock(client, t)
+        cid = clock.json()["entity_id"]
+        event = await client.post(
+            f"/tenants/{t}/entities", json={"name": "Departure", "kinds": ["event"]}
+        )
+        eid = event.json()["id"]
+        route = f"/tenants/{t}/events/{eid}/clock-readings"
+        version = (await client.get(route)).headers["etag"]
+        written, removed = await asyncio.gather(
+            client.put(
+                route + f"/{cid}",
+                json={"reading": {"lo": "1", "hi": "1"}},
+                headers={"If-Match": version},
+            ),
+            client.delete(f"/tenants/{t}/entities/{eid}"),
+        )
+        assert (written.status_code, removed.status_code) in [(200, 409), (404, 204)], (
+            written.text,
+            removed.text,
+        )
+    finally:
+        await delete_tenant(t)
