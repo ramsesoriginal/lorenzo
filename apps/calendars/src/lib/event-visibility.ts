@@ -1,5 +1,5 @@
 import { client, unwrap } from './api';
-import { button, el, message, select } from './dom';
+import { button, el, feedback, message, select } from './dom';
 
 export function creationVisibility() {
   const control = select(
@@ -35,9 +35,8 @@ export async function eventVisibility(tenantId: string, entityId: string, refres
     : audience.shared_with_participants
       ? 'participants'
       : 'restricted';
-  const host = el('section', '', 'panel stack-tight');
-  const status = el('p');
-  status.setAttribute('role', 'status');
+  const host = el('section', '', 'card card-body stack');
+  const status = feedback();
   const save = button('Save Event visibility', async () => {
     save.disabled = true;
     try {
@@ -53,11 +52,15 @@ export async function eventVisibility(tenantId: string, entityId: string, refres
       );
       refresh();
     } catch (error) {
-      status.textContent = `${message(error)} Your selection is kept. Reload the saved audience before retrying.`;
+      status.fail(
+        `${message(error)} Your selection is kept. Reload the saved audience before retrying.`,
+      );
     } finally {
       save.disabled = false;
     }
   });
+  const actions = el('div', '', 'row');
+  actions.append(save);
   host.append(
     el('h2', 'Event visibility'),
     control.label,
@@ -66,8 +69,8 @@ export async function eventVisibility(tenantId: string, entityId: string, refres
       'Participants means players through their currently participating beings. Each note has its own audience. Individual grants below continue to apply.',
       'caption',
     ),
-    save,
-    status,
+    actions,
+    status.node,
   );
   return host;
 }

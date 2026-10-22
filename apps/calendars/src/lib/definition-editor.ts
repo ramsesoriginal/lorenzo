@@ -1,10 +1,22 @@
 import { client, LorenzoApiError, unwrap } from './api';
-import { button, calendarHref, check, el, field, message, select } from './dom';
+import {
+  button,
+  calendarHref,
+  check,
+  disclosure,
+  el,
+  feedback,
+  field,
+  message,
+  select,
+  submit,
+  textarea,
+} from './dom';
 import type { Calendar, DateValue, Definition, Segment } from './types';
+
 export function definitionEditor(tenantId: string, original?: Calendar): HTMLElement {
   const form = el('form', '', 'stack');
-  const status = el('p', '', 'draft-status');
-  status.setAttribute('role', 'status');
+  const status = feedback();
   const name = field('Calendar name', original?.name ?? '');
   name.input.required = true;
   const publicGate = check('Everyone in this library can know this calendar exists', false);
@@ -20,6 +32,7 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
   );
   year.input.min = '-1000000';
   year.input.max = '1000000';
+  year.label.classList.add('narrow-field');
   form.append(year.label);
   let version = original ? `W/"${original.updated_at}"` : '';
   let acceptedPreview = '';
@@ -52,8 +65,10 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
     every.input.min = '1';
     every.input.max = '1000';
     const offset = field('Year offset', String(value?.when?.offset ?? 0), 'number');
-    const advanced = el('details');
-    advanced.append(el('summary', 'Week and leap rule'), inWeek.label, every.label, offset.label);
+    const advanced = disclosure('Week and leap rule');
+    const recurrence = el('div', '', 'form-grid');
+    recurrence.append(every.label, offset.label);
+    advanced.body.append(inWeek.label, recurrence);
     const controls = el('div', '', 'row');
     const record = {
       node: row,
@@ -85,6 +100,7 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
           }
         },
         true,
+        'up',
       ),
       button(
         'Remove segment',
@@ -94,9 +110,12 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
           invalidate();
         },
         true,
+        'close',
       ),
     );
-    row.append(n.label, days.label, kind.label, advanced, controls);
+    const fields = el('div', '', 'form-grid');
+    fields.append(n.label, days.label, kind.label);
+    row.append(fields, advanced.root, controls);
     segmentReaders.push(record);
     rows.append(row);
   }
@@ -110,21 +129,19 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
         invalidate();
       },
       true,
+      'add',
     ),
   );
-  const week = el('details');
-  week.append(el('summary', 'Weeks'));
+  const week = disclosure('Weeks');
   const enabled = check('Use a week', Boolean(original?.definition.week));
   const length = field('Days in a week', String(original?.definition.week?.length ?? 7), 'number');
   length.input.min = '1';
   length.input.max = '100';
-  const names = field('Weekday names (one per line)');
-  const namesArea = el('textarea');
-  namesArea.value = original?.definition.week?.names?.join('\n') ?? '';
-  names.label.replaceChildren(
-    document.createTextNode('Weekday names (one per line; leave blank for numbers)'),
-    namesArea,
+  const names = textarea(
+    'Weekday names (one per line; leave blank for numbers)',
+    original?.definition.week?.names?.join('\n') ?? '',
   );
+  const namesArea = names.input;
   const reset = select(
     'The week',
     [
@@ -158,21 +175,24 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
     };
     s.input.addEventListener('focus', refresh);
     refresh();
-    host.append(y.label, s.label, d.label);
+    const grid = el('div', '', 'form-grid');
+    grid.append(y.label, s.label, d.label);
+    host.append(grid);
     return () => ({
       year: Number(y.input.value),
       segment: s.input.value,
       day: Number(d.input.value),
     });
   }
-  week.append(enabled.label, length.label, names.label, reset.label, weekday.label);
-  const weekReference = reference(week, original?.definition.week?.reference);
-  form.append(week);
-  const moons = el('details');
-  moons.append(el('summary', 'Moons'));
+  const weekFields = el('div', '', 'form-grid');
+  weekFields.append(length.label, reset.label, weekday.label);
+  week.body.append(enabled.label, weekFields, names.label);
+  const weekReference = reference(week.body, original?.definition.week?.reference);
+  form.append(week.root);
+  const moons = disclosure('Moons');
   const moonRows = el('div', '', 'stack');
-  moons.append(moonRows);
-  form.append(moons);
+  moons.body.append(moonRows);
+  form.append(moons.root);
   const moonReaders: Array<{ node: HTMLElement; read: () => Definition['moons'][number] }> = [];
   function addMoon(value?: Definition['moons'][number]) {
     const row = el('fieldset');
@@ -184,7 +204,9 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
     period.input.inputMode = 'decimal';
     const offset = field('Days from reference to new moon', value?.offset ?? '0');
     offset.input.inputMode = 'decimal';
-    row.append(n.label, period.label, offset.label);
+    const fields = el('div', '', 'form-grid');
+    fields.append(n.label, period.label, offset.label);
+    row.append(fields);
     const ref = reference(row, value?.reference);
     const key = value?.key ?? `moon-${crypto.randomUUID()}`;
     const record = {
@@ -207,12 +229,13 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
           invalidate();
         },
         true,
+        'close',
       ),
     );
     moonRows.append(row);
   }
   for (const moon of original?.definition.moons ?? []) addMoon(moon);
-  moons.append(
+  moons.body.append(
     button(
       'Add moon',
       () => {
@@ -220,6 +243,7 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
         invalidate();
       },
       true,
+      'add',
     ),
   );
   const read = (): Definition => ({
@@ -236,10 +260,9 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
       : null,
     moons: moonReaders.map((r) => r.read()),
   });
-  const preview = el('div', '', 'panel');
+  const preview = el('div', '', 'card card-body stack-tight');
   preview.hidden = true;
-  const save = el('button', original ? 'Save definition' : 'Create calendar', 'btn');
-  save.type = 'submit';
+  const save = submit(original ? 'Save definition' : 'Create calendar');
   save.disabled = true;
   function invalidate() {
     acceptedPreview = '';
@@ -252,7 +275,7 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
     'Preview this year',
     async () => {
       if (!form.reportValidity()) return;
-      status.textContent = 'Calculating…';
+      status.busy('Calculating…');
       try {
         const definition = read();
         const result = await unwrap(
@@ -271,10 +294,10 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
             ),
           );
         preview.hidden = false;
-        status.textContent = 'Preview ready. Your draft has not been saved.';
+        status.say('Preview ready. Your draft has not been saved.');
         save.disabled = blocked;
       } catch (e) {
-        status.textContent = message(e);
+        status.fail(message(e));
         save.disabled = true;
       }
     },
@@ -282,18 +305,18 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
   );
   const actions = el('div', '', 'row');
   actions.append(previewButton, save);
-  form.append(actions, status, preview);
+  form.append(actions, status.node, preview);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (blocked || !form.reportValidity()) return;
     const definition = read();
     if (acceptedPreview !== JSON.stringify({ definition, year: year.input.value })) {
       invalidate();
-      status.textContent = 'Preview your changes before saving.';
+      status.fail('Preview your changes before saving.');
       return;
     }
     save.disabled = true;
-    status.textContent = 'Saving…';
+    status.busy('Saving…');
     try {
       if (original) {
         const result = await client.PUT('/tenants/{tenant_id}/calendars/{entity_id}/definition', {
@@ -321,7 +344,7 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
           location.assign(calendarHref(tenantId, created.entity_id, Number(year.input.value)));
       }
     } catch (e) {
-      status.textContent = message(e);
+      status.fail(message(e));
       save.disabled = false;
       if (!original) {
         try {
@@ -329,8 +352,8 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
             params: { path: { tenant_id: tenantId, entity_id: createId } },
           });
           if (existing.data) {
-            status.replaceChildren(
-              document.createTextNode('The calendar was saved. '),
+            status.say('The calendar was saved.');
+            status.node.append(
               button(
                 'Open saved calendar',
                 () => location.assign(calendarHref(tenantId, createId, Number(year.input.value))),
@@ -353,30 +376,30 @@ export function definitionEditor(tenantId: string, original?: Calendar): HTMLEle
               params: { path: { tenant_id: tenantId, entity_id: original.entity_id } },
             }),
           );
-          const review = el('details');
-          review.append(
-            el('summary', 'Review the saved definition'),
+          const review = disclosure('Review the saved definition');
+          review.body.append(
             el('pre', JSON.stringify(current.definition, null, 2)),
-          );
-          review.open = true;
-          review.append(
             button(
               'I reviewed it; keep my draft against this version',
               () => {
                 version = `W/"${current.updated_at}"`;
                 blocked = false;
                 invalidate();
-                status.textContent = 'Your draft is kept. Preview it again before saving.';
-                review.remove();
+                status.say('Your draft is kept. Preview it again before saving.');
+                review.root.remove();
               },
               true,
             ),
           );
-          form.append(review);
-          status.textContent =
-            'Someone changed this calendar. Your draft is still here. Review the saved definition before trying again.';
+          review.root.open = true;
+          form.append(review.root);
+          status.fail(
+            'Someone changed this calendar. Your draft is still here. Review the saved definition before trying again.',
+          );
         } catch (readError) {
-          status.textContent = `${message(readError)} Your draft is kept; the saved definition could not be loaded. Copy your draft before reloading.`;
+          status.fail(
+            `${message(readError)} Your draft is kept; the saved definition could not be loaded. Copy your draft before reloading.`,
+          );
         }
       }
     }
