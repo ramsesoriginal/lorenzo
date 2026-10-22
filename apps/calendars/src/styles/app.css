@@ -1,199 +1,307 @@
-/* The shared brand supplies the shell, typography and buttons. Only calendar
-   layout and domain-specific surfaces belong here (ADR 0098, ADR 0311). */
-.wrap {
-  width: 100%;
-  max-width: 80rem;
-  margin-inline: auto;
-  padding-inline: var(--space-4);
-  box-sizing: border-box;
+/* Calendars on the shared brand (ADR 0322). The brand supplies the page frame, type, buttons,
+   fields, cards, tabs, pills and the atlas; this sheet has the calendar's own layout (the month
+   grid, a day, the year view, the day panel) and the few small shapes the pages share, written
+   with the brand's tokens only. */
+
+/* Pages --------------------------------------------------------------------------------- */
+
+/* The page's own rhythm is the stack's gap; a bare section's brand margin would double it. */
+[data-page] section {
+  margin-bottom: 0;
 }
-main.wrap {
-  padding-block: var(--space-5);
-}
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-.stack,
-.stack-tight {
-  display: grid;
-  align-content: start;
-  gap: var(--space-4);
-}
-.stack-tight {
-  gap: var(--space-2);
-}
-.stack > button,
-.stack-tight > button {
-  justify-self: start;
-}
-.site-header {
-  flex-wrap: wrap;
-}
-.site-header nav {
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-.product {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-.welcome {
-  max-width: 42rem;
-  margin-block: var(--space-6);
-}
-h1,
-h2,
-h3,
-p {
-  margin-block: 0;
-}
-h1 {
-  line-height: 1.15;
+
+[data-page] h1 {
+  margin: 0;
   overflow-wrap: anywhere;
 }
-.intro,
-.caption {
+
+/* A section's name and what can be done with it, over a hairline. */
+[data-page] h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+[data-page] h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+[data-page] p {
+  margin-block: 0;
+}
+
+.page-header,
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.section-head {
+  padding-block-end: var(--space-2);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+}
+
+.narrow-field {
+  max-width: 14rem;
+}
+
+.toolbar > .field {
+  flex: 1 1 12rem;
+}
+
+.toolbar > .field.narrow-field {
+  flex: 0 1 14rem;
+}
+
+.toolbar > .field.year-field {
+  flex: 0 1 9rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-3);
+}
+
+.kinds {
+  flex-wrap: wrap;
+}
+
+.relation {
   color: var(--text-secondary);
 }
-.caption {
-  font-size: 0.875rem;
+
+/* A button that is a direct child of a stack would stretch the stack's width. */
+fieldset > .btn,
+.stack > .btn,
+.stack-tight > .btn {
+  align-self: flex-start;
 }
-[role="status"]:empty {
+
+/* A message that has not been written takes no room. */
+.feedback:empty {
   display: none;
 }
-[hidden] {
-  /* biome-ignore lint/complexity/noImportantStyles: hidden overrides layout classes. */
-  display: none !important;
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
-label {
-  display: grid;
-  gap: var(--space-1);
-  font-size: 0.875rem;
-  color: var(--text-secondary);
+
+.empty-state {
+  max-width: 40rem;
 }
-label.check {
+
+.empty-title {
+  margin: 0;
+  font-size: 24px;
+}
+
+/* A folding section: plain, with a hairline above, or a card of its own. */
+.disclosure {
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+.disclosure > summary {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-input,
-select,
-textarea {
-  max-width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  font: inherit;
-  background: var(--surface-default);
-  color: var(--text-primary);
-  box-sizing: border-box;
-}
-textarea {
-  min-height: 7rem;
-  width: 100%;
-}
-input[type="checkbox"] {
-  width: auto;
-  accent-color: var(--action);
-}
-select {
-  width: 100%;
-}
-.library-picker {
-  max-width: 24rem;
-}
-fieldset,
-.panel {
-  margin: 0;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-card);
-  padding: var(--space-4);
-  background: var(--surface-default);
-}
-fieldset {
-  min-width: 0;
-}
-legend {
-  padding-inline: var(--space-2);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-details {
-  border-block-start: 1px solid var(--border-subtle);
-  padding-block-start: var(--space-3);
-}
-summary {
-  color: var(--text-primary);
+  padding-block: var(--space-2);
   font-weight: 500;
   cursor: pointer;
-  padding-block: var(--space-2);
+  list-style: none;
 }
-details[open] > summary {
-  margin-block-end: var(--space-3);
+
+.disclosure > summary::-webkit-details-marker {
+  display: none;
 }
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: var(--space-3);
+
+.disclosure-icon {
+  flex: none;
+  color: var(--text-secondary);
 }
-.segment-row {
-  border-block-end: 1px solid var(--border-subtle);
-  padding-block: var(--space-3);
+
+.disclosure[open] > summary .disclosure-icon {
+  transform: rotate(90deg);
 }
-.year-nav {
-  align-items: end;
-  padding-block: var(--space-3);
-  border-block: 1px solid var(--border-subtle);
+
+@media (prefers-reduced-motion: no-preference) {
+  .disclosure-icon {
+    transition: transform 150ms ease;
+  }
 }
+
+.disclosure-body {
+  padding-block: var(--space-2) var(--space-3);
+}
+
+.card.disclosure > summary,
+.card.disclosure > .disclosure-body {
+  padding-inline: var(--space-4);
+}
+
+.card.disclosure > .disclosure-body {
+  padding-block-start: var(--space-1);
+}
+
+/* A note on a page is a card; in a panel it is a block under a hairline. */
+.note {
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+.note-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* The list of calendars --------------------------------------------------------------- */
+
+.calendar-list {
+  --grid-min: 18rem;
+}
+
+a.calendar-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-weight: 500;
+  transition: border-color 150ms ease;
+}
+
+a.calendar-card:hover {
+  border-color: var(--action);
+}
+
+.calendar-mark,
+.calendar-card > :last-child {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.calendar-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A calendar ---------------------------------------------------------------------------- */
+
 .calendar-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
+
+.calendar-layout > * {
+  min-width: 0;
+}
+
+.view-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.view-bar > .tabs {
+  flex: 1 1 auto;
+}
+
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(var(--week-length, 7), minmax(6.5rem, 1fr));
+  grid-template-columns: repeat(var(--week-length, 7), minmax(5.5rem, 1fr));
   gap: var(--space-1);
   overflow-x: auto;
   padding: var(--space-1);
 }
+
+.weekday {
+  padding-block: var(--space-2);
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .day {
+  position: relative;
   display: grid;
   align-content: start;
-  justify-content: stretch;
   gap: var(--space-1);
   min-height: 5rem;
   padding: var(--space-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
-  text-align: start;
-  font-size: 1rem;
-  color: var(--text-primary);
   background: var(--surface-default);
-  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
+
 .day:hover {
-  background: var(--action-surface);
-  border-color: var(--action);
+  border-color: var(--border-strong);
+  background: var(--fill-soft);
 }
-.day[aria-pressed="true"] {
+
+.day:has(.day-button[aria-pressed="true"]) {
+  border-color: var(--action);
   background: var(--surface-selected);
-  border-color: var(--action);
 }
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-summary:focus-visible,
-.month-grid:focus-visible {
+
+.day:has(.day-button:focus-visible) {
   outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
+
+/* The button names the date and holds the moons; its hit area is the whole cell. */
+.day-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  text-align: start;
+}
+
+.day-button:hover {
+  background: transparent;
+}
+
+.day-button:focus-visible {
+  outline: none;
+}
+
+.day-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
 .day-header {
   display: flex;
   flex-wrap: wrap;
@@ -201,167 +309,125 @@ summary:focus-visible,
   justify-content: space-between;
   gap: var(--space-1);
 }
+
 .day-number {
   font-weight: 600;
 }
+
 .moon-phases {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 2px;
-  font-size: 0.875rem;
-}
-.day-content {
-  display: grid;
-  gap: var(--space-2);
-  font-size: 0.8125rem;
-  font-weight: 400;
+  gap: var(--space-1);
   color: var(--text-secondary);
 }
+
+.day-content {
+  display: grid;
+  gap: var(--space-1);
+}
+
 .day-item {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 0.8125rem;
-  font-weight: 400;
+  font-size: 13px;
   line-height: 1.4;
 }
+
+.day-note,
+.day-observance {
+  color: var(--text-secondary);
+}
+
 .day-entry {
   color: var(--action);
   font-weight: 500;
 }
-.day-observance {
+
+.day-loading {
+  padding: var(--space-1);
   color: var(--text-secondary);
 }
-.selected-moons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-}
+
 .festival {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
 .festival .day {
   min-width: 7rem;
-}
-.weekday {
-  padding-block: var(--space-2);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.calendar-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-  gap: var(--space-3);
-}
-.calendar-list .panel {
-  padding: 0;
-}
-.calendar-card {
-  display: block;
-  padding: var(--space-4);
-  border-radius: var(--radius-card);
-  color: var(--text-primary);
-  text-decoration: none;
-  font-size: 1.25rem;
-  font-weight: 500;
-}
-.calendar-card:hover {
-  background: var(--action-surface);
-  color: var(--action);
-}
-.error {
-  color: var(--danger);
-}
-.draft-status,
-pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.skip-link:not(:focus) {
-  position: absolute;
-  clip-path: inset(100%);
-}
-.ls-editor-panes {
-  display: grid;
-  gap: var(--space-3);
-}
-.editor-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-.ls-content img {
-  max-width: 100%;
-  height: auto;
-}
-.stack,
-.stack-tight,
-.stack > *,
-.stack-tight > *,
-.calendar-layout > *,
-label,
-input,
-select {
-  min-width: 0;
-}
-.year-nav input {
-  width: 9rem;
-}
-.calendar-scroll-hint {
-  display: none;
-}
-@media (max-width: 720px) {
-  .calendar-layout {
-    grid-template-columns: 1fr;
-  }
-  .wrap {
-    padding-inline: var(--space-3);
-  }
-  .site-header {
-    padding: var(--space-3);
-  }
-  .calendar-scroll-hint {
-    display: block;
-  }
-  .day {
-    min-height: 4.5rem;
-  }
-  .panel,
-  fieldset {
-    padding: var(--space-3);
-  }
-}
-@media (max-width: 720px), (pointer: coarse) {
-  button,
-  select,
-  input:not([type="checkbox"]),
-  summary,
-  .site-header nav a,
-  label.check {
-    min-height: var(--target-min);
-  }
 }
 
 .year-segment {
   min-width: 0;
-  margin: 0;
   padding-block-end: var(--space-4);
   border-block-end: 1px solid var(--border-subtle);
 }
+
+.calendar-scroll-hint {
+  display: none;
+}
+
+/* The selected day's moons, each a symbol and its words. */
+.selected-moons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--text-secondary);
+}
+
+/* The day panel's own heading is smaller than a page's. */
+.calendar-layout > aside h2 {
+  font-size: 20px;
+}
+
 @media (min-width: 721px) {
   .calendar-layout.whole-year > aside {
     position: sticky;
     top: var(--space-3);
     max-height: calc(100dvh - var(--space-5));
     overflow-y: auto;
-    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 720px) {
+  .calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calendar-scroll-hint {
+    display: block;
+  }
+
+  .day {
+    min-height: 4.5rem;
+  }
+
+  .card.disclosure > summary,
+  .card.disclosure > .disclosure-body {
+    padding-inline: var(--space-3);
+  }
+}
+
+/* Touch targets (identity 8.5) for what the brand's own rule does not name: at phone widths and
+   for a coarse pointer, anything pressed here is at least --target-min tall. */
+@media (max-width: 720px), (pointer: coarse) {
+  .disclosure > summary,
+  .field-row,
+  a.row-tight,
+  .calendar-card {
+    min-height: var(--target-min);
+  }
+
+  /* The folding sections the shared audience control draws are a bare details and summary. */
+  main details:not(.disclosure) > summary {
+    padding-block: calc((var(--target-min) - 1lh) / 2);
+    cursor: pointer;
+  }
+
+  .list > li > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-min);
   }
 }

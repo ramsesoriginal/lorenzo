@@ -11,7 +11,7 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0006 - License: AGPL-3.0](0006-agpl-3.0-license.md)
 - [0007 - apps/ layout: one directory per deployable app, multiplicity per type](0007-apps-layout-and-multiplicity.md)
 - [0008 - Background jobs and rate limiting: taskiq + fastapi-limiter, deferred](0008-deferred-taskiq-and-fastapi-limiter.md)
-- [0009 - Identity provider: Authgear (self-hosted OIDC)](0009-identity-provider-authgear.md)
+- [0009 - Identity provider: Authgear (self-hosted OIDC)](0009-identity-provider-authgear.md) - superseded by [0027](0027-authgear-cloud-not-self-hosted.md): Authgear Cloud, not self-hosted
 - [0010 - User, tenant, and membership model](0010-user-tenant-membership-model.md)
 - [0011 - Deploy target: Google Cloud Run + Neon](0011-deploy-target-cloud-run-neon.md)
 - [0012 - The entity table](0012-entity-table.md)
@@ -316,14 +316,14 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0311 - Calendar documents, donjon import and the calendar app](0311-calendar-documents-import-and-app.md)
 - [0312 - Explicit Event order and causal relationships](0312-explicit-event-order-and-causality.md)
 - [0313 - Event participation, browsing and calendar addresses](0313-event-participation-browsing-and-calendar-addresses.md)
-
 - [0314 - Optional Event learning records](0314-optional-event-learning-records.md)
-
 - [0315 - Reader-scoped Event order and explicit sharing](0315-reader-scoped-event-order-and-sharing.md)
-| [0316](0316-collaborative-events-facts-and-participant-audiences.md) | Collaborative Events, Facts and participant audiences | accepted |
-
-- [0317 - Sessions, Scenes and collaborative planning](0317-sessions-scenes-and-collaborative-planning.md)
-
-- [0318 - Explicit Session and play order](0318-explicit-session-and-play-order.md)
-
+- [0316 - Collaborative Events, Facts and participant audiences](0316-collaborative-events-facts-and-participant-audiences.md) — authors and GMs manage Events and Facts library-wide, players create and edit their own, and readers keep reader-scoped shared order
+- [0317 - Sessions, Scenes and collaborative planning](0317-sessions-scenes-and-collaborative-planning.md) — Session, Scene and Scene appearance entries, rosters of GMs, players and Characters, private and shared notes, references to Facts, Events and periods, and Lorenzo Sessions
+- [0318 - Explicit Session and play order](0318-explicit-session-and-play-order.md) — preparation order, recorded played order and campaign Session order kept separate, with planned, played and skipped appearances
 - [0319 - Personal lived order as Event evidence](0319-personal-lived-order-as-event-evidence.md)
+- [0322 - Calendars and Sessions share a header and stand on the brand base](0322-calendars-and-sessions-share-a-header-and-the-brand-base.md) — `packages/app-shell` for the header and page frame, no app switcher, the library picker in the header, the SVG lockup, brand tokens and classes only, and guards against undefined tokens and literals
+- [0323 - One calendar-period picker](0323-the-calendar-period-picker.md) — `packages/period-picker`: a day, month, year or several, as an explicit list of coordinates; a range is a selection gesture with a count and a cap, never a stored span
+- [0324 - Bulk reads for calendar periods and day content](0324-bulk-reads-for-calendar-periods-and-day-content.md) — periods with coordinates and by id, per-year period summaries in one request, and an idempotent batch materialize, all additive and visibility-gated
+- [0325 - One read cache, and what it may hold](0325-one-read-cache-and-what-it-may-hold.md) — `packages/read-cache`: viewer-scoped stale-while-revalidate in memory for private data, `sessionStorage` only for `/me`, `/tenants` and `/app-links`, access revalidated before private data is drawn
+- [0326 - Moon phases in the icon atlas](0326-moon-phases-in-the-icon-atlas.md) — eight custom `icon-moon-*` symbols in Tabler's grammar replace the emoji

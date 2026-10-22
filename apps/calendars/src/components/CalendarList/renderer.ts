@@ -1,8 +1,20 @@
 import { rememberEntryAddress } from '../../lib/addresses';
 import { client, fetchAllPages, unwrap } from '../../lib/api';
 import { definitionEditor } from '../../lib/definition-editor';
-import { calendarHref, el, link, message } from '../../lib/dom';
+import {
+  calendarHref,
+  disclosure,
+  el,
+  emptyState,
+  failure,
+  icon,
+  link,
+  linkButton,
+  loading,
+  message,
+} from '../../lib/dom';
 import { start } from '../../lib/session';
+
 export async function mount() {
   const host = document.querySelector<HTMLElement>('#CalendarList');
   if (!host || host.dataset.mounted) return;
@@ -10,14 +22,20 @@ export async function mount() {
   const session = await start();
   if (!session || !host.isConnected) return;
 
-  host.append(
+  const head = el('div', '', 'page-header');
+  head.append(
     el('h1', 'Calendars'),
-    link('Browse Events', `/events/?tenant=${encodeURIComponent(session.tenantId)}`),
-    el('p', 'Choose a calendar to explore its dates, notes and story events.', 'intro'),
+    linkButton(
+      'Browse Events',
+      `/events/?tenant=${encodeURIComponent(session.tenantId)}`,
+      'kind-event',
+    ),
   );
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  host.append(status);
+  const top = el('div', '', 'stack-tight');
+  top.append(head, el('p', 'Choose a calendar to read its dates, notes and Events.', 'lede'));
+  host.append(top);
+  const wait = loading('Loading calendars…');
+  host.append(wait);
   try {
     const calendars = await fetchAllPages(async (page) =>
       unwrap(
@@ -27,24 +45,38 @@ export async function mount() {
       ),
     );
     if (!host.isConnected) return;
-    const list = el('ul', '', 'calendar-list');
-    for (const calendar of calendars) {
-      rememberEntryAddress(session.tenantId, calendar);
-      const item = el('li', '', 'panel');
-      const open = link(calendar.name, calendarHref(session.tenantId, calendar.entity_id));
-      open.className = 'calendar-card';
-      item.append(open);
-      list.append(item);
-    }
-    host.append(list);
-    if (!calendars.length)
-      host.append(el('p', 'There are no calendars available to you in this library yet.'));
+    wait.remove();
+    if (calendars.length) {
+      const list = el('ul', '', 'grid calendar-list');
+      for (const calendar of calendars) {
+        rememberEntryAddress(session.tenantId, calendar);
+        const open = link(calendar.name, calendarHref(session.tenantId, calendar.entity_id));
+        open.className = 'card calendar-card';
+        open.replaceChildren(
+          icon('kind-calendar', 'calendar-mark'),
+          el('span', calendar.name, 'calendar-name'),
+          icon('next'),
+        );
+        const item = el('li');
+        item.append(open);
+        list.append(item);
+      }
+      host.append(list);
+    } else
+      host.append(
+        emptyState(
+          'No calendars here yet',
+          session.canWrite
+            ? 'Create one below to give a world its months, festivals and moons.'
+            : 'No calendars in this library are available to you yet.',
+        ),
+      );
     if (session.canWrite) {
-      const create = el('details');
-      create.append(el('summary', 'Create a calendar'), definitionEditor(session.tenantId));
-      host.append(create);
+      const create = disclosure('Create a calendar', true);
+      create.body.append(definitionEditor(session.tenantId));
+      host.append(create.root);
     }
   } catch (e) {
-    status.textContent = message(e);
+    wait.replaceWith(failure(message(e)));
   }
 }

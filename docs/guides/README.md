@@ -8,3 +8,6 @@ Task-oriented how-tos.
 - [Writing a commit message](writing-a-commit-message.md)
 - [Labels, milestones, assignees, and links](labels-milestones-and-metadata.md)
 - [The LorenzoLedger (format v1)](inventory-file-format.md)
+- [Native calendar files](calendar-file-format.md)
+- [Lorenzo Calendars](calendars.md)
+- [Lorenzo Sessions](sessions.md)

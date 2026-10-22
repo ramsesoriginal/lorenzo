@@ -47,7 +47,7 @@ export function blobUrl(url: string, version?: string): Promise<string> {
 }
 
 export function clearPrivateState() {
-  calendarReads.clear();
+  calendarReads.dropScoped();
   for (const pending of blobs.values())
     void pending.then((url) => URL.revokeObjectURL(url)).catch(() => {});
   blobs.clear();
