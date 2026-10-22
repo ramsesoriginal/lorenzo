@@ -40,6 +40,8 @@ export type FetchCacheOptions = {
   limits?: Partial<Limits>;
   /** Where identity reads are mirrored; none by default. */
   storage?: Storage | null;
+  /** Treat this page as a reload (tests); by default it is read from the navigation entry. */
+  reloaded?: boolean;
   storagePrefix?: string;
 };
 
@@ -57,6 +59,11 @@ export type FetchCache = {
   invalidate(prefix?: string): void;
   /** Forgets everything, storage included: sign-in, sign-out, a denied read. */
   clear(): void;
+  /**
+   * Forgets every scoped read and the scope, and keeps the identity reads: a page is going away
+   * but the person is still signed in (`pagehide`).
+   */
+  dropScoped(): void;
   /** Whether scoped reads are held now (a scope is set). */
   scoped(): boolean;
   /** Called when a background read found a different answer than the one served. */
@@ -75,6 +82,14 @@ type Saved = {
 
 const DEFAULT_LIMITS: Limits = { entries: 64, bytes: 2 * 1024 * 1024, bodyBytes: 256 * 1024 };
 
+function isReload(): boolean {
+  if (typeof performance === 'undefined' || !performance.getEntriesByType) return false;
+
+  const [navigation] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+
+  return navigation?.type === 'reload';
+}
+
 export function createFetchCache(options: FetchCacheOptions): FetchCache {
   const fetcher = options.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
   const now = options.now ?? Date.now;
@@ -86,7 +101,12 @@ export function createFetchCache(options: FetchCacheOptions): FetchCache {
   const running = new Map<string, Promise<Response>>();
   const newest = new Map<string, number>();
   const listeners = new Set<(url: string) => void>();
+  // The scope in use, and the last one set: a page change suspends the first (nothing is served
+  // while access is rechecked) but not the second, so the same viewer keeps what was held.
   let scope: string | null = null;
+  let lastScope: string | null = null;
+  // A reload asks again for everything: what was kept before this page began does not count.
+  const ignoreBefore = (options.reloaded ?? isReload()) ? now() : 0;
   let epoch = 0;
   let sequence = 0;
   let bytes = 0;
@@ -135,6 +155,7 @@ export function createFetchCache(options: FetchCacheOptions): FetchCache {
   function clear() {
     invalidate();
     scope = null;
+    lastScope = null;
   }
 
   function keyFor(url: URL, identity: boolean): string {
@@ -144,7 +165,7 @@ export function createFetchCache(options: FetchCacheOptions): FetchCache {
   function lookup(key: string, identity: boolean): Saved | undefined {
     const held = kept.get(key);
 
-    if (held) return held;
+    if (held) return held.at < ignoreBefore ? undefined : held;
 
     if (!identity || !storage) return undefined;
 
@@ -154,6 +175,8 @@ export function createFetchCache(options: FetchCacheOptions): FetchCache {
       if (!raw) return undefined;
 
       const saved = JSON.parse(raw) as Saved;
+
+      if (saved.at < ignoreBefore) return undefined;
 
       kept.set(key, saved);
       bytes += size(saved);
@@ -311,13 +334,14 @@ export function createFetchCache(options: FetchCacheOptions): FetchCache {
   return {
     fetch: cachedFetch,
     configure(next) {
-      if (next !== scope) {
+      if (next !== lastScope) {
         // A different viewer, library or role: what was held for the last one is gone, and so is
         // anything read before the scope was known.
         invalidateScoped();
       }
 
       scope = next;
+      lastScope = next;
     },
     suspend() {
       epoch++;
@@ -327,6 +351,11 @@ export function createFetchCache(options: FetchCacheOptions): FetchCache {
     },
     invalidate,
     clear,
+    dropScoped() {
+      invalidateScoped();
+      scope = null;
+      lastScope = null;
+    },
     scoped: () => scope !== null,
     onRefreshed(handler) {
       listeners.add(handler);
