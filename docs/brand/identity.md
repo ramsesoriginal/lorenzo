@@ -597,7 +597,7 @@ Buttons and inline links both key off `--action`, but a button is a distinct com
 | `--fill-soft`                     | Ink 6%, translucent over its surface | —         | transient hover/badge tint (unchanged) |
 | `--text-primary`                  | Ink                                  | `#08131F` | normal text                            |
 | `--text-secondary`                | Ink 70% / Paper 30%                  | `#515860` | supporting text                        |
-| `--text-tertiary`                 | Ink 55% / Paper 45%                  | `#757B80` | metadata, timestamps                   |
+| `--text-tertiary`                 | Ink 62% / Paper 38%                  | `#646B71` | metadata, timestamps                   |
 | `--text-inverse`                  | Paper                                | `#FBFAF7` | text on dark/blue surfaces             |
 | `--border-subtle`                 | Ink 16% / Paper 84%                  | `#D4D5D4` | normal component borders               |
 | `--border-strong`                 | Ink 24% / Paper 76%                  | `#C1C3C3` | emphasized separators                  |
@@ -696,7 +696,7 @@ The `--visibility-restricted-*` and `--button-*` tokens are all aliases (`--visi
   /* Text */
   --text-primary: var(--brand-ink);
   --text-secondary: color-mix(in srgb, var(--brand-ink) 70%, var(--brand-paper));
-  --text-tertiary: color-mix(in srgb, var(--brand-ink) 55%, var(--brand-paper));
+  --text-tertiary: color-mix(in srgb, var(--brand-ink) 62%, var(--brand-paper));
   --text-inverse: var(--brand-paper);
 
   /* Borders */
