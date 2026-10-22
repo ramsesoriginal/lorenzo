@@ -342,19 +342,28 @@ test('month content is cached and moon names remain available when selecting a d
   const world = await buildWorld();
   const page = await signedIn(browser, world.subject);
   await page.setViewportSize({ width: 1280, height: 900 });
+  // A month's notes and dated entries come in one request (ADR 0324), not two per saved day.
   const reads: string[] = [];
+  const summaries: string[] = [];
   page.on('request', (r) => {
-    if (r.method() === 'GET' && /\/(information|entries)\?/.test(r.url())) reads.push(r.url());
+    if (r.method() !== 'GET') return;
+    if (/\/(information|entries)\?/.test(r.url())) reads.push(r.url());
+    if (r.url().includes('/period-summaries')) summaries.push(r.url());
   });
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
   await expect(page.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(0);
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
-  const loaded = reads.length;
+  // Only the selected day's own panel reads a period by itself; no cell does.
+  expect(reads.length).toBeLessThanOrEqual(2);
+  const loaded = summaries.length;
+  expect(loaded).toBeGreaterThan(0);
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-4');
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
-  expect(reads.length).toBe(loaded);
+  // Another month asks once more; coming back to Quirm asks for nothing.
+  expect(summaries.length).toBeLessThanOrEqual(loaded + 1);
+  expect(reads.length).toBeLessThanOrEqual(2);
   await page.screenshot({
     path: test.info().outputPath('month-content-desktop.png'),
     fullPage: true,
