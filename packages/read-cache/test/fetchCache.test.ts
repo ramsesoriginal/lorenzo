@@ -300,3 +300,56 @@ describe('identity reads', () => {
     expect(t.calls).toHaveLength(2);
   });
 });
+
+describe('dropScoped', () => {
+  it('forgets scoped reads and the scope but keeps identity reads', async () => {
+    const storage = new FakeStorage() as unknown as Storage;
+    const t = setup(undefined, { storage });
+
+    t.cache.configure('viewer-1');
+    await t.get('/me');
+    await t.get('/tenants/a/x');
+    t.cache.dropScoped();
+    expect(t.cache.scoped()).toBe(false);
+    expect(Object.keys(storage)).toHaveLength(1);
+    await t.get('/me');
+    expect(t.calls).toEqual(['GET /me', 'GET /tenants/a/x']);
+    t.cache.configure('viewer-1');
+    await t.get('/tenants/a/x');
+    expect(t.calls).toHaveLength(3);
+  });
+});
+
+describe('a page change', () => {
+  it('keeps what was held for the same scope when the viewer is checked again', async () => {
+    const t = setup();
+
+    t.cache.configure('viewer-1');
+    await t.get('/tenants/a/x');
+    t.cache.suspend();
+    await t.get('/tenants/a/x');
+    expect(t.calls).toHaveLength(2);
+    t.cache.configure('viewer-1');
+    await t.get('/tenants/a/x');
+    expect(t.calls).toHaveLength(2);
+    t.cache.suspend();
+    t.cache.configure('viewer-2');
+    await t.get('/tenants/a/x');
+    expect(t.calls).toHaveLength(3);
+  });
+});
+
+describe('a reload', () => {
+  it('asks again for what an earlier page kept in storage', async () => {
+    const storage = new FakeStorage() as unknown as Storage;
+    const first = setup(undefined, { storage });
+
+    await first.get('/me');
+    const reloaded = setup(undefined, { storage, reloaded: true, now: () => 5000 });
+
+    await reloaded.get('/me');
+    expect(reloaded.calls).toEqual(['GET /me']);
+    await reloaded.get('/me');
+    expect(reloaded.calls).toHaveLength(1);
+  });
+});

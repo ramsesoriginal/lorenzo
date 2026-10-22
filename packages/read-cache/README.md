@@ -30,7 +30,7 @@ Every typed call through that client is then cached, and every write invalidates
 
 - **Scoped reads** (a library's entries, notes, periods, rosters...): in memory only, under the scope given to `configure`. A different scope (another viewer, library, role or opt-out) never sees them, and a new scope forgets the old one's. Nothing is held until a scope is set, and `suspend()` stops serving while a page changes. They are served for `freshMs` and no longer, and at most 64 entries, 2 MiB and 256 KiB per body by default.
 - **Identity reads** (`/me`, `/tenants`, `/app-links`): who the person is and where they may go. With `persist` they are also kept in the storage given (the tab's `sessionStorage`), outside any scope, so a navigation that reloads the page still has them; with `staleMs` they are answered at once and read again in the background, and `onRefreshed` tells the page when the answer changed. Nothing else is ever written to storage.
-- `clear()` forgets everything, storage included: call it at sign-in and sign-out. A 401, 403 or 404 clears it too. A read that began before an invalidation cannot fill the cache.
+- `clear()` forgets everything, storage included: call it at sign-in and sign-out. `dropScoped()` forgets the scoped reads and the scope but keeps the identity reads: call it when a page goes away (`pagehide`). A 401, 403 or 404 clears it too. A read that began before an invalidation cannot fill the cache.
 - `invalidate('/tenants/<id>/calendars')` forgets only reads under a path.
 
 ## Prefetch
