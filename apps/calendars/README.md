@@ -137,5 +137,17 @@ or be deleted until dependencies are resolved. Browsing creates no periods or re
 
 Repository copies remap clock dependencies, retain local values and preserve sharing choices.
 Entered records participate in release digests and explicit three-way update review. Missing
-clock dependencies are reported in copy plans. Release format 14 retains earlier readers.
+clock dependencies are reported in copy plans. Release format 15 retains earlier readers.
 Ratios and automatic conversion belong to the separately stacked ADR 0321 slice.
+
+On a ticking Clock, **Clock relationships and conversion** pairs it with another Clock using
+an exact ratio and, optionally, two anchor readings (ADR 0321). Preview before saving;
+relationships stay private until explicitly shared. Without anchors, only durations convert.
+Negative ratios are supported, including reversed range endpoints. The converter reports
+inconsistent permitted relationships and work limits instead of choosing an arbitrary path.
+
+On an Event, **Read this Event on another clock** derives a fresh reading from the explicit
+readings and relationships the reader can see. It shows permitted paths and keeps any entered
+target reading when declarations disagree. Conversion never creates an Event reading, changes
+its dates, or changes causal, lived or play order. Version conflicts retain the draft and offer
+an explicit refresh of saved relationships.

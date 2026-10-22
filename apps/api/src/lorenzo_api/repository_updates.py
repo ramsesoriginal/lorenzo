@@ -723,9 +723,57 @@ class _Applier:
                 .values(updated_at=func.now())
             )
             return True
+        if name == "clock_relationships":
+            from lorenzo_api.clock_conversion import RelationDefinition, canonical
+            from lorenzo_api.models import Clock, ClockRelationship
+            from lorenzo_api.routers.clocks import mutation_lock
+
+            await mutation_lock(s, t)
+            relation_replacements = []
+            for record in change.upstream or []:
+                target = self.resolve("entity", record["clock"])
+                clocks = list(
+                    await s.scalars(
+                        select(Clock).where(
+                            Clock.tenant_id == t,
+                            Clock.entity_id.in_([e, target]),
+                            Clock.ticking.is_(True),
+                        )
+                    )
+                )
+                if len(clocks) != 2 or target is None:
+                    self.skip(row, name, "Copy two ticking clocks before their relationship")
+                    return False
+                first, second, relation_definition = canonical(
+                    e, target, RelationDefinition.model_validate(record["data"])
+                )
+                relation_replacements.append(
+                    ClockRelationship(
+                        tenant_id=t,
+                        clock_entity_id=first,
+                        reference_clock_entity_id=second,
+                        data=relation_definition.model_dump(),
+                        is_shared=record["is_shared"],
+                    )
+                )
+            await s.execute(
+                delete(ClockRelationship).where(
+                    ClockRelationship.tenant_id == t,
+                    (ClockRelationship.clock_entity_id == e)
+                    | (ClockRelationship.reference_clock_entity_id == e),
+                )
+            )
+            s.add_all(relation_replacements)
+            await s.flush()
+            return True
         if name in {"clock_readings", "calendar_reckonings"}:
             from lorenzo_api.clock_values import ReadingRange
-            from lorenzo_api.models import CalendarReckoning, Clock, EventClockReading
+            from lorenzo_api.models import (
+                CalendarReckoning,
+                Clock,
+                ClockRelationship,
+                EventClockReading,
+            )
             from lorenzo_api.routers.clocks import ReckoningIn, mutation_lock
 
             await mutation_lock(s, t)
@@ -779,7 +827,12 @@ class _Applier:
             await s.flush()
             return True
         if name == "clock_ticking":
-            from lorenzo_api.models import CalendarReckoning, Clock, EventClockReading
+            from lorenzo_api.models import (
+                CalendarReckoning,
+                Clock,
+                ClockRelationship,
+                EventClockReading,
+            )
             from lorenzo_api.routers.clocks import mutation_lock
 
             await mutation_lock(s, t)
@@ -800,6 +853,16 @@ class _Applier:
                     .where(CalendarReckoning.clock_entity_id == e)
                     .limit(1)
                 )
+            ):
+                self.skip(row, name, "Resolve dependent clock records before changing Clock mode")
+                return False
+            if not change.upstream and await s.scalar(
+                select(ClockRelationship.clock_entity_id)
+                .where(
+                    (ClockRelationship.clock_entity_id == e)
+                    | (ClockRelationship.reference_clock_entity_id == e)
+                )
+                .limit(1)
             ):
                 self.skip(row, name, "Resolve dependent clock records before changing Clock mode")
                 return False
@@ -1245,6 +1308,17 @@ async def apply_updates(
     """Applies the listed actions in one transaction (doesn't commit), then the
     listed attachments (ADR 0172), which can point at a row an action added."""
     updates = await compute_updates(session, tenant_id=tenant_id, repository_id=repository_id)
+    assert updates.local is not None and updates.upstream is not None
+    if updates.local.clocks or updates.upstream.clocks:
+        from lorenzo_api.event_order_lock import lock_event_order
+        from lorenzo_api.routers.clocks import mutation_lock
+
+        await lock_event_order(session, tenant_id)
+        await mutation_lock(session, tenant_id)
+        # Recompute review state after acquiring the clock write lock.
+        updates = await compute_updates(session, tenant_id=tenant_id, repository_id=repository_id)
+        assert updates.local is not None and updates.upstream is not None
+
     assert updates.local is not None and updates.upstream is not None
     changed = {(c.kind, c.source_id): c for c in updates.changed}
     removed = {(r.kind, r.source_id): r for r in updates.removed}

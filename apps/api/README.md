@@ -131,3 +131,12 @@ Timeless clocks reject readings and reckonings. Private relations and hidden end
 filtered before returned lists and response versions. Existing period associations, current
 knowledge grants and all ordering semantics stay unchanged. New clock content participates in
 repository copy, explicit update review, release documents and purge. No clock is seeded.
+
+ADR 0321 adds private/shared constant clock relationships with exact nonzero signed ratios and
+optional paired anchors. `/clocks/{clock_id}/relationships` uses collection ETags;
+`/relationship-preview` beneath a Clock previews an unsaved relationship. `/clock-conversions`
+converts readings or durations, and `/events/{event_id}/clock-readings/{clock_id}/derived`
+reads an Event through permitted relationships without saving inferred evidence. Responses
+separate entered, derived, not-reckoned, conflicting and limit-reached results. Hidden sources
+are filtered before traversal, provenance and work limits. Repository release format 15 carries
+relationships; earlier release readers remain supported.

@@ -5,7 +5,7 @@ import { button, check, el, entryHref, field, link, message, select } from './do
 import { start } from './session';
 
 type Range = Schema<'ReadingRange'>;
-const readingText = (r: Range) =>
+export const formatReading = (r: Range) =>
   r.lo === r.hi
     ? r.lo
     : `${r.lo_inclusive ? '[' : '('}${r.lo}, ${r.hi}${r.hi_inclusive ? ']' : ')'}`;
@@ -13,7 +13,7 @@ const dateText = (d: { year: number; segment: string; day: number }) =>
   `${d.year}/${d.segment}/${d.day}`;
 
 // Clock editors retain drafts across conflicts. Refresh reads saved state without submitting it.
-function editor(title: string) {
+export function clockEditor(title: string) {
   const host = el('details', '', 'panel');
   const body = el('div', '', 'stack');
   const list = el('ul', '', 'stack-tight');
@@ -144,7 +144,7 @@ async function calendarDateFields(tenant: string, calendarId: string) {
 }
 
 export async function clockPanel(tenant: string, id: string, canManage: boolean) {
-  const ui = editor('Clock and calendar reckonings');
+  const ui = clockEditor('Clock and calendar reckonings');
   const path = { tenant_id: tenant, clock_id: id };
   const response = await client.GET('/tenants/{tenant_id}/clocks/{clock_id}', { params: { path } });
   const clock = await unwrap(response);
@@ -322,7 +322,7 @@ export async function clockPanel(tenant: string, id: string, canManage: boolean)
 }
 
 export async function eventReadings(tenant: string, event: string) {
-  const ui = editor('Clock readings');
+  const ui = clockEditor('Clock readings');
   const path = { tenant_id: tenant, event_id: event };
   let version = '';
   let editRow: ((row: Schema<'ReadingOut'>) => void) | null = null;
@@ -339,7 +339,7 @@ export async function eventReadings(tenant: string, event: string) {
       li.append(
         el(
           'p',
-          `${row.clock_name}: ${readingText(row.reading)} — Entered. ${row.is_shared ? 'Shared' : 'Private'}.`,
+          `${row.clock_name}: ${formatReading(row.reading)} — Entered. ${row.is_shared ? 'Shared' : 'Private'}.`,
         ),
       );
       const calendars = await unwrap(

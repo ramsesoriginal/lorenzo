@@ -444,7 +444,7 @@ async def require_deletable(
         raise ItemPrototypeInUseError(
             detail=f"Entry {entity_id} is still a direct prototype of at least one inventory item"
         )
-    from lorenzo_api.models import CalendarReckoning, EventClockReading
+    from lorenzo_api.models import CalendarReckoning, ClockRelationship, EventClockReading
 
     if await session.scalar(
         select(EventClockReading.clock_entity_id)
@@ -458,6 +458,17 @@ async def require_deletable(
         .where(
             (CalendarReckoning.clock_entity_id == entity_id)
             | (CalendarReckoning.calendar_entity_id == entity_id)
+        )
+        .limit(1)
+    ):
+        raise EntityKindInUseError(
+            detail="Resolve dependent clock records before deleting this entry"
+        )
+    if await session.scalar(
+        select(ClockRelationship.clock_entity_id)
+        .where(
+            (ClockRelationship.clock_entity_id == entity_id)
+            | (ClockRelationship.reference_clock_entity_id == entity_id)
         )
         .limit(1)
     ):

@@ -81,6 +81,7 @@ from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
     "Clock",
+    "ClockRelationship",
     "CalendarReckoning",
     "EventClockReading",
     "SceneFact",
@@ -187,7 +188,7 @@ __all__ = [
     "VItemInstance",
 ]
 
-from lorenzo_api.models.clock import CalendarReckoning, Clock, EventClockReading
+from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
 from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (

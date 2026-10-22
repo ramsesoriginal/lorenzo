@@ -82,3 +82,35 @@ class CalendarReckoning(Base):
     data: Mapped[dict[str, Any]] = mapped_column(JSONB)
     is_shared: Mapped[bool] = mapped_column(default=False, server_default="false")
     updated_at: Mapped[UpdatedAt]
+
+
+class ClockRelationship(Base):
+    __tablename__ = "clock_relationship"
+    __table_args__ = (
+        same_tenant_fk(
+            "clock_relationship_clock_fkey",
+            ["clock_entity_id", "ticking"],
+            "clock",
+            ["entity_id", "ticking"],
+            ondelete="NO ACTION",
+        ),
+        same_tenant_fk(
+            "clock_relationship_reference_fkey",
+            ["reference_clock_entity_id", "ticking"],
+            "clock",
+            ["entity_id", "ticking"],
+            ondelete="NO ACTION",
+        ),
+        CheckConstraint("ticking", name="clock_relationship_ticking"),
+        CheckConstraint(
+            "clock_entity_id < reference_clock_entity_id", name="clock_relationship_canonical"
+        ),
+        CheckConstraint("clock_relation_valid(data)", name="clock_relationship_definition"),
+    )
+    clock_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    reference_clock_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    ticking: Mapped[bool] = mapped_column(default=True, server_default="true")
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    is_shared: Mapped[bool] = mapped_column(default=False, server_default="false")
+    updated_at: Mapped[UpdatedAt]

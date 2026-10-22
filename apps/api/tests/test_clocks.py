@@ -228,6 +228,7 @@ async def test_clock_content_round_trips_copy_release_and_purge(raw_client, fake
             assert restored.clocks == source.clocks
             assert restored.clock_readings == source.clock_readings
             assert restored.calendar_reckonings == source.calendar_reckonings
+            assert restored.clock_relationships == source.clock_relationships
         assert (
             await w.owner.put(f"/tenants/{repository}/subscribers/{w.tenant_id}")
         ).status_code in [200, 201]
@@ -239,13 +240,36 @@ async def test_clock_content_round_trips_copy_release_and_purge(raw_client, fake
             assert copied.status_code == 201, copied.text
             async with admin_session_factory() as db:
                 content = await load_content(db, w.tenant_id)
+                assert len(content.clocks) == 2
                 assert (
-                    len(content.clocks)
-                    == len(content.clock_readings)
+                    len(content.clock_readings)
                     == len(content.calendar_reckonings)
+                    == len(content.clock_relationships)
                     == 1
                 )
                 assert set(content.clocks).isdisjoint(source.clocks)
+                # Canonical UUID ordering may reverse during copy. Compare the actual
+                # affine relationship in each named direction, rather than raw JSON.
+                from fractions import Fraction
+
+                from lorenzo_api.clock_conversion import RelationDefinition
+
+                def oriented_relationships(value):
+                    result = {}
+                    for (first, second), record in value.clock_relationships.items():
+                        definition = RelationDefinition.model_validate(record["data"])
+                        if value.entities[first] > value.entities[second]:
+                            first, second = second, first
+                            definition = definition.inverse()
+                        result[(value.entities[first], value.entities[second])] = (
+                            Fraction(definition.ratio),
+                            definition.clock_anchor,
+                            definition.reference_anchor,
+                            record["is_shared"],
+                        )
+                    return result
+
+                assert oriented_relationships(content) == oriented_relationships(source)
                 for source_id, clock_id in content.clock_readings:
                     assert source_id in content.entities and clock_id in content.clocks
     finally:
@@ -331,3 +355,32 @@ def test_clock_record_changes_affect_release_hashes_and_three_way_review():
     local["clock_readings"][0]["data"]["lo"] = "2"
     local["clock_readings"][0]["data"]["hi"] = "2"
     assert diff(base, upstream, local, {})[0].state == "conflict"
+
+
+async def test_event_deletion_and_reading_creation_have_clean_race_outcomes(client, test_user_id):
+    import asyncio
+
+    t = await make_tenant(test_user_id)
+    try:
+        clock = await make_clock(client, t)
+        cid = clock.json()["entity_id"]
+        event = await client.post(
+            f"/tenants/{t}/entities", json={"name": "Departure", "kinds": ["event"]}
+        )
+        eid = event.json()["id"]
+        route = f"/tenants/{t}/events/{eid}/clock-readings"
+        version = (await client.get(route)).headers["etag"]
+        written, removed = await asyncio.gather(
+            client.put(
+                route + f"/{cid}",
+                json={"reading": {"lo": "1", "hi": "1"}},
+                headers={"If-Match": version},
+            ),
+            client.delete(f"/tenants/{t}/entities/{eid}"),
+        )
+        assert (written.status_code, removed.status_code) in [(200, 409), (404, 204)], (
+            written.text,
+            removed.text,
+        )
+    finally:
+        await delete_tenant(t)

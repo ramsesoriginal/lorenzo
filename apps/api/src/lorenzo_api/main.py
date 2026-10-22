@@ -30,6 +30,7 @@ from lorenzo_api.routers.calendars import router as calendars_router
 from lorenzo_api.routers.campaign_invites import router as campaign_invites_router
 from lorenzo_api.routers.campaigns import router as campaigns_router
 from lorenzo_api.routers.characters import router as characters_router
+from lorenzo_api.routers.clock_relationships import router as clock_relationships_router
 from lorenzo_api.routers.clocks import router as clocks_router
 from lorenzo_api.routers.computed_stats import router as computed_stats_router
 from lorenzo_api.routers.discover import router as discover_router
@@ -154,6 +155,7 @@ def create_app() -> FastAPI:
     app.include_router(beings_router)
     app.include_router(calendars_router)
     app.include_router(clocks_router)
+    app.include_router(clock_relationships_router)
     app.include_router(calendar_references_router)
     app.include_router(calendar_periods_router)
     app.include_router(event_order_router)

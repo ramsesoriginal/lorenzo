@@ -120,3 +120,23 @@ test('least-recently-used capacity and oversized responses stay bounded', async 
   await cache.fetch(`${url}large`);
   expect(network).toHaveBeenCalledTimes(68);
 });
+
+test('clock calculation previews preserve scoped reads without becoming cached writes', async () => {
+  const network = vi.fn<typeof fetch>().mockImplementation(async () => json('value'));
+  const cache = createReadCache(network);
+  cache.configure('viewer', 'library', 'owner', true);
+  await cache.fetch(url);
+  for (const path of [
+    'clock-conversions',
+    'clocks/clock/relationship-preview',
+    'clocks/clock/date-reading',
+    'clocks/clock/reading-dates',
+  ]) {
+    await cache.fetch(`https://api.example/tenants/library/${path}`, {
+      method: 'POST',
+      body: '{}',
+    });
+    await cache.fetch(url);
+  }
+  expect(network).toHaveBeenCalledTimes(5);
+});

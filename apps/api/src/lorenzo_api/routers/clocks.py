@@ -37,6 +37,7 @@ from lorenzo_api.models import (
     Calendar,
     CalendarReckoning,
     Clock,
+    ClockRelationship,
     Entity,
     EntityAudience,
     EntitySlug,
@@ -135,6 +136,17 @@ async def mutation_lock(session: SessionDep, tenant: uuid.UUID) -> None:
     )
 
 
+async def lock_clock_entries(
+    session: SessionDep, tenant: uuid.UUID, identities: list[uuid.UUID]
+) -> None:
+    await session.execute(
+        select(Entity.id)
+        .where(Entity.tenant_id == tenant, Entity.id.in_(identities))
+        .order_by(Entity.id)
+        .with_for_update()
+    )
+
+
 async def manager(session: SessionDep, user: CurrentUser, tenant: uuid.UUID) -> bool:
     vis = await resolve_information_visibility(session, tenant_id=tenant, user_id=user.id)
     return vis.is_admin or vis.manages_events
@@ -223,6 +235,7 @@ async def create_clock(
 ) -> ClockOut:
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     await require_event_order_access(session, user, tenant_id)
+    await mutation_lock(session, tenant_id)
     entity = await create_entry(
         session,
         tenant_id=tenant_id,
@@ -276,6 +289,7 @@ async def edit_clock(
 ) -> ClockOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [clock_id])
     await endpoint(session, user, tenant_id, clock_id, Clock)
     clock = await session.scalar(select(Clock).where(Clock.entity_id == clock_id).with_for_update())
     assert clock is not None
@@ -294,6 +308,17 @@ async def edit_clock(
                 .where(CalendarReckoning.clock_entity_id == clock_id)
                 .limit(1)
             )
+        ):
+            raise EntityKindInUseError(
+                detail="Resolve dependent clock records before changing this clock"
+            )
+        if not body.ticking and await session.scalar(
+            select(ClockRelationship.clock_entity_id)
+            .where(
+                (ClockRelationship.clock_entity_id == clock_id)
+                | (ClockRelationship.reference_clock_entity_id == clock_id)
+            )
+            .limit(1)
         ):
             raise EntityKindInUseError(
                 detail="Resolve dependent clock records before changing this clock"
@@ -371,6 +396,7 @@ async def save_reading(
 ) -> ReadingsOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [event_id, clock_id])
     rows, _ = await reading_rows(session, user, tenant_id, event_id)
     conditional(if_match, reading_revision(rows))
     await ticking_clock(session, user, tenant_id, clock_id)
@@ -399,6 +425,7 @@ async def remove_reading(
 ) -> ReadingsOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [event_id, clock_id])
     rows, _ = await reading_rows(session, user, tenant_id, event_id)
     conditional(if_match, reading_revision(rows))
     await endpoint(session, user, tenant_id, clock_id, Clock)
@@ -478,6 +505,7 @@ async def save_reckoning(
 ) -> ReckoningsOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [clock_id, calendar_id])
     rows, _ = await reckoning_rows(session, user, tenant_id, clock_id)
     conditional(if_match, reckoning_revision(rows))
     await ticking_clock(session, user, tenant_id, clock_id)
@@ -515,6 +543,7 @@ async def remove_reckoning(
 ) -> ReckoningsOut:
     await require_event_order_access(session, user, tenant_id)
     await mutation_lock(session, tenant_id)
+    await lock_clock_entries(session, tenant_id, [clock_id, calendar_id])
     rows, _ = await reckoning_rows(session, user, tenant_id, clock_id)
     conditional(if_match, reckoning_revision(rows))
     await endpoint(session, user, tenant_id, calendar_id, Calendar)
@@ -532,14 +561,24 @@ async def date_mapping(
     row = next((r for r in rows if r.calendar_entity_id == calendar), None)
     if row is None:
         raise EntityNotFoundError(detail="No permitted calendar reckoning")
-    definition = await session.scalar(
-        select(Calendar.definition).where(
-            Calendar.entity_id == calendar, Calendar.tenant_id == tenant
+    saved = (
+        await session.execute(
+            select(Calendar.definition, CalendarReckoning.data)
+            .join(CalendarReckoning, CalendarReckoning.calendar_entity_id == Calendar.entity_id)
+            .where(
+                Calendar.entity_id == calendar,
+                Calendar.tenant_id == tenant,
+                CalendarReckoning.clock_entity_id == clock,
+                CalendarReckoning.tenant_id == tenant,
+            )
         )
-    )
+    ).first()
+    if saved is None:
+        raise EntityNotFoundError(detail="No permitted calendar reckoning")
+    definition, data = saved
     parsed = CalendarDefinition.model_validate(definition)
-    return parsed, Fraction(row.data["reading"]) - to_day(
-        parsed, CalendarDate.model_validate(row.data["date"])
+    return parsed, Fraction(data["reading"]) - to_day(
+        parsed, CalendarDate.model_validate(data["date"])
     )
 
 
