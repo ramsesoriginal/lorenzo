@@ -39,7 +39,10 @@ export const sessionReads = createFetchCache({
   storagePrefix: 'lorenzo.sessions.reads.',
 });
 
-/** The scope the reads are kept under: the viewer and, on a library's page, the library. */
-export function readScope(viewer: string, tenant: string | null): string {
-  return JSON.stringify([viewer, tenant ?? '']);
+/**
+ * The scope the reads are kept under: the viewer. A library is already in every path that is read
+ * from it, and moving between pages (from My Sessions to a Session) must keep what was asked ahead.
+ */
+export function readScope(viewer: string): string {
+  return JSON.stringify([viewer]);
 }
