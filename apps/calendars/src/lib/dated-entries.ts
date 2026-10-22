@@ -1,8 +1,9 @@
 import { rememberEntryAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
-import { button, el, entryHref, field, link, message, select } from './dom';
+import { button, el, entryHref, feedback, field, link, message, select, submit } from './dom';
 import { creationVisibility } from './event-visibility';
 import type { Definition, Period, Rule } from './types';
+
 export async function attachDate(
   tenantId: string,
   entryId: string,
@@ -25,8 +26,9 @@ export async function attachDate(
     }),
   );
 }
+
 export function createDatedEntry(tenantId: string, period: () => Promise<Period>): HTMLElement {
-  const form = el('form', '', 'panel stack');
+  const form = el('form', '', 'stack');
   const kind = select(
     'New entry',
     [
@@ -37,13 +39,13 @@ export function createDatedEntry(tenantId: string, period: () => Promise<Period>
   );
   const name = field('Entry name');
   name.input.required = true;
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  const save = el('button', 'Create dated entry', 'btn');
-  save.type = 'submit';
+  const status = feedback();
+  const save = submit('Create dated entry');
   const id = crypto.randomUUID();
   const visibility = creationVisibility();
   kind.input.addEventListener('change', () => visibility.setEvent(kind.input.value === 'event'));
+  const actions = el('div', '', 'row');
+  actions.append(save);
   let created = false;
   let target: Period | undefined;
   form.append(
@@ -51,8 +53,8 @@ export function createDatedEntry(tenantId: string, period: () => Promise<Period>
     name.label,
     visibility.label,
     el('p', 'Notes have their own audiences.', 'caption'),
-    save,
-    status,
+    actions,
+    status.node,
   );
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -88,20 +90,16 @@ export function createDatedEntry(tenantId: string, period: () => Promise<Period>
       await attachDate(tenantId, id, target.entity_id);
       if (form.isConnected) location.assign(`${entryHref(tenantId, id)}&add=information`);
     } catch (e) {
-      status.textContent = message(e);
       if (created) {
-        status.append(
-          document.createTextNode(
-            ' The entry was created; retry to finish associating its date, or ',
-          ),
-          link('open it', entryHref(tenantId, id)),
-        );
-      }
+        status.fail(`${message(e)} The entry was created; retry to finish associating its date.`);
+        status.node.append(link('Open the entry', entryHref(tenantId, id)));
+      } else status.fail(message(e));
       save.disabled = false;
     }
   });
   return form;
 }
+
 export function recurrenceFields(definition: Definition, initial: Rule) {
   const host = el('div', '', 'form-grid');
   const segment = select(
@@ -126,27 +124,28 @@ export function recurrenceFields(definition: Definition, initial: Rule) {
     }),
   };
 }
+
 export function createObservance(
   tenantId: string,
   calendarId: string,
   definition: Definition,
   initial: Rule,
 ): HTMLElement {
-  const form = el('form', '', 'stack panel');
+  const form = el('form', '', 'stack');
   const name = field('Observance name');
   name.input.required = true;
   const rules = recurrenceFields(definition, initial);
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  const save = el('button', 'Create recurring observance', 'btn');
-  save.type = 'submit';
+  const status = feedback();
+  const save = submit('Create recurring observance');
   const id = crypto.randomUUID();
+  const actions = el('div', '', 'row');
+  actions.append(save);
   form.append(
     name.label,
     rules.element,
     el('p', 'Dates absent from a year are skipped. The observance starts restricted.', 'caption'),
-    save,
-    status,
+    actions,
+    status.node,
   );
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -171,18 +170,18 @@ export function createObservance(
       } catch {
         /* Retain the draft when the result cannot be established. */
       }
-      status.textContent = `${message(e)} Your draft is kept.`;
+      status.fail(`${message(e)} Your draft is kept.`);
       save.disabled = false;
     }
   });
   return form;
 }
+
 export function attachExisting(tenantId: string, period: () => Promise<Period>): HTMLElement {
-  const host = el('div', '', 'stack panel');
+  const host = el('div', '', 'stack');
   const q = field('Find a fact or event');
-  const results = el('div', '', 'stack-tight');
-  const status = el('p');
-  status.setAttribute('role', 'status');
+  const results = el('div', '', 'row');
+  const status = feedback();
   let request = 0;
   host.append(
     q.label,
@@ -211,26 +210,30 @@ export function attachExisting(tenantId: string, period: () => Promise<Period>):
                     await attachDate(tenantId, entry.id, target.entity_id);
                     if (host.isConnected) location.assign(entryHref(tenantId, entry.id));
                   } catch (e) {
-                    status.textContent = `${message(e)} Reload the entry before trying again.`;
+                    status.fail(`${message(e)} Reload the entry before trying again.`);
                   }
                 },
                 true,
               ),
             );
-          status.textContent = page.items.length
-            ? 'Choose an entry to associate with this date.'
-            : 'No matching entries are available to you.';
+          status.say(
+            page.items.length
+              ? 'Choose an entry to associate with this date.'
+              : 'No matching entries are available to you.',
+          );
         } catch (e) {
-          status.textContent = message(e);
+          status.fail(message(e));
         }
       },
       true,
+      'search',
     ),
     results,
-    status,
+    status.node,
   );
   return host;
 }
+
 export async function datedEntries(tenantId: string, periodId: string): Promise<HTMLElement> {
   const host = el('section', '', 'stack-tight');
   host.append(el('h3', 'Dated entries'));
@@ -241,11 +244,14 @@ export async function datedEntries(tenantId: string, periodId: string): Promise<
       }),
     ),
   );
+  const list = el('ul', '', 'stack-tight');
   for (const entry of entries) {
     rememberEntryAddress(tenantId, entry);
-    host.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
+    const item = el('li');
+    item.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
+    list.append(item);
   }
-  if (!entries.length)
-    host.append(el('p', 'No dated entries are available to you here.', 'caption'));
+  if (entries.length) host.append(list);
+  else host.append(el('p', 'Nothing is dated here yet, or none of it is open to you.', 'lede'));
   return host;
 }

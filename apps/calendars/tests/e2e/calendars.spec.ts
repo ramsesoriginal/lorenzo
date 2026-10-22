@@ -3,6 +3,10 @@ import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { AUTHGEAR_URL, REFRESH_TOKEN_KEY, SITE_URL, SUBJECT_COOKIE } from './support/env.ts';
 import { buildWorld } from './support/world.ts';
 
+/** The cell of one day: its button, which names the date, and what is written beneath it. */
+const dayCell = (page: Page, name: string) =>
+  page.locator('.day').filter({ has: page.getByRole('button', { name, exact: true }) });
+
 async function signedIn(browser: Browser, subject: string): Promise<Page> {
   const token = await refreshTokenFor(subject);
   const context = await browser.newContext({
@@ -70,8 +74,8 @@ test('imported irregular year is browsable without creating periods, and dated i
   await expect(page.locator('.weekday').first()).toHaveText('Montag');
   const firstMoon = page.locator('.day').first().locator('.moon-phase').first();
   await expect(firstMoon).toHaveAttribute('title', /^Maira:/);
-  await expect(firstMoon).toHaveText(/[🌑🌒🌓🌔🌕🌖🌗🌘]/u);
-  await expect(page.locator('.day').first()).toHaveAttribute(
+  await expect(firstMoon.locator('use')).toHaveAttribute('href', /#icon-moon-/);
+  await expect(page.locator('.day-button').first()).toHaveAttribute(
     'aria-description',
     /Maira:.*Mendra:.*Galon:/,
   );
@@ -79,13 +83,9 @@ test('imported irregular year is browsable without creating periods, and dated i
   await expect(page.locator('.day')).toHaveCount(2);
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
   const diaryDay = page.getByRole('button', { name: '16 Quirm 3286', exact: true });
-  await expect(diaryDay).toContainText('A lantern was lit by the harbour.');
-  await expect(page.getByRole('button', { name: '17 Quirm 3286', exact: true })).toContainText(
-    'Harbour storm',
-  );
-  await expect(page.getByRole('button', { name: '18 Quirm 3286', exact: true })).toContainText(
-    'Recurring · Harbour feast',
-  );
+  await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
+  await expect(dayCell(page, '17 Quirm 3286')).toContainText('Harbour storm');
+  await expect(dayCell(page, '18 Quirm 3286')).toContainText('Recurring · Harbour feast');
   await diaryDay.click();
   await expect(
     page.locator('aside').getByText('A lantern was lit by the harbour.', { exact: true }),
@@ -116,15 +116,15 @@ test('authoring creates periods explicitly and edits ordered information and sto
   const page = await signedIn(browser, world.subject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '2 Rimsep 3286', exact: true }).click();
-  await page.getByRole('button', { name: 'Add information to this date', exact: true }).click();
-  await page.getByLabel('Information title', { exact: true }).fill('Harbour log');
+  await page.getByRole('button', { name: 'Add a note to this date', exact: true }).click();
+  await page.getByLabel('Note title', { exact: true }).fill('Harbour log');
   await page.getByLabel('Text', { exact: true }).fill('The beacon is repaired.');
   await page.locator('input[type=file]').setInputFiles({
     name: 'beacon.png',
     mimeType: 'image/png',
     buffer: await page.screenshot(),
   });
-  await page.getByRole('button', { name: 'Save information', exact: true }).click();
+  await page.getByRole('button', { name: 'Save note', exact: true }).click();
   await expect(page.getByText('The beacon is repaired.', { exact: true })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Harbour log', exact: true })).toBeVisible();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
@@ -192,12 +192,8 @@ test('readers see permitted names and dates without private information or autho
   const page = await signedIn(browser, world.readerSubject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
-  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
-    'A lantern was lit by the harbour.',
-  );
-  await expect(page.getByRole('button', { name: '17 Quirm 3286', exact: true })).toContainText(
-    'Harbour storm',
-  );
+  await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
+  await expect(dayCell(page, '17 Quirm 3286')).toContainText('Harbour storm');
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toHaveCount(0);
   await expect(page.getByText(/Secret tide|Hidden landing|Secret rite/)).toHaveCount(0);
   await page.getByRole('button', { name: '17 Quirm 3286', exact: true }).click();
@@ -206,8 +202,8 @@ test('readers see permitted names and dates without private information or autho
     page.getByRole('heading', { name: 'Harbour storm', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('No information is available to you here.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add information', exact: true })).toHaveCount(1);
+  await expect(page.getByText('No notes are available to you here.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add note', exact: true })).toHaveCount(1);
   await page.context().close();
 });
 test('a calendar can be created through structured preview and opened on a phone after PKCE login', async ({
@@ -353,15 +349,11 @@ test('month content is cached and moon names remain available when selecting a d
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
   await expect(page.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
-    'A lantern was lit by the harbour.',
-  );
+  await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   const loaded = reads.length;
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-4');
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
-  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
-    'A lantern was lit by the harbour.',
-  );
+  await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   expect(reads.length).toBe(loaded);
   await page.screenshot({
     path: test.info().outputPath('month-content-desktop.png'),
@@ -415,29 +407,21 @@ test('whole year reuses month content and supports keyboard tabs, festivals and 
   const before = await periods();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
-  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
-    'A lantern was lit',
-  );
+  await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit');
   await page.getByRole('tab', { name: 'Month or festival', exact: true }).press('End');
   const yearPanel = page.getByRole('tabpanel', { name: 'Whole year', exact: true });
   await expect(page.getByRole('tab', { name: 'Whole year', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
   );
-  await expect(yearPanel.locator('.year-segment > h2')).toHaveText(
+  await expect(yearPanel.locator('.year-segment h2')).toHaveText(
     saved.definition.segments.map((segment) => segment.name),
   );
   await expect(yearPanel.locator('.day')).toHaveCount(387);
   await expect(yearPanel.locator('.festival .day')).toHaveCount(2);
-  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toContainText(
-    'A lantern was lit',
-  );
-  await expect(page.getByRole('button', { name: '17 Quirm 3286', exact: true })).toContainText(
-    'Harbour storm',
-  );
-  await expect(page.getByRole('button', { name: '18 Quirm 3286', exact: true })).toContainText(
-    'Recurring · Harbour feast',
-  );
+  await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit');
+  await expect(dayCell(page, '17 Quirm 3286')).toContainText('Harbour storm');
+  await expect(dayCell(page, '18 Quirm 3286')).toContainText('Recurring · Harbour feast');
   await expect(yearPanel.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(
     0,
   );
@@ -483,7 +467,7 @@ test('whole year on a phone keeps reader visibility and returns from day detail 
     page.getByText(/Secret tide|Hidden landing|Secret rite|A storm reaches/),
   ).toHaveCount(0);
   const day = page.getByRole('button', { name: '16 Quirm 3286', exact: true });
-  await expect(day).toContainText('A lantern was lit');
+  await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit');
   await day.click();
   await expect(
     page.locator('aside').getByText('A lantern was lit by the harbour.', { exact: true }),
@@ -558,7 +542,7 @@ test('Event order shows evidence, keeps conflicting selections, and stays absent
     }),
   );
   await panel.getByRole('button', { name: 'Add relationship', exact: true }).click();
-  await expect(panel.getByRole('status')).toContainText('Your selection is kept');
+  await expect(panel.getByRole('alert')).toContainText('Your selection is kept');
   await expect(panel.getByText(`Selected Event: ${third.name}`, { exact: true })).toBeVisible();
   await panel.getByRole('button', { name: 'Refresh saved relationships', exact: true }).click();
   await expect(panel.getByRole('status')).toContainText('Saved relationships refreshed');
@@ -955,9 +939,7 @@ test('appearance choice survives page swaps when preference storage is unavailab
   await page.context().close();
 });
 
-test('learning is explicit, versioned and separate from Information audiences', async ({
-  browser,
-}) => {
+test('learning is explicit, versioned and separate from note audiences', async ({ browser }) => {
   const world = await buildWorld();
   const path = { tenant_id: world.tenantId };
   const create = (name: string, kinds: ('event' | 'being' | 'fact')[]) =>
@@ -1019,11 +1001,11 @@ test('learning is explicit, versioned and separate from Information audiences', 
   await panel.locator('summary').click();
   await expect(panel.getByText('No learning history is recorded for this Event.')).toBeVisible();
   await panel.getByLabel('Who learned?').selectOption(being.id);
-  await panel.getByLabel('Find an entry with Information').fill('Hidden passage');
+  await panel.getByLabel('Find an entry with notes').fill('Hidden passage');
   await panel.getByRole('button', { name: 'Search entries', exact: true }).click();
   await panel.getByRole('button', { name: 'Hidden passage', exact: true }).click();
-  await expect(panel.getByLabel('Information learned').locator('option')).toHaveCount(2);
-  await panel.getByLabel('Information learned').selectOption(info.id);
+  await expect(panel.getByLabel('Note learned').locator('option')).toHaveCount(2);
+  await panel.getByLabel('Note learned').selectOption(info.id);
   await panel.getByRole('button', { name: 'Record learning', exact: true }).click();
   await expect(
     panel.getByText('Learning recorded. Audiences are unchanged.', { exact: true }),
@@ -1050,7 +1032,7 @@ test('learning is explicit, versioned and separate from Information audiences', 
     }),
   );
   await panel.getByRole('button', { name: 'Remove learning record', exact: true }).click();
-  await expect(panel.getByRole('status')).toContainText('Your selection is kept');
+  await expect(panel.getByRole('alert')).toContainText('Your selection is kept');
   await expect(panel.getByLabel('Who learned?')).toHaveValue('');
   await panel.getByRole('button', { name: 'Refresh saved learning', exact: true }).click();
   await expect(panel.getByRole('status')).toHaveText('Saved learning refreshed.');
@@ -1204,12 +1186,12 @@ test('players create their own Events and Facts and contribute only their own no
   await expect(
     page.getByRole('heading', { name: 'Arrival, corrected', exact: true }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Add information', exact: true }).click();
-  await page.getByLabel('Information title', { exact: true }).fill('My recollection');
+  await page.getByRole('button', { name: 'Add note', exact: true }).click();
+  await page.getByLabel('Note title', { exact: true }).fill('My recollection');
   await page.getByRole('textbox', { name: 'Text', exact: true }).fill('We arrived before supper.');
-  await page.getByRole('button', { name: 'Save information', exact: true }).click();
+  await page.getByRole('button', { name: 'Save note', exact: true }).click();
   await expect(page.getByText('We arrived before supper.', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Edit information', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Edit note', exact: true })).toHaveCount(1);
   await page.goto(`/events/?tenant=${world.tenantId}`);
   await page.getByText('Create an Event', { exact: true }).click();
   await page.getByLabel('Entry kind', { exact: true }).selectOption('fact');
@@ -1246,10 +1228,10 @@ test('Event creation visibility and participant note audiences remain separate',
   );
   expect(audience.shared_with_participants).toBe(true);
   expect(audience.is_public).toBe(false);
-  await page.getByRole('button', { name: 'Add information', exact: true }).click();
-  await page.getByLabel('Information title', { exact: true }).fill('Shared recollection');
+  await page.getByRole('button', { name: 'Add note', exact: true }).click();
+  await page.getByLabel('Note title', { exact: true }).fill('Shared recollection');
   await page.getByRole('textbox', { name: 'Text', exact: true }).fill('The lantern was blue.');
-  await page.getByRole('button', { name: 'Save information', exact: true }).click();
+  await page.getByRole('button', { name: 'Save note', exact: true }).click();
   await expect(page.getByText('The lantern was blue.', { exact: true })).toBeVisible();
   await page.getByText('Who can read this', { exact: true }).click();
   await page.getByLabel('Participants in this Event', { exact: true }).check();

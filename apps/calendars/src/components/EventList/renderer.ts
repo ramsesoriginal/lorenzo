@@ -1,9 +1,22 @@
 import { rememberEntryAddress, tenantAddress } from '../../lib/addresses';
 import { client, unwrap } from '../../lib/api';
-import { button, el, entryHref, field, link, message, select } from '../../lib/dom';
+import {
+  button,
+  disclosure,
+  el,
+  entryHref,
+  feedback,
+  field,
+  iconLink,
+  link,
+  message,
+  select,
+  submit,
+} from '../../lib/dom';
 import { entryPicker } from '../../lib/entry-picker';
 import { creationVisibility } from '../../lib/event-visibility';
 import { start } from '../../lib/session';
+
 export async function mount() {
   const host = document.querySelector<HTMLElement>('#EventList');
   if (!host || host.dataset.mounted) return;
@@ -15,14 +28,14 @@ export async function mount() {
   let being = canOrderEvents ? (initial.get('being') ?? '') : '';
   let chain = initial.get('chain') ?? '';
   let page = 1;
-  host.append(
-    link('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`),
+  const top = el('div', '', 'stack-tight');
+  top.append(
     el('h1', 'Events'),
-    el('p', 'Record what happened, even before its date is known.', 'intro'),
+    el('p', 'Record what happened, even before its date is known.', 'lede'),
   );
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  const list = el('ol', '', 'stack');
+  host.append(iconLink('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`, 'back'), top);
+  const status = feedback();
+  const list = el('ol', '', 'list');
   list.dataset.eventList = '';
   const nav = el('div', '', 'row');
   const q = field('Search Event names', initial.get('q') ?? '');
@@ -47,7 +60,7 @@ export async function mount() {
     'both',
   );
   direction.input.setAttribute('aria-label', 'Causal direction');
-  const filters = el('div', '', 'stack-tight');
+  const filters = el('div', '', 'card card-body stack');
   const choices = el('p', '', 'caption');
   function showChoices() {
     choices.textContent = [
@@ -60,7 +73,7 @@ export async function mount() {
   let generation = 0;
   async function load() {
     const turn = ++generation;
-    status.textContent = 'Loading Events…';
+    status.busy('Loading Events…');
     try {
       const response = await unwrap(
         await client.GET('/tenants/{tenant_id}/events', {
@@ -80,15 +93,18 @@ export async function mount() {
       );
       if (turn !== generation || !host?.isConnected) return;
       list.replaceChildren();
+      list.hidden = !response.items.length;
       list.start = (page - 1) * 30 + 1;
       for (const entry of response.items) {
         rememberEntryAddress(tenantId, entry);
-        const row = el('li', '', 'panel stack-tight');
-        row.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
+        const row = el('li');
+        const open = link(entry.name, entryHref(tenantId, entry.entity_id));
+        open.classList.add('grow');
+        row.append(open);
         if (entry.order_basis)
           row.append(
             el(
-              'p',
+              'span',
               {
                 causal: 'Causal order',
                 ruled: 'Recorded order',
@@ -111,6 +127,7 @@ export async function mount() {
                 void load();
               },
               true,
+              'causality',
             ),
           );
         list.append(row);
@@ -125,6 +142,7 @@ export async function mount() {
               void load();
             },
             true,
+            'previous',
           ),
         );
       if (page < (response.pages ?? 0))
@@ -136,11 +154,14 @@ export async function mount() {
               void load();
             },
             true,
+            'next',
           ),
         );
-      status.textContent = response.total
-        ? `${response.total} Event${response.total === 1 ? '' : 's'}.`
-        : 'No Events match these filters.';
+      status.say(
+        response.total
+          ? `${response.total} Event${response.total === 1 ? '' : 's'}.`
+          : 'No Events match these filters.',
+      );
       const address = new URL(location.href);
       address.searchParams.set('tenant', tenantAddress(tenantId));
       for (const [key, value] of Object.entries({
@@ -156,11 +177,13 @@ export async function mount() {
     } catch (error) {
       if (turn === generation) {
         list.replaceChildren();
-        status.textContent = message(error);
+        list.hidden = true;
+        status.fail(message(error));
       }
     }
   }
-  filters.append(
+  const bar = el('div', '', 'toolbar');
+  bar.append(
     q.label,
     sort.label,
     button(
@@ -169,14 +192,14 @@ export async function mount() {
         page = 1;
         void load();
       },
-      true,
+      false,
+      'search',
     ),
   );
+  filters.append(bar);
   if (canReadEventOrder) {
-    const advanced = el('details', '', 'panel');
-    const body = el('div', '', 'stack');
-    advanced.append(el('summary', canOrderEvents ? 'Participants and causes' : 'Causes'), body);
-    body.append(
+    const advanced = disclosure(canOrderEvents ? 'Participants and causes' : 'Causes');
+    advanced.body.append(
       ...(canOrderEvents
         ? [
             entryPicker(tenantId, 'Filter by being', 'being', (entry) => {
@@ -205,51 +228,47 @@ export async function mount() {
           void load();
         },
         true,
+        'close',
       ),
     );
-    filters.append(advanced);
+    filters.append(advanced.root);
   }
   if (session.canCreateEntries) {
-    const create = el('details', '', 'panel');
-    create.append(el('summary', 'Create an Event'));
+    const create = disclosure('Create an Event', true);
     const form = el('form', '', 'stack');
     const name = field('Event name');
     name.input.required = true;
     const visibility = creationVisibility();
-    const kind = el('select');
-    kind.setAttribute('aria-label', 'Entry kind');
-    for (const [value, label] of [
-      ['event', 'Event'],
-      ['fact', 'Fact'],
-    ]) {
-      const option = el('option', label);
-      option.value = value;
-      kind.append(option);
-    }
-    const kindLabel = el('label', 'Entry kind');
-    kindLabel.append(kind);
-    const save = el('button', 'Create Event', 'btn');
-    save.type = 'submit';
-    kind.addEventListener('change', () => {
-      save.textContent = kind.value === 'event' ? 'Create Event' : 'Create Fact';
-      visibility.setEvent(kind.value === 'event');
+    const kind = select(
+      'Entry kind',
+      [
+        ['event', 'Event'],
+        ['fact', 'Fact'],
+      ],
+      'event',
+    );
+    const save = submit('Create Event');
+    kind.input.addEventListener('change', () => {
+      save.textContent = kind.input.value === 'event' ? 'Create Event' : 'Create Fact';
+      visibility.setEvent(kind.input.value === 'event');
     });
-    const progress = el('p');
-    progress.setAttribute('role', 'status');
+    const progress = feedback();
     const id = crypto.randomUUID();
+    const actions = el('div', '', 'row');
+    actions.append(save);
     form.append(
       name.label,
-      kindLabel,
+      kind.label,
       visibility.label,
       el('p', 'Starts undated. Notes have their own audiences.', 'caption'),
-      save,
-      progress,
+      actions,
+      progress.node,
     );
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       save.disabled = true;
-      progress.textContent = 'Creating…';
+      progress.busy('Creating…');
       try {
         await unwrap(
           await client.POST('/tenants/{tenant_id}/entities', {
@@ -257,7 +276,7 @@ export async function mount() {
             body: {
               id,
               name: name.input.value,
-              kinds: [kind.value as 'event' | 'fact'],
+              kinds: [kind.input.value as 'event' | 'fact'],
               visibility: visibility.value(),
               parents: [],
             },
@@ -269,19 +288,19 @@ export async function mount() {
           const existing = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
             params: { path: { tenant_id: tenantId, entity_id: id } },
           });
-          if (existing.data?.kinds.includes(kind.value as 'event' | 'fact')) {
+          if (existing.data?.kinds.includes(kind.input.value as 'event' | 'fact')) {
             if (form.isConnected) location.assign(entryHref(tenantId, id));
             return;
           }
         } catch {
           /* Keep the stable retry identity and draft. */
         }
-        progress.textContent = `${message(error)} Your draft is kept.`;
+        progress.fail(`${message(error)} Your draft is kept.`);
         save.disabled = false;
       }
     });
-    create.append(form);
-    host.append(create);
+    create.body.append(form);
+    host.append(create.root);
   }
   host.append(
     filters,
@@ -292,7 +311,7 @@ export async function mount() {
         : 'Your story order uses shared relationships between Events you can see. Linearized placements are display order, not evidence of chronology. Other readers may see a different order.',
       'caption',
     ),
-    status,
+    status.node,
     list,
     nav,
   );
