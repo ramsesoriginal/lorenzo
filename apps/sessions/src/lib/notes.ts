@@ -9,7 +9,21 @@ import { parse, references, render } from '@lorenzo/lorenzoscript';
 import { createEditor, DEFAULT_TOOLBAR } from '@lorenzo/lorenzoscript-editor';
 import { client, loadFile, type Schema, unwrap } from './api';
 import { API_BASE_URL } from './config';
-import { button, el, field, message, select } from './dom';
+import {
+  actions,
+  audienceBadge,
+  button,
+  card,
+  el,
+  empty,
+  field,
+  message,
+  say,
+  sectionHead,
+  select,
+  statusLine,
+  submit,
+} from './dom';
 
 type Note = Schema<'InformationOut'>;
 async function renderText(tenant: string, source: string) {
@@ -48,10 +62,11 @@ function noteForm(
   tenant: string,
   entry: string,
   refresh: () => void,
+  cancel: () => void,
   original?: Note,
   scope: 'session' | 'scene' = 'session',
 ) {
-  const form = el('form', '', 'panel stack');
+  const form = el('form', '', 'stack');
   const title = field('Note title', original?.title ?? '');
   title.input.required = true;
   const audience = select(
@@ -71,7 +86,7 @@ function noteForm(
       const text = el('textarea');
       text.id = `note-${crypto.randomUUID()}`;
       text.value = content;
-      const caption = el('label', label);
+      const caption = el('label', label, 'field-label');
       caption.htmlFor = text.id;
       host.append(caption, text);
       const editor = createEditor({
@@ -88,26 +103,26 @@ function noteForm(
     },
   });
   const receipt: BundleReceipt = { id: original?.id ?? crypto.randomUUID() };
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  const save = el('button', 'Save note', 'btn');
-  save.type = 'submit';
+  const status = statusLine();
+  const save = submit('Save note');
   form.append(
     title.label,
     audience.label,
     editor.element,
-    save,
-    button('Cancel', () => {
-      editor.destroy();
-      form.remove();
-    }),
+    actions(
+      save,
+      button('Cancel', () => {
+        editor.destroy();
+        cancel();
+      }),
+    ),
     status,
   );
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!form.reportValidity()) return;
     save.disabled = true;
-    status.textContent = 'Saving…';
+    say(status, 'Saving…');
     void (async () => {
       try {
         await editor.ready();
@@ -127,24 +142,25 @@ function noteForm(
         editor.destroy();
         refresh();
       } catch (error) {
-        status.textContent = `${message(error)} Your draft is still here.`;
+        say(status, `${message(error)} Your draft is still here.`, true);
         save.disabled = false;
       }
     })();
   });
   return form;
 }
+/** `level` is 2 for the page's own Notes section and 4 for the group inside a Scene's card. */
 export async function notes(
   tenant: string,
   entry: string,
   refresh: () => void,
   scope: 'session' | 'scene' = 'session',
+  level: 2 | 4 = 2,
 ) {
   const [data, access] = await Promise.all([
     unwrap(
       await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
         params: { path: { tenant_id: tenant, entity_id: entry } },
-        cache: 'no-store',
       }),
     ),
     unwrap(
@@ -154,47 +170,82 @@ export async function notes(
       }),
     ),
   ]);
-  const host = el('section', '', 'stack');
-  host.append(el('h3', 'Notes'));
+  const host = el('div', '', 'stack');
+  const add = access.can_add_notes
+    ? button(
+        'Add note',
+        () => {
+          if (host.querySelector('form')) return;
+          const wrapper = card(
+            noteForm(tenant, entry, refresh, () => wrapper.root.remove(), undefined, scope),
+          );
+          head.after(wrapper.root);
+        },
+        { icon: 'add' },
+      )
+    : undefined;
+  const head =
+    level === 2
+      ? sectionHead('Notes', { count: data.information.length, actions: add ? [add] : [] })
+      : el('div', '', 'row');
+  if (level === 4) {
+    head.append(el('h4', 'Notes', 'group-title grow'));
+    if (add) head.append(add);
+  }
+  host.append(head);
   for (const note of data.information) {
-    const card = el('article', '', 'panel stack-tight');
-    card.append(
-      el('h4', note.title),
-      el(
-        'p',
-        `${note.created_by_name ? `By ${note.created_by_name} · ` : ''}${scope === 'session' ? (note.is_public ? 'Session participants' : 'Author and Session GMs') : note.is_public ? 'Everyone in this library' : 'Author and entry managers'}`,
-        'caption',
-      ),
+    const article = el('article', '', 'card');
+    const body = el('div', '', 'card-body stack-tight');
+    article.append(body);
+    const shared = note.is_public;
+    const audience =
+      scope === 'session'
+        ? shared
+          ? 'Session participants'
+          : 'Author and Session GMs'
+        : shared
+          ? 'Everyone in this library'
+          : 'Author and entry managers';
+    const titleRow = el('div', '', 'row');
+    titleRow.append(
+      el(level === 2 ? 'h3' : 'h5', note.title, 'item-title grow'),
+      audienceBadge(audience, shared),
     );
+    body.append(titleRow);
+    if (note.created_by_name) body.append(el('p', `By ${note.created_by_name}`, 'status-text'));
     const content = el('div');
     renderInformationPayloads(content, {
       information: note,
       loadFile,
       renderText: async (target, source) => {
         try {
+          target.classList.add('ls-content');
           target.innerHTML = await renderText(tenant, source);
         } catch {
           target.textContent = source;
         }
       },
     });
-    card.append(content);
+    body.append(content);
     if (access.editable_information_ids.includes(note.id))
-      card.append(
+      body.append(
         button('Edit note', () => {
-          card.replaceChildren(noteForm(tenant, entry, refresh, note, scope));
+          const previous = [...article.childNodes];
+          article.replaceChildren(
+            noteForm(
+              tenant,
+              entry,
+              refresh,
+              () => article.replaceChildren(...previous),
+              note,
+              scope,
+            ),
+          );
+          article.firstElementChild?.classList.add('card-body');
         }),
       );
-    host.append(card);
+    host.append(article);
   }
-  if (!data.information.length)
-    host.append(el('p', 'No notes are available to you here.', 'caption'));
-  if (access.can_add_notes)
-    host.append(
-      button('Add note', () => {
-        if (!host.querySelector('form'))
-          host.append(noteForm(tenant, entry, refresh, undefined, scope));
-      }),
-    );
+  if (!data.information.length) host.append(empty('No notes are available to you here.'));
   return host;
 }

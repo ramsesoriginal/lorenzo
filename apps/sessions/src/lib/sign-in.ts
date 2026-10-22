@@ -1,40 +1,50 @@
 import { getAppLinks } from '@lorenzo/api-client';
+import { bindShell } from '@lorenzo/app-shell';
 import { client, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { API_BASE_URL } from './config';
 import { message } from './dom';
-import { bindThemeToggle } from './theme';
+import { bindSessionPrefetch } from './prefetch';
+import { readScope, sessionReads } from './read-cache';
 export async function start() {
-  bindThemeToggle();
-  const status = document.querySelector<HTMLElement>('[data-session]');
-  if (!status) return null;
-  document.querySelector('[data-login]')?.addEventListener('click', () => {
-    sessionStorage.setItem('lorenzo:sessions:return', location.pathname + location.search);
-    void login().catch((error) => {
-      status.textContent = message(error);
-    });
+  const shell = bindShell({
+    themeKey: 'lorenzo:sessions:theme',
+    onLogin() {
+      sessionStorage.setItem('lorenzo:sessions:return', location.pathname + location.search);
+      void login().catch((error) => shell?.status(message(error), 'error'));
+    },
+    onLogout() {
+      void logout();
+    },
   });
-  document.querySelector('[data-logout]')?.addEventListener('click', () => void logout());
+  if (!shell || !document.querySelector('[data-session]')) return null;
+  shell.account({ state: 'checking' });
+  // The links that belong to a library name the one the address names.
+  const tenant = new URLSearchParams(location.search).get('tenant');
+  shell.library(tenant);
+  // The registry does not hold the page up.
+  void getAppLinks(API_BASE_URL, sessionReads.fetch)
+    .then((registry) => {
+      if (registry.apps.account_hub) shell.accountLink(registry.apps.account_hub.url);
+    })
+    .catch(() => {});
   try {
-    const registry = await getAppLinks(API_BASE_URL);
-    const hub = document.querySelector<HTMLAnchorElement>('[data-hub]');
-    if (hub && registry.apps.account_hub) {
-      hub.href = registry.apps.account_hub.url;
-      hub.hidden = false;
-    }
     if (!isAuthConfigured() || !(await isAuthenticated())) {
-      status.textContent = 'Log in to prepare sessions and read your group’s notes.';
-      document.querySelector<HTMLElement>('[data-login]')?.removeAttribute('hidden');
+      sessionReads.clear();
+      shell.account({ state: 'signed-out' });
+      shell.status('Log in to prepare Sessions and read your group’s notes.');
       return null;
     }
     const me = await unwrap(await client.GET('/me'));
-    document.querySelector<HTMLElement>('[data-logout]')?.removeAttribute('hidden');
-    document.querySelector<HTMLElement>('[data-welcome]')?.setAttribute('hidden', '');
-    document.querySelector<HTMLElement>('[data-page]')?.removeAttribute('hidden');
+    sessionReads.configure(readScope(me.id));
+    bindSessionPrefetch();
+    shell.account({ state: 'signed-in', label: me.email ?? undefined });
+    shell.status('');
+    shell.reveal();
     return me;
   } catch (error) {
-    status.textContent = message(error);
-    document.querySelector<HTMLElement>('[data-login]')?.removeAttribute('hidden');
+    shell.account({ state: 'signed-out' });
+    shell.status(message(error), 'error');
     return null;
   }
 }

@@ -53,3 +53,11 @@ played presentations as a starting point; repeated presentations name the same p
 Reorder or omit participations before saving. The proposal saves atomically, rejects cycles and
 never creates Event participation, causation or learning. Authoring retains Event-order manager
 restrictions. Ordinary order rulings and each being's support remain independently removable.
+
+## Page frame
+
+The header, skip link, welcome, footer and theme toggle come from [`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand ([ADR 0322](../../docs/adr/0322-calendars-and-sessions-share-a-header-and-the-brand-base.md)); `src/layouts/Base.astro` only names the product, its page links and its welcome text. At phone width the header shows the spark alone.
+
+## What a save draws again
+
+The Session page is drawn in regions (its head, details, roster, notes, references, game time, Scenes and each Scene card, adding a Scene, played order, Session order, lived order). A save reads the Session again, which moves its version for every panel, and then draws again only the regions it can have changed, each once its own data is ready: saving the details redraws the head and the details, a note redraws the notes, sharing or moving a Scene redraws its cards. What is being written in the other panels, and which panels are open, stays as it is. Adding or removing a Scene redraws the whole outline (a draft inside a Scene card is lost then), and a change in who may manage the Session draws the page again.

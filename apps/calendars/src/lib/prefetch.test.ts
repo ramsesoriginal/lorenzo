@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 
 const { allowed, get } = vi.hoisted(() => ({ allowed: vi.fn(() => true), get: vi.fn() }));
-vi.mock('./read-cache', () => ({ calendarReads: { canPrefetch: allowed } }));
+vi.mock('./read-cache', () => ({ calendarReads: { scoped: allowed } }));
 vi.mock('./api', () => ({ client: { GET: get }, unwrap: async (r: unknown) => r }));
 
 import { prefetchEntry } from './prefetch';

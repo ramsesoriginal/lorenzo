@@ -1,6 +1,6 @@
 # Releasing
 
-Fully automated by release-please ([ADR 0003](../adr/0003-polyglot-monorepo-tooling.md)) — this doc explains what the automation does, in case it needs debugging. `apps/api` is registered in `release-please-config.json` and has tagged real releases (starting `api-v0.2.0`) since its commits first landed on `main`.
+Fully automated by release-please ([ADR 0003](../adr/0003-polyglot-monorepo-tooling.md)) — this doc explains what the automation does, in case it needs debugging. `release-please-config.json` registers these paths: `apps/account-hub`, `apps/api`, `apps/bench`, `apps/beings`, `apps/brand`, `apps/calendars`, `apps/cli`, `apps/inventory-ios`, `apps/inventory-mobile`, `apps/inventory-web`, `apps/loot-bot`, `apps/sessions`, `packages/api-client`, `packages/brand`, `packages/calendar-engine`, `packages/converters`, `packages/information-editor`, `packages/inventory-names`, `packages/lorenzoscript`, `packages/lorenzoscript-editor` and `packages/stat-values`. `.release-please-manifest.json` holds each one's current version, and several are still at `0.0.0`. A `CHANGELOG.md` exists only where release-please has generated one: today `apps/account-hub`, `apps/api`, `apps/brand`, `apps/inventory-mobile`, `apps/inventory-web`, `apps/loot-bot` and `packages/brand`. `apps/api` has tagged releases starting with `api-v0.2.0`.
 
 ## The flow
 

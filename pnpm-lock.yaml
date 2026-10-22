@@ -324,6 +324,9 @@ importers:
       '@lorenzo/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@lorenzo/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
@@ -336,6 +339,9 @@ importers:
       '@lorenzo/lorenzoscript-editor':
         specifier: workspace:*
         version: link:../../packages/lorenzoscript-editor
+      '@lorenzo/read-cache':
+        specifier: workspace:*
+        version: link:../../packages/read-cache
       astro:
         specifier: ^7.3.5
         version: 7.3.5(@types/node@26.6.3)(tsx@4.23.15)(yaml@2.9.1)
@@ -343,6 +349,9 @@ importers:
       '@astrojs/check':
         specifier: ^0.9.4
         version: 0.9.10(@emnapi/runtime@1.11.3)(prettier-plugin-astro@1.1.0(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(prettier@3.9.9))(prettier@3.9.9)(typescript@6.0.3)
+      '@axe-core/playwright':
+        specifier: ^4.14.0
+        version: 4.14.0(playwright-core@1.63.0)
       '@biomejs/biome':
         specifier: ^2.3.0
         version: 2.5.14
@@ -510,6 +519,9 @@ importers:
       '@lorenzo/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@lorenzo/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
@@ -522,6 +534,12 @@ importers:
       '@lorenzo/lorenzoscript-editor':
         specifier: workspace:*
         version: link:../../packages/lorenzoscript-editor
+      '@lorenzo/period-picker':
+        specifier: workspace:*
+        version: link:../../packages/period-picker
+      '@lorenzo/read-cache':
+        specifier: workspace:*
+        version: link:../../packages/read-cache
       astro:
         specifier: ^7.3.5
         version: 7.3.5(@types/node@26.6.3)(tsx@4.23.15)(yaml@2.9.1)
@@ -529,6 +547,9 @@ importers:
       '@astrojs/check':
         specifier: ^0.9.4
         version: 0.9.10(@emnapi/runtime@1.11.3)(prettier-plugin-astro@1.1.0(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(prettier@3.9.9))(prettier@3.9.9)(typescript@6.0.3)
+      '@axe-core/playwright':
+        specifier: ^4.14.0
+        version: 4.14.0(playwright-core@1.63.0)
       '@biomejs/biome':
         specifier: ^2.3.0
         version: 2.5.14
@@ -575,6 +596,27 @@ importers:
       openapi-typescript:
         specifier: ^7.5.2
         version: 7.13.0(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.3(@types/node@26.6.3)(@vitest/coverage-v8@5.0.3)(msw@2.15.0(@types/node@26.6.3)(typescript@6.0.3))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/app-shell:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.3.0
+        version: 2.5.14
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.6.3
+      prettier:
+        specifier: ^3.9.9
+        version: 3.9.9
+      prettier-plugin-astro:
+        specifier: ^1.1.0
+        version: 1.1.0(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(prettier@3.9.9)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -649,6 +691,40 @@ importers:
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.3(@types/node@26.6.3)(@vitest/coverage-v8@5.0.3)(msw@2.15.0(@types/node@26.6.3)(typescript@6.0.3))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/period-picker:
+    dependencies:
+      '@lorenzo/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.3.0
+        version: 2.5.14
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.6.3
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.3(@types/node@26.6.3)(@vitest/coverage-v8@5.0.3)(msw@2.15.0(@types/node@26.6.3)(typescript@6.0.3))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/read-cache:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.3.0
+        version: 2.5.14
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.6.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -852,6 +928,12 @@ packages:
 
   '@authgear/web@6.0.0':
     resolution: {integrity: sha512-yDDTa+Oh5Brrm8JFWvoAqFnOLS0pb31Q4+YgDeqrrcFVCSJ+ijTat0lmPQS3ek843XU75Ds7paFX6yMqvmHlww==}
+
+  '@axe-core/playwright@4.14.0':
+    resolution: {integrity: sha512-SGUhG5PIHd2eMdpgBF2PyQLOhX+qyDR2PT4cmoS4Qk2ak+jX/rrSvst9l0PGv5WTHolKpUMvVmoHpr4cZgf1RQ==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      playwright-core: '>= 1.0.0'
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -1922,6 +2004,10 @@ packages:
   atomic-sleep@1.0.0:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
+
+  axe-core@4.14.0:
+    resolution: {integrity: sha512-9WTZxEjsZ7b13TH8JPmbV2z8CHbl80/2hm3XPEG4JgNdQLK81IBRXmSxHfMAOkSqQeRxT/0dwNDz2GOm3zzpcQ==}
+    engines: {node: '>=4'}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -3745,6 +3831,11 @@ snapshots:
 
   '@authgear/web@6.0.0': {}
 
+  '@axe-core/playwright@4.14.0(playwright-core@1.63.0)':
+    dependencies:
+      axe-core: 4.14.0
+      playwright-core: 1.63.0
+
   '@babel/code-frame@7.29.7':
     dependencies:
       '@babel/helper-validator-identifier': 7.29.7
@@ -4708,6 +4799,8 @@ snapshots:
       - yaml
 
   atomic-sleep@1.0.0: {}
+
+  axe-core@4.14.0: {}
 
   axobject-query@4.1.0: {}
 

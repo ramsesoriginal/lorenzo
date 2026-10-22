@@ -1,0 +1,25 @@
+# A pnpm workspace member like packages/information-editor: the package ships its source, so there
+# is no `build`; `lint` also type-checks and checks the .astro files with Prettier.
+[tasks.install]
+description = "Install dependencies (frozen lockfile)"
+run = "pnpm install --frozen-lockfile"
+hide = true
+
+[tasks.dev]
+description = "Nothing to run - the apps that use this package (calendars, sessions) have the dev servers"
+run = "echo 'packages/app-shell has no dev server - run the tests, or an app that uses it.'"
+
+[tasks.lint]
+description = "Biome + tsc --noEmit + Prettier check (.astro)"
+depends = ["install"]
+run = "pnpm run lint"
+
+[tasks.format]
+description = "Biome and Prettier autoformat"
+depends = ["install"]
+run = "pnpm run format"
+
+[tasks.test]
+description = "Run the tests"
+depends = ["install"]
+run = "pnpm run test"
