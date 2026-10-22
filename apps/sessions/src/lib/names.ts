@@ -53,3 +53,32 @@ if (typeof window !== 'undefined') {
     campaigns.clear();
   });
 }
+
+let roles: Promise<Map<string, string>> | undefined;
+
+/**
+ * Whether the person may write to calendars in a library: the rule Calendars itself uses (an Owner,
+ * Organizer or Author). It decides whether a date nobody has saved yet can be offered; the API
+ * still decides the write.
+ */
+export async function canEditCalendars(tenant: string) {
+  roles ??= (async () => {
+    const found = new Map<string, string>();
+    try {
+      const all = await fetchAllPages(async (page) =>
+        unwrap(await client.GET('/tenants', { params: { query: { page, size: 100 } } })),
+      );
+      for (const t of all) found.set(t.id, t.role);
+    } catch {
+      // Without a role, only dates that already exist are offered.
+    }
+    return found;
+  })();
+  return ['owner', 'orga', 'author'].includes((await roles).get(tenant) ?? '');
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('lorenzo:sign-out', () => {
+    roles = undefined;
+  });
+}

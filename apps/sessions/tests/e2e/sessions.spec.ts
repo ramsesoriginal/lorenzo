@@ -673,3 +673,112 @@ for (const look of [
     }
   });
 }
+
+test('the period picker chooses game time and a start, and writes nothing until Save', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  const writes: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() !== 'GET' && /\/periods|\/dates|\/sessions\/[^/]+$/.test(request.url())) {
+      writes.push(
+        `${request.method()} ${new URL(request.url()).pathname.split('/').slice(3).join('/')}`,
+      );
+    }
+  });
+  try {
+    await ok(
+      w.gm.POST('/tenants/{tenant_id}/calendars', {
+        params: { path: w.path },
+        body: {
+          name: 'Reckoning',
+          is_public: false,
+          definition: {
+            format: 'lorenzo.calendar/1',
+            segments: [
+              { key: 'first', name: 'First', days: 27, kind: 'month', in_week: true },
+              { key: 'festival', name: 'Festival', days: 2, kind: 'festival', in_week: false },
+            ],
+            week: {
+              length: 7,
+              reset: 'never',
+              reference: { year: 0, segment: 'first', day: 1 },
+              weekday: 0,
+            },
+            moons: [],
+          },
+        },
+      }),
+    );
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'The harbour at night', campaign_id: w.campaign.id },
+      }),
+    );
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+
+    // Game time covered: a range of days, chosen as days.
+    await page.getByText('Choose periods', { exact: true }).click();
+    const picker = page.locator('.period-picker');
+    await expect(picker.getByRole('spinbutton', { name: 'Year' })).toHaveValue('0');
+    await picker.getByRole('button', { name: 'Choose a range of days' }).click();
+    await picker.getByRole('button', { name: '16 First 0', exact: true }).click();
+    await picker.getByRole('button', { name: '18 First 0', exact: true }).click();
+    await expect(picker).toContainText('3 days in First 0');
+    await picker.scrollIntoViewIfNeeded();
+    await picker.screenshot({ path: test.info().outputPath('period-picker.png') });
+    await expectBrandRules(page, 'a Session with the period picker open', false);
+    expect(writes).toEqual([]);
+
+    await page.getByRole('button', { name: 'Save game time', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Game time covered' })).toBeVisible();
+    const savedDates = () =>
+      ok(
+        w.gm.GET('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+          params: { path: { ...w.path, entity_id: session.id } },
+        }),
+      );
+    await expect
+      .poll(async () => (await savedDates()).map((period) => period.day).sort())
+      .toEqual([16, 17, 18]);
+    expect(writes.some((write) => write.endsWith('/periods/batch'))).toBe(true);
+    const saved = await savedDates();
+    // The page draws itself again after a save: the picker of the old page is gone.
+    await expect(page.locator('.period-picker')).toHaveCount(0);
+    await expect(page.getByRole('listitem').filter({ hasText: '17 First 0' })).toBeVisible();
+
+    // The starting period: one choice, and a day that already exists is marked saved.
+    await page.getByText('Session details', { exact: true }).click();
+    const detailsPanel = page
+      .locator('details.panel')
+      .filter({ hasText: 'Session details' })
+      .first();
+    await expect(detailsPanel).toHaveAttribute('open', '', { timeout: 5000 });
+    const start = page.getByRole('group', { name: 'In-world starting period' });
+    await expect(start).toBeVisible({ timeout: 5000 });
+    await start.getByRole('button', { name: 'Choose', exact: true }).click({ timeout: 5000 });
+    await expect(start.locator('.period-picker')).toBeVisible({ timeout: 5000 });
+    await start
+      .getByRole('button', { name: '17 First 0, saved', exact: true })
+      .click({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Save Session details', exact: true }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            await ok(
+              w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+                params: { path: { ...w.path, session_id: session.id } },
+              }),
+            )
+          ).start_period_id,
+      )
+      .toBe(saved.find((period) => period.day === 17)?.entity_id);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});

@@ -142,8 +142,8 @@ export function createPeriodPicker(options: PeriodPickerOptions): PeriodPicker {
 
   const status = el('p', 'status-text row-tight', '', { role: 'status' });
   const days = el('div', 'period-days', '', { role: 'group' });
-  const note = el('p', 'caption');
-  const chips = el('ul', 'list period-chosen');
+  const note = el('p', 'status-text');
+  const chips = el('ul', 'period-chosen');
   const summary = el('p', 'status-text');
   const error = el('p', 'error-text', '', { role: 'alert' });
   error.hidden = true;

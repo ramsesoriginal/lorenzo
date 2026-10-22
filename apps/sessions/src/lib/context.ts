@@ -1,3 +1,4 @@
+import { createPeriodPicker, type PeriodPicker } from '@lorenzo/period-picker';
 import { client, fetchAllPages, unwrap } from './api';
 import {
   actions,
@@ -12,6 +13,8 @@ import {
   select,
   statusLine,
 } from './dom';
+import { canEditCalendars } from './names';
+import '@lorenzo/period-picker/period-picker.css';
 
 type Source = 'scenes' | 'sessions';
 const KIND: Record<string, string> = { facts: 'Fact', events: 'Event', beings: 'Being' };
@@ -181,27 +184,22 @@ export async function coveragePanel(
     host.append(list);
   } else host.append(empty('No game time is set for this Session.'));
   if (!manager) return host;
-  const entries = await fetchAllPages(async (page) =>
-    unwrap(
-      await client.GET('/tenants/{tenant_id}/entities', {
-        params: {
-          path: { tenant_id: tenant },
-          query: { kind: ['calendar_period'], page, size: 100 },
-        },
-      }),
-    ),
-  );
-  const choose = panel('Choose periods', `${entries.length} available`);
-  const checks = el('div', '', 'grid');
-  checks.style.setProperty('--grid-min', '240px');
-  const boxes = entries.map((e) => {
-    const label = el('label', '', 'check');
-    const input = el('input');
-    input.type = 'checkbox';
-    input.checked = periods.some((p) => p.entity_id === e.id);
-    label.append(input, el('span', e.name));
-    checks.append(label);
-    return { id: e.id, input };
+  const choose = panel('Choose periods', 'by calendar, year, month and day');
+  // The picker loads when the panel is first opened, not with the page (ADR 0323).
+  let picker: PeriodPicker | undefined;
+  choose.root.addEventListener('toggle', () => {
+    if (!choose.root.open || picker) return;
+    void (async () => {
+      picker = createPeriodPicker({
+        client,
+        tenantId: tenant,
+        mode: 'multiple',
+        canCreate: await canEditCalendars(tenant),
+        initial: periods.map((p) => p.entity_id),
+        label: 'Game time covered',
+      });
+      choose.body.prepend(picker.element);
+    })();
   });
   const entry = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
     params: { path },
@@ -210,9 +208,7 @@ export async function coveragePanel(
   await unwrap(entry);
   let version = entry.response.headers.get('etag') ?? '';
   const status = statusLine();
-  if (!entries.length) choose.body.append(empty('No calendar periods exist in this library yet.'));
   choose.body.append(
-    checks,
     actions(
       button(
         'Save game time',
@@ -220,7 +216,9 @@ export async function coveragePanel(
           await unwrap(
             await client.PUT('/tenants/{tenant_id}/entities/{entity_id}/dates', {
               params: { path, header: { 'if-match': version } },
-              body: { period_ids: boxes.filter((c) => c.input.checked).map((c) => c.id) },
+              body: {
+                period_ids: picker ? await picker.resolve() : periods.map((p) => p.entity_id),
+              },
             }),
           );
           await refresh();

@@ -25,6 +25,7 @@
     "@lorenzo/app-shell": "workspace:*",
     "@lorenzo/brand": "workspace:*",
     "@lorenzo/information-editor": "workspace:*",
+    "@lorenzo/period-picker": "workspace:*",
     "@lorenzo/lorenzoscript": "workspace:*",
     "@lorenzo/lorenzoscript-editor": "workspace:*",
     "astro": "^7.3.5"
