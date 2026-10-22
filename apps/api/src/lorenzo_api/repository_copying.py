@@ -39,6 +39,8 @@ from lorenzo_api.models import (
     Calendar,
     CalendarObservance,
     CalendarPeriod,
+    CalendarReckoning,
+    ClockRelationship,
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
@@ -51,6 +53,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventClockReading,
     EventLearning,
     EventParticipant,
     EventRelationship,
@@ -627,6 +630,10 @@ class _Planner:
                 )
             if "event" in kinds:
                 self.rows["story_event"].append({"entity_id": new, "tenant_id": tenant_id})
+            if "clock" in kinds:
+                self.rows["clock"].append(
+                    {"entity_id": new, "tenant_id": tenant_id, "ticking": c.clocks[e]}
+                )
             if "calendar" in kinds:
                 self.rows["calendar"].append(
                     {"entity_id": new, "tenant_id": tenant_id, "definition": c.calendars[e]}
@@ -914,6 +921,53 @@ class _Planner:
                         "parent_entity_id": parent_id,
                     }
                 )
+        from lorenzo_api.clock_conversion import RelationDefinition, canonical
+
+        for (first, second), relation_value in c.clock_relationships.items():
+            if copies("entity", first) or copies("entity", second):
+                local_first, local_second = (
+                    self._local(c, "entity", first),
+                    self._local(c, "entity", second),
+                )
+                if local_first is None or local_second is None:
+                    drop(
+                        "clock_relationship",
+                        first if copies("entity", first) else second,
+                        "its other clock was not copied",
+                    )
+                else:
+                    first_id, second_id, relation_definition = canonical(
+                        local_first,
+                        local_second,
+                        RelationDefinition.model_validate(relation_value["data"]),
+                    )
+                    self.rows["clock_relationship"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "clock_entity_id": first_id,
+                            "reference_clock_entity_id": second_id,
+                            "data": relation_definition.model_dump(),
+                            "is_shared": relation_value["is_shared"],
+                        }
+                    )
+        for field_name, table, source_column in [
+            ("clock_readings", "event_clock_reading", "event_entity_id"),
+            ("calendar_reckonings", "calendar_reckoning", "calendar_entity_id"),
+        ]:
+            for (source, clock), value in getattr(c, field_name).items():
+                if copies("entity", source):
+                    local_clock = self._local(c, "entity", clock)
+                    if local_clock is None:
+                        drop(table, source, "its clock was not copied")
+                    else:
+                        self.rows[table].append(
+                            {
+                                "tenant_id": tenant_id,
+                                source_column: self.local["entity"][source],
+                                "clock_entity_id": local_clock,
+                                **value,
+                            }
+                        )
         for field_name, table, target_column in [
             ("scene_facts", "scene_fact", "fact_entity_id"),
             ("scene_events", "scene_event", "event_entity_id"),
@@ -1175,6 +1229,40 @@ async def write_rows(session: AsyncSession, rows: dict[str, list[dict[str, Any]]
         {r["tenant_id"] for r in rows.get("event_relationship", []) + rows.get("lived_before", [])}
     ):
         await lock_event_order(session, tenant_id)
+    from lorenzo_api.models import Clock
+    from lorenzo_api.routers.clocks import lock_clock_entries, mutation_lock
+
+    clock_dependencies: dict[uuid.UUID, set[uuid.UUID]] = {}
+    for table in ("event_clock_reading", "calendar_reckoning", "clock_relationship"):
+        for record in rows.get(table, []):
+            clock_dependencies.setdefault(record["tenant_id"], set()).add(record["clock_entity_id"])
+            if table == "clock_relationship":
+                clock_dependencies[record["tenant_id"]].add(record["reference_clock_entity_id"])
+    clock_tenants = set(clock_dependencies) | {
+        record["tenant_id"] for record in rows.get("clock", [])
+    }
+    for tenant in sorted(clock_tenants):
+        await mutation_lock(session, tenant)
+        identities = clock_dependencies.get(tenant, set())
+        await lock_clock_entries(session, tenant, list(identities))
+        available = set(
+            await session.scalars(
+                select(Clock.entity_id).where(
+                    Clock.tenant_id == tenant,
+                    Clock.entity_id.in_(identities),
+                    Clock.ticking.is_(True),
+                )
+            )
+        )
+        available |= {
+            record["entity_id"]
+            for record in rows.get("clock", [])
+            if record["tenant_id"] == tenant and record.get("ticking", True)
+        }
+        if identities - available:
+            raise InvalidRepositoryUpdateError(
+                detail="Copy ticking clock dependencies before their records"
+            )
     bound_rows = rows.get("calendar_period", []) + rows.get("calendar_observance", [])
     calendars = {(r["tenant_id"], r["calendar_entity_id"]) for r in bound_rows}
     for tenant_id, calendar_id in sorted(calendars, key=lambda pair: (str(pair[0]), str(pair[1]))):
@@ -1423,6 +1511,9 @@ async def forget_copy(
         from lorenzo_api.event_order_lock import lock_event_order
 
         await lock_event_order(session, t)
+        from lorenzo_api.routers.clocks import mutation_lock
+
+        await mutation_lock(session, t)
         # Serialize with materialization and date edits before inspecting local references.
         await session.execute(
             select(Entity.id)
@@ -1507,6 +1598,39 @@ async def forget_copy(
         ):
             raise EntityKindInUseError(
                 detail="Local dated material still references this copy. Resolve it before purging."
+            )
+        clock_bindings: list[tuple[type[EventClockReading] | type[CalendarReckoning], Any]] = [
+            (EventClockReading, EventClockReading.event_entity_id),
+            (CalendarReckoning, CalendarReckoning.calendar_entity_id),
+        ]
+        for clock_model, source in clock_bindings:
+            if await session.scalar(
+                select(source)
+                .where(
+                    clock_model.tenant_id == t,
+                    source.not_in(entities),
+                    clock_model.clock_entity_id.in_(entities),
+                )
+                .limit(1)
+            ):
+                raise InvalidRepositoryUpdateError(
+                    detail="Resolve local references before purging this copy"
+                )
+        if await session.scalar(
+            select(ClockRelationship.clock_entity_id)
+            .where(
+                ClockRelationship.tenant_id == t,
+                or_(
+                    ClockRelationship.clock_entity_id.in_(entities)
+                    & ClockRelationship.reference_clock_entity_id.not_in(entities),
+                    ClockRelationship.reference_clock_entity_id.in_(entities)
+                    & ClockRelationship.clock_entity_id.not_in(entities),
+                ),
+            )
+            .limit(1)
+        ):
+            raise InvalidRepositoryUpdateError(
+                detail="Resolve local references before purging this copy"
             )
         # The edges the attachments recorded that no deleted row takes with it. One
         # whose parent a purge deletes goes with that entity, and is counted below
@@ -1693,6 +1817,27 @@ async def forget_copy(
                     target.in_(entities) & source.not_in(entities),
                 ),
             )
+        for clock_model, source in clock_bindings:
+            also[clock_model.__tablename__] = await _count(
+                session,
+                clock_model,
+                clock_model.tenant_id == t,
+                or_(
+                    source.in_(entities) & clock_model.clock_entity_id.not_in(entities),
+                    clock_model.clock_entity_id.in_(entities) & source.not_in(entities),
+                ),
+            )
+        also["clock_relationship"] = await _count(
+            session,
+            ClockRelationship,
+            ClockRelationship.tenant_id == t,
+            or_(
+                ClockRelationship.clock_entity_id.in_(entities)
+                & ClockRelationship.reference_clock_entity_id.not_in(entities),
+                ClockRelationship.reference_clock_entity_id.in_(entities)
+                & ClockRelationship.clock_entity_id.not_in(entities),
+            ),
+        )
         also["lived_before"] = await _count(
             session,
             LivedBefore,
@@ -1761,6 +1906,22 @@ async def forget_copy(
                 or_(
                     EventParticipant.event_entity_id.in_(entities),
                     EventParticipant.being_entity_id.in_(entities),
+                ),
+            )
+        )
+        for clock_model, source in clock_bindings:
+            await session.execute(
+                delete(clock_model).where(
+                    clock_model.tenant_id == t,
+                    or_(source.in_(entities), clock_model.clock_entity_id.in_(entities)),
+                )
+            )
+        await session.execute(
+            delete(ClockRelationship).where(
+                ClockRelationship.tenant_id == t,
+                or_(
+                    ClockRelationship.clock_entity_id.in_(entities),
+                    ClockRelationship.reference_clock_entity_id.in_(entities),
                 ),
             )
         )

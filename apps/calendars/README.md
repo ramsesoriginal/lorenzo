@@ -119,3 +119,39 @@ Character, and group knowledge remains direct rather than inherited through nest
 ## Page frame
 
 The header, skip link, welcome, footer and theme toggle come from [`@lorenzo/app-shell`](../../packages/app-shell/README.md) over the shared brand ([ADR 0322](../../docs/adr/0322-calendars-and-sessions-share-a-header-and-the-brand-base.md)); `src/layouts/Base.astro` only names the product, its page links and its welcome text. At phone width the header shows the spark alone. The page styles itself with the brand’s classes and tokens; `src/styles/app.css` holds only the month grid, a day, the year view and the day panel, and `tests/css.test.ts` fails on an undefined token, a literal colour, font, shadow or breakpoint, or `!important`. The end-to-end suite also runs axe on the main pages at desktop and phone width in both themes, checks nothing scrolls sideways at 390px and that what is pressed is at least 44px tall.
+
+## Optional clocks and readings
+
+**Browse clocks** opens independently authored Clock entries (ADR 0320). Create a ticking
+clock or declare it timeless; calendars continue to work without either. Clock entries reuse
+names, link names, Information and outer audiences. Authors, GMs and full-visibility
+administrators manage structured records; players retain their existing Event capabilities.
+
+On a ticking Clock, open **Clock and calendar reckonings**, choose a calendar and pair the
+start of one date with an exact Clock reading. A clock can have several reckonings. On an
+Event, **Clock readings** accepts an exact value, a range, or a calendar day through a permitted
+reckoning. Whole days remain half-open ranges. Numbers accept fractions such as `1/3` and use
+exact arithmetic. These are entered coordinates, never causal, lived or play-order evidence.
+
+Readings and reckonings start private. Sharing requires visible endpoints and opens no
+Information. Refresh saved records reviews current values while keeping a conflicting draft.
+Calendar edits that change an existing reckoning's day mapping require resolving the reckoning
+first. A timeless Clock has no readings or reckonings; referenced clocks cannot become timeless
+or be deleted until dependencies are resolved. Browsing creates no periods or readings.
+
+Repository copies remap clock dependencies, retain local values and preserve sharing choices.
+Entered records participate in release digests and explicit three-way update review. Missing
+clock dependencies are reported in copy plans. Release format 15 retains earlier readers.
+Ratios and automatic conversion belong to the separately stacked ADR 0321 slice.
+
+On a ticking Clock, **Clock relationships and conversion** pairs it with another Clock using
+an exact ratio and, optionally, two anchor readings (ADR 0321). Preview before saving;
+relationships stay private until explicitly shared. Without anchors, only durations convert.
+Negative ratios are supported, including reversed range endpoints. The converter reports
+inconsistent permitted relationships and work limits instead of choosing an arbitrary path.
+
+On an Event, **Read this Event on another clock** derives a fresh reading from the explicit
+readings and relationships the reader can see. It shows permitted paths and keeps any entered
+target reading when declarations disagree. Conversion never creates an Event reading, changes
+its dates, or changes causal, lived or play order. Version conflicts retain the draft and offer
+an explicit refresh of saved relationships.

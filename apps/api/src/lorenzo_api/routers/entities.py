@@ -77,6 +77,7 @@ from lorenzo_api.models import (
     CalendarObservance,
     CalendarPeriod,
     Character,
+    Clock,
     Containment,
     ContentReference,
     Entity,
@@ -158,6 +159,7 @@ _KINDS: tuple[
             | Character
             | Fact
             | Calendar
+            | Clock
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
@@ -174,6 +176,7 @@ _KINDS: tuple[
     ("character", Character),
     ("fact", Fact),
     ("calendar", Calendar),
+    ("clock", Clock),
     ("calendar_period", CalendarPeriod),
     ("event", StoryEvent),
     ("observance", CalendarObservance),
@@ -597,6 +600,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.story_session),
             joinedload(Entity.fact),
             joinedload(Entity.calendar),
+            joinedload(Entity.clock),
             joinedload(Entity.calendar_period),
             joinedload(Entity.calendar_observance),
             joinedload(Entity.story_event),
@@ -1703,7 +1707,15 @@ async def editable_fact_audience(
     if not any(
         [
             await session.get(model, entity_id) is not None
-            for model in (Fact, Calendar, CalendarPeriod, StoryEvent, CalendarObservance, Scene)
+            for model in (
+                Fact,
+                Calendar,
+                Clock,
+                CalendarPeriod,
+                StoryEvent,
+                CalendarObservance,
+                Scene,
+            )
         ]
     ):
         raise InvalidKindRequestError(

@@ -14,7 +14,10 @@ from lorenzo_api.models import (
     Calendar,
     CalendarObservance,
     CalendarPeriod,
+    CalendarReckoning,
     Character,
+    Clock,
+    ClockRelationship,
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
@@ -31,6 +34,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventClockReading,
     EventLearning,
     EventParticipant,
     EventRelationship,
@@ -91,6 +95,8 @@ async def seed_every_content_table(
     )
     scene = entity("Fixture Scene")
     calendar = entity("Fixture calendar")
+    clock = entity("Fixture clock")
+    reference_clock = entity("Fixture reference clock")
     period = entity("Fixture year")
     event = entity("Fixture event")
     later_event = entity("Later fixture Event")
@@ -102,6 +108,10 @@ async def seed_every_content_table(
 
     session.add_all(
         [
+            Clock(entity_id=clock.id, tenant_id=tenant_id),
+            Clock(entity_id=reference_clock.id, tenant_id=tenant_id),
+            EntityAudience(entity_id=reference_clock.id, tenant_id=tenant_id, is_public=False),
+            EntityAudience(entity_id=clock.id, tenant_id=tenant_id, is_public=False),
             Calendar(
                 entity_id=calendar.id,
                 tenant_id=tenant_id,
@@ -149,6 +159,40 @@ async def seed_every_content_table(
         ]
     )
     await session.flush()
+    session.add_all(
+        [
+            EventClockReading(
+                event_entity_id=event.id,
+                clock_entity_id=clock.id,
+                tenant_id=tenant_id,
+                data={"lo": "1/3", "hi": "2/3", "lo_inclusive": True, "hi_inclusive": False},
+                is_shared=True,
+            ),
+            CalendarReckoning(
+                calendar_entity_id=calendar.id,
+                clock_entity_id=clock.id,
+                tenant_id=tenant_id,
+                data={"date": {"year": 0, "segment": "month", "day": 1}, "reading": "0"},
+                is_shared=True,
+            ),
+        ]
+    )
+    from lorenzo_api.clock_conversion import RelationDefinition, canonical
+
+    first, second, definition = canonical(
+        clock.id,
+        reference_clock.id,
+        RelationDefinition(ratio="2", clock_anchor="34", reference_anchor="17"),
+    )
+    session.add(
+        ClockRelationship(
+            tenant_id=tenant_id,
+            clock_entity_id=first,
+            reference_clock_entity_id=second,
+            data=definition.model_dump(),
+            is_shared=True,
+        )
+    )
     session.add(Scene(entity_id=scene.id, tenant_id=tenant_id, period_entity_id=period.id))
     await session.flush()
     context_rows = [

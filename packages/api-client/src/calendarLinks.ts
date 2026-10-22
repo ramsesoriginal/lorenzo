@@ -3,7 +3,7 @@ import { type LorenzoClient, unwrap } from './index';
 
 export type CalendarLink = { href: string; text: string; title?: string };
 export const isCalendarKind = (kinds: readonly string[]): boolean =>
-  kinds.some((kind) => ['calendar', 'calendar_period', 'event'].includes(kind));
+  kinds.some((kind) => ['calendar', 'calendar_period', 'event', 'clock'].includes(kind));
 
 /** Uses only a visible entry's already-read metadata. UUIDs remain internal identities. */
 export function calendarEntryHref(

@@ -723,6 +723,152 @@ class _Applier:
                 .values(updated_at=func.now())
             )
             return True
+        if name == "clock_relationships":
+            from lorenzo_api.clock_conversion import RelationDefinition, canonical
+            from lorenzo_api.models import Clock, ClockRelationship
+            from lorenzo_api.routers.clocks import mutation_lock
+
+            await mutation_lock(s, t)
+            relation_replacements = []
+            for record in change.upstream or []:
+                target = self.resolve("entity", record["clock"])
+                clocks = list(
+                    await s.scalars(
+                        select(Clock).where(
+                            Clock.tenant_id == t,
+                            Clock.entity_id.in_([e, target]),
+                            Clock.ticking.is_(True),
+                        )
+                    )
+                )
+                if len(clocks) != 2 or target is None:
+                    self.skip(row, name, "Copy two ticking clocks before their relationship")
+                    return False
+                first, second, relation_definition = canonical(
+                    e, target, RelationDefinition.model_validate(record["data"])
+                )
+                relation_replacements.append(
+                    ClockRelationship(
+                        tenant_id=t,
+                        clock_entity_id=first,
+                        reference_clock_entity_id=second,
+                        data=relation_definition.model_dump(),
+                        is_shared=record["is_shared"],
+                    )
+                )
+            await s.execute(
+                delete(ClockRelationship).where(
+                    ClockRelationship.tenant_id == t,
+                    (ClockRelationship.clock_entity_id == e)
+                    | (ClockRelationship.reference_clock_entity_id == e),
+                )
+            )
+            s.add_all(relation_replacements)
+            await s.flush()
+            return True
+        if name in {"clock_readings", "calendar_reckonings"}:
+            from lorenzo_api.clock_values import ReadingRange
+            from lorenzo_api.models import (
+                CalendarReckoning,
+                Clock,
+                ClockRelationship,
+                EventClockReading,
+            )
+            from lorenzo_api.routers.clocks import ReckoningIn, mutation_lock
+
+            await mutation_lock(s, t)
+            clock_model: type[EventClockReading] | type[CalendarReckoning] = (
+                EventClockReading if name == "clock_readings" else CalendarReckoning
+            )
+            source_column = (
+                EventClockReading.event_entity_id
+                if name == "clock_readings"
+                else CalendarReckoning.calendar_entity_id
+            )
+            replacements = []
+            for record in change.upstream or []:
+                clock_id = self.resolve("entity", record["clock"])
+                clock = await s.get(Clock, clock_id) if clock_id else None
+                if clock is None or clock.tenant_id != t or not clock.ticking:
+                    self.skip(row, name, "Copy a ticking Clock before its records")
+                    return False
+                try:
+                    if name == "clock_readings":
+                        data = ReadingRange.model_validate(record["data"]).model_dump()
+                    else:
+                        from lorenzo_calendar import CalendarDefinition, to_day
+
+                        parsed = ReckoningIn.model_validate(record["data"])
+                        definition = await s.scalar(
+                            select(Calendar.definition)
+                            .where(Calendar.entity_id == e, Calendar.tenant_id == t)
+                            .with_for_update()
+                        )
+                        to_day(CalendarDefinition.model_validate(definition), parsed.date)
+                        data = parsed.model_dump(mode="json", exclude={"is_shared"})
+                except ValueError:
+                    self.skip(row, name, "Review records against the local calendar and clocks")
+                    return False
+                replacements.append(
+                    clock_model(
+                        **{
+                            source_column.key: e,
+                            "clock_entity_id": clock_id,
+                            "tenant_id": t,
+                            "data": data,
+                            "is_shared": record["is_shared"],
+                        }
+                    )
+                )
+            await s.execute(
+                delete(clock_model).where(source_column == e, clock_model.tenant_id == t)
+            )
+            s.add_all(replacements)
+            await s.flush()
+            return True
+        if name == "clock_ticking":
+            from lorenzo_api.models import (
+                CalendarReckoning,
+                Clock,
+                ClockRelationship,
+                EventClockReading,
+            )
+            from lorenzo_api.routers.clocks import mutation_lock
+
+            await mutation_lock(s, t)
+            clock = await s.scalar(
+                select(Clock).where(Clock.entity_id == e, Clock.tenant_id == t).with_for_update()
+            )
+            if clock is None:
+                self.skip(row, name, "The local entry is no longer a Clock")
+                return False
+            if not change.upstream and (
+                await s.scalar(
+                    select(EventClockReading.clock_entity_id)
+                    .where(EventClockReading.clock_entity_id == e)
+                    .limit(1)
+                )
+                or await s.scalar(
+                    select(CalendarReckoning.clock_entity_id)
+                    .where(CalendarReckoning.clock_entity_id == e)
+                    .limit(1)
+                )
+            ):
+                self.skip(row, name, "Resolve dependent clock records before changing Clock mode")
+                return False
+            if not change.upstream and await s.scalar(
+                select(ClockRelationship.clock_entity_id)
+                .where(
+                    (ClockRelationship.clock_entity_id == e)
+                    | (ClockRelationship.reference_clock_entity_id == e)
+                )
+                .limit(1)
+            ):
+                self.skip(row, name, "Resolve dependent clock records before changing Clock mode")
+                return False
+            clock.ticking = bool(change.upstream)
+            clock.updated_at = datetime.now(UTC)
+            return True
         if name == "calendar_definition":
             from lorenzo_calendar import CalendarDefinition
 
@@ -1162,6 +1308,17 @@ async def apply_updates(
     """Applies the listed actions in one transaction (doesn't commit), then the
     listed attachments (ADR 0172), which can point at a row an action added."""
     updates = await compute_updates(session, tenant_id=tenant_id, repository_id=repository_id)
+    assert updates.local is not None and updates.upstream is not None
+    if updates.local.clocks or updates.upstream.clocks:
+        from lorenzo_api.event_order_lock import lock_event_order
+        from lorenzo_api.routers.clocks import mutation_lock
+
+        await lock_event_order(session, tenant_id)
+        await mutation_lock(session, tenant_id)
+        # Recompute review state after acquiring the clock write lock.
+        updates = await compute_updates(session, tenant_id=tenant_id, repository_id=repository_id)
+        assert updates.local is not None and updates.upstream is not None
+
     assert updates.local is not None and updates.upstream is not None
     changed = {(c.kind, c.source_id): c for c in updates.changed}
     removed = {(r.kind, r.source_id): r for r in updates.removed}

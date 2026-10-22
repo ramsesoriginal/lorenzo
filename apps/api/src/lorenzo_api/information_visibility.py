@@ -512,7 +512,11 @@ async def resolve_information_visibility(
     )
     event_manager = await manages_events(session, tenant_id=tenant_id, user_id=user_id)
     if event_manager:
-        gm_reachable_ids |= event_fact_ids
+        from lorenzo_api.models import Clock
+
+        gm_reachable_ids |= event_fact_ids | frozenset(
+            await session.scalars(select(Clock.entity_id).where(Clock.tenant_id == tenant_id))
+        )
     participant_event_ids = (
         frozenset(
             await session.scalars(

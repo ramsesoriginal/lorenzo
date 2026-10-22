@@ -26,6 +26,11 @@ export async function mount() {
   head.append(
     el('h1', 'Calendars'),
     linkButton(
+      'Browse clocks',
+      `/clocks/?tenant=${encodeURIComponent(session.tenantId)}`,
+      'kind-clock',
+    ),
+    linkButton(
       'Browse Events',
       `/events/?tenant=${encodeURIComponent(session.tenantId)}`,
       'kind-event',

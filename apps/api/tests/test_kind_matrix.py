@@ -46,6 +46,7 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("item",): "being",
     ("fact",): None,
     ("calendar",): None,
+    ("clock",): None,
     ("calendar_period",): None,
     ("event",): None,
     ("observance",): None,
@@ -62,6 +63,7 @@ _ORDER = [
     "character",
     "fact",
     "calendar",
+    "clock",
     "calendar_period",
     "event",
     "observance",
@@ -148,6 +150,18 @@ async def _make(
             json={"parent_ids": [str(p) for p in parents]},
         )
         assert parents_response.status_code == 200, parents_response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("clock",):
+        response = await scene_author.post(
+            f"/tenants/{repository}/clocks", json={"name": name, "is_public": True}
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["entity_id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
         return uuid.UUID(entity_id)
     if kinds == ("calendar",):
         response = await scene_author.post(

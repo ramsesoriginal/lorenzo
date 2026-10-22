@@ -25,7 +25,10 @@ from lorenzo_api.models import (
     Calendar,
     CalendarObservance,
     CalendarPeriod,
+    CalendarReckoning,
     Character,
+    Clock,
+    ClockRelationship,
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
@@ -41,6 +44,7 @@ from lorenzo_api.models import (
     EntityStat,
     EntityStatGroup,
     EntryCalendarPeriod,
+    EventClockReading,
     EventLearning,
     EventParticipant,
     EventRelationship,
@@ -78,6 +82,7 @@ KINDS = (
     "character",
     "fact",
     "calendar",
+    "clock",
     "calendar_period",
     "event",
     "observance",
@@ -198,6 +203,14 @@ class Content:
     scenes: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    clocks: dict[uuid.UUID, bool] = field(default_factory=dict)
+    clock_readings: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
+    clock_relationships: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
+        default_factory=dict
+    )
+    calendar_reckonings: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
+        default_factory=dict
+    )
     participant_entry_audiences: list[uuid.UUID] = field(default_factory=list)
     participant_information_audiences: list[uuid.UUID] = field(default_factory=list)
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
@@ -324,6 +337,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("character", Character),
         ("fact", Fact),
         ("calendar", Calendar),
+        ("clock", Clock),
         ("calendar_period", CalendarPeriod),
         ("event", StoryEvent),
         ("observance", CalendarObservance),
@@ -637,6 +651,36 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     c.calendars = dict(
         await rows(Calendar.entity_id, Calendar.definition, where=Calendar.tenant_id == t)
     )
+    c.clocks = dict(await rows(Clock.entity_id, Clock.ticking, where=Clock.tenant_id == t))
+    clock_sources: list[tuple[type[EventClockReading] | type[CalendarReckoning], str, Any]] = [
+        (EventClockReading, "clock_readings", EventClockReading.event_entity_id),
+        (CalendarReckoning, "calendar_reckonings", CalendarReckoning.calendar_entity_id),
+    ]
+    for clock_model, field_name, source in clock_sources:
+        setattr(
+            c,
+            field_name,
+            {
+                (e, k): {"data": data, "is_shared": shared}
+                for e, k, data, shared in await rows(
+                    source,
+                    clock_model.clock_entity_id,
+                    clock_model.data,
+                    clock_model.is_shared,
+                    where=clock_model.tenant_id == t,
+                )
+            },
+        )
+    c.clock_relationships = {
+        (first, second): {"data": data, "is_shared": shared}
+        for first, second, data, shared in await rows(
+            ClockRelationship.clock_entity_id,
+            ClockRelationship.reference_clock_entity_id,
+            ClockRelationship.data,
+            ClockRelationship.is_shared,
+            where=ClockRelationship.tenant_id == t,
+        )
+    }
     c.entry_audiences = dict(
         await rows(
             EntityAudience.entity_id, EntityAudience.is_public, where=EntityAudience.tenant_id == t
@@ -824,10 +868,17 @@ class EntityIndex:
     groups: dict[uuid.UUID, list[uuid.UUID]]
     stats: dict[uuid.UUID, dict[uuid.UUID, StatValue]]
     formulas: dict[uuid.UUID, dict[uuid.UUID, Formula]]
+    clock_records: dict[uuid.UUID, list[tuple[str, uuid.UUID, dict[str, Any]]]]
 
 
 def index_entities(content: Content) -> EntityIndex:
-    index = EntityIndex(defaultdict(list), defaultdict(list), defaultdict(dict), defaultdict(dict))
+    index = EntityIndex(
+        defaultdict(list),
+        defaultdict(list),
+        defaultdict(dict),
+        defaultdict(dict),
+        defaultdict(list),
+    )
     for e, p in content.prototypes:
         index.prototypes[e].append(p)
     for e, g in content.entity_groups:
@@ -836,6 +887,21 @@ def index_entities(content: Content) -> EntityIndex:
         index.stats[e][d] = value
     for (e, d), formula in content.formulas.items():
         index.formulas[e][d] = formula
+    for field_name in ("clock_readings", "calendar_reckonings"):
+        for (source, clock), clock_value in getattr(content, field_name).items():
+            index.clock_records[source].append((field_name, clock, clock_value))
+    from lorenzo_api.clock_conversion import RelationDefinition
+
+    for (first, second), clock_value in content.clock_relationships.items():
+        definition = RelationDefinition.model_validate(clock_value["data"])
+        index.clock_records[first].append(("clock_relationships", second, clock_value))
+        index.clock_records[second].append(
+            (
+                "clock_relationships",
+                first,
+                {"data": definition.inverse().model_dump(), "is_shared": clock_value["is_shared"]},
+            )
+        )
     return index
 
 
@@ -843,7 +909,14 @@ def entity_snapshot(
     content: Content, index: EntityIndex, entity_id: uuid.UUID, name: Namer
 ) -> dict[str, Any]:
     """What a copy link records for an entity (ADR 0119/0121)."""
+    clock_fields: dict[str, Any] = {}
+    for field_name, clock_id, value in index.clock_records.get(entity_id, []):
+        clock_fields.setdefault(field_name, []).append({"clock": name("entity", clock_id), **value})
+    for records in clock_fields.values():
+        records.sort(key=lambda record: record["clock"])
     return {
+        **clock_fields,
+        **({"clock_ticking": content.clocks[entity_id]} if entity_id in content.clocks else {}),
         **(
             {"calendar_definition": content.calendars[entity_id]}
             if entity_id in content.calendars

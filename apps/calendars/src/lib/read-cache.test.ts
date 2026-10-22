@@ -23,12 +23,19 @@ test('access, lookups and anything outside a library are never held', () => {
   expect(at('/users/search')).toBeNull();
 });
 
-test('a preview or comparison does not empty the cache, any other write does', () => {
+test('a preview, comparison or clock calculation does not empty the cache, any other write does', () => {
   const url = (path: string) => new URL(`https://api.example${path}`);
 
   expect(isPureWrite(url('/tenants/a/calendars/preview'))).toBe(true);
   expect(isPureWrite(url('/tenants/a/events/compare'))).toBe(true);
   expect(isPureWrite(url('/tenants/a/calendar-references/resolve'))).toBe(true);
+  for (const path of [
+    'clock-conversions',
+    'clocks/clock/relationship-preview',
+    'clocks/clock/date-reading',
+    'clocks/clock/reading-dates',
+  ])
+    expect(isPureWrite(url(`/tenants/a/${path}`))).toBe(true);
   expect(isPureWrite(url('/tenants/a/entities/1/information'))).toBe(false);
 });
 

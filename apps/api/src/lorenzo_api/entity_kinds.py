@@ -33,6 +33,7 @@ from lorenzo_api.models import (
     CalendarPeriod,
     Campaign,
     Character,
+    Clock,
     Entity,
     EntityAudience,
     EntityPrototype,
@@ -62,6 +63,7 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("item",),
         ("fact",),
         ("calendar",),
+        ("clock",),
         ("calendar_period",),
         ("event",),
         ("observance",),
@@ -168,7 +170,7 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
-    if existing_kinds & {"scene", "scene_appearance", "session"}:
+    if existing_kinds & {"scene", "scene_appearance", "session", "clock"}:
         raise InvalidKindRequestError(
             detail="Session and Scene kinds do not combine with other kinds"
         )
@@ -336,6 +338,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("session", StorySession),
             ("fact", Fact),
             ("calendar", Calendar),
+            ("clock", Clock),
             ("calendar_period", CalendarPeriod),
             ("observance", CalendarObservance),
             ("event", StoryEvent),
@@ -441,6 +444,37 @@ async def require_deletable(
         raise ItemPrototypeInUseError(
             detail=f"Entry {entity_id} is still a direct prototype of at least one inventory item"
         )
+    from lorenzo_api.models import CalendarReckoning, ClockRelationship, EventClockReading
+
+    if await session.scalar(
+        select(EventClockReading.clock_entity_id)
+        .where(
+            (EventClockReading.clock_entity_id == entity_id)
+            | (EventClockReading.event_entity_id == entity_id)
+        )
+        .limit(1)
+    ) or await session.scalar(
+        select(CalendarReckoning.clock_entity_id)
+        .where(
+            (CalendarReckoning.clock_entity_id == entity_id)
+            | (CalendarReckoning.calendar_entity_id == entity_id)
+        )
+        .limit(1)
+    ):
+        raise EntityKindInUseError(
+            detail="Resolve dependent clock records before deleting this entry"
+        )
+    if await session.scalar(
+        select(ClockRelationship.clock_entity_id)
+        .where(
+            (ClockRelationship.clock_entity_id == entity_id)
+            | (ClockRelationship.reference_clock_entity_id == entity_id)
+        )
+        .limit(1)
+    ):
+        raise EntityKindInUseError(
+            detail="Resolve dependent clock records before deleting this entry"
+        )
     await require_no_learning(session, tenant_id, entity_id=entity_id)
     return kinds
 
@@ -451,6 +485,7 @@ KIND_WORDS = {
     "scene_appearance": "scene appearance",
     "fact": "fact",
     "calendar": "calendar",
+    "clock": "clock",
     "calendar_period": "calendar period",
     "event": "event",
     "observance": "observance",

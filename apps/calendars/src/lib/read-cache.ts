@@ -34,7 +34,12 @@ export function isPureWrite(url: URL): boolean {
   return (
     url.pathname.endsWith('/calendar-references/resolve') ||
     url.pathname.endsWith('/preview') ||
-    url.pathname.endsWith('/events/compare')
+    url.pathname.endsWith('/events/compare') ||
+    // Clock calculations answer without recording anything (ADR 0320, 0321).
+    url.pathname.endsWith('/clock-conversions') ||
+    url.pathname.endsWith('/relationship-preview') ||
+    url.pathname.endsWith('/date-reading') ||
+    url.pathname.endsWith('/reading-dates')
   );
 }
 

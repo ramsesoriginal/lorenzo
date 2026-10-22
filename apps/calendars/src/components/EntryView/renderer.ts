@@ -1,6 +1,8 @@
 import { renderAudienceControl } from '@lorenzo/information-editor';
 import { canonicalAddress, rememberEntryAddress, resolveAddress } from '../../lib/addresses';
 import { client, unwrap } from '../../lib/api';
+import { clockRelationships, eventClockConversions } from '../../lib/clock-ratios';
+import { clockPanel, eventReadings } from '../../lib/clocks';
 import { datedEntries, recurrenceFields } from '../../lib/dated-entries';
 import {
   button,
@@ -30,6 +32,7 @@ const kindNames: Partial<Record<string, string>> = {
   fact: 'Canonical fact',
   observance: 'Recurring observance',
   calendar: 'Calendar',
+  clock: 'Clock',
 };
 
 export async function mount() {
@@ -86,6 +89,14 @@ export async function mount() {
         );
     }
     if (actions.childElementCount) host.append(actions);
+    if (entry.kinds.includes('clock')) {
+      host.append(await clockPanel(tenantId, id, session.canOrderEvents));
+      host.append(await clockRelationships(tenantId, id, entry.name));
+    }
+    if (entry.kinds.includes('event')) {
+      host.append(await eventReadings(tenantId, id));
+      host.append(await eventClockConversions(tenantId, id));
+    }
     if (entry.kinds.includes('calendar_period')) host.append(await datedEntries(tenantId, id));
     if (entry.kinds.includes('event') && session.canReadEventOrder) {
       try {
