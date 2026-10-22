@@ -44,7 +44,7 @@ for (const size of sizes) {
     test(`golden-path pages are accessible at ${size.name} width in the ${scheme} theme`, async ({
       browser,
     }) => {
-      // Five pages, each read twice by axe with its folding sections opened.
+      // Seven pages, each read twice by axe with its folding sections opened.
       test.setTimeout(180_000);
       const world = await buildWorld();
       const event = await ok(
@@ -63,6 +63,12 @@ for (const size of sizes) {
             type: 'note',
             content: 'The bell was heard across the harbour.',
           },
+        }),
+      );
+      const clock = await ok(
+        world.api.POST('/tenants/{tenant_id}/clocks', {
+          params: { path: { tenant_id: world.tenantId } },
+          body: { name: 'Harbour bell', ticking: true, is_public: true },
         }),
       );
       const token = await refreshTokenFor(world.subject);
@@ -116,6 +122,23 @@ for (const size of sizes) {
             await expect(page.getByRole('heading', { name: event.name, level: 1 })).toBeVisible();
             await expect(page.getByText('The bell was heard across the harbour.')).toBeVisible();
             await expect(page.locator('[data-learning]')).toBeVisible();
+          },
+        },
+        {
+          name: 'the clocks',
+          path: `/clocks/?${tenant}`,
+          ready: async () => {
+            await expect(page.getByRole('link', { name: /Harbour bell/ })).toBeVisible();
+          },
+        },
+        {
+          name: 'a clock',
+          path: `/entry/?${tenant}&id=${clock.entity_id}`,
+          ready: async () => {
+            await expect(
+              page.getByRole('heading', { name: 'Harbour bell', level: 1 }),
+            ).toBeVisible();
+            await expect(page.getByText('Clock and calendar reckonings')).toBeVisible();
           },
         },
         {
