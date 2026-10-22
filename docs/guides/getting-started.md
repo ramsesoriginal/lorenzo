@@ -31,7 +31,7 @@ Every other app is built on top of `apps/api`, so start the API first. Each web 
 | [`apps/inventory-web`](../../apps/inventory-web) | `mise run //apps/inventory-web:dev` | <http://localhost:4321> (Astro's default port) |
 | [`apps/account-hub`](../../apps/account-hub) | `mise run //apps/account-hub:dev` | <http://localhost:4322> |
 | [`apps/beings`](../../apps/beings) | `mise run //apps/beings:dev` | <http://localhost:4323> |
-| [`apps/calendars`](../../apps/calendars) | `mise run //apps/calendars:dev` | <http://127.0.0.1:4325> |
+| [`apps/calendars`](../../apps/calendars) | `mise run //apps/calendars:dev` | `http://127.0.0.1:4325` (the address its Authgear client allows) |
 | [`apps/sessions`](../../apps/sessions) | `mise run //apps/sessions:dev` | port 4326 |
 | [`apps/bench`](../../apps/bench) | `mise run //apps/bench:dev` | no fixed port (see below) |
 | [`apps/loot-bot`](../../apps/loot-bot) | `mise run //apps/loot-bot:dev` | port 8090 (`LOOT_BOT_HTTP_PORT`), where Discord's interactions endpoint is served |
