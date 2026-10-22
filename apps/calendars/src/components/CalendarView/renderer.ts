@@ -64,16 +64,19 @@ export async function mount() {
   host.append(iconLink('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`, 'back'), wait);
   try {
     const calendarId = await resolveAddress(tenantId, params, 'calendar');
-    const calendar = await unwrap(
-      await client.GET('/tenants/{tenant_id}/calendars/{entity_id}', {
-        params: { path: { tenant_id: tenantId, entity_id: calendarId } },
-      }),
-    );
-    const entry = await unwrap(
-      await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
-        params: { path: { tenant_id: tenantId, entity_id: calendarId } },
-      }),
-    );
+    // The calendar and its entry do not wait for each other.
+    const [calendar, entry] = await Promise.all([
+      client
+        .GET('/tenants/{tenant_id}/calendars/{entity_id}', {
+          params: { path: { tenant_id: tenantId, entity_id: calendarId } },
+        })
+        .then(unwrap),
+      client
+        .GET('/tenants/{tenant_id}/entities/{entity_id}', {
+          params: { path: { tenant_id: tenantId, entity_id: calendarId } },
+        })
+        .then(unwrap),
+    ]);
     if (!host?.isConnected) return;
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, calendarId);
