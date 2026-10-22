@@ -28,27 +28,11 @@ import {
 import { livedLinkPanel } from './lived';
 import { campaignName, libraryName, libraryNames } from './names';
 import { notes } from './notes';
+import { periodControl } from './periods';
 import { playPanel, sequencePanel } from './play';
 import { start } from './sign-in';
 
 type StorySession = Schema<'SessionOut'>;
-async function periodPicker(tenant: string, label: string, current: string | null = null) {
-  const entries = await fetchAllPages(async (page) =>
-    unwrap(
-      await client.GET('/tenants/{tenant_id}/entities', {
-        params: {
-          path: { tenant_id: tenant },
-          query: { kind: ['calendar_period'], page, size: 100 },
-        },
-      }),
-    ),
-  );
-  return select(
-    label,
-    [['', 'Not set'], ...entries.map((e) => [e.id, e.name] as [string, string])],
-    current ?? '',
-  );
-}
 /** Controls laid out in columns that give way to one on a phone. */
 function fields(...nodes: HTMLElement[]) {
   const grid = el('div', '', 'grid');
@@ -356,19 +340,21 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
   const name = field('Session title', session.name);
   const date = field('Real-world date', session.real_date ?? '', 'date');
   const slug = field('Link name', session.slug ?? '');
-  const period = await periodPicker(
-    session.tenant_id,
-    'In-world starting period',
-    session.start_period_id,
-  );
+  const period = periodControl({
+    tenant: session.tenant_id,
+    label: 'In-world starting period',
+    mode: 'single',
+    initial: session.start_period_id ? [session.start_period_id] : [],
+  });
   const status = statusLine();
   details.body.append(
-    fields(name.label, date.label, slug.label, period.label),
+    fields(name.label, date.label, slug.label, period.root),
     actions(
       button(
         'Save Session details',
         async () => {
           try {
+            const picked = await period.value();
             await unwrap(
               await client.PATCH('/tenants/{tenant_id}/sessions/{session_id}', {
                 params: {
@@ -378,9 +364,7 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
                 body: {
                   name: name.input.value,
                   real_date: date.input.value || null,
-                  ...((period.input.value || null) !== session.start_period_id
-                    ? { start_period_id: period.input.value || null }
-                    : {}),
+                  ...(picked !== null ? { start_period_id: picked[0] ?? null } : {}),
                   slug: slug.input.value || null,
                 },
               }),
@@ -528,7 +512,12 @@ async function sceneAdder(session: StorySession, version: string, refresh: () =>
     ...existing.map((s) => [s.id, s.name] as [string, string]),
   ]);
   const title = field('New Scene title');
-  const period = await periodPicker(session.tenant_id, 'Scene period');
+  const period = periodControl({
+    tenant: session.tenant_id,
+    label: 'Scene period',
+    mode: 'single',
+    initial: [],
+  });
   const publicScene = field('Make the reusable Scene visible in this library', '', 'checkbox');
   const shared = field('Share this Scene appearance with Session participants', '', 'checkbox');
   const status = statusLine();
@@ -538,7 +527,7 @@ async function sceneAdder(session: StorySession, version: string, refresh: () =>
   choices.append(publicScene.label, shared.label);
   const added = card(el('h3', 'Add a Scene', 'item-title'));
   added.body.append(
-    fields(picker.label, title.label, period.label),
+    fields(picker.label, title.label, period.root),
     choices,
     el(
       'p',
@@ -553,6 +542,7 @@ async function sceneAdder(session: StorySession, version: string, refresh: () =>
             let scene = picker.input.value;
             if (!scene) {
               if (!title.input.value) throw new Error('Give the new Scene a title.');
+              const picked = await period.value();
               scene = (
                 await unwrap(
                   await client.POST('/tenants/{tenant_id}/scenes', {
@@ -560,7 +550,7 @@ async function sceneAdder(session: StorySession, version: string, refresh: () =>
                     body: {
                       id: sceneId,
                       name: title.input.value,
-                      period_entity_id: period.input.value || null,
+                      period_entity_id: picked?.[0] ?? null,
                       is_public: publicScene.input.checked,
                     },
                   }),
