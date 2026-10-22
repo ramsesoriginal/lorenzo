@@ -39,7 +39,7 @@ Labels come in four families. Pick from each family where it applies; an item us
 One label per directory that ships something, named after it. A change touching several gets several.
 
 - `app:<name>` for each `apps/<name>`: `app:api`, `app:loot-bot`, `app:inventory-web`, `app:inventory-mobile`, `app:inventory-ios`, `app:account-hub`, `app:cli`, `app:brand`, `app:bench`, `app:beings`, `app:calendars`, `app:sessions`.
-- `pkg:<name>` for each `packages/<name>`: `pkg:api-client`, `pkg:brand`, `pkg:converters`, `pkg:inventory-names`, `pkg:lorenzoscript`, `pkg:lorenzoscript-editor`, `pkg:stat-values`, `pkg:information-editor`.
+- `pkg:<name>` for each `packages/<name>`: `pkg:api-client`, `pkg:brand`, `pkg:calendar-engine`, `pkg:converters`, `pkg:information-editor`, `pkg:inventory-names`, `pkg:lorenzoscript`, `pkg:lorenzoscript-editor`, `pkg:stat-values`.
 
 How to choose them:
 
@@ -60,8 +60,6 @@ How to choose them:
 ### Owned by bots
 
 `dependencies`, `github_actions`, `python:uv`, `docker`, `javascript` (Dependabot) and `autorelease: pending` / `autorelease: tagged` (release-please) are created and applied by the bots. Don't rename or delete them; renaming makes the bot recreate the original. Do add the scope label (`app:loot-bot` for a loot-bot bump) and the assignee when you touch one.
-
-The calendar engine uses `pkg:calendar-engine` (`packages/calendar-engine`, colour `2E7D32`).
 
 ## Assignee
 

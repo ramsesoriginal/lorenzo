@@ -22,7 +22,27 @@ mise run //apps/api:dev                              # autoreload
 
 No `.env` needed for this baseline — `apps/api`'s own config defaults already match the `docker-compose` setup above. You only need one if you're customizing something, e.g. real Authgear tokens instead of the test suite's fake JWKS server — see [docs/operations/local-authgear-setup.md](../operations/local-authgear-setup.md), and `.env.example`'s own header comment for a real gotcha: it needs copying to *two* places (repo root, for `docker compose`; `apps/api/.env`, for the app's own config), not one.
 
-`apps/loot-bot`, `apps/inventory-web`, and `apps/account-hub` are also built on top of `apps/api` — see each app's own README for how to run it locally. `apps/cli` (the Python `lorenzo` command line, [ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md)) also uses the API: `mise run //apps/cli:dev -- --help` from a checkout, or `uv tool install "git+https://github.com/ramsesoriginal/lorenzo#subdirectory=apps/cli"` to have `lorenzo` on your path without one. See its README. [`apps/beings`](../../apps/beings) and [`apps/bench`](../../apps/bench) are further web frontends. [`apps/inventory-mobile`](../../apps/inventory-mobile), Lorenzo Inventory, is the native Android companion: follow its [JDK/SDK setup and local APK installation](../../apps/inventory-mobile/README.md#install-or-run), then connect through account hub. Further apps beyond these are still unbuilt — see [docs/guides/adding-an-app.md](adding-an-app.md) for what that takes, and [docs/architecture/overview.md](../architecture/overview.md) for the intended shape of the whole system.
+## The other apps
+
+Every other app is built on top of `apps/api`, so start the API first. Each web frontend needs its own `.env` (copy its `.env.example`) with an Authgear client of its own, and the API has to allow the app's local origin through CORS; the app's README says how.
+
+| App | Command | Local address |
+| --- | --- | --- |
+| [`apps/inventory-web`](../../apps/inventory-web) | `mise run //apps/inventory-web:dev` | <http://localhost:4321> (Astro's default port) |
+| [`apps/account-hub`](../../apps/account-hub) | `mise run //apps/account-hub:dev` | <http://localhost:4322> |
+| [`apps/beings`](../../apps/beings) | `mise run //apps/beings:dev` | <http://localhost:4323> |
+| [`apps/calendars`](../../apps/calendars) | `mise run //apps/calendars:dev` | `http://127.0.0.1:4325` (the address its Authgear client allows) |
+| [`apps/sessions`](../../apps/sessions) | `mise run //apps/sessions:dev` | port 4326 |
+| [`apps/bench`](../../apps/bench) | `mise run //apps/bench:dev` | no fixed port (see below) |
+| [`apps/loot-bot`](../../apps/loot-bot) | `mise run //apps/loot-bot:dev` | port 8090 (`LOOT_BOT_HTTP_PORT`), where Discord's interactions endpoint is served |
+
+`apps/inventory-web` and `apps/bench` set no port of their own, so Astro's default, 4321, applies to both, and `apps/bench`'s `.env.example` expects that address. Run one of them at a time, or give the other a port (`mise run //apps/bench:dev -- --port 4324`) and register that address as a redirect URI on its Authgear client. The other web apps have fixed ports so that they can run side by side; 4324 is not used by any app.
+
+`apps/cli` (the Python `lorenzo` command line, [ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md)) also uses the API: `mise run //apps/cli:dev -- --help` from a checkout, or `uv tool install "git+https://github.com/ramsesoriginal/lorenzo#subdirectory=apps/cli"` to have `lorenzo` on your path without one. See its README.
+
+The two inventory companions are native apps. [`apps/inventory-mobile`](../../apps/inventory-mobile), Lorenzo Inventory for Android, needs a JDK and the Android SDK: follow its [JDK/SDK setup and local APK installation](../../apps/inventory-mobile/README.md#install-or-run), then connect through account hub. [`apps/inventory-ios`](../../apps/inventory-ios), Lorenzo Inventory for iOS, needs macOS with Xcode for its native checks; see its README.
+
+What Calendars and Sessions do, from a user's side, is described in [Lorenzo Calendars](calendars.md) and [Lorenzo Sessions](sessions.md). For the shape of the whole system see [docs/architecture/overview.md](../architecture/overview.md); to add another app, see [docs/guides/adding-an-app.md](adding-an-app.md).
 
 ## Running tests
 

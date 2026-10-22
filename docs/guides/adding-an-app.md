@@ -5,7 +5,7 @@ See [ADR 0007](../adr/0007-apps-layout-and-multiplicity.md) for why this exists:
 ## Steps
 
 1. **Name it by purpose, not type.** `apps/gm-console`, not `apps/web`. `apps/loot-bot`, not `apps/bot`. If you can't yet describe what makes this instance different from a hypothetical second one of the same type, that's a sign the scope isn't clear yet — confirm that before scaffolding.
-2. **Confirm the language/framework and scope with the user first** — this repo is built structure-first; don't scaffold real code speculatively (see [AGENTS.md](../../AGENTS.md)).
+2. **Confirm the language/framework and scope with the user first.** An app is added only once it has been explicitly scoped; don't scaffold code speculatively (see [AGENTS.md](../../AGENTS.md)).
 3. **Give it a `mise.toml`** defining at minimum `dev`, `lint`, `test`, `build` tasks (whatever those mean in its language). This is the only contract shared tooling relies on:
    - `ci.yml`'s `discover` job finds it automatically via `apps/<name>/mise.toml` — no edit to `ci.yml` needed.
    - Add it to the root `mise.toml`'s `[monorepo].config_roots` so `mise run lint`/`test`/`dev` at the repo root reach it too.
