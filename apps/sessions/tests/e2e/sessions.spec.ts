@@ -591,6 +591,8 @@ async function expectBrandRules(page: Page, where: string, phone: boolean) {
   await page.evaluate(() => {
     for (const d of document.querySelectorAll('details')) d.open = true;
   });
+  // Panels read what they hold when they are opened.
+  await expect(page.locator('[data-loading], [aria-busy="true"]')).toHaveCount(0);
   const serious = (await new AxeBuilder({ page }).analyze()).violations
     .filter((v) => v.impact === 'serious' || v.impact === 'critical')
     // Known and outside this app: packages/lorenzoscript-editor's "1." toolbar button is named
@@ -746,16 +748,21 @@ test('the period picker chooses game time and a start, and writes nothing until 
       .toEqual([16, 17, 18]);
     expect(writes.some((write) => write.endsWith('/periods/batch'))).toBe(true);
     const saved = await savedDates();
-    // The page draws itself again after a save: the picker of the old page is gone.
-    await expect(page.locator('.period-picker')).toHaveCount(0);
-    await expect(page.getByRole('listitem').filter({ hasText: '17 First 0' })).toBeVisible();
+    // The page draws itself again after a save: the saved game time is listed (the chips of the
+    // picker are another list), and the panel that was open stays open.
+    await expect(page.locator('ul.row li').filter({ hasText: '17 First 0' })).toBeVisible();
+    await expect(page.locator('.period-picker')).toHaveCount(1);
 
     // The starting period: one choice, and a day that already exists is marked saved.
-    await page.getByText('Session details', { exact: true }).click();
+    // Every panel was opened for the accessibility check and stayed open through the redraw; one
+    // that is not open is opened now.
     const detailsPanel = page
       .locator('details.panel')
       .filter({ hasText: 'Session details' })
       .first();
+    if (!(await detailsPanel.evaluate((d) => (d as HTMLDetailsElement).open))) {
+      await page.getByText('Session details', { exact: true }).click();
+    }
     await expect(detailsPanel).toHaveAttribute('open', '', { timeout: 5000 });
     const start = page.getByRole('group', { name: 'In-world starting period' });
     await expect(start).toBeVisible({ timeout: 5000 });

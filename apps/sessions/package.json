@@ -26,6 +26,7 @@
     "@lorenzo/brand": "workspace:*",
     "@lorenzo/information-editor": "workspace:*",
     "@lorenzo/period-picker": "workspace:*",
+    "@lorenzo/read-cache": "workspace:*",
     "@lorenzo/lorenzoscript": "workspace:*",
     "@lorenzo/lorenzoscript-editor": "workspace:*",
     "astro": "^7.3.5"

@@ -48,8 +48,12 @@ export async function mountHome() {
   if (!me || !host.isConnected) return;
   try {
     host.replaceChildren(loading('Opening your Sessions…'));
-    const sessions = await unwrap(await client.GET('/me/sessions', { cache: 'no-store' }));
-    const names = await libraryNames();
+    // The Sessions, the libraries' names and the campaigns the person runs do not wait for one another.
+    const [sessions, names, managed] = await Promise.all([
+      client.GET('/me/sessions').then(unwrap),
+      libraryNames(),
+      client.GET('/me/managed').then(unwrap),
+    ]);
     const view = el('div', '', 'stack view');
     view.append(
       pageHead('My Sessions', {
@@ -77,7 +81,6 @@ export async function mountHome() {
     } else
       view.append(empty('No Sessions yet. One appears here when you are added as a GM or player.'));
     host.replaceChildren(view);
-    const managed = await unwrap(await client.GET('/me/managed'));
     const campaigns = managed.tenants.flatMap((t) =>
       t.campaigns
         .filter((c) => c.is_gm)
@@ -174,7 +177,6 @@ export async function mountSession() {
         const view = el('div', '', 'stack view');
         const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}', {
           params: { path },
-          cache: 'no-store',
         });
         const session = await unwrap(result);
         const version = result.response.headers.get('etag') ?? '';
@@ -196,132 +198,168 @@ export async function mountSession() {
             ],
           }),
         );
-        if (session.can_manage) {
-          const editors = el('div', '', 'stack-tight');
-          editors.append(
-            await detailsEditor(session, version, refresh),
-            await rosterEditor(session, version, refresh),
-          );
-          view.append(editors);
-        }
-        view.append(
-          await notes(tenant, id, () => void refresh()),
-          await referencePanel(tenant, 'sessions', id, session.can_manage, refresh),
-          await coveragePanel(tenant, id, session.can_manage, refresh),
-        );
+        // Every panel asks for its own data, so they are all started together and put in order
+        // once they have answered; a page of a dozen panels used to ask for them one by one.
+        const started = {
+          editors: session.can_manage
+            ? Promise.all([
+                detailsEditor(session, version, refresh),
+                rosterEditor(session, version, refresh),
+              ])
+            : null,
+          notes: notes(tenant, id, () => void refresh()),
+          references: referencePanel(tenant, 'sessions', id, session.can_manage, refresh),
+          coverage: coveragePanel(tenant, id, session.can_manage, refresh),
+          play: playPanel(tenant, id, session.can_manage, refresh),
+          sequence: sequencePanel(tenant, session.campaign_id, refresh, id),
+          adder: session.can_manage ? sceneAdder(session, version, refresh) : null,
+          lived: session.can_manage ? livedLinkPanel(tenant, id) : null,
+        };
         const outline = el('section', '', 'stack');
         outline.append(sectionHead('Scenes', { count: session.scenes.length }));
         const list = el('ol', '', 'stack');
-        for (const appearance of session.scenes) {
-          const row = el('li', '', 'card');
-          const body = el('div', '', 'card-body stack');
-          row.append(body);
-          const heading = el('h3', '', 'item-title grow');
-          heading.append(
-            link(
-              appearance.name,
-              `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
-            ),
-          );
-          const number = el('span', String(session.scenes.indexOf(appearance) + 1), 'chip');
-          number.setAttribute('aria-hidden', 'true');
-          const title = el('div', '', 'row');
-          title.append(
-            number,
-            heading,
-            audienceBadge(
-              appearance.is_shared ? 'Shared with Session participants' : 'GM preparation',
-              appearance.is_shared,
-            ),
-          );
-          body.append(title);
-          if (session.can_manage) {
-            const index = session.scenes.indexOf(appearance);
-            const move = async (delta: number) => {
-              const ids = session.scenes.map((s) => s.id);
-              [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
-              await unwrap(
-                await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/scenes/order', {
-                  params: { path, header: { 'if-match': version } },
-                  body: { appearance_ids: ids },
-                }),
+        const rows = Promise.all(
+          session.scenes.map(async (appearance) => {
+            const row = el('li', '', 'card');
+            const body = el('div', '', 'card-body stack');
+            row.append(body);
+            const heading = el('h3', '', 'item-title grow');
+            heading.append(
+              link(
+                appearance.name,
+                `/scene/?${new URLSearchParams({ tenant, id: appearance.scene_entity_id })}`,
+              ),
+            );
+            const number = el('span', String(session.scenes.indexOf(appearance) + 1), 'chip');
+            number.setAttribute('aria-hidden', 'true');
+            const title = el('div', '', 'row');
+            title.append(
+              number,
+              heading,
+              audienceBadge(
+                appearance.is_shared ? 'Shared with Session participants' : 'GM preparation',
+                appearance.is_shared,
+              ),
+            );
+            body.append(title);
+            if (session.can_manage) {
+              const index = session.scenes.indexOf(appearance);
+              const move = async (delta: number) => {
+                const ids = session.scenes.map((s) => s.id);
+                [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
+                await unwrap(
+                  await client.PUT('/tenants/{tenant_id}/sessions/{session_id}/scenes/order', {
+                    params: { path, header: { 'if-match': version } },
+                    body: { appearance_ids: ids },
+                  }),
+                );
+                await refresh();
+              };
+              const controls = el('div', '', 'row');
+              if (index > 0) controls.append(button('Move up', () => move(-1), { icon: 'up' }));
+              if (index < session.scenes.length - 1)
+                controls.append(button('Move down', () => move(1), { icon: 'down' }));
+              controls.append(
+                button(
+                  appearance.is_shared
+                    ? 'Make preparation private'
+                    : 'Share with Session participants',
+                  async () => {
+                    await unwrap(
+                      await client.PATCH(
+                        '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
+                        {
+                          params: {
+                            path: { ...path, appearance_id: appearance.id },
+                            header: { 'if-match': version },
+                          },
+                          body: { is_shared: !appearance.is_shared },
+                        },
+                      ),
+                    );
+                    await refresh();
+                  },
+                ),
               );
-              await refresh();
-            };
-            const controls = el('div', '', 'row');
-            if (index > 0) controls.append(button('Move up', () => move(-1), { icon: 'up' }));
-            if (index < session.scenes.length - 1)
-              controls.append(button('Move down', () => move(1), { icon: 'down' }));
-            controls.append(
-              button(
-                appearance.is_shared
-                  ? 'Make preparation private'
-                  : 'Share with Session participants',
-                async () => {
-                  await unwrap(
-                    await client.PATCH(
-                      '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
-                      {
-                        params: {
-                          path: { ...path, appearance_id: appearance.id },
-                          header: { 'if-match': version },
-                        },
-                        body: { is_shared: !appearance.is_shared },
-                      },
-                    ),
-                  );
-                  await refresh();
-                },
-              ),
-            );
-            controls.append(
-              button(
-                'Remove Scene appearance',
-                async () => {
-                  if (
-                    !confirm(
-                      'Remove this appearance and its Session-specific notes? The reusable Scene remains.',
+              controls.append(
+                button(
+                  'Remove Scene appearance',
+                  async () => {
+                    if (
+                      !confirm(
+                        'Remove this appearance and its Session-specific notes? The reusable Scene remains.',
+                      )
                     )
-                  )
-                    return;
-                  await unwrap(
-                    await client.DELETE(
-                      '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
-                      {
-                        params: {
-                          path: { ...path, appearance_id: appearance.id },
-                          header: { 'if-match': version },
+                      return;
+                    await unwrap(
+                      await client.DELETE(
+                        '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}',
+                        {
+                          params: {
+                            path: { ...path, appearance_id: appearance.id },
+                            header: { 'if-match': version },
+                          },
                         },
-                      },
-                    ),
-                  );
-                  await refresh();
-                },
-                { variant: 'danger', icon: 'delete' },
-              ),
+                      ),
+                    );
+                    await refresh();
+                  },
+                  { variant: 'danger', icon: 'delete' },
+                ),
+              );
+              body.append(controls);
+            }
+            body.append(
+              await referencePanel(tenant, 'scenes', appearance.scene_entity_id, false, refresh, 4),
+              await notes(tenant, appearance.id, () => void refresh(), 'session', 4),
             );
-            body.append(controls);
-          }
-          body.append(
-            await referencePanel(tenant, 'scenes', appearance.scene_entity_id, false, refresh, 4),
-            await notes(tenant, appearance.id, () => void refresh(), 'session', 4),
-          );
-          list.append(row);
+            return row;
+          }),
+        );
+        const [
+          editorPair,
+          notesPanel,
+          references,
+          coverage,
+          sceneRows,
+          play,
+          sequence,
+          adder,
+          lived,
+        ] = await Promise.all([
+          started.editors,
+          started.notes,
+          started.references,
+          started.coverage,
+          rows,
+          started.play,
+          started.sequence,
+          started.adder,
+          started.lived,
+        ]);
+        if (editorPair) {
+          const editors = el('div', '', 'stack-tight');
+          editors.append(...editorPair);
+          view.append(editors);
         }
+        view.append(notesPanel, references, coverage);
+        list.append(...sceneRows);
         if (session.scenes.length) outline.append(list);
         else outline.append(empty('No Scenes are available to you here.'));
-        view.append(
-          outline,
-          await playPanel(tenant, id, session.can_manage, refresh),
-          await sequencePanel(tenant, session.campaign_id, refresh, id),
-        );
-        if (session.can_manage) {
-          outline.append(await sceneAdder(session, version, refresh));
-          view.append(await livedLinkPanel(tenant, id));
-        }
+        view.append(outline, play, sequence);
+        if (adder) outline.append(adder);
+        if (lived) view.append(lived);
         if (host.isConnected && turn === generation) {
           history.replaceState(history.state, '', sessionHref(tenant, id, session.slug));
+          // A panel that was open stays open when the page draws itself again after a save.
+          const key = (d: HTMLDetailsElement) => d.querySelector('summary')?.textContent ?? '';
+          const open = new Set(
+            [...host.querySelectorAll<HTMLDetailsElement>('details[open]')].map(key),
+          );
           host.replaceChildren(...view.childNodes);
+          for (const d of host.querySelectorAll<HTMLDetailsElement>('details.panel')) {
+            if (open.has(key(d))) d.open = true;
+          }
         }
       } finally {
         if (turn === generation) {
@@ -397,7 +435,29 @@ async function detailsEditor(session: StorySession, version: string, refresh: ()
   );
   return details.root;
 }
-async function rosterEditor(session: StorySession, version: string, refresh: () => Promise<void>) {
+function rosterEditor(session: StorySession, version: string, refresh: () => Promise<void>) {
+  const details = panel(
+    'GMs and players',
+    `${session.gm_user_ids.length} GMs, ${session.players.length} players`,
+  );
+  // The campaign's GMs and players are only read when the panel is first opened.
+  let started = false;
+  details.root.addEventListener('toggle', () => {
+    if (!details.root.open || started) return;
+    started = true;
+    details.body.append(loading('Loading the campaign…'));
+    void rosterContent(details.body, session, version, refresh).catch((error) =>
+      details.body.replaceChildren(errorNotice(error)),
+    );
+  });
+  return details.root;
+}
+async function rosterContent(
+  body: HTMLElement,
+  session: StorySession,
+  version: string,
+  refresh: () => Promise<void>,
+) {
   const path = { tenant_id: session.tenant_id, campaign_id: session.campaign_id };
   const [gms, players] = await Promise.all([
     unwrap(
@@ -411,7 +471,6 @@ async function rosterEditor(session: StorySession, version: string, refresh: () 
       ),
     ),
   ]);
-  const details = panel('GMs and players', `${gms.length} GMs, ${players.length} players`);
   const gmGroup = el('fieldset');
   gmGroup.append(el('legend', 'GMs'));
   const gmChecks = gms.map((gm) => {
@@ -442,7 +501,7 @@ async function rosterEditor(session: StorySession, version: string, refresh: () 
   if (!gms.length) gmGroup.append(empty('This campaign has no GMs.'));
   if (!players.length) playerGroup.append(empty('This campaign has no players.'));
   const status = statusLine();
-  details.body.append(
+  body.replaceChildren(
     fields(gmGroup, playerGroup),
     actions(
       button(
@@ -494,7 +553,6 @@ async function rosterEditor(session: StorySession, version: string, refresh: () 
     ),
     status,
   );
-  return details.root;
 }
 async function sceneAdder(session: StorySession, version: string, refresh: () => Promise<void>) {
   const existing = await fetchAllPages(async (page) =>
