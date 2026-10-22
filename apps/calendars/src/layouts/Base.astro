@@ -1,102 +1,35 @@
 ---
+import AppPage from '@lorenzo/app-shell/AppPage.astro';
 import { ClientRouter } from 'astro:transitions';
 import { BRANDING_CSS_URL } from '../lib/config';
 import appStyles from '../styles/app.css?url';
+
 interface Props {
   title?: string;
+  // What the welcome says while the page works out who is signed in.
+  status?: string;
 }
-const { title = 'Lorenzo Calendars' } = Astro.props;
+
+const { title = 'Lorenzo Calendars', status = 'Opening your calendars…' } = Astro.props;
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
-    <title>{title}</title>
-    <ClientRouter />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    {['normalize', 'tokens', 'fonts', 'base', 'layout', 'components', 'motion'].map((name) => (
-      <link rel="stylesheet" href={`${BRANDING_CSS_URL}/${name}.css`} />
-    ))}
-    <link rel="stylesheet" href={appStyles} />
-    <script is:inline>
-      (() => {
-        let saved;
-        try {
-          saved = localStorage.getItem('lorenzo:calendars:theme');
-        } catch {
-          // System appearance remains usable when preference storage is blocked.
-        }
-        document.documentElement.dataset.theme =
-          saved === 'light' || saved === 'dark'
-            ? saved
-            : window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? 'dark'
-              : 'light';
-      })();
-    </script>
-  </head>
-  <body>
-    <a class="skip-link" href="#content">
-      Skip to content
-    </a>
-    <header class="site-header">
-      <div class="row brand-group">
-        <a class="brand" href="/" aria-label="Lorenzo Calendars home">
-          <img
-            class="brand-mark brand-mark--light"
-            src="/brand/lorenzo_horizontal_lockup_light_bg.svg"
-            alt="Lorenzo"
-            width="220"
-            height="59"
-          />
-          <img
-            class="brand-mark brand-mark--dark"
-            src="/brand/lorenzo_horizontal_lockup_dark_bg.svg"
-            alt="Lorenzo"
-            width="220"
-            height="59"
-          />
-        </a>
-        <span class="product">Calendars</span>
-      </div>
-      <nav aria-label="Account and appearance">
-        <a data-hub hidden>
-          Account
-        </a>
-        <button class="btn btn-secondary" data-login hidden>
-          Log in
-        </button>
-        <button class="btn btn-secondary" data-logout hidden>
-          Log out
-        </button>
-        <button type="button" class="btn btn-secondary" data-theme-toggle aria-pressed="false">
-          Dark theme
-        </button>
-      </nav>
-    </header>
-    <main id="content" class="wrap stack">
-      <div class="welcome stack" data-welcome>
-        <h1>Calendars for your worlds</h1>
-        <p class="intro">
-          Keep the months, festivals and moons of each world in its own reckoning. Open a date to
-          read its notes and story events.
-        </p>
-        <p data-session role="status">
-          Opening your calendars…
-        </p>
-      </div>
-      <label class="library-picker" data-library-field hidden>
-        Library or repository <select data-library></select>
-      </label>
-      <div data-page hidden>
-        <slot />
-      </div>
-    </main>
-    <footer>
-      <div class="wrap">Dates in your world, in its own reckoning.</div>
-    </footer>
-  </body>
-</html>
+<AppPage
+  title={title}
+  product="Calendars"
+  brandingUrl={BRANDING_CSS_URL}
+  themeKey="lorenzo:calendars:theme"
+  nav={[
+    { label: 'Home', href: '/' },
+    { label: 'Events', href: '/events/', needsLibrary: true },
+  ]}
+  path="apps/calendars"
+  welcome={{
+    title: 'Calendars',
+    text: 'Each world keeps its own months, festivals and moons. Choose a calendar to read its dates, notes and Events.',
+    status,
+  }}
+>
+  <ClientRouter slot="head" />
+  <link slot="head" rel="stylesheet" href={appStyles} />
+  <slot />
+</AppPage>

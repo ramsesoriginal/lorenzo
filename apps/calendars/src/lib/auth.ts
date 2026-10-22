@@ -54,6 +54,8 @@ export async function login(): Promise<void> {
 // with an authorization code in the query string.
 export async function completeLogin(): Promise<void> {
   await ensureConfigured();
+  // Whatever an earlier person left in this tab is not this one's.
+  calendarReads.clear();
   await authgear.finishAuthentication();
 }
 

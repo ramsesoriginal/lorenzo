@@ -1,10 +1,15 @@
 import { createLorenzoClient } from '@lorenzo/api-client';
 import { getAccessToken } from './auth';
 import { API_BASE_URL } from './config';
+import { sessionReads } from './read-cache';
 
 export type { Schema } from '@lorenzo/api-client';
 export { fetchAllPages, LorenzoApiError, unwrap } from '@lorenzo/api-client';
-export const client = createLorenzoClient({ baseUrl: API_BASE_URL, getAccessToken });
+export const client = createLorenzoClient({
+  baseUrl: API_BASE_URL,
+  getAccessToken,
+  fetch: sessionReads.fetch,
+});
 const files = new Set<string>();
 export async function loadFile(payload: { url: string }) {
   const token = await getAccessToken();
@@ -23,10 +28,19 @@ if (typeof window !== 'undefined') {
     files.clear();
     document.querySelector('[data-page]')?.replaceChildren();
   };
-  window.addEventListener('pagehide', clear);
-  window.addEventListener('lorenzo:sign-out', clear);
+  window.addEventListener('pagehide', () => {
+    sessionReads.dropScoped();
+    clear();
+  });
+  window.addEventListener('lorenzo:sign-out', () => {
+    sessionReads.clear();
+    clear();
+  });
   window.addEventListener('pageshow', (event) => {
     if (event.persisted) location.reload();
   });
-  document.addEventListener('astro:before-swap', clear);
+  document.addEventListener('astro:before-swap', () => {
+    sessionReads.suspend();
+    clear();
+  });
 }

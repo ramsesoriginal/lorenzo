@@ -1,12 +1,12 @@
 import { getAppLinks } from '@lorenzo/api-client';
+import { bindShell } from '@lorenzo/app-shell';
 import { rememberTenantAddress, tenantAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { currentTenant, rememberTenant } from './lastTenant';
-import { calendarReads } from './read-cache';
-import { bindThemeToggle } from './theme';
+import { calendarReads, readScope } from './read-cache';
 export type Session = {
   tenantId: string;
   canWrite: boolean;
@@ -16,51 +16,49 @@ export type Session = {
 };
 export async function start(): Promise<Session | null> {
   calendarReads.suspend();
-  const status = document.querySelector<HTMLElement>('[data-session]');
-  if (!status) return null;
-  bindThemeToggle();
-  const signIn = document.querySelector<HTMLButtonElement>('[data-login]');
-  signIn?.addEventListener('click', () => {
-    sessionStorage.setItem('lorenzo:calendars:return', location.pathname + location.search);
-    void login().catch((e) => {
-      status.textContent = message(e);
-    });
+  const shell = bindShell({
+    themeKey: 'lorenzo:calendars:theme',
+    onLogin() {
+      sessionStorage.setItem('lorenzo:calendars:return', location.pathname + location.search);
+      void login().catch((e) => shell?.status(message(e), 'error'));
+    },
+    onLogout() {
+      void logout();
+    },
   });
-  document.querySelector('[data-logout]')?.addEventListener('click', () => {
-    void logout();
-  });
-  try {
-    const registry = await getAppLinks(API_BASE_URL);
-    const hub = document.querySelector<HTMLAnchorElement>('[data-hub]');
-    if (hub && registry.apps.account_hub) {
-      hub.href = registry.apps.account_hub.url;
-      hub.hidden = false;
-    }
-  } catch {
-    /* Calendar reading does not depend on the app registry. */
-  }
+  const marker = document.querySelector('[data-session]');
+  if (!shell || !marker) return null;
+  shell.account({ state: 'checking' });
+  // The registry, the viewer and the libraries do not wait for one another, and none of them blocks
+  // the page: calendar reading does not depend on the registry.
+  void getAppLinks(API_BASE_URL, calendarReads.fetch)
+    .then((registry) => {
+      if (registry.apps.account_hub) shell.accountLink(registry.apps.account_hub.url);
+    })
+    .catch(() => {});
   if (!isAuthConfigured()) {
-    status.textContent = 'Sign-in for this calendar app is not set up yet.';
+    shell.account({ state: 'error', message: 'Sign-in is not set up' });
+    shell.status('Sign-in for this calendar app is not set up yet.');
     return null;
   }
   try {
     if (!(await isAuthenticated())) {
       calendarReads.clear();
-      status.textContent = 'Log in to open the calendars in your libraries.';
-      if (signIn) signIn.hidden = false;
+      shell.account({ state: 'signed-out' });
+      shell.status('Log in to open the calendars in your libraries.');
       return null;
     }
-    const out = document.querySelector<HTMLElement>('[data-logout]');
-    if (out) out.hidden = false;
-    const viewer = await unwrap(await client.GET('/me'));
-    const tenants = await fetchAllPages(async (page) =>
-      unwrap(await client.GET('/tenants', { params: { query: { page, size: 100 } } })),
-    );
-    if (!status.isConnected) return null;
-    const picker = document.querySelector<HTMLSelectElement>('[data-library]');
-    if (!picker || !tenants.length) {
+    const [viewer, tenants] = await Promise.all([
+      client.GET('/me').then(unwrap),
+      fetchAllPages(async (page) =>
+        unwrap(await client.GET('/tenants', { params: { query: { page, size: 100 } } })),
+      ),
+    ]);
+    shell.account({ state: 'signed-in', label: viewer.email ?? undefined });
+    if (!marker.isConnected) return null;
+    if (!tenants.length) {
       calendarReads.clear();
-      status.textContent = 'There are no libraries available to this account yet.';
+      shell.status('There are no libraries available to this account yet.');
       return null;
     }
     const explicit = new URLSearchParams(location.search).get('tenant');
@@ -70,46 +68,44 @@ export async function start(): Promise<Session | null> {
       (explicit ? undefined : tenants[0]);
     if (!tenant) {
       calendarReads.clear();
-      status.textContent =
-        'This library is not available to this account. Open Calendars to choose a library.';
+      shell.status(
+        'This library is not available to this account. Open Calendars to choose a library.',
+      );
       return null;
     }
-    for (const t of tenants) {
-      const o = document.createElement('option');
-      o.value = t.id;
-      o.textContent = t.name;
-      picker.append(o);
-    }
-    picker.value = tenant.id;
     rememberTenant(tenant.id);
     for (const t of tenants) rememberTenantAddress(t.id, t.slug);
     const address = new URL(location.href);
     address.searchParams.set('tenant', tenantAddress(tenant.id));
     history.replaceState(history.state, '', address);
-    picker.addEventListener('change', () => {
-      rememberTenant(picker.value);
-      location.assign(`/?tenant=${encodeURIComponent(tenantAddress(picker.value))}`);
-    });
+    shell.library(tenantAddress(tenant.id));
+    shell.libraries(
+      tenants.map((t) => ({ id: t.id, name: t.name })),
+      tenant.id,
+      (id) => {
+        rememberTenant(id);
+        location.assign(`/?tenant=${encodeURIComponent(tenantAddress(id))}`);
+      },
+    );
 
-    let canRetainPrivate = false;
-    let canOrderEvents = false;
-    let canReadEventOrder = false;
-    {
-      const access = await unwrap(
-        await client.GET('/tenants/{tenant_id}/events/access', {
-          params: { path: { tenant_id: tenant.id } },
-        }),
-      );
-      canOrderEvents = access.can_order;
-      canRetainPrivate = access.can_retain_private;
-      canReadEventOrder = access.can_read_order;
-    }
-    if (!status.isConnected) return null;
-    calendarReads.configure(viewer.id, tenant.id, tenant.role, canRetainPrivate);
-    document.querySelector<HTMLElement>('[data-library-field]')?.removeAttribute('hidden');
-    document.querySelector<HTMLElement>('[data-page]')?.removeAttribute('hidden');
-    status.hidden = true;
-    document.querySelector<HTMLElement>('[data-welcome]')?.setAttribute('hidden', '');
+    // Entering a protected view revalidates access before anything held is drawn (ADR 0313).
+    const access = await unwrap(
+      await client.GET('/tenants/{tenant_id}/events/access', {
+        params: { path: { tenant_id: tenant.id } },
+      }),
+    );
+    const canOrderEvents = access.can_order;
+    const canReadEventOrder = access.can_read_order;
+    if (!marker.isConnected) return null;
+    calendarReads.configure(
+      readScope(viewer.id, tenant.id, tenant.role, {
+        canOrder: access.can_order,
+        canReadOrder: access.can_read_order,
+        canRetainPrivate: access.can_retain_private,
+      }),
+    );
+    shell.status('');
+    shell.reveal();
     return {
       tenantId: tenant.id,
       canWrite: ['owner', 'orga', 'author'].includes(tenant.role),
@@ -119,8 +115,8 @@ export async function start(): Promise<Session | null> {
     };
   } catch (e) {
     calendarReads.clear();
-    status.textContent = message(e);
-    if (signIn) signIn.hidden = false;
+    shell.account({ state: 'signed-out' });
+    shell.status(message(e), 'error');
     return null;
   }
 }

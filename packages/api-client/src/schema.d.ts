@@ -1046,7 +1046,8 @@ export interface paths {
          *     the tenant row (ADR 0018), so one DELETE takes everything; the
          *     campaigns go first because `campaign.entity_id` is the one reference to
          *     `entity` that restricts rather than cascades, and a cascade doesn't
-         *     promise an order.
+         *     promise an order; the Sessions go before them, because a Session's
+         *     reference to its campaign does not cascade either.
          *
          *     Nothing records this in the tenant's own activity log, which goes with
          *     it. The people with a stake in it are told (platform-scope
@@ -3037,6 +3038,69 @@ export interface paths {
         get: operations["entries_at_period"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendar-periods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Calendar Periods
+         * @description The periods the caller can see, in every calendar or in one, with their calendar's name.
+         */
+        get: operations["list_calendar_periods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/{calendar_id}/years/{year}/period-summaries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Period Summaries
+         * @description The saved periods of a year (or of one month or festival of it) with their notes and dated
+         *     entries: what a month view needs in one request instead of two per period. Nothing is created.
+         */
+        get: operations["period_summaries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/calendars/{calendar_id}/periods/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Materialize Periods
+         * @description Creates the listed periods and their year and month parents in one transaction, and
+         *     returns them in request order. Periods that exist are reused; one invalid date fails all.
+         *     It needs the standing the single write needs (ADR 0309) and locks the calendar once.
+         */
+        post: operations["materialize_periods"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9495,6 +9559,20 @@ export interface components {
             /** Label */
             label: string | null;
         };
+        /** NoteSummaryOut */
+        NoteSummaryOut: {
+            /**
+             * Information Id
+             * Format: uuid
+             */
+            information_id: string;
+            /** Title */
+            title: string;
+            /** Text */
+            text: string | null;
+            /** Truncated */
+            truncated: boolean;
+        };
         /**
          * NotificationCreate
          * @description POST .../notifications body, shared by the tenant/campaign/character
@@ -10001,10 +10079,36 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[PeriodDetailOut] */
+        Page_PeriodDetailOut_: {
+            /** Items */
+            items: components["schemas"]["PeriodDetailOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[PeriodOut] */
         Page_PeriodOut_: {
             /** Items */
             items: components["schemas"]["PeriodOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[PeriodSummaryOut] */
+        Page_PeriodSummaryOut_: {
+            /** Items */
+            items: components["schemas"]["PeriodSummaryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -10292,6 +10396,11 @@ export interface components {
              */
             locale: string;
         };
+        /** PeriodBatch */
+        PeriodBatch: {
+            /** Periods */
+            periods: components["schemas"]["PeriodCreate"][];
+        };
         /** PeriodCreate */
         PeriodCreate: {
             /** Year */
@@ -10305,6 +10414,38 @@ export interface components {
              * @default false
              */
             is_public: boolean;
+        };
+        /** PeriodDetailOut */
+        PeriodDetailOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * Calendar Entity Id
+             * Format: uuid
+             */
+            calendar_entity_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Granularity
+             * @enum {string}
+             */
+            granularity: "year" | "month" | "day";
+            /** Year */
+            year: number;
+            /** Segment */
+            segment: string | null;
+            /** Day */
+            day: number | null;
+            /** Parent Entity Id */
+            parent_entity_id: string | null;
+            /** Calendar Name */
+            calendar_name: string;
         };
         /** PeriodOut */
         PeriodOut: {
@@ -10340,6 +10481,42 @@ export interface components {
         PeriodSelection: {
             /** Period Ids */
             period_ids: string[];
+        };
+        /** PeriodSummaryOut */
+        PeriodSummaryOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * Calendar Entity Id
+             * Format: uuid
+             */
+            calendar_entity_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Granularity
+             * @enum {string}
+             */
+            granularity: "year" | "month" | "day";
+            /** Year */
+            year: number;
+            /** Segment */
+            segment: string | null;
+            /** Day */
+            day: number | null;
+            /** Parent Entity Id */
+            parent_entity_id: string | null;
+            /** Notes */
+            notes: components["schemas"]["NoteSummaryOut"][];
+            /** Entries */
+            entries: components["schemas"]["DatedEntryOut"][];
+            /** Entry Total */
+            entry_total: number;
         };
         /** Periodic */
         Periodic: {
@@ -24216,6 +24393,219 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_DatedEntryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_calendar_periods: {
+        parameters: {
+            query?: {
+                calendar_id?: string | null;
+                year?: number | null;
+                segment?: string | null;
+                id?: string[] | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PeriodDetailOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    period_summaries: {
+        parameters: {
+            query?: {
+                segment?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                calendar_id: string;
+                year: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PeriodSummaryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    materialize_periods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PeriodBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodOut"][];
                 };
             };
             /** @description Validation Error */

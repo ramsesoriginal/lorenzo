@@ -1,5 +1,6 @@
 import authgear, { SessionState } from '@authgear/web';
 import { AUTHGEAR_CLIENT_ID, AUTHGEAR_ENDPOINT } from './config';
+import { sessionReads } from './read-cache';
 
 // Trailing slash is deliberate, not cosmetic: Cloudflare Pages 308-redirects
 // any extensionless path to add one (confirmed against apps/account-hub's
@@ -52,6 +53,8 @@ export async function login(): Promise<void> {
 // with an authorization code in the query string.
 export async function completeLogin(): Promise<void> {
   await ensureConfigured();
+  // Whatever an earlier person left in this tab is not this one's.
+  sessionReads.clear();
   await authgear.finishAuthentication();
 }
 

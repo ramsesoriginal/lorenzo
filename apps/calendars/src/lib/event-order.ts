@@ -1,7 +1,7 @@
 import { fill, getAppLinks } from '@lorenzo/api-client';
 import { client, type components, LorenzoApiError, unwrap } from './api';
 import { API_BASE_URL } from './config';
-import { button, el, entryHref, field, link, message, select } from './dom';
+import { button, disclosure, el, entryHref, feedback, field, link, message, select } from './dom';
 
 type Relationship = components['schemas']['RelationshipOut'];
 
@@ -13,17 +13,17 @@ export async function eventOrder(
 ): Promise<HTMLElement | null> {
   const registry = await getAppLinks(API_BASE_URL).catch(() => null);
   const path = { tenant_id: tenantId, event_id: eventId };
-  const host = el('details', '', 'panel stack');
+  const panel = disclosure('Order and causes', true);
+  const host = panel.root;
   host.dataset.eventOrder = '';
-  const body = el('div', '', 'stack');
-  host.append(el('summary', 'Order and causes'), body);
-  const assertions = el('div', '', 'stack-tight');
-  const status = el('p');
-  status.setAttribute('role', 'status');
+  const body = panel.body;
+  const assertions = el('ul', '', 'list');
+  const none = el('p', '', 'lede');
+  const status = feedback();
   let version = '';
   let busy = false;
   const query = field('Find an Event');
-  const results = el('div', '', 'stack-tight');
+  const results = el('div', '', 'row');
   const selected = el('p', 'Choose an Event to relate or compare.', 'caption');
   let target: { id: string; name: string } | undefined;
   const relationship = select(
@@ -41,29 +41,26 @@ export async function eventOrder(
   async function run(action: () => Promise<void>) {
     if (busy || !host.isConnected) return;
     busy = true;
-    status.textContent = '';
+    status.clear();
     try {
       await action();
     } catch (error) {
-      status.textContent = canEdit
-        ? `${message(error)} Your selection is kept. Refresh the saved relationships before retrying a conflicting edit.`
-        : message(error);
+      status.fail(
+        canEdit
+          ? `${message(error)} Your selection is kept. Refresh the saved relationships before retrying a conflicting edit.`
+          : message(error),
+      );
     } finally {
       busy = false;
     }
   }
   function render(rows: Relationship[]) {
     assertions.replaceChildren();
-    if (!rows.length)
-      assertions.append(
-        el(
-          'p',
-          canEdit
-            ? 'No ordering relationships recorded.'
-            : 'No shared relationships are available in your view.',
-          'caption',
-        ),
-      );
+    assertions.hidden = !rows.length;
+    none.hidden = rows.length > 0;
+    none.textContent = canEdit
+      ? 'No ordering relationships are recorded yet.'
+      : 'No shared relationships are available in your view.';
     for (const row of rows) {
       const incoming = row.to_event_id === eventId;
       const otherId = incoming ? row.from_event_id : row.to_event_id;
@@ -76,8 +73,8 @@ export async function eventOrder(
           : incoming
             ? 'Happened after'
             : 'Happened before';
-      const line = el('div', '', 'row');
-      line.append(el('span', label), link(otherName, entryHref(tenantId, otherId)));
+      const line = el('li', '', 'row');
+      line.append(el('span', label, 'relation'), link(otherName, entryHref(tenantId, otherId)));
       if (row.evidence === 'lived') {
         line.append(
           el('span', `Lived order · ${row.being_name ?? 'participating being'}`, 'caption'),
@@ -93,13 +90,15 @@ export async function eventOrder(
         assertions.append(line);
         continue;
       }
-      if (canEdit)
+      if (canEdit) {
+        const spacer = el('span', '', 'grow');
         line.append(
           el(
             'span',
             row.is_shared ? 'Shared with readers of both Events' : 'Private relationship',
             'caption',
           ),
+          spacer,
           button(
             row.is_shared ? 'Make relationship private' : 'Share relationship',
             () =>
@@ -121,9 +120,11 @@ export async function eventOrder(
                 render(await unwrap(result));
                 version = result.response.headers.get('etag') ?? '';
                 comparison.replaceChildren();
-                status.textContent = row.is_shared
-                  ? 'Relationship is private.'
-                  : 'Relationship shared. Readers still need access to both Events.';
+                status.say(
+                  row.is_shared
+                    ? 'Relationship is private.'
+                    : 'Relationship shared. Readers still need access to both Events.',
+                );
               }),
             true,
           ),
@@ -144,11 +145,13 @@ export async function eventOrder(
                 render(await unwrap(result));
                 version = result.response.headers.get('etag') ?? '';
                 comparison.replaceChildren();
-                status.textContent = 'Relationship removed.';
+                status.say('Relationship removed.');
               }),
             true,
+            'close',
           ),
         );
+      }
       assertions.append(line);
     }
   }
@@ -166,24 +169,8 @@ export async function eventOrder(
     if (error instanceof LorenzoApiError && error.status === 403) return null;
     throw error;
   }
-  body.append(
-    el(
-      'p',
-      canEdit
-        ? 'Record what happened before or caused this Event. Relationships start private; sharing never opens an Event or its Information.'
-        : 'Only shared relationships between Events you can see appear here. This order may differ from another reader’s view. Calendar dates do not establish order.',
-      'caption',
-    ),
-    assertions,
-    button(
-      'Refresh saved relationships',
-      () =>
-        run(async () => {
-          await refresh();
-          status.textContent = 'Saved relationships refreshed. Your selection is kept.';
-        }),
-      true,
-    ),
+  const search = el('div', '', 'stack-tight');
+  search.append(
     query.label,
     button(
       'Search Events',
@@ -210,47 +197,47 @@ export async function eventOrder(
                 true,
               ),
             );
-          status.textContent = page.total
-            ? 'Choose an Event from the results.'
-            : 'No matching Events.';
+          status.say(page.total ? 'Choose an Event from the results.' : 'No matching Events.');
         }),
       true,
+      'search',
     ),
     results,
     selected,
-    ...(canEdit
-      ? [
-          relationship.label,
-          button(
-            'Add relationship',
-            () =>
-              run(async () => {
-                if (!target) throw new Error('Choose an Event first.');
-                if (!version) throw new Error('Refresh the saved relationships first.');
-                const value = relationship.input.value;
-                const result = await client.PUT(
-                  '/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}',
-                  {
-                    params: {
-                      path: { ...path, other_event_id: target.id },
-                      header: { 'if-match': version },
-                    },
-                    body: {
-                      kind: value === 'causes' || value === 'caused-by' ? 'causes' : 'order',
-                      direction:
-                        value === 'after' || value === 'caused-by' ? 'incoming' : 'outgoing',
-                    },
-                  },
-                );
-                render(await unwrap(result));
-                version = result.response.headers.get('etag') ?? '';
-                comparison.replaceChildren();
-                status.textContent = 'Relationship recorded.';
-              }),
-            true,
-          ),
-        ]
-      : []),
+  );
+  const actions = el('div', '', 'row');
+  if (canEdit)
+    actions.append(
+      button(
+        'Add relationship',
+        () =>
+          run(async () => {
+            if (!target) throw new Error('Choose an Event first.');
+            if (!version) throw new Error('Refresh the saved relationships first.');
+            const value = relationship.input.value;
+            const result = await client.PUT(
+              '/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}',
+              {
+                params: {
+                  path: { ...path, other_event_id: target.id },
+                  header: { 'if-match': version },
+                },
+                body: {
+                  kind: value === 'causes' || value === 'caused-by' ? 'causes' : 'order',
+                  direction: value === 'after' || value === 'caused-by' ? 'incoming' : 'outgoing',
+                },
+              },
+            );
+            render(await unwrap(result));
+            version = result.response.headers.get('etag') ?? '';
+            comparison.replaceChildren();
+            status.say('Relationship recorded.');
+          }),
+        false,
+        'add',
+      ),
+    );
+  actions.append(
     button(
       'Compare Events',
       () =>
@@ -298,9 +285,34 @@ export async function eventOrder(
           }
         }),
       true,
+      'compare',
     ),
+    button(
+      'Refresh saved relationships',
+      () =>
+        run(async () => {
+          await refresh();
+          status.say('Saved relationships refreshed. Your selection is kept.');
+        }),
+      true,
+      'refresh',
+    ),
+  );
+  body.append(
+    el(
+      'p',
+      canEdit
+        ? 'Record what happened before or caused this Event. Relationships start private; sharing never opens an Event or its notes.'
+        : 'Only shared relationships between Events you can see appear here. This order may differ from another reader’s view. Calendar dates do not establish order.',
+      'caption',
+    ),
+    assertions,
+    none,
+    search,
+    ...(canEdit ? [relationship.label] : []),
+    actions,
     comparison,
-    status,
+    status.node,
   );
   return host;
 }

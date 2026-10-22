@@ -4,7 +4,7 @@ Thanks for the interest — this is currently a solo/early-stage project, but it
 
 ## How this repo is built
 
-Structure, tooling, and documentation come first; application code only gets written once something is explicitly scoped — not speculatively, and not ahead of what's actually been decided. If you're proposing a new app, start with [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md), not a pull request full of code.
+Apps and packages are added only once they are explicitly scoped, not speculatively and not ahead of what has been decided. If you are proposing a new app, start with [docs/guides/adding-an-app.md](docs/guides/adding-an-app.md), not a pull request full of code.
 
 ## Dev environment
 
