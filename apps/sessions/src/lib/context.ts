@@ -32,7 +32,6 @@ export async function referencePanel(
   const path = { tenant_id: tenant, source_kind: source, source_id: id };
   const result = await client.GET('/tenants/{tenant_id}/{source_kind}/{source_id}/references', {
     params: { path },
-    cache: 'no-store',
   });
   const rows = await unwrap(result);
   let version = result.response.headers.get('etag') ?? '';
@@ -173,7 +172,6 @@ export async function coveragePanel(
   const path = { tenant_id: tenant, entity_id: id };
   const result = await client.GET('/tenants/{tenant_id}/entities/{entity_id}/dates', {
     params: { path },
-    cache: 'no-store',
   });
   const periods = await unwrap(result);
   const host = el('div', '', 'stack');
@@ -203,7 +201,6 @@ export async function coveragePanel(
   });
   const entry = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
     params: { path },
-    cache: 'no-store',
   });
   await unwrap(entry);
   let version = entry.response.headers.get('etag') ?? '';

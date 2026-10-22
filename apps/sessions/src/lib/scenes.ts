@@ -145,7 +145,6 @@ export async function mountScene() {
         };
         const result = await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
           params: { path },
-          cache: 'no-store',
         });
         const scene = await unwrap(result);
         let version = result.response.headers.get('etag') ?? '';

@@ -161,7 +161,6 @@ export async function notes(
     unwrap(
       await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
         params: { path: { tenant_id: tenant, entity_id: entry } },
-        cache: 'no-store',
       }),
     ),
     unwrap(
