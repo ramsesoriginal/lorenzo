@@ -11,7 +11,9 @@ converting research or descriptions implicitly. The screen keeps writing primary
 and saved revisions opened on demand. No new component framework or general styling system.
 
 Persist unsent bundle drafts, including pending image Files, in IndexedDB. Keys include the API
-origin, signed-in account, tenant and manuscript. Read the current server editor snapshot before
+origin, signed-in account, tenant and manuscript entry. Each open editor keeps its own draft
+version; a completed save never deletes another tab's newer unsent work. Multiple recovered
+versions remain explicitly selectable. Read the current server editor snapshot before
 opening a local draft: authenticate and authorize first. Keep the original server version and
 write receipt with each draft. Conditional saves serialize; typing during a save stays in the
 editor and schedules the next save rather than being overwritten by its response. Save failures
