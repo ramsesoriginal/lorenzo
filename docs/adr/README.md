@@ -330,3 +330,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0325 - One read cache, and what it may hold](0325-one-read-cache-and-what-it-may-hold.md) — `packages/read-cache`: viewer-scoped stale-while-revalidate in memory for private data, `sessionStorage` only for `/me`, `/tenants` and `/app-links`, access revalidated before private data is drawn
 - [0326 - Moon phases in the icon atlas](0326-moon-phases-in-the-icon-atlas.md) — eight custom `icon-moon-*` symbols in Tabler's grammar replace the emoji
 - [0327 - Lorenzo Writing: manuscripts, editions and carriers](0327-lorenzo-writing.md) — accepted writing model and stacked vertical delivery; RFC 0047
+| [0328](0328-manuscript-bundles-and-revisions.md) | Manuscript bundles and saved revisions |
