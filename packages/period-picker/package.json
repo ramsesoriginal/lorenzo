@@ -1,0 +1,25 @@
+{
+  "name": "@lorenzo/period-picker",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "One picker for a calendar period: a day, a month or festival, a year, or several (ADR 0323).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./period-picker.css": "./src/period-picker.css"
+  },
+  "scripts": {
+    "lint": "biome check . && tsc --noEmit",
+    "format": "biome check --write .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lorenzo/api-client": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

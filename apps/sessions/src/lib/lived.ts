@@ -87,7 +87,6 @@ export async function mountLived() {
         };
         const result = await client.GET('/tenants/{tenant_id}/beings/{being_id}/lived-order', {
           params: { path },
-          cache: 'no-store',
         });
         const saved = await unwrap(result);
         let version = result.response.headers.get('etag') ?? '';
@@ -251,7 +250,6 @@ export async function mountLived() {
         if (sid) {
           const source = await client.GET('/tenants/{tenant_id}/sessions/{session_id}/play', {
             params: { path: { tenant_id: tenant, session_id: sid } },
-            cache: 'no-store',
           });
           if (!source.response.ok) {
             publish();

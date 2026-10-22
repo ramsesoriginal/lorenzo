@@ -15,12 +15,12 @@ import {
   panel,
   say,
   sectionHead,
-  select,
   statusLine,
   suspendControls,
 } from './dom';
 import { libraryName } from './names';
 import { notes } from './notes';
+import { periodControl } from './periods';
 import { start } from './sign-in';
 
 const href = (tenant: string, id: string, slug?: string | null) =>
@@ -145,7 +145,6 @@ export async function mountScene() {
         };
         const result = await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
           params: { path },
-          cache: 'no-store',
         });
         const scene = await unwrap(result);
         let version = result.response.headers.get('etag') ?? '';
@@ -162,25 +161,16 @@ export async function mountScene() {
           const slug = field('Link name', scene.slug ?? '');
           const shared = field('Visible in this library', '', 'checkbox');
           shared.input.checked = scene.is_public;
-          const periods = await fetchAllPages(async (page) =>
-            unwrap(
-              await client.GET('/tenants/{tenant_id}/entities', {
-                params: {
-                  path: { tenant_id: tenant },
-                  query: { kind: ['calendar_period'], page, size: 100 },
-                },
-              }),
-            ),
-          );
-          const period = select(
-            'Scene period',
-            [['', 'Not set'], ...periods.map((p) => [p.id, p.name] as [string, string])],
-            scene.period_entity_id ?? '',
-          );
+          const period = periodControl({
+            tenant,
+            label: 'Scene period',
+            mode: 'single',
+            initial: scene.period_entity_id ? [scene.period_entity_id] : [],
+          });
           const status = statusLine();
           const grid = el('div', '', 'grid');
           grid.style.setProperty('--grid-min', '240px');
-          grid.append(name.label, slug.label, period.label);
+          grid.append(name.label, slug.label, period.root);
           details.body.append(
             grid,
             shared.label,
@@ -188,6 +178,7 @@ export async function mountScene() {
               button(
                 'Save Scene',
                 async () => {
+                  const picked = await period.value();
                   await unwrap(
                     await client.PATCH('/tenants/{tenant_id}/scenes/{scene_id}', {
                       params: { path, header: { 'if-match': version } },
@@ -195,9 +186,7 @@ export async function mountScene() {
                         name: name.input.value,
                         slug: slug.input.value || null,
                         is_public: shared.input.checked,
-                        ...(period.input.value !== (scene.period_entity_id ?? '')
-                          ? { period_entity_id: period.input.value || null }
-                          : {}),
+                        ...(picked !== null ? { period_entity_id: picked[0] ?? null } : {}),
                       },
                     }),
                   );

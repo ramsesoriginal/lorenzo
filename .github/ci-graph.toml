@@ -139,6 +139,12 @@ batch = "packages"
 [nodes."packages/app-shell"]
 batch = "packages"
 
+[nodes."packages/period-picker"]
+batch = "packages"
+
+[nodes."packages/read-cache"]
+batch = "packages"
+
 [nodes."apps/inventory-ios"]
 depends_on = ["apps/brand"]
 generated_from = ["apps/api"]

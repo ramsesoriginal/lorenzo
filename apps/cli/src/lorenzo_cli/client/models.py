@@ -1181,6 +1181,13 @@ class NotAppliedOut(BaseModel):
     label: str | None = Field(..., title="Label")
 
 
+class NoteSummaryOut(BaseModel):
+    information_id: UUID = Field(..., title="Information Id")
+    title: str = Field(..., title="Title")
+    text: str | None = Field(..., title="Text")
+    truncated: bool = Field(..., title="Truncated")
+
+
 class NotificationCreate(BaseModel):
     recipient_user_id: UUID | None = Field(None, title="Recipient User Id")
     type: str = Field(..., title="Type")
@@ -1451,6 +1458,19 @@ class Granularity(StrEnum):
     day = "day"
 
 
+class PeriodDetailOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    slug: str | None = Field(None, title="Slug")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    name: str = Field(..., title="Name")
+    granularity: Granularity = Field(..., title="Granularity")
+    year: int = Field(..., title="Year")
+    segment: str | None = Field(..., title="Segment")
+    day: int | None = Field(..., title="Day")
+    parent_entity_id: UUID | None = Field(..., title="Parent Entity Id")
+    calendar_name: str = Field(..., title="Calendar Name")
+
+
 class PeriodOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     slug: str | None = Field(None, title="Slug")
@@ -1468,6 +1488,21 @@ class PeriodSelection(BaseModel):
         extra="forbid",
     )
     period_ids: list[UUID] = Field(..., max_length=1000, title="Period Ids")
+
+
+class PeriodSummaryOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    slug: str | None = Field(None, title="Slug")
+    calendar_entity_id: UUID = Field(..., title="Calendar Entity Id")
+    name: str = Field(..., title="Name")
+    granularity: Granularity = Field(..., title="Granularity")
+    year: int = Field(..., title="Year")
+    segment: str | None = Field(..., title="Segment")
+    day: int | None = Field(..., title="Day")
+    parent_entity_id: UUID | None = Field(..., title="Parent Entity Id")
+    notes: list[NoteSummaryOut] = Field(..., title="Notes")
+    entries: list[DatedEntryOut] = Field(..., title="Entries")
+    entry_total: int = Field(..., title="Entry Total")
 
 
 class Periodic(BaseModel):
@@ -2947,8 +2982,24 @@ class PageObservanceOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PagePeriodDetailOut(BaseModel):
+    items: list[PeriodDetailOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PagePeriodOut(BaseModel):
     items: list[PeriodOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PagePeriodSummaryOut(BaseModel):
+    items: list[PeriodSummaryOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -3017,6 +3068,13 @@ class PageTenantSummaryOut(BaseModel):
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
     pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PeriodBatch(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    periods: list[PeriodCreate] = Field(..., max_length=1000, min_length=1, title="Periods")
 
 
 class PlayOut(BaseModel):

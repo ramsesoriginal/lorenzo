@@ -64,16 +64,19 @@ export async function mount() {
   host.append(iconLink('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`, 'back'), wait);
   try {
     const calendarId = await resolveAddress(tenantId, params, 'calendar');
-    const calendar = await unwrap(
-      await client.GET('/tenants/{tenant_id}/calendars/{entity_id}', {
-        params: { path: { tenant_id: tenantId, entity_id: calendarId } },
-      }),
-    );
-    const entry = await unwrap(
-      await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
-        params: { path: { tenant_id: tenantId, entity_id: calendarId } },
-      }),
-    );
+    // The calendar and its entry do not wait for each other.
+    const [calendar, entry] = await Promise.all([
+      client
+        .GET('/tenants/{tenant_id}/calendars/{entity_id}', {
+          params: { path: { tenant_id: tenantId, entity_id: calendarId } },
+        })
+        .then(unwrap),
+      client
+        .GET('/tenants/{tenant_id}/entities/{entity_id}', {
+          params: { path: { tenant_id: tenantId, entity_id: calendarId } },
+        })
+        .then(unwrap),
+    ]);
     if (!host?.isConnected) return;
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, calendarId);
@@ -126,83 +129,86 @@ export async function mount() {
       name: string;
       date: { year: number; segment: string; day: number };
     }> = [];
-    const contentCache = new Map<string, Promise<{ notes: string[]; entries: string[] }>>();
-    async function dayContent(periodId: string) {
-      const known = contentCache.get(periodId);
+    type DaySummary = { notes: string[]; entries: string[] };
+    const contentCache = new Map<string, Promise<DaySummary>>();
+    const summaryReads = new Map<string, Promise<void>>();
+    // What a saved day shows, in one request for the whole month or festival (ADR 0324) instead
+    // of two per day. The notes are the source of each note's first text, drawn here as before so
+    // that a link in a note still resolves; hidden notes and entries are not in the answer.
+    function loadSummaries(segment: string): Promise<void> {
+      const key = `${year}|${segment}`;
+      const known = summaryReads.get(key);
       if (known) return known;
-      const loading = (async () => {
-        const [notes, entries] = await Promise.all([
-          fetchAllPages(async (page) =>
-            unwrap(
-              await client.GET('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      const reading = (async () => {
+        const items = await fetchAllPages(async (page) =>
+          unwrap(
+            await client.GET(
+              '/tenants/{tenant_id}/calendars/{calendar_id}/years/{year}/period-summaries',
+              {
                 params: {
-                  path: { tenant_id: tenantId, entity_id: periodId },
-                  query: { page, size: 100 },
+                  path: { tenant_id: tenantId, calendar_id: calendarId, year },
+                  query: { segment, page, size: 100 },
                 },
-              }),
+              },
             ),
           ),
-          fetchAllPages(async (page) =>
-            unwrap(
-              await client.GET('/tenants/{tenant_id}/calendar-periods/{period_id}/entries', {
-                params: {
-                  path: { tenant_id: tenantId, period_id: periodId },
-                  query: { page, size: 100 },
-                },
-              }),
-            ),
-          ),
-        ]);
-        const summaries = await Promise.all(
-          notes.map(async (note) => {
-            const text = note.payloads.find((p) => p.kind === 'description');
-            const parsed =
-              text?.kind === 'description'
-                ? (new DOMParser().parseFromString(
-                    await renderText(tenantId, text.content),
-                    'text/html',
-                  ).body.textContent ?? '')
-                : '';
-            const title = note.title && note.title !== 'Imported note' ? note.title : '';
-            const summary = [title, parsed.trim()].filter(Boolean).join(' · ').replace(/\s+/g, ' ');
-            return summary ? summary.slice(0, 180) + (summary.length > 180 ? '…' : '') : 'Note';
-          }),
         );
-        return { notes: summaries, entries: entries.map((e) => e.name) };
+        for (const item of items) {
+          contentCache.set(
+            item.entity_id,
+            (async (): Promise<DaySummary> => {
+              const notes = await Promise.all(
+                item.notes.map(async (note) => {
+                  const parsed = note.text
+                    ? (new DOMParser().parseFromString(
+                        await renderText(tenantId, note.text),
+                        'text/html',
+                      ).body.textContent ?? '')
+                    : '';
+                  const title = note.title && note.title !== 'Imported note' ? note.title : '';
+                  const summary = [title, parsed.trim()]
+                    .filter(Boolean)
+                    .join(' · ')
+                    .replace(/\s+/g, ' ');
+                  return summary
+                    ? summary.slice(0, 180) + (summary.length > 180 || note.truncated ? '…' : '')
+                    : 'Note';
+                }),
+              );
+              return { notes, entries: item.entries.map((e) => e.name) };
+            })(),
+          );
+        }
       })();
-      contentCache.set(periodId, loading);
-      void loading.catch(() => {
-        if (contentCache.get(periodId) === loading) contentCache.delete(periodId);
+      summaryReads.set(key, reading);
+      void reading.catch(() => {
+        if (summaryReads.get(key) === reading) summaryReads.delete(key);
       });
-      return loading;
+      return reading;
     }
-    const dayQueue: Array<{ period: Period; content: HTMLElement }> = [];
-    let activeDays = 0;
-    function loadDays() {
-      while (activeDays < 4 && dayQueue.length) {
-        const job = dayQueue.shift();
-        if (!job?.content.isConnected) continue;
-        activeDays++;
-        const { period, content } = job;
-        void (async () => {
-          try {
-            const summary = await dayContent(period.entity_id);
-            if (!content.isConnected) return;
+    function loadDays(segment: string, jobs: Array<{ period: Period; content: HTMLElement }>) {
+      void loadSummaries(segment)
+        .then(async () => {
+          for (const { period, content } of jobs) {
+            if (!content.isConnected) continue;
+            const summary = await contentCache.get(period.entity_id);
+            if (!content.isConnected) continue;
             content.replaceChildren(
-              ...summary.notes.map((note) => el('span', `Note · ${note}`, 'day-item day-note')),
-              ...summary.entries.map((name) => el('span', name, 'day-item day-entry')),
+              ...(summary?.notes ?? []).map((note) =>
+                el('span', `Note · ${note}`, 'day-item day-note'),
+              ),
+              ...(summary?.entries ?? []).map((name) => el('span', name, 'day-item day-entry')),
             );
-          } catch {
+          }
+        })
+        .catch(() => {
+          for (const { content } of jobs) {
             if (content.isConnected)
               content.replaceChildren(
                 el('span', 'Could not load notes and entries.', 'day-item error-text'),
               );
           }
-        })().finally(() => {
-          activeDays--;
-          loadDays();
         });
-      }
     }
     let generation = 0;
     let selection = 0;
@@ -223,6 +229,7 @@ export async function mount() {
       requestedDate = false;
       requestedDay = null;
       contentCache.clear();
+      summaryReads.clear();
       status.busy('Opening year…');
       try {
         const [calculated, saved, observances] = await Promise.all([
@@ -470,8 +477,7 @@ export async function mount() {
         cells.append(cell);
       }
       container.append(cells);
-      dayQueue.push(...pending);
-      loadDays();
+      if (pending.length) loadDays(key, pending);
     }
     async function showPeriod(segment?: string, day?: number, target?: HTMLButtonElement) {
       const turn = ++selection;

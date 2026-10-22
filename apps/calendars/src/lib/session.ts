@@ -6,7 +6,7 @@ import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { currentTenant, rememberTenant } from './lastTenant';
-import { calendarReads } from './read-cache';
+import { calendarReads, readScope } from './read-cache';
 export type Session = {
   tenantId: string;
   canWrite: boolean;
@@ -29,12 +29,13 @@ export async function start(): Promise<Session | null> {
   const marker = document.querySelector('[data-session]');
   if (!shell || !marker) return null;
   shell.account({ state: 'checking' });
-  try {
-    const registry = await getAppLinks(API_BASE_URL);
-    if (registry.apps.account_hub) shell.accountLink(registry.apps.account_hub.url);
-  } catch {
-    /* Calendar reading does not depend on the app registry. */
-  }
+  // The registry, the viewer and the libraries do not wait for one another, and none of them blocks
+  // the page: calendar reading does not depend on the registry.
+  void getAppLinks(API_BASE_URL, calendarReads.fetch)
+    .then((registry) => {
+      if (registry.apps.account_hub) shell.accountLink(registry.apps.account_hub.url);
+    })
+    .catch(() => {});
   if (!isAuthConfigured()) {
     shell.account({ state: 'error', message: 'Sign-in is not set up' });
     shell.status('Sign-in for this calendar app is not set up yet.');
@@ -47,11 +48,13 @@ export async function start(): Promise<Session | null> {
       shell.status('Log in to open the calendars in your libraries.');
       return null;
     }
-    const viewer = await unwrap(await client.GET('/me'));
+    const [viewer, tenants] = await Promise.all([
+      client.GET('/me').then(unwrap),
+      fetchAllPages(async (page) =>
+        unwrap(await client.GET('/tenants', { params: { query: { page, size: 100 } } })),
+      ),
+    ]);
     shell.account({ state: 'signed-in', label: viewer.email ?? undefined });
-    const tenants = await fetchAllPages(async (page) =>
-      unwrap(await client.GET('/tenants', { params: { query: { page, size: 100 } } })),
-    );
     if (!marker.isConnected) return null;
     if (!tenants.length) {
       calendarReads.clear();
@@ -85,21 +88,22 @@ export async function start(): Promise<Session | null> {
       },
     );
 
-    let canRetainPrivate = false;
-    let canOrderEvents = false;
-    let canReadEventOrder = false;
-    {
-      const access = await unwrap(
-        await client.GET('/tenants/{tenant_id}/events/access', {
-          params: { path: { tenant_id: tenant.id } },
-        }),
-      );
-      canOrderEvents = access.can_order;
-      canRetainPrivate = access.can_retain_private;
-      canReadEventOrder = access.can_read_order;
-    }
+    // Entering a protected view revalidates access before anything held is drawn (ADR 0313).
+    const access = await unwrap(
+      await client.GET('/tenants/{tenant_id}/events/access', {
+        params: { path: { tenant_id: tenant.id } },
+      }),
+    );
+    const canOrderEvents = access.can_order;
+    const canReadEventOrder = access.can_read_order;
     if (!marker.isConnected) return null;
-    calendarReads.configure(viewer.id, tenant.id, tenant.role, canRetainPrivate);
+    calendarReads.configure(
+      readScope(viewer.id, tenant.id, tenant.role, {
+        canOrder: access.can_order,
+        canReadOrder: access.can_read_order,
+        canRetainPrivate: access.can_retain_private,
+      }),
+    );
     shell.status('');
     shell.reveal();
     return {

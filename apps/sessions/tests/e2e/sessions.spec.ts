@@ -456,9 +456,10 @@ test('a flashback proposal needs explicit review and correction before it become
   }
 });
 
-test('a refresh replaces the whole Session view only after its permitted context is ready', async ({
+test('a save draws again only what it changed: drafts and open panels elsewhere stay', async ({
   browser,
 }) => {
+  test.setTimeout(90_000);
   const w = await world();
   const page = await signedIn(browser, w.subject);
   let release = () => {};
@@ -471,6 +472,15 @@ test('a refresh replaces the whole Session view only after its permitted context
     );
     await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
     await expect(page.getByRole('heading', { name: 'Saved session', exact: true })).toBeVisible();
+
+    // A draft in the roster panel (a player ticked, not saved) and a note being written.
+    await page.getByText('GMs and players', { exact: true }).click();
+    const players = page.getByRole('group', { name: 'Players and their Characters' });
+    await players.getByRole('checkbox').first().check();
+    await page.getByRole('button', { name: 'Add note', exact: true }).first().click();
+    await page.getByLabel('Note title', { exact: true }).fill('Unsaved thought');
+
+    // Save the Session's details, with the read of the Session after it held back.
     await page.getByText('Session details', { exact: true }).click();
     await page.getByLabel('Session title', { exact: true }).fill('New complete view');
     const hold = new Promise<void>((resolve) => {
@@ -480,13 +490,15 @@ test('a refresh replaces the whole Session view only after its permitted context
     const reached = new Promise<void>((resolve) => {
       arrived = resolve;
     });
-    await page.route(`**/sessions/${session.id}/references`, async (route) => {
+    await page.route(`**/sessions/${session.id}`, async (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
       arrived();
       await hold;
-      await route.continue();
+      return route.continue();
     });
     await page.getByRole('button', { name: 'Save Session details', exact: true }).click();
     await reached;
+    // The old page stays until what replaces it has been read.
     await expect(page.getByRole('heading', { name: 'Saved session', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'New complete view', exact: true })).toHaveCount(
       0,
@@ -495,6 +507,13 @@ test('a refresh replaces the whole Session view only after its permitted context
     await expect(
       page.getByRole('heading', { name: 'New complete view', exact: true }),
     ).toBeVisible();
+
+    // The other panels were left as they were: the draft note, the ticked player, the open panels.
+    await expect(page.getByLabel('Note title', { exact: true })).toHaveValue('Unsaved thought');
+    await expect(players.getByRole('checkbox').first()).toBeChecked();
+    await expect(page.getByLabel('Session title', { exact: true })).toHaveValue(
+      'New complete view',
+    );
     await expect(page.getByRole('heading', { name: 'Recorded play', exact: true })).toBeVisible();
   } finally {
     release();
@@ -591,6 +610,8 @@ async function expectBrandRules(page: Page, where: string, phone: boolean) {
   await page.evaluate(() => {
     for (const d of document.querySelectorAll('details')) d.open = true;
   });
+  // Panels read what they hold when they are opened.
+  await expect(page.locator('[data-loading], [aria-busy="true"]')).toHaveCount(0);
   const serious = (await new AxeBuilder({ page }).analyze()).violations
     .filter((v) => v.impact === 'serious' || v.impact === 'critical')
     // Known and outside this app: packages/lorenzoscript-editor's "1." toolbar button is named
@@ -673,3 +694,225 @@ for (const look of [
     }
   });
 }
+
+test('the period picker chooses game time and a start, and writes nothing until Save', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  const writes: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() !== 'GET' && /\/periods|\/dates|\/sessions\/[^/]+$/.test(request.url())) {
+      writes.push(
+        `${request.method()} ${new URL(request.url()).pathname.split('/').slice(3).join('/')}`,
+      );
+    }
+  });
+  try {
+    await ok(
+      w.gm.POST('/tenants/{tenant_id}/calendars', {
+        params: { path: w.path },
+        body: {
+          name: 'Reckoning',
+          is_public: false,
+          definition: {
+            format: 'lorenzo.calendar/1',
+            segments: [
+              { key: 'first', name: 'First', days: 27, kind: 'month', in_week: true },
+              { key: 'festival', name: 'Festival', days: 2, kind: 'festival', in_week: false },
+            ],
+            week: {
+              length: 7,
+              reset: 'never',
+              reference: { year: 0, segment: 'first', day: 1 },
+              weekday: 0,
+            },
+            moons: [],
+          },
+        },
+      }),
+    );
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'The harbour at night', campaign_id: w.campaign.id },
+      }),
+    );
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+
+    // Game time covered: a range of days, chosen as days.
+    await page.getByText('Choose periods', { exact: true }).click();
+    const picker = page.locator('.period-picker');
+    await expect(picker.getByRole('spinbutton', { name: 'Year' })).toHaveValue('0');
+    await picker.getByRole('button', { name: 'Choose a range of days' }).click();
+    await picker.getByRole('button', { name: '16 First 0', exact: true }).click();
+    await picker.getByRole('button', { name: '18 First 0', exact: true }).click();
+    await expect(picker).toContainText('3 days in First 0');
+    await picker.scrollIntoViewIfNeeded();
+    await picker.screenshot({ path: test.info().outputPath('period-picker.png') });
+    await expectBrandRules(page, 'a Session with the period picker open', false);
+    expect(writes).toEqual([]);
+
+    await page.getByRole('button', { name: 'Save game time', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Game time covered' })).toBeVisible();
+    const savedDates = () =>
+      ok(
+        w.gm.GET('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+          params: { path: { ...w.path, entity_id: session.id } },
+        }),
+      );
+    await expect
+      .poll(async () => (await savedDates()).map((period) => period.day).sort())
+      .toEqual([16, 17, 18]);
+    expect(writes.some((write) => write.endsWith('/periods/batch'))).toBe(true);
+    const saved = await savedDates();
+    // The page draws itself again after a save: the saved game time is listed (the chips of the
+    // picker are another list), and the panel that was open stays open.
+    await expect(page.locator('ul.row li').filter({ hasText: '17 First 0' })).toBeVisible();
+    await expect(page.locator('.period-picker')).toHaveCount(1);
+
+    // The starting period: one choice, and a day that already exists is marked saved.
+    // Every panel was opened for the accessibility check and stayed open through the redraw; one
+    // that is not open is opened now.
+    const detailsPanel = page
+      .locator('details.panel')
+      .filter({ hasText: 'Session details' })
+      .first();
+    if (!(await detailsPanel.evaluate((d) => (d as HTMLDetailsElement).open))) {
+      await page.getByText('Session details', { exact: true }).click();
+    }
+    await expect(detailsPanel).toHaveAttribute('open', '', { timeout: 5000 });
+    const start = page.getByRole('group', { name: 'In-world starting period' });
+    await expect(start).toBeVisible({ timeout: 5000 });
+    await start.getByRole('button', { name: 'Choose', exact: true }).click({ timeout: 5000 });
+    await expect(start.locator('.period-picker')).toBeVisible({ timeout: 5000 });
+    await start
+      .getByRole('button', { name: '17 First 0, saved', exact: true })
+      .click({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Save Session details', exact: true }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            await ok(
+              w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+                params: { path: { ...w.path, session_id: session.id } },
+              }),
+            )
+          ).start_period_id,
+      )
+      .toBe(saved.find((period) => period.day === 17)?.entity_id);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('resting on a Session link reads that Session ahead, and opening it asks again for nothing', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'The harbour at night', campaign_id: w.campaign.id },
+      }),
+    );
+    const reads: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'GET' && request.url().endsWith(`/sessions/${session.id}`)) {
+        reads.push(request.url());
+      }
+    });
+    await page.goto('/');
+    const open = page.getByRole('link', { name: 'The harbour at night', exact: true });
+    await expect(open).toBeVisible();
+    const ahead = page.waitForResponse((response) =>
+      response.url().endsWith(`/sessions/${session.id}`),
+    );
+    await open.hover();
+    await (await ahead).finished();
+    expect(reads).toHaveLength(1);
+    await open.click();
+    await expect(
+      page.getByRole('heading', { name: 'The harbour at night', level: 1 }),
+    ).toBeVisible();
+    // The page found it held (the reads are held for a few seconds under the viewer's scope).
+    expect(reads).toHaveLength(1);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('moving and sharing a Scene draw only the cards that changed, and removing one draws the outline', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'The harbour at night', campaign_id: w.campaign.id },
+      }),
+    );
+    const path = { ...w.path, session_id: session.id };
+    for (const name of ['Scene A', 'Scene B', 'Scene C']) {
+      const scene = await ok(
+        w.gm.POST('/tenants/{tenant_id}/scenes', {
+          params: { path: w.path },
+          body: { name, is_public: true },
+        }),
+      );
+      const current = await w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+        params: { path },
+      });
+      await ok(
+        w.gm.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
+          params: { path, header: { 'if-match': current.response.headers.get('etag') ?? '' } },
+          body: { scene_entity_id: scene.id, is_shared: true },
+        }),
+      );
+    }
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    const cards = page.locator('[data-region^="scene:"]');
+    await expect(cards).toHaveCount(3);
+    await expect(cards.locator('h3')).toHaveText(['Scene A', 'Scene B', 'Scene C']);
+
+    // A note being written in the third card.
+    await cards.nth(2).getByRole('button', { name: 'Add note', exact: true }).click();
+    await cards.nth(2).getByLabel('Note title', { exact: true }).fill('Draft in the third');
+
+    // Moving the first Scene down draws the two that changed place; the third is untouched.
+    await cards.nth(0).getByRole('button', { name: 'Move down', exact: true }).click();
+    await expect(cards.locator('h3')).toHaveText(['Scene B', 'Scene A', 'Scene C']);
+    await expect(cards.nth(0).locator('.chip').first()).toHaveText('1');
+    await expect(cards.nth(1).locator('.chip').first()).toHaveText('2');
+    await expect(cards.nth(2).getByLabel('Note title', { exact: true })).toHaveValue(
+      'Draft in the third',
+    );
+
+    // Sharing changes only the card it is on.
+    await cards.nth(1).getByRole('button', { name: 'Make preparation private' }).click();
+    await expect(cards.nth(1)).toContainText('GM preparation');
+    await expect(cards.nth(0)).toContainText('Shared with Session participants');
+    await expect(cards.nth(2).getByLabel('Note title', { exact: true })).toHaveValue(
+      'Draft in the third',
+    );
+
+    // Removing one draws the outline again, and the others are numbered again.
+    page.once('dialog', (dialog) => void dialog.accept());
+    await cards.nth(0).getByRole('button', { name: 'Remove Scene appearance' }).click();
+    await expect(cards).toHaveCount(2);
+    await expect(cards.locator('h3')).toHaveText(['Scene A', 'Scene C']);
+    await expect(page.getByRole('heading', { name: 'Scenes', exact: true })).toBeVisible();
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});

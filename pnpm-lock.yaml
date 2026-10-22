@@ -339,6 +339,9 @@ importers:
       '@lorenzo/lorenzoscript-editor':
         specifier: workspace:*
         version: link:../../packages/lorenzoscript-editor
+      '@lorenzo/read-cache':
+        specifier: workspace:*
+        version: link:../../packages/read-cache
       astro:
         specifier: ^7.3.5
         version: 7.3.5(@types/node@26.6.3)(tsx@4.23.15)(yaml@2.9.1)
@@ -531,6 +534,12 @@ importers:
       '@lorenzo/lorenzoscript-editor':
         specifier: workspace:*
         version: link:../../packages/lorenzoscript-editor
+      '@lorenzo/period-picker':
+        specifier: workspace:*
+        version: link:../../packages/period-picker
+      '@lorenzo/read-cache':
+        specifier: workspace:*
+        version: link:../../packages/read-cache
       astro:
         specifier: ^7.3.5
         version: 7.3.5(@types/node@26.6.3)(tsx@4.23.15)(yaml@2.9.1)
@@ -682,6 +691,40 @@ importers:
       esbuild:
         specifier: ^0.28.1
         version: 0.28.2
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.3(@types/node@26.6.3)(@vitest/coverage-v8@5.0.3)(msw@2.15.0(@types/node@26.6.3)(typescript@6.0.3))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/period-picker:
+    dependencies:
+      '@lorenzo/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.3.0
+        version: 2.5.14
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.6.3
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.0.2
+        version: 5.0.3(@types/node@26.6.3)(@vitest/coverage-v8@5.0.3)(msw@2.15.0(@types/node@26.6.3)(typescript@6.0.3))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/read-cache:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.3.0
+        version: 2.5.14
+      '@types/node':
+        specifier: ^26.0.0
+        version: 26.6.3
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

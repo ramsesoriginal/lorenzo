@@ -1,28 +1,12 @@
+import { createPrefetchQueue } from '@lorenzo/read-cache';
 import { client, unwrap } from './api';
 import { calendarReads } from './read-cache';
 
-// Two active requests, eight queued, sixteen distinct intentions per view.
-const queue: Array<() => Promise<unknown>> = [];
-const seen = new Set<string>();
-let active = 0;
-function pump() {
-  while (active < 2 && queue.length) {
-    const read = queue.shift();
-    if (!read) break;
-    active++;
-    void read()
-      .catch(() => {})
-      .finally(() => {
-        active--;
-        pump();
-      });
-  }
-}
+// Two active requests, eight queued, sixteen distinct intentions per view (ADR 0325).
+const queue = createPrefetchQueue();
 export function prefetch(key: string, read: () => Promise<unknown>) {
-  if (!calendarReads.canPrefetch() || seen.has(key) || seen.size >= 16 || queue.length >= 8) return;
-  seen.add(key);
-  queue.push(read);
-  pump();
+  if (!calendarReads.scoped()) return;
+  queue.enqueue(key, read);
 }
 export function prefetchEntry(tenant: string, id: string) {
   prefetch(`entry/${tenant}/${id}`, async () =>
@@ -68,8 +52,6 @@ export function prefetchYear(tenant: string, id: string, year: number) {
     ),
   );
 }
-if (typeof document !== 'undefined')
-  document.addEventListener('astro:before-swap', () => {
-    queue.length = 0;
-    seen.clear();
-  });
+if (typeof document !== 'undefined') {
+  document.addEventListener('astro:before-swap', () => queue.reset());
+}

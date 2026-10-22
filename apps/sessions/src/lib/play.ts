@@ -22,7 +22,6 @@ export async function playPanel(
   const path = { tenant_id: tenant, session_id: sid };
   const result = await client.GET('/tenants/{tenant_id}/sessions/{session_id}/play', {
     params: { path },
-    cache: 'no-store',
   });
   const saved = await unwrap(result);
   let version = result.response.headers.get('etag') ?? '';
@@ -269,7 +268,6 @@ export async function sequencePanel(
   const path = { tenant_id: tenant, campaign_id: campaign };
   const result = await client.GET('/tenants/{tenant_id}/campaigns/{campaign_id}/session-sequence', {
     params: { path },
-    cache: 'no-store',
   });
   const saved = await unwrap(result);
   let version = result.response.headers.get('etag') ?? '';
