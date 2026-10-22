@@ -1,5 +1,5 @@
 import { client, unwrap } from './api';
-import { button, el, entryHref, link, message, select } from './dom';
+import { button, disclosure, el, entryHref, feedback, link, message, select } from './dom';
 import { entryPicker } from './entry-picker';
 
 type Filter = { event_id?: string; being_id?: string; information_id?: string };
@@ -8,9 +8,10 @@ type Filter = { event_id?: string; being_id?: string; information_id?: string };
 export async function learningList(tenantId: string, filter: Filter): Promise<HTMLElement> {
   const host = el('div', '', 'stack-tight');
   let page = 1;
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  const list = el('ul', '', 'stack-tight');
+  const status = feedback();
+  const list = el('ul', '', 'list');
+  const empty = el('p', 'No learning history is recorded here.', 'lede');
+  empty.hidden = true;
   const more = button('More learning records', () => load(page + 1), true);
   let busy = false;
   async function load(next: number) {
@@ -24,66 +25,69 @@ export async function learningList(tenantId: string, filter: Filter): Promise<HT
       );
       for (const row of rows.items) {
         const item = el('li');
-        item.append(
+        const sentence = el('span');
+        sentence.append(
           link(row.being_name, entryHref(tenantId, row.being_entity_id)),
           document.createTextNode(' learned '),
           link(
-            row.information_title || 'Untitled information',
+            row.information_title || 'Untitled note',
             entryHref(tenantId, row.information_entity_id),
           ),
           document.createTextNode(` (${row.information_entity_name}) at `),
           link(row.event_name, entryHref(tenantId, row.event_entity_id)),
         );
+        item.append(sentence);
         list.append(item);
       }
       page = next;
       more.hidden = next >= (rows.pages ?? 0);
-      status.textContent = rows.total ? '' : 'No learning history is recorded here.';
+      empty.hidden = Boolean(rows.total);
+      list.hidden = !rows.total;
     } catch (error) {
-      status.textContent = message(error);
+      status.fail(message(error));
     } finally {
       busy = false;
     }
   }
-  host.append(list, more, status);
+  host.append(list, empty, more, status.node);
   await load(1);
   return host;
 }
 
 export function informationLearning(tenantId: string, informationId: string): HTMLElement {
-  const host = el('details');
-  host.append(el('summary', 'Recorded learning'));
+  const host = disclosure('Recorded learning');
   let loaded = false;
-  host.addEventListener('toggle', async () => {
-    if (!host.open || loaded) return;
+  host.root.addEventListener('toggle', async () => {
+    if (!host.root.open || loaded) return;
     loaded = true;
-    host.append(await learningList(tenantId, { information_id: informationId }));
+    host.body.append(await learningList(tenantId, { information_id: informationId }));
   });
-  return host;
+  return host.root;
 }
 
 export async function eventLearning(tenantId: string, eventId: string): Promise<HTMLElement> {
   const path = { tenant_id: tenantId, event_id: eventId };
-  const host = el('details', '', 'panel');
+  const panel = disclosure('Learning', true);
+  const host = panel.root;
   host.dataset.learning = '';
-  const body = el('div', '', 'stack');
-  host.append(el('summary', 'Learning'), body);
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  const list = el('div', '', 'stack-tight');
+  const status = feedback();
+  const list = el('ul', '', 'list');
+  const empty = el('p', 'No learning history is recorded for this Event.', 'lede');
   const participant = select('Who learned?', [['', 'Choose a participant']], '');
-  const information = select('Information learned', [['', 'Choose an entry first']], '');
+  const information = select('Note learned', [['', 'Choose an entry first']], '');
   let version = '';
   let busy = false;
   let selection = 0;
   async function run(action: () => Promise<void>) {
     if (busy || !host.isConnected) return;
     busy = true;
-    status.textContent = 'Saving…';
+    status.busy('Saving…');
     try {
       await action();
     } catch (error) {
-      status.textContent = `${message(error)} Your selection is kept. Refresh saved learning before retrying a conflicting edit.`;
+      status.fail(
+        `${message(error)} Your selection is kept. Refresh saved learning before retrying a conflicting edit.`,
+      );
     } finally {
       busy = false;
     }
@@ -118,13 +122,15 @@ export async function eventLearning(tenantId: string, eventId: string): Promise<
     );
     if (next === 1) list.replaceChildren();
     for (const row of rows.items) {
-      const item = el('div', '', 'stack-tight');
+      const item = el('li', '', 'row');
+      const sentence = el(
+        'p',
+        `${row.being_name} learned ${row.information_title || 'Untitled note'} (${row.information_entity_name}).`,
+        'grow',
+      );
       item.append(
-        el(
-          'p',
-          `${row.being_name} learned ${row.information_title || 'Untitled information'} (${row.information_entity_name}).`,
-        ),
-        link('Read Information', entryHref(tenantId, row.information_entity_id)),
+        sentence,
+        link('Read the note', entryHref(tenantId, row.information_entity_id)),
         link(`Learning recorded for ${row.being_name}`, entryHref(tenantId, row.being_entity_id)),
         button(
           'Remove learning record',
@@ -146,67 +152,27 @@ export async function eventLearning(tenantId: string, eventId: string): Promise<
                 ),
               );
               await load();
-              status.textContent = 'Learning record removed. Audiences are unchanged.';
+              status.say('Learning record removed. Audiences are unchanged.');
             }),
           true,
+          'close',
         ),
       );
       list.append(item);
     }
     page = next;
     more.hidden = next >= (rows.pages ?? 0);
-    if (!rows.total)
-      list.append(el('p', 'No learning history is recorded for this Event.', 'caption'));
+    list.hidden = !list.childElementCount;
+    empty.hidden = Boolean(list.childElementCount);
   }
-  body.append(
-    el(
-      'p',
-      'Record what a participating being learned here. Audiences stay unchanged. The link follows the Information, including later edits to its wording.',
-      'caption',
-    ),
-    list,
-    more,
-    button(
-      'Refresh saved learning',
-      () =>
-        run(async () => {
-          await load();
-          status.textContent = 'Saved learning refreshed.';
-        }),
-      true,
-    ),
-    participant.label,
-    entryPicker(tenantId, 'Find an entry with Information', undefined, (entry) => {
-      const turn = ++selection;
-      information.input.replaceChildren(new Option('Loading Information…', ''));
-      void (async () => {
-        try {
-          const detail = await unwrap(
-            await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
-              params: { path: { tenant_id: tenantId, entity_id: entry.id } },
-            }),
-          );
-          if (turn !== selection || !host.isConnected) return;
-          information.input.replaceChildren(new Option('Choose Information', ''));
-          for (const info of detail.information)
-            information.input.add(
-              new Option(`${entry.name}: ${info.title || 'Untitled information'}`, info.id),
-            );
-          status.textContent = detail.information.length
-            ? 'Choose the Information learned.'
-            : 'This entry has no available Information.';
-        } catch (error) {
-          if (turn === selection) status.textContent = message(error);
-        }
-      })();
-    }),
-    information.label,
+  const actions = el('div', '', 'row');
+  actions.append(
     button(
       'Record learning',
       () =>
         run(async () => {
           if (!participant.input.value || !information.input.value)
-            throw new Error('Choose a participant and Information first.');
+            throw new Error('Choose a participant and a note first.');
           await unwrap(
             await client.PUT(
               '/tenants/{tenant_id}/events/{event_id}/learning/{being_id}/{information_id}',
@@ -223,11 +189,61 @@ export async function eventLearning(tenantId: string, eventId: string): Promise<
             ),
           );
           await load();
-          status.textContent = 'Learning recorded. Audiences are unchanged.';
+          status.say('Learning recorded. Audiences are unchanged.');
+        }),
+      false,
+      'add',
+    ),
+    button(
+      'Refresh saved learning',
+      () =>
+        run(async () => {
+          await load();
+          status.say('Saved learning refreshed.');
         }),
       true,
+      'refresh',
     ),
-    status,
+  );
+  panel.body.append(
+    el(
+      'p',
+      'Record what a participating being learned here. Audiences stay unchanged. The link follows the note, including later edits to its wording.',
+      'caption',
+    ),
+    list,
+    empty,
+    more,
+    participant.label,
+    entryPicker(tenantId, 'Find an entry with notes', undefined, (entry) => {
+      const turn = ++selection;
+      information.input.replaceChildren(new Option('Loading notes…', ''));
+      void (async () => {
+        try {
+          const detail = await unwrap(
+            await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+              params: { path: { tenant_id: tenantId, entity_id: entry.id } },
+            }),
+          );
+          if (turn !== selection || !host.isConnected) return;
+          information.input.replaceChildren(new Option('Choose a note', ''));
+          for (const info of detail.information)
+            information.input.add(
+              new Option(`${entry.name}: ${info.title || 'Untitled note'}`, info.id),
+            );
+          status.say(
+            detail.information.length
+              ? 'Choose the note learned.'
+              : 'This entry has no notes available to you.',
+          );
+        } catch (error) {
+          if (turn === selection) status.fail(message(error));
+        }
+      })();
+    }),
+    information.label,
+    actions,
+    status.node,
   );
   await load();
   return host;
