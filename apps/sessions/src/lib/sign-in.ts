@@ -4,6 +4,7 @@ import { client, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { API_BASE_URL } from './config';
 import { message } from './dom';
+import { bindSessionPrefetch } from './prefetch';
 import { readScope, sessionReads } from './read-cache';
 export async function start() {
   const shell = bindShell({
@@ -35,7 +36,8 @@ export async function start() {
       return null;
     }
     const me = await unwrap(await client.GET('/me'));
-    sessionReads.configure(readScope(me.id, tenant));
+    sessionReads.configure(readScope(me.id));
+    bindSessionPrefetch();
     shell.account({ state: 'signed-in', label: me.email ?? undefined });
     shell.status('');
     shell.reveal();

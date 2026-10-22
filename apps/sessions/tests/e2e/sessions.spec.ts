@@ -789,3 +789,42 @@ test('the period picker chooses game time and a start, and writes nothing until 
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
   }
 });
+
+test('resting on a Session link reads that Session ahead, and opening it asks again for nothing', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'The harbour at night', campaign_id: w.campaign.id },
+      }),
+    );
+    const reads: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'GET' && request.url().endsWith(`/sessions/${session.id}`)) {
+        reads.push(request.url());
+      }
+    });
+    await page.goto('/');
+    const open = page.getByRole('link', { name: 'The harbour at night', exact: true });
+    await expect(open).toBeVisible();
+    const ahead = page.waitForResponse((response) =>
+      response.url().endsWith(`/sessions/${session.id}`),
+    );
+    await open.hover();
+    await (await ahead).finished();
+    expect(reads).toHaveLength(1);
+    await open.click();
+    await expect(
+      page.getByRole('heading', { name: 'The harbour at night', level: 1 }),
+    ).toBeVisible();
+    // The page found it held (the reads are held for a few seconds under the viewer's scope).
+    expect(reads).toHaveLength(1);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});

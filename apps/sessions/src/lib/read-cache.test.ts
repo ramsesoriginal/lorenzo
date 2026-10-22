@@ -24,9 +24,7 @@ test('who may read something, lookups and anything else are never held', () => {
   expect(at('/users/search')).toBeNull();
 });
 
-test('the scope changes with the viewer and the library', () => {
-  expect(readScope('a', 'library')).toBe(readScope('a', 'library'));
-  expect(readScope('a', 'library')).not.toBe(readScope('b', 'library'));
-  expect(readScope('a', 'library')).not.toBe(readScope('a', 'other'));
-  expect(readScope('a', null)).not.toBe(readScope('a', 'library'));
+test('the scope is the viewer', () => {
+  expect(readScope('a')).toBe(readScope('a'));
+  expect(readScope('a')).not.toBe(readScope('b'));
 });
