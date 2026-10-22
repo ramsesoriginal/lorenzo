@@ -21,7 +21,8 @@ A tenant-scoped `manuscript_revision` records the bundle before its first payloa
 database transaction. Database triggers cover text, pictures and payload ordering, including
 writes from other clients and bulk code paths. Snapshot content contains ordered stable payload
 identities, text locales and picture bytes; it contains no audience grants. No-op updates do not
-create revisions. Revisions remain while their Information exists; deleting the Information or
+create revisions. Initial bundle construction, including a repository copy, has no previous
+saved state and creates no recovery entry. Revisions remain while their Information exists; deleting the Information or
 entry explicitly deletes its history too. The interface must explain that destructive action.
 Keep saved revisions without automatic expiry in this slice; no background retention policy is
 introduced. History is operational data, excluded from repository copies and releases.
