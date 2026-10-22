@@ -1,7 +1,22 @@
 import type { Schema } from '@lorenzo/api-client';
 import { rememberEntryAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
-import { button, check, el, entryHref, field, link, message, select } from './dom';
+import {
+  button,
+  check,
+  disclosure,
+  el,
+  emptyState,
+  entryHref,
+  feedback,
+  field,
+  icon,
+  iconLink,
+  link,
+  message,
+  select,
+  submit,
+} from './dom';
 import { start } from './session';
 
 type Range = Schema<'ReadingRange'>;
@@ -14,31 +29,46 @@ const dateText = (d: { year: number; segment: string; day: number }) =>
 
 // Clock editors retain drafts across conflicts. Refresh reads saved state without submitting it.
 export function clockEditor(title: string) {
-  const host = el('details', '', 'panel');
-  const body = el('div', '', 'stack');
-  const list = el('ul', '', 'stack-tight');
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  host.append(el('summary', title), body);
-  body.append(list, status);
+  const panel = disclosure(title, true);
+  const host = panel.root;
+  const body = panel.body;
+  const list = el('ul', '', 'list');
+  const status = feedback();
+  body.append(list, status.node);
   let busy = false;
   const run = async (action: () => Promise<void>) => {
     if (busy || !host.isConnected) return;
     busy = true;
     body.inert = true;
     body.setAttribute('aria-busy', 'true');
-    status.textContent = 'Saving…';
+    status.busy('Saving…');
     try {
       await action();
     } catch (error) {
-      status.textContent = `${message(error)} Your draft is kept. Refresh saved records to review changes before retrying.`;
+      status.fail(
+        `${message(error)} Your draft is kept. Refresh saved records to review changes before retrying.`,
+      );
     } finally {
       busy = false;
       body.inert = false;
       body.removeAttribute('aria-busy');
     }
   };
-  return { host, body, list, status, run };
+  /** Controls go above the place where the result is said. */
+  const add = (...nodes: Node[]) => status.node.before(...nodes);
+  return { host, body, list, status, run, add };
+}
+
+/** One saved record: what it says, and what can be done to it. */
+export function record(text: string, ...actions: HTMLElement[]) {
+  const row = el('li');
+  row.append(el('span', text, 'grow'));
+  if (actions.length) {
+    const buttons = el('div', '', 'row-tight');
+    buttons.append(...actions);
+    row.append(buttons);
+  }
+  return row;
 }
 
 export async function mountClocks() {
@@ -48,45 +78,66 @@ export async function mountClocks() {
   const session = await start();
   if (!session || !host.isConnected) return;
   const tenant = session.tenantId;
-  host.append(
+  const top = el('div', '', 'stack-tight');
+  top.append(
     el('h1', 'Clocks'),
-    link('All calendars', `/?tenant=${encodeURIComponent(tenant)}`),
     el(
       'p',
       'Keep each flow of time in its own reckoning. Clock readings never decide story order.',
-      'intro',
+      'lede',
     ),
   );
-  const status = el('p');
-  status.setAttribute('role', 'status');
-  host.append(status);
+  host.append(iconLink('All calendars', `/?tenant=${encodeURIComponent(tenant)}`, 'back'), top);
+  const status = feedback();
+  host.append(status.node);
   try {
     const clocks = await unwrap(
       await client.GET('/tenants/{tenant_id}/clocks', { params: { path: { tenant_id: tenant } } }),
     );
     if (!host.isConnected) return;
-    const list = el('ul', '', 'calendar-list');
-    for (const clock of clocks) {
-      rememberEntryAddress(tenant, clock);
-      const row = el('li', '', 'panel');
-      row.append(
-        link(clock.name, entryHref(tenant, clock.entity_id)),
-        el('p', clock.ticking ? 'Ticking clock' : 'Timeless', 'caption'),
+    if (clocks.length) {
+      const list = el('ul', '', 'grid calendar-list');
+      for (const clock of clocks) {
+        rememberEntryAddress(tenant, clock);
+        const open = link(clock.name, entryHref(tenant, clock.entity_id));
+        open.className = 'card calendar-card';
+        open.replaceChildren(
+          icon('kind-clock', 'calendar-mark'),
+          el('span', clock.name, 'calendar-name'),
+          el('span', clock.ticking ? 'Ticking' : 'Timeless', 'badge'),
+          icon('next'),
+        );
+        const item = el('li');
+        item.append(open);
+        list.append(item);
+      }
+      host.append(list);
+    } else
+      host.append(
+        emptyState(
+          'No clocks here yet',
+          session.canOrderEvents
+            ? 'Create one below to keep a flow of time of its own. Calendars work without any.'
+            : 'No clocks have been recorded here yet. Calendars work without them.',
+        ),
       );
-      list.append(row);
-    }
-    host.append(list);
-    if (!clocks.length)
-      host.append(el('p', 'No clocks have been recorded here yet. Calendars work without them.'));
     if (session.canOrderEvents) {
-      const form = el('details', '', 'panel');
-      form.append(el('summary', 'Create a clock'));
+      const create = disclosure('Create a clock', true);
+      const form = el('form', '', 'stack');
       const creationId = crypto.randomUUID();
       const name = field('Clock name');
+      name.input.required = true;
       const timeless = check('This clock is timeless');
       const shared = check('Everyone in this library can see this clock');
-      const save = button('Create clock', async () => {
+      const save = submit('Create clock');
+      const actions = el('div', '', 'row');
+      actions.append(save);
+      form.append(name.label, timeless.label, shared.label, actions);
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!form.reportValidity()) return;
         save.disabled = true;
+        status.busy('Creating…');
         try {
           const clock = await unwrap(
             await client.POST('/tenants/{tenant_id}/clocks', {
@@ -102,16 +153,16 @@ export async function mountClocks() {
           rememberEntryAddress(tenant, clock);
           location.assign(entryHref(tenant, clock.entity_id));
         } catch (error) {
-          status.textContent = `${message(error)} Your draft is kept.`;
+          status.fail(`${message(error)} Your draft is kept.`);
         } finally {
           save.disabled = false;
         }
       });
-      form.append(name.label, timeless.label, shared.label, save);
-      host.append(form);
+      create.body.append(form);
+      host.append(create.root);
     }
   } catch (error) {
-    status.textContent = message(error);
+    status.fail(message(error));
   }
 }
 
@@ -155,22 +206,27 @@ export async function clockPanel(tenant: string, id: string, canManage: boolean)
       clock.ticking
         ? 'This clock has its own day readings.'
         : 'This clock is timeless. It has no readings or ratios.',
+      'caption',
     ),
   );
   if (canManage) {
     const timeless = check('This clock is timeless', !clock.ticking);
-    ui.body.append(
-      timeless.label,
-      button('Save clock', () =>
-        ui.run(async () => {
-          const saved = await client.PUT('/tenants/{tenant_id}/clocks/{clock_id}', {
-            params: { path, header: { 'if-match': clockVersion } },
-            body: { ticking: !timeless.input.checked },
-          });
-          await unwrap(saved);
-          clockVersion = saved.response.headers.get('etag') ?? '';
-          ui.status.textContent = 'Clock saved. Reopen this entry to refresh its editors.';
-        }),
+    const actions = el('div', '', 'row');
+    actions.append(
+      button(
+        'Save clock',
+        () =>
+          ui.run(async () => {
+            const saved = await client.PUT('/tenants/{tenant_id}/clocks/{clock_id}', {
+              params: { path, header: { 'if-match': clockVersion } },
+              body: { ticking: !timeless.input.checked },
+            });
+            await unwrap(saved);
+            clockVersion = saved.response.headers.get('etag') ?? '';
+            ui.status.say('Clock saved. Reopen this entry to refresh its editors.');
+          }),
+        false,
+        'save',
       ),
       button(
         'Refresh saved clock',
@@ -181,11 +237,15 @@ export async function clockPanel(tenant: string, id: string, canManage: boolean)
             });
             const value = await unwrap(saved);
             clockVersion = saved.response.headers.get('etag') ?? '';
-            ui.status.textContent = `Saved clock: ${value.ticking ? 'ticking' : 'timeless'}. Your draft is kept.`;
+            ui.status.say(
+              `Saved clock: ${value.ticking ? 'ticking' : 'timeless'}. Your draft is kept.`,
+            );
           }),
         true,
+        'refresh',
       ),
     );
+    ui.add(timeless.label, actions);
   }
   if (!clock.ticking) return ui.host;
   let version = '';
@@ -201,46 +261,46 @@ export async function clockPanel(tenant: string, id: string, canManage: boolean)
     savedRows = rows.items;
     ui.list.replaceChildren();
     for (const row of rows.items) {
-      const li = el('li', '', 'stack-tight');
-      li.append(
-        el(
-          'p',
+      ui.list.append(
+        record(
           `${row.calendar_name}: ${dateText(row.date)} starts at ${row.reading}. ${row.is_shared ? 'Shared' : 'Private'}.`,
+          ...(rows.can_manage
+            ? [
+                button(
+                  'Edit reckoning',
+                  async () => {
+                    await editRow?.(row);
+                  },
+                  true,
+                  'edit',
+                ),
+                button(
+                  'Remove reckoning',
+                  () =>
+                    ui.run(async () => {
+                      await unwrap(
+                        await client.DELETE(
+                          '/tenants/{tenant_id}/clocks/{clock_id}/reckonings/{calendar_id}',
+                          {
+                            params: {
+                              path: { ...path, calendar_id: row.calendar_entity_id },
+                              header: { 'if-match': version },
+                            },
+                          },
+                        ),
+                      );
+                      await read();
+                      ui.status.say('Reckoning removed.');
+                    }),
+                  true,
+                  'delete',
+                ),
+              ]
+            : []),
         ),
       );
-      if (rows.can_manage)
-        li.append(
-          button(
-            'Edit reckoning',
-            async () => {
-              await editRow?.(row);
-            },
-            true,
-          ),
-          button(
-            'Remove reckoning',
-            () =>
-              ui.run(async () => {
-                await unwrap(
-                  await client.DELETE(
-                    '/tenants/{tenant_id}/clocks/{clock_id}/reckonings/{calendar_id}',
-                    {
-                      params: {
-                        path: { ...path, calendar_id: row.calendar_entity_id },
-                        header: { 'if-match': version },
-                      },
-                    },
-                  ),
-                );
-                await read();
-                ui.status.textContent = 'Reckoning removed.';
-              }),
-            true,
-          ),
-        );
-      ui.list.append(li);
     }
-    if (!rows.items.length) ui.list.append(el('li', 'No calendar reckonings recorded.'));
+    if (!rows.items.length) ui.list.append(el('li', 'No calendar reckonings recorded.', 'caption'));
   }
   await read();
   if (canManage) {
@@ -257,7 +317,7 @@ export async function clockPanel(tenant: string, id: string, canManage: boolean)
         calendars.map((c) => [c.entity_id, c.name]),
         calendars[0]?.entity_id ?? '',
       );
-      const dates = el('div', '', 'row');
+      const dates = el('div', '', 'toolbar');
       let fields = await calendarDateFields(tenant, choose.input.value);
       dates.append(...fields.nodes);
       let generation = 0;
@@ -280,41 +340,49 @@ export async function clockPanel(tenant: string, id: string, canManage: boolean)
         anchor.input.value = row.reading;
         shared.input.checked = row.is_shared;
       };
-      ui.body.append(
+      ui.add(
         choose.label,
         dates,
         anchor.label,
         shared.label,
-        button('Save reckoning', () =>
-          ui.run(async () => {
-            await unwrap(
-              await client.PUT('/tenants/{tenant_id}/clocks/{clock_id}/reckonings/{calendar_id}', {
-                params: {
-                  path: { ...path, calendar_id: choose.input.value },
-                  header: { 'if-match': version },
-                },
-                body: {
-                  date: fields.value(),
-                  reading: anchor.input.value,
-                  is_shared: shared.input.checked,
-                },
-              }),
-            );
-            await read();
-            ui.status.textContent = 'Reckoning saved. Entered Event readings were kept.';
-          }),
+        button(
+          'Save reckoning',
+          () =>
+            ui.run(async () => {
+              await unwrap(
+                await client.PUT(
+                  '/tenants/{tenant_id}/clocks/{clock_id}/reckonings/{calendar_id}',
+                  {
+                    params: {
+                      path: { ...path, calendar_id: choose.input.value },
+                      header: { 'if-match': version },
+                    },
+                    body: {
+                      date: fields.value(),
+                      reading: anchor.input.value,
+                      is_shared: shared.input.checked,
+                    },
+                  },
+                ),
+              );
+              await read();
+              ui.status.say('Reckoning saved. Entered Event readings were kept.');
+            }),
+          false,
+          'save',
         ),
       );
     }
-    ui.body.append(
+    ui.add(
       button(
         'Refresh saved records',
         () =>
           ui.run(async () => {
             await read(true);
-            ui.status.textContent = `Saved reckonings refreshed (${savedRows.length}). Your draft is kept.`;
+            ui.status.say(`Saved reckonings refreshed (${savedRows.length}). Your draft is kept.`);
           }),
         true,
+        'refresh',
       ),
     );
   }
@@ -335,46 +403,42 @@ export async function eventReadings(tenant: string, event: string) {
     version = result.response.headers.get('etag') ?? '';
     ui.list.replaceChildren();
     for (const row of rows.items) {
-      const li = el('li', '', 'stack-tight');
-      li.append(
-        el(
-          'p',
-          `${row.clock_name}: ${formatReading(row.reading)} — Entered. ${row.is_shared ? 'Shared' : 'Private'}.`,
-        ),
-      );
       const calendars = await unwrap(
         await client.GET('/tenants/{tenant_id}/clocks/{clock_id}/reckonings', {
           params: { path: { tenant_id: tenant, clock_id: row.clock_entity_id } },
         }),
       );
-      for (const reckoning of calendars.items)
-        li.append(
-          button(
-            `Show dates in ${reckoning.calendar_name}`,
-            () =>
-              ui.run(async () => {
-                const dates = await unwrap(
-                  await client.POST('/tenants/{tenant_id}/clocks/{clock_id}/reading-dates', {
-                    params: { path: { tenant_id: tenant, clock_id: row.clock_entity_id } },
-                    body: {
-                      calendar_entity_id: reckoning.calendar_entity_id,
-                      reading: row.reading,
-                    },
-                  }),
-                );
-                ui.status.textContent = `${reckoning.calendar_name}: ${dateText(dates.first_date)} to ${dateText(dates.last_date)}. Calendar formatting of the entered reading.`;
-              }),
-            true,
-          ),
-        );
+      const actions: HTMLElement[] = calendars.items.map((reckoning) =>
+        button(
+          `Show dates in ${reckoning.calendar_name}`,
+          () =>
+            ui.run(async () => {
+              const dates = await unwrap(
+                await client.POST('/tenants/{tenant_id}/clocks/{clock_id}/reading-dates', {
+                  params: { path: { tenant_id: tenant, clock_id: row.clock_entity_id } },
+                  body: {
+                    calendar_entity_id: reckoning.calendar_entity_id,
+                    reading: row.reading,
+                  },
+                }),
+              );
+              ui.status.say(
+                `${reckoning.calendar_name}: ${dateText(dates.first_date)} to ${dateText(dates.last_date)}. Calendar formatting of the entered reading.`,
+              );
+            }),
+          true,
+          'kind-calendar',
+        ),
+      );
       if (rows.can_manage)
-        li.append(
+        actions.push(
           button(
             'Edit reading',
             () => {
               editRow?.(row);
             },
             true,
+            'edit',
           ),
           button(
             'Remove reading',
@@ -392,14 +456,21 @@ export async function eventReadings(tenant: string, event: string) {
                   ),
                 );
                 await read();
-                ui.status.textContent = 'Reading removed.';
+                ui.status.say('Reading removed.');
               }),
             true,
+            'delete',
           ),
         );
-      ui.list.append(li);
+      ui.list.append(
+        record(
+          `${row.clock_name}: ${formatReading(row.reading)} — Entered. ${row.is_shared ? 'Shared' : 'Private'}.`,
+          ...actions,
+        ),
+      );
     }
-    if (!rows.items.length) ui.list.append(el('li', 'No permitted clock readings recorded.'));
+    if (!rows.items.length)
+      ui.list.append(el('li', 'No permitted clock readings recorded.', 'caption'));
     return rows.can_manage;
   }
   const canManage = await read();
@@ -422,10 +493,8 @@ export async function eventReadings(tenant: string, event: string) {
       const includeLo = check('Include the start', true);
       const includeHi = check('Include the end', true);
       const shared = check('Share reading with readers of this Event and clock');
-      const dateForm = el('details');
-      dateForm.append(el('summary', 'Enter a calendar date'));
-      const dateBody = el('div', '', 'stack');
-      dateForm.append(dateBody);
+      const dateForm = disclosure('Enter a calendar date');
+      const dateBody = dateForm.body;
       let dateGeneration = 0;
       const changeClock = async () => {
         const generation = ++dateGeneration;
@@ -438,7 +507,9 @@ export async function eventReadings(tenant: string, event: string) {
         if (generation !== dateGeneration) return;
         dateBody.replaceChildren();
         if (!rows.items.length) {
-          dateBody.append(el('p', 'Add a calendar reckoning on this clock to enter a date.'));
+          dateBody.append(
+            el('p', 'Add a calendar reckoning on this clock to enter a date.', 'caption'),
+          );
           return;
         }
         const calendar = select(
@@ -446,7 +517,7 @@ export async function eventReadings(tenant: string, event: string) {
           rows.items.map((c) => [c.calendar_entity_id, c.calendar_name]),
           rows.items[0]?.calendar_entity_id ?? '',
         );
-        const fieldsHost = el('div', '', 'row');
+        const fieldsHost = el('div', '', 'toolbar');
         let fields = await calendarDateFields(tenant, calendar.input.value);
         if (generation !== dateGeneration) return;
         fieldsHost.append(...fields.nodes);
@@ -459,21 +530,24 @@ export async function eventReadings(tenant: string, event: string) {
         dateBody.append(
           calendar.label,
           fieldsHost,
-          button('Use this day', () =>
-            ui.run(async () => {
-              const result = await unwrap(
-                await client.POST('/tenants/{tenant_id}/clocks/{clock_id}/date-reading', {
-                  params: { path: { tenant_id: tenant, clock_id: clockId } },
-                  body: { calendar_entity_id: calendar.input.value, date: fields.value() },
-                }),
-              );
-              lo.input.value = result.reading.lo;
-              hi.input.value = result.reading.hi;
-              includeLo.input.checked = result.reading.lo_inclusive ?? true;
-              includeHi.input.checked = result.reading.hi_inclusive ?? true;
-              ui.status.textContent =
-                'Day range prepared. Save the reading to record it on this Event.';
-            }),
+          button(
+            'Use this day',
+            () =>
+              ui.run(async () => {
+                const result = await unwrap(
+                  await client.POST('/tenants/{tenant_id}/clocks/{clock_id}/date-reading', {
+                    params: { path: { tenant_id: tenant, clock_id: clockId } },
+                    body: { calendar_entity_id: calendar.input.value, date: fields.value() },
+                  }),
+                );
+                lo.input.value = result.reading.lo;
+                hi.input.value = result.reading.hi;
+                includeLo.input.checked = result.reading.lo_inclusive ?? true;
+                includeHi.input.checked = result.reading.hi_inclusive ?? true;
+                ui.status.say('Day range prepared. Save the reading to record it on this Event.');
+              }),
+            true,
+            'kind-calendar',
           ),
         );
       };
@@ -489,49 +563,61 @@ export async function eventReadings(tenant: string, event: string) {
         shared.input.checked = row.is_shared;
         void ui.run(changeClock);
       };
-      ui.body.append(
+      const bounds = el('div', '', 'toolbar');
+      bounds.append(lo.label, hi.label);
+      ui.add(
         choose.label,
-        dateForm,
-        lo.label,
-        hi.label,
+        dateForm.root,
+        bounds,
         includeLo.label,
         includeHi.label,
         shared.label,
-        button('Save reading', () =>
-          ui.run(async () => {
-            await unwrap(
-              await client.PUT('/tenants/{tenant_id}/events/{event_id}/clock-readings/{clock_id}', {
-                params: {
-                  path: { ...path, clock_id: choose.input.value },
-                  header: { 'if-match': version },
-                },
-                body: {
-                  reading: {
-                    lo: lo.input.value,
-                    hi: hi.input.value || lo.input.value,
-                    lo_inclusive: includeLo.input.checked,
-                    hi_inclusive: includeHi.input.checked,
+        button(
+          'Save reading',
+          () =>
+            ui.run(async () => {
+              await unwrap(
+                await client.PUT(
+                  '/tenants/{tenant_id}/events/{event_id}/clock-readings/{clock_id}',
+                  {
+                    params: {
+                      path: { ...path, clock_id: choose.input.value },
+                      header: { 'if-match': version },
+                    },
+                    body: {
+                      reading: {
+                        lo: lo.input.value,
+                        hi: hi.input.value || lo.input.value,
+                        lo_inclusive: includeLo.input.checked,
+                        hi_inclusive: includeHi.input.checked,
+                      },
+                      is_shared: shared.input.checked,
+                    },
                   },
-                  is_shared: shared.input.checked,
-                },
-              }),
-            );
-            await read();
-            ui.status.textContent = 'Reading saved. Story order was kept.';
-          }),
+                ),
+              );
+              await read();
+              ui.status.say('Reading saved. Story order was kept.');
+            }),
+          false,
+          'save',
         ),
       );
       await changeClock();
-    } else ui.body.append(link('Create a clock', `/clocks/?tenant=${encodeURIComponent(tenant)}`));
-    ui.body.append(
+    } else
+      ui.add(
+        iconLink('Create a clock', `/clocks/?tenant=${encodeURIComponent(tenant)}`, 'kind-clock'),
+      );
+    ui.add(
       button(
         'Refresh saved records',
         () =>
           ui.run(async () => {
             await read(true);
-            ui.status.textContent = 'Saved readings refreshed. Your draft is kept.';
+            ui.status.say('Saved readings refreshed. Your draft is kept.');
           }),
         true,
+        'refresh',
       ),
     );
   }

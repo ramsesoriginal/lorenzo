@@ -77,8 +77,39 @@ C4Deployment
   Rel(bot, neondb, "SQL", "pg, TLS")
 ```
 
-## apps/inventory-web and apps/account-hub
+## Static apps on Cloudflare Pages
 
-Not diagrammed here — both deploy as a plain static build via Cloudflare Pages' own Git integration (no GitHub Actions job, no container, no database), a much simpler topology than the two pipelines above. See [docs/architecture/deployment.md#appsinventory-web-and-appsaccount-hub](../deployment.md#appsinventory-web-and-appsaccount-hub) for the prose version.
+`apps/account-hub`, `apps/inventory-web`, `apps/beings`, `apps/bench`, `apps/calendars`, `apps/sessions` and `apps/brand` deploy the same way: a static build served by Cloudflare Pages, wired to Cloudflare's own Git integration (no GitHub Actions job, no container, no database), rebuilt on a push to `main` that touches the app or a watched package. They call the API on Cloud Run from the browser (the API's `CORS_ALLOWED_ORIGINS` has to list each origin) and sign in through Authgear with a public client of their own. Which of them are hosted today differs, as the labels below say.
 
-See [docs/architecture/deployment.md](../deployment.md) for the prose version, including Bench, Beings, the brand site and the locally installed Android companion, including a local-vs-deployed comparison table for `apps/api`/`apps/loot-bot`.
+```mermaid
+C4Deployment
+  title Lorenzo static apps deployment (Cloudflare Pages, Git integration)
+
+  Deployment_Node(gh, "GitHub", "ramsesoriginal/lorenzo"){
+    Container(repo, "main branch", "git", "A push touching an app or a watched package")
+  }
+
+  Deployment_Node(cf, "Cloudflare Pages", "One project per app, production branch main"){
+    Container(hub, "lorenzo-account-hub", "astro build, dist", "apps/account-hub")
+    Container(inv, "lorenzo-inventory-web", "astro build, dist", "apps/inventory-web")
+    Container(bench, "lorenzo-bench", "astro build, dist", "apps/bench")
+    Container(cal, "lorenzo-calendars", "astro build, dist", "apps/calendars - setup record names it as the production app")
+    Container(ses, "lorenzo-sessions", "astro build, dist", "apps/sessions - runbook only, planned address")
+    Container(beings, "lorenzo-beings", "astro build, dist", "apps/beings - placeholder until its setup is done")
+    Container(brand, "lorenzo-brand", "no build, static files", "apps/brand - tokens.css and the preview")
+  }
+
+  Rel(repo, hub, "Cloudflare builds and publishes")
+  Rel(repo, inv, "Cloudflare builds and publishes")
+  Rel(repo, bench, "Cloudflare builds and publishes")
+  Rel(repo, cal, "Cloudflare builds and publishes")
+  Rel(repo, ses, "Cloudflare builds and publishes")
+  Rel(repo, beings, "Cloudflare builds and publishes")
+  Rel(repo, brand, "Cloudflare builds and publishes")
+```
+
+The apps' addresses, and the links between them, are served by the API's registry, `GET /app-links` ([ADR 0273](../../adr/0273-app-links-registry.md)); an address the registry does not set falls back to the official `https://lorenzo-<app>.pages.dev`. Setup, one app each: [deployment-setup.md](../../operations/deployment-setup.md) (account-hub, inventory-web, bench, brand), [beings-setup.md](../../operations/beings-setup.md) (the Authgear client and Pages project do not exist yet), [calendars-setup.md](../../operations/calendars-setup.md) and [sessions-setup.md](../../operations/sessions-setup.md) (the Pages project and Authgear client are created from the runbook; Sessions is not deployed by merging its pull request). See [docs/architecture/deployment.md](../deployment.md#static-apps-on-cloudflare-pages) for the prose version.
+
+## Native apps
+
+`apps/inventory-mobile` (Android) and `apps/inventory-ios` are not deployed anywhere: both are installed locally. Android installs a locally built debug APK; iOS builds an unsigned IPA in CI that is signed locally with AltStore Classic ([ADR 0291](../../adr/0291-inventory-mobile-native-android-app.md), [ADR 0307](../../adr/0307-inventory-ios-and-altstore-testing.md)). See [docs/architecture/deployment.md](../deployment.md#native-apps) for the prose version; the same file has a local-vs-deployed comparison table for `apps/api`.

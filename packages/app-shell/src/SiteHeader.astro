@@ -1,0 +1,94 @@
+---
+import lockupDark from './assets/lorenzo_horizontal_lockup_dark_bg.svg';
+import lockupLight from './assets/lorenzo_horizontal_lockup_light_bg.svg';
+import spark from './assets/brand_mark.svg';
+import type { NavItem } from './pure';
+
+interface Props {
+  product: string;
+  brandingUrl: string;
+  nav?: NavItem[];
+}
+
+const { product, brandingUrl, nav = [] } = Astro.props;
+const icons = `${brandingUrl}/icons.svg`;
+---
+
+<header class="site-header" data-site-header>
+  <div class="row">
+    <a class="brand brand--compact" href="/" aria-label={`Lorenzo ${product}, home`}>
+      <img
+        class="brand-mark brand-mark--light"
+        src={lockupLight.src}
+        alt="Lorenzo"
+        width="220"
+        height="41"
+      />
+      <img
+        class="brand-mark brand-mark--dark"
+        src={lockupDark.src}
+        alt="Lorenzo"
+        width="220"
+        height="41"
+      />
+      <img class="brand-spark" src={spark.src} alt="" width="32" height="32" />
+    </a>
+    <span class="brand-product">{product}</span>
+    {nav.length > 0 && (
+      <details class="site-navigation">
+        <summary>Navigation</summary>
+        <nav class="row" aria-label="Pages">
+          {nav.map((item) => (
+            <a
+              href={item.href}
+              data-path={item.href}
+              data-needs-library={item.needsLibrary ? '' : undefined}
+              hidden={item.needsLibrary}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </details>
+    )}
+  </div>
+  <div class="row">
+    <div class="row-tight" data-library-switcher hidden>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${icons}#icon-library`}></use>
+      </svg>
+      <select class="text-input" aria-label="Library or repository" data-library-select></select>
+    </div>
+    <div class="row-tight">
+      <span class="status-text row-tight" data-account-checking>
+        <span class="spinner" aria-hidden="true"></span>
+        Checking your session…
+      </span>
+      <span class="error-text" data-account-error hidden></span>
+      <button type="button" class="btn row-tight" data-login hidden>
+        <svg class="icon" aria-hidden="true">
+          <use href={`${icons}#icon-login`}></use>
+        </svg>
+        Log in
+      </button>
+      <div class="row-tight" data-account-signed-in hidden>
+        <a class="row-tight" data-hub hidden>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${icons}#icon-account`}></use>
+          </svg>
+          Account
+        </a>
+        <span class="visually-hidden" data-account-label></span>
+        <button type="button" class="btn btn-secondary row-tight" data-logout>
+          <svg class="icon" aria-hidden="true">
+            <use href={`${icons}#icon-logout`}></use>
+          </svg>
+          Log out
+        </button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-secondary" aria-pressed="false" data-theme-toggle>
+      Dark theme
+    </button>
+  </div>
+</header>

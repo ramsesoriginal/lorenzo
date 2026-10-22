@@ -11,9 +11,10 @@ import { createEditor, DEFAULT_TOOLBAR } from '@lorenzo/lorenzoscript-editor';
 import { rememberEntryAddress } from './addresses';
 import { blobUrl, client, unwrap } from './api';
 import { API_BASE_URL } from './config';
-import { button, calendarHref, el, entryHref, field, message } from './dom';
+import { button, calendarHref, el, entryHref, feedback, field, icon, message, submit } from './dom';
 import { informationLearning } from './learning';
 import type { Entry, Information } from './types';
+
 export async function renderText(tenantId: string, source: string): Promise<string> {
   const doc = parse(source);
   const slugs = references(doc).flatMap((r) => (r.kind === 'entity' ? [r.slug] : []));
@@ -54,19 +55,21 @@ export async function renderText(tenantId: string, source: string): Promise<stri
     },
   });
 }
+
 const loadFile = (payload: { url: string; updated_at: string }) =>
   blobUrl(payload.url, payload.updated_at);
+
+/** The form that writes or edits one note; the caller frames it. */
 export function informationForm(
   tenantId: string,
   entryId: string,
   finished: () => void,
   original?: Information,
 ): HTMLElement {
-  const form = el('form', '', 'stack panel');
-  const title = field('Information title', original?.title ?? '');
+  const form = el('form', '', 'stack');
+  const title = field('Note title', original?.title ?? '');
   title.input.required = true;
-  const status = el('p');
-  status.setAttribute('role', 'status');
+  const status = feedback();
   const receipt: BundleReceipt = { id: original?.id ?? crypto.randomUUID() };
   const editor = renderBundleEditor({
     initial: original?.payloads,
@@ -74,7 +77,7 @@ export function informationForm(
     textLabel: 'Text',
     loadFile,
     createTextEditor(host, label, content) {
-      const l = el('label', label);
+      const l = el('label', label, 'field-label');
       const textarea = el('textarea');
       textarea.value = content;
       textarea.id = `calendar-text-${crypto.randomUUID()}`;
@@ -93,8 +96,7 @@ export function informationForm(
       };
     },
   });
-  const save = el('button', 'Save information', 'btn');
-  save.type = 'submit';
+  const save = submit('Save note');
   const actions = el('div', '', 'row');
   actions.append(
     save,
@@ -102,7 +104,7 @@ export function informationForm(
       'Cancel',
       () => {
         editor.destroy();
-        form.remove();
+        (form.closest('[data-form-frame]') ?? form).remove();
       },
       true,
     ),
@@ -112,19 +114,19 @@ export function informationForm(
     el(
       'p',
       original
-        ? 'The information keeps its own audience.'
-        : 'New information starts restricted. Choose who can read it after saving.',
+        ? 'The note keeps its own audience.'
+        : 'A new note starts restricted. Choose who can read it after saving.',
       'caption',
     ),
     editor.element,
     actions,
-    status,
+    status.node,
   );
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!form.reportValidity()) return;
     save.disabled = true;
-    status.textContent = 'Saving…';
+    status.busy('Saving…');
     try {
       await editor.ready();
       await saveInformationBundle({
@@ -143,12 +145,17 @@ export function informationForm(
       editor.destroy();
       finished();
     } catch (e) {
-      status.textContent = `${message(e)} Your draft is still here.`;
+      status.fail(`${message(e)} Your draft is still here.`);
       save.disabled = false;
     }
   });
   return form;
 }
+
+/**
+ * An entry's notes. On a page of its own they are cards under a heading with the way to add one;
+ * `compact`, inside a panel, they are plain blocks under a smaller heading.
+ */
 export function informationView(
   tenantId: string,
   entry: Entry,
@@ -156,13 +163,27 @@ export function informationView(
   refresh: () => void,
   canRecordLearning = false,
   access?: { can_add_notes: boolean; editable_information_ids: string[] },
+  compact = false,
 ): HTMLElement {
-  const host = el('section', '', 'stack');
-  host.append(el('h2', 'Information'));
-  for (const info of [...entry.information].sort((a, b) => a.order - b.order)) {
-    const card = el('article', '', 'panel stack-tight');
-    card.append(el('h3', info.title || 'Untitled information'));
-    if (info.created_by_name) card.append(el('p', `By ${info.created_by_name}`, 'caption'));
+  const host = el('section', '', compact ? 'stack-tight' : 'stack');
+  const canAdd = access?.can_add_notes ?? canWrite;
+  const head = el('div', '', 'section-head');
+  head.append(el(compact ? 'h3' : 'h2', 'Notes'));
+  host.append(head);
+  const notes = [...entry.information].sort((a, b) => a.order - b.order);
+  for (const info of notes) {
+    const card = el('article', '', compact ? 'note stack-tight' : 'card');
+    const body = compact ? card : el('div', '', 'card-body stack-tight');
+    if (!compact) card.append(body);
+    const heading = el('div', '', 'note-head');
+    heading.append(el('h3', info.title || 'Untitled note'));
+    if (!info.is_public) {
+      const badge = el('span', '', 'badge-visibility');
+      badge.append(icon('private'), document.createTextNode('Restricted'));
+      heading.append(badge);
+    }
+    body.append(heading);
+    if (info.created_by_name) body.append(el('p', `By ${info.created_by_name}`, 'caption'));
     const content = el('div');
     renderInformationPayloads(content, {
       information: info,
@@ -175,17 +196,22 @@ export function informationView(
         }
       },
     });
-    card.append(content);
-    if (canRecordLearning) card.append(informationLearning(tenantId, info.id));
+    body.append(content);
+    if (canRecordLearning) body.append(informationLearning(tenantId, info.id));
     if (access ? access.editable_information_ids.includes(info.id) : canWrite) {
-      card.append(
+      const tools = el('div', '', 'row');
+      tools.append(
         button(
-          'Edit information',
+          'Edit note',
           () => {
-            card.replaceChildren(informationForm(tenantId, entry.id, refresh, info));
+            body.replaceChildren(informationForm(tenantId, entry.id, refresh, info));
           },
           true,
+          'edit',
         ),
+      );
+      body.append(
+        tools,
         renderAudienceControl({
           client,
           tenantId,
@@ -196,21 +222,24 @@ export function informationView(
     }
     host.append(card);
   }
-  if (!entry.information.length)
-    host.append(el('p', 'No information is available to you here.', 'caption'));
-  if (access?.can_add_notes ?? canWrite)
-    host.append(
+  if (!notes.length) host.append(el('p', 'No notes are available to you here.', 'lede'));
+  if (canAdd)
+    head.append(
       button(
-        'Add information',
+        'Add note',
         () => {
           const existing = host.querySelector('form');
           if (existing) {
             existing.querySelector('input')?.focus();
             return;
           }
-          host.append(informationForm(tenantId, entry.id, refresh));
+          const frame = el('div', '', 'card card-body');
+          frame.dataset.formFrame = '';
+          frame.append(informationForm(tenantId, entry.id, refresh));
+          host.append(frame);
         },
         true,
+        'add',
       ),
     );
   return host;

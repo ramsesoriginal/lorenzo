@@ -1,6 +1,6 @@
 # Deployment architecture
 
-How `apps/api` and `apps/loot-bot` actually run, locally and in production, and how commits get from a merged PR to a live revision. `apps/inventory-web` and `apps/account-hub` deploy a different, much simpler way — see [their own section](#appsinventory-web-and-appsaccount-hub) below. For the one-time account/IAM setup this depends on, see [docs/operations/deployment-setup.md](../operations/deployment-setup.md); for why Cloud Run + Neon specifically, see [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) (`apps/api`) and [ADR 0053](../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md) (`apps/loot-bot`).
+How `apps/api` and `apps/loot-bot` actually run, locally and in production, and how commits get from a merged PR to a live revision. The static web apps (account hub, inventory-web, Beings, Bench, Calendars, Sessions and the brand site) deploy a different, much simpler way, and the native iOS and Android apps are installed locally — see [Static apps on Cloudflare Pages](#static-apps-on-cloudflare-pages) and [Native apps](#native-apps) below. For the one-time account/IAM setup this depends on, see [docs/operations/deployment-setup.md](../operations/deployment-setup.md); for why Cloud Run + Neon specifically, see [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) (`apps/api`) and [ADR 0053](../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md) (`apps/loot-bot`).
 
 ## apps/api
 
@@ -23,7 +23,7 @@ The deployed container is the same `apps/api/Dockerfile` image whether you build
 
 ### The pipeline: commit to live revision
 
-Triggered by `.github/workflows/deploy-api.yml`, on any push to `main` touching `apps/api/**` (or manually via `workflow_dispatch`):
+Triggered by `.github/workflows/deploy-api.yml`, on any push to `main` touching `apps/api/**` or `packages/calendar-engine/**` (the API image bundles the calendar engine), or manually via `workflow_dispatch`:
 
 1. **verify** — the same lint + test job as `ci.yml`, against its own ephemeral Postgres service container. A broken push can't reach deploy.
 2. **auth** — `google-github-actions/auth@v3` exchanges the workflow's OIDC token for short-lived GCP credentials, scoped to exactly this repo (enforced by the Workload Identity Provider's `attribute-condition`).
@@ -70,14 +70,27 @@ Triggered by `.github/workflows/deploy-loot-bot.yml`, on any push to `main` touc
 
 See [docs/operations/deployment-setup.md](../operations/deployment-setup.md#appsloot-bot-adr-0053) for the one-time setup this depends on, including the real chicken-and-egg step (`LOOT_BOT_PUBLIC_BASE_URL` isn't known until after the first deploy creates the service), and [deployment topology](diagrams/deployment.md#appsloot-bot) for this as a diagram.
 
-## apps/inventory-web and apps/account-hub
+## Static apps on Cloudflare Pages
 
-Both are plain static builds (`astro build` → `dist/`) — no container, no database, no GitHub Actions deploy step at all, per [ADR 0004](../adr/0004-static-astro-frontend.md) and [ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload). Each has its own Cloudflare Pages project wired to **Cloudflare's own Git integration**, which builds and redeploys directly on every push to `main` that touches the app — `ci.yml`'s auto-discovered matrix still covers `mise run lint`/`test` for both on every PR, but nothing in `.github/workflows/` triggers or gates the Cloudflare deploy itself. See [docs/operations/deployment-setup.md](../operations/deployment-setup.md#cloudflare-pages-appsaccount-hub) for the one-time Cloudflare/Authgear setup for both apps.
+`apps/account-hub`, `apps/inventory-web`, `apps/beings`, `apps/bench`, `apps/calendars` and `apps/sessions` are plain static builds (`astro build` → `dist/`) — no container, no database, no GitHub Actions deploy step at all, per [ADR 0004](../adr/0004-static-astro-frontend.md) and [ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload). Each has its own Cloudflare Pages project wired to **Cloudflare's own Git integration**, which builds and redeploys directly on every push to `main` that touches the app or one of its watched packages — `ci.yml`'s auto-discovered matrix still covers `mise run lint`/`test` (and, for some, an end-to-end suite) on every PR, but nothing in `.github/workflows/` triggers or gates the Cloudflare deploy itself. `apps/brand`, the static shared-brand preview, uses the same mechanism without a build step; other apps bundle its assets through `packages/brand` ([ADR 0098](../adr/0098-branding-css-app-and-package.md)).
 
-## Bench, Beings and the brand site
+Every one of them needs three things outside the repository: a Pages project, a public Authgear client (PKCE, callback addresses with a trailing slash), and its origin in the API's `CORS_ALLOWED_ORIGINS`. Where each stands:
 
-`apps/bench` and `apps/beings` are static Astro builds, using the same Cloudflare Pages Git-integration approach. Bench's stack and deployment decision is [ADR 0210](../adr/0210-bench-app-stack-and-workbench-shell.md); Beings has its own [setup runbook](../operations/beings-setup.md), with hosting configuration still a placeholder until that setup is completed. `apps/brand` is the static shared-brand preview; other apps bundle its assets through `packages/brand` ([ADR 0098](../adr/0098-branding-css-app-and-package.md)).
+| App | Pages project | Status and setup |
+| --- | --- | --- |
+| `apps/account-hub` | `lorenzo-account-hub` | Deployed. [deployment-setup.md](../operations/deployment-setup.md#cloudflare-pages-appsaccount-hub) |
+| `apps/inventory-web` | `lorenzo-inventory-web` | Deployed. [deployment-setup.md](../operations/deployment-setup.md#cloudflare-pages-appsinventory-web) |
+| `apps/bench` | `lorenzo-bench` | Stack and deployment decision in [ADR 0210](../adr/0210-bench-app-stack-and-workbench-shell.md); setup in [deployment-setup.md](../operations/deployment-setup.md#cloudflare-pages-appsbench) |
+| `apps/beings` | `lorenzo-beings` | Built and tested, but its Authgear client and Pages project do not exist yet: [beings-setup.md](../operations/beings-setup.md) |
+| `apps/calendars` | `lorenzo-calendars` | [calendars-setup.md](../operations/calendars-setup.md) records the setup and names `https://lorenzo-calendars.pages.dev` as the production app |
+| `apps/sessions` | `lorenzo-sessions` | [sessions-setup.md](../operations/sessions-setup.md) is the runbook for the Pages project and Authgear client; Sessions is not deployed by merging its pull request, and the address in the registry is a planned fallback until it is set up |
+| `apps/brand` | `lorenzo-brand` | [deployment-setup.md](../operations/deployment-setup.md#cloudflare-pages-appsbrand) |
 
-## Inventory mobile
+The apps' addresses, and the links between them, come from the API's registry of app links, `GET /app-links` ([ADR 0273](../adr/0273-app-links-registry.md)): an address set through `ACCOUNT_HUB_URL`, `INVENTORY_WEB_URL`, `BEINGS_URL`, `BENCH_URL`, `CALENDARS_URL` or `SESSIONS_URL` wins, otherwise the official `https://lorenzo-<app>.pages.dev` is used. The topology is in the [static apps diagram](diagrams/deployment.md#static-apps-on-cloudflare-pages).
 
-`apps/inventory-mobile` is a native Kotlin/Compose Android app, distributed in this slice by installing a locally built debug APK. It calls the same REST API and connects through account hub's device-code flow or a personal access token. There is no mobile deployment workflow, store publishing or release-signing setup in this slice; see its [README](../../apps/inventory-mobile/README.md) and [ADR 0291](../adr/0291-inventory-mobile-native-android-app.md).
+## Native apps
+
+Neither native app is deployed to a store or a server.
+
+- **`apps/inventory-mobile`** is a native Kotlin/Compose Android app, distributed in this slice by installing a locally built debug APK. It calls the same REST API and connects through account hub's device-code flow or a personal access token. There is no mobile deployment workflow, store publishing or release-signing setup in this slice; see its [README](../../apps/inventory-mobile/README.md) and [ADR 0291](../adr/0291-inventory-mobile-native-android-app.md).
+- **`apps/inventory-ios`** is a native SwiftUI app for iOS 17 and later ([ADR 0307](../adr/0307-inventory-ios-and-altstore-testing.md)). CI builds it on a macOS runner (`ios-build`) and uploads an unsigned device IPA as a short-lived artifact; it is signed locally and installed with AltStore Classic on a free Apple account. TestFlight and App Store publishing are outside this slice. The steps, and what needs a physical device, are in its [README](../../apps/inventory-ios/README.md).

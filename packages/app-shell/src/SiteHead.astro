@@ -1,0 +1,42 @@
+---
+interface Props {
+  title: string;
+  // Where the brand stylesheets are served from (ADR 0098), without a trailing slash.
+  brandingUrl: string;
+  // Where this app keeps the chosen theme in the browser.
+  themeKey: string;
+}
+
+const { title, brandingUrl, themeKey } = Astro.props;
+const sheets = ['normalize', 'tokens', 'fonts', 'base', 'layout', 'components', 'motion'];
+---
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>{title}</title>
+  {sheets.map((name) => (
+    <link rel="stylesheet" href={`${brandingUrl}/${name}.css`} />
+  ))}
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <!-- The brand tokens gate their dark values behind [data-theme="dark"], so the attribute is set
+       here, inline and before first paint: the saved choice, else the system's. -->
+  <script is:inline define:vars={{ themeKey }}>
+    (() => {
+      let saved;
+      try {
+        saved = localStorage.getItem(themeKey);
+      } catch {
+        // The system's appearance stays usable when preference storage is blocked.
+      }
+      document.documentElement.dataset.theme =
+        saved === 'light' || saved === 'dark'
+          ? saved
+          : window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+    })();
+  </script>
+  <slot />
+</head>

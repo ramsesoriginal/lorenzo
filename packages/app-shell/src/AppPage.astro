@@ -1,0 +1,51 @@
+---
+import AppFooter from './SiteFooter.astro';
+import AppHead from './SiteHead.astro';
+import AppHeader from './SiteHeader.astro';
+import type { NavItem } from './pure';
+
+interface Props {
+  // The tab title, "Calendars — Lorenzo"
+  title: string;
+  // The product's own name, beside the lockup: "Calendars"
+  product: string;
+  brandingUrl: string;
+  themeKey: string;
+  nav?: NavItem[];
+  // Where its source is in the repository: "apps/calendars"
+  path: string;
+  // What the page says to someone who has not opened anything yet, and while it checks the session.
+  welcome: { title: string; text: string; status: string };
+}
+
+const { title, product, brandingUrl, themeKey, nav, path, welcome } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <AppHead title={title} brandingUrl={brandingUrl} themeKey={themeKey}>
+    <slot name="head" />
+  </AppHead>
+  <body>
+    <a class="skip-link" href="#content">
+      Skip to content
+    </a>
+    <AppHeader product={product} brandingUrl={brandingUrl} nav={nav} />
+    <main id="content">
+      <div class="wrap stack">
+        <section class="stack" data-welcome>
+          <h1>{welcome.title}</h1>
+          <p class="lede">{welcome.text}</p>
+          <p class="status-text row-tight" data-session role="status">
+            <span class="spinner" aria-hidden="true"></span>
+            <span data-session-text>{welcome.status}</span>
+          </p>
+        </section>
+        <div data-page hidden>
+          <slot />
+        </div>
+      </div>
+    </main>
+    <AppFooter app={`Lorenzo ${product}`} path={path} />
+  </body>
+</html>

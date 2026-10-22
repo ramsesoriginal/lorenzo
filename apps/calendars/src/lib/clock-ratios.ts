@@ -1,12 +1,12 @@
 import type { Schema } from '@lorenzo/api-client';
 import { client, unwrap } from './api';
 import { clockEditor, formatReading } from './clocks';
-import { button, check, el, entryHref, field, link, select } from './dom';
+import { button, check, disclosure, el, entryHref, field, linkButton, select } from './dom';
 
 type Converted = Schema<'ClockConversionOut'>;
 
 function conversionView(tenant: string, result: Converted): HTMLElement {
-  const host = el('div', '', 'stack-tight');
+  const host = el('div', '', 'card card-body stack-tight');
   const labels = {
     entered: 'Entered',
     derived: 'Derived',
@@ -14,22 +14,34 @@ function conversionView(tenant: string, result: Converted): HTMLElement {
     conflicting: 'Conflicting',
     limit_reached: 'Limit reached',
   };
-  host.append(el('h3', labels[result.status]));
+  host.append(el('h3', labels[result.status], 'item-title'));
   if (result.reading) host.append(el('p', formatReading(result.reading)));
   if (result.status === 'not_reckoned')
-    host.append(el('p', 'No reading can be reckoned from the records available to you.'));
+    host.append(el('p', 'No reading can be reckoned from the records available to you.', 'lede'));
   if (result.status === 'conflicting')
     host.append(
-      el('p', 'Recorded readings or declared relationships disagree. Entered readings are kept.'),
+      el(
+        'p',
+        'Recorded readings or declared relationships disagree. Entered readings are kept.',
+        'lede',
+      ),
     );
   if (result.status === 'limit_reached')
     host.append(
-      el('p', 'This conversion exceeds the supported size or precision. No reading was guessed.'),
+      el(
+        'p',
+        'This conversion exceeds the supported size or precision. No reading was guessed.',
+        'lede',
+      ),
     );
   for (const candidate of result.candidates) {
     const source = el('div', '', 'stack-tight');
     source.append(
-      link(candidate.source_clock_name, entryHref(tenant, candidate.source_clock_id)),
+      linkButton(
+        candidate.source_clock_name,
+        entryHref(tenant, candidate.source_clock_id),
+        'kind-clock',
+      ),
       el('p', `${formatReading(candidate.source_reading)} → ${formatReading(candidate.reading)}`),
     );
     for (const step of candidate.path)
@@ -58,7 +70,7 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
     await client.GET('/tenants/{tenant_id}/clocks/{clock_id}', { params: { path } }),
   );
   if (!own.ticking) {
-    ui.body.append(el('p', 'Timeless clocks have no ratios or readings.'));
+    ui.add(el('p', 'Timeless clocks have no ratios or readings.', 'caption'));
     return ui.host;
   }
   let version = '';
@@ -72,15 +84,13 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
     version = result.response.headers.get('etag') ?? '';
     ui.list.replaceChildren();
     for (const row of data.items) {
-      const li = el('li', '', 'stack-tight');
-      li.append(
+      const li = el('li');
+      const text = el('div', '', 'stack-tight grow');
+      text.append(
         el(
           'p',
           `${name}: ${row.ratio} days per day on ${row.reference_clock_name}. ${row.is_shared ? 'Shared' : 'Private'}.`,
         ),
-        link(row.reference_clock_name, entryHref(tenant, row.reference_clock_entity_id)),
-      );
-      li.append(
         el(
           'p',
           row.clock_anchor == null
@@ -89,14 +99,23 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
           'caption',
         ),
       );
+      const actions = el('div', '', 'row-tight');
+      actions.append(
+        linkButton(
+          row.reference_clock_name,
+          entryHref(tenant, row.reference_clock_entity_id),
+          'kind-clock',
+        ),
+      );
       if (data.can_manage)
-        li.append(
+        actions.append(
           button(
             'Edit relationship',
             () => {
               edit?.(row);
             },
             true,
+            'edit',
           ),
           button(
             'Remove relationship',
@@ -114,14 +133,17 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
                   ),
                 );
                 await read();
-                ui.status.textContent = 'Relationship removed. Entered readings were kept.';
+                ui.status.say('Relationship removed. Entered readings were kept.');
               }),
             true,
+            'delete',
           ),
         );
+      li.append(text, actions);
       ui.list.append(li);
     }
-    if (!data.items.length) ui.list.append(el('li', 'No permitted clock relationships recorded.'));
+    if (!data.items.length)
+      ui.list.append(el('li', 'No permitted clock relationships recorded.', 'caption'));
     return data.can_manage;
   }
   const canManage = await read();
@@ -131,7 +153,7 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
     )
   ).filter((c) => c.ticking && c.entity_id !== clockId);
   if (!clocks.length) {
-    ui.body.append(el('p', 'Another ticking clock is needed to declare a relationship.'));
+    ui.add(el('p', 'Another ticking clock is needed to declare a relationship.', 'caption'));
     return ui.host;
   }
   if (canManage) {
@@ -144,7 +166,7 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
     const anchored = check('Anchor the readings');
     const clockAnchor = field('This clock reads', '0');
     const referenceAnchor = field('Reference clock reads', '0');
-    const anchors = el('div', '', 'row');
+    const anchors = el('div', '', 'toolbar');
     anchors.append(clockAnchor.label, referenceAnchor.label);
     anchors.hidden = true;
     anchored.input.addEventListener('change', () => {
@@ -152,7 +174,7 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
     });
     const shared = check('Share relationship with readers of both clocks');
     const previewValue = field('Reference reading or duration to preview', '6');
-    const preview = el('p');
+    const preview = el('p', '', 'status-text');
     preview.setAttribute('role', 'status');
     const values = () => ({
       ratio: ratio.input.value,
@@ -168,18 +190,8 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
       referenceAnchor.input.value = row.reference_anchor ?? '0';
       shared.input.checked = row.is_shared;
     };
-    ui.body.append(
-      el(
-        'p',
-        'A ratio converts durations. An anchor also lets it convert absolute readings. Negative ratios describe clocks running in opposite directions.',
-        'caption',
-      ),
-      reference.label,
-      ratio.label,
-      anchored.label,
-      anchors,
-      shared.label,
-      previewValue.label,
+    const actions = el('div', '', 'row');
+    actions.append(
       button(
         'Preview relationship',
         () =>
@@ -200,42 +212,61 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
               }),
             );
             preview.textContent = `${name}: ${formatReading(result.reading)} (${result.kind === 'duration' ? 'duration' : 'reading'}). Preview only.`;
-            ui.status.textContent = 'Relationship previewed. No records were changed.';
+            ui.status.say('Relationship previewed. No records were changed.');
           }),
         true,
+        'visibility',
       ),
-      preview,
-      button('Save relationship', () =>
-        ui.run(async () => {
-          await unwrap(
-            await client.PUT(
-              '/tenants/{tenant_id}/clocks/{clock_id}/relationships/{reference_id}',
-              {
-                params: {
-                  path: { ...path, reference_id: reference.input.value },
-                  header: { 'if-match': version },
+      button(
+        'Save relationship',
+        () =>
+          ui.run(async () => {
+            await unwrap(
+              await client.PUT(
+                '/tenants/{tenant_id}/clocks/{clock_id}/relationships/{reference_id}',
+                {
+                  params: {
+                    path: { ...path, reference_id: reference.input.value },
+                    header: { 'if-match': version },
+                  },
+                  body: { ...values(), is_shared: shared.input.checked },
                 },
-                body: { ...values(), is_shared: shared.input.checked },
-              },
-            ),
-          );
-          await read();
-          ui.status.textContent = 'Relationship saved. Entered readings and story order were kept.';
-        }),
+              ),
+            );
+            await read();
+            ui.status.say('Relationship saved. Entered readings and story order were kept.');
+          }),
+        false,
+        'save',
       ),
       button(
         'Refresh saved relationships',
         () =>
           ui.run(async () => {
             await read(true);
-            ui.status.textContent = 'Saved relationships refreshed. Your draft is kept.';
+            ui.status.say('Saved relationships refreshed. Your draft is kept.');
           }),
         true,
+        'refresh',
       ),
     );
+    ui.add(
+      el(
+        'p',
+        'A ratio converts durations. An anchor also lets it convert absolute readings. Negative ratios describe clocks running in opposite directions.',
+        'caption',
+      ),
+      reference.label,
+      ratio.label,
+      anchored.label,
+      anchors,
+      shared.label,
+      previewValue.label,
+      preview,
+      actions,
+    );
   }
-  const converter = el('details');
-  converter.append(el('summary', 'Convert a reading or duration'));
+  const converter = disclosure('Convert a reading or duration');
   const target = select(
     'Convert to clock',
     clocks.map((c) => [c.entity_id, c.name]),
@@ -251,35 +282,39 @@ export async function clockRelationships(tenant: string, clockId: string, name: 
   );
   const value = field('Reading or duration on this clock', '0');
   const output = el('div', '', 'stack');
-  converter.append(
+  converter.body.append(
     target.label,
     kind.label,
     value.label,
-    button('Convert value', () =>
-      ui.run(async () => {
-        const result = await unwrap(
-          await client.POST('/tenants/{tenant_id}/clock-conversions', {
-            params: { path: { tenant_id: tenant } },
-            body: {
-              source_clock_id: clockId,
-              target_clock_id: target.input.value,
-              kind: kind.input.value as 'reading' | 'duration',
-              reading: {
-                lo: value.input.value,
-                hi: value.input.value,
-                lo_inclusive: true,
-                hi_inclusive: true,
+    button(
+      'Convert value',
+      () =>
+        ui.run(async () => {
+          const result = await unwrap(
+            await client.POST('/tenants/{tenant_id}/clock-conversions', {
+              params: { path: { tenant_id: tenant } },
+              body: {
+                source_clock_id: clockId,
+                target_clock_id: target.input.value,
+                kind: kind.input.value as 'reading' | 'duration',
+                reading: {
+                  lo: value.input.value,
+                  hi: value.input.value,
+                  lo_inclusive: true,
+                  hi_inclusive: true,
+                },
               },
-            },
-          }),
-        );
-        output.replaceChildren(conversionView(tenant, result));
-        ui.status.textContent = 'Conversion shown. No reading was recorded.';
-      }),
+            }),
+          );
+          output.replaceChildren(conversionView(tenant, result));
+          ui.status.say('Conversion shown. No reading was recorded.');
+        }),
+      false,
+      'compare',
     ),
     output,
   );
-  ui.body.append(converter);
+  ui.add(converter.root);
   return ui.host;
 }
 
@@ -291,7 +326,7 @@ export async function eventClockConversions(tenant: string, eventId: string) {
     )
   ).filter((c) => c.ticking);
   if (!clocks.length) {
-    ui.body.append(el('p', 'No ticking clocks are available here.'));
+    ui.add(el('p', 'No ticking clocks are available here.', 'caption'));
     return ui.host;
   }
   const target = select(
@@ -300,24 +335,28 @@ export async function eventClockConversions(tenant: string, eventId: string) {
     clocks[0]?.entity_id ?? '',
   );
   const output = el('div', '', 'stack');
-  ui.body.append(
+  ui.add(
     target.label,
-    button('Show clock reading', () =>
-      ui.run(async () => {
-        const result = await unwrap(
-          await client.GET(
-            '/tenants/{tenant_id}/events/{event_id}/clock-readings/{clock_id}/derived',
-            {
-              params: {
-                path: { tenant_id: tenant, event_id: eventId, clock_id: target.input.value },
+    button(
+      'Show clock reading',
+      () =>
+        ui.run(async () => {
+          const result = await unwrap(
+            await client.GET(
+              '/tenants/{tenant_id}/events/{event_id}/clock-readings/{clock_id}/derived',
+              {
+                params: {
+                  path: { tenant_id: tenant, event_id: eventId, clock_id: target.input.value },
+                },
+                cache: 'no-store',
               },
-              cache: 'no-store',
-            },
-          ),
-        );
-        output.replaceChildren(conversionView(tenant, result));
-        ui.status.textContent = 'Reading shown from the records available to you.';
-      }),
+            ),
+          );
+          output.replaceChildren(conversionView(tenant, result));
+          ui.status.say('Reading shown from the records available to you.');
+        }),
+      false,
+      'kind-clock',
     ),
     output,
   );
