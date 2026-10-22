@@ -11,6 +11,9 @@ from _repository_fixtures import seed_every_content_table
 from conftest import make_campaign, make_character, make_player
 from httpx import AsyncClient
 from sqlalchemy import func, select, text
+from test_lived_order import being, lived, participate
+from test_session_play import event, present, put_play, scene
+from test_story_sessions import make_session, roster, world
 
 from lorenzo_api.models import (
     CampaignGm,
@@ -219,3 +222,43 @@ async def test_a_copy_outlives_the_repository_it_came_from(
         assert listed[0]["copied_at"] is not None
     finally:
         await cleanup([faerun, table], [author, gm])
+
+
+async def test_a_library_with_sessions_is_deleted_with_all_of_them(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """ADR 0317: whole-tenant deletion keeps working with Sessions, their Scenes, rosters, play
+    records and presentations (ADR 0318) and lived evidence (ADR 0319)."""
+    w, campaign, player = await world(raw_client, fake_jwks_server)
+    try:
+        sid = await make_session(w, campaign)
+        assert (await roster(w, sid, player)).status_code == 204
+        appearance = await scene(w, sid, "Arrival")
+        assert (await put_play(w, sid, [appearance])).status_code == 204
+        arrival, departure = await event(w, "Arrival"), await event(w, "Departure")
+        assert (await present(w, sid, appearance, arrival, True)).status_code == 201
+        other = (
+            await w.author.post(
+                f"/tenants/{w.tenant_id}/sessions",
+                json={"name": "Second", "campaign_id": str(campaign)},
+            )
+        ).json()["id"]
+        url = f"/tenants/{w.tenant_id}/campaigns/{campaign}/session-sequence"
+        sequence = await w.author.client.put(
+            url,
+            headers={**w.author.headers, "If-Match": (await w.author.get(url)).headers["etag"]},
+            json={"session_ids": [sid, other]},
+        )
+        assert sequence.status_code == 204, sequence.text
+        mara = await being(w)
+        await participate(w, mara, [arrival, departure])
+        assert (await lived(w, mara, arrival, departure)).status_code == 200
+        assert (await _rows_left(w.tenant_id))["story_session"] == 2
+
+        deleted = await w.owner.delete(f"/tenants/{w.tenant_id}")
+
+        assert deleted.status_code == 204, deleted.text
+        assert not await _exists(w.tenant_id)
+        assert await _rows_left(w.tenant_id) == {}
+    finally:
+        await w.clean_up()
