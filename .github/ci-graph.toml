@@ -155,6 +155,12 @@ node = "apps/inventory-ios"
 [nodes."packages/calendar-engine"]
 batch = "cli"
 
+[nodes."packages/map-engine"]
+batch = "cli"
+
+[nodes."packages/map-renderer"]
+batch = "packages"
+
 [nodes."apps/calendars"]
 batch = "web-2"
 

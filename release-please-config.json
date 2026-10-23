@@ -100,6 +100,14 @@
     "apps/maps": {
       "release-type": "node",
       "component": "maps"
+    },
+    "packages/map-engine": {
+      "release-type": "python",
+      "package-name": "lorenzo-map"
+    },
+    "packages/map-renderer": {
+      "release-type": "node",
+      "component": "map-renderer"
     }
   }
 }

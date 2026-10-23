@@ -269,3 +269,53 @@
     height: var(--target-min);
   }
 }
+
+/* A Map: the toolbar, the drawing beside its panel, and the list of what is drawn. */
+.map-toolbar {
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+}
+
+.map-zoom {
+  margin-inline-start: auto;
+}
+
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.map-stage {
+  position: relative;
+  height: min(68vh, 680px);
+  min-height: 360px;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+}
+
+.map-pointing {
+  min-height: 1.5em;
+}
+
+.map-place {
+  width: auto;
+  height: auto;
+  padding: var(--space-1) var(--space-2);
+}
+
+.map-places .map-place[aria-pressed="true"] {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+@media (max-width: 720px) {
+  .map-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.map-panel .chip {
+  align-self: start;
+}

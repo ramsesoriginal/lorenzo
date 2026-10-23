@@ -19,6 +19,9 @@ export function mapPolicy(url: URL): Policy | null {
 
   if (!path.startsWith('/tenants/')) return null;
 
+  // A Map is read afresh on every open (ADR 0338): no window decides what a person may read.
+  if (/^\/tenants\/[^/]+\/maps(\/|$)/.test(path)) return null;
+
   // Who may read something is asked fresh whenever it is shown, and a lookup is not worth keeping.
   if (path.endsWith('/access') || path.endsWith('/audience') || path.endsWith('/entities/resolve'))
     return null;

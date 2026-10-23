@@ -13,6 +13,15 @@ ancestor, so a hidden level in between leaves no trace, and the page says "in" o
 step. Those who may write Locations (Authors, GMs and full-visibility Owners and Organizers) add,
 rename, move and open or close them to the library; everyone else reads only what is visible.
 
+A Map is an entry kind too ([ADR 0336](../../docs/adr/0336-maps-the-kind-its-system-and-its-placements.md)
+to [ADR 0340](../../docs/adr/0340-the-map-view-in-lorenzo-maps.md)). `/maps/` lists the Maps a person may
+see and `/map/` draws one with [`@lorenzo/map-renderer`](../../packages/map-renderer): places, people,
+roads and names can be switched off, the drawing zooms and pans, and selecting a mark, here or in the
+"Places on this map" list, opens a panel. The view is read-only; placements are written through the API
+until a drawing tool arrives. The drawing is a named group of buttons, because axe reports focusable marks
+inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
+in its name (a person's initials), as `label-content-name-mismatch` requires.
+
 ## Development
 
 Set `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIENT_ID` from `.env.example`.

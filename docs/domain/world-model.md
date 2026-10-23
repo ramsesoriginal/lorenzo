@@ -45,10 +45,22 @@ it is not the character's own place), elsewhere, or unknown, using only what tha
 [ADR 0334](../adr/0334-whereabouts-the-players-read.md)). Those who write Locations also get the whole address of an entry (what holds it, its owner,
 where it is and every Location above that, and what a Location is itself within) and a list of
 probable mistakes in the library's places, such as a place the players cannot see
-([ADR 0335](../adr/0335-the-gms-address-and-the-location-lint.md)). Maps drawn from Locations,
-connections and distances, and optionally tying a map to a calendar period are proposed in
-[RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md), and only the Locations
-([ADR 0330](../adr/0330-locations-the-kind-and-the-part-of-tree.md)) and these places are built so far.
+([ADR 0335](../adr/0335-the-gms-address-and-the-location-lint.md)).
+
+A Map is an entry too, of the `map` kind, and may be any other kind as well. It says what its
+positions mean (a flat plane in the Map's own units, or an outline with no measure) and holds
+*placements*: where one entry is drawn on it, as a point, a circle, a line, a curve or a simple area
+(one that never crosses itself, with holes), with a role such as water, relief, route, territory or
+presence, a line style and a drawing order. A placement is a drawing, never where the entry is: an
+entry can be drawn on many Maps, or none, and where it *is* stays what its place says. A Map may name
+the Location it shows. A reader sees a Map only if they may see the Map entry, and a placement only if
+they may see the entry it draws, so a hidden entry leaves no mark, gap or count on a page. Those who
+write Locations draw and redraw; everyone reads what they may see
+([ADR 0336](../adr/0336-maps-the-kind-its-system-and-its-placements.md),
+[ADR 0337](../adr/0337-geometry-roles-and-the-validator.md), [ADR 0338](../adr/0338-reading-and-writing-maps.md)).
+A repository carries its Maps and their placements through copy and update like any other entry.
+Drawing tools, connections, distances and optionally tying a map to a calendar period are proposed in
+[RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and come in later slices.
 
 ## Sessions, Scenes and personal lived order
 
