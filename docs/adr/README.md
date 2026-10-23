@@ -332,3 +332,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0327 - Lorenzo Writing: manuscripts, editions and carriers](0327-lorenzo-writing.md) — accepted writing model and stacked vertical delivery; RFC 0047
 - [0328 - Manuscript bundles and saved revisions](0328-manuscript-bundles-and-revisions.md) — designated manuscript Information and private transaction checkpoints
 - [0329 - Writing screen and local draft recovery](0329-writing-screen-and-local-recovery.md) — shared editors, conditional autosave and account-scoped browser recovery
+
+- [0336 - Books, Editions and Chapter composition](0336-books-editions-and-chapter-composition.md)
