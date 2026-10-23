@@ -2,7 +2,7 @@
   "name": "@lorenzo/period-picker",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "One picker for a calendar period: a day, a month or festival, a year, or several (ADR 0323).",
   "exports": {
     ".": "./src/index.ts",

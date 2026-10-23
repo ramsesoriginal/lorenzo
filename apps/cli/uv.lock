@@ -446,7 +446,7 @@ wheels = [
 
 [[package]]
 name = "lorenzo-calendar"
-version = "0.0.0"
+version = "0.1.0"
 source = { directory = "../../packages/calendar-engine" }
 dependencies = [
     { name = "pydantic" },
@@ -464,7 +464,7 @@ dev = [
 
 [[package]]
 name = "lorenzo-cli"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },

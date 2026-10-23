@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.1.0...inventory-web-v1.2.0) (2026-10-23)
+
+
+### Features
+
+* a GM's title per campaign (ADR 0294) ([5f71cae](https://github.com/ramsesoriginal/lorenzo/commit/5f71caeba76e0795e781017e0a6c281a896c72b8))
+* **account-hub:** People with Authors and a panel for invite links (ADR 0212) ([945570b](https://github.com/ramsesoriginal/lorenzo/commit/945570b30ea5c58d9cdfcf036c72c8e5007542a3))
+* **bench:** author facts and targeted information bundles ([b50b2c7](https://github.com/ramsesoriginal/lorenzo/commit/b50b2c75eb498e49c100b285fad74ee499a567b9))
+* **calendars:** link named entries and computed calendar dates ([5c54815](https://github.com/ramsesoriginal/lorenzo/commit/5c54815dae8035191985a96dadcfb1a83c08a047))
+* **information-editor:** edit ordered text and picture bundles ([ba65c9f](https://github.com/ramsesoriginal/lorenzo/commit/ba65c9fdf26d9048d1491ab55944f0bab7379559))
+* **information-editor:** share information with characters and groups ([e962983](https://github.com/ramsesoriginal/lorenzo/commit/e962983ca059949438efc88e66f877bf1d824890))
+* **inventory-web:** a campaign's title for its game master (ADR 0294) ([ce144e0](https://github.com/ramsesoriginal/lorenzo/commit/ce144e0264d6aef89ddcd48aaca37e2b936601ef))
+* **sessions:** connect reusable Scenes and Session world references ([0969e58](https://github.com/ramsesoriginal/lorenzo/commit/0969e5858bb7e6264e57b5d37667c024cfc55b63))
+* stack fact API above information audience controls ([e22f9cd](https://github.com/ramsesoriginal/lorenzo/commit/e22f9cda972aac168e200c504781766f408e168a))
+
+
+### Bug Fixes
+
+* **inventory-web:** say GM when a campaign of the being can't be listed (ADR 0294) ([0ebcd4e](https://github.com/ramsesoriginal/lorenzo/commit/0ebcd4e3dc928e1b31c09a16cadff389d62cd620))
+* **sessions:** preserve drafts while reviewing concurrent edits ([2430b39](https://github.com/ramsesoriginal/lorenzo/commit/2430b394c279ca9d05087c53f527c1674f990173))
+* take HTML comments out of the wording scans one span at a time ([19066bc](https://github.com/ramsesoriginal/lorenzo/commit/19066bc80f182ef2c28f5553757fa6c87bef4913)), closes [#733](https://github.com/ramsesoriginal/lorenzo/issues/733)
+
+
+### Performance Improvements
+
+* **calendars:** cache scoped reads and prefetch likely navigation ([9345e54](https://github.com/ramsesoriginal/lorenzo/commit/9345e549319c28a6dfae92c976db4a9edc26bc50))
+
 ## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/inventory-web-v1.0.0...inventory-web-v1.1.0) (2026-09-23)
 
 
