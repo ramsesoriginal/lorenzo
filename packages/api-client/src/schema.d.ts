@@ -3282,6 +3282,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Maps
+         * @description The Maps the reader may see, by name then id. A hidden Map is absent from every row and
+         *     page.
+         */
+        get: operations["list_maps"];
+        put?: never;
+        /**
+         * Create Map
+         * @description A Map, restricted unless `is_public`.
+         */
+        post: operations["create_map"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/maps/{map_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Map */
+        get: operations["get_map"];
+        /**
+         * Put Map
+         * @description Replaces the system and the subject under `If-Match`. No placement is touched.
+         */
+        put: operations["put_map"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Placement
+         * @description Draws the entry on the Map, or redraws it. The validator runs on every write.
+         */
+        put: operations["put_placement"];
+        post?: never;
+        /** Delete Placement */
+        delete: operations["delete_placement"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/maps/{map_id}/placements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Placements
+         * @description The placements this reader may see, by drawing order then entry, as keyset pages after the
+         *     visibility join: a hidden entry leaves no row, gap or count (ADR 0338). A page ends at
+         *     `limit` rows or about 1 MiB of body. The `ETag` is the hash of the body, and
+         *     `If-None-Match` answers 304.
+         */
+        get: operations["list_placements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/clocks/{clock_id}/relationships": {
         parameters: {
             query?: never;
@@ -6452,7 +6542,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
             /**
              * Information Id
              * Format: uuid
@@ -8446,7 +8536,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -8476,7 +8566,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
             /** Parent Ids */
             parent_ids: string[];
             /** Stat Group Ids */
@@ -8534,11 +8624,16 @@ export interface components {
         /**
          * EntityKindPut
          * @description PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} - the kind's own columns. Only
-         *     `item` has one, `in_public_catalog`; the body may be left out.
+         *     `item` has one, `in_public_catalog`, and `map` its `system` (ADR 0336, required for a Map); the
+         *     body may be left out for the others.
          */
         EntityKindPut: {
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
+            /** System */
+            system?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * EntityListOut
@@ -8558,7 +8653,7 @@ export interface components {
             /** Quantity */
             quantity?: number | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
             /** Parent Ids */
             parent_ids: string[];
         };
@@ -8649,7 +8744,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -9743,7 +9838,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
             /** Template */
             template: string;
             /** Picture Url */
@@ -9864,7 +9959,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
             within?: components["schemas"]["LocationStub"] | null;
@@ -9893,7 +9988,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
         };
@@ -10011,6 +10106,77 @@ export interface components {
             kind: components["schemas"]["TenantKind"];
             /** Campaigns */
             campaigns: components["schemas"]["ManagedCampaignOut"][];
+        };
+        /** MapCreate */
+        MapCreate: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** System */
+            system: {
+                [key: string]: unknown;
+            };
+            /** Subject Entity Id */
+            subject_entity_id?: string | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+        };
+        /** MapOut */
+        MapOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            /** System */
+            system: {
+                [key: string]: unknown;
+            };
+            subject?: components["schemas"]["MapStub"] | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Is Public */
+            is_public?: boolean | null;
+        };
+        /** MapPut */
+        MapPut: {
+            /** System */
+            system: {
+                [key: string]: unknown;
+            };
+            /** Subject Entity Id */
+            subject_entity_id?: string | null;
+        };
+        /** MapStub */
+        MapStub: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
         };
         /**
          * MeCapabilitiesOut
@@ -10786,6 +10952,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[MapStub] */
+        Page_MapStub_: {
+            /** Items */
+            items: components["schemas"]["MapStub"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[NotificationOut] */
         Page_NotificationOut_: {
             /** Items */
@@ -11364,6 +11543,60 @@ export interface components {
             name: string;
             /** Slug */
             slug?: string | null;
+        };
+        /** PlacementIn */
+        PlacementIn: {
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /** Role */
+            role?: string | null;
+            /** Style */
+            style?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Z
+             * @default 0
+             */
+            z: number;
+        };
+        /**
+         * PlacementOut
+         * @description The entry's stub with how it is drawn here.
+         */
+        PlacementOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /** Role */
+            role?: string | null;
+            /** Style */
+            style?: {
+                [key: string]: unknown;
+            } | null;
+            /** Z */
+            z: number;
+        };
+        /** PlacementsPage */
+        PlacementsPage: {
+            /** Items */
+            items: components["schemas"]["PlacementOut"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
         };
         /** PlayAppearance */
         PlayAppearance: {
@@ -12544,7 +12777,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
         };
         /**
          * RoundMode
@@ -26478,6 +26711,504 @@ export interface operations {
             };
         };
     };
+    list_maps: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive substring match against the Map's name. */
+                q?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_MapStub_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_map: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_map: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_map: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_placement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                map_id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlacementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_placement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                map_id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_placements: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description The `next_cursor` of the previous page; leave out for the first. */
+                cursor?: string | null;
+                /** @description `x0,y0,x1,y1`: only what overlaps this box, in the Map's own units. */
+                bbox?: string | null;
+                /** @description Only these roles (repeatable). */
+                role?: string[] | null;
+                /** @description Drops what is drawn smaller than this diagonal. */
+                min_diag?: number | null;
+            };
+            header?: {
+                "if-none-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementsPage"];
+                };
+            };
+            /** @description The page is unchanged; reuse the cached one. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     relationships: {
         parameters: {
             query?: never;
@@ -29472,7 +30203,7 @@ export interface operations {
                 /** @description Case-insensitive substring match against the entry's name. */
                 q?: string | null;
                 /** @description Only entries of these kinds (repeatable): any of them, not all. */
-                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[] | null;
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[] | null;
                 /** @description Only entries that have this entry as a parent. */
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
@@ -29620,7 +30351,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being" | "fact" | "event" | "location";
+                kind: "item" | "being" | "fact" | "event" | "location" | "map";
             };
             cookie?: never;
         };
@@ -29693,7 +30424,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being" | "fact" | "event" | "location";
+                kind: "item" | "being" | "fact" | "event" | "location" | "map";
             };
             cookie?: never;
         };

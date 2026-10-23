@@ -13,6 +13,7 @@ import uuid
 from collections.abc import Collection, Iterable, Sequence
 from typing import Any, Literal
 
+from lorenzo_map import MapDocumentError, validate_system
 from sqlalchemy import delete, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +27,7 @@ from lorenzo_api.exceptions import (
     ItemPrototypeInUseError,
 )
 from lorenzo_api.learning import require_no_learning
+from lorenzo_api.maps import require_map_room
 from lorenzo_api.models import (
     Being,
     Calendar,
@@ -44,12 +46,13 @@ from lorenzo_api.models import (
     Item,
     ItemInstance,
     Location,
+    Map,
     StoryEvent,
 )
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 # The kinds a route may add or remove.
-Kind = Literal["item", "being", "fact", "event", "location"]
+Kind = Literal["item", "being", "fact", "event", "location", "map"]
 
 # The combinations of kinds a repository may be published with, each as its kinds in the order
 # `entity_snapshot` writes them (alphabetical). A draft repository may hold any combination the
@@ -86,6 +89,19 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("item_instance", "location"),
         ("location", "observance"),
         ("location", "scene"),
+        # ADR 0336: a Map beside every other kind, pairs only.
+        ("map",),
+        ("being", "map"),
+        ("calendar", "map"),
+        ("calendar_period", "map"),
+        ("clock", "map"),
+        ("event", "map"),
+        ("fact", "map"),
+        ("item", "map"),
+        ("item_instance", "map"),
+        ("location", "map"),
+        ("map", "observance"),
+        ("map", "scene"),
     }
 )
 
@@ -117,6 +133,7 @@ async def create_entry(
     parents: Sequence[uuid.UUID],
     in_public_catalog: bool,
     entity_id: uuid.UUID | None = None,
+    system: dict[str, Any] | None = None,
 ) -> Entity:
     """The entry, its link name, its marker rows and its parent edges, flushed in the caller's
     transaction. A taken link name is a 409 and a parent that is not an entry of the tenant a
@@ -131,14 +148,25 @@ async def create_entry(
             raise EntitySlugConflictError(
                 detail=f"Slug {slug!r} is already in use in tenant {tenant_id}"
             )
-    if "event" in kinds and set(kinds) - {"location"} != {"event"}:
+    if "event" in kinds and set(kinds) - {"location", "map"} != {"event"}:
         raise InvalidKindRequestError(
             detail="An Event does not combine with other kinds in this slice."
         )
-    if "fact" in kinds and set(kinds) - {"location"} != {"fact"}:
+    if "fact" in kinds and set(kinds) - {"location", "map"} != {"fact"}:
         raise InvalidKindRequestError(
             detail="A fact is an information anchor; other kinds are a later slice."
         )
+    stored_system: dict[str, Any] | None = None
+    if "map" in kinds:
+        if system is None:
+            raise InvalidKindRequestError(
+                detail="A Map needs its system: use POST /maps or add the kind to an entry."
+            )
+        try:
+            stored_system = validate_system(system)
+        except MapDocumentError as error:
+            raise InvalidKindRequestError(detail=error.reason) from None
+        await require_map_room(session, tenant_id=tenant_id)
     wanted = set(parents)
     if wanted:
         found = set(
@@ -181,6 +209,11 @@ async def create_entry(
             # A new Location is restricted until its audience is opened (ADR 0330). A Location
             # beside another kind leaves that kind's own audience rules alone.
             session.add(EntityAudience(entity_id=entity.id, tenant_id=tenant_id, is_public=False))
+    if stored_system is not None:
+        session.add(Map(entity_id=entity.id, tenant_id=tenant_id, system=stored_system))
+        if set(kinds) == {"map"}:
+            # A new Map is restricted until its audience is opened, like a Location.
+            session.add(EntityAudience(entity_id=entity.id, tenant_id=tenant_id, is_public=False))
     for position, parent_id in enumerate(dict.fromkeys(parents)):
         session.add(
             EntityPrototype(
@@ -199,6 +232,7 @@ async def add_kind(
     kind: Kind,
     user_id: uuid.UUID,
     in_public_catalog: bool | None = None,
+    system: dict[str, Any] | None = None,
 ) -> Literal["created", "changed", "unchanged"]:
     """Gives the entry the kind, and says what happened: `created` the marker row, `changed` an
     `item`'s `in_public_catalog` set to another value, or `unchanged`. Touches the entry
@@ -206,11 +240,16 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
-    if kind != "location" and existing_kinds & {"scene", "scene_appearance", "session", "clock"}:
+    if kind not in ("location", "map") and existing_kinds & {
+        "scene",
+        "scene_appearance",
+        "session",
+        "clock",
+    }:
         raise InvalidKindRequestError(
             detail="Session and Scene kinds do not combine with other kinds"
         )
-    if kind != "location" and (
+    if kind not in ("location", "map") and (
         "calendar_period" in existing_kinds
         or "observance" in existing_kinds
         or "event" in existing_kinds
@@ -220,12 +259,12 @@ async def add_kind(
             detail="Use the Event creation route; "
             "temporal entries do not combine kinds in this slice."
         )
-    if kind != "location" and "calendar" in existing_kinds:
+    if kind not in ("location", "map") and "calendar" in existing_kinds:
         raise InvalidKindRequestError(
             detail="A calendar does not combine with physical kinds in this slice."
         )
-    if (kind == "fact" and existing_kinds - {"fact", "location"}) or (
-        kind not in ("fact", "location") and "fact" in existing_kinds
+    if (kind == "fact" and existing_kinds - {"fact", "location", "map"}) or (
+        kind not in ("fact", "location", "map") and "fact" in existing_kinds
     ):
         raise InvalidKindRequestError(
             detail="A fact is an information anchor; other kinds are a later slice."
@@ -261,6 +300,17 @@ async def add_kind(
     elif kind == "location":
         if await session.get(Location, entity_id) is None:
             session.add(Location(entity_id=entity_id, tenant_id=tenant_id))
+            result = "created"
+    elif kind == "map":
+        if await session.get(Map, entity_id) is None:
+            if system is None:
+                raise InvalidKindRequestError(detail="A Map needs its system.")
+            try:
+                stored = validate_system(system)
+            except MapDocumentError as error:
+                raise InvalidKindRequestError(detail=error.reason) from None
+            await require_map_room(session, tenant_id=tenant_id)
+            session.add(Map(entity_id=entity_id, tenant_id=tenant_id, system=stored))
             result = "created"
     elif await session.get(Being, entity_id) is None:
         session.add(Being(entity_id=entity_id, tenant_id=tenant_id))
@@ -321,9 +371,11 @@ async def remove_kind(
                 detail=f"Entry {entity_id} is still a direct prototype of at least one "
                 "inventory item"
             )
-        marker: type[Item | Being | Fact | Location] = Item
+        marker: type[Item | Being | Fact | Location | Map] = Item
     elif kind == "location":
         marker = Location
+    elif kind == "map":
+        marker = Map
     else:
         if await session.get(Character, entity_id) is not None:
             raise EntityKindInUseError(
@@ -331,12 +383,12 @@ async def remove_kind(
                 f"DELETE /tenants/{tenant_id}/characters/{entity_id} before it stops being a being"
             )
         marker = Being
-    if kind == "location":
+    if kind in ("location", "map"):
         audience = await session.get(EntityAudience, entity_id)
         if audience is not None:
             if not audience.is_public:
                 raise InvalidKindRequestError(
-                    detail="Make the entry audience public before removing its location kind."
+                    detail=f"Make the entry audience public before removing its {kind} kind."
                 )
             if not (await kinds_of_entry(session, entity_id)) & _AUDIENCE_KINDS:
                 await session.delete(audience)
@@ -391,6 +443,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("calendar", Calendar),
             ("clock", Clock),
             ("location", Location),
+            ("map", Map),
             ("calendar_period", CalendarPeriod),
             ("observance", CalendarObservance),
             ("event", StoryEvent),
@@ -539,6 +592,7 @@ KIND_WORDS = {
     "calendar": "calendar",
     "clock": "clock",
     "location": "location",
+    "map": "map",
     "calendar_period": "calendar period",
     "event": "event",
     "observance": "observance",

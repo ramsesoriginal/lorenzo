@@ -101,22 +101,22 @@ class LocationOut(LocationStub):
     is_public: bool | None = None
 
 
-async def _standing(
+async def standing(
     session: SessionDep, user: CurrentUser, tenant: uuid.UUID
 ) -> InformationVisibility:
     await require_tenant_participant(session, tenant_id=tenant, user=user)
     return await resolve_information_visibility(session, tenant_id=tenant, user_id=user.id)
 
 
-def _manages(vis: InformationVisibility) -> bool:
+def manages(vis: InformationVisibility) -> bool:
     return vis.is_admin or vis.manages_events
 
 
-async def _require_manager(
+async def require_manager(
     session: SessionDep, user: CurrentUser, tenant: uuid.UUID
 ) -> InformationVisibility:
-    vis = await _standing(session, user, tenant)
-    if not _manages(vis):
+    vis = await standing(session, user, tenant)
+    if not manages(vis):
         raise LocationAuthoringForbiddenError()
     return vis
 
@@ -188,7 +188,7 @@ async def _out(
             session, [(ancestor_row[0], ancestor_row[1], ancestor_row[2], None)]
         )
     (stub,) = await _stubs(session, [(entity.id, entity.name, slug, ordinal)])
-    manage = _manages(vis)
+    manage = manages(vis)
     is_public = None
     if manage:
         audience = await session.get(EntityAudience, entity.id)
@@ -223,7 +223,7 @@ async def list_locations(
 ) -> Page[LocationStub]:
     """The Locations the reader may see, by name then id; with `root`, the visible roots, ordered
     by ordinal. Hidden Locations are absent: they appear in no row, count or page."""
-    vis = await _standing(session, user, tenant_id)
+    vis = await standing(session, user, tenant_id)
     stmt: Select[Any]
     if root:
         stmt = visible_parts(vis, tenant_id=tenant_id, parent_id=None)
@@ -254,7 +254,7 @@ async def create_location(
 ) -> LocationOut:
     """A Location, restricted unless `is_public`. With `parent_id` it is made a part of that
     Location in the same transaction."""
-    vis = await _require_manager(session, user, tenant_id)
+    vis = await require_manager(session, user, tenant_id)
     parent = None
     if body.parent_id is not None:
         parent = await _visible_location(session, user, tenant_id, body.parent_id)
@@ -295,7 +295,7 @@ async def get_location(
     session: SessionDep,
     user: CurrentUser,
 ) -> LocationOut:
-    vis = await _standing(session, user, tenant_id)
+    vis = await standing(session, user, tenant_id)
     entity = await _visible_location(session, user, tenant_id, location_id)
     out = await _out(session, vis, tenant_id, entity)
     response.headers["ETag"] = etag_for(out.updated_at)
@@ -312,7 +312,7 @@ async def location_parts(
 ) -> Page[LocationStub]:
     """The Locations this reader sees directly in this one, through hidden levels without a
     trace, ordered by ordinal (none last), name and id."""
-    vis = await _standing(session, user, tenant_id)
+    vis = await standing(session, user, tenant_id)
     await _visible_location(session, user, tenant_id, location_id)
     stmt = visible_parts(vis, tenant_id=tenant_id, parent_id=location_id)
 
@@ -328,7 +328,7 @@ async def put_part_of(
     session: SessionDep,
     user: CurrentUser,
 ) -> LocationOut:
-    vis = await _require_manager(session, user, tenant_id)
+    vis = await require_manager(session, user, tenant_id)
     entity = await _visible_location(session, user, tenant_id, location_id)
     parent = await _visible_location(session, user, tenant_id, body.parent_entity_id)
     await set_part_of(
@@ -348,7 +348,7 @@ async def put_part_of(
 async def delete_part_of(
     tenant_id: uuid.UUID, location_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> None:
-    await _require_manager(session, user, tenant_id)
+    await require_manager(session, user, tenant_id)
     await _visible_location(session, user, tenant_id, location_id)
     await clear_part_of(session, tenant_id=tenant_id, child=location_id)
     await _commit(session, tenant_id)
@@ -399,7 +399,7 @@ async def _placer(
 ) -> Entity:
     """Standing to place the entry (ADR 0333): the standing that writes Locations, and the
     standing that writes the entry."""
-    await _require_manager(session, user, tenant)
+    await require_manager(session, user, tenant)
     entity = await _visible_entry(session, user, tenant, identity)
     await authorize_entity_write(session, tenant_id=tenant, user=user, entity_id=identity)
     return entity
@@ -451,7 +451,7 @@ async def get_whereabouts(
 ) -> WhereaboutsOut:
     """Where the entry is, as that character would say it: `with_you`, `stashed`, `elsewhere` or
     `unknown`, and at most one name, the place when it is not the character's own (ADR 0334)."""
-    vis = await _standing(session, user, tenant_id)
+    vis = await standing(session, user, tenant_id)
     await _visible_entry(session, user, tenant_id, entity_id)
     reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=vis)
     is_character = await session.scalar(
@@ -504,7 +504,7 @@ async def get_address(
     """Where the entry sits, step by step, for those who write Locations (ADR 0335): what holds
     it, its owner for a thing in no container, the place of the top of that, every Location above
     the place, and, for a Location, what it is within."""
-    vis = await _require_manager(session, user, tenant_id)
+    vis = await require_manager(session, user, tenant_id)
     await _visible_entry(session, user, tenant_id, entity_id)
     found = await address_of(session, vis, tenant_id=tenant_id, entity_id=entity_id)
 
@@ -523,7 +523,7 @@ async def get_location_lint(
 ) -> Page[LintFindingOut]:
     """What is probably a mistake in the library's places, for those who write Locations to fix
     (ADR 0335). It stores nothing and changes nothing."""
-    await _require_manager(session, user, tenant_id)
+    await require_manager(session, user, tenant_id)
     findings = await lint_locations(session, tenant_id=tenant_id)
     page: Page[LintFindingOut] = paginate(
         [

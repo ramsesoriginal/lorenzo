@@ -52,6 +52,8 @@ from lorenzo_api.models import (
     Item,
     ItemInstance,
     Location,
+    Map,
+    MapPlacement,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -111,7 +113,9 @@ State = Literal["clean", "conflict", "not_applicable"]
 _HINTS = ("max_hint", "min_hint", "resolved_hint")
 _DISPLAY = ("unit", "adjustable_in_play", "pin", "signed")
 _SETS = {"prototypes", "stat_groups", "enum_values", "kinds"}
-_KEYED = {"stats", "formulas"}
+_KEYED = {"stats", "formulas", "placements"}
+# What a keyed field is keyed by: a stat, except the placements of a Map (an entry).
+_KEY_KIND = {"stats": "stat_definition", "formulas": "stat_definition", "placements": "entity"}
 # Shown when they change, never applied: converting every value is a
 # person's job.
 _NOT_APPLICABLE = {"value_type"}
@@ -390,7 +394,7 @@ def mentioned(change: FieldChange) -> list[tuple[str, str]]:
         found += [("stat_group", value) for value in values if isinstance(value, str)]
     elif change.field.partition(":")[0] in _KEYED:
         prefix, _, definition = change.field.partition(":")
-        found.append(("stat_definition", definition))
+        found.append((_KEY_KIND[prefix], definition))
         if prefix == "formulas":
             found += [("stat_definition", ref) for v in values for ref in _formula_inputs(v)]
     return found
@@ -681,7 +685,7 @@ class _Applier:
 
     def skip(self, row: RowChange, name: str, reason: str) -> None:
         prefix, _, stat = name.partition(":")
-        label = self.names.name("stat_definition", stat) if prefix in _KEYED else None
+        label = self.names.name(_KEY_KIND[prefix], stat) if prefix in _KEYED else None
         self.result.not_applied.append(
             NotApplied(row.kind, row.source_id, name, reason, row.name, label)
         )
@@ -833,6 +837,81 @@ class _Applier:
                 delete(clock_model).where(source_column == e, clock_model.tenant_id == t)
             )
             s.add_all(replacements)
+            await s.flush()
+            return True
+        if name == "map_system":
+            from lorenzo_map import MapDocumentError, validate_system
+
+            map_row = await s.get(Map, e)
+            if map_row is None or map_row.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            try:
+                map_row.system = validate_system(change.upstream)
+            except MapDocumentError as error:
+                self.skip(row, name, error.reason)
+                return False
+            return True
+        if name == "map_subject":
+            map_row = await s.get(Map, e)
+            if map_row is None or map_row.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            if change.upstream is None:
+                map_row.subject_entity_id = None
+                return True
+            depicted = self.resolve("entity", change.upstream)
+            if depicted is None or await s.get(Location, depicted) is None:
+                self.skip(row, name, "Copy the Location it shows first")
+                return False
+            map_row.subject_entity_id = depicted
+            return True
+        if name.startswith("placements:"):
+            from lorenzo_map import MapDocumentError, validate_placement
+
+            if await s.get(Map, e) is None:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            drawn = self.resolve("entity", name.partition(":")[2])
+            if drawn is None or await s.get(Entity, drawn) is None:
+                self.skip(row, name, "Copy the entry it draws first")
+                return False
+            placed = await s.get(MapPlacement, (e, drawn))
+            if not change.upstream:
+                if placed is not None:
+                    await s.delete(placed)
+                return True
+            upstream_placement = change.upstream
+            try:
+                checked = validate_placement(
+                    upstream_placement["geometry"],
+                    upstream_placement["role"],
+                    upstream_placement["style"],
+                    upstream_placement["z"],
+                )
+            except MapDocumentError as error:
+                self.skip(row, name, error.reason)
+                return False
+            placement_columns: dict[str, Any] = {
+                "geometry": checked.geometry,
+                "role": checked.role,
+                "style": checked.style,
+                "z": checked.z,
+                "bytes": checked.bytes,
+                "minx": checked.bbox[0],
+                "miny": checked.bbox[1],
+                "maxx": checked.bbox[2],
+                "maxy": checked.bbox[3],
+            }
+            if placed is None:
+                s.add(
+                    MapPlacement(
+                        map_entity_id=e, entry_entity_id=drawn, tenant_id=t, **placement_columns
+                    )
+                )
+            else:
+                for field_name, field_value in placement_columns.items():
+                    setattr(placed, field_name, field_value)
             await s.flush()
             return True
         if name == "place":

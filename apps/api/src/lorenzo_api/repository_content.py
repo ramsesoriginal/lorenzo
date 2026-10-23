@@ -59,6 +59,8 @@ from lorenzo_api.models import (
     LivedBefore,
     Location,
     LocationPart,
+    Map,
+    MapPlacement,
     Ownership,
     Payload,
     PayloadDescription,
@@ -87,6 +89,7 @@ KINDS = (
     "calendar",
     "clock",
     "location",
+    "map",
     "calendar_period",
     "event",
     "observance",
@@ -212,6 +215,9 @@ class Content:
     location_parts: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     # entry -> the Location it is at (ADR 0333).
     entity_locations: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    # map -> {system, subject}, and (map, entry) -> {geometry, role, style, z} (ADR 0336).
+    maps: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    map_placements: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
     clock_readings: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
     clock_relationships: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
         default_factory=dict
@@ -347,6 +353,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("calendar", Calendar),
         ("clock", Clock),
         ("location", Location),
+        ("map", Map),
         ("calendar_period", CalendarPeriod),
         ("event", StoryEvent),
         ("observance", CalendarObservance),
@@ -661,6 +668,24 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         await rows(Calendar.entity_id, Calendar.definition, where=Calendar.tenant_id == t)
     )
     c.clocks = dict(await rows(Clock.entity_id, Clock.ticking, where=Clock.tenant_id == t))
+    c.maps = {
+        entity: {"system": system, "subject": subject}
+        for entity, system, subject in await rows(
+            Map.entity_id, Map.system, Map.subject_entity_id, where=Map.tenant_id == t
+        )
+    }
+    c.map_placements = {
+        (drawn_on, entry): {"geometry": geometry, "role": role, "style": style, "z": z}
+        for drawn_on, entry, geometry, role, style, z in await rows(
+            MapPlacement.map_entity_id,
+            MapPlacement.entry_entity_id,
+            MapPlacement.geometry,
+            MapPlacement.role,
+            MapPlacement.style,
+            MapPlacement.z,
+            where=MapPlacement.tenant_id == t,
+        )
+    }
     c.entity_locations = dict(
         await rows(
             EntityLocation.entity_id,
@@ -942,6 +967,23 @@ def entity_snapshot(
     return {
         **clock_fields,
         **({"clock_ticking": content.clocks[entity_id]} if entity_id in content.clocks else {}),
+        **(
+            {
+                "map_system": content.maps[entity_id]["system"],
+                "map_subject": None
+                if content.maps[entity_id]["subject"] is None
+                else name("entity", content.maps[entity_id]["subject"]),
+                "placements": {
+                    name("entity", entry): record
+                    for (drawn_on, entry), record in sorted(
+                        content.map_placements.items(), key=lambda item: str(item[0])
+                    )
+                    if drawn_on == entity_id
+                },
+            }
+            if entity_id in content.maps
+            else {}
+        ),
         **(
             {"place": {"location": name("entity", content.entity_locations[entity_id])}}
             if entity_id in content.entity_locations

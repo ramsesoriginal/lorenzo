@@ -572,3 +572,23 @@ PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `locati
 PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `location` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `location` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `location` enum value to the `kinds/items/` response property for the response status `200`
+
+# ADR 0336: the Map entry kind, which the generic kinds responses can now carry; generated clients are updated.
+DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities added the new `map` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/by-slug/{slug} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/export added the new `map` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/resolve added the new `map` enum value to the `items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/backlinks added the new `map` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/facts added the new `map` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/preview added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/entities added the new `map` enum value to the `kinds/items/` response property for the response status `201`
+PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
