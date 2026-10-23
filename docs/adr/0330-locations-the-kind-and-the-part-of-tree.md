@@ -54,8 +54,8 @@ authored content. Part-of, placement and frames never feed ADR 0046 reach: the p
 those relation tables and scans the compiled reach statements.
 
 **Reads.** `GET /tenants/{tenant_id}/locations` lists visible Locations (`root=true` for roots,
-`q` for a case-insensitive name match, a keyset cursor ordered by name then id, at most 200 per
-page, no total). `GET .../locations/{id}` returns the name, slug, ordinal, the nearest visible
+`q` for a case-insensitive name match, ordered by name then id) in the library's standard page shape;
+its total counts visible rows only. `GET .../locations/{id}` returns the name, slug, ordinal, the nearest visible
 ancestor and, to managers, whether the audience is public. `GET .../locations/{id}/parts` returns
 the visible parts as above, ordered by ordinal, name and id. Entry stubs carry only id, name, slug
 and kinds. No endpoint returns a depth, a path, a child count of hidden rows or a hidden name.
@@ -75,7 +75,7 @@ adds no dependent for this slice.
 
 One API-and-app vertical pull request (ADR 0332 for the app), stacked after the documentation pull
 request. Tests cover: marker round trip through the kind API; cycle, depth and cross-library
-references; keyset pages; hidden-parent parity (the byte-identical case above); the GM and Author
+references; pages; hidden-parent parity (the byte-identical case above); the GM and Author
 reach rules with the placement tables untouched; two-library byte equality for hidden against
 absent Locations; deletion rows; copy, update, release and an older document; the response `kinds`
 enumeration widening through the breaking-change process.
