@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     bench_url: str = "https://lorenzo-bench.pages.dev"
     sessions_url: str = "https://lorenzo-sessions.pages.dev"
     calendars_url: str = "https://lorenzo-calendars.pages.dev"
+    maps_url: str = "https://lorenzo-maps.pages.dev"
     # Optional per-link overrides in APP_LINK_TEMPLATES: space-separated `name=template`
     # pairs (like CORS_ALLOWED_ORIGINS, no commas and no JSON, for the deploy action's sake),
     # e.g. "item=https://i.example.com/i/{tenant}/{id}". NoDecode, as cors_allowed_origins.
@@ -88,6 +89,7 @@ class Settings(BaseSettings):
         "bench_url",
         "calendars_url",
         "sessions_url",
+        "maps_url",
         mode="before",
     )
     @classmethod

@@ -46,6 +46,8 @@ from lorenzo_api.models import (
     ItemInstance,
     Knowledge,
     LivedBefore,
+    Location,
+    LocationPart,
     Ownership,
     Payload,
     PayloadDescription,
@@ -96,6 +98,8 @@ async def seed_every_content_table(
     scene = entity("Fixture Scene")
     calendar = entity("Fixture calendar")
     clock = entity("Fixture clock")
+    place = entity("Fixture place")
+    room = entity("Fixture room")
     reference_clock = entity("Fixture reference clock")
     period = entity("Fixture year")
     event = entity("Fixture event")
@@ -109,6 +113,8 @@ async def seed_every_content_table(
     session.add_all(
         [
             Clock(entity_id=clock.id, tenant_id=tenant_id),
+            Location(entity_id=place.id, tenant_id=tenant_id),
+            Location(entity_id=room.id, tenant_id=tenant_id),
             Clock(entity_id=reference_clock.id, tenant_id=tenant_id),
             EntityAudience(entity_id=reference_clock.id, tenant_id=tenant_id, is_public=False),
             EntityAudience(entity_id=clock.id, tenant_id=tenant_id, is_public=False),
@@ -161,6 +167,12 @@ async def seed_every_content_table(
     await session.flush()
     session.add_all(
         [
+            LocationPart(
+                child_entity_id=room.id,
+                parent_entity_id=place.id,
+                tenant_id=tenant_id,
+                level_ordinal=Decimal("1.5"),
+            ),
             EventClockReading(
                 event_entity_id=event.id,
                 clock_entity_id=clock.id,

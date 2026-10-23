@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.item import Item
     from lorenzo_api.models.item_instance import ItemInstance
     from lorenzo_api.models.knowledge import Knowledge
+    from lorenzo_api.models.location import Location
     from lorenzo_api.models.ownership import Ownership
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
@@ -45,6 +46,10 @@ class Entity(Base):
     # Declarative class otherwise raises MappedAnnotationError - User's
     # authgear_roles precedent.
     __allow_unmapped__ = True
+
+    location: Mapped[Location | None] = relationship(
+        "Location", foreign_keys="Location.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
 
     clock: Mapped[Clock | None] = relationship(
         "Clock", foreign_keys="Clock.entity_id", viewonly=True, lazy="raise_on_sql"

@@ -15,6 +15,7 @@ import re
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Literal
 
 from sqlalchemy import delete, exists, func, insert, or_, select, tuple_, update
@@ -61,6 +62,7 @@ from lorenzo_api.models import (
     Information,
     Knowledge,
     LivedBefore,
+    LocationPart,
     Ownership,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
@@ -82,6 +84,7 @@ from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
     Content,
     Links,
+    assert_acyclic,
     attachments_of,
     entity_snapshot,
     index_entities,
@@ -634,6 +637,8 @@ class _Planner:
                 self.rows["clock"].append(
                     {"entity_id": new, "tenant_id": tenant_id, "ticking": c.clocks[e]}
                 )
+            if "location" in kinds:
+                self.rows["location"].append({"entity_id": new, "tenant_id": tenant_id})
             if "calendar" in kinds:
                 self.rows["calendar"].append(
                     {"entity_id": new, "tenant_id": tenant_id, "definition": c.calendars[e]}
@@ -968,6 +973,23 @@ class _Planner:
                                 **value,
                             }
                         )
+        assert_acyclic(c.location_parts)
+        for child, part in c.location_parts.items():
+            if copies("entity", child):
+                local_parent = self._local(c, "entity", part["parent"])
+                if local_parent is None:
+                    drop("location_part", child, "its parent Location was not copied")
+                else:
+                    self.rows["location_part"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "child_entity_id": self.local["entity"][child],
+                            "parent_entity_id": local_parent,
+                            "level_ordinal": None
+                            if part["ordinal"] is None
+                            else Decimal(part["ordinal"]),
+                        }
+                    )
         for field_name, table, target_column in [
             ("scene_facts", "scene_fact", "fact_entity_id"),
             ("scene_events", "scene_event", "event_entity_id"),
@@ -1836,6 +1858,17 @@ async def forget_copy(
                 & ClockRelationship.reference_clock_entity_id.not_in(entities),
                 ClockRelationship.reference_clock_entity_id.in_(entities)
                 & ClockRelationship.clock_entity_id.not_in(entities),
+            ),
+        )
+        also["location_part"] = await _count(
+            session,
+            LocationPart,
+            LocationPart.tenant_id == t,
+            or_(
+                LocationPart.child_entity_id.in_(entities)
+                & LocationPart.parent_entity_id.not_in(entities),
+                LocationPart.parent_entity_id.in_(entities)
+                & LocationPart.child_entity_id.not_in(entities),
             ),
         )
         also["lived_before"] = await _count(

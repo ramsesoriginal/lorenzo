@@ -128,6 +128,7 @@ async def entry_in_author_reach(
         CalendarPeriod,
         Clock,
         Fact,
+        Location,
         Scene,
         StoryEvent,
     )
@@ -145,6 +146,7 @@ async def entry_in_author_reach(
                 Fact,
                 Calendar,
                 Clock,
+                Location,
                 CalendarPeriod,
                 StoryEvent,
                 CalendarObservance,

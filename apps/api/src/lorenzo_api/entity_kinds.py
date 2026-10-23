@@ -43,12 +43,13 @@ from lorenzo_api.models import (
     Fact,
     Item,
     ItemInstance,
+    Location,
     StoryEvent,
 )
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 # The kinds a route may add or remove.
-Kind = Literal["item", "being", "fact", "event"]
+Kind = Literal["item", "being", "fact", "event", "location"]
 
 # The combinations of kinds a repository may be published with, each as its kinds in the order
 # `entity_snapshot` writes them (alphabetical). A draft repository may hold any combination the
@@ -72,6 +73,35 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("being", "item"),
         ("item_instance",),
         ("being", "character"),
+        # ADR 0331: a Location beside every other kind. Pairs only; a triple is not published
+        # until it is proven.
+        ("location",),
+        ("being", "location"),
+        ("calendar", "location"),
+        ("calendar_period", "location"),
+        ("clock", "location"),
+        ("event", "location"),
+        ("fact", "location"),
+        ("item", "location"),
+        ("item_instance", "location"),
+        ("location", "observance"),
+        ("location", "scene"),
+    }
+)
+
+
+# The kinds whose outer audience belongs to them: removing a Location leaves that row alone.
+_AUDIENCE_KINDS = frozenset(
+    {
+        "fact",
+        "calendar",
+        "clock",
+        "calendar_period",
+        "event",
+        "observance",
+        "scene",
+        "session",
+        "scene_appearance",
     }
 )
 
@@ -101,11 +131,11 @@ async def create_entry(
             raise EntitySlugConflictError(
                 detail=f"Slug {slug!r} is already in use in tenant {tenant_id}"
             )
-    if "event" in kinds and set(kinds) != {"event"}:
+    if "event" in kinds and set(kinds) - {"location"} != {"event"}:
         raise InvalidKindRequestError(
             detail="An Event does not combine with other kinds in this slice."
         )
-    if "fact" in kinds and set(kinds) != {"fact"}:
+    if "fact" in kinds and set(kinds) - {"location"} != {"fact"}:
         raise InvalidKindRequestError(
             detail="A fact is an information anchor; other kinds are a later slice."
         )
@@ -145,6 +175,12 @@ async def create_entry(
     if "event" in kinds:
         session.add(StoryEvent(entity_id=entity.id, tenant_id=tenant_id))
         session.add(EntityAudience(entity_id=entity.id, tenant_id=tenant_id, is_public=False))
+    if "location" in kinds:
+        session.add(Location(entity_id=entity.id, tenant_id=tenant_id))
+        if set(kinds) == {"location"}:
+            # A new Location is restricted until its audience is opened (ADR 0330). A Location
+            # beside another kind leaves that kind's own audience rules alone.
+            session.add(EntityAudience(entity_id=entity.id, tenant_id=tenant_id, is_public=False))
     for position, parent_id in enumerate(dict.fromkeys(parents)):
         session.add(
             EntityPrototype(
@@ -170,11 +206,11 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
-    if existing_kinds & {"scene", "scene_appearance", "session", "clock"}:
+    if kind != "location" and existing_kinds & {"scene", "scene_appearance", "session", "clock"}:
         raise InvalidKindRequestError(
             detail="Session and Scene kinds do not combine with other kinds"
         )
-    if (
+    if kind != "location" and (
         "calendar_period" in existing_kinds
         or "observance" in existing_kinds
         or "event" in existing_kinds
@@ -184,12 +220,12 @@ async def add_kind(
             detail="Use the Event creation route; "
             "temporal entries do not combine kinds in this slice."
         )
-    if "calendar" in existing_kinds:
+    if kind != "location" and "calendar" in existing_kinds:
         raise InvalidKindRequestError(
             detail="A calendar does not combine with physical kinds in this slice."
         )
-    if (kind == "fact" and existing_kinds - {"fact"}) or (
-        kind != "fact" and "fact" in existing_kinds
+    if (kind == "fact" and existing_kinds - {"fact", "location"}) or (
+        kind not in ("fact", "location") and "fact" in existing_kinds
     ):
         raise InvalidKindRequestError(
             detail="A fact is an information anchor; other kinds are a later slice."
@@ -221,6 +257,10 @@ async def add_kind(
                 session.add(
                     EntityAudience(entity_id=entity_id, tenant_id=tenant_id, is_public=False)
                 )
+            result = "created"
+    elif kind == "location":
+        if await session.get(Location, entity_id) is None:
+            session.add(Location(entity_id=entity_id, tenant_id=tenant_id))
             result = "created"
     elif await session.get(Being, entity_id) is None:
         session.add(Being(entity_id=entity_id, tenant_id=tenant_id))
@@ -281,7 +321,9 @@ async def remove_kind(
                 detail=f"Entry {entity_id} is still a direct prototype of at least one "
                 "inventory item"
             )
-        marker: type[Item | Being | Fact] = Item
+        marker: type[Item | Being | Fact | Location] = Item
+    elif kind == "location":
+        marker = Location
     else:
         if await session.get(Character, entity_id) is not None:
             raise EntityKindInUseError(
@@ -289,6 +331,15 @@ async def remove_kind(
                 f"DELETE /tenants/{tenant_id}/characters/{entity_id} before it stops being a being"
             )
         marker = Being
+    if kind == "location":
+        audience = await session.get(EntityAudience, entity_id)
+        if audience is not None:
+            if not audience.is_public:
+                raise InvalidKindRequestError(
+                    detail="Make the entry audience public before removing its location kind."
+                )
+            if not (await kinds_of_entry(session, entity_id)) & _AUDIENCE_KINDS:
+                await session.delete(audience)
     if kind == "fact":
         marker = Fact
         audience = await session.get(EntityAudience, entity_id)
@@ -339,6 +390,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("fact", Fact),
             ("calendar", Calendar),
             ("clock", Clock),
+            ("location", Location),
             ("calendar_period", CalendarPeriod),
             ("observance", CalendarObservance),
             ("event", StoryEvent),
@@ -486,6 +538,7 @@ KIND_WORDS = {
     "fact": "fact",
     "calendar": "calendar",
     "clock": "clock",
+    "location": "location",
     "calendar_period": "calendar period",
     "event": "event",
     "observance": "observance",

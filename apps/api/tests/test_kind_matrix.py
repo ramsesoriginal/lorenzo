@@ -55,6 +55,18 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("being", "item"): "being",
     ("item_instance",): None,
     ("being", "character"): None,
+    # ADR 0331: a Location beside every other kind. Pairs only.
+    ("location",): "item",
+    ("being", "location"): None,
+    ("calendar", "location"): None,
+    ("calendar_period", "location"): None,
+    ("clock", "location"): None,
+    ("event", "location"): None,
+    ("fact", "location"): None,
+    ("item", "location"): None,
+    ("item_instance", "location"): None,
+    ("location", "observance"): None,
+    ("location", "scene"): None,
 }
 _ORDER = [
     "item",
@@ -68,6 +80,7 @@ _ORDER = [
     "event",
     "observance",
     "scene",
+    "location",
 ]
 
 
@@ -141,6 +154,26 @@ async def _make(
 ) -> uuid.UUID:
     """An entry of those kinds in a repository: through the route where one exists, and straight
     in the database for an inventory item and a character, which no route makes this way."""
+    if "location" in kinds:
+        rest = tuple(k for k in kinds if k != "location")
+        if rest:
+            entity_id = await _make(scene_author, repository, name, rest, parents)
+            added = await scene_author.put(
+                f"/tenants/{repository}/entities/{entity_id}/kinds/location"
+            )
+            assert added.status_code in (200, 201), added.text
+            return entity_id
+        response = await scene_author.post(
+            f"/tenants/{repository}/locations", json={"name": name, "is_public": True}
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
     if kinds == ("scene",):
         response = await scene_author.post(f"/tenants/{repository}/scenes", json={"name": name})
         assert response.status_code == 201, response.text
