@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14,<3.15"
 dependencies = [
   "lorenzo-calendar",
+  "lorenzo-map",
   "fastapi[standard]>=0.115",
   "sqlalchemy[asyncio]>=2.0",
   "asyncpg>=0.30",
@@ -72,6 +73,7 @@ asyncio_default_test_loop_scope = "session"
 
 [tool.uv.sources]
 lorenzo-calendar = { path = "../../packages/calendar-engine" }
+lorenzo-map = { path = "../../packages/map-engine" }
 
 [build-system]
 requires = ["hatchling"]

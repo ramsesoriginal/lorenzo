@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/api/**'
       - 'packages/calendar-engine/**'
+      - 'packages/map-engine/**'
   workflow_dispatch:
 
 concurrency:

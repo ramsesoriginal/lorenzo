@@ -27,8 +27,10 @@ Allow the respective origins as post-logout redirect addresses. Supply the Pages
 
 Add the production origin to the API's existing space-separated `CORS_ALLOWED_ORIGINS` list and deploy the API through its normal workflow. The app registry already has the planned `https://lorenzo-maps.pages.dev` address; set the API/GitHub `MAPS_URL` variable for a different origin. Deployment passes an unset value through to the API's default. Preview origins need their own explicit CORS and callback authorization.
 
-Call `GET /app-links` and confirm that `apps.maps.url` is the address you deployed and that the `location` and `location_by_slug` links point at it.
+Call `GET /app-links` and confirm that `apps.maps.url` is the address you deployed and that the `location`, `location_by_slug`, `map` and `map_by_slug` links point at it.
 
 Open the app and sign in as a GM. Add a top-level Location and a Location inside it, keep one restricted, and move one. Check as a player that a restricted Location does not appear, and that a visible Location inside a restricted one shows directly under the nearest Location the player can see. Check that logout works. Without `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIENT_ID` the app reports that Authgear is not configured.
 
-No setting data, Location or axis is seeded during deployment.
+Make a Map with `POST /tenants/{id}/maps`, draw a Location on it with `PUT /tenants/{id}/maps/{map_id}/placements/{entry_id}`, and open the Map from the Maps page: the place is drawn, selecting it names it, and a player sees only the places they may see.
+
+No setting data, Location, Map or axis is seeded during deployment.

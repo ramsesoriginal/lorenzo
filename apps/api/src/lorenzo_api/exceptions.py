@@ -1454,6 +1454,18 @@ class EventOrderPreconditionRequiredError(StatusProblem):
     title = "Read the Event relationships before changing them"
 
 
+class InvalidMapError(UnprocessableProblem):
+    """A map document or placement the validator refuses, or a limit of ADR 0337: the detail
+    says which (ADR 0338)."""
+
+    title = "That is not a valid map document"
+
+
+class MapPreconditionRequiredError(StatusProblem):
+    status = 428
+    title = "Read the Map before changing it"
+
+
 class LocationAuthoringForbiddenError(ForbiddenProblem):
     title = "Locations are edited by Authors, GMs and full-visibility Owners or Organizers"
 

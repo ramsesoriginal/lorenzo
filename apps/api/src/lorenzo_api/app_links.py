@@ -41,6 +41,9 @@ _DEFAULTS: dict[str, tuple[str, str]] = {
     # Lorenzo Maps: a Location, by id or by slug.
     "location": ("maps", "/location/?tenant={tenant}&id={id}"),
     "location_by_slug": ("maps", "/location/?tenant={tenant}&slug={slug}"),
+    # Lorenzo Maps: a Map, by id or by slug.
+    "map": ("maps", "/map/?tenant={tenant}&id={id}"),
+    "map_by_slug": ("maps", "/map/?tenant={tenant}&slug={slug}"),
 }
 
 

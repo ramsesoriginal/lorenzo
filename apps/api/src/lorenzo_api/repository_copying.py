@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
 
+from lorenzo_map import MapDocumentError, validate_placement
 from sqlalchemy import delete, exists, func, insert, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError
@@ -64,6 +65,7 @@ from lorenzo_api.models import (
     Knowledge,
     LivedBefore,
     LocationPart,
+    MapPlacement,
     Ownership,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
@@ -640,6 +642,18 @@ class _Planner:
                 )
             if "location" in kinds:
                 self.rows["location"].append({"entity_id": new, "tenant_id": tenant_id})
+            if "map" in kinds:
+                subject = c.maps[e]["subject"]
+                self.rows["map"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "system": c.maps[e]["system"],
+                        "subject_entity_id": None
+                        if subject is None
+                        else self._local(c, "entity", subject),
+                    }
+                )
             if "calendar" in kinds:
                 self.rows["calendar"].append(
                     {"entity_id": new, "tenant_id": tenant_id, "definition": c.calendars[e]}
@@ -991,6 +1005,36 @@ class _Planner:
                             else Decimal(part["ordinal"]),
                         }
                     )
+        for (drawn_on, entry), record in c.map_placements.items():
+            if not copies("entity", drawn_on):
+                continue
+            local_entry = self._local(c, "entity", entry)
+            if local_entry is None:
+                drop("map_placement", drawn_on, "its entry was not copied")
+                continue
+            try:
+                checked = validate_placement(
+                    record["geometry"], record["role"], record["style"], record["z"]
+                )
+            except MapDocumentError:
+                drop("map_placement", drawn_on, "its geometry is not valid here")
+                continue
+            self.rows["map_placement"].append(
+                {
+                    "tenant_id": tenant_id,
+                    "map_entity_id": self.local["entity"][drawn_on],
+                    "entry_entity_id": local_entry,
+                    "geometry": checked.geometry,
+                    "role": checked.role,
+                    "style": checked.style,
+                    "z": checked.z,
+                    "bytes": checked.bytes,
+                    "minx": checked.bbox[0],
+                    "miny": checked.bbox[1],
+                    "maxx": checked.bbox[2],
+                    "maxy": checked.bbox[3],
+                }
+            )
         for entry, at in c.entity_locations.items():
             if copies("entity", entry):
                 local_at = self._local(c, "entity", at)
@@ -1874,6 +1918,17 @@ async def forget_copy(
                 & ClockRelationship.reference_clock_entity_id.not_in(entities),
                 ClockRelationship.reference_clock_entity_id.in_(entities)
                 & ClockRelationship.clock_entity_id.not_in(entities),
+            ),
+        )
+        also["map_placement"] = await _count(
+            session,
+            MapPlacement,
+            MapPlacement.tenant_id == t,
+            or_(
+                MapPlacement.map_entity_id.in_(entities)
+                & MapPlacement.entry_entity_id.not_in(entities),
+                MapPlacement.entry_entity_id.in_(entities)
+                & MapPlacement.map_entity_id.not_in(entities),
             ),
         )
         also["entity_location"] = await _count(

@@ -67,6 +67,19 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("item_instance", "location"): None,
     ("location", "observance"): None,
     ("location", "scene"): None,
+    # ADR 0336: a Map beside every other kind. Pairs only.
+    ("map",): "item",
+    ("being", "map"): None,
+    ("calendar", "map"): None,
+    ("calendar_period", "map"): None,
+    ("clock", "map"): None,
+    ("event", "map"): None,
+    ("fact", "map"): None,
+    ("item", "map"): None,
+    ("item_instance", "map"): None,
+    ("location", "map"): None,
+    ("map", "observance"): None,
+    ("map", "scene"): None,
 }
 _ORDER = [
     "item",
@@ -81,7 +94,10 @@ _ORDER = [
     "observance",
     "scene",
     "location",
+    "map",
 ]
+
+MAP_SYSTEM = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 100, 100]}
 
 
 def test_the_matrix_holds_exactly_the_combinations_publishing_allows() -> None:
@@ -154,6 +170,27 @@ async def _make(
 ) -> uuid.UUID:
     """An entry of those kinds in a repository: through the route where one exists, and straight
     in the database for an inventory item and a character, which no route makes this way."""
+    if "map" in kinds:
+        rest = tuple(k for k in kinds if k != "map")
+        if rest:
+            entity_id = await _make(scene_author, repository, name, rest, parents)
+            added = await scene_author.put(
+                f"/tenants/{repository}/entities/{entity_id}/kinds/map", json={"system": MAP_SYSTEM}
+            )
+            assert added.status_code in (200, 201), added.text
+            return entity_id
+        response = await scene_author.post(
+            f"/tenants/{repository}/maps",
+            json={"name": name, "is_public": True, "system": MAP_SYSTEM},
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
     if "location" in kinds:
         rest = tuple(k for k in kinds if k != "location")
         if rest:

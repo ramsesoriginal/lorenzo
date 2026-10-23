@@ -239,12 +239,13 @@ export async function mountLocations() {
   }
 }
 
-async function resolve(tenant: string) {
+/** The id of the entry the address names, by `id` or by link name. */
+export async function resolveEntry(tenant: string, what = 'Location') {
   const params = new URLSearchParams(location.search);
   const id = params.get('id');
   if (id) return id;
   const slug = params.get('slug');
-  if (!slug) throw new Error('This address does not name a Location.');
+  if (!slug) throw new Error(`This address does not name a ${what}.`);
   const entry = await unwrap(
     await client.GET('/tenants/{tenant_id}/entities/by-slug/{slug}', {
       params: { path: { tenant_id: tenant, slug } },
@@ -262,7 +263,7 @@ export async function mountLocation() {
   const render = async () => {
     try {
       host.replaceChildren(loading('Opening this Location…'));
-      const id = await resolve(tenant);
+      const id = await resolveEntry(tenant);
       const result = await client.GET('/tenants/{tenant_id}/locations/{location_id}', {
         params: { path: { tenant_id: tenant, location_id: id } },
       });

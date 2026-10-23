@@ -92,6 +92,7 @@ from lorenzo_api.models import (
     Item,
     ItemInstance,
     Location,
+    Map,
     Ownership,
     Payload,
     Player,
@@ -162,6 +163,7 @@ _KINDS: tuple[
             | Calendar
             | Clock
             | Location
+            | Map
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
@@ -186,6 +188,7 @@ _KINDS: tuple[
     ("scene_appearance", SceneAppearance),
     ("session", StorySession),
     ("location", Location),
+    ("map", Map),
 )
 
 
@@ -437,6 +440,9 @@ async def add_entity_kind(
     in_public_catalog = body.in_public_catalog if body is not None else None
     if in_public_catalog is not None and kind != "item":
         raise InvalidKindRequestError(detail=f"in_public_catalog is a column of item, not {kind}")
+    system = body.system if body is not None else None
+    if system is not None and kind != "map":
+        raise InvalidKindRequestError(detail=f"system is a column of map, not {kind}")
     result = await add_kind(
         session,
         tenant_id=tenant_id,
@@ -444,6 +450,7 @@ async def add_entity_kind(
         kind=kind,
         user_id=user.id,
         in_public_catalog=in_public_catalog,
+        system=system,
     )
     if result != "unchanged":
         await record_activity(
@@ -605,6 +612,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.calendar),
             joinedload(Entity.clock),
             joinedload(Entity.location),
+            joinedload(Entity.map),
             joinedload(Entity.calendar_period),
             joinedload(Entity.calendar_observance),
             joinedload(Entity.story_event),
@@ -1716,6 +1724,7 @@ async def editable_fact_audience(
                 Calendar,
                 Clock,
                 Location,
+                Map,
                 CalendarPeriod,
                 StoryEvent,
                 CalendarObservance,

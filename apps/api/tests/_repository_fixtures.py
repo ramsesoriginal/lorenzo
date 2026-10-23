@@ -49,6 +49,8 @@ from lorenzo_api.models import (
     LivedBefore,
     Location,
     LocationPart,
+    Map,
+    MapPlacement,
     Ownership,
     Payload,
     PayloadDescription,
@@ -107,6 +109,7 @@ async def seed_every_content_table(
     later_event = entity("Later fixture Event")
     observance = entity("Fixture observance")
     fact = entity("The blade belongs to Elminster")
+    chart = entity("Fixture map")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     await session.flush()
@@ -116,6 +119,15 @@ async def seed_every_content_table(
             Clock(entity_id=clock.id, tenant_id=tenant_id),
             Location(entity_id=place.id, tenant_id=tenant_id),
             Location(entity_id=room.id, tenant_id=tenant_id),
+            Map(
+                entity_id=chart.id,
+                tenant_id=tenant_id,
+                system={
+                    "format": "lorenzo.map-system/1",
+                    "kind": "plane",
+                    "extent": [0, 0, 10, 10],
+                },
+            ),
             Clock(entity_id=reference_clock.id, tenant_id=tenant_id),
             EntityAudience(entity_id=reference_clock.id, tenant_id=tenant_id, is_public=False),
             EntityAudience(entity_id=clock.id, tenant_id=tenant_id, is_public=False),
@@ -169,6 +181,23 @@ async def seed_every_content_table(
     session.add_all(
         [
             EntityLocation(entity_id=calendar.id, location_entity_id=place.id, tenant_id=tenant_id),
+            MapPlacement(
+                map_entity_id=chart.id,
+                entry_entity_id=place.id,
+                tenant_id=tenant_id,
+                geometry={
+                    "format": "lorenzo.geometry/1",
+                    "parts": [{"shape": "point", "at": [1, 2]}],
+                },
+                role="site",
+                style=None,
+                z=0,
+                bytes=70,
+                minx=1,
+                miny=2,
+                maxx=1,
+                maxy=2,
+            ),
             LocationPart(
                 child_entity_id=room.id,
                 parent_entity_id=place.id,

@@ -24,6 +24,7 @@
     "@lorenzo/api-client": "workspace:*",
     "@lorenzo/app-shell": "workspace:*",
     "@lorenzo/brand": "workspace:*",
+    "@lorenzo/map-renderer": "workspace:*",
     "@lorenzo/read-cache": "workspace:*",
     "astro": "^7.3.5"
   },

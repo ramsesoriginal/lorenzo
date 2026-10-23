@@ -50,6 +50,7 @@ from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.knowledge import router as knowledge_router
 from lorenzo_api.routers.link_previews import router as link_previews_router
 from lorenzo_api.routers.locations import router as locations_router
+from lorenzo_api.routers.maps import router as maps_router
 from lorenzo_api.routers.payloads import router as payloads_router
 from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
 from lorenzo_api.routers.pictures import router as pictures_router
@@ -160,6 +161,7 @@ def create_app() -> FastAPI:
     app.include_router(calendars_router)
     app.include_router(clocks_router)
     app.include_router(locations_router)
+    app.include_router(maps_router)
     app.include_router(clock_relationships_router)
     app.include_router(calendar_references_router)
     app.include_router(calendar_periods_router)

@@ -69,6 +69,7 @@ async def test_granting_publishing_browsing_and_removing(
             "Harpers",
             "Sword",
             "Fixture calendar",
+            "Fixture map",
             "Fixture place",
             "Fixture room",
         }
