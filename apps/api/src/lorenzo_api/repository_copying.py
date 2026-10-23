@@ -49,6 +49,7 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     Containment,
     Entity,
+    EntityLocation,
     EntityPrototype,
     EntitySlug,
     EntityStat,
@@ -990,6 +991,21 @@ class _Planner:
                             else Decimal(part["ordinal"]),
                         }
                     )
+        for entry, at in c.entity_locations.items():
+            if copies("entity", entry):
+                local_at = self._local(c, "entity", at)
+                if entry in c.containment:
+                    drop("entity_location", entry, "it is in a container, which places it")
+                elif local_at is None:
+                    drop("entity_location", entry, "its Location was not copied")
+                else:
+                    self.rows["entity_location"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "entity_id": self.local["entity"][entry],
+                            "location_entity_id": local_at,
+                        }
+                    )
         for field_name, table, target_column in [
             ("scene_facts", "scene_fact", "fact_entity_id"),
             ("scene_events", "scene_event", "event_entity_id"),
@@ -1858,6 +1874,17 @@ async def forget_copy(
                 & ClockRelationship.reference_clock_entity_id.not_in(entities),
                 ClockRelationship.reference_clock_entity_id.in_(entities)
                 & ClockRelationship.clock_entity_id.not_in(entities),
+            ),
+        )
+        also["entity_location"] = await _count(
+            session,
+            EntityLocation,
+            EntityLocation.tenant_id == t,
+            or_(
+                EntityLocation.entity_id.in_(entities)
+                & EntityLocation.location_entity_id.not_in(entities),
+                EntityLocation.location_entity_id.in_(entities)
+                & EntityLocation.entity_id.not_in(entities),
             ),
         )
         also["location_part"] = await _count(

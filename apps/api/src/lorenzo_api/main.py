@@ -16,6 +16,7 @@ from lorenzo_api.forwarded_scheme import ForwardedSchemeMiddleware
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
 from lorenzo_api.observability.tracing import configure_tracing
+from lorenzo_api.placement import install as install_placement
 from lorenzo_api.release_fanout import start_sweeping, stop_sweeping
 from lorenzo_api.repository_quotas import install as install_repository_quotas
 from lorenzo_api.routers.activity_log import router as activity_log_router
@@ -70,6 +71,7 @@ from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
 
 install_repository_quotas()
+install_placement()
 
 
 @asynccontextmanager

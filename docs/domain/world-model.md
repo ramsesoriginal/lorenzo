@@ -34,10 +34,18 @@ and siblings can be stacked in an order. That tree is not physical containment: 
 it carries, and a Location that is also a bag has its contents and its interior as two separate things.
 Who can see a Location is the entry's own audience. A reader sees every visible Location under the
 nearest Location above it that they can see, so a hidden place between them leaves no trace. A Location
-may be any other kind as well. Where entries are, maps drawn from Locations, connections and
-distances, and optionally tying a map to a calendar period are proposed in
-[RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md); only the Locations
-themselves are built so far ([ADR 0330](../adr/0330-locations-the-kind-and-the-part-of-tree.md)).
+may be any other kind as well.
+
+An entry of any kind can be *at* a Location. Something in a container is where the container is, so
+it takes a place only at the top of what holds it, and putting something into a container clears
+its own place while taking it out gives it the container's. A player can ask where something is, as
+one of their characters would say it: with you, stashed (here or near, with the name of where when
+it is not the character's own place), elsewhere, or unknown, using only what that player can see
+([ADR 0333](../adr/0333-placement-an-entry-is-at-a-location.md),
+[ADR 0334](../adr/0334-whereabouts-the-players-read.md)). Maps drawn from Locations, connections
+and distances, and optionally tying a map to a calendar period are proposed in
+[RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md), and only the Locations
+([ADR 0330](../adr/0330-locations-the-kind-and-the-part-of-tree.md)) and these places are built so far.
 
 ## Sessions, Scenes and personal lived order
 

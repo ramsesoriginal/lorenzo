@@ -84,6 +84,7 @@ __all__ = [
     "ClockRelationship",
     "Location",
     "LocationPart",
+    "EntityLocation",
     "CalendarReckoning",
     "EventClockReading",
     "SceneFact",
@@ -192,7 +193,7 @@ __all__ = [
 
 from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
 from lorenzo_api.models.lived_order import LivedBefore
-from lorenzo_api.models.location import Location, LocationPart
+from lorenzo_api.models.location import EntityLocation, Location, LocationPart
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (
     SceneBeing,
