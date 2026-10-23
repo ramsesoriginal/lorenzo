@@ -26,6 +26,19 @@ How far this needs to be modeled — a shared "true" timeline versus many indepe
 
 Clocks that run at different rates, branching or looping timelines, and the state of the world as of a date are not built. The non-containment address axes are likewise proposed in [RFC 0026](../rfcs/0026-world-model-axes-and-address.md).
 
+## Locations
+
+A Location is an entry of its own kind, from a whole universe down to one floor of a building, in any
+setting. Locations form their own tree: each is a part of at most one other, a level may be skipped,
+and siblings can be stacked in an order. That tree is not physical containment: a bag still holds what
+it carries, and a Location that is also a bag has its contents and its interior as two separate things.
+Who can see a Location is the entry's own audience. A reader sees every visible Location under the
+nearest Location above it that they can see, so a hidden place between them leaves no trace. A Location
+may be any other kind as well. Where entries are, maps drawn from Locations, connections and
+distances, and optionally tying a map to a calendar period are proposed in
+[RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md); only the Locations
+themselves are built so far ([ADR 0330](../adr/0330-locations-the-kind-and-the-part-of-tree.md)).
+
 ## Sessions, Scenes and personal lived order
 
 A Scene is a reusable entry that brings together Facts, Events, participating beings and an

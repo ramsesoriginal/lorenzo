@@ -96,6 +96,10 @@
     "apps/sessions": {
       "release-type": "node",
       "component": "sessions"
+    },
+    "apps/maps": {
+      "release-type": "node",
+      "component": "maps"
     }
   }
 }

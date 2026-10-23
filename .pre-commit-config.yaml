@@ -134,6 +134,24 @@ repos:
         language: system
         files: ^apps/calendars/.*\.astro$
         pass_filenames: false
+      - id: biome-maps
+        name: biome (apps/maps)
+        entry: pnpm --dir apps/maps exec biome check --write
+        language: system
+        files: ^apps/maps/.*\.(ts|js|json|css)$
+        pass_filenames: false
+      - id: astro-check-maps
+        name: astro check (apps/maps)
+        entry: pnpm --dir apps/maps exec astro check
+        language: system
+        files: ^apps/maps/.*\.(astro|ts)$
+        pass_filenames: false
+      - id: prettier-maps
+        name: prettier --write (apps/maps, .astro)
+        entry: pnpm --dir apps/maps exec prettier --write "**/*.astro"
+        language: system
+        files: ^apps/maps/.*\.astro$
+        pass_filenames: false
       - id: biome-beings
         name: biome (apps/beings)
         entry: pnpm --dir apps/beings exec biome check --write

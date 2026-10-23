@@ -1,7 +1,7 @@
 monorepo_root = true
 
 [monorepo]
-config_roots = ["apps/account-hub", "apps/api", "apps/beings", "apps/calendars", "apps/sessions", "apps/bench", "apps/cli", "apps/inventory-web", "apps/inventory-mobile", "apps/inventory-ios", "apps/loot-bot", "apps/brand", "packages/calendar-engine", "packages/api-client", "packages/brand", "packages/converters", "packages/inventory-names", "packages/lorenzoscript", "packages/lorenzoscript-editor", "packages/stat-values", "packages/information-editor", "packages/app-shell", "packages/period-picker", "packages/read-cache"]
+config_roots = ["apps/account-hub", "apps/api", "apps/beings", "apps/calendars", "apps/sessions", "apps/maps", "apps/bench", "apps/cli", "apps/inventory-web", "apps/inventory-mobile", "apps/inventory-ios", "apps/loot-bot", "apps/brand", "packages/calendar-engine", "packages/api-client", "packages/brand", "packages/converters", "packages/inventory-names", "packages/lorenzoscript", "packages/lorenzoscript-editor", "packages/stat-values", "packages/information-editor", "packages/app-shell", "packages/period-picker", "packages/read-cache"]
 
 [tools]
 node = "26"

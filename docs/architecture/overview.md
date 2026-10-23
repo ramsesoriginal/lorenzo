@@ -307,6 +307,15 @@ preparation. Explicit lived-before support joins the guarded Event graph with pa
 provenance and independent sharing; raw SQL and concurrent writers share its cycle protection.
 Clocks, repeated personal participation and historical state remain outside this slice.
 
+Locations (RFC 0048, ADR 0330 to 0332, 2026-10-23):
+
+A Location is an entry kind. Its `location` marker and `location_part` tree (single parent, levels
+may be skipped, an optional ordinal for siblings) are separate from `containment`, so nothing about
+where Locations sit widens a GM's reach. A reader sees each visible Location under its nearest
+visible ancestor, and a hidden level leaves no trace. A Location may be any other kind too. Lorenzo
+Maps lists, nests and edits Locations; positions of entries at Locations, maps, connections,
+distance and optional dates are later slices of the RFC.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.
