@@ -174,6 +174,9 @@ def create_app() -> FastAPI:
     app.include_router(entity_stats_router)
     app.include_router(computed_stats_router)
     app.include_router(groups_router)
+    from lorenzo_api.routers.manuscripts import router as manuscripts_router
+
+    app.include_router(manuscripts_router)
     app.include_router(information_router)
     app.include_router(items_router)
     app.include_router(item_instances_router)

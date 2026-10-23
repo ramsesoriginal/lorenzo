@@ -310,3 +310,10 @@ Clocks, repeated personal participation and historical state remain outside this
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.
+
+Lorenzo Writing foundations (RFC 0047, ADR 0328–0329, 2026-10-23):
+
+The Writing Astro app opens standalone Scene manuscripts as ordered LorenzoScript and picture
+bundles. Conditional autosave, independent per-account browser drafts and saved server revisions
+protect ongoing work. Revision reads require current edit access; history stays out of repository
+copies and releases. Books, Editions, Chapters and subsequent composition slices remain pending.
