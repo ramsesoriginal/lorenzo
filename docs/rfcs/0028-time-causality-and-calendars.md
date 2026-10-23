@@ -8,6 +8,11 @@ readings, reckonings and constant signed ratios with optional anchors. They supe
 amendment's automatic traveller sync-point priority and conflict-write rejection for this slice.
 The remaining candidate designs and historical proposals below remain proposals.
 
+Optional time for Locations and Maps (2026-10-23): [RFC 0048](0048-locations-maps-connections-and-optional-dates.md)
+ties Maps, and later Locations, to periods only through the existing `entry_calendar_period`
+association, as a "tied to" lens that infers nothing. It accepts nothing of Part 2 and no
+`state_as_of`.
+
 ## Accepted calendar slice (2026-10-19)
 
 The maintainer accepted [ADR 0308](../adr/0308-authored-calendars-and-calculation.md) to

@@ -1,6 +1,8 @@
 # RFC: How should an entity's full "address" — its position on every world-model axis beyond physical containment — be modeled?
 
-Status: proposed — Decision open
+Status: partially accepted — sub-slices 2 to 6 narrowed by [RFC 0048](0048-locations-maps-connections-and-optional-dates.md) (2026-10-23); the rest stays a proposal
+
+Narrowing (2026-10-23): [RFC 0048](0048-locations-maps-connections-and-optional-dates.md) takes sub-slices 2 to 6 (frames and placement, the player read, the GM read, position in space, connections) and settles D1 and D2 for them. Position in space is the separate `location_part` tree and `entity_location` of Locations, not `spatial_position` and not a fifth axis (D1). One position per axis is the primary key `(entity_id, axis)` with no surrogate key (D2). An axis is a format-checked token with a reserved list in code, which is neither candidate as written. The batched address read is a Python-built query builder with a mandatory visibility argument instead of the `world_address(uuid[])` SQL function, and a connection has two end columns instead of one `connection_endpoint` row per end, because per-end time stays out of scope. D3, D4, sub-slice 7 (timeline variants) and sub-slice 8 (the time and causality RFC) remain open. The text below is unchanged.
 
 ## Context
 
