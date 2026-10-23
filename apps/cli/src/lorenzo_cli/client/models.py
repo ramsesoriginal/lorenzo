@@ -1125,6 +1125,24 @@ class LinkPreviewStatOut(BaseModel):
     value: int | str | float = Field(..., title="Value")
 
 
+class LintEntry(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+
+
+class Finding(StrEnum):
+    dormant_place = "dormant_place"
+    place_hidden = "place_hidden"
+    part_hidden = "part_hidden"
+    part_loop = "part_loop"
+
+
+class LintFindingOut(BaseModel):
+    finding: Finding = Field(..., title="Finding")
+    message: str = Field(..., title="Message")
+    entries: list[LintEntry] = Field(..., title="Entries")
+
+
 class LivedAssertion(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -1489,6 +1507,14 @@ class PageKnowledgeEntryOut(BaseModel):
 
 class PageLearningOut(BaseModel):
     items: list[LearningOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageLintFindingOut(BaseModel):
+    items: list[LintFindingOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -2415,6 +2441,20 @@ class StatValueType(StrEnum):
     enum = "enum"
 
 
+class Via(StrEnum):
+    contained_in = "contained_in"
+    with_ = "with"
+    at = "at"
+    part_of = "part_of"
+
+
+class StepOut(BaseModel):
+    via: Via = Field(..., title="Via")
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+
+
 class SubscriberOut(BaseModel):
     tenant_id: UUID = Field(..., title="Tenant Id")
     name: str = Field(..., title="Name")
@@ -2616,6 +2656,11 @@ class Problem(BaseModel):
     type: str = Field(..., title="Problem type")
     status: int = Field(..., title="Status code")
     detail: str | None = Field(None, title="Problem detail")
+
+
+class AddressOut(BaseModel):
+    segments: list[StepOut] = Field(..., title="Segments")
+    interior: list[StepOut] | None = Field(None, title="Interior")
 
 
 class Annotation(BaseModel):
