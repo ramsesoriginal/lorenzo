@@ -317,7 +317,8 @@ Maps lists, nests and edits Locations. An `entity_location` row says an entry is
 place is read only at the top of an entry's containment chain, and a flush hook clears it when
 something goes into a container and sets it to the container's place when it comes out. A player's
 `whereabouts` read says where something is for one character from rows the reader can see (ADR
-0333, 0334). Maps, connections, distance and optional dates are later slices of the RFC.
+0333, 0334). The GM's `address` read and a `lint/locations` list of probable mistakes add no table
+(ADR 0335). Maps, connections, distance and optional dates are later slices of the RFC.
 
 ### What's next
 

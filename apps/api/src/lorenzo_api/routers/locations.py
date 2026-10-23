@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Response
-from fastapi_pagination import Page
+from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Select, delete, select
@@ -35,6 +35,8 @@ from lorenzo_api.information_visibility import (
     InformationVisibility,
     resolve_information_visibility,
 )
+from lorenzo_api.location_address import address_of
+from lorenzo_api.location_lint import lint_locations
 from lorenzo_api.locations import (
     clear_part_of,
     nearest_visible_ancestor,
@@ -469,3 +471,69 @@ async def get_whereabouts(
         if answer.place is None
         else PlaceOut(id=answer.place.id, name=answer.place.name, slug=answer.place.slug),
     )
+
+
+class StepOut(BaseModel):
+    via: Literal["contained_in", "with", "at", "part_of"]
+    entity_id: uuid.UUID
+    name: str
+    slug: str | None = None
+
+
+class AddressOut(BaseModel):
+    segments: list[StepOut]
+    # Only for an entry that is a Location: the Locations above it.
+    interior: list[StepOut] | None = None
+
+
+class LintEntry(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class LintFindingOut(BaseModel):
+    finding: Literal["dormant_place", "place_hidden", "part_hidden", "part_loop"]
+    message: str
+    entries: list[LintEntry]
+
+
+@router.get("/entities/{entity_id}/address", response_model_exclude_none=True)
+async def get_address(
+    tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> AddressOut:
+    """Where the entry sits, step by step, for those who write Locations (ADR 0335): what holds
+    it, its owner for a thing in no container, the place of the top of that, every Location above
+    the place, and, for a Location, what it is within."""
+    vis = await _require_manager(session, user, tenant_id)
+    await _visible_entry(session, user, tenant_id, entity_id)
+    found = await address_of(session, vis, tenant_id=tenant_id, entity_id=entity_id)
+
+    def steps(items: list[Any]) -> list[StepOut]:
+        return [StepOut(via=s.via, entity_id=s.entity_id, name=s.name, slug=s.slug) for s in items]
+
+    return AddressOut(
+        segments=steps(found.segments),
+        interior=None if found.interior is None else steps(found.interior),
+    )
+
+
+@router.get("/lint/locations")
+async def get_location_lint(
+    tenant_id: uuid.UUID, params: ParamsDep, session: SessionDep, user: CurrentUser
+) -> Page[LintFindingOut]:
+    """What is probably a mistake in the library's places, for those who write Locations to fix
+    (ADR 0335). It stores nothing and changes nothing."""
+    await _require_manager(session, user, tenant_id)
+    findings = await lint_locations(session, tenant_id=tenant_id)
+    page: Page[LintFindingOut] = paginate(
+        [
+            LintFindingOut(
+                finding=f.finding,
+                message=f.message,
+                entries=[LintEntry(id=i, name=n) for i, n in f.entries],
+            )
+            for f in findings
+        ],
+        params,
+    )
+    return page

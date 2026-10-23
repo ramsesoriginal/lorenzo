@@ -3239,6 +3239,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Address
+         * @description Where the entry sits, step by step, for those who write Locations (ADR 0335): what holds
+         *     it, its owner for a thing in no container, the place of the top of that, every Location above
+         *     the place, and, for a Location, what it is within.
+         */
+        get: operations["get_address"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/lint/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Location Lint
+         * @description What is probably a mistake in the library's places, for those who write Locations to fix
+         *     (ADR 0335). It stores nothing and changes nothing.
+         */
+        get: operations["get_location_lint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/clocks/{clock_id}/relationships": {
         parameters: {
             query?: never;
@@ -6003,6 +6046,13 @@ export interface components {
             state: ("released" | "edited") | null;
             /** Breaking */
             breaking: components["schemas"]["BreakingNoteOut"][];
+        };
+        /** AddressOut */
+        AddressOut: {
+            /** Segments */
+            segments: components["schemas"]["StepOut"][];
+            /** Interior */
+            interior?: components["schemas"]["StepOut"][] | null;
         };
         /**
          * AdminNotificationCreate
@@ -9713,6 +9763,28 @@ export interface components {
             /** Value */
             value: number | string;
         };
+        /** LintEntry */
+        LintEntry: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** LintFindingOut */
+        LintFindingOut: {
+            /**
+             * Finding
+             * @enum {string}
+             */
+            finding: "dormant_place" | "place_hidden" | "part_hidden" | "part_loop";
+            /** Message */
+            message: string;
+            /** Entries */
+            entries: components["schemas"]["LintEntry"][];
+        };
         /** LivedAssertion */
         LivedAssertion: {
             /**
@@ -10679,6 +10751,19 @@ export interface components {
         Page_LearningOut_: {
             /** Items */
             items: components["schemas"]["LearningOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[LintFindingOut] */
+        Page_LintFindingOut_: {
+            /** Items */
+            items: components["schemas"]["LintFindingOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -13148,6 +13233,23 @@ export interface components {
          * @enum {string}
          */
         StatValueType: "int" | "text" | "float" | "bool" | "enum";
+        /** StepOut */
+        StepOut: {
+            /**
+             * Via
+             * @enum {string}
+             */
+            via: "contained_in" | "with" | "at" | "part_of";
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+        };
         /**
          * StorefrontOut
          * @description A repository's page (ADR 0292): its listing entry, the long description, and the whole of
@@ -26195,6 +26297,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WhereaboutsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_address: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddressOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_location_lint: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_LintFindingOut_"];
                 };
             };
             /** @description Validation Error */

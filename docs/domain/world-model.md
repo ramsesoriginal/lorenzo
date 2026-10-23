@@ -42,8 +42,11 @@ its own place while taking it out gives it the container's. A player can ask whe
 one of their characters would say it: with you, stashed (here or near, with the name of where when
 it is not the character's own place), elsewhere, or unknown, using only what that player can see
 ([ADR 0333](../adr/0333-placement-an-entry-is-at-a-location.md),
-[ADR 0334](../adr/0334-whereabouts-the-players-read.md)). Maps drawn from Locations, connections
-and distances, and optionally tying a map to a calendar period are proposed in
+[ADR 0334](../adr/0334-whereabouts-the-players-read.md)). Those who write Locations also get the whole address of an entry (what holds it, its owner,
+where it is and every Location above that, and what a Location is itself within) and a list of
+probable mistakes in the library's places, such as a place the players cannot see
+([ADR 0335](../adr/0335-the-gms-address-and-the-location-lint.md)). Maps drawn from Locations,
+connections and distances, and optionally tying a map to a calendar period are proposed in
 [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md), and only the Locations
 ([ADR 0330](../adr/0330-locations-the-kind-and-the-part-of-tree.md)) and these places are built so far.
 
