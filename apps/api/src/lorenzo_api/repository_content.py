@@ -56,6 +56,8 @@ from lorenzo_api.models import (
     ItemInstance,
     Knowledge,
     LivedBefore,
+    Location,
+    LocationPart,
     Ownership,
     Payload,
     PayloadDescription,
@@ -83,6 +85,7 @@ KINDS = (
     "fact",
     "calendar",
     "clock",
+    "location",
     "calendar_period",
     "event",
     "observance",
@@ -204,6 +207,8 @@ class Content:
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     clocks: dict[uuid.UUID, bool] = field(default_factory=dict)
+    # child -> {parent, ordinal}: the part-of tree (ADR 0330). The ordinal is a string.
+    location_parts: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     clock_readings: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
     clock_relationships: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
         default_factory=dict
@@ -338,6 +343,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("fact", Fact),
         ("calendar", Calendar),
         ("clock", Clock),
+        ("location", Location),
         ("calendar_period", CalendarPeriod),
         ("event", StoryEvent),
         ("observance", CalendarObservance),
@@ -652,6 +658,15 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         await rows(Calendar.entity_id, Calendar.definition, where=Calendar.tenant_id == t)
     )
     c.clocks = dict(await rows(Clock.entity_id, Clock.ticking, where=Clock.tenant_id == t))
+    c.location_parts = {
+        child: {"parent": parent, "ordinal": None if ordinal is None else str(ordinal)}
+        for child, parent, ordinal in await rows(
+            LocationPart.child_entity_id,
+            LocationPart.parent_entity_id,
+            LocationPart.level_ordinal,
+            where=LocationPart.tenant_id == t,
+        )
+    }
     clock_sources: list[tuple[type[EventClockReading] | type[CalendarReckoning], str, Any]] = [
         (EventClockReading, "clock_readings", EventClockReading.event_entity_id),
         (CalendarReckoning, "calendar_reckonings", CalendarReckoning.calendar_entity_id),
@@ -918,6 +933,16 @@ def entity_snapshot(
         **clock_fields,
         **({"clock_ticking": content.clocks[entity_id]} if entity_id in content.clocks else {}),
         **(
+            {
+                "part_of": {
+                    "parent": name("entity", content.location_parts[entity_id]["parent"]),
+                    "ordinal": content.location_parts[entity_id]["ordinal"],
+                }
+            }
+            if entity_id in content.location_parts
+            else {}
+        ),
+        **(
             {"calendar_definition": content.calendars[entity_id]}
             if entity_id in content.calendars
             else {}
@@ -942,6 +967,21 @@ def entity_snapshot(
             for d, f in index.formulas.get(entity_id, {}).items()
         },
     }
+
+
+def assert_acyclic(parts: dict[uuid.UUID, dict[str, Any]]) -> None:
+    """The part-of tree holds no cycle. The route guards it on write; a tree that arrives
+    another way is refused where it would be copied or published (ADR 0330)."""
+    from lorenzo_api.exceptions import LocationTreeError
+
+    for start in parts:
+        seen = {start}
+        node = parts[start]["parent"]
+        while node in parts:
+            if node in seen:
+                raise LocationTreeError()
+            seen.add(node)
+            node = parts[node]["parent"]
 
 
 def stat_group_snapshot(content: Content, group_id: uuid.UUID) -> dict[str, Any]:

@@ -1452,3 +1452,14 @@ class EventOrderCycleError(ConflictProblem):
 class EventOrderPreconditionRequiredError(StatusProblem):
     status = 428
     title = "Read the Event relationships before changing them"
+
+
+class LocationAuthoringForbiddenError(ForbiddenProblem):
+    title = "Locations are edited by Authors, GMs and full-visibility Owners or Organizers"
+
+
+class LocationTreeError(UnprocessableProblem):
+    """One generic text for a cycle, a self reference and a chain too deep: it names no row
+    (ADR 0330)."""
+
+    title = "A Location cannot be part of itself, however indirectly, or nest that deeply"

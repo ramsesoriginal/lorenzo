@@ -69,6 +69,8 @@ async def test_granting_publishing_browsing_and_removing(
             "Harpers",
             "Sword",
             "Fixture calendar",
+            "Fixture place",
+            "Fixture room",
         }
         assert by_name["Blade"]["kinds"] == ["item_instance"]
         assert by_name["Blade"]["prototype_ids"] == [by_name["Sword"]["id"]]

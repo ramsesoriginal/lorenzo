@@ -38,7 +38,7 @@ Labels come in four families. Pick from each family where it applies; an item us
 
 One label per directory that ships something, named after it. A change touching several gets several.
 
-- `app:<name>` for each `apps/<name>`: `app:api`, `app:loot-bot`, `app:inventory-web`, `app:inventory-mobile`, `app:inventory-ios`, `app:account-hub`, `app:cli`, `app:brand`, `app:bench`, `app:beings`, `app:calendars`, `app:sessions`.
+- `app:<name>` for each `apps/<name>`: `app:api`, `app:loot-bot`, `app:inventory-web`, `app:inventory-mobile`, `app:inventory-ios`, `app:account-hub`, `app:cli`, `app:brand`, `app:bench`, `app:beings`, `app:calendars`, `app:sessions`, `app:maps`.
 - `pkg:<name>` for each `packages/<name>`: `pkg:api-client`, `pkg:app-shell`, `pkg:brand`, `pkg:calendar-engine`, `pkg:converters`, `pkg:information-editor`, `pkg:inventory-names`, `pkg:lorenzoscript`, `pkg:lorenzoscript-editor`, `pkg:period-picker`, `pkg:read-cache`, `pkg:stat-values`.
 
 How to choose them:

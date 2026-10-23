@@ -15,6 +15,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from sqlalchemy import delete, func, insert, select, update
@@ -48,6 +49,7 @@ from lorenzo_api.models import (
     EntityStatGroup,
     Item,
     ItemInstance,
+    Location,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -114,7 +116,12 @@ _NOT_APPLICABLE = {"value_type"}
 
 # The markers an update may add or remove: an inventory item and a character are made in the
 # library, not by an update.
-_MARKER_MODELS: dict[str, Any] = {"item": Item, "being": Being, "fact": Fact}
+_MARKER_MODELS: dict[str, Any] = {
+    "item": Item,
+    "being": Being,
+    "fact": Fact,
+    "location": Location,
+}
 
 _LINK_MODELS: dict[str, Any] = {
     "entity": (RepositoryCopyLinkEntity, RepositoryCopyLinkEntity.entity_id),
@@ -825,6 +832,33 @@ class _Applier:
             )
             s.add_all(replacements)
             await s.flush()
+            return True
+        if name == "part_of":
+            from lorenzo_api.exceptions import LocationTreeError
+            from lorenzo_api.locations import clear_part_of, set_part_of
+
+            if await s.get(Location, e) is None:
+                self.skip(row, name, "The local entry is no longer a Location")
+                return False
+            if not change.upstream:
+                await clear_part_of(s, tenant_id=t, child=e)
+                return True
+            parent = self.resolve("entity", change.upstream["parent"])
+            if parent is None or await s.get(Location, parent) is None:
+                self.skip(row, name, "Copy the Location it is part of first")
+                return False
+            ordinal = change.upstream["ordinal"]
+            try:
+                await set_part_of(
+                    s,
+                    tenant_id=t,
+                    child=e,
+                    parent=parent,
+                    ordinal=None if ordinal is None else Decimal(ordinal),
+                )
+            except LocationTreeError:
+                self.skip(row, name, "That would make the Locations here loop")
+                return False
             return True
         if name == "clock_ticking":
             from lorenzo_api.models import (

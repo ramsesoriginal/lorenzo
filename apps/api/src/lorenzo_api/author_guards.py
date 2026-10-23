@@ -25,7 +25,7 @@ from lorenzo_api.models import EntityPrototype, Tenant, TenantKind
 
 # The kinds an Author gives to an entry of a library: the catalog's.
 LIBRARY_AUTHOR_KINDS = frozenset(
-    {"item", "fact", "calendar", "clock", "calendar_period", "event", "observance"}
+    {"item", "fact", "calendar", "clock", "location", "calendar_period", "event", "observance"}
 )
 
 

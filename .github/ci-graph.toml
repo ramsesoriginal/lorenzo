@@ -168,3 +168,10 @@ batch = "web-2"
 [suites.sessions-e2e]
 node = "apps/sessions"
 depends_on = ["apps/api"]
+
+[nodes."apps/maps"]
+batch = "web-2"
+
+[suites.maps-e2e]
+node = "apps/maps"
+depends_on = ["apps/api"]
