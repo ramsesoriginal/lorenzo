@@ -2,7 +2,7 @@
   "name": "@lorenzo/lorenzoscript",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "LorenzoScript, Lorenzo's Markdown dialect: a zero-dependency parser and HTML renderer. See RFC 0027 and ADR 0100.",
   "exports": {
     ".": "./src/index.ts"

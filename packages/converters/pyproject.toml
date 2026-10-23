@@ -1,6 +1,6 @@
 [project]
 name = "lorenzo-converters"
-version = "0.0.0"
+version = "0.1.0"
 description = "Offline converters into Lorenzo inventory ledgers and calendar documents"
 readme = "README.md"
 requires-python = ">=3.12"

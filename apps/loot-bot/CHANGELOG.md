@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.4.0...loot-bot-v0.5.0) (2026-10-23)
+
+
+### Features
+
+* a GM's title per campaign (ADR 0294) ([5f71cae](https://github.com/ramsesoriginal/lorenzo/commit/5f71caeba76e0795e781017e0a6c281a896c72b8))
+* **account-hub:** People with Authors and a panel for invite links (ADR 0212) ([945570b](https://github.com/ramsesoriginal/lorenzo/commit/945570b30ea5c58d9cdfcf036c72c8e5007542a3))
+* **loot-bot:** /whoami names the GM with the campaigns' title (ADR 0294) ([831071d](https://github.com/ramsesoriginal/lorenzo/commit/831071d3b9cc6cd3aab9cccb5f877865cdbc62cb))
+* **sessions:** connect reusable Scenes and Session world references ([0969e58](https://github.com/ramsesoriginal/lorenzo/commit/0969e5858bb7e6264e57b5d37667c024cfc55b63))
+
+
+### Bug Fixes
+
+* **sessions:** preserve drafts while reviewing concurrent edits ([2430b39](https://github.com/ramsesoriginal/lorenzo/commit/2430b394c279ca9d05087c53f527c1674f990173))
+
 ## [0.4.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.3.0...loot-bot-v0.4.0) (2026-09-23)
 
 

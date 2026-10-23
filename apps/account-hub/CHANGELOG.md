@@ -1,5 +1,57 @@
 # Changelog
 
+## [2.0.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.1.0...account-hub-v2.0.0) (2026-10-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** generic entry reads include the observance kind.
+* **api:** generic entry reads include calendar_period and event kinds.
+
+### Features
+
+* a GM's title per campaign (ADR 0294) ([5f71cae](https://github.com/ramsesoriginal/lorenzo/commit/5f71caeba76e0795e781017e0a6c281a896c72b8))
+* **account-hub,cli:** a public repository needs no invitation in the copy verdict ([00b3414](https://github.com/ramsesoriginal/lorenzo/commit/00b3414d8d076bdacb2c18aa111f403cbed633a1))
+* **account-hub:** a campaign's own word for its GM, and the settings field for it (ADR 0294) ([d6e7398](https://github.com/ramsesoriginal/lorenzo/commit/d6e739870332f479c12075af6b544bc7470eb907))
+* **account-hub:** campaign GMs can edit their campaign ([fb890ad](https://github.com/ramsesoriginal/lorenzo/commit/fb890ad4a8648f25ba8b6edc811f861c5a1b9442))
+* **account-hub:** Discover and a repository's storefront (ADR 0292) ([73cd5d8](https://github.com/ramsesoriginal/lorenzo/commit/73cd5d8311eb91fa00b49d88fd5b24eefc172f6f))
+* **account-hub:** Discover and a repository's storefront (ADR 0292) ([c880d02](https://github.com/ramsesoriginal/lorenzo/commit/c880d0223cac3fd23e04f76259a895ae621ccd1e))
+* **account-hub:** fetch a repository's picture with the token ([d6a9dca](https://github.com/ramsesoriginal/lorenzo/commit/d6a9dcae782034c675e9a8e280fbc7f275cbe6b7)), closes [#747](https://github.com/ramsesoriginal/lorenzo/issues/747)
+* **account-hub:** label facts in repository listings ([a8fe130](https://github.com/ramsesoriginal/lorenzo/commit/a8fe13004e7a40da053533c9dea65b1d4155a22a))
+* **account-hub:** look inside a repository, and choose what people can look at (ADR 0293) ([c32729a](https://github.com/ramsesoriginal/lorenzo/commit/c32729af622bed88183f79a537e98af2c4431c72))
+* **account-hub:** look inside a repository, the showcase and the lock (ADR 0293) ([7688810](https://github.com/ramsesoriginal/lorenzo/commit/7688810676fdca7a89d9d30eb2165ae6b6dd5d47))
+* **account-hub:** no Unpublish for a public repository; links for public dependents ([36f008a](https://github.com/ramsesoriginal/lorenzo/commit/36f008a9dc3e9cef8e7f8e66d9889c62f92c78da)), closes [#718](https://github.com/ramsesoriginal/lorenzo/issues/718)
+* **account-hub:** People with Authors and a panel for invite links ([5436025](https://github.com/ramsesoriginal/lorenzo/commit/54360258300b31abc37c50d34a1abe6988c353de)), closes [#547](https://github.com/ramsesoriginal/lorenzo/issues/547)
+* **account-hub:** People with Authors and a panel for invite links (ADR 0212) ([945570b](https://github.com/ramsesoriginal/lorenzo/commit/945570b30ea5c58d9cdfcf036c72c8e5007542a3))
+* **account-hub:** say a repository is full in the copy wizard, and test it ([66859ea](https://github.com/ramsesoriginal/lorenzo/commit/66859ea6af1d364f49daa3ba4fd813426576007a)), closes [#745](https://github.com/ramsesoriginal/lorenzo/issues/745)
+* **account-hub:** show the publisher and a report link, name only invited libraries, and ask for the terms line ([03da3b8](https://github.com/ramsesoriginal/lorenzo/commit/03da3b8992b27f8f4e8b6d5037977770e1c745e7)), closes [#746](https://github.com/ramsesoriginal/lorenzo/issues/746)
+* **account-hub:** Studio says a release was refused for coming too soon, and when the next can be made ([40a7868](https://github.com/ramsesoriginal/lorenzo/commit/40a78687c599790c314a50f1d1d52f45e1ee69c3))
+* **account-hub:** Studio says a repository is off Discover and cannot be made public ([c623ae0](https://github.com/ramsesoriginal/lorenzo/commit/c623ae075c70c0e983233a709ea35a0ee9da89d5))
+* **account-hub:** Studio's visibility switch (ADR 0290) ([ff4fca1](https://github.com/ramsesoriginal/lorenzo/commit/ff4fca102a6a934bedcb482fa0fd4b1d1b4440d3))
+* **account-hub:** Studio's visibility switch (ADR 0290) ([2d37b03](https://github.com/ramsesoriginal/lorenzo/commit/2d37b0337195a96aebf95f7f92813611ed11c508)), closes [#718](https://github.com/ramsesoriginal/lorenzo/issues/718)
+* **api:** author recurring calendar observances ([4ba7416](https://github.com/ramsesoriginal/lorenzo/commit/4ba741698272c501641d3a8fdd55baeaa3fca50b))
+* **api:** record calendar periods and dated events ([68271be](https://github.com/ramsesoriginal/lorenzo/commit/68271be3afafde20180b4568f466dd4209c9ebd8))
+* **api:** retention and making a release current (ADR 0288) ([d3750a8](https://github.com/ramsesoriginal/lorenzo/commit/d3750a86fdf196e88d80fc22ae884a6f51ae5016)), closes [#710](https://github.com/ramsesoriginal/lorenzo/issues/710)
+* **api:** the flip rules and the bridge-skew gate (ADR 0289) ([956fbf0](https://github.com/ramsesoriginal/lorenzo/commit/956fbf0586997e18595924f6f5054c8af7ef63f6))
+* **api:** the flip rules and the bridge-skew gate (ADR 0289) ([7f83b56](https://github.com/ramsesoriginal/lorenzo/commit/7f83b56f500155d9d862c2e34bc2a822ec11396d)), closes [#711](https://github.com/ramsesoriginal/lorenzo/issues/711)
+* **api:** the maintainer's quota numbers, and the copy engines are exempt ([56cb4dd](https://github.com/ramsesoriginal/lorenzo/commit/56cb4dd9f4692d9c7d07eb30d2ef85885bbbf23a))
+* **api:** the release fan-out as a table, and a cooldown between releases (ADR 0301) ([e78a1b2](https://github.com/ramsesoriginal/lorenzo/commit/e78a1b2ea51230c0dcc6b636b813c8a74c408e86))
+* **api:** who may read a public repository (ADR 0287) ([574108a](https://github.com/ramsesoriginal/lorenzo/commit/574108acc8dcd75c1621cec57d7b26682bd42e38))
+* **calendars:** add calendar authoring and browsing app ([c5d9d60](https://github.com/ramsesoriginal/lorenzo/commit/c5d9d60ed58f03ce05e700876ae0169e667f6dff))
+* include fact labels in the information bundle stack ([e73f6e7](https://github.com/ramsesoriginal/lorenzo/commit/e73f6e715d759c6862468fe5ef6a316bfe3ac3e1))
+* **sessions:** connect reusable Scenes and Session world references ([0969e58](https://github.com/ramsesoriginal/lorenzo/commit/0969e5858bb7e6264e57b5d37667c024cfc55b63))
+
+
+### Bug Fixes
+
+* **calendars:** complete CI and shelf integration ([6a4a84a](https://github.com/ramsesoriginal/lorenzo/commit/6a4a84a2571af456f46d2813c7dfff0434dc8f40))
+* **ci:** format account-hub and beings, keep bench e2e unconfigured, size the nav toggle ([82a0db9](https://github.com/ramsesoriginal/lorenzo/commit/82a0db98f55427dffb4b5599c7c32c5a21d12b4b))
+* D6d's optional user does not start a sweep, and D6e's tests accept the terms ([e4e13b3](https://github.com/ramsesoriginal/lorenzo/commit/e4e13b3f5f58053eb98469601e25c772618e4b68)), closes [#748](https://github.com/ramsesoriginal/lorenzo/issues/748)
+* increase picture upload limits to 10 MB ([e787b11](https://github.com/ramsesoriginal/lorenzo/commit/e787b11095956f3a66d8d066cfebc0a99caf0912))
+* increase picture upload limits to 10 MB ([e27de26](https://github.com/ramsesoriginal/lorenzo/commit/e27de26af7b92d60d8a00877a78e3ec484e89b25))
+* **sessions:** preserve drafts while reviewing concurrent edits ([2430b39](https://github.com/ramsesoriginal/lorenzo/commit/2430b394c279ca9d05087c53f527c1674f990173))
+* take HTML comments out of the wording scans one span at a time ([19066bc](https://github.com/ramsesoriginal/lorenzo/commit/19066bc80f182ef2c28f5553757fa6c87bef4913)), closes [#733](https://github.com/ramsesoriginal/lorenzo/issues/733)
+
 ## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.0.0...account-hub-v1.1.0) (2026-09-23)
 
 
