@@ -226,3 +226,38 @@ def visible_parts(
         .where(cte.c.vis)
         .order_by(cte.c.ordinal.is_(None), cte.c.ordinal, Entity.name, Entity.id)
     )
+
+
+async def visible_ancestor_ids(
+    session: AsyncSession,
+    vis: InformationVisibility,
+    *,
+    tenant_id: uuid.UUID,
+    location_id: uuid.UUID,
+) -> list[uuid.UUID]:
+    """Every ancestor the reader may see, nearest first, hidden levels skipped without a trace."""
+    base = select(
+        LocationPart.parent_entity_id.label("id"),
+        visible_entry_clause(vis, LocationPart.parent_entity_id).label("vis"),
+        literal(1).label("depth"),
+        pg_array([LocationPart.child_entity_id, LocationPart.parent_entity_id]).label("path"),
+    ).where(LocationPart.child_entity_id == location_id, LocationPart.tenant_id == tenant_id)
+    cte = base.cte("location_all_visible_ancestors", recursive=True)
+    step = (
+        select(
+            LocationPart.parent_entity_id.label("id"),
+            visible_entry_clause(vis, LocationPart.parent_entity_id).label("vis"),
+            (cte.c.depth + 1).label("depth"),
+            cte.c.path.op("||")(LocationPart.parent_entity_id).label("path"),
+        )
+        .select_from(cte.join(LocationPart, LocationPart.child_entity_id == cte.c.id))
+        .where(
+            LocationPart.tenant_id == tenant_id,
+            ~(LocationPart.parent_entity_id == any_(cte.c.path)),
+            cte.c.depth < MAX_DEPTH,
+        )
+    )
+    cte = cte.union_all(step)
+    return list(
+        (await session.scalars(select(cte.c.id).where(cte.c.vis).order_by(cte.c.depth))).all()
+    )

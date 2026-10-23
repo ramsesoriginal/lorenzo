@@ -48,3 +48,24 @@ class LocationPart(Base):
     tenant_id: Mapped[TenantFk]
     # Orders siblings only: no zero point, unit, direction or uniqueness.
     level_ordinal: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+
+
+class EntityLocation(Base):
+    """An entry is at a Location now (ADR 0333). One row per entry, no time, no coordinate; a
+    place is read only at the top of an entry's containment chain, and never inherits."""
+
+    __tablename__ = "entity_location"
+    __table_args__ = (
+        CheckConstraint("entity_id <> location_entity_id", name="entity_location_distinct"),
+        same_tenant_fk("entity_location_entity_fkey", ["entity_id"], "entity", ondelete="CASCADE"),
+        same_tenant_fk(
+            "entity_location_location_fkey",
+            ["location_entity_id"],
+            "location",
+            ["entity_id"],
+            ondelete="CASCADE",
+        ),
+    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    location_entity_id: Mapped[uuid.UUID]
+    tenant_id: Mapped[TenantFk]

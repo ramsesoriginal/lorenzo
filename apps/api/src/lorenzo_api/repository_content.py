@@ -39,6 +39,7 @@ from lorenzo_api.models import (
     Entity,
     EntityAudience,
     EntityKnowledge,
+    EntityLocation,
     EntityPrototype,
     EntitySlug,
     EntityStat,
@@ -209,6 +210,8 @@ class Content:
     clocks: dict[uuid.UUID, bool] = field(default_factory=dict)
     # child -> {parent, ordinal}: the part-of tree (ADR 0330). The ordinal is a string.
     location_parts: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # entry -> the Location it is at (ADR 0333).
+    entity_locations: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     clock_readings: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
     clock_relationships: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
         default_factory=dict
@@ -658,6 +661,13 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         await rows(Calendar.entity_id, Calendar.definition, where=Calendar.tenant_id == t)
     )
     c.clocks = dict(await rows(Clock.entity_id, Clock.ticking, where=Clock.tenant_id == t))
+    c.entity_locations = dict(
+        await rows(
+            EntityLocation.entity_id,
+            EntityLocation.location_entity_id,
+            where=EntityLocation.tenant_id == t,
+        )
+    )
     c.location_parts = {
         child: {"parent": parent, "ordinal": None if ordinal is None else str(ordinal)}
         for child, parent, ordinal in await rows(
@@ -932,6 +942,11 @@ def entity_snapshot(
     return {
         **clock_fields,
         **({"clock_ticking": content.clocks[entity_id]} if entity_id in content.clocks else {}),
+        **(
+            {"place": {"location": name("entity", content.entity_locations[entity_id])}}
+            if entity_id in content.entity_locations
+            else {}
+        ),
         **(
             {
                 "part_of": {

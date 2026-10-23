@@ -313,8 +313,11 @@ A Location is an entry kind. Its `location` marker and `location_part` tree (sin
 may be skipped, an optional ordinal for siblings) are separate from `containment`, so nothing about
 where Locations sit widens a GM's reach. A reader sees each visible Location under its nearest
 visible ancestor, and a hidden level leaves no trace. A Location may be any other kind too. Lorenzo
-Maps lists, nests and edits Locations; positions of entries at Locations, maps, connections,
-distance and optional dates are later slices of the RFC.
+Maps lists, nests and edits Locations. An `entity_location` row says an entry is at a Location; a
+place is read only at the top of an entry's containment chain, and a flush hook clears it when
+something goes into a container and sets it to the container's place when it comes out. A player's
+`whereabouts` read says where something is for one character from rows the reader can see (ADR
+0333, 0334). Maps, connections, distance and optional dates are later slices of the RFC.
 
 ### What's next
 

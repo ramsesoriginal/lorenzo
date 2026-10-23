@@ -42,7 +42,9 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
+    Containment,
     Entity,
+    EntityLocation,
     EntityPrototype,
     EntitySlug,
     EntityStat,
@@ -831,6 +833,28 @@ class _Applier:
                 delete(clock_model).where(source_column == e, clock_model.tenant_id == t)
             )
             s.add_all(replacements)
+            await s.flush()
+            return True
+        if name == "place":
+            if await s.get(Entity, e) is None:
+                self.skip(row, name, "The local entry is gone")
+                return False
+            existing = await s.get(EntityLocation, e)
+            if not change.upstream:
+                if existing is not None:
+                    await s.delete(existing)
+                return True
+            target = self.resolve("entity", change.upstream["location"])
+            if target is None or await s.get(Location, target) is None:
+                self.skip(row, name, "Copy the Location it is at first")
+                return False
+            if await s.get(Containment, e) is not None:
+                self.skip(row, name, "It is in a container here, which places it")
+                return False
+            if existing is None:
+                s.add(EntityLocation(entity_id=e, location_entity_id=target, tenant_id=t))
+            else:
+                existing.location_entity_id = target
             await s.flush()
             return True
         if name == "part_of":

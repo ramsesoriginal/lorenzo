@@ -29,6 +29,7 @@ from lorenzo_api.models import (
     Entity,
     EntityAudience,
     EntityKnowledge,
+    EntityLocation,
     EntityPrototype,
     EntitySlug,
     EntityStat,
@@ -167,6 +168,7 @@ async def seed_every_content_table(
     await session.flush()
     session.add_all(
         [
+            EntityLocation(entity_id=calendar.id, location_entity_id=place.id, tenant_id=tenant_id),
             LocationPart(
                 child_entity_id=room.id,
                 parent_entity_id=place.id,

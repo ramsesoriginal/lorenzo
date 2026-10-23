@@ -6,13 +6,14 @@ import uuid
 from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Select, select
+from sqlalchemy import Select, delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from lorenzo_api.dependencies import (
     CurrentUser,
@@ -25,7 +26,11 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.entity_kinds import create_entry
 from lorenzo_api.entry_visibility import require_visible_entry, visible_entry_clause
 from lorenzo_api.etag import etag_for
-from lorenzo_api.exceptions import EntityNotFoundError, LocationAuthoringForbiddenError
+from lorenzo_api.exceptions import (
+    EntityNotFoundError,
+    InvalidKindRequestError,
+    LocationAuthoringForbiddenError,
+)
 from lorenzo_api.information_visibility import (
     InformationVisibility,
     resolve_information_visibility,
@@ -36,8 +41,19 @@ from lorenzo_api.locations import (
     set_part_of,
     visible_parts,
 )
-from lorenzo_api.models import Entity, EntityAudience, EntitySlug, Location, LocationPart
-from lorenzo_api.routers.entities import kinds_of
+from lorenzo_api.models import (
+    Character,
+    Containment,
+    Entity,
+    EntityAudience,
+    EntityLocation,
+    EntitySlug,
+    Location,
+    LocationPart,
+)
+from lorenzo_api.placement import whereabouts_of
+from lorenzo_api.routers.entities import authorize_entity_write, kinds_of
+from lorenzo_api.routers.item_instances import caller_reach
 from lorenzo_api.schemas.common import Slug
 from lorenzo_api.schemas.entities import EntityKind
 
@@ -334,3 +350,122 @@ async def delete_part_of(
     await _visible_location(session, user, tenant_id, location_id)
     await clear_part_of(session, tenant_id=tenant_id, child=location_id)
     await _commit(session, tenant_id)
+
+
+_NO_ENTRY = "No such entry in this library"
+
+
+class AtIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    location_entity_id: uuid.UUID
+
+
+class AtOut(BaseModel):
+    entity_id: uuid.UUID
+    location_entity_id: uuid.UUID
+
+
+class PlaceOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str | None = None
+
+
+class WhereaboutsOut(BaseModel):
+    state: Literal["with_you", "stashed", "elsewhere", "unknown"]
+    place: PlaceOut | None = None
+
+
+async def _visible_entry(
+    session: SessionDep, user: CurrentUser, tenant: uuid.UUID, identity: uuid.UUID
+) -> Entity:
+    """An entry the reader may see: a hidden one and a missing one are the same 404."""
+    try:
+        await require_visible_entry(session, tenant_id=tenant, entity_id=identity, user_id=user.id)
+    except EntityNotFoundError:
+        raise EntityNotFoundError(detail=_NO_ENTRY) from None
+    entity = await session.scalar(
+        select(Entity).where(Entity.tenant_id == tenant, Entity.id == identity)
+    )
+    if entity is None:
+        raise EntityNotFoundError(detail=_NO_ENTRY)
+    return entity
+
+
+async def _placer(
+    session: SessionDep, user: CurrentUser, tenant: uuid.UUID, identity: uuid.UUID
+) -> Entity:
+    """Standing to place the entry (ADR 0333): the standing that writes Locations, and the
+    standing that writes the entry."""
+    await _require_manager(session, user, tenant)
+    entity = await _visible_entry(session, user, tenant, identity)
+    await authorize_entity_write(session, tenant_id=tenant, user=user, entity_id=identity)
+    return entity
+
+
+@router.put("/entities/{entity_id}/at")
+async def put_at(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    body: AtIn,
+    session: SessionDep,
+    user: CurrentUser,
+) -> AtOut:
+    """The entry is at this Location. An entry in a container is placed by the container: the
+    request is accepted and changes nothing, and answers as it would otherwise."""
+    entity = await _placer(session, user, tenant_id, entity_id)
+    target = await _visible_location(session, user, tenant_id, body.location_entity_id)
+    if target.id == entity.id:
+        raise InvalidKindRequestError(detail="An entry cannot be at itself.")
+    if await session.get(Containment, entity.id) is None:
+        await session.execute(
+            pg_insert(EntityLocation)
+            .values(entity_id=entity.id, location_entity_id=target.id, tenant_id=tenant_id)
+            .on_conflict_do_update(
+                index_elements=[EntityLocation.entity_id],
+                set_={"location_entity_id": target.id},
+            )
+        )
+        await _commit(session, tenant_id)
+    return AtOut(entity_id=entity.id, location_entity_id=target.id)
+
+
+@router.delete("/entities/{entity_id}/at", status_code=204)
+async def delete_at(
+    tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep, user: CurrentUser
+) -> None:
+    await _placer(session, user, tenant_id, entity_id)
+    await session.execute(delete(EntityLocation).where(EntityLocation.entity_id == entity_id))
+    await _commit(session, tenant_id)
+
+
+@router.get("/entities/{entity_id}/whereabouts", response_model_exclude_none=True)
+async def get_whereabouts(
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    relative_to: Annotated[uuid.UUID, Query(description="The character the answer is for.")],
+    session: SessionDep,
+    user: CurrentUser,
+) -> WhereaboutsOut:
+    """Where the entry is, as that character would say it: `with_you`, `stashed`, `elsewhere` or
+    `unknown`, and at most one name, the place when it is not the character's own (ADR 0334)."""
+    vis = await _standing(session, user, tenant_id)
+    await _visible_entry(session, user, tenant_id, entity_id)
+    reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=vis)
+    is_character = await session.scalar(
+        select(Character.entity_id).where(
+            Character.entity_id == relative_to, Character.tenant_id == tenant_id
+        )
+    )
+    if is_character is None or (reach is not None and relative_to not in reach):
+        raise EntityNotFoundError(detail=_NO_ENTRY)
+    found = await whereabouts_of(
+        session, vis, tenant_id=tenant_id, entity_ids=[entity_id], character_id=relative_to
+    )
+    answer = found[entity_id]
+    return WhereaboutsOut(
+        state=answer.state,
+        place=None
+        if answer.place is None
+        else PlaceOut(id=answer.place.id, name=answer.place.name, slug=answer.place.slug),
+    )

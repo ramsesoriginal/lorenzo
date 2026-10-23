@@ -88,6 +88,18 @@ class AppsOut(BaseModel):
     maps: AppOut | None = None
 
 
+class AtIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    location_entity_id: UUID = Field(..., title="Location Entity Id")
+
+
+class AtOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    location_entity_id: UUID = Field(..., title="Location Entity Id")
+
+
 class AttachmentActionName(StrEnum):
     add = "add"
     detach = "detach"
@@ -1678,6 +1690,12 @@ class PictureRefOut(BaseModel):
     from_entity: EntitySummary | None
 
 
+class PlaceOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+
+
 class Status9(StrEnum):
     planned = "planned"
     played = "played"
@@ -2571,6 +2589,18 @@ class Week(BaseModel):
     reset: Reset | None = Field("never", title="Reset")
     reference: CalendarDate
     weekday: conint(ge=0, le=99) | None = Field(0, title="Weekday")
+
+
+class State6(StrEnum):
+    with_you = "with_you"
+    stashed = "stashed"
+    elsewhere = "elsewhere"
+    unknown = "unknown"
+
+
+class WhereaboutsOut(BaseModel):
+    state: State6 = Field(..., title="State")
+    place: PlaceOut | None = None
 
 
 class YearPreview(BaseModel):
