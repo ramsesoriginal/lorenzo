@@ -1,0 +1,23 @@
+{
+  "about": "Systems the validator accepts and refuses (ADR 0336). Only accepted or refused is compared across implementations.",
+  "accepted": [
+    {"name": "a plane with a scale", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1000, 640], "scale": {"per_unit": 0.5, "unit": "km"}}},
+    {"name": "a plane without a scale", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [-500, -320, 500, 320]}},
+    {"name": "an outline", "document": {"format": "lorenzo.map-system/1", "kind": "outline", "extent": [0, 0, 1000, 600]}},
+    {"name": "a unit in the author's own words", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "scale": {"per_unit": 3, "unit": "Meilen"}}}
+  ],
+  "refused": [
+    {"name": "no format", "document": {"kind": "plane", "extent": [0, 0, 10, 10]}, "reason": "format"},
+    {"name": "no kind", "document": {"format": "lorenzo.map-system/1", "extent": [0, 0, 10, 10]}, "reason": "kind"},
+    {"name": "a kind this version cannot write", "document": {"format": "lorenzo.map-system/1", "kind": "hex", "extent": [0, 0, 10, 10]}, "reason": "kind"},
+    {"name": "an extra key", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "north": 12}, "reason": "unknown key"},
+    {"name": "an outline with a scale", "document": {"format": "lorenzo.map-system/1", "kind": "outline", "extent": [0, 0, 10, 10], "scale": {"per_unit": 1, "unit": "m"}}, "reason": "unknown key"},
+    {"name": "an extent of three numbers", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10]}, "reason": "extent"},
+    {"name": "an extent whose far corner is not beyond", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 0, 10]}, "reason": "extent"},
+    {"name": "an extent beyond 1e7", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 20000000, 10]}, "reason": "size"},
+    {"name": "a scale of zero", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "scale": {"per_unit": 0, "unit": "m"}}, "reason": "scale"},
+    {"name": "a scale with no unit", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "scale": {"per_unit": 1}}, "reason": "scale"},
+    {"name": "an empty unit", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "scale": {"per_unit": 1, "unit": ""}}, "reason": "unit"},
+    {"name": "not an object", "document": "plane", "reason": "object"}
+  ]
+}
