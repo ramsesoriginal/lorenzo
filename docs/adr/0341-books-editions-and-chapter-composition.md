@@ -1,4 +1,4 @@
-# 0336 - Books, Editions and Chapter composition
+# 0341 - Books, Editions and Chapter composition
 
 Status: accepted implementation of RFC 0047 W2 and ADR 0327.
 
@@ -53,3 +53,9 @@ rejection, stale writes, retries, independent copies, deletion guards and visibi
 copy and release tests demonstrate remapped structure and payloads. Real-API browser tests cover
 starting a Book, nesting and ordering Chapters, interleaving prose, continuous reading and editing
 an independent Edition. Generated clients and downstream contract checks remain mandatory.
+
+## History
+
+Originally claimed as ADR 0336 on the Writing branch. On 2026-10-24 the open Maps
+decisions also used 0336; Writing moved this document to 0341 to keep the combined
+index unambiguous. Existing migration identifiers remain unchanged.
