@@ -100,6 +100,7 @@ from lorenzo_api.models import (
     VEffectiveStat,
     formula_load_options,
 )
+from lorenzo_api.models.manuscript import Book, Chapter, Edition
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 from lorenzo_api.my_links import (
     MY_HINT,
@@ -163,6 +164,9 @@ _KINDS: tuple[
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
+            | Book
+            | Chapter
+            | Edition
             | Scene
             | SceneAppearance
             | StorySession
@@ -180,6 +184,9 @@ _KINDS: tuple[
     ("calendar_period", CalendarPeriod),
     ("event", StoryEvent),
     ("observance", CalendarObservance),
+    ("book", Book),
+    ("edition", Edition),
+    ("chapter", Chapter),
     ("scene", Scene),
     ("scene_appearance", SceneAppearance),
     ("session", StorySession),
@@ -595,6 +602,9 @@ async def get_entity_detail_or_404(
             selectinload(Entity.contained_links).joinedload(Containment.child),
             joinedload(Entity.slug),
             # What the entry is (ADR 0217).
+            joinedload(Entity.book),
+            joinedload(Entity.edition),
+            joinedload(Entity.chapter),
             joinedload(Entity.scene),
             joinedload(Entity.scene_appearance),
             joinedload(Entity.story_session),
@@ -1715,6 +1725,9 @@ async def editable_fact_audience(
                 StoryEvent,
                 CalendarObservance,
                 Scene,
+                Book,
+                Chapter,
+                Edition,
             )
         ]
     ):

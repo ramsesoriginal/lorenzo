@@ -1,12 +1,16 @@
 # Lorenzo Writing
 
-A quiet writing surface for library and repository Authors. The first slice uses existing
-Scenes as standalone drafts with a designated manuscript Information bundle: LorenzoScript,
-ordered pictures and text, conditional autosave, per-account browser draft recovery and saved
-server revisions. Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329.
+A quiet writing surface for library and repository Authors. Start with a standalone Scene,
+an unassigned Chapter or a Book. Books create their first Edition automatically. Write
+LorenzoScript and ordered pictures, nest Chapters in an outline, interleave them with prose,
+and read the composition continuously. Another Edition independently copies the manuscript.
+Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329 and 0336.
 
-Books, Editions, Chapters, tellings, Carriers and the subsequent workflow slices remain in
-[the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md); this app does not claim them yet.
+The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
+from an outline keeps its text and subchapters. Edition copying starts private, without copying
+notes or history. All editing retains conditional autosave, per-account browser recovery and
+saved prose revisions. Cross-parent moves, splitting/joining, tellings, reviewers, Carriers and
+subsequent slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
 
 ## Run and verify
 

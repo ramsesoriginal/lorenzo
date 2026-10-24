@@ -191,6 +191,10 @@ __all__ = [
 
 from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
 from lorenzo_api.models.lived_order import LivedBefore
+from lorenzo_api.models.manuscript import Book as Book
+from lorenzo_api.models.manuscript import Chapter as Chapter
+from lorenzo_api.models.manuscript import Edition as Edition
+from lorenzo_api.models.manuscript import ManuscriptPlacement as ManuscriptPlacement
 from lorenzo_api.models.manuscript_revision import ManuscriptRevision
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (

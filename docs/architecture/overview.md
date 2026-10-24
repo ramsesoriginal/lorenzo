@@ -317,3 +317,10 @@ The Writing Astro app opens standalone Scene manuscripts as ordered LorenzoScrip
 bundles. Conditional autosave, independent per-account browser drafts and saved server revisions
 protect ongoing work. Revision reads require current edit access; history stays out of repository
 copies and releases. Books, Editions, Chapters and subsequent composition slices remain pending.
+
+Book composition (RFC 0047 W2, ADR 0336, 2026-10-23):
+
+Writing adds Books with independent Editions and nested or unassigned Chapters. Chapter
+placements interleave with stable manuscript payload identities; the graph is separate from
+containment and prototypes. Authors can arrange an outline, read it continuously and copy an
+Edition independently. Repository copy and release format 16 preserve and remap this structure.
