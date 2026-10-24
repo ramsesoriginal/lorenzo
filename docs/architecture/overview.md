@@ -318,7 +318,7 @@ bundles. Conditional autosave, independent per-account browser drafts and saved 
 protect ongoing work. Revision reads require current edit access; history stays out of repository
 copies and releases. Books, Editions, Chapters and subsequent composition slices remain pending.
 
-Book composition (RFC 0047 W2, ADR 0336, 2026-10-23):
+Book composition (RFC 0047 W2, ADR 0341, 2026-10-23):
 
 Writing adds Books with independent Editions and nested or unassigned Chapters. Chapter
 placements interleave with stable manuscript payload identities; the graph is separate from

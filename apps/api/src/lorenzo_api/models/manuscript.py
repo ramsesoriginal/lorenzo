@@ -1,4 +1,4 @@
-"""Book identity and independently composed Editions and Chapters (ADR 0336)."""
+"""Book identity and independently composed Editions and Chapters (ADR 0341)."""
 
 import uuid
 

@@ -553,7 +553,7 @@ PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `clock` enum
 PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `clock` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `clock` enum value to the `kinds/items/` response property for the response status `200`
 
-# ADR 0336: approved Book, Edition and Chapter entry kinds; generated clients updated.
+# ADR 0341: approved Book, Edition and Chapter entry kinds; generated clients updated.
 # Clients exhaustively matching response kinds must accept these three new values.
 DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `book` enum value to the `kinds/items/` response property for the response status `200`
 DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `chapter` enum value to the `kinds/items/` response property for the response status `200`

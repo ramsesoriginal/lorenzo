@@ -4,7 +4,7 @@ A quiet writing surface for library and repository Authors. Start with a standal
 an unassigned Chapter or a Book. Books create their first Edition automatically. Write
 LorenzoScript and ordered pictures, nest Chapters in an outline, interleave them with prose,
 and read the composition continuously. Another Edition independently copies the manuscript.
-Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329 and 0336.
+Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329 and 0341.
 
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying

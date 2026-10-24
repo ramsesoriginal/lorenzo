@@ -1,4 +1,4 @@
-"""Writing composition through the real tenant-scoped API (ADR 0336)."""
+"""Writing composition through the real tenant-scoped API (ADR 0341)."""
 
 import uuid
 

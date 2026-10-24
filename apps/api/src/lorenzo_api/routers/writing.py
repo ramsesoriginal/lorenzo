@@ -1,4 +1,4 @@
-"""Book creation and conditional manuscript composition (ADR 0336)."""
+"""Book creation and conditional manuscript composition (ADR 0341)."""
 
 import hashlib
 import uuid

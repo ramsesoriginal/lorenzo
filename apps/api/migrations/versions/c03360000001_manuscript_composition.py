@@ -1,4 +1,4 @@
-"""Books, Editions and Chapter composition (ADR 0336)."""
+"""Books, Editions and Chapter composition (ADR 0341)."""
 
 from alembic import op
 
