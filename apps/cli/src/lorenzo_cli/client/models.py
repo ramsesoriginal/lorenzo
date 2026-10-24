@@ -85,6 +85,7 @@ class AppsOut(BaseModel):
     bench: AppOut
     calendars: AppOut
     sessions: AppOut | None = None
+    writing: AppOut | None = None
 
 
 class AttachmentActionName(StrEnum):
@@ -1168,6 +1169,17 @@ class Role(StrEnum):
     author = "author"
 
 
+class ManuscriptRevisionOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    created_at: AwareDatetime = Field(..., title="Created At")
+    snapshot: dict[str, Any] = Field(..., title="Snapshot")
+
+
+class ManuscriptRevisionSummary(BaseModel):
+    id: UUID = Field(..., title="Id")
+    created_at: AwareDatetime = Field(..., title="Created At")
+
+
 class MeCapabilitiesOut(BaseModel):
     create_tenant: bool = Field(..., title="Create Tenant")
 
@@ -1443,6 +1455,14 @@ class PageKnowledgeEntryOut(BaseModel):
 
 class PageLearningOut(BaseModel):
     items: list[LearningOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageManuscriptRevisionSummary(BaseModel):
+    items: list[ManuscriptRevisionSummary] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
