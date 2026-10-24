@@ -1,6 +1,5 @@
 import { getAppLinks } from '@lorenzo/api-client';
 import { bindShell } from '@lorenzo/app-shell';
-
 import {
   type BundleReceipt,
   type DraftPayload,
@@ -10,14 +9,11 @@ import {
   sameBundle,
   saveInformationBundle,
 } from '@lorenzo/information-editor';
-
 import { parse, render } from '@lorenzo/lorenzoscript';
-
 import { createEditor } from '@lorenzo/lorenzoscript-editor';
-
 import { client, fetchAllPages, LorenzoApiError, loadFile, unwrap } from './api';
-
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
+import { compositionScreen, outlineOf, writingAddress } from './composition';
 
 import { API_BASE_URL } from './config';
 
@@ -117,7 +113,10 @@ export async function start() {
 
     if (entry) {
       try {
-        await manuscript(host, me.id, tenant, entry);
+        const view = params.get('view');
+        if (view === 'outline' || view === 'read')
+          await compositionScreen(host, tenant, entry, view === 'read');
+        else await manuscript(host, me.id, tenant, entry);
       } catch (error) {
         if (error instanceof LorenzoApiError && [401, 403, 404].includes(error.status))
           await forgetDrafts(draftKey(API_BASE_URL, me.id, tenant, entry)).catch(() => {});
@@ -138,16 +137,47 @@ export async function start() {
     status.setAttribute('role', 'status');
     status.setAttribute('aria-label', 'Save status');
 
+    const kind = element('select');
+    kind.setAttribute('aria-label', 'Start with');
+    for (const [value, label] of [
+      ['scene', 'Scene draft'],
+      ['book', 'Book'],
+      ['chapter', 'Chapter draft'],
+    ]) {
+      const option = element('option', label);
+      option.value = value;
+      kind.append(option);
+    }
+    const creationId = crypto.randomUUID();
+    const firstEditionId = crypto.randomUUID();
     const create = button('Start writing', () => {
       create.disabled = true;
 
       void (async () => {
         try {
+          if (kind.value !== 'scene') {
+            const route =
+              kind.value === 'book'
+                ? '/tenants/{tenant_id}/writing/books'
+                : '/tenants/{tenant_id}/writing/chapters';
+            const made = await unwrap(
+              await client.POST(route, {
+                params: { path: { tenant_id: tenant } },
+                body: {
+                  id: creationId,
+                  first_edition_id: firstEditionId,
+                  name: name.value.trim() || 'Untitled',
+                },
+              }),
+            );
+            location.assign(address(tenant, made.kind === 'book' ? made.editions[0]?.id : made.id));
+            return;
+          }
           const scene = await unwrap(
             await client.POST('/tenants/{tenant_id}/scenes', {
               params: { path: { tenant_id: tenant } },
               body: {
-                id: crypto.randomUUID(),
+                id: creationId,
                 name: name.value.trim() || 'Untitled',
                 is_public: false,
               },
@@ -163,14 +193,17 @@ export async function start() {
     });
 
     const row = element('div', '', 'row');
-    row.append(name, create);
+    row.append(kind, name, create);
 
     host.replaceChildren(heading, row, status);
 
     const scenes = await fetchAllPages(async (page) =>
       unwrap(
         await client.GET('/tenants/{tenant_id}/entities', {
-          params: { path: { tenant_id: tenant }, query: { page, size: 100, kind: ['scene'] } },
+          params: {
+            path: { tenant_id: tenant },
+            query: { page, size: 100, kind: ['scene', 'book', 'chapter'] },
+          },
         }),
       ),
     );
@@ -195,18 +228,28 @@ export async function start() {
 async function manuscript(host: HTMLElement, account: string, tenant: string, entry: string) {
   const path = { tenant_id: tenant, entity_id: entry };
 
-  const sceneResult = await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
-    params: { path: { tenant_id: tenant, scene_id: entry } },
+  const entityResult = await client.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+    params: { path },
   });
-
-  const scene = await unwrap(sceneResult);
-
-  if (!scene.can_manage)
-    throw new LorenzoApiError('This manuscript is not available for editing.', 403);
-
-  const entity = await unwrap(
-    await client.GET('/tenants/{tenant_id}/entities/{entity_id}', { params: { path } }),
-  );
+  const entity = await unwrap(entityResult);
+  const structured = entity.kinds.some((k) => ['book', 'edition', 'chapter'].includes(k));
+  if (entity.kinds.includes('book')) {
+    const book = await outlineOf(tenant, entry);
+    const first = book.editions[0];
+    if (!first) throw new Error('This Book has no Edition to open.');
+    location.replace(address(tenant, first.id));
+    return;
+  }
+  if (!structured) {
+    const scene = await unwrap(
+      await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
+        params: { path: { tenant_id: tenant, scene_id: entry } },
+      }),
+    );
+    if (!scene.can_manage)
+      throw new LorenzoApiError('This manuscript is not available for editing.', 403);
+  }
+  const scene = entity;
 
   let info = entity.information.find((i) => i.type === 'manuscript');
 
@@ -306,14 +349,14 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
   title.maxLength = 300;
   title.setAttribute('aria-label', 'Draft title');
 
-  let sceneVersion = sceneResult.response.headers.get('etag') ?? '';
+  let sceneVersion = entityResult.response.headers.get('etag') ?? '';
 
   const rename = button('Save title', () => {
     void (async () => {
       try {
-        const result = await client.PATCH('/tenants/{tenant_id}/scenes/{scene_id}', {
+        const result = await client.PATCH('/tenants/{tenant_id}/entities/{entity_id}', {
           params: {
-            path: { tenant_id: tenant, scene_id: entry },
+            path: { tenant_id: tenant, entity_id: entry },
             header: { 'if-match': sceneVersion },
           },
           body: { name: title.value.trim() || 'Untitled' },
@@ -366,6 +409,26 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     void save();
   });
   actions.append(focus, saveButton);
+  if (structured)
+    for (const [label, view] of [
+      ['Outline', 'outline'],
+      ['Read', 'read'],
+    ]) {
+      const link = element('a', label);
+      link.href = writingAddress(tenant, entry, view);
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        void (async () => {
+          if (saving) {
+            warning.textContent = 'Wait for this save before changing views.';
+            return;
+          }
+          if (dirty) await save();
+          if (!dirty) location.assign(link.href);
+        })();
+      });
+      actions.append(link);
+    }
 
   host.replaceChildren(back, heading, actions, status, warning, conflicts, area, details, history);
 

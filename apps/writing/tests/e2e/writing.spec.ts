@@ -373,3 +373,69 @@ test('a long manuscript keeps the caret and saves without replacing the editor',
     await context.close();
   }
 });
+
+test('a Book has nested Chapters, mixed reading order and independent Editions', async ({
+  browser,
+}) => {
+  test.setTimeout(90000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('Journeys');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.fill('Before departure.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const firstEdition = new URL(page.url()).searchParams.get('entry');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByLabel('New chapter title').fill('Departure');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await page.getByRole('link', { name: 'Departure', exact: true }).click();
+    await manuscript.fill('The boat left.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByLabel('New chapter title').fill('At the shore');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await page.getByRole('link', { name: 'At the shore', exact: true }).click();
+    await manuscript.fill('A light remained.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${firstEdition}&view=outline`);
+    await page.getByRole('button', { name: 'Up: Departure', exact: true }).click();
+    await expect(page.locator('ol > li').first()).toContainText('Departure');
+    // Removing a Chapter preserves its subtree, which can be found and placed again.
+    await page.getByRole('button', { name: 'Remove from outline', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Departure', exact: true })).toHaveCount(0);
+    await page.getByText('Place an existing Chapter', { exact: true }).click();
+    await page.getByLabel('Find a Chapter', { exact: true }).fill('Departure');
+    await page.getByRole('button', { name: 'Find Chapters', exact: true }).click();
+    await page.getByRole('button', { name: 'Departure', exact: true }).click();
+    await page.getByRole('button', { name: 'Up: Departure', exact: true }).click();
+    await expect(page.locator('ol > li').first()).toContainText('Departure');
+    await page.screenshot({ path: test.info().outputPath('outline-desktop.png'), fullPage: true });
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toHaveText(
+      /Departure.*The boat left.*At the shore.*A light remained.*Before departure\./s,
+    );
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByText('Editions', { exact: true }).click();
+    await page.getByLabel('New edition title').fill('Revised edition');
+    await page.getByRole('button', { name: 'Create independent edition', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Revised edition', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Departure', exact: true }).click();
+    await expect(manuscript).toHaveValue('The boat left.');
+    await manuscript.fill('The boat waited.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${firstEdition}&view=read`);
+    await expect(page.locator('article')).toContainText('The boat left.');
+    await expect(page.locator('article')).not.toContainText('The boat waited.');
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath('reading-phone.png'), fullPage: true });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});

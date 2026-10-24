@@ -78,6 +78,7 @@ from lorenzo_api.models import (
     TenantKind,
 )
 from lorenzo_api.models.fact import EntityKnowledge, FactAbout
+from lorenzo_api.models.manuscript import Edition, ManuscriptPlacement
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
     Content,
@@ -618,6 +619,16 @@ class _Planner:
                         "updated_by": user_id,
                     }
                 )
+            for kind in ("book", "chapter"):
+                if kind in kinds:
+                    self.rows[kind].append({"entity_id": new, "tenant_id": tenant_id})
+            if "edition" in kinds:
+                book = self._local(c, "entity", c.editions[e])
+                if book is None:
+                    raise InvalidRepositoryUpdateError(detail="Copy the Book before its Edition.")
+                self.rows["edition"].append(
+                    {"entity_id": new, "tenant_id": tenant_id, "book_entity_id": book}
+                )
             if "scene" in kinds:
                 source_period = c.scenes.get(e)
                 target_period = self._local(c, "entity", source_period) if source_period else None
@@ -841,11 +852,13 @@ class _Planner:
                 }
             )
             step.information += 1
-        for payload in c.payloads.values():
+        local_payloads: dict[uuid.UUID, uuid.UUID] = {}
+        for source_payload_id, payload in c.payloads.items():
             local_info = local_information.get(payload.information_id)
             if local_info is None:
                 continue
             new = uuid.uuid4()
+            local_payloads[source_payload_id] = new
             self.rows["payload"].append(
                 {
                     "id": new,
@@ -871,6 +884,31 @@ class _Planner:
                             "target": target_text,
                         }
                     )
+        for child, placement in c.manuscript_placements.items():
+            parent = placement["parent"]
+            if copies("entity", child) or copies("entity", parent):
+                local_child, local_parent = (
+                    self._local(c, "entity", child),
+                    self._local(c, "entity", parent),
+                )
+                before = placement["before"]
+                if (
+                    local_child is None
+                    or local_parent is None
+                    or (before and before not in local_payloads)
+                ):
+                    raise InvalidRepositoryUpdateError(
+                        detail="Copy this complete manuscript subtree together with its parent."
+                    )
+                self.rows["manuscript_placement"].append(
+                    {
+                        "chapter_entity_id": local_child,
+                        "parent_entity_id": local_parent,
+                        "tenant_id": tenant_id,
+                        "before_payload_id": local_payloads.get(before),
+                        "position": placement["position"],
+                    }
+                )
         for e, knower in c.entry_knowledge:
             if copies("entity", e):
                 target = self._local(c, "entity", knower)
@@ -1521,6 +1559,24 @@ async def forget_copy(
             .order_by(Entity.id)
             .with_for_update()
         )
+        if await session.scalar(
+            select(Edition.entity_id)
+            .where(
+                Edition.tenant_id == t,
+                Edition.book_entity_id.in_(entities),
+                Edition.entity_id.not_in(entities),
+            )
+            .limit(1)
+        ) or await session.scalar(
+            select(ManuscriptPlacement.chapter_entity_id)
+            .where(
+                ManuscriptPlacement.tenant_id == t,
+                ManuscriptPlacement.parent_entity_id.in_(entities),
+                ManuscriptPlacement.chapter_entity_id.not_in(entities),
+            )
+            .limit(1)
+        ):
+            raise EntityKindInUseError(detail="Local manuscript structure still uses this copy.")
         local_period = await session.scalar(
             select(
                 exists().where(
@@ -1848,6 +1904,12 @@ async def forget_copy(
                 LivedBefore.to_event_id.in_(entities),
             ),
         )
+        also["manuscript_placement"] = await _count(
+            session,
+            ManuscriptPlacement,
+            ManuscriptPlacement.tenant_id == t,
+            ManuscriptPlacement.chapter_entity_id.in_(entities),
+        )
         # The counts above are hand-written; the registry says which tables they are for.
         assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED
         previous.also_removed = {kind: n for kind, n in also.items() if n}
@@ -1948,6 +2010,17 @@ async def forget_copy(
                     ),
                 )
             )
+        # Composition parents deliberately refuse individual deletion. A reviewed
+        # purge removes the copied relationships before their parent entities.
+        await session.execute(
+            delete(ManuscriptPlacement).where(
+                ManuscriptPlacement.tenant_id == t,
+                ManuscriptPlacement.chapter_entity_id.in_(entities),
+            )
+        )
+        await session.execute(
+            delete(Edition).where(Edition.tenant_id == t, Edition.entity_id.in_(entities))
+        )
         await session.execute(delete(Entity).where(Entity.tenant_id == t, Entity.id.in_(entities)))
         await session.execute(
             delete(StatDefinition).where(

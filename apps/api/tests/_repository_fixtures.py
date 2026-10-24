@@ -11,10 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lorenzo_api import release_document
 from lorenzo_api.models import (
     Being,
+    Book,
     Calendar,
     CalendarObservance,
     CalendarPeriod,
     CalendarReckoning,
+    Chapter,
     Character,
     Clock,
     ClockRelationship,
@@ -26,6 +28,7 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     Containment,
     ContentReference,
+    Edition,
     Entity,
     EntityAudience,
     EntityKnowledge,
@@ -46,6 +49,7 @@ from lorenzo_api.models import (
     ItemInstance,
     Knowledge,
     LivedBefore,
+    ManuscriptPlacement,
     Ownership,
     Payload,
     PayloadDescription,
@@ -413,6 +417,27 @@ async def seed_every_content_table(
         )
     )
     session.add_all(context_rows)
+    await session.flush()
+    book, edition, chapter = entity("Book"), entity("Edition"), entity("Chapter")
+    await session.flush()
+    session.add_all(
+        [
+            Book(entity_id=book.id, tenant_id=tenant_id),
+            Chapter(entity_id=chapter.id, tenant_id=tenant_id),
+        ]
+    )
+    await session.flush()
+    session.add(Edition(entity_id=edition.id, book_entity_id=book.id, tenant_id=tenant_id))
+    await session.flush()
+    session.add(
+        ManuscriptPlacement(
+            chapter_entity_id=chapter.id,
+            parent_entity_id=edition.id,
+            before_payload_id=None,
+            position=0,
+            tenant_id=tenant_id,
+        )
+    )
     await session.flush()
     if not with_copy_records:
         await session.flush()
