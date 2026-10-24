@@ -128,7 +128,12 @@ async def test_books_chapters_order_and_independent_editions(
                 await delete_tenant(target)
         # Deleting a prose anchor preserves its preceding Chapter at the end.
         assert (await arrange(edition, [chapter, payload])).status_code == 200
-        removed = await actor.delete(base + f"/payloads/{payload}")
+        info = (await actor.get(base + f"/information/{prose.json()['id']}")).json()
+        anchor = next(p for p in info["payloads"] if p["id"] == payload)
+        removed = await raw_client.delete(
+            base + f"/payloads/{payload}",
+            headers={**actor.headers, "If-Match": f'W/"{anchor["updated_at"]}"'},
+        )
         assert removed.status_code == 204, removed.text
         after_delete = (await actor.get(writing + f"/entries/{edition}")).json()
         assert [el["id"] for el in after_delete["elements"]] == [chapter]
