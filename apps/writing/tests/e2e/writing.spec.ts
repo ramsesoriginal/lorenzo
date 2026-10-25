@@ -33,7 +33,10 @@ async function world(browser: Browser) {
   await page.goto(`/?tenant=${tenant.id}`);
   await page.getByLabel('New draft title').fill('Across the water');
   await page.getByRole('button', { name: 'Start writing', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible();
+  // Initial sign-in, entry authorization and bundle creation can exceed five seconds on a cold API.
+  await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible({
+    timeout: 15000,
+  });
   return { api, owner, user, subject, tenant, page, context };
 }
 
