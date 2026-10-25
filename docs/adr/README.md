@@ -336,3 +336,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0341 - Books, Editions and Chapter composition](0341-books-editions-and-chapter-composition.md)
 
 - [0342 - Scene tellings and writing references](0342-scene-tellings-and-writing-references.md) — RFC 0047 W3: reusable Scenes, shared or independent tellings, viewpoints and scoped biographies.
+
+- [0343 - Book-scoped reviewers and private review notes](0343-book-scoped-reviewers.md) — RFC 0047 W4.
