@@ -101,6 +101,8 @@ from lorenzo_api.models import (
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
     WritingBiography,
+    WritingReviewGrant,
+    WritingReviewNote,
 )
 from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
@@ -251,6 +253,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     ),
     # Relative to a player, a campaign or tenant administration, none of which a repository has
     # (RFC 0024 section 4).
+    CopyableTable("writing_review_grant", WritingReviewGrant, False, "none"),
+    CopyableTable("writing_review_note", WritingReviewNote, False, "none"),
     CopyableTable("audit_log", AuditLog, False, "none"),
     CopyableTable("campaign", Campaign, False, "none"),
     CopyableTable("campaign_gm", CampaignGm, False, "none"),

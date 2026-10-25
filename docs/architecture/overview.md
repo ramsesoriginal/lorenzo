@@ -329,3 +329,8 @@ Lorenzo Writing W3 (RFC 0047, ADR 0342) adds Scene tellings with shared or indep
 manuscripts, explicit viewpoints, scoped writing biographies and existing Scene world references.
 Composition and repository releases preserve and remap these references; no narrative relation
 implies Event participation or knowledge.
+
+Lorenzo Writing W4 (RFC 0047, ADR 0343) adds named reviewer grants to selected Editions,
+with a dedicated manuscript/picture projection and fixed-audience review notes. Grants do not
+create membership or widen generic entity APIs. Notes and grants are operational, not published
+repository content; reads and note writes recheck current grants and composition.

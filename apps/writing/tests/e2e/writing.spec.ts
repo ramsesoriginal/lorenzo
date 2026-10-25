@@ -503,3 +503,92 @@ test('reusing a Scene keeps tellings independent and supports a viewpoint biogra
     await context.close();
   }
 });
+
+test('an invited reviewer reads one Edition, writes private notes and loses access on revocation', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  const subject = `reviewer-${randomUUID()}`;
+  const reviewer = await apiAs(subject);
+  await ok(reviewer.GET('/me'));
+  const reviewContext = await browser.newContext({
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: SITE_URL,
+          localStorage: [{ name: REFRESH_TOKEN_KEY, value: await refreshTokenFor(subject) }],
+        },
+      ],
+    },
+  });
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('A review copy');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'A review copy', exact: true })).toBeVisible();
+    await page
+      .getByRole('textbox', { name: 'Manuscript', exact: true })
+      .fill('The river remembers the old bridge.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByText('Details', { exact: true }).click();
+    await page.getByRole('link', { name: 'Review and reviewers', exact: true }).click();
+    await expect(page.locator('article')).toContainText('The river remembers the old bridge.');
+    const reviewUrl = page.url();
+    await page.getByText('Reviewers', { exact: true }).click();
+    await page.getByLabel('Reviewer email').fill(`${subject}@e2e.test`);
+    await page.getByRole('button', { name: 'Add reviewer', exact: true }).click();
+    await expect(page.getByText(`${subject}@e2e.test`, { exact: false }).last()).toBeVisible();
+    const reviewPage = await reviewContext.newPage();
+    await reviewPage.goto(reviewUrl);
+    await expect(reviewPage.locator('article')).toContainText(
+      'The river remembers the old bridge.',
+    );
+    await expect(reviewPage.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveCount(
+      0,
+    );
+    await reviewPage
+      .getByLabel('Review note', { exact: true })
+      .fill('Could the bridge appear earlier?');
+    await reviewPage.getByRole('button', { name: 'Save note', exact: true }).click();
+    await expect(
+      reviewPage.getByText('Could the bridge appear earlier?', { exact: true }).first(),
+    ).toBeVisible();
+    await reviewPage.getByRole('button', { name: 'Edit your note', exact: true }).click();
+    await reviewPage
+      .getByLabel('Review note', { exact: true })
+      .fill('Could the bridge appear in Chapter one?');
+    await reviewPage.getByRole('button', { name: 'Save note', exact: true }).click();
+    await expect(
+      reviewPage.getByText('Could the bridge appear in Chapter one?', { exact: true }).first(),
+    ).toBeVisible();
+    await reviewPage.screenshot({
+      path: test.info().outputPath('review-desktop.png'),
+      fullPage: true,
+    });
+    await reviewPage.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page: reviewPage }).analyze()).violations).toEqual([]);
+    await reviewPage.screenshot({
+      path: test.info().outputPath('review-phone.png'),
+      fullPage: true,
+    });
+    await page.reload();
+    await expect(
+      page.getByText('Could the bridge appear in Chapter one?', { exact: true }),
+    ).toBeVisible();
+    await page.getByText('Reviewers', { exact: true }).click();
+    await page.getByRole('button', { name: 'Revoke review access', exact: true }).click();
+    // An already-open review is cleared by its next periodic authorization check.
+    await expect(reviewPage.locator('article')).toHaveCount(0, { timeout: 40000 });
+    await expect(reviewPage.getByRole('alert')).toBeVisible();
+    await expect(reviewPage.getByLabel('Review note', { exact: true })).toHaveCount(0);
+    await reviewPage.reload();
+    await expect(reviewPage.getByRole('alert')).toBeVisible();
+    await expect(reviewPage.locator('article')).toHaveCount(0);
+  } finally {
+    await reviewContext.close();
+    await context.close();
+  }
+});

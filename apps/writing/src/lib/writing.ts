@@ -24,6 +24,7 @@ import {
   selectDraft,
   writeDraft,
 } from './drafts';
+import { reviewAddress, reviewScreen } from './review';
 import { writingDetails } from './writing-details';
 
 const message = (error: unknown) =>
@@ -83,6 +84,16 @@ export async function start() {
     }
 
     const me = await unwrap(await client.GET('/me'));
+
+    const reviewParams = new URLSearchParams(location.search);
+    const reviewTenant = reviewParams.get('tenant');
+    const reviewEdition = reviewParams.get('review');
+    if (reviewTenant && reviewEdition) {
+      shell?.account({ state: 'signed-in', label: me.email ?? undefined });
+      shell?.reveal();
+      await reviewScreen(host, reviewTenant, reviewEdition, me.id);
+      return;
+    }
 
     const libraries = (
       await fetchAllPages(async (page) =>
@@ -398,6 +409,11 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
   details.append(element('summary', 'Details'));
   const worldDetails = element('div', '', 'stack-tight');
   details.append(worldDetails);
+  if (writingEntry.kind === 'edition') {
+    const review = element('a', 'Review and reviewers');
+    review.href = reviewAddress(tenant, entry);
+    details.append(review);
+  }
   details.addEventListener('toggle', () => {
     if (details.open && !worldDetails.children.length)
       void writingDetails(worldDetails, tenant, entry).catch((error) => {

@@ -80,6 +80,8 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "WritingReviewGrant",
+    "WritingReviewNote",
     "ManuscriptRevision",
     "Clock",
     "ClockRelationship",
@@ -212,6 +214,7 @@ from lorenzo_api.models.story_session import (
     SessionPlayer,
     StorySession,
 )
+from lorenzo_api.models.writing_review import WritingReviewGrant, WritingReviewNote
 
 from .manuscript import SceneTelling as SceneTelling
 from .manuscript import WritingBiography as WritingBiography

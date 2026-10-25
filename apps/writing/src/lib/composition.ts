@@ -1,5 +1,6 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
+import { reviewAddress } from './review';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -55,6 +56,8 @@ export async function compositionScreen(
   );
   if (current.parent_id)
     nav.append(link('Up to parent', writingAddress(tenant, current.parent_id, 'outline')));
+  if (current.kind === 'edition')
+    nav.append(link('Review and reviewers', reviewAddress(tenant, id)));
   const status = node('p');
   status.setAttribute('role', 'status');
   const report = (error: unknown) => {

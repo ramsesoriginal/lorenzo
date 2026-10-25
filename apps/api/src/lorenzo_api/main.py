@@ -68,6 +68,7 @@ from lorenzo_api.routers.tenant_invites import router as tenant_invites_router
 from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
 from lorenzo_api.routers.writing import router as writing_router
+from lorenzo_api.routers.writing_reviews import router as writing_reviews_router
 
 install_repository_quotas()
 
@@ -155,6 +156,7 @@ def create_app() -> FastAPI:
     app.include_router(players_router)
     app.include_router(characters_router)
     app.include_router(writing_router)
+    app.include_router(writing_reviews_router)
     app.include_router(beings_router)
     app.include_router(calendars_router)
     app.include_router(clocks_router)
