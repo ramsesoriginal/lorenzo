@@ -10,6 +10,7 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, select
+from sqlalchemy.orm import selectinload
 
 from lorenzo_api.campaign_access import is_tenant_author
 from lorenzo_api.client_ids import existing_in_tenant
@@ -132,10 +133,14 @@ async def entry(
 async def manuscript_payloads(
     session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, *, lock: bool = False
 ) -> tuple[Information | None, list[Payload]]:
-    stmt = select(Information).where(
-        Information.tenant_id == tenant_id,
-        Information.entity_id == id,
-        Information.type == "manuscript",
+    stmt = (
+        select(Information)
+        .where(
+            Information.tenant_id == tenant_id,
+            Information.entity_id == id,
+            Information.type == "manuscript",
+        )
+        .options(selectinload(Information.knowledge_links))
     )
     info = await session.scalar(stmt.with_for_update() if lock else stmt)
     rows = (
