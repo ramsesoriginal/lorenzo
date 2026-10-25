@@ -324,3 +324,8 @@ Writing adds Books with independent Editions and nested or unassigned Chapters. 
 placements interleave with stable manuscript payload identities; the graph is separate from
 containment and prototypes. Authors can arrange an outline, read it continuously and copy an
 Edition independently. Repository copy and release format 16 preserve and remap this structure.
+
+Lorenzo Writing W3 (RFC 0047, ADR 0342) adds Scene tellings with shared or independent
+manuscripts, explicit viewpoints, scoped writing biographies and existing Scene world references.
+Composition and repository releases preserve and remap these references; no narrative relation
+implies Event participation or knowledge.

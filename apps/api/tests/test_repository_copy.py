@@ -78,7 +78,7 @@ async def test_copying_a_repository(
         plan = (await gm.get(f"/tenants/{table}/repositories/{faerun}/copy-plan")).json()
         assert plan["collisions"] == []
         (step,) = plan["steps"]
-        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (17, 1, 6)
+        assert (step["entities"], step["stat_groups"], step["stat_definitions"]) == (18, 1, 6)
         assert (step["granted"], step["published"], step["already_copied"]) == (True, True, False)
 
         copied = await gm.post(f"/tenants/{table}/repositories/{faerun}/copy")
@@ -321,7 +321,7 @@ async def test_skipping_drops_what_depends_on_it(
         assert dropped == {"stat_definition", "entity_stat", "computed_stat", "entity_stat_group"}
         assert copied.json()["steps"][0]["stat_definitions"] == 0
         assert await _count(StatDefinition, table) == 0
-        assert await _count(Entity, table) == 17
+        assert await _count(Entity, table) == 18
     finally:
         await cleanup([table, faerun], [author, gm])
 

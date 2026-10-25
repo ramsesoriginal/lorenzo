@@ -132,7 +132,9 @@ async def entry_in_author_reach(
         Edition,
         Fact,
         Scene,
+        SceneTelling,
         StoryEvent,
+        WritingBiography,
     )
 
     return any(
@@ -154,6 +156,8 @@ async def entry_in_author_reach(
                 Scene,
                 Book,
                 Chapter,
+                SceneTelling,
+                WritingBiography,
                 Edition,
             )
         ]

@@ -70,6 +70,7 @@ from lorenzo_api.models import (
     RepositorySubscription,
     Scene,
     SceneAppearance,
+    SceneTelling,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -619,6 +620,27 @@ class _Planner:
                         "updated_by": user_id,
                     }
                 )
+            if e in c.writing_biographies:
+                self.rows["writing_biography"].append({"entity_id": new, "tenant_id": tenant_id})
+            if "scene_telling" in kinds:
+                telling = c.tellings[e]
+                scene = self._local(c, "entity", telling["scene"])
+                viewpoint = (
+                    self._local(c, "entity", telling["viewpoint"]) if telling["viewpoint"] else None
+                )
+                if scene is None or (telling["viewpoint"] and viewpoint is None):
+                    raise InvalidRepositoryUpdateError(
+                        detail="Copy this telling together with its Scene and viewpoint."
+                    )
+                self.rows["scene_telling"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "scene_entity_id": scene,
+                        "viewpoint_entity_id": viewpoint,
+                        "uses_scene_manuscript": telling["shared"],
+                    }
+                )
             for kind in ("book", "chapter"):
                 if kind in kinds:
                     self.rows[kind].append({"entity_id": new, "tenant_id": tenant_id})
@@ -902,7 +924,7 @@ class _Planner:
                     )
                 self.rows["manuscript_placement"].append(
                     {
-                        "chapter_entity_id": local_child,
+                        "child_entity_id": local_child,
                         "parent_entity_id": local_parent,
                         "tenant_id": tenant_id,
                         "before_payload_id": local_payloads.get(before),
@@ -1568,15 +1590,30 @@ async def forget_copy(
             )
             .limit(1)
         ) or await session.scalar(
-            select(ManuscriptPlacement.chapter_entity_id)
+            select(ManuscriptPlacement.child_entity_id)
             .where(
                 ManuscriptPlacement.tenant_id == t,
                 ManuscriptPlacement.parent_entity_id.in_(entities),
-                ManuscriptPlacement.chapter_entity_id.not_in(entities),
+                ManuscriptPlacement.child_entity_id.not_in(entities),
             )
             .limit(1)
         ):
             raise EntityKindInUseError(detail="Local manuscript structure still uses this copy.")
+        if await session.scalar(
+            select(SceneTelling.entity_id)
+            .where(
+                SceneTelling.tenant_id == t,
+                SceneTelling.entity_id.not_in(entities),
+                or_(
+                    SceneTelling.scene_entity_id.in_(entities),
+                    SceneTelling.viewpoint_entity_id.in_(entities),
+                ),
+            )
+            .limit(1)
+        ):
+            raise EntityKindInUseError(
+                detail="Local tellings still reference this repository copy."
+            )
         local_period = await session.scalar(
             select(
                 exists().where(
@@ -1908,7 +1945,7 @@ async def forget_copy(
             session,
             ManuscriptPlacement,
             ManuscriptPlacement.tenant_id == t,
-            ManuscriptPlacement.chapter_entity_id.in_(entities),
+            ManuscriptPlacement.child_entity_id.in_(entities),
         )
         # The counts above are hand-written; the registry says which tables they are for.
         assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED
@@ -2015,7 +2052,12 @@ async def forget_copy(
         await session.execute(
             delete(ManuscriptPlacement).where(
                 ManuscriptPlacement.tenant_id == t,
-                ManuscriptPlacement.chapter_entity_id.in_(entities),
+                ManuscriptPlacement.child_entity_id.in_(entities),
+            )
+        )
+        await session.execute(
+            delete(SceneTelling).where(
+                SceneTelling.tenant_id == t, SceneTelling.entity_id.in_(entities)
             )
         )
         await session.execute(

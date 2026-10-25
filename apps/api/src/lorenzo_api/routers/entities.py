@@ -100,7 +100,7 @@ from lorenzo_api.models import (
     VEffectiveStat,
     formula_load_options,
 )
-from lorenzo_api.models.manuscript import Book, Chapter, Edition
+from lorenzo_api.models.manuscript import Book, Chapter, Edition, SceneTelling, WritingBiography
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 from lorenzo_api.my_links import (
     MY_HINT,
@@ -165,6 +165,7 @@ _KINDS: tuple[
             | StoryEvent
             | CalendarObservance
             | Book
+            | SceneTelling
             | Chapter
             | Edition
             | Scene
@@ -187,6 +188,7 @@ _KINDS: tuple[
     ("book", Book),
     ("edition", Edition),
     ("chapter", Chapter),
+    ("scene_telling", SceneTelling),
     ("scene", Scene),
     ("scene_appearance", SceneAppearance),
     ("session", StorySession),
@@ -605,6 +607,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.book),
             joinedload(Entity.edition),
             joinedload(Entity.chapter),
+            joinedload(Entity.scene_telling),
             joinedload(Entity.scene),
             joinedload(Entity.scene_appearance),
             joinedload(Entity.story_session),
@@ -1225,6 +1228,12 @@ async def require_singleton_type_free(
     `exclude_information_id` is the row being PATCHed, which may keep its
     own type.
     """
+    if type_ == "manuscript":
+        telling = await session.get(SceneTelling, entity_id)
+        if telling and telling.uses_scene_manuscript:
+            raise InformationAlreadyExistsError(
+                detail="Make this telling independent before giving it its own manuscript."
+            )
     is_singleton = await session.scalar(
         select(InformationType.is_singleton).where(InformationType.name == type_)
     )
@@ -1727,6 +1736,8 @@ async def editable_fact_audience(
                 Scene,
                 Book,
                 Chapter,
+                SceneTelling,
+                WritingBiography,
                 Edition,
             )
         ]

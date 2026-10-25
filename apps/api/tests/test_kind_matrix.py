@@ -53,6 +53,7 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("book",): None,
     ("edition",): None,
     ("chapter",): None,
+    ("scene_telling",): None,
     ("scene",): None,
     ("being",): "item",
     ("being", "item"): "being",
@@ -63,6 +64,7 @@ _ORDER = [
     "book",
     "edition",
     "chapter",
+    "scene_telling",
     "item",
     "item_instance",
     "being",
@@ -191,6 +193,29 @@ async def _make(
             json={"parent_ids": [str(p) for p in parents]},
         )
         assert parents_response.status_code == 200, parents_response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("scene_telling",):
+        existing = (
+            await scene_author.get(f"/tenants/{repository}/entities", params={"kind": "scene"})
+        ).json()["items"]
+        if existing:
+            scene_id = existing[0]["id"]
+        else:
+            source = await scene_author.post(
+                f"/tenants/{repository}/scenes", json={"name": "Shared narrative"}
+            )
+            assert source.status_code == 201, source.text
+            scene_id = source.json()["id"]
+        made = await scene_author.post(
+            f"/tenants/{repository}/writing/tellings", json={"name": name, "scene_id": scene_id}
+        )
+        assert made.status_code == 201, made.text
+        entity_id = made.json()["id"]
+        linked = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert linked.status_code == 200, linked.text
         return uuid.UUID(entity_id)
     if kinds == ("scene",):
         response = await scene_author.post(f"/tenants/{repository}/scenes", json={"name": name})

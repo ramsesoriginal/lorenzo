@@ -93,12 +93,14 @@ from lorenzo_api.models import (
     RepositoryReleaseDocument,
     RepositoryReleasedRow,
     RepositoryShowcase,
+    SceneTelling,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StoryEvent,
     TenantAdminCampaignOptOut,
     TenantProfilePicture,
+    WritingBiography,
 )
 from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
@@ -204,8 +206,10 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(GroupMember, "group_member", counted_on_purge=True),
     _rows(Book, "book", carried_by="entity"),
     _rows(Chapter, "chapter", carried_by="entity"),
+    _rows(WritingBiography, "writing_biography", carried_by="entity"),
     _rows(Edition, "edition", carried_by="entity"),
     _rows(Scene, "scene", carried_by="entity"),
+    _rows(SceneTelling, "scene_telling", carried_by="entity"),
     _rows(SceneFact, "scene_fact", counted_on_purge=True),
     _rows(SceneEvent, "scene_event", counted_on_purge=True),
     _rows(SceneBeing, "scene_being", counted_on_purge=True),

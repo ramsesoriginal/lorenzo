@@ -136,6 +136,7 @@ class Kind1(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
+    scene_telling = "scene_telling"
     scene = "scene"
     scene_appearance = "scene_appearance"
     session = "session"
@@ -756,6 +757,7 @@ class DuplicateGroupRequest(BaseModel):
 class Kind9(StrEnum):
     payload = "payload"
     chapter = "chapter"
+    scene_telling = "scene_telling"
 
 
 class Element(BaseModel):
@@ -815,6 +817,7 @@ class Kind11(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
+    scene_telling = "scene_telling"
     scene = "scene"
     scene_appearance = "scene_appearance"
     session = "session"
@@ -1124,6 +1127,7 @@ class Kind17(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
+    scene_telling = "scene_telling"
     scene = "scene"
     scene_appearance = "scene_appearance"
     session = "session"
@@ -1318,6 +1322,14 @@ class NewManuscript(BaseModel):
     name: constr(min_length=1, max_length=300) = Field(..., title="Name")
 
 
+class NewTelling(BaseModel):
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=300) = Field(..., title="Name")
+    scene_id: UUID = Field(..., title="Scene Id")
+    viewpoint_id: UUID | None = Field(None, title="Viewpoint Id")
+    uses_scene_manuscript: bool | None = Field(True, title="Uses Scene Manuscript")
+
+
 class NotAppliedOut(BaseModel):
     kind: str = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
@@ -1509,6 +1521,14 @@ class PageLearningOut(BaseModel):
 
 class PageManuscriptRevisionSummary(BaseModel):
     items: list[ManuscriptRevisionSummary] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageManuscriptSummary(BaseModel):
+    items: list[ManuscriptSummary] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -2147,6 +2167,7 @@ class Kind25(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
+    scene_telling = "scene_telling"
     scene = "scene"
     scene_appearance = "scene_appearance"
     session = "session"
@@ -2572,6 +2593,10 @@ class ValidationError(BaseModel):
     ctx: dict[str, Any] | None = Field(None, title="Context")
 
 
+class Viewpoint(BaseModel):
+    viewpoint_id: UUID | None = Field(..., title="Viewpoint Id")
+
+
 class Reset(StrEnum):
     never = "never"
     segment = "segment"
@@ -2592,6 +2617,9 @@ class Kind32(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
+    scene = "scene"
+    scene_telling = "scene_telling"
+    biography = "biography"
 
 
 class WritingEntry(BaseModel):
@@ -2600,6 +2628,10 @@ class WritingEntry(BaseModel):
     kind: Kind32 = Field(..., title="Kind")
     book_id: UUID | None = Field(None, title="Book Id")
     parent_id: UUID | None = Field(None, title="Parent Id")
+    scene_id: UUID | None = Field(None, title="Scene Id")
+    viewpoint_id: UUID | None = Field(None, title="Viewpoint Id")
+    manuscript_source_id: UUID | None = Field(None, title="Manuscript Source Id")
+    uses_scene_manuscript: bool | None = Field(False, title="Uses Scene Manuscript")
     editions: list[ManuscriptSummary] | None = Field([], title="Editions", validate_default=True)
     elements: list[Element] | None = Field([], title="Elements", validate_default=True)
     version: str = Field(..., title="Version")

@@ -4,13 +4,18 @@ A quiet writing surface for library and repository Authors. Start with a standal
 an unassigned Chapter or a Book. Books create their first Edition automatically. Write
 LorenzoScript and ordered pictures, nest Chapters in an outline, interleave them with prose,
 and read the composition continuously. Another Edition independently copies the manuscript.
-Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329 and 0341.
+Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329, 0341 and 0342.
 
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Cross-parent moves, splitting/joining, tellings, reviewers, Carriers and
+saved prose revisions. Cross-parent moves, splitting/joining, reviewers, Carriers and
 subsequent slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
+
+Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
+Make independent copies its current prose and pictures before editing. Viewpoints and world
+references are explicit choices in Details, with no inferred Events or sharing. Character
+biographies are private Being entries intended for writing, without campaign or inventory powers.
 
 ## Run and verify
 

@@ -61,7 +61,7 @@ export async function compositionScreen(
     status.textContent = error instanceof Error ? error.message : 'This could not be completed.';
   };
   host.replaceChildren(heading, nav, status);
-  if (reading) {
+  if (reading || !['edition', 'chapter'].includes(current.kind)) {
     const article = node('article');
     article.className = 'ls-content';
     host.append(article);
@@ -79,8 +79,8 @@ export async function compositionScreen(
       if (task.kind === 'entry') {
         try {
           const outline = await outlineOf(tenant, task.id);
-          const entry = await entityOf(tenant, task.id);
-          if (task.id !== id) article.append(node('h2', entry.name));
+          const entry = await entityOf(tenant, outline.manuscript_source_id ?? task.id);
+          if (task.id !== id) article.append(node('h2', outline.name));
           const payloads = new Map(
             entry.information
               .filter((i) => i.type === 'manuscript')
@@ -88,7 +88,7 @@ export async function compositionScreen(
               .map((p) => [p.id, p]),
           );
           for (const item of [...outline.elements].reverse()) {
-            if (item.kind === 'chapter') tasks.push({ kind: 'entry', id: item.id });
+            if (item.kind !== 'payload') tasks.push({ kind: 'entry', id: item.id });
             else {
               const payload = payloads.get(item.id);
               if (payload) tasks.push({ kind: 'payload', payload });
@@ -138,13 +138,13 @@ export async function compositionScreen(
     li.className = 'stack-tight';
     const p = payloads.get(item.id);
     const label =
-      item.kind === 'chapter'
+      item.kind !== 'payload'
         ? (item.name ?? 'Chapter')
         : p?.kind === 'description'
           ? p.content.slice(0, 80) || 'Empty text'
           : 'Picture';
     li.append(
-      item.kind === 'chapter' ? link(label, writingAddress(tenant, item.id)) : node('span', label),
+      item.kind !== 'payload' ? link(label, writingAddress(tenant, item.id)) : node('span', label),
     );
     const controls = node('div');
     controls.className = 'row';
@@ -162,9 +162,11 @@ export async function compositionScreen(
       move.disabled = index + delta < 0 || index + delta >= current.elements.length;
       controls.append(move);
     }
-    if (item.kind === 'chapter')
+    if (item.kind !== 'payload')
       controls.append(
-        link('Subchapters', writingAddress(tenant, item.id, 'outline')),
+        ...(item.kind === 'chapter'
+          ? [link('Subchapters', writingAddress(tenant, item.id, 'outline'))]
+          : []),
         button('Remove from outline', async () =>
           saveOrder(current.elements.filter((x) => x.id !== item.id).map((x) => x.id)),
         ),
@@ -238,6 +240,60 @@ export async function compositionScreen(
       }
     }),
     matches,
+  );
+  const scenes = node('details');
+  scenes.append(node('summary', 'Use a Scene'));
+  host.append(scenes);
+  const sceneSearch = node('input');
+  sceneSearch.type = 'search';
+  sceneSearch.className = 'text-input';
+  sceneSearch.setAttribute('aria-label', 'Find a Scene');
+  const sceneMatches = node('div');
+  sceneMatches.className = 'stack-tight';
+  scenes.append(
+    sceneSearch,
+    button('Find Scenes', async () => {
+      try {
+        const found = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities', {
+            params: {
+              path: { tenant_id: tenant },
+              query: { kind: ['scene'], q: sceneSearch.value.trim(), size: 10 },
+            },
+          }),
+        );
+        sceneMatches.replaceChildren();
+        for (const scene of found.items) {
+          const tellingId = crypto.randomUUID();
+          sceneMatches.append(
+            button(scene.name, async () => {
+              try {
+                const made = await unwrap(
+                  await client.POST('/tenants/{tenant_id}/writing/tellings', {
+                    params: { path: { tenant_id: tenant } },
+                    body: {
+                      id: tellingId,
+                      name: scene.name,
+                      scene_id: scene.id,
+                      uses_scene_manuscript: true,
+                    },
+                  }),
+                );
+                await saveOrder([...current.elements.map((x) => x.id), made.id]);
+              } catch (error) {
+                report(error);
+              }
+            }),
+          );
+        }
+        if (!found.items.length) sceneMatches.append(node('p', 'No Scenes found.'));
+        if (found.total > 10)
+          sceneMatches.append(node('p', 'Refine the title to find more Scenes.'));
+      } catch (error) {
+        report(error);
+      }
+    }),
+    sceneMatches,
   );
   if (current.kind === 'edition') {
     const editions = node('details');

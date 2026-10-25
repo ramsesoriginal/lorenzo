@@ -439,3 +439,64 @@ test('a Book has nested Chapters, mixed reading order and independent Editions',
     await context.close();
   }
 });
+
+test('reusing a Scene keeps tellings independent and supports a viewpoint biography', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await text.fill('The river remembers.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const sceneId = new URL(page.url()).searchParams.get('entry');
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('biography');
+    await page.getByLabel('New draft title').fill('Ferryman');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await text.fill('He knows every crossing.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}`);
+    await expect(page.getByRole('link', { name: 'Ferryman', exact: true })).toBeVisible();
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('River book');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'River book', exact: true })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (let n = 0; n < 2; n++) {
+      await page.getByText('Use a Scene', { exact: true }).click();
+      await page.getByLabel('Find a Scene', { exact: true }).fill('Across the water');
+      await page.getByRole('button', { name: 'Find Scenes', exact: true }).click();
+      await page.getByRole('button', { name: 'Across the water', exact: true }).click();
+      await expect(page.getByRole('link', { name: 'Across the water', exact: true })).toHaveCount(
+        n + 1,
+      );
+    }
+    await page.getByRole('link', { name: 'Across the water', exact: true }).first().click();
+    await expect(page.locator('article')).toContainText('The river remembers.');
+    await page.getByText('Details', { exact: true }).click();
+    await page.getByText('Viewpoint', { exact: true }).click();
+    await page.getByLabel('Viewpoint', { exact: true }).fill('Ferryman');
+    await page.getByRole('button', { name: 'Find viewpoint', exact: true }).click();
+    await page.getByRole('button', { name: 'Ferryman', exact: true }).click();
+    await expect(page.getByText('Viewpoint: Ferryman', { exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('telling-desktop.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Make independent', exact: true }).click();
+    await expect(text).toHaveValue('The river remembers.');
+    await text.fill('The ferryman remembers.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=read`);
+    await expect(page.locator('article')).toHaveText(
+      /The ferryman remembers.*The river remembers/s,
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: test.info().outputPath('tellings-phone.png'), fullPage: true });
+    await page.goto(`/?tenant=${tenant.id}&entry=${sceneId}`);
+    await expect(text).toHaveValue('The river remembers.');
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});

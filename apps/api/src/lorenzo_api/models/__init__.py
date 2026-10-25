@@ -212,3 +212,6 @@ from lorenzo_api.models.story_session import (
     SessionPlayer,
     StorySession,
 )
+
+from .manuscript import SceneTelling as SceneTelling
+from .manuscript import WritingBiography as WritingBiography

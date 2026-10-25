@@ -45,7 +45,13 @@ from lorenzo_api.models import (
     ItemInstance,
     StoryEvent,
 )
-from lorenzo_api.models.manuscript import Book, Chapter, Edition, ManuscriptPlacement
+from lorenzo_api.models.manuscript import (
+    Book,
+    Chapter,
+    Edition,
+    ManuscriptPlacement,
+    SceneTelling,
+)
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 # The kinds a route may add or remove.
@@ -71,6 +77,7 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("book",),
         ("edition",),
         ("chapter",),
+        ("scene_telling",),
         ("scene",),
         ("being",),
         ("being", "item"),
@@ -174,7 +181,7 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
-    if existing_kinds & {"book", "edition", "chapter"}:
+    if existing_kinds & {"book", "edition", "chapter", "scene_telling"}:
         raise InvalidKindRequestError(detail="Manuscript kinds do not combine with other kinds.")
     if existing_kinds & {"scene", "scene_appearance", "session", "clock"}:
         raise InvalidKindRequestError(
@@ -342,6 +349,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("book", Book),
             ("edition", Edition),
             ("chapter", Chapter),
+            ("scene_telling", SceneTelling),
             ("scene", Scene),
             ("scene_appearance", SceneAppearance),
             ("session", StorySession),
@@ -377,9 +385,18 @@ async def require_deletable(
 
     await require_no_context_references(session, tenant_id, entity_id)
     if await session.scalar(
+        select(SceneTelling.entity_id)
+        .where(
+            (SceneTelling.scene_entity_id == entity_id)
+            | (SceneTelling.viewpoint_entity_id == entity_id)
+        )
+        .limit(1)
+    ):
+        raise EntityKindInUseError(detail="Remove this entry's Scene telling references first.")
+    if await session.scalar(
         select(Edition.entity_id).where(Edition.book_entity_id == entity_id).limit(1)
     ) or await session.scalar(
-        select(ManuscriptPlacement.chapter_entity_id)
+        select(ManuscriptPlacement.child_entity_id)
         .where(ManuscriptPlacement.parent_entity_id == entity_id)
         .limit(1)
     ):

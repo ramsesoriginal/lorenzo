@@ -14,9 +14,7 @@ import { createEditor } from '@lorenzo/lorenzoscript-editor';
 import { client, fetchAllPages, LorenzoApiError, loadFile, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
 import { compositionScreen, outlineOf, writingAddress } from './composition';
-
 import { API_BASE_URL } from './config';
-
 import {
   draftKey,
   forgetDrafts,
@@ -26,6 +24,7 @@ import {
   selectDraft,
   writeDraft,
 } from './drafts';
+import { writingDetails } from './writing-details';
 
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'This could not be completed.';
@@ -143,6 +142,7 @@ export async function start() {
       ['scene', 'Scene draft'],
       ['book', 'Book'],
       ['chapter', 'Chapter draft'],
+      ['biography', 'Character biography'],
     ]) {
       const option = element('option', label);
       option.value = value;
@@ -159,7 +159,9 @@ export async function start() {
             const route =
               kind.value === 'book'
                 ? '/tenants/{tenant_id}/writing/books'
-                : '/tenants/{tenant_id}/writing/chapters';
+                : kind.value === 'biography'
+                  ? '/tenants/{tenant_id}/writing/biographies'
+                  : '/tenants/{tenant_id}/writing/chapters';
             const made = await unwrap(
               await client.POST(route, {
                 params: { path: { tenant_id: tenant } },
@@ -202,7 +204,7 @@ export async function start() {
         await client.GET('/tenants/{tenant_id}/entities', {
           params: {
             path: { tenant_id: tenant },
-            query: { page, size: 100, kind: ['scene', 'book', 'chapter'] },
+            query: { page, size: 100, kind: ['scene', 'book', 'chapter', 'scene_telling'] },
           },
         }),
       ),
@@ -210,7 +212,14 @@ export async function start() {
 
     const list = element('ul', '', 'list');
 
-    for (const scene of scenes) {
+    const biographies = await fetchAllPages(async (page) =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/writing/biographies', {
+          params: { path: { tenant_id: tenant }, query: { page, size: 100 } },
+        }),
+      ),
+    );
+    for (const scene of [...scenes, ...biographies]) {
       const item = element('li');
       const link = element('a', scene.name);
       link.href = address(tenant, scene.id);
@@ -232,7 +241,51 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     params: { path },
   });
   const entity = await unwrap(entityResult);
-  const structured = entity.kinds.some((k) => ['book', 'edition', 'chapter'].includes(k));
+  const writingEntry = await outlineOf(tenant, entry);
+  const structured = ['book', 'edition', 'chapter'].includes(writingEntry.kind);
+  if (writingEntry.uses_scene_manuscript) {
+    await compositionScreen(host, tenant, entry, true);
+    const explanation = element('p', "This telling uses the Scene's shared manuscript.");
+    const action = button('Make independent', () => {
+      action.disabled = true;
+      void (async () => {
+        try {
+          await unwrap(
+            await client.POST('/tenants/{tenant_id}/writing/tellings/{id}/independent', {
+              params: {
+                path: { tenant_id: tenant, id: entry },
+                header: { 'if-match': writingEntry.version },
+              },
+            }),
+          );
+          location.reload();
+        } catch (error) {
+          explanation.textContent = message(error);
+          action.disabled = false;
+        }
+      })();
+    });
+    host.append(explanation, action);
+    if (writingEntry.scene_id) {
+      const source = element('a', 'Edit shared Scene');
+      source.href = address(tenant, writingEntry.scene_id);
+      host.append(source);
+    }
+    const details = element('details');
+    details.append(element('summary', 'Details'));
+    const content = element('div', '', 'stack-tight');
+    details.append(content);
+    details.addEventListener('toggle', () => {
+      if (details.open && !content.children.length)
+        void writingDetails(content, tenant, entry, (version) => {
+          writingEntry.version = version;
+        }).catch((error) => {
+          content.textContent = message(error);
+        });
+    });
+    host.append(details);
+    return;
+  }
   if (entity.kinds.includes('book')) {
     const book = await outlineOf(tenant, entry);
     const first = book.editions[0];
@@ -240,7 +293,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     location.replace(address(tenant, first.id));
     return;
   }
-  if (!structured) {
+  if (writingEntry.kind === 'scene') {
     const scene = await unwrap(
       await client.GET('/tenants/{tenant_id}/scenes/{scene_id}', {
         params: { path: { tenant_id: tenant, scene_id: entry } },
@@ -343,6 +396,14 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
 
   const details = element('details');
   details.append(element('summary', 'Details'));
+  const worldDetails = element('div', '', 'stack-tight');
+  details.append(worldDetails);
+  details.addEventListener('toggle', () => {
+    if (details.open && !worldDetails.children.length)
+      void writingDetails(worldDetails, tenant, entry).catch((error) => {
+        worldDetails.textContent = message(error);
+      });
+  });
 
   const title = element('input', '', 'text-input');
   title.value = scene.name;

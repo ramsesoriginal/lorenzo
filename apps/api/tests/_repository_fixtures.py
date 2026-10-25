@@ -66,11 +66,13 @@ from lorenzo_api.models import (
     RepositoryReleasedRow,
     RepositoryShowcase,
     Scene,
+    SceneTelling,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
     StoryEvent,
+    WritingBiography,
 )
 from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
 from lorenzo_api.repository_content import Content
@@ -418,6 +420,19 @@ async def seed_every_content_table(
     )
     session.add_all(context_rows)
     await session.flush()
+    telling = entity("Telling")
+    await session.flush()
+    session.add_all(
+        [
+            SceneTelling(
+                entity_id=telling.id,
+                tenant_id=tenant_id,
+                scene_entity_id=scene.id,
+                viewpoint_entity_id=elminster.id,
+            ),
+            WritingBiography(entity_id=elminster.id, tenant_id=tenant_id),
+        ]
+    )
     book, edition, chapter = entity("Book"), entity("Edition"), entity("Chapter")
     await session.flush()
     session.add_all(
@@ -431,7 +446,7 @@ async def seed_every_content_table(
     await session.flush()
     session.add(
         ManuscriptPlacement(
-            chapter_entity_id=chapter.id,
+            child_entity_id=chapter.id,
             parent_entity_id=edition.id,
             before_payload_id=None,
             position=0,

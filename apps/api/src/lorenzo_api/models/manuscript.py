@@ -46,16 +46,16 @@ class ManuscriptPlacement(Base):
     __tablename__ = "manuscript_placement"
     __table_args__ = (
         CheckConstraint(
-            "parent_entity_id <> chapter_entity_id", name="manuscript_placement_not_self"
+            "parent_entity_id <> child_entity_id", name="manuscript_placement_not_self"
         ),
         same_tenant_fk(
             "manuscript_placement_parent_fkey", ["parent_entity_id"], "entity", ondelete="NO ACTION"
         ),
         same_tenant_fk(
-            "manuscript_placement_chapter_fkey",
-            ["chapter_entity_id"],
-            "chapter",
-            ["entity_id"],
+            "manuscript_placement_child_fkey",
+            ["child_entity_id"],
+            "entity",
+            ["id"],
             ondelete="CASCADE",
         ),
         same_tenant_fk(
@@ -65,8 +65,50 @@ class ManuscriptPlacement(Base):
             ondelete="NO ACTION",
         ),
     )
-    chapter_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    child_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
     parent_entity_id: Mapped[uuid.UUID]
     before_payload_id: Mapped[uuid.UUID | None]
     position: Mapped[int]
+
+
+class SceneTelling(Base):
+    __tablename__ = "scene_telling"
+    __table_args__ = (
+        UniqueConstraint("entity_id", "tenant_id", name="scene_telling_tenant_key"),
+        same_tenant_fk("scene_telling_entity_fkey", ["entity_id"], "entity", ondelete="CASCADE"),
+        same_tenant_fk(
+            "scene_telling_scene_fkey",
+            ["scene_entity_id"],
+            "scene",
+            ["entity_id"],
+            ondelete="NO ACTION",
+        ),
+        same_tenant_fk(
+            "scene_telling_viewpoint_fkey",
+            ["viewpoint_entity_id"],
+            "being",
+            ["entity_id"],
+            ondelete="NO ACTION",
+        ),
+    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    scene_entity_id: Mapped[uuid.UUID]
+    viewpoint_entity_id: Mapped[uuid.UUID | None]
+    uses_scene_manuscript: Mapped[bool] = mapped_column(default=True, server_default="true")
+
+
+class WritingBiography(Base):
+    __tablename__ = "writing_biography"
+    __table_args__ = (
+        same_tenant_fk(
+            "writing_biography_being_fkey",
+            ["entity_id"],
+            "being",
+            ["entity_id"],
+            ondelete="CASCADE",
+        ),
+    )
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]

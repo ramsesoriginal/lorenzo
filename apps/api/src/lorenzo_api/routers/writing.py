@@ -6,13 +6,16 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, Response
-from pydantic import BaseModel, Field
+from fastapi_pagination import Page
+from fastapi_pagination.ext.sqlalchemy import apaginate
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, select
 
 from lorenzo_api.campaign_access import is_tenant_author
 from lorenzo_api.client_ids import existing_in_tenant
 from lorenzo_api.dependencies import (
     CurrentUser,
+    ParamsDep,
     SessionDep,
     get_tenant_or_404,
     require_tenant_participant,
@@ -29,6 +32,7 @@ from lorenzo_api.exceptions import (
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
+    Being,
     Book,
     Chapter,
     Edition,
@@ -40,7 +44,10 @@ from lorenzo_api.models import (
     PayloadDocument,
     PayloadNumber,
     PayloadPicture,
+    Scene,
+    SceneTelling,
     Tenant,
+    WritingBiography,
 )
 from lorenzo_api.routers.story_sessions import create_entry
 
@@ -66,11 +73,12 @@ class NewEdition(NewManuscript):
 
 class Element(BaseModel):
     id: uuid.UUID
-    kind: Literal["payload", "chapter"]
+    kind: Literal["payload", "chapter", "scene_telling"]
     name: str | None = None
 
 
 class ManuscriptSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     name: str
 
@@ -78,9 +86,13 @@ class ManuscriptSummary(BaseModel):
 class WritingEntry(BaseModel):
     id: uuid.UUID
     name: str
-    kind: Literal["book", "edition", "chapter"]
+    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography"]
     book_id: uuid.UUID | None = None
     parent_id: uuid.UUID | None = None
+    scene_id: uuid.UUID | None = None
+    viewpoint_id: uuid.UUID | None = None
+    manuscript_source_id: uuid.UUID | None = None
+    uses_scene_manuscript: bool = False
     editions: list[ManuscriptSummary] = []
     elements: list[Element] = []
     version: str
@@ -150,7 +162,7 @@ async def children(
                 ManuscriptPlacement.tenant_id == tenant_id,
                 ManuscriptPlacement.parent_entity_id == id,
             )
-            .order_by(ManuscriptPlacement.position, ManuscriptPlacement.chapter_entity_id)
+            .order_by(ManuscriptPlacement.position, ManuscriptPlacement.child_entity_id)
         )
     )
 
@@ -159,15 +171,21 @@ async def result(
     session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, user: CurrentUser, response: Response
 ) -> WritingEntry:
     row = await entry(session, tenant_id, id, user)
-    kind: Literal["book", "edition", "chapter"]
+    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography"]
     if await session.get(Book, id):
         kind = "book"
     elif await session.get(Edition, id):
         kind = "edition"
     elif await session.get(Chapter, id):
         kind = "chapter"
+    elif await session.get(SceneTelling, id):
+        kind = "scene_telling"
+    elif await session.get(Scene, id):
+        kind = "scene"
+    elif await session.get(WritingBiography, id):
+        kind = "biography"
     else:
-        raise EntityNotFoundError(detail="No such Book, Edition or Chapter.")
+        raise EntityNotFoundError(detail="No such writing entry.")
     vis = await resolve_information_visibility(session, tenant_id=tenant_id, user_id=user.id)
     info, payloads = await manuscript_payloads(session, tenant_id, id)
     links = await children(session, tenant_id, id)
@@ -178,15 +196,22 @@ async def result(
             )
         )
     )
+    telling = await session.get(SceneTelling, id)
+    source_id = telling.scene_entity_id if telling and telling.uses_scene_manuscript else id
+    if source_id in visible:
+        info, payloads = await manuscript_payloads(session, tenant_id, source_id)
+    else:
+        info, payloads = None, []
     token = hashlib.sha256(
         repr(
             (
                 row.updated_at,
+                (telling.uses_scene_manuscript, telling.viewpoint_entity_id) if telling else None,
                 [(p.id, p.updated_at, p.order) for p in payloads if info and vis.can_see(info)],
                 [
-                    (p.chapter_entity_id, p.before_payload_id, p.position)
+                    (p.child_entity_id, p.before_payload_id, p.position)
                     for p in links
-                    if p.chapter_entity_id in visible
+                    if p.child_entity_id in visible
                 ],
             )
         ).encode()
@@ -194,10 +219,23 @@ async def result(
     version = f'W/"{token}"'
     elements: list[Element] = []
 
+    telling_ids = set(
+        await session.scalars(
+            select(SceneTelling.entity_id).where(SceneTelling.tenant_id == tenant_id)
+        )
+    )
+
     def add_links(anchor: uuid.UUID | None) -> None:
         for link in links:
-            if link.before_payload_id == anchor and link.chapter_entity_id in visible:
-                elements.append(Element(id=link.chapter_entity_id, kind="chapter"))
+            if link.before_payload_id == anchor and link.child_entity_id in visible:
+                elements.append(
+                    Element(
+                        id=link.child_entity_id,
+                        kind="scene_telling"
+                        if telling_ids and link.child_entity_id in telling_ids
+                        else "chapter",
+                    )
+                )
 
     for p in payloads:
         add_links(p.id)
@@ -205,7 +243,7 @@ async def result(
             elements.append(Element(id=p.id, kind="payload"))
     add_links(None)
     for el in elements:
-        if el.kind == "chapter":
+        if el.kind != "payload":
             child = await session.get(Entity, el.id)
             assert child is not None
             el.name = child.name
@@ -226,6 +264,14 @@ async def result(
     response.headers["Cache-Control"] = "private, no-store"
     placement = await session.get(ManuscriptPlacement, id)
     return WritingEntry(
+        scene_id=telling.scene_entity_id
+        if telling and telling.scene_entity_id in visible
+        else None,
+        viewpoint_id=telling.viewpoint_entity_id
+        if telling and telling.viewpoint_entity_id in visible
+        else None,
+        manuscript_source_id=source_id if source_id in visible else None,
+        uses_scene_manuscript=bool(telling and telling.uses_scene_manuscript),
         parent_id=placement.parent_entity_id
         if placement and placement.parent_entity_id in visible
         else None,
@@ -330,12 +376,16 @@ async def arrange(
     wanted = set(ids) - own
     for child_id in wanted:
         await entry(session, tenant_id, child_id, user)
-        if not await session.get(Chapter, child_id):
-            raise InvalidKindRequestError(detail="Only Chapters can be placed here.")
+        if not await session.get(Chapter, child_id) and not await session.get(
+            SceneTelling, child_id
+        ):
+            raise InvalidKindRequestError(
+                detail="Only Chapters or Scene tellings can be placed here."
+            )
         link = await session.get(ManuscriptPlacement, child_id)
         if link and link.parent_entity_id != id:
             raise InvalidKindRequestError(
-                detail="Remove this Chapter from its current outline first."
+                detail="Remove this entry from its current outline first."
             )
         ancestor: uuid.UUID | None = id
         while ancestor is not None:
@@ -366,7 +416,7 @@ async def arrange(
         else:
             session.add(
                 ManuscriptPlacement(
-                    chapter_entity_id=child_id,
+                    child_entity_id=child_id,
                     parent_entity_id=id,
                     tenant_id=tenant_id,
                     before_payload_id=anchor,
@@ -378,6 +428,51 @@ async def arrange(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await result(session, tenant_id, id, user, response)
+
+
+async def copy_manuscript(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    source_id: uuid.UUID,
+    target: uuid.UUID,
+    user: CurrentUser,
+) -> dict[uuid.UUID, uuid.UUID]:
+    payload_map: dict[uuid.UUID, uuid.UUID] = {}
+    info, payloads = await manuscript_payloads(session, tenant_id, source_id, lock=True)
+    if info:
+        vis = await resolve_information_visibility(session, tenant_id=tenant_id, user_id=user.id)
+        if not vis.can_see(info):
+            raise InformationManagementForbiddenError(
+                detail="The entire manuscript must be readable to copy this Edition."
+            )
+        copied = Information(
+            id=uuid.uuid4(),
+            entity_id=target,
+            tenant_id=tenant_id,
+            title=info.title,
+            type="manuscript",
+            is_public=False,
+            created_by=user.id,
+        )
+        session.add(copied)
+        await session.flush()
+        for p in payloads:
+            new_id = uuid.uuid4()
+            payload_map[p.id] = new_id
+            session.add(
+                Payload(id=new_id, information_id=copied.id, tenant_id=tenant_id, order=p.order)
+            )
+            await session.flush()
+            for model in (PayloadDescription, PayloadPicture, PayloadNumber, PayloadDocument):
+                content = await session.get(model, p.id)
+                if content:
+                    values = {
+                        c.name: getattr(content, c.name)
+                        for c in model.__table__.columns
+                        if c.name not in {"payload_id", "tenant_id"}
+                    }
+                    session.add(model(payload_id=new_id, tenant_id=tenant_id, **values))
+    return payload_map
 
 
 @router.post("/editions", status_code=201)
@@ -421,57 +516,33 @@ async def duplicate_edition(
             target,
             body.name if source_id == body.source_edition_id else source_entry.name,
         )
+        source_telling = await session.get(SceneTelling, source_id)
         session.add(
             Edition(entity_id=target, tenant_id=tenant_id, book_entity_id=source.book_entity_id)
             if source_id == body.source_edition_id
-            else Chapter(entity_id=target, tenant_id=tenant_id)
-        )
-        info, payloads = await manuscript_payloads(session, tenant_id, source_id, lock=True)
-        if info:
-            vis = await resolve_information_visibility(
-                session, tenant_id=tenant_id, user_id=user.id
-            )
-            if not vis.can_see(info):
-                raise InformationManagementForbiddenError(
-                    detail="The entire manuscript must be readable to copy this Edition."
-                )
-            copied = Information(
-                id=uuid.uuid4(),
+            else SceneTelling(
                 entity_id=target,
                 tenant_id=tenant_id,
-                title=info.title,
-                type="manuscript",
-                is_public=False,
-                created_by=user.id,
+                scene_entity_id=source_telling.scene_entity_id,
+                viewpoint_entity_id=source_telling.viewpoint_entity_id,
+                uses_scene_manuscript=source_telling.uses_scene_manuscript,
             )
-            session.add(copied)
-            await session.flush()
-            for p in payloads:
-                new_id = uuid.uuid4()
-                payload_map[p.id] = new_id
-                session.add(
-                    Payload(id=new_id, information_id=copied.id, tenant_id=tenant_id, order=p.order)
-                )
-                await session.flush()
-                for model in (PayloadDescription, PayloadPicture, PayloadNumber, PayloadDocument):
-                    content = await session.get(model, p.id)
-                    if content:
-                        values = {
-                            c.name: getattr(content, c.name)
-                            for c in model.__table__.columns
-                            if c.name not in {"payload_id", "tenant_id"}
-                        }
-                        session.add(model(payload_id=new_id, tenant_id=tenant_id, **values))
+            if source_telling
+            else Chapter(entity_id=target, tenant_id=tenant_id)
+        )
+        source_telling = await session.get(SceneTelling, source_id)
+        if not source_telling or not source_telling.uses_scene_manuscript:
+            payload_map.update(await copy_manuscript(session, tenant_id, source_id, target, user))
         links = await children(session, tenant_id, source_id)
         placements.extend(links)
         for link in links:
-            mapping[link.chapter_entity_id] = uuid.uuid4()
-            pending.append(link.chapter_entity_id)
+            mapping[link.child_entity_id] = uuid.uuid4()
+            pending.append(link.child_entity_id)
         await session.flush()
     for link in placements:
         session.add(
             ManuscriptPlacement(
-                chapter_entity_id=mapping[link.chapter_entity_id],
+                child_entity_id=mapping[link.child_entity_id],
                 parent_entity_id=mapping[link.parent_entity_id],
                 tenant_id=tenant_id,
                 before_payload_id=payload_map.get(link.before_payload_id)
@@ -483,3 +554,183 @@ async def duplicate_edition(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await result(session, tenant_id, body.id, user, response)
+
+
+class NewTelling(NewManuscript):
+    scene_id: uuid.UUID
+    viewpoint_id: uuid.UUID | None = None
+    uses_scene_manuscript: bool = True
+
+
+async def require_viewpoint(
+    session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID | None, user: CurrentUser
+) -> None:
+    if id is not None:
+        await entry(session, tenant_id, id, user)
+        if not await session.get(Being, id):
+            raise EntityNotFoundError(detail="Choose a Being as the viewpoint.")
+
+
+@router.post("/tellings", status_code=201)
+async def create_telling(
+    tenant_id: uuid.UUID,
+    body: NewTelling,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> WritingEntry:
+    await author(session, tenant_id, user)
+    await entry(session, tenant_id, body.scene_id, user)
+    if not await session.get(Scene, body.scene_id):
+        raise EntityNotFoundError(detail="Choose an existing Scene.")
+    await require_viewpoint(session, tenant_id, body.viewpoint_id, user)
+    old = await existing_in_tenant(session, Entity, body.id, tenant_id)
+    if old:
+        marker = await session.get(SceneTelling, body.id)
+        if (
+            not marker
+            or old.created_by != user.id
+            or old.name != body.name
+            or marker.scene_entity_id != body.scene_id
+            or marker.viewpoint_entity_id != body.viewpoint_id
+        ):
+            raise ClientIdUnavailableError(detail="That creation id is already in use.")
+        response.status_code = 200
+    else:
+        await create_entry(session, tenant_id, user, body.id, body.name)
+        session.add(
+            SceneTelling(
+                entity_id=body.id,
+                tenant_id=tenant_id,
+                scene_entity_id=body.scene_id,
+                viewpoint_entity_id=body.viewpoint_id,
+                uses_scene_manuscript=body.uses_scene_manuscript,
+            )
+        )
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    return await result(session, tenant_id, body.id, user, response)
+
+
+@router.post("/tellings/{id}/independent")
+async def make_independent(
+    tenant_id: uuid.UUID,
+    id: uuid.UUID,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> WritingEntry:
+    await author(session, tenant_id, user)
+    row = await entry(session, tenant_id, id, user, lock=True)
+    telling = await session.get(SceneTelling, id)
+    if not telling:
+        raise EntityNotFoundError(detail="No such telling.")
+    if not telling.uses_scene_manuscript:
+        return await result(session, tenant_id, id, user, response)
+    await entry(session, tenant_id, telling.scene_entity_id, user, lock=True)
+    await manuscript_payloads(session, tenant_id, telling.scene_entity_id, lock=True)
+    current = await result(session, tenant_id, id, user, response)
+    if if_match is None:
+        raise EventOrderPreconditionRequiredError(
+            detail="Read this telling before making it independent."
+        )
+    if if_match != current.version:
+        raise PreconditionFailedError(
+            detail="The Scene changed. Read its current manuscript first."
+        )
+    own, _ = await manuscript_payloads(session, tenant_id, id, lock=True)
+    if own:
+        raise InvalidKindRequestError(detail="This telling already has its own manuscript.")
+    await copy_manuscript(session, tenant_id, telling.scene_entity_id, id, user)
+    telling.uses_scene_manuscript = False
+    row.updated_at = datetime.now(UTC)
+    row.updated_by = user.id
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return await result(session, tenant_id, id, user, response)
+
+
+class Viewpoint(BaseModel):
+    viewpoint_id: uuid.UUID | None
+
+
+@router.put("/tellings/{id}/viewpoint")
+async def change_viewpoint(
+    tenant_id: uuid.UUID,
+    id: uuid.UUID,
+    body: Viewpoint,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> WritingEntry:
+    await author(session, tenant_id, user)
+    row = await entry(session, tenant_id, id, user, lock=True)
+    telling = await session.get(SceneTelling, id)
+    if not telling:
+        raise EntityNotFoundError(detail="No such telling.")
+    current = await result(session, tenant_id, id, user, response)
+    if if_match is None:
+        raise EventOrderPreconditionRequiredError(
+            detail="Read the telling before changing its viewpoint."
+        )
+    if if_match != current.version:
+        raise PreconditionFailedError(detail="This telling changed. Read it again.")
+    await require_viewpoint(session, tenant_id, body.viewpoint_id, user)
+    telling.viewpoint_entity_id = body.viewpoint_id
+    row.updated_at = datetime.now(UTC)
+    row.updated_by = user.id
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return await result(session, tenant_id, id, user, response)
+
+
+@router.post("/biographies", status_code=201)
+async def create_biography(
+    tenant_id: uuid.UUID,
+    body: NewManuscript,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> WritingEntry:
+    await author(session, tenant_id, user)
+    old = await existing_in_tenant(session, Entity, body.id, tenant_id)
+    if old:
+        if (
+            old.created_by != user.id
+            or old.name != body.name
+            or not await session.get(WritingBiography, body.id)
+        ):
+            raise ClientIdUnavailableError(detail="That creation id is already in use.")
+        response.status_code = 200
+    else:
+        await create_entry(session, tenant_id, user, body.id, body.name)
+        session.add(Being(entity_id=body.id, tenant_id=tenant_id))
+        await session.flush()
+        session.add(WritingBiography(entity_id=body.id, tenant_id=tenant_id))
+        await session.commit()
+        await set_tenant_rls_context(session, tenant_id)
+    return await result(session, tenant_id, body.id, user, response)
+
+
+@router.get("/biographies")
+async def list_biographies(
+    tenant_id: uuid.UUID,
+    params: ParamsDep,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+) -> Page[ManuscriptSummary]:
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    vis = await resolve_information_visibility(session, tenant_id=tenant_id, user_id=user.id)
+    response.headers["Cache-Control"] = "private, no-store"
+    page: Page[ManuscriptSummary] = await apaginate(
+        session,
+        select(Entity.id, Entity.name)
+        .join(WritingBiography, WritingBiography.entity_id == Entity.id)
+        .where(Entity.tenant_id == tenant_id, visible_entry_clause(vis, Entity.id))
+        .order_by(Entity.name, Entity.id),
+        params=params,
+    )
+    return page
