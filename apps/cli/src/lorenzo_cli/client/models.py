@@ -1305,6 +1305,29 @@ class MoonOutput(BaseModel):
     ) = Field("0", title="Offset")
 
 
+class MoveAcknowledgement(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    entry_id: UUID = Field(..., title="Entry Id")
+    source_parent_id: UUID | None = Field(..., title="Source Parent Id")
+    destination_parent_id: UUID | None = Field(..., title="Destination Parent Id")
+
+
+class MoveCheckpoint(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    entry_id: UUID = Field(..., title="Entry Id")
+    source_parent_id: UUID | None = Field(..., title="Source Parent Id")
+    destination_parent_id: UUID | None = Field(..., title="Destination Parent Id")
+    checkpoint: dict[str, Any] = Field(..., title="Checkpoint")
+
+
+class MoveRequest(BaseModel):
+    source_parent_id: UUID | None = Field(..., title="Source Parent Id")
+    destination_parent_id: UUID | None = Field(..., title="Destination Parent Id")
+    source_version: constr(max_length=200) | None = Field(None, title="Source Version")
+    destination_version: constr(max_length=200) | None = Field(None, title="Destination Version")
+    before_element_id: UUID | None = Field(None, title="Before Element Id")
+
+
 class NewBook(BaseModel):
     id: UUID | None = Field(None, title="Id")
     name: constr(min_length=1, max_length=300) = Field(..., title="Name")

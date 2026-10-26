@@ -334,3 +334,9 @@ Lorenzo Writing W4 (RFC 0047, ADR 0343) adds named reviewer grants to selected E
 with a dedicated manuscript/picture projection and fixed-audience review notes. Grants do not
 create membership or widen generic entity APIs. Notes and grants are operational, not published
 repository content; reads and note writes recheck current grants and composition.
+
+Lorenzo Writing W5a (RFC 0047, ADR 0344) adds atomic moves of Chapters and Scene tellings
+between Edition/Chapter outlines, including nesting, promotion and unassignment. Conditional
+versions protect both outlines; identities and manuscript payloads remain stable. Moves reject
+cycles and additional reviewer exposure. Operational receipts make retries safe after later moves
+and retain before/after structural checkpoints; extraction, splitting and joining remain later W5 work.

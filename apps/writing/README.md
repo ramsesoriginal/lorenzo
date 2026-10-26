@@ -25,6 +25,18 @@ Authors. Revocation closes subsequent reads and clears an open review at its nex
 source Scene access, research, editing or saved history. Grants and review notes are excluded
 from repository copies and releases. Review notes use explicit Save; they are not stored offline.
 
+## Moving writing
+
+The outline's **Move** action finds an Edition or Chapter by title, chooses a position,
+promotes a nested entry one level, or makes it unassigned. A Chapter moves with its subtree;
+a Scene telling keeps its identity and shared or independent manuscript. Text, pictures and
+notes are preserved. Moves check the entry and both outlines, reject cycles and refuse to add
+reviewers implicitly. A retry acknowledges the original operation without applying it twice.
+Operational move receipts and structural checkpoints are excluded from repository copies.
+
+This is RFC 0047 W5a ([ADR 0344](../../docs/adr/0344-atomic-manuscript-moves.md)).
+Extraction, splitting, joining and redirects remain subsequent W5 slices.
+
 ## Run and verify
 
 - `mise run //apps/writing:dev` — port 4327.

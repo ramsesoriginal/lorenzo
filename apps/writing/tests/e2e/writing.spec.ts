@@ -592,3 +592,61 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await context.close();
   }
 });
+
+test('move a Chapter into another Chapter, promote it and recover an unassigned draft', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('Moving book');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Moving book', exact: true })).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const title of ['Arrival', 'Departure']) {
+      await page.getByLabel('New chapter title').fill(title);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await expect(page.getByRole('link', { name: title, exact: true })).toBeVisible();
+    }
+    await page.getByRole('link', { name: 'Arrival', exact: true }).click();
+    const arrival = new URL(page.url()).searchParams.get('entry');
+    await page
+      .getByRole('textbox', { name: 'Manuscript', exact: true })
+      .fill('The harbour is quiet.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByLabel('Move: Arrival', { exact: true }).click();
+    await page.getByLabel('Destination for Arrival').fill('Departure');
+    await page.getByRole('button', { name: 'Find destination', exact: true }).click();
+    await page.getByRole('button', { name: 'Departure', exact: true }).click();
+    await page.getByRole('button', { name: 'Move here', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Arrival', exact: true })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Departure', exact: true }).click();
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByLabel('Move: Arrival', { exact: true }).click();
+    await page.getByRole('button', { name: 'Promote one level', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Arrival', exact: true })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByLabel('Move: Arrival', { exact: true }).click();
+    await page.getByRole('button', { name: 'Make unassigned', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Arrival', exact: true })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${arrival}&view=outline`);
+    await page.getByLabel('Move: Arrival', { exact: true }).click();
+    await page.getByLabel('Destination for Arrival').fill('Moving book');
+    await page.getByRole('button', { name: 'Find destination', exact: true }).click();
+    await page.getByRole('button', { name: 'Moving book', exact: true }).click();
+    await page.screenshot({ path: test.info().outputPath('move-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath('move-phone.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Move here', exact: true }).click();
+    await expect(page.getByLabel('Destination for Arrival')).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=read`);
+    await expect(page.locator('article')).toContainText('The harbour is quiet.');
+  } finally {
+    await context.close();
+  }
+});

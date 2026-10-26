@@ -1,5 +1,6 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
+import { moveControls } from './manuscript-move';
 import { reviewAddress } from './review';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
@@ -64,6 +65,13 @@ export async function compositionScreen(
     status.textContent = error instanceof Error ? error.message : 'This could not be completed.';
   };
   host.replaceChildren(heading, nav, status);
+  if (current.kind === 'chapter' || current.kind === 'scene_telling') {
+    host.append(
+      moveControls(tenant, id, current.name, undefined, () =>
+        compositionScreen(host, tenant, id, reading),
+      ),
+    );
+  }
   if (reading || !['edition', 'chapter'].includes(current.kind)) {
     const article = node('article');
     article.className = 'ls-content';
@@ -175,6 +183,12 @@ export async function compositionScreen(
         ),
       );
     li.append(controls);
+    if (item.kind !== 'payload')
+      li.append(
+        moveControls(tenant, item.id, label, current, () =>
+          compositionScreen(host, tenant, id, false),
+        ),
+      );
     list.append(li);
   }
   const name = node('input');
