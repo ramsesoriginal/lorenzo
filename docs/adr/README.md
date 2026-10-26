@@ -338,3 +338,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0342 - Scene tellings and writing references](0342-scene-tellings-and-writing-references.md) — RFC 0047 W3: reusable Scenes, shared or independent tellings, viewpoints and scoped biographies.
 
 - [0343 - Book-scoped reviewers and private review notes](0343-book-scoped-reviewers.md) — RFC 0047 W4.
+
+- [0344 - Atomic manuscript moves](0344-atomic-manuscript-moves.md) — RFC 0047 W5a.
