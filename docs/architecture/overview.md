@@ -346,3 +346,9 @@ a nested Chapter atomically. Existing text/picture payloads and child entries re
 identities and order; the Chapter and its manuscript preserve the source audiences. Saved
 manuscript revisions and private structural receipts protect recovery and retries. Partial-text
 splits and joins with guarded redirects remain subsequent W5 work.
+
+Lorenzo Writing W5c (RFC 0047, ADR 0346) splits saved text at conservative paragraph boundaries
+into adjacent stable payloads. The source concatenates exactly; locale, audiences and notes
+remain unchanged. Saved revisions and operational retry receipts protect the operation. Boundary
+fixtures are checked against the canonical LorenzoScript parser. Compound blocks and cross-part
+footnote dependencies are refused; general syntax-aware splits and guarded joins remain later work.

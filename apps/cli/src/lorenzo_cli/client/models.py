@@ -2447,9 +2447,34 @@ class ShowcaseUpdate(BaseModel):
     entity_ids: list[UUID] = Field(..., max_length=100, title="Entity Ids")
 
 
+class SplitAcknowledgement(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    entry_id: UUID = Field(..., title="Entry Id")
+    first_payload_id: UUID = Field(..., title="First Payload Id")
+    second_payload_id: UUID = Field(..., title="Second Payload Id")
+
+
 class SplitItemInstanceRequest(BaseModel):
     quantity: int = Field(..., title="Quantity")
     owner_character_id: UUID | None = Field(None, title="Owner Character Id")
+
+
+class SplitPoint(BaseModel):
+    offset: int = Field(..., title="Offset")
+    following: str = Field(..., title="Following")
+
+
+class SplitPoints(BaseModel):
+    source: str = Field(..., title="Source")
+    version: str = Field(..., title="Version")
+    points: list[SplitPoint] = Field(..., title="Points")
+    explanation: str | None = Field(None, title="Explanation")
+
+
+class SplitText(BaseModel):
+    payload_id: UUID = Field(..., title="Payload Id")
+    second_payload_id: UUID = Field(..., title="Second Payload Id")
+    offset: conint(ge=1) = Field(..., title="Offset")
 
 
 class StatDefinitionOrder(BaseModel):

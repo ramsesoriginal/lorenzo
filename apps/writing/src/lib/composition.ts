@@ -2,6 +2,7 @@ import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
 import { extractionControls } from './manuscript-extraction';
 import { moveControls } from './manuscript-move';
+import { splitControls } from './manuscript-split';
 import { reviewAddress } from './review';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
@@ -211,6 +212,8 @@ export async function compositionScreen(
           compositionScreen(host, tenant, id, false),
         ),
       );
+    if (p?.kind === 'description')
+      li.append(splitControls(tenant, id, p.id, () => compositionScreen(host, tenant, id, false)));
     list.append(li);
   }
   const name = node('input');

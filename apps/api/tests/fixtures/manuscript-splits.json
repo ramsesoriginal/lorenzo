@@ -1,0 +1,142 @@
+[
+  {
+    "name": "paragraphs",
+    "marked": "First paragraph.\n\n<SPLIT>Second paragraph.",
+    "allowed": true
+  },
+  {
+    "name": "inline",
+    "marked": "**Bold** and [a link](https://example.com).\n\n<SPLIT>[[A being]] with *emphasis* and `code`.",
+    "allowed": true
+  },
+  {
+    "name": "unicode",
+    "marked": "A 🐉 and café.\n\n<SPLIT>水面に映る月。",
+    "allowed": true
+  },
+  {
+    "name": "crlf",
+    "marked": "First.\r\n \r\n<SPLIT>Second.",
+    "allowed": true
+  },
+  {
+    "name": "footnote-left",
+    "marked": "First[^a].\n\n[^a]: A complete local note.\n\n<SPLIT>Second.",
+    "allowed": true
+  },
+  {
+    "name": "footnote-right",
+    "marked": "First.\n\n<SPLIT>Second[^a].\n\n[^a]: The complete note.",
+    "allowed": true
+  },
+  {
+    "name": "footnotes-both",
+    "marked": "First[^a].\n\n[^a]: First note.\n\n<SPLIT>Second[^b].\n\n[^b]: Second note.",
+    "allowed": true
+  },
+  {
+    "name": "crossed-note",
+    "marked": "First[^a].\n\n<SPLIT>Second.\n\n[^a]: Required by first.",
+    "allowed": false
+  },
+  {
+    "name": "reused-note",
+    "marked": "First[^ A ].\n\n[^a]: Note.\n\n<SPLIT>Second[^a].",
+    "allowed": false
+  },
+  {
+    "name": "footnote-nesting",
+    "marked": "First[^a].\n\n[^a]: See[^b].\n\n<SPLIT>Second.\n\n[^b]: Required by first note.",
+    "allowed": false
+  },
+  {
+    "name": "inside-paragraph",
+    "marked": "First <SPLIT>sentence.",
+    "allowed": false
+  },
+  {
+    "name": "fence",
+    "marked": "```\nFirst\n\n<SPLIT>Second\n```",
+    "allowed": false
+  },
+  {
+    "name": "quote",
+    "marked": "> First\n\n<SPLIT>> Second",
+    "allowed": false
+  },
+  {
+    "name": "list",
+    "marked": "- First\n\n<SPLIT>- Second",
+    "allowed": false
+  },
+  {
+    "name": "ordered",
+    "marked": "1. First\n\n<SPLIT>2. Second",
+    "allowed": false
+  },
+  {
+    "name": "indent",
+    "marked": "    First\n\n<SPLIT>    Second",
+    "allowed": false
+  },
+  {
+    "name": "tabs",
+    "marked": "\tFirst\n\n<SPLIT>Second",
+    "allowed": false
+  },
+  {
+    "name": "table",
+    "marked": "A | B\n- | -\n1 | 2\n\n<SPLIT>Second",
+    "allowed": false
+  },
+  {
+    "name": "math",
+    "marked": "$$\nx\n\n<SPLIT>y\n$$",
+    "allowed": false
+  },
+  {
+    "name": "class",
+    "marked": "{{.note\nFirst\n\n<SPLIT>Second\n}}",
+    "allowed": false
+  },
+  {
+    "name": "abbreviation",
+    "marked": "*[GM]: Game Master\n\nFirst\n\n<SPLIT>GM",
+    "allowed": false
+  },
+  {
+    "name": "heading",
+    "marked": "# First\n\n<SPLIT># First",
+    "allowed": false
+  },
+  {
+    "name": "fragment",
+    "marked": "[First](#later)\n\n<SPLIT>*Second*{#later}",
+    "allowed": false
+  },
+  {
+    "name": "toc",
+    "marked": "{{TOC}}\n\n<SPLIT>Second",
+    "allowed": false
+  },
+  {
+    "name": "inline-date",
+    "marked": "On {{date 2026-10-26}}, [[Eira]] arrived.\n\n<SPLIT>She carried {weight} pounds.",
+    "allowed": true
+  },
+  {
+    "name": "unclosed-inline",
+    "marked": "An *unclosed paragraph.\n\n<SPLIT>Another paragraph*.",
+    "allowed": true
+  },
+  {
+    "name": "empty-first",
+    "marked": "\n\n<SPLIT>Second",
+    "allowed": false
+  },
+  {
+    "name": "empty-last",
+    "marked": "First\n\n<SPLIT> ",
+    "allowed": false
+  }
+]

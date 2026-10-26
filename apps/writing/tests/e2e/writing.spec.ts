@@ -699,3 +699,49 @@ test('extract complete prose and a child into a Chapter without changing the rea
     await context.close();
   }
 });
+
+test('split saved prose safely and extract its second part into a Chapter', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('A divided journey');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const first = 'First 🐉[^a].\n\n[^a]: A local note.\n\n';
+    const second = 'Second paragraph, a new beginning.';
+    await manuscript.fill(first + second);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByText('Split text', { exact: true }).click();
+    const savedText = page.getByRole('textbox', { name: 'Text to split', exact: true });
+    await expect(savedText).toHaveValue(first + second);
+    await savedText.focus();
+    await savedText.press('Control+End');
+    await page.getByRole('button', { name: 'Choose paragraph', exact: true }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'The second text block will begin:' }),
+    ).toContainText(second);
+    await page.screenshot({ path: test.info().outputPath('split-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath('split-phone.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Split here', exact: true }).click();
+    await expect(page.getByText('Split text', { exact: true })).toHaveCount(2);
+    await page.getByText('Extract a Chapter', { exact: true }).click();
+    await page.getByLabel('First element', { exact: true }).selectOption('1');
+    await page.getByLabel('Last element', { exact: true }).selectOption('1');
+    await page.getByLabel('Extracted chapter title', { exact: true }).fill('A new beginning');
+    await page.getByRole('button', { name: 'Extract Chapter', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'A new beginning', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toContainText('A local note.');
+    await expect(page.locator('article')).toContainText(second);
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByRole('link', { name: 'A new beginning', exact: true }).click();
+    await expect(manuscript).toHaveValue(second);
+  } finally {
+    await context.close();
+  }
+});

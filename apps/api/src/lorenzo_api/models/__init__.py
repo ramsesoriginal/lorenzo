@@ -81,6 +81,7 @@ from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
     "ManuscriptMove",
+    "ManuscriptSplit",
     "ManuscriptExtraction",
     "WritingReviewGrant",
     "WritingReviewNote",
@@ -201,6 +202,7 @@ from lorenzo_api.models.manuscript import Edition as Edition
 from lorenzo_api.models.manuscript import ManuscriptPlacement as ManuscriptPlacement
 from lorenzo_api.models.manuscript_move import ManuscriptExtraction, ManuscriptMove
 from lorenzo_api.models.manuscript_revision import ManuscriptRevision
+from lorenzo_api.models.manuscript_split import ManuscriptSplit
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (
     SceneBeing,

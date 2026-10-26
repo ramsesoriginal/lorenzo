@@ -39,7 +39,17 @@ The optional **Extract a Chapter** action moves a consecutive range of complete 
 pictures and child entries into a new Chapter at the same position (W5b,
 [ADR 0345](../../docs/adr/0345-extract-outline-into-chapter.md)). It preserves payload identities,
 LorenzoScript, audiences and notes, with a saved manuscript revision and structural checkpoint.
-Splitting within a text block, joining and redirects remain subsequent W5 slices.
+**Split text** divides a saved text block at a safe paragraph boundary (W5c,
+[ADR 0346](../../docs/adr/0346-safe-paragraph-splits.md)). Place the cursor in the paragraph
+that should begin the second block, choose it and confirm. Both parts keep their wording,
+locale and audience; either can then be extracted into a Chapter. A saved revision retains
+the original text. The first part keeps its payload identity; the second receives a new one.
+
+This first splitter supports plain paragraphs and inline markup, with complete simple footnotes
+kept beside all their references. It refuses compound blocks and document-wide dependencies
+(lists, quotes, code, tables, display math, class blocks, abbreviations, headings/fragment links
+and contents directives). Whole-element extraction remains available. More general syntax-aware
+splits, joins and guarded redirects remain subsequent W5 work.
 
 ## Run and verify
 

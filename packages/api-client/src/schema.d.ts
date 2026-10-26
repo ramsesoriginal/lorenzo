@@ -2979,6 +2979,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/writing/entries/{id}/payloads/{payload_id}/split-points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Available */
+        get: operations["available"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/writing/entries/{id}/splits/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Split */
+        post: operations["split"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/writing/entries/{id}/extractions/{operation_id}": {
         parameters: {
             query?: never;
@@ -13273,6 +13307,29 @@ export interface components {
             /** Entity Ids */
             entity_ids: string[];
         };
+        /** SplitAcknowledgement */
+        SplitAcknowledgement: {
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /**
+             * First Payload Id
+             * Format: uuid
+             */
+            first_payload_id: string;
+            /**
+             * Second Payload Id
+             * Format: uuid
+             */
+            second_payload_id: string;
+        };
         /**
          * SplitItemInstanceRequest
          * @description POST /item-instances/{id}/split body - see ADR 0041/0044. `quantity`
@@ -13289,6 +13346,39 @@ export interface components {
             quantity: number;
             /** Owner Character Id */
             owner_character_id?: string | null;
+        };
+        /** SplitPoint */
+        SplitPoint: {
+            /** Offset */
+            offset: number;
+            /** Following */
+            following: string;
+        };
+        /** SplitPoints */
+        SplitPoints: {
+            /** Source */
+            source: string;
+            /** Version */
+            version: string;
+            /** Points */
+            points: components["schemas"]["SplitPoint"][];
+            /** Explanation */
+            explanation?: string | null;
+        };
+        /** SplitText */
+        SplitText: {
+            /**
+             * Payload Id
+             * Format: uuid
+             */
+            payload_id: string;
+            /**
+             * Second Payload Id
+             * Format: uuid
+             */
+            second_payload_id: string;
+            /** Offset */
+            offset: number;
         };
         /**
          * StatDefinitionCreate
@@ -25408,6 +25498,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MoveAcknowledgement"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    available: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                id: string;
+                payload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SplitPoints"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    split: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SplitText"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SplitAcknowledgement"];
                 };
             };
             /** @description Validation Error */
