@@ -340,3 +340,9 @@ between Edition/Chapter outlines, including nesting, promotion and unassignment.
 versions protect both outlines; identities and manuscript payloads remain stable. Moves reject
 cycles and additional reviewer exposure. Operational receipts make retries safe after later moves
 and retain before/after structural checkpoints; extraction, splitting and joining remain later W5 work.
+
+Lorenzo Writing W5b (RFC 0047, ADR 0345) extracts consecutive complete outline elements into
+a nested Chapter atomically. Existing text/picture payloads and child entries retain their
+identities and order; the Chapter and its manuscript preserve the source audiences. Saved
+manuscript revisions and private structural receipts protect recovery and retries. Partial-text
+splits and joins with guarded redirects remain subsequent W5 work.

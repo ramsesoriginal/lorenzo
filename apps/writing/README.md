@@ -35,7 +35,11 @@ reviewers implicitly. A retry acknowledges the original operation without applyi
 Operational move receipts and structural checkpoints are excluded from repository copies.
 
 This is RFC 0047 W5a ([ADR 0344](../../docs/adr/0344-atomic-manuscript-moves.md)).
-Extraction, splitting, joining and redirects remain subsequent W5 slices.
+The optional **Extract a Chapter** action moves a consecutive range of complete text blocks,
+pictures and child entries into a new Chapter at the same position (W5b,
+[ADR 0345](../../docs/adr/0345-extract-outline-into-chapter.md)). It preserves payload identities,
+LorenzoScript, audiences and notes, with a saved manuscript revision and structural checkpoint.
+Splitting within a text block, joining and redirects remain subsequent W5 slices.
 
 ## Run and verify
 

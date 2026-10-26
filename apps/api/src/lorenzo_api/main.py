@@ -48,6 +48,7 @@ from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.knowledge import router as knowledge_router
 from lorenzo_api.routers.link_previews import router as link_previews_router
+from lorenzo_api.routers.manuscript_extraction import router as manuscript_extraction_router
 from lorenzo_api.routers.manuscript_moves import router as manuscript_moves_router
 from lorenzo_api.routers.payloads import router as payloads_router
 from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
@@ -158,6 +159,7 @@ def create_app() -> FastAPI:
     app.include_router(characters_router)
     app.include_router(writing_router)
     app.include_router(manuscript_moves_router)
+    app.include_router(manuscript_extraction_router)
     app.include_router(writing_reviews_router)
     app.include_router(beings_router)
     app.include_router(calendars_router)

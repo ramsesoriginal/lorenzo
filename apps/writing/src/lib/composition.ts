@@ -1,5 +1,6 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
+import { extractionControls } from './manuscript-extraction';
 import { moveControls } from './manuscript-move';
 import { reviewAddress } from './review';
 
@@ -131,6 +132,27 @@ export async function compositionScreen(
       .flatMap((i) => i.payloads)
       .map((p) => [p.id, p]),
   );
+  if (current.elements.length) {
+    host.append(
+      extractionControls(
+        tenant,
+        id,
+        current.version,
+        current.elements.map((item) => {
+          const payload = payloads.get(item.id);
+          return {
+            id: item.id,
+            label:
+              item.name ??
+              (payload?.kind === 'description'
+                ? payload.content.slice(0, 80) || 'Empty text'
+                : 'Picture'),
+          };
+        }),
+        () => compositionScreen(host, tenant, id, false),
+      ),
+    );
+  }
   const saveOrder = async (ids: string[]) => {
     try {
       await unwrap(

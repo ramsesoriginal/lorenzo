@@ -650,3 +650,52 @@ test('move a Chapter into another Chapter, promote it and recover an unassigned 
     await context.close();
   }
 });
+
+test('extract complete prose and a child into a Chapter without changing the reading', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('Collected journeys');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const prose = 'A **whole** passage[^a].\n\n[^a]: The local footnote stays.';
+    await manuscript.fill(prose);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const edition = new URL(page.url()).searchParams.get('entry');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByLabel('New chapter title').fill('The crossing');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await page.getByRole('link', { name: 'The crossing', exact: true }).click();
+    await manuscript.fill('The boat reached the shore.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByText('Extract a Chapter', { exact: true }).click();
+    await page.getByLabel('First element', { exact: true }).selectOption('0');
+    await page.getByLabel('Last element', { exact: true }).selectOption('1');
+    await page.getByLabel('Extracted chapter title', { exact: true }).fill('At sea');
+    await page.screenshot({
+      path: test.info().outputPath('extraction-desktop.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath('extraction-phone.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Extract Chapter', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'At sea', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'The crossing', exact: true })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toContainText('The local footnote stays.');
+    await expect(page.locator('article')).toContainText('The boat reached the shore.');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByRole('link', { name: 'At sea', exact: true }).click();
+    await expect(manuscript).toHaveValue(prose);
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'The crossing', exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});

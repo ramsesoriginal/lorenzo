@@ -918,6 +918,25 @@ class EventSummary(BaseModel):
     order_basis: OrderBasis | None = Field(None, title="Order Basis")
 
 
+class ExtractChapter(BaseModel):
+    chapter_id: UUID = Field(..., title="Chapter Id")
+    name: constr(min_length=1, max_length=300) = Field(..., title="Name")
+    elements: list[UUID] = Field(..., min_length=1, title="Elements")
+
+
+class ExtractionAcknowledgement(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    source_id: UUID = Field(..., title="Source Id")
+    chapter_id: UUID = Field(..., title="Chapter Id")
+
+
+class ExtractionCheckpoint(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    source_id: UUID = Field(..., title="Source Id")
+    chapter_id: UUID = Field(..., title="Chapter Id")
+    checkpoint: dict[str, Any] = Field(..., title="Checkpoint")
+
+
 class FactUpdate(BaseModel):
     name: constr(min_length=1) = Field(..., title="Name")
 
