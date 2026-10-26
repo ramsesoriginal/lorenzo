@@ -342,3 +342,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0344 - Atomic manuscript moves](0344-atomic-manuscript-moves.md) — RFC 0047 W5a.
 
 - [0345 - Extract outline elements into a Chapter](0345-extract-outline-into-chapter.md) — RFC 0047 W5b.
+
+- [0346 - Safe paragraph splits](0346-safe-paragraph-splits.md) — RFC 0047 W5c.
