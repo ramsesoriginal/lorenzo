@@ -16,7 +16,9 @@ id. Serialize with the library structural lock, then lock the entries and bundle
 checking versions and adjacency. Both complete outlines must be readable. Require matching
 outer audiences and matching manuscript audiences (including grants and authorship); an
 empty destination bundle may be created with the source's audience. Same-parent adjacency
-keeps Edition reviewer scope unchanged. Never silently widen or rewrite sharing.
+keeps Edition reviewer scope unchanged. Also compare effective access for current library
+participants with the existing visibility resolver: contextual campaign access must not add
+readers when the authored audience fields match. Never silently widen or rewrite sharing.
 
 Checkpoint both original manuscripts before moving payloads. Compact payload and placement
 orders in one transaction and record an operational receipt with actor, request fingerprint
@@ -42,7 +44,8 @@ supply an empty set. Both content and receipt tables force RLS and use same-tena
 
 The outline offers Join with previous only for adjacent Chapters, with an explicit confirmation.
 Opening the former source shows its title, the guarded destination link and its ordinary notes,
-without an editor or automatic recovery of old drafts. The destination reading view identifies
+without an editor or automatic recovery of old drafts. Account-local unsent text is available
+in a read-only recovery view for manual copying. The destination reading view identifies
 stable element anchors. Reuse existing controls and styles.
 
 ## Validation
