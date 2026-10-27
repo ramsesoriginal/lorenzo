@@ -21,8 +21,9 @@ other TypeScript packages, no dependencies). It holds what is not specific to on
   trigger opens the card after 300 ms, leaving closes it after 150 ms that coming back to the trigger
   or onto the card cancels, focus opens and blur closes at once, Escape closes, a tap opens it and a
   second tap on the same trigger follows it.
-- `createCardCache(fetchCard)`: one request per entry for the page, a 404 remembered as "no card",
-  any other failure forgotten so the next hover asks again.
+- `createCardCache(fetchCard, isMissing)`: one request per entry for the page, a failure that
+  `isMissing` recognises (the app says which: a 404) remembered as "no card", any other failure
+  forgotten so the next hover asks again.
 - `kindLabel(kinds)` and `statText(stat)`: the one word under a name in the words of the product
   (Character, Being, Inventory item, Item, Location, Map, else Entry), and a stat as "weight 3".
 - `installEntryPreview(options)`, which draws the card and listens on the document. It is given what
@@ -39,8 +40,10 @@ other TypeScript packages, no dependencies). It holds what is not specific to on
 
 **The card is drawn as before**: a `role="tooltip"` over the page, taking no focus and no controls,
 linked to its trigger with `aria-describedby` while open, kept open while the pointer is on it
-(WCAG 1.4.13), put away on scroll and on Escape with focus left where it was, and dropped if it
-arrives after it was closed or after its trigger left the page. It is placed under its trigger, above
+(WCAG 1.4.13), following its trigger when the page scrolls and put away when the trigger leaves the
+window and on Escape with focus left where it was, and dropped if it
+arrives after it was closed or after its trigger left the page. It is added inside the page's `main`
+landmark, so that it is not content outside every landmark. It is placed under its trigger, above
 it when there is no room, inside the window. The trigger may be an HTML element or an SVG one.
 
 **Its stylesheet ships with it** (`@lorenzo/entry-preview/entry-preview.css`), brand tokens only and
