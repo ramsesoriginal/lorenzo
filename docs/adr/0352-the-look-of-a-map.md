@@ -31,8 +31,8 @@ per-viewer server storage").
 each role that appears in the Map (and one line for placements with no role), the role in words and a
 small swatch drawn by the theme itself, as a Scene of its own that the same painter draws. It reads no
 placement beyond its role and geometry kind, never a name, so a hidden entry cannot reach it; a Map
-with nothing drawn has an empty legend. The app shows it in a collapsible section and it follows the
-theme and the toggles' groups.
+with nothing drawn has an empty legend. The app shows it in a collapsible section, redrawn with the
+Map's placements and the theme in use.
 
 **`setTheme`.** A view takes another theme without losing its zoom, centre or selection.
 
