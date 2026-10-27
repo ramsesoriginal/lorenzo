@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 from lorenzo_map.errors import MapDocumentError
+from lorenzo_map.grid import GRID_KINDS, require_room, validate_grid
 from lorenzo_map.limits import MAX_COORDINATE
 from lorenzo_map.numbers import canonical, clean_text, quantise
 
 SYSTEM_FORMAT = "lorenzo.map-system/1"
 # The systems this version can write. Others of RFC 0048 arrive with their own slices.
-WRITABLE_KINDS = ("plane", "outline")
+WRITABLE_KINDS = ("plane", "outline", "square", "rect", "hex")
 
 
 def validate_system(document: Any) -> dict[str, Any]:
@@ -22,7 +23,10 @@ def validate_system(document: Any) -> dict[str, Any]:
     kind = document.get("kind")
     if kind not in WRITABLE_KINDS:
         raise MapDocumentError("this kind of system cannot be written yet")
-    allowed = {"format", "kind", "extent"} | ({"scale"} if kind == "plane" else set())
+    if kind in GRID_KINDS:
+        allowed = {"format", "kind", "extent", "cell", "measure", "sub", "orientation"}
+    else:
+        allowed = {"format", "kind", "extent"} | ({"scale"} if kind == "plane" else set())
     if set(document) - allowed:
         raise MapDocumentError("a system has a key it does not know")
     extent = document.get("extent")
@@ -38,6 +42,12 @@ def validate_system(document: Any) -> dict[str, Any]:
         "kind": kind,
         "extent": [canonical(x0), canonical(y0), canonical(x1), canonical(y1)],
     }
+    if kind in GRID_KINDS:
+        grid = validate_grid(document, kind=str(kind), measured=True)
+        result.update(grid)
+        require_room(
+            {"kind": kind, **grid}, [canonical(x0), canonical(y0), canonical(x1), canonical(y1)]
+        )
     if "scale" in document:
         scale = document["scale"]
         if not isinstance(scale, dict) or set(scale) != {"per_unit", "unit"}:

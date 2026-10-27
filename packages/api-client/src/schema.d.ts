@@ -3318,8 +3318,9 @@ export interface paths {
         get: operations["get_map"];
         /**
          * Put Map
-         * @description Replaces the system, the subject and the theme name under `If-Match`. No placement is
-         *     touched.
+         * @description Replaces the system, the subject, the theme name and the view under `If-Match`. No placement
+         *     is touched, but a change that would move every one of them is a 409, and what else may no longer
+         *     line up comes back as `warnings` (ADR 0354).
          */
         put: operations["put_map"];
         post?: never;
@@ -10168,6 +10169,10 @@ export interface components {
             subject_entity_id?: string | null;
             /** Theme Hint */
             theme_hint?: string | null;
+            /** View */
+            view?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Is Public
              * @default false
@@ -10193,6 +10198,12 @@ export interface components {
             };
             /** Theme Hint */
             theme_hint?: string | null;
+            /** View */
+            view?: {
+                [key: string]: unknown;
+            } | null;
+            /** Warnings */
+            warnings?: string[];
             subject?: components["schemas"]["MapStub"] | null;
             /**
              * Updated At
@@ -10214,6 +10225,10 @@ export interface components {
             subject_entity_id?: string | null;
             /** Theme Hint */
             theme_hint?: string | null;
+            /** View */
+            view?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** MapStub */
         MapStub: {

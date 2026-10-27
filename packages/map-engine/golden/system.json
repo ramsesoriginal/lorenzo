@@ -1,23 +1,680 @@
 {
   "about": "Systems the validator accepts and refuses (ADR 0336). Only accepted or refused is compared across implementations.",
   "accepted": [
-    {"name": "a plane with a scale", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1000, 640], "scale": {"per_unit": 0.5, "unit": "km"}}},
-    {"name": "a plane without a scale", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [-500, -320, 500, 320]}},
-    {"name": "an outline", "document": {"format": "lorenzo.map-system/1", "kind": "outline", "extent": [0, 0, 1000, 600]}},
-    {"name": "a unit in the author's own words", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "scale": {"per_unit": 3, "unit": "Meilen"}}}
+    {
+      "name": "a plane with a scale",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          1000,
+          640
+        ],
+        "scale": {
+          "per_unit": 0.5,
+          "unit": "km"
+        }
+      }
+    },
+    {
+      "name": "a plane without a scale",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          -500,
+          -320,
+          500,
+          320
+        ]
+      }
+    },
+    {
+      "name": "an outline",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "outline",
+        "extent": [
+          0,
+          0,
+          1000,
+          600
+        ]
+      }
+    },
+    {
+      "name": "a unit in the author's own words",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "scale": {
+          "per_unit": 3,
+          "unit": "Meilen"
+        }
+      }
+    },
+    {
+      "name": "a square grid",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        }
+      }
+    },
+    {
+      "name": "a square grid with a measure and a sub-grid",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        },
+        "measure": {
+          "per_cell": 5,
+          "unit": "ft"
+        },
+        "sub": {
+          "cols": 5,
+          "rows": 5
+        }
+      }
+    },
+    {
+      "name": "a rectangular grid",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "rect",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "width": 60,
+          "height": 40
+        },
+        "sub": {
+          "cols": 2,
+          "rows": 1
+        }
+      }
+    },
+    {
+      "name": "a pointy hex grid",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "hex",
+        "orientation": "pointy",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 58
+        }
+      }
+    },
+    {
+      "name": "a flat hex grid with an aperture",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "hex",
+        "orientation": "flat",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 58
+        },
+        "measure": {
+          "per_cell": 6,
+          "unit": "miles"
+        },
+        "sub": {
+          "aperture": 7
+        }
+      }
+    }
   ],
   "refused": [
-    {"name": "no format", "document": {"kind": "plane", "extent": [0, 0, 10, 10]}, "reason": "format"},
-    {"name": "no kind", "document": {"format": "lorenzo.map-system/1", "extent": [0, 0, 10, 10]}, "reason": "kind"},
-    {"name": "a kind this version cannot write", "document": {"format": "lorenzo.map-system/1", "kind": "hex", "extent": [0, 0, 10, 10]}, "reason": "kind"},
-    {"name": "an extra key", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "north": 12}, "reason": "unknown key"},
-    {"name": "an outline with a scale", "document": {"format": "lorenzo.map-system/1", "kind": "outline", "extent": [0, 0, 10, 10], "scale": {"per_unit": 1, "unit": "m"}}, "reason": "unknown key"},
-    {"name": "an extent of three numbers", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10]}, "reason": "extent"},
-    {"name": "an extent whose far corner is not beyond", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 0, 10]}, "reason": "extent"},
-    {"name": "an extent beyond 1e7", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 20000000, 10]}, "reason": "size"},
-    {"name": "a scale of zero", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "scale": {"per_unit": 0, "unit": "m"}}, "reason": "scale"},
-    {"name": "a scale with no unit", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "scale": {"per_unit": 1}}, "reason": "scale"},
-    {"name": "an empty unit", "document": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10], "scale": {"per_unit": 1, "unit": ""}}, "reason": "unit"},
-    {"name": "not an object", "document": "plane", "reason": "object"}
+    {
+      "name": "no format",
+      "document": {
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ]
+      },
+      "reason": "format"
+    },
+    {
+      "name": "no kind",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ]
+      },
+      "reason": "kind"
+    },
+    {
+      "name": "a kind this version cannot write",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ]
+      },
+      "reason": "kind"
+    },
+    {
+      "name": "an extra key",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "north": 12
+      },
+      "reason": "unknown key"
+    },
+    {
+      "name": "an outline with a scale",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "outline",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "scale": {
+          "per_unit": 1,
+          "unit": "m"
+        }
+      },
+      "reason": "unknown key"
+    },
+    {
+      "name": "an extent of three numbers",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          10
+        ]
+      },
+      "reason": "extent"
+    },
+    {
+      "name": "an extent whose far corner is not beyond",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          0,
+          10
+        ]
+      },
+      "reason": "extent"
+    },
+    {
+      "name": "an extent beyond 1e7",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          20000000,
+          10
+        ]
+      },
+      "reason": "size"
+    },
+    {
+      "name": "a scale of zero",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "scale": {
+          "per_unit": 0,
+          "unit": "m"
+        }
+      },
+      "reason": "scale"
+    },
+    {
+      "name": "a scale with no unit",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "scale": {
+          "per_unit": 1
+        }
+      },
+      "reason": "scale"
+    },
+    {
+      "name": "an empty unit",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "scale": {
+          "per_unit": 1,
+          "unit": ""
+        }
+      },
+      "reason": "unit"
+    },
+    {
+      "name": "not an object",
+      "document": "plane",
+      "reason": "object"
+    },
+    {
+      "name": "a hex grid with no orientation",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "hex",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 58
+        }
+      },
+      "reason": "orientation"
+    },
+    {
+      "name": "an orientation that is neither",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "hex",
+        "orientation": "up",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 58
+        }
+      },
+      "reason": "orientation"
+    },
+    {
+      "name": "an orientation on a square grid",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "orientation": "flat",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        }
+      },
+      "reason": "unknown key"
+    },
+    {
+      "name": "a grid with no cell",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ]
+      },
+      "reason": "cell"
+    },
+    {
+      "name": "a zero cell",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 0
+        }
+      },
+      "reason": "cell"
+    },
+    {
+      "name": "a negative cell",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "rect",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "width": -1,
+          "height": 4
+        }
+      },
+      "reason": "cell"
+    },
+    {
+      "name": "a rect cell with a size",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "rect",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 40
+        }
+      },
+      "reason": "cell"
+    },
+    {
+      "name": "a square cell with a width",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "width": 40,
+          "height": 40
+        }
+      },
+      "reason": "cell"
+    },
+    {
+      "name": "a scale on a grid",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        },
+        "scale": {
+          "per_unit": 1,
+          "unit": "m"
+        }
+      },
+      "reason": "unknown key"
+    },
+    {
+      "name": "a measure on a plane",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "measure": {
+          "per_cell": 1,
+          "unit": "m"
+        }
+      },
+      "reason": "unknown key"
+    },
+    {
+      "name": "a measure with no unit",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        },
+        "measure": {
+          "per_cell": 1
+        }
+      },
+      "reason": "measure"
+    },
+    {
+      "name": "a measure of zero",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        },
+        "measure": {
+          "per_cell": 0,
+          "unit": "m"
+        }
+      },
+      "reason": "measure"
+    },
+    {
+      "name": "a sub-grid of one by one",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        },
+        "sub": {
+          "cols": 1,
+          "rows": 1
+        }
+      },
+      "reason": "sub"
+    },
+    {
+      "name": "a sub-grid beyond sixteen",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        },
+        "sub": {
+          "cols": 17,
+          "rows": 2
+        }
+      },
+      "reason": "sub"
+    },
+    {
+      "name": "a square sub-grid with an aperture",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 50
+        },
+        "sub": {
+          "aperture": 3
+        }
+      },
+      "reason": "sub"
+    },
+    {
+      "name": "a hex aperture of five",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "hex",
+        "orientation": "flat",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 58
+        },
+        "sub": {
+          "aperture": 5
+        }
+      },
+      "reason": "sub"
+    },
+    {
+      "name": "a hex sub-grid by cols and rows",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "hex",
+        "orientation": "flat",
+        "extent": [
+          0,
+          0,
+          1000,
+          800
+        ],
+        "cell": {
+          "size": 58
+        },
+        "sub": {
+          "cols": 2,
+          "rows": 2
+        }
+      },
+      "reason": "sub"
+    },
+    {
+      "name": "more cells than a grid may have",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": [
+          0,
+          0,
+          10000,
+          10000
+        ],
+        "cell": {
+          "size": 10
+        }
+      },
+      "reason": "too many cells"
+    }
   ]
 }

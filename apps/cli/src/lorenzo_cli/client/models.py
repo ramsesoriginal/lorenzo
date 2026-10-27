@@ -1259,6 +1259,7 @@ class MapCreate(BaseModel):
     system: dict[str, Any] = Field(..., title="System")
     subject_entity_id: UUID | None = Field(None, title="Subject Entity Id")
     theme_hint: str | None = Field(None, title="Theme Hint")
+    view: dict[str, Any] | None = Field(None, title="View")
     is_public: bool | None = Field(False, title="Is Public")
 
 
@@ -1269,6 +1270,7 @@ class MapPut(BaseModel):
     system: dict[str, Any] = Field(..., title="System")
     subject_entity_id: UUID | None = Field(None, title="Subject Entity Id")
     theme_hint: str | None = Field(None, title="Theme Hint")
+    view: dict[str, Any] | None = Field(None, title="View")
 
 
 class MapStub(BaseModel):
@@ -3311,6 +3313,8 @@ class MapOut(BaseModel):
     kinds: list[Kind16] = Field(..., title="Kinds")
     system: dict[str, Any] = Field(..., title="System")
     theme_hint: str | None = Field(None, title="Theme Hint")
+    view: dict[str, Any] | None = Field(None, title="View")
+    warnings: list[str] | None = Field(None, title="Warnings")
     subject: MapStub | None = None
     updated_at: AwareDatetime = Field(..., title="Updated At")
     can_manage: bool = Field(..., title="Can Manage")

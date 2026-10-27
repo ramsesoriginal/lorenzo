@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 19
+    assert rd.FORMAT == 20
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -208,4 +208,29 @@ def test_version_eighteen_maps_have_no_theme_name() -> None:
 
     content = rd.READERS[18](old, files)
 
-    assert content.maps[identity] == {"system": system, "subject": None, "theme": None}
+    assert content.maps[identity] == {
+        "system": system,
+        "subject": None,
+        "theme": None,
+        "view": None,
+    }
+
+
+def test_version_nineteen_maps_have_no_view() -> None:
+    """A Map written before it could draw a grid of its own reads with no view (ADR 0354)."""
+    identity = uuid.UUID(int=78)
+    system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
+    document, files = rd.encode(full_content())
+    old = {
+        **document,
+        "maps": {str(identity): {"system": system, "subject": None, "theme": "plain"}},
+    }
+
+    content = rd.READERS[19](old, files)
+
+    assert content.maps[identity] == {
+        "system": system,
+        "subject": None,
+        "theme": "plain",
+        "view": None,
+    }

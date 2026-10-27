@@ -1461,6 +1461,12 @@ class InvalidMapError(UnprocessableProblem):
     title = "That is not a valid map document"
 
 
+class MapSystemConflictError(ConflictProblem):
+    """A change to a Map's system that would move every place drawn on the old cells (ADR 0354)."""
+
+    title = "That change would move every place drawn on the old cells"
+
+
 class MapPreconditionRequiredError(StatusProblem):
     status = 428
     title = "Read the Map before changing it"

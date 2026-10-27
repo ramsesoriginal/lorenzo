@@ -14,5 +14,8 @@ MAX_Z = 100
 # Segment-pair tests a simplicity check may spend before the polygon is called too complex.
 SIMPLICITY_BUDGET = 4_000_000
 MAX_THEME_NAME = 32
+# A grid's cells (those whose centre is in the sheet) and what one can be divided into (ADR 0354).
+MAX_CELLS = 250_000
+MAX_SUB_DIVISIONS = 16
 # Operations in one batch of placement writes (ADR 0351).
 MAX_BATCH_OPERATIONS = 100

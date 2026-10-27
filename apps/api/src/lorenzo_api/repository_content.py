@@ -669,12 +669,13 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     )
     c.clocks = dict(await rows(Clock.entity_id, Clock.ticking, where=Clock.tenant_id == t))
     c.maps = {
-        entity: {"system": system, "subject": subject, "theme": theme}
-        for entity, system, subject, theme in await rows(
+        entity: {"system": system, "subject": subject, "theme": theme, "view": view}
+        for entity, system, subject, theme, view in await rows(
             Map.entity_id,
             Map.system,
             Map.subject_entity_id,
             Map.theme_hint,
+            Map.view,
             where=Map.tenant_id == t,
         )
     }
@@ -975,6 +976,7 @@ def entity_snapshot(
             {
                 "map_system": content.maps[entity_id]["system"],
                 "map_theme": content.maps[entity_id]["theme"],
+                "map_view": content.maps[entity_id]["view"],
                 "map_subject": None
                 if content.maps[entity_id]["subject"] is None
                 else name("entity", content.maps[entity_id]["subject"]),

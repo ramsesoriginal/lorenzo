@@ -650,6 +650,7 @@ class _Planner:
                         "tenant_id": tenant_id,
                         "system": c.maps[e]["system"],
                         "theme_hint": keep_theme_hint(c.maps[e]["theme"]),
+                        "view": c.maps[e]["view"],
                         "subject_entity_id": None
                         if subject is None
                         else self._local(c, "entity", subject),

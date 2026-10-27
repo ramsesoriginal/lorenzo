@@ -436,6 +436,7 @@ async def test_a_copy_carries_a_map_and_its_placements_and_drops_what_is_not_val
         (chart,) = plan.rows["map"]
         assert chart["system"]["kind"] == "plane" and chart["subject_entity_id"] is None
         assert chart["theme_hint"] == "plain"
+        assert chart["view"] == {"grid": {"kind": "square", "cell": {"size": 2}}}
         (placed,) = plan.rows["map_placement"]
         assert placed["map_entity_id"] == chart["entity_id"] and placed["role"] == "site"
         assert (placed["minx"], placed["miny"], placed["maxx"], placed["maxy"]) == (1, 2, 1, 2)
@@ -599,5 +600,131 @@ async def test_a_batch_that_is_refused_writes_nothing(raw_client, fake_jwks_serv
             ],
         )
         assert fits.json() == {"put": 2, "removed": 0}
+    finally:
+        await w.clean_up()
+
+
+EXTENT = [0, 0, 1000, 800]
+GRIDS = {
+    "square": {
+        "format": "lorenzo.map-system/1",
+        "kind": "square",
+        "extent": EXTENT,
+        "cell": {"size": 50},
+    },
+    "rect": {
+        "format": "lorenzo.map-system/1",
+        "kind": "rect",
+        "extent": EXTENT,
+        "cell": {"width": 60, "height": 40},
+    },
+    "pointy": {
+        "format": "lorenzo.map-system/1",
+        "kind": "hex",
+        "orientation": "pointy",
+        "extent": EXTENT,
+        "cell": {"size": 58},
+    },
+    "flat": {
+        "format": "lorenzo.map-system/1",
+        "kind": "hex",
+        "orientation": "flat",
+        "extent": EXTENT,
+        "cell": {"size": 58},
+    },
+}
+
+
+async def test_a_map_may_be_a_grid_and_a_plane_may_draw_one(raw_client, fake_jwks_server):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm = w.tenant_id, w.author
+        for name, system in GRIDS.items():
+            made = await gm.post(
+                f"/tenants/{t}/maps", json={"name": f"Grid {name}", "system": system}
+            )
+            assert made.status_code == 201, made.text
+            assert made.json()["system"]["kind"] == system["kind"] and made.json()["view"] is None
+            assert made.json()["warnings"] == []
+        for refused in (
+            {**GRIDS["pointy"], "orientation": None},
+            {k: v for k, v in GRIDS["pointy"].items() if k != "orientation"},
+            {**GRIDS["square"], "cell": {"size": 0}},
+            {**GRIDS["square"], "extent": [0, 0, 100000, 100000], "cell": {"size": 10}},
+        ):
+            assert (
+                await gm.post(f"/tenants/{t}/maps", json={"name": "No", "system": refused})
+            ).status_code == 422
+        # A visual grid over a plane; a grid system draws its own.
+        view = {
+            "grid": {
+                "kind": "hex",
+                "orientation": "flat",
+                "cell": {"size": 40},
+                "sub": {"aperture": 4},
+            }
+        }
+        over = await gm.post(
+            f"/tenants/{t}/maps", json={"name": "Over", "system": SYSTEM, "view": view}
+        )
+        assert over.status_code == 201 and over.json()["view"] == view
+        again = await gm.get(f"/tenants/{t}/maps/{over.json()['id']}")
+        assert again.json()["view"] == view and again.json()["warnings"] == []
+        refused = await gm.post(
+            f"/tenants/{t}/maps", json={"name": "Two", "system": GRIDS["square"], "view": view}
+        )
+        assert refused.status_code == 422
+        # The kind API takes the same system.
+        plain = await entry(gm, t, "Plain")
+        added = await gm.put(
+            f"/tenants/{t}/entities/{plain}/kinds/map", json={"system": GRIDS["rect"]}
+        )
+        assert added.status_code in (200, 201), added.text
+    finally:
+        await w.clean_up()
+
+
+async def replace(actor: Any, t: Any, chart: str, system: dict[str, Any], **fields: Any):
+    url = f"/tenants/{t}/maps/{chart}"
+    current = await actor.get(url)
+    return await actor.client.put(
+        url,
+        headers={**actor.headers, "If-Match": current.headers["etag"]},
+        json={"system": system, **fields},
+    )
+
+
+async def test_changing_the_hexes_under_placements_is_refused_and_other_changes_warn(
+    raw_client, fake_jwks_server
+):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm = w.tenant_id, w.author
+        chart = (await make_map(gm, t, "Hexes", is_public=True))["id"]
+        # With nothing placed any change is fine, a hex grid included.
+        free = await replace(gm, t, chart, GRIDS["pointy"])
+        assert free.status_code == 200 and free.json()["warnings"] == []
+        one = await entry(gm, t, "One")
+        assert (await draw(gm, t, chart, one, pin(10, 10))).status_code == 200
+        # Turning the hexes, and leaving or entering hex, would move every place.
+        for refused in (GRIDS["flat"], SYSTEM, GRIDS["square"]):
+            answer = await replace(gm, t, chart, refused)
+            assert answer.status_code == 409, answer.text
+        # The cell, the extent and a sub-grid are allowed, with a warning.
+        wider = await replace(
+            gm, t, chart, {**GRIDS["pointy"], "cell": {"size": 80}, "extent": [0, 0, 2000, 800]}
+        )
+        assert wider.status_code == 200
+        assert any("cell" in line for line in wider.json()["warnings"])
+        assert any("sheet" in line for line in wider.json()["warnings"])
+        assert (await gm.get(f"/tenants/{t}/maps/{chart}")).json()["warnings"] == []
+        # A plane may become a square grid with places on it, and says so.
+        flat = (await make_map(gm, t, "Flat", is_public=True))["id"]
+        other = await entry(gm, t, "Other")
+        assert (await draw(gm, t, flat, other, pin(1, 1))).status_code == 200
+        became = await replace(gm, t, flat, GRIDS["square"])
+        assert became.status_code == 200 and became.json()["warnings"]
+        # Nothing moved.
+        assert len(ids(await read(gm, t, flat))) == 1
     finally:
         await w.clean_up()

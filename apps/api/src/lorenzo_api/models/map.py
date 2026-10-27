@@ -22,6 +22,7 @@ class Map(Base):
             "theme_hint IS NULL OR char_length(theme_hint) BETWEEN 1 AND 32",
             name="map_theme_hint_length",
         ),
+        CheckConstraint("view IS NULL OR jsonb_typeof(view) = 'object'", name="map_view_object"),
         same_tenant_fk("map_entity_fkey", ["entity_id"], "entity", ondelete="CASCADE"),
         same_tenant_fk(
             "map_subject_fkey",
@@ -37,6 +38,8 @@ class Map(Base):
     subject_entity_id: Mapped[uuid.UUID | None] = mapped_column(default=None)
     # A theme name the renderer has (ADR 0352), kept as it is when this version does not know it.
     theme_hint: Mapped[str | None] = mapped_column(Text, default=None)
+    # What is only drawn: a visual grid over a system that has none (ADR 0354).
+    view: Mapped[dict[str, Any] | None] = mapped_column(JSONB(none_as_null=True), default=None)
 
 
 class MapPlacement(Base):

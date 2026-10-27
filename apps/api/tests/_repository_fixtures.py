@@ -128,6 +128,7 @@ async def seed_every_content_table(
                     "extent": [0, 0, 10, 10],
                 },
                 theme_hint="plain",
+                view={"grid": {"kind": "square", "cell": {"size": 2}}},
             ),
             Clock(entity_id=reference_clock.id, tenant_id=tenant_id),
             EntityAudience(entity_id=reference_clock.id, tenant_id=tenant_id, is_public=False),

@@ -2,6 +2,16 @@
 
 from lorenzo_map.errors import MapDocumentError
 from lorenzo_map.geometry import GEOMETRY_FORMAT, Validated, validate_geometry
+from lorenzo_map.grid import (
+    APERTURES,
+    GRID_KINDS,
+    ORIENTATIONS,
+    cell_at,
+    cell_centre,
+    cell_count,
+    cell_polygon,
+    in_grid,
+)
 from lorenzo_map.limits import (
     MAX_BATCH_OPERATIONS,
     MAX_COORDINATE,
@@ -23,8 +33,18 @@ from lorenzo_map.roles import (
 )
 from lorenzo_map.system import SYSTEM_FORMAT, WRITABLE_KINDS, effective_kind, validate_system
 from lorenzo_map.themes import THEME_NAMES, keep_theme_hint, read_theme_hint, validate_theme_hint
+from lorenzo_map.view import validate_view
 
 __all__ = [
+    "APERTURES",
+    "GRID_KINDS",
+    "ORIENTATIONS",
+    "cell_at",
+    "cell_centre",
+    "cell_count",
+    "cell_polygon",
+    "in_grid",
+    "validate_view",
     "GEOMETRY_FORMAT",
     "MAX_BATCH_OPERATIONS",
     "MAX_COORDINATE",

@@ -21,6 +21,7 @@ from lorenzo_map import (
     validate_placement,
     validate_system,
     validate_theme_hint,
+    validate_view,
 )
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Select, delete, func, literal, select, tuple_
@@ -40,8 +41,10 @@ from lorenzo_api.exceptions import (
     EntityNotFoundError,
     InvalidMapError,
     MapPreconditionRequiredError,
+    MapSystemConflictError,
 )
 from lorenzo_api.information_visibility import InformationVisibility
+from lorenzo_api.map_systems import refusal, warnings
 from lorenzo_api.maps import require_placement_room, touch_map
 from lorenzo_api.models import (
     Entity,
@@ -87,6 +90,8 @@ class MapCreate(BaseModel):
     subject_entity_id: uuid.UUID | None = None
     # A theme name (ADR 0352); none draws the default.
     theme_hint: str | None = None
+    # What is only drawn: a visual grid over a plane or an outline (ADR 0354).
+    view: dict[str, Any] | None = None
     is_public: bool = False
 
 
@@ -95,12 +100,16 @@ class MapPut(BaseModel):
     system: dict[str, Any]
     subject_entity_id: uuid.UUID | None = None
     theme_hint: str | None = None
+    view: dict[str, Any] | None = None
 
 
 class MapOut(MapStub):
     system: dict[str, Any]
     # The theme name the Map asks for; one this version does not know draws as the default.
     theme_hint: str | None = None
+    view: dict[str, Any] | None = None
+    # What a change of the system may leave out of line, said on the write that made it.
+    warnings: list[str] = Field(default_factory=list)
     # The Location it shows, only when this reader may see that Location.
     subject: MapStub | None = None
     updated_at: datetime
@@ -221,6 +230,7 @@ async def _out(
         **stub.model_dump(),
         system=row.system,
         theme_hint=row.theme_hint,
+        view=row.view,
         subject=subject,
         updated_at=entity.updated_at,
         can_manage=manage,
@@ -269,8 +279,9 @@ async def create_map(
     """A Map, restricted unless `is_public`."""
     vis = await require_manager(session, user, tenant_id)
     try:
-        validate_system(body.system)
+        system = validate_system(body.system)
         theme = validate_theme_hint(body.theme_hint)
+        view = validate_view(body.view, system)
     except MapDocumentError as error:
         raise InvalidMapError(detail=error.reason) from None
     if body.subject_entity_id is not None:
@@ -291,6 +302,7 @@ async def create_map(
     assert row is not None
     row.subject_entity_id = body.subject_entity_id
     row.theme_hint = theme
+    row.view = view
     if body.is_public:
         audience = await session.get(EntityAudience, entity.id)
         assert audience is not None
@@ -334,8 +346,9 @@ async def put_map(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> MapOut:
-    """Replaces the system, the subject and the theme name under `If-Match`. No placement is
-    touched."""
+    """Replaces the system, the subject, the theme name and the view under `If-Match`. No placement
+    is touched, but a change that would move every one of them is a 409, and what else may no longer
+    line up comes back as `warnings` (ADR 0354)."""
     vis = await require_manager(session, user, tenant_id)
     entity = await _visible_map(session, user, tenant_id, map_id)
     if if_match is None:
@@ -344,15 +357,28 @@ async def put_map(
     try:
         stored = validate_system(body.system)
         theme = validate_theme_hint(body.theme_hint)
+        view = validate_view(body.view, stored)
     except MapDocumentError as error:
         raise InvalidMapError(detail=error.reason) from None
     if body.subject_entity_id is not None:
         await _visible_location(session, user, tenant_id, body.subject_entity_id)
     row = await session.get(Map, map_id)
     assert row is not None
+    said: list[str] = []
+    placed = await session.scalar(
+        select(func.count())
+        .select_from(MapPlacement)
+        .where(MapPlacement.tenant_id == tenant_id, MapPlacement.map_entity_id == map_id)
+    )
+    if placed:
+        why = refusal(row.system, stored)
+        if why is not None:
+            raise MapSystemConflictError(detail=why)
+        said = warnings(row.system, stored)
     row.system = stored
     row.subject_entity_id = body.subject_entity_id
     row.theme_hint = theme
+    row.view = view
     entity = await touch_map(session, tenant_id=tenant_id, map_id=map_id, user_id=user.id)
     await record_activity(
         session,
@@ -364,6 +390,7 @@ async def put_map(
     )
     await _commit(session, tenant_id)
     out = await _out(session, vis, tenant_id, entity)
+    out.warnings = said
     response.headers["ETag"] = etag_for(out.updated_at)
     return out
 

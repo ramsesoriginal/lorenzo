@@ -861,6 +861,13 @@ class _Applier:
                 return False
             map_row.theme_hint = keep_theme_hint(change.upstream)
             return True
+        if name == "map_view":
+            map_row = await s.get(Map, e)
+            if map_row is None or map_row.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            map_row.view = change.upstream
+            return True
         if name == "map_subject":
             map_row = await s.get(Map, e)
             if map_row is None or map_row.tenant_id != t:
