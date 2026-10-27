@@ -140,6 +140,8 @@ export const DEFAULT_GROUPS: Groups = {
   showPlaces: true,
 };
 
+import type { Overlay } from './edit';
+
 export type View = {
   /** The drawing's size in screen pixels. */
   viewport: { width: number; height: number };
@@ -154,4 +156,6 @@ export type View = {
   hover?: string | null;
   /** Where the brand's `icons.svg` is served from; empty means an inline sprite in the page. */
   iconBase?: string;
+  /** What an editor draws over the marks (ADR 0353); none when nothing is being edited. */
+  overlay?: Overlay;
 };

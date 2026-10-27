@@ -1,6 +1,10 @@
+export type { Overlay, OverlayShape, Tool, ToolEvent } from './edit';
+export { HANDLE_PICK, HANDLE_RADIUS, handleAt, overlayPrims } from './edit';
 export { placementCentre } from './geom';
 export { hitTest } from './hit';
 export { layout } from './layout';
+export type { LegendItem } from './legend';
+export { legend, SWATCH } from './legend';
 export type {
   MapViewController,
   MapViewOptions,
@@ -25,6 +29,9 @@ export type {
   ThemeContext,
 } from './theme';
 export { defaultTheme, iconForKinds, initials, WEIGHT_PX } from './themes/default';
+export type { ThemeName } from './themes/index';
+export { THEME_NAMES, themeNamed, themes } from './themes/index';
+export { plainTheme } from './themes/plain';
 export type {
   BBox,
   Geometry,

@@ -1,3 +1,4 @@
+import { overlayPrims } from './edit';
 import { bboxOf, finitePoint, flattenCubic, growBBox, num } from './geom';
 import { project, toScreen, transformOf } from './project';
 import type { Hit, Prim, Scene } from './scene';
@@ -329,6 +330,8 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
       lead.label = accessibleName(placement, role, drawn);
     }
   }
+
+  if (view.overlay?.length) prims.push(...overlayPrims(view.overlay, system, t));
 
   return {
     theme: theme.name,

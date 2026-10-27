@@ -34,12 +34,13 @@ const BAND_BORDER = 46;
 const PIN_R = 15;
 const PEOPLE_R = 12;
 const ICON_SIZE = 20;
-const LABEL_GAP = 3;
+export const LABEL_GAP = 3;
 /** From a label's centre line to its baseline, for 13px text. */
-const LABEL_BASELINE = 4.5;
+export const LABEL_BASELINE = 4.5;
 /** From a disc's centre to the baseline of 10.5px initials. */
-const INITIALS_BASELINE = 3.75;
+export const INITIALS_BASELINE = 3.75;
 const HAIRLINE = 1;
+export const PEOPLE_RADIUS = PEOPLE_R;
 
 /** The atlas icon for the first of an entry's kinds that has one; a place otherwise. */
 const KIND_ICONS: Readonly<Record<string, string>> = {
@@ -105,7 +106,7 @@ function drawable(shape: Shape): DrawableShape {
 }
 
 /** A placement that draws nothing of its own: findable, and outlined while "show places" is on. */
-function hitOnly(shape: Shape, ctx: ThemeContext): Mark[] {
+export function hitOnly(shape: Shape, ctx: ThemeContext): Mark[] {
   const target = drawable(shape);
   const marks: Mark[] = [{ type: 'draw', purpose: 'hit', shape: target, cls: 'm-hit', hit: true }];
 
@@ -122,14 +123,18 @@ function hitOnly(shape: Shape, ctx: ThemeContext): Mark[] {
   return marks;
 }
 
-type Look = { cls: string; width: number; dash?: string };
+export type Look = { cls: string; width: number; dash?: string };
 
 function withRound(cls: string, dash: string | undefined): string {
   return dash === DOTTED ? `${cls} m-round` : cls;
 }
 
 /** A line (or the edge of nothing): one stroke, or two for `double`. */
-function lineMarks(shape: DrawableShape, style: Style | null | undefined, look: Look): Mark[] {
+export function lineMarks(
+  shape: DrawableShape,
+  style: Style | null | undefined,
+  look: Look,
+): Mark[] {
   const width = weightOf(style, look.width);
   const dash = dashOf(style?.stroke, look.dash);
 
@@ -155,7 +160,11 @@ function lineMarks(shape: DrawableShape, style: Style | null | undefined, look: 
 }
 
 /** An area: a fill and an outline in one element, or a fill and two edges for `double`. */
-function areaMarks(shape: DrawableShape, style: Style | null | undefined, look: Look): Mark[] {
+export function areaMarks(
+  shape: DrawableShape,
+  style: Style | null | undefined,
+  look: Look,
+): Mark[] {
   const width = weightOf(style, look.width);
   const dash = dashOf(style?.stroke, look.dash);
 
@@ -308,7 +317,7 @@ function areaLook(role: Role | null): Look {
 }
 
 /** Areas and water at the bottom, then other lines, then pins; people are above them all. */
-function partLayer(part: Part, role: Role | null): number {
+export function partLayer(part: Part, role: Role | null): number {
   switch (part.shape) {
     case 'point':
       return 2;

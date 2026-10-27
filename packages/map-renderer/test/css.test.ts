@@ -11,7 +11,7 @@ describe('the stylesheet', () => {
 
   it('has a rule for every class the default theme and the layout write', () => {
     const css = readFileSync(new URL('../src/map.css', import.meta.url), 'utf8');
-    const source = ['themes/default.ts', 'layout.ts']
+    const source = ['themes/default.ts', 'themes/plain.ts', 'layout.ts', 'edit.ts']
       .map((file) => readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8'))
       .join('\n');
     const used = new Set(source.match(/\bm-[a-z-]+/g) ?? []);

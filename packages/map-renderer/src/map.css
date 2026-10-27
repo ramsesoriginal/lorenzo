@@ -22,6 +22,10 @@
   cursor: pointer;
 }
 
+.m-svg[data-cursor="crosshair"] {
+  cursor: crosshair;
+}
+
 .m-svg:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
@@ -243,4 +247,67 @@
 .m-mark:focus-visible .m-edge,
 .m-mark:focus-visible .m-outline {
   stroke: var(--focus-ring);
+}
+
+/* The plain theme (ADR 0352): the same classes as the default, restyled: a white sheet, no fills,
+   solid dots and rings. */
+.m-svg[data-theme="plain"] .m-land {
+  fill: var(--surface-default);
+}
+
+.m-svg[data-theme="plain"] .m-region.m-town,
+.m-svg[data-theme="plain"] .m-region.m-wood {
+  fill: none;
+}
+
+.m-svg[data-theme="plain"] .m-line,
+.m-svg[data-theme="plain"] .m-region,
+.m-svg[data-theme="plain"] .m-edge {
+  stroke: var(--text-primary);
+}
+
+.m-svg[data-theme="plain"] .m-gap {
+  stroke: var(--surface-default);
+}
+
+.m-svg[data-theme="plain"] .m-pinbg {
+  fill: var(--text-primary);
+  stroke: var(--text-primary);
+}
+
+.m-svg[data-theme="plain"] .m-ppl {
+  fill: var(--surface-default);
+  stroke: var(--text-primary);
+}
+
+.m-svg[data-theme="plain"] .m-lbl {
+  stroke: var(--surface-default);
+}
+
+/* What an editor draws over the marks (ADR 0353): never a mark, never a target. */
+.m-ov {
+  pointer-events: none;
+}
+
+.m-ov-line {
+  fill: none;
+  stroke: var(--action);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.m-ov-preview {
+  stroke-dasharray: 4 4;
+  stroke-width: 1.5;
+}
+
+.m-ov-handle {
+  fill: var(--surface-default);
+  stroke: var(--action);
+  stroke-width: 2;
+}
+
+.m-ov-active {
+  fill: var(--action);
 }

@@ -102,6 +102,19 @@ for `select()`; `onView` is called for every change of zoom or centre; `onHover`
 or the focus. It repaints at most once per animation frame, and uses no animation. There is no
 pinch gesture.
 
+## Looks and editing
+
+`themes` / `themeNamed(name)` give the themes by name (`default`, `plain`; an unknown name is the default,
+and `THEME_NAMES` is the list the API validates against, held to it by `map-engine/golden/themes.json`).
+`setTheme(theme)` redraws with another without moving the view. `legend(model, theme)` is a pure list of
+the roles on a Map with a swatch drawn by the theme, to be painted with `paintSvg`; it reads no name
+(ADR 0352).
+
+For an editor (ADR 0353) a view takes a `Tool` and an `Overlay`: `setTool(tool)` gives the pointer to the
+tool in drawing units (`down`, `drag`, `up`, `click`, `dblclick`, `move`, `key`), and `setOverlay(shapes)`
+draws lines, discs and draggable handles above the marks. A view with no tool behaves as before; the
+renderer knows nothing of what the editor does with either.
+
 ## Tests
 
 `pnpm run test` (vitest): Scene determinism, rejection of non-finite numbers, each shape and role,

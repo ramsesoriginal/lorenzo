@@ -1,7 +1,9 @@
+import { handleAt, type Overlay, type Tool, type ToolEvent } from './edit';
 import { placementCentre } from './geom';
 import { hitTest } from './hit';
 import { layout } from './layout';
 import { type PaintOptions, paintSvg, SVG_NS } from './paint';
+import { transformOf } from './project';
 import type { Scene } from './scene';
 import type { Theme } from './theme';
 import { defaultTheme } from './themes/default';
@@ -11,6 +13,7 @@ import {
   fitView,
   PAN_STEP,
   panBy,
+  screenToDrawing,
   type Viewport,
   type ViewState,
   ZOOM_STEP,
@@ -25,6 +28,10 @@ export type MapViewOptions = {
   /** What it shows, for the accessible description. */
   description?: string;
   theme?: Theme;
+  /** The tool the pointer belongs to while an editor has one (ADR 0353). */
+  tool?: Tool | null;
+  /** What an editor draws over the marks. */
+  overlay?: Overlay;
   /** Which groups are on to begin with; every one is on by default. */
   groups?: Partial<Groups>;
   selection?: string | null;
@@ -54,6 +61,12 @@ export interface MapViewController {
   /** Swaps in a new Map; the view (zoom, centre) is kept, call `fit()` to reset it. */
   setModel(model: MapModel): void;
   setGroups(groups: Partial<Groups>): void;
+  /** Draws with another theme; the zoom, centre and selection are kept. */
+  setTheme(theme: Theme): void;
+  /** The pointer belongs to the tool while one is set; null gives it back to the view. */
+  setTool(tool: Tool | null): void;
+  /** Replaces what an editor draws over the marks. */
+  setOverlay(overlay: Overlay): void;
   /** Marks a placement as hovered (a class, never a change of shape). Does not call `onHover`. */
   setHover(entryId: string | null): void;
   /** Selects a placement or clears the selection. Does not call `onSelect`. */
@@ -94,7 +107,9 @@ function entryOf(target: EventTarget | null): string | null {
 export function createMapView(host: HTMLElement, options: MapViewOptions): MapViewController {
   const doc = host.ownerDocument;
   const win = doc.defaultView;
-  const theme = options.theme ?? defaultTheme;
+  let theme = options.theme ?? defaultTheme;
+  let tool: Tool | null = options.tool ?? null;
+  let overlay: Overlay = options.overlay ?? [];
   const idPrefix = `map-${++counter}`;
   const svg = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
 
@@ -115,12 +130,27 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
     moved: boolean;
   } | null = null;
   let suppressClick = false;
+  // A press a tool took as a drag of its own.
+  let toolDrag: number | null = null;
 
   svg.setAttribute('tabindex', '0');
   svg.setAttribute('data-cursor', 'grab');
   host.appendChild(svg);
 
   const viewport = (): Viewport => ({ width: host.clientWidth, height: host.clientHeight });
+
+  function currentView(vp: Viewport = viewport()): View {
+    return {
+      viewport: vp,
+      zoom: state.zoom,
+      centre: state.centre,
+      groups,
+      selection,
+      hover,
+      ...(options.iconBase === undefined ? {} : { iconBase: options.iconBase }),
+      ...(overlay.length > 0 ? { overlay } : {}),
+    };
+  }
 
   function redraw(): void {
     cancelFrame = null;
@@ -131,17 +161,7 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
 
     if (!(vp.width > 0) || !(vp.height > 0)) return;
 
-    const view: View = {
-      viewport: vp,
-      zoom: state.zoom,
-      centre: state.centre,
-      groups,
-      selection,
-      hover,
-      ...(options.iconBase === undefined ? {} : { iconBase: options.iconBase }),
-    };
-
-    scene = layout(model, view, theme);
+    scene = layout(model, currentView(vp), theme);
     paintSvg(scene, svg, {
       title: options.title,
       idPrefix,
@@ -204,8 +224,29 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
     return [(e.clientX - rect.left) * sx, (e.clientY - rect.top) * sy];
   }
 
-  function cursor(value: 'grab' | 'grabbing' | 'pointer'): void {
-    if (svg.getAttribute('data-cursor') !== value) svg.setAttribute('data-cursor', value);
+  function cursor(value: 'grab' | 'grabbing' | 'pointer' | 'crosshair'): void {
+    // A tool's cursor wins over everything but the hand that is panning.
+    const shown = tool?.cursor === 'crosshair' && value !== 'grabbing' ? 'crosshair' : value;
+
+    if (svg.getAttribute('data-cursor') !== shown) svg.setAttribute('data-cursor', shown);
+  }
+
+  /** A pointer event as a tool sees it: in drawing units, with what is under it. */
+  function toolEvent(e: MouseEvent): ToolEvent {
+    const screen = pointOf(e);
+    const vp = viewport();
+    const hit = scene ? hitTest(scene, screen) : null;
+
+    return {
+      point: screenToDrawing(model.system, vp, state, screen),
+      hit,
+      handle:
+        overlay.length > 0
+          ? handleAt(overlay, model.system, transformOf(model.system, currentView(vp)), screen)
+          : null,
+      shift: e.shiftKey,
+      detail: e.detail,
+    };
   }
 
   const listeners: [string, EventListener, AddEventListenerOptions | undefined][] = [];
@@ -223,6 +264,14 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
     if (e.button !== 0) return;
 
     suppressClick = false;
+
+    if (tool?.down?.(toolEvent(e))) {
+      toolDrag = e.pointerId;
+      suppressClick = true;
+      svg.setPointerCapture?.(e.pointerId);
+
+      return;
+    }
     drag = {
       id: e.pointerId,
       x: e.clientX,
@@ -235,6 +284,12 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
   });
 
   on('pointermove', (e) => {
+    if (toolDrag !== null && toolDrag === e.pointerId) {
+      tool?.drag?.(toolEvent(e));
+
+      return;
+    }
+
     if (drag && drag.id === e.pointerId) {
       if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < DRAG_THRESHOLD)
         return;
@@ -250,6 +305,8 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
       return;
     }
 
+    tool?.move?.(toolEvent(e));
+
     const id = scene ? hitTest(scene, pointOf(e)) : null;
 
     cursor(id ? 'pointer' : 'grab');
@@ -257,6 +314,14 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
   });
 
   const release = (e: PointerEvent): void => {
+    if (toolDrag !== null && toolDrag === e.pointerId) {
+      toolDrag = null;
+      svg.releasePointerCapture?.(e.pointerId);
+      tool?.up?.(toolEvent(e));
+
+      return;
+    }
+
     if (!drag || drag.id !== e.pointerId) return;
 
     if (drag.moved) suppressClick = true;
@@ -282,9 +347,15 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
       return;
     }
 
+    if (tool?.click?.(toolEvent(e))) return;
+
     // A click with no detail was made by a keyboard or an assistive technology, which has no
     // pointer position: it names the mark by the element it landed on.
     pick(e.detail === 0 ? entryOf(e.target) : scene ? hitTest(scene, pointOf(e)) : null);
+  });
+
+  on('dblclick', (e) => {
+    if (tool?.dblclick?.(toolEvent(e))) e.preventDefault();
   });
 
   on(
@@ -301,6 +372,12 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
   );
 
   on('keydown', (e) => {
+    if (tool?.key?.(e)) {
+      e.preventDefault();
+
+      return;
+    }
+
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     const entry = entryOf(e.target);
@@ -361,6 +438,19 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
     },
     setGroups(next) {
       groups = { ...groups, ...next };
+      schedule();
+    },
+    setTheme(next) {
+      theme = next;
+      schedule();
+    },
+    setTool(next) {
+      tool = next;
+      toolDrag = null;
+      cursor('grab');
+    },
+    setOverlay(next) {
+      overlay = next;
       schedule();
     },
     setHover(id) {

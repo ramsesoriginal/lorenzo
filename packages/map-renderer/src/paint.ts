@@ -148,6 +148,7 @@ export function sceneTree(scene: Scene, options: PaintOptions = {}): TreeNode {
   const attrs: [string, string][] = [
     ['class', 'm-svg'],
     ['viewBox', `0 0 ${scene.width} ${scene.height}`],
+    ['data-theme', scene.theme],
     ['role', options.role ?? 'img'],
   ];
 
