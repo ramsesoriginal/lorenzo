@@ -346,3 +346,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0346 - Safe paragraph splits](0346-safe-paragraph-splits.md) — RFC 0047 W5c.
 
 - [0347 - Syntax-aware manuscript splits](0347-syntax-aware-manuscript-splits.md) — RFC 0047 W5d.
+
+- [0348 - Chapter joins and guarded redirects](0348-chapter-joins-and-guarded-redirects.md) — RFC 0047 W5e.
