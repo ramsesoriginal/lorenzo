@@ -12,6 +12,11 @@ export type System = {
   kind: string;
   extent: BBox;
   scale?: { per_unit: number; unit: string };
+  /** A grid system (ADR 0354): its cell, and for hexes which way they sit. */
+  cell?: GridSpec['cell'];
+  orientation?: GridSpec['orientation'];
+  measure?: { per_cell: number; unit: string };
+  sub?: GridSpec['sub'];
 };
 
 export type Part =
@@ -49,7 +54,12 @@ export type Placement = {
   z: number;
 };
 
-export type MapModel = { system: System; placements: readonly Placement[] };
+export type MapModel = {
+  system: System;
+  placements: readonly Placement[];
+  /** The Map's view grid: a visual grid over a system that has none (ADR 0354). */
+  overlay?: GridSpec | null;
+};
 
 /** The closed list of roles (ADR 0337). It grows only by ADR. */
 export const ROLES = [
@@ -122,6 +132,8 @@ export type Groups = {
   names: boolean;
   /** Draw a hairline outline for hit-only placements (`style.stroke` of `none`). */
   showPlaces: boolean;
+  /** The grid and its sub-grid (ADR 0355). */
+  grid: boolean;
 };
 
 export type GroupName = 'places' | 'people' | 'roads';
@@ -138,9 +150,11 @@ export const DEFAULT_GROUPS: Groups = {
   roads: true,
   names: true,
   showPlaces: true,
+  grid: true,
 };
 
 import type { Overlay } from './edit';
+import type { GridSpec } from './grid';
 
 export type View = {
   /** The drawing's size in screen pixels. */

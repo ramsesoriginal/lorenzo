@@ -1,6 +1,10 @@
 export type { Overlay, OverlayShape, Tool, ToolEvent } from './edit';
 export { HANDLE_PICK, HANDLE_RADIUS, handleAt, overlayPrims } from './edit';
 export { placementCentre } from './geom';
+export type { Cell, GridKind, GridSpec, Orientation } from './grid';
+export { cellAt, cellCentre, cellCount, cellPolygon, inGrid, isGridKind } from './grid';
+export type { GridState } from './gridDraw';
+export { gridOf, gridPrims, MAX_DRAWN_CELLS, MIN_CELL_PX, MIN_SUB_PX } from './gridDraw';
 export { hitTest } from './hit';
 export { layout } from './layout';
 export type { LegendItem } from './legend';

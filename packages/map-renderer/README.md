@@ -115,6 +115,15 @@ tool in drawing units (`down`, `drag`, `up`, `click`, `dblclick`, `move`, `key`)
 draws lines, discs and draggable handles above the marks. A view with no tool behaves as before; the
 renderer knows nothing of what the editor does with either.
 
+## Grids
+
+A system of kind `square`, `rect` or `hex`, or a Map's `overlay` grid, is drawn under the placements as
+primitives of class `m-grid` and `m-grid-sub` (ADR 0355): lines for squares and rectangles, outlines for
+hexes, and for a hex sub-grid a lattice of its own for each aperture (3, 4, 7). Cells under 6 pixels
+are not drawn (8 for a sub-grid) and at most 6,000 at once; `gridPrims` also says whether the grid was
+`drawn`, `too_fine` or `none`. `cellAt`, `cellCentre`, `cellPolygon`, `inGrid` and `cellCount` mirror
+`packages/map-engine`'s functions and read the same `golden/cells.json`. `Groups.grid` is the switch.
+
 ## Tests
 
 `pnpm run test` (vitest): Scene determinism, rejection of non-finite numbers, each shape and role,

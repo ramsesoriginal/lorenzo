@@ -1,5 +1,6 @@
 import { overlayPrims } from './edit';
 import { bboxOf, finitePoint, flattenCubic, growBBox, num } from './geom';
+import { gridPrims } from './gridDraw';
 import { project, toScreen, transformOf } from './project';
 import type { Hit, Prim, Scene } from './scene';
 import type { DrawableShape, Mark, Shape, Theme, ThemeContext } from './theme';
@@ -302,6 +303,8 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
       bbox: [0, 0, num(width), num(height)],
     },
   ];
+
+  if (view.groups.grid) prims.push(...gridPrims(model, t).prims);
 
   for (const { placement, role } of visible) {
     const entryId = placement.entry.id;

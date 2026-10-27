@@ -311,3 +311,22 @@
 .m-ov-active {
   fill: var(--action);
 }
+
+/* The grid and its sub-grid (ADR 0355): under every placement, never a target. */
+.m-grid,
+.m-grid-sub {
+  fill: none;
+  pointer-events: none;
+  stroke-linejoin: round;
+}
+
+.m-grid {
+  stroke: var(--border-strong);
+  opacity: 0.5;
+}
+
+.m-grid-sub {
+  stroke: var(--border-subtle);
+  stroke-dasharray: 2 3;
+  opacity: 0.8;
+}

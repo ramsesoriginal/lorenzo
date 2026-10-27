@@ -65,7 +65,16 @@ describe('hitTest', () => {
     });
     const s = layout(
       { system, placements: [hidden] },
-      view({ groups: { places: true, people: true, roads: true, names: true, showPlaces: false } }),
+      view({
+        groups: {
+          places: true,
+          people: true,
+          roads: true,
+          names: true,
+          showPlaces: false,
+          grid: true,
+        },
+      }),
     );
 
     expect(hitTest(s, [320, 220])).toBe('h');
