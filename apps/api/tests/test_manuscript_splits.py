@@ -36,8 +36,11 @@ async def test_split_preserves_source_and_retries(
             (await actor.post(base + "/writing/chapters", json={"name": name})).json()["id"]
             for name in ["Before", "After"]
         ]
-        left = "One.\n\nFirst 🐉[^a].\n\n[^a]: A complete note.\n\n"
-        right = "Second [[Eira]] with **bold** text."
+        left = (
+            "# Dawn\n\nOne.\n\nFirst 🐉[^a].\n\n- A list\n- Kept whole\n\n"
+            "[^a]: A complete note.\n\n"
+        )
+        right = "# Dusk\n\nSecond [[Eira]] with **bold** text."
         original = left + right
         info = (
             await actor.post(
@@ -144,7 +147,9 @@ async def test_split_preserves_source_and_retries(
         retry = await raw_client.post(url, headers=headers, json=body)
         assert retry.status_code == 200 and retry.json() == response.json()
         assert (
-            await raw_client.post(url, headers=headers, json={**body, "offset": len("One.\n\n")})
+            await raw_client.post(
+                url, headers=headers, json={**body, "offset": len("# Dawn\n\nOne.\n\n")}
+            )
         ).status_code == 409
         assert (
             await raw_client.post(
@@ -188,7 +193,7 @@ async def test_split_preserves_source_and_retries(
                 json={
                     "payload_id": copied_first,
                     "second_payload_id": str(collision_id),
-                    "offset": len("One.\n\n"),
+                    "offset": len("# Dawn\n\nOne.\n\n"),
                 },
             )
             assert collision.status_code == 409, collision.text
@@ -208,7 +213,7 @@ async def test_split_preserves_source_and_retries(
                     json={
                         "payload_id": first,
                         "second_payload_id": str(uuid.uuid4()),
-                        "offset": len("One.\n\n"),
+                        "offset": len("# Dawn\n\nOne.\n\n"),
                     },
                 )
                 for _ in range(2)

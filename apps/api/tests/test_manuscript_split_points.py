@@ -1,4 +1,4 @@
-"""The conservative guard shares fixtures with canonical parser tests in Writing."""
+"""The parser-aware guard shares fixtures with canonical parser tests in Writing."""
 
 import json
 from pathlib import Path
@@ -16,7 +16,9 @@ CASES = json.loads(
 def test_safe_boundary(case: dict) -> None:
     left, right = case["marked"].split("<SPLIT>")
     source = left + right
-    assert (len(left) in split_points(source)) == case["allowed"]
+    points = split_points(source)
+    assert points == case["points"]
+    assert (len(left) in points) == case["allowed"]
     assert source[: len(left)] + source[len(left) :] == source
 
 
@@ -25,3 +27,8 @@ def test_long_prose_boundaries_are_stable() -> None:
     points = split_points(source)
     assert len(points) == 9999
     assert points[0] == len("Paragraph 🐉.\n\n")
+
+
+def test_many_distinct_headings() -> None:
+    source = "".join(f"# Section {i}\n\n" for i in range(10000))
+    assert len(split_points(source)) == 9999

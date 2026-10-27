@@ -709,8 +709,9 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
     await page.getByLabel('New draft title').fill('A divided journey');
     await page.getByRole('button', { name: 'Start writing', exact: true }).click();
     const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
-    const first = 'First 🐉[^a].\n\n[^a]: A local note.\n\n';
-    const second = 'Second paragraph, a new beginning.';
+    const first =
+      '# Dawn\n\nFirst 🐉[^a].\n\n- One\n\n  Still the same list.\n\n[^a]: A local note.\n\n';
+    const second = '# Dusk';
     await manuscript.fill(first + second);
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
@@ -718,8 +719,19 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
     const savedText = page.getByRole('textbox', { name: 'Text to split', exact: true });
     await expect(savedText).toHaveValue(first + second);
     await savedText.focus();
-    await savedText.press('Control+End');
-    await page.getByRole('button', { name: 'Choose paragraph', exact: true }).click();
+    await savedText.evaluate((element: HTMLTextAreaElement) => {
+      element.setSelectionRange(element.value.indexOf('  Still'), element.value.indexOf('  Still'));
+    });
+    await page.getByRole('button', { name: 'Choose section', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Split here', exact: true })).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'Keep lists' })).toBeVisible();
+    await savedText.focus();
+    // Edge scrolls a readonly textarea on Ctrl+End without moving its selection.
+    // Set the selected location explicitly, as for the rejected list boundary above.
+    await savedText.evaluate((element: HTMLTextAreaElement) => {
+      element.setSelectionRange(element.value.length, element.value.length);
+    });
+    await page.getByRole('button', { name: 'Choose section', exact: true }).click();
     await expect(
       page.getByRole('status').filter({ hasText: 'The second text block will begin:' }),
     ).toContainText(second);
@@ -737,7 +749,7 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
     await expect(page.getByRole('link', { name: 'A new beginning', exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     await expect(page.locator('article')).toContainText('A local note.');
-    await expect(page.locator('article')).toContainText(second);
+    await expect(page.locator('article')).toContainText('Dusk');
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
     await page.getByRole('link', { name: 'A new beginning', exact: true }).click();
     await expect(manuscript).toHaveValue(second);

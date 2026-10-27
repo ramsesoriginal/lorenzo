@@ -9,7 +9,7 @@ Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329, 0341–
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Cross-parent moves, splitting/joining, Carriers and
+saved prose revisions. Joins, Carriers and
 subsequent slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
 
 Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
@@ -39,17 +39,19 @@ The optional **Extract a Chapter** action moves a consecutive range of complete 
 pictures and child entries into a new Chapter at the same position (W5b,
 [ADR 0345](../../docs/adr/0345-extract-outline-into-chapter.md)). It preserves payload identities,
 LorenzoScript, audiences and notes, with a saved manuscript revision and structural checkpoint.
-**Split text** divides a saved text block at a safe paragraph boundary (W5c,
-[ADR 0346](../../docs/adr/0346-safe-paragraph-splits.md)). Place the cursor in the paragraph
+**Split text** divides a saved text block at a safe section boundary (W5c,
+[ADR 0346](../../docs/adr/0346-safe-paragraph-splits.md)). Place the cursor at the section
 that should begin the second block, choose it and confirm. Both parts keep their wording,
 locale and audience; either can then be extracted into a Chapter. A saved revision retains
 the original text. The first part keeps its payload identity; the second receives a new one.
 
-This first splitter supports plain paragraphs and inline markup, with complete simple footnotes
-kept beside all their references. It refuses compound blocks and document-wide dependencies
-(lists, quotes, code, tables, display math, class blocks, abbreviations, headings/fragment links
-and contents directives). Whole-element extraction remains available. More general syntax-aware
-splits, joins and guarded redirects remain subsequent W5 work.
+The parser-aware splitter ([ADR 0347](../../docs/adr/0347-syntax-aware-manuscript-splits.md))
+accepts boundaries between complete lists, quotations, tables, code, display math and class
+blocks, as well as distinct headings. It keeps footnote dependencies and potentially colliding
+heading anchors together. Texts with contents directives, abbreviations or local fragment links
+still stay whole. Place the cursor after a blank line at the start of the next section;
+an unsafe boundary is refused without moving the cursor's choice. Joins and guarded redirects
+remain subsequent W5 work.
 
 ## Run and verify
 

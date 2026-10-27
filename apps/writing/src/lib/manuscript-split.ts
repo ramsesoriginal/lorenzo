@@ -40,12 +40,12 @@ export function splitControls(
         ),
       );
       if (!available.points.length) {
-        status.textContent = available.explanation ?? 'No safe paragraph boundary here.';
+        status.textContent = available.explanation ?? 'No safe section boundary here.';
         return;
       }
       const help = document.createElement('p');
       help.textContent =
-        'Place the cursor in the paragraph that should start the second text block, then choose it. Your saved text stays unchanged until you confirm.';
+        'Place the cursor at the start of the section that should begin the second text block, after a blank line, then choose it. Your saved text stays unchanged until you confirm.';
       const text = document.createElement('textarea');
       text.className = 'text-input';
       text.readOnly = true;
@@ -55,7 +55,7 @@ export function splitControls(
       const choose = document.createElement('button');
       choose.type = 'button';
       choose.className = 'btn btn-secondary';
-      choose.textContent = 'Choose paragraph';
+      choose.textContent = 'Choose section';
       const confirm = document.createElement('button');
       confirm.type = 'button';
       confirm.className = 'btn btn-secondary';
@@ -74,7 +74,8 @@ export function splitControls(
         if (!point) {
           selected = undefined;
           confirm.hidden = true;
-          status.textContent = 'Choose a later paragraph that keeps its footnotes together.';
+          status.textContent =
+            'Choose a blank-line boundary before a complete section. Keep lists, quotations, shared footnotes and repeated headings together.';
           return;
         }
         if (selected?.offset !== offset)

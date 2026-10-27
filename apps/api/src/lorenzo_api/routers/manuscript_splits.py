@@ -1,4 +1,4 @@
-"""Conditional, retry-safe text splits at conservative paragraph boundaries (ADR 0346)."""
+"""Conditional, retry-safe text splits between complete blocks (ADRs 0346, 0347)."""
 
 import hashlib
 import json
@@ -104,7 +104,8 @@ async def available(
         explanation=None
         if points
         else (
-            "No safe paragraph boundary here. Keep compound blocks and dependent footnotes "
+            "No safe section boundary here. Keep lists, quotations and dependent footnotes "
+            "together. Text with a contents list, abbreviations or local links must stay "
             "together; you can still extract the whole text block."
         ),
     )
@@ -164,7 +165,7 @@ async def split(
         raise ManuscriptMoveConflictError(
             detail=(
                 "This boundary would change the text's structure or separate a footnote. "
-                "Choose a safe paragraph boundary."
+                "Choose a boundary before a complete section."
             )
         )
     if await existing_in_tenant(session, Payload, body.second_payload_id, tenant_id):
