@@ -17,7 +17,7 @@ A Map is an entry kind too ([ADR 0336](../../docs/adr/0336-maps-the-kind-its-sys
 to [ADR 0340](../../docs/adr/0340-the-map-view-in-lorenzo-maps.md)). `/maps/` lists the Maps a person may
 see and `/map/` draws one with [`@lorenzo/map-renderer`](../../packages/map-renderer): places, people,
 roads and names can be switched off, the drawing zooms and pans, and selecting a mark, here or in the
-"Places on this map" list, opens a panel. The view is read-only; placements are written through the API
+"Places on this map" list, opens a panel, and hovering or focusing a mark or a row opens the entry's card ([ADR 0350](../../docs/adr/0350-location-and-map-previews.md)). The view is read-only; placements are written through the API
 until a drawing tool arrives. The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.

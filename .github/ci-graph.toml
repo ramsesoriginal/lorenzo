@@ -161,6 +161,9 @@ batch = "cli"
 [nodes."packages/map-renderer"]
 batch = "packages"
 
+[nodes."packages/entry-preview"]
+batch = "packages"
+
 [nodes."apps/calendars"]
 batch = "web-2"
 

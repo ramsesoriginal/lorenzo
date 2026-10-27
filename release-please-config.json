@@ -108,6 +108,10 @@
     "packages/map-renderer": {
       "release-type": "node",
       "component": "map-renderer"
+    },
+    "packages/entry-preview": {
+      "release-type": "node",
+      "component": "entry-preview"
     }
   }
 }

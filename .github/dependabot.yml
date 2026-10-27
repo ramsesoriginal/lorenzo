@@ -121,6 +121,7 @@ updates:
       - "/packages/period-picker"
       - "/packages/read-cache"
       - "/packages/map-renderer"
+      - "/packages/entry-preview"
     schedule:
       interval: "weekly"
     commit-message:

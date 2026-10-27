@@ -85,6 +85,18 @@ async function world() {
     }),
   );
   await draw(harbour.id, geometry({ shape: 'point', at: [300, 300] }), { role: 'site' });
+  await ok(
+    gm.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+      params: { path: { ...path, entity_id: harbour.id } },
+      body: {
+        title: 'About',
+        type: 'description',
+        is_public: true,
+        content: 'A busy harbour town.',
+        locale: 'en-US',
+      },
+    }),
+  );
   await draw(
     marsh.id,
     geometry({
@@ -167,6 +179,40 @@ test('a GM sees the Map drawn, and the toggles, zoom and selection work', async 
     );
     await gm.keyboard.press('Escape');
     await expect(gm.getByText('Select a place on the map or in the list.')).toBeVisible();
+  } finally {
+    await gm.context().close();
+  }
+});
+
+test('a mark and a row of the list open the entry card, and Escape puts it away', async ({
+  browser,
+}) => {
+  const w = await world();
+  const gm = await signedIn(browser, w.subject);
+  try {
+    await gm.goto(`/map/?tenant=${w.tenant.id}&id=${w.chart.id}`);
+    const drawing = gm.getByRole('group', { name: 'Map of Sword Coast' });
+    await expect(drawing).toBeVisible();
+    const card = gm.getByRole('tooltip');
+    // A mark: the pointer resting on the pin shows the entry's card.
+    await drawing.locator('[aria-label^="Harbour town"] .m-pinbg').hover();
+    await expect(card).toContainText('Harbour town');
+    await expect(card).toContainText('Location');
+    await expect(card).toContainText('A busy harbour town.');
+    await gm.mouse.move(5, 5);
+    await expect(card).toBeHidden();
+    // A row of the places list, by the keyboard.
+    const row = gm.locator('.map-places').getByRole('button', { name: /Wet marsh/ });
+    await row.focus();
+    await expect(card).toContainText('Wet marsh');
+    await expect(row).toHaveAttribute('aria-describedby', 'entry-preview');
+    await gm.keyboard.press('Escape');
+    await expect(card).toBeHidden();
+    // A Map's own kind has its word too, and axe finds nothing wrong with a card open.
+    await drawing.locator('[aria-label^="Salt road"]').first().focus();
+    await expect(card).toContainText('Salt road');
+    const result = await new AxeBuilder({ page: gm }).analyze();
+    expect(result.violations.map((v) => `${v.id}: ${v.nodes[0]?.html}`)).toEqual([]);
   } finally {
     await gm.context().close();
   }

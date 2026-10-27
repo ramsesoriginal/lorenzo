@@ -295,10 +295,6 @@
   border-radius: var(--radius-card);
 }
 
-.map-pointing {
-  min-height: 1.5em;
-}
-
 .map-place {
   width: auto;
   height: auto;

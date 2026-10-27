@@ -1,3 +1,4 @@
+import { installEntryPreview } from '@lorenzo/entry-preview';
 import {
   createMapView,
   type Geometry,
@@ -30,6 +31,7 @@ import {
   statusLine,
 } from './dom';
 import { canManage, libraryName, myLibraries } from './names';
+import { loadCard, loadPicture } from './previews';
 import { start } from './sign-in';
 import { resolveEntry } from './views';
 
@@ -292,8 +294,6 @@ export async function mountMap() {
 
     // The drawing, the line that names what is pointed at, and a tip.
     const stage = el('div', '', 'map-stage');
-    const pointing = el('p', '', 'status-text map-pointing');
-    pointing.setAttribute('aria-hidden', 'true');
     const tip = el(
       'p',
       'Scroll or press + and − to zoom, drag or use the arrow keys to move, and press Tab to reach each place.',
@@ -329,6 +329,7 @@ export async function mountMap() {
       const button = el('button', row.name, 'place-toggle map-place');
       button.type = 'button';
       button.setAttribute('aria-pressed', 'false');
+      button.dataset.entry = row.id;
       button.addEventListener('click', () => select(selected === row.id ? null : row.id, true));
       if (row.role) button.append(el('span', words(row.role), 'chip'));
       buttons.set(row.id, button);
@@ -340,7 +341,7 @@ export async function mountMap() {
     drawing.append(sectionHead('The map'), toolbar);
     const layoutRow = el('div', '', 'map-layout');
     const left = el('div', '', 'stack');
-    left.append(stage, pointing, tip);
+    left.append(stage, tip);
     layoutRow.append(left, panel);
     drawing.append(layoutRow);
     view.append(drawing);
@@ -374,12 +375,28 @@ export async function mountMap() {
       onView: (state) => {
         zoom.textContent = zoomLabel(state.zoom);
       },
-      onHover: (entryId) => {
-        pointing.textContent = entryId ? (byId.get(entryId)?.name ?? '') : '';
-      },
     });
     zoom.textContent = zoomLabel(controller.getView().zoom);
-    document.addEventListener('astro:before-swap', () => controller?.destroy(), { once: true });
+    // A mark of the drawing and a row of the places list open the entry's card (ADR 0350). Maps is a
+    // desktop app, so a tap only selects.
+    const preview = installEntryPreview({
+      selector: '.m-mark[data-entry], .map-place[data-entry]',
+      targetOf: (element) => {
+        const id = element.getAttribute('data-entry');
+        return id ? { tenant, id } : null;
+      },
+      loadCard,
+      loadPicture,
+      touch: 'off',
+    });
+    document.addEventListener(
+      'astro:before-swap',
+      () => {
+        controller?.destroy();
+        preview.destroy();
+      },
+      { once: true },
+    );
   } catch (error) {
     host.querySelector('[data-loading]')?.remove();
     host.replaceChildren(errorNotice(error));
