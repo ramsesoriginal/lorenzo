@@ -1,11 +1,44 @@
 """Lossless boundaries between complete LorenzoScript blocks (ADRs 0346, 0347)."""
 
 import re
+from dataclasses import dataclass, field
 
 from lorenzo_api.lorenzoscript import normalize_label, split_structure
 
 _GAP = re.compile(r"(?:\r?\n)[ \t]*(?:\r?\n)(?:[ \t]*\r?\n)*")
-_FOOTNOTE = re.compile(r"\[\^([^\]]+)\]")
+
+
+@dataclass
+class _HeadingPrefix:
+    children: dict[str, _HeadingPrefix] = field(default_factory=dict)
+    key: str | None = None
+
+
+def _heading_families(headings: dict[str, list[int]]) -> list[list[int]]:
+    """Group potential anchor collisions without repeatedly scanning long suffixes."""
+    root = _HeadingPrefix()
+    for key in headings:
+        node = root
+        for part in key.split("-"):
+            if part not in node.children:
+                node.children[part] = _HeadingPrefix()
+            node = node.children[part]
+        node.key = key
+    families: dict[str, list[int]] = {}
+    for key, owners in headings.items():
+        parts = key.split("-")
+        tail = len(parts)
+        while tail > 1 and parts[tail - 1].isascii() and parts[tail - 1].isdecimal():
+            tail -= 1
+        node = root
+        family = key
+        for index, part in enumerate(parts):
+            node = node.children[part]
+            if index + 1 >= tail and node.key is not None:
+                family = node.key
+                break
+        families.setdefault(family, []).extend(owners)
+    return list(families.values())
 
 
 def split_points(source: str) -> list[int]:
@@ -22,22 +55,20 @@ def split_points(source: str) -> list[int]:
     line_offsets = [0, *(match.end() for match in re.finditer("\n", source))]
     starts = {line_offsets[line] for line in structure.starts}
     ranges: dict[str, tuple[int, int]] = {}
-    for match in _FOOTNOTE.finditer(source):
-        label = normalize_label(match[1])
-        start, _ = ranges.get(label, (match.start(), match.end()))
-        ranges[label] = (start, match.end())
+    cursor = 0
+    # A failed regex search for ] at every [^ would repeatedly scan the same tail.
+    # Visit each closing-bracket-delimited piece once, including literal code text.
+    pieces = source.split("]")
+    for piece in pieces[:-1]:
+        end = cursor + len(piece) + 1
+        marker = piece.find("[^")
+        if 0 <= marker < len(piece) - 2:
+            label = normalize_label(piece[marker + 2 :])
+            start, _ = ranges.get(label, (cursor + marker, end))
+            ranges[label] = (start, end)
+        cursor = end
     dependencies = list(ranges.values())
-    families: dict[str, list[int]] = {}
-    for key, owners in structure.headings.items():
-        # A suffix can collide only when its base also occurs. Section-1 and
-        # Section-2 alone do not compete; Section plus Section-2 potentially do.
-        family = candidate = key
-        while (base := re.sub(r"-[0-9]+$", "", candidate)) != candidate:
-            if base in structure.headings:
-                family = base
-            candidate = base
-        families.setdefault(family, []).extend(owners)
-    for owners in families.values():
+    for owners in _heading_families(structure.headings):
         if len(owners) > 1:
             # Include the later heading's start itself in the forbidden interval.
             dependencies.append((line_offsets[min(owners)], line_offsets[max(owners)] + 1))

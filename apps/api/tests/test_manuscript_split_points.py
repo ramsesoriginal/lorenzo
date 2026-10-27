@@ -32,3 +32,12 @@ def test_long_prose_boundaries_are_stable() -> None:
 def test_many_distinct_headings() -> None:
     source = "".join(f"# Section {i}\n\n" for i in range(10000))
     assert len(split_points(source)) == 9999
+
+
+def test_long_heading_suffix_chain_and_unclosed_labels() -> None:
+    # Neither a failed label search nor each removed numeric suffix may scan
+    # the same large tail again (ADR 0110). Code keeps the label test in this guard.
+    heading = "# Section" + "-2" * 25000 + "\n\n"
+    assert split_points(heading + "After.") == [len(heading)]
+    code = "```\n" + "[^" * 25000 + "\n```\n\n"
+    assert split_points(code + "After.") == [len(code)]
