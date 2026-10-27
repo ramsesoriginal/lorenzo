@@ -31,6 +31,7 @@ from lorenzo_map.roles import (
     validate_role,
     validate_style,
 )
+from lorenzo_map.sphere import PROJECTIONS, SPHERE_EXTENT, is_sphere
 from lorenzo_map.system import SYSTEM_FORMAT, WRITABLE_KINDS, effective_kind, validate_system
 from lorenzo_map.themes import THEME_NAMES, keep_theme_hint, read_theme_hint, validate_theme_hint
 from lorenzo_map.view import validate_view
@@ -39,6 +40,9 @@ __all__ = [
     "APERTURES",
     "GRID_KINDS",
     "ORIENTATIONS",
+    "PROJECTIONS",
+    "SPHERE_EXTENT",
+    "is_sphere",
     "cell_at",
     "cell_centre",
     "cell_count",

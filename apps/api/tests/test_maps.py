@@ -728,3 +728,101 @@ async def test_changing_the_hexes_under_placements_is_refused_and_other_changes_
         assert len(ids(await read(gm, t, flat))) == 1
     finally:
         await w.clean_up()
+
+
+SPHERE = {"format": "lorenzo.map-system/1", "kind": "sphere", "extent": [-180, -90, 180, 90]}
+GLOBE = {"projection": {"kind": "orthographic", "centre": [10, 20]}}
+
+
+async def test_a_sphere_has_a_projection_and_its_places_are_longitudes_and_latitudes(
+    raw_client, fake_jwks_server
+):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm = w.tenant_id, w.author
+        made = await gm.post(
+            f"/tenants/{t}/maps",
+            json={
+                "name": "Aeris",
+                "system": {**SPHERE, "radius": {"value": 6371, "unit": "km"}},
+                "view": GLOBE,
+            },
+        )
+        assert made.status_code == 201, made.text
+        chart = made.json()["id"]
+        assert made.json()["system"]["radius"] == {"value": 6371, "unit": "km"}
+        assert made.json()["view"] == GLOBE
+        for refused in (
+            {**SPHERE, "extent": [0, 0, 360, 180]},
+            {**SPHERE, "scale": {"per_unit": 1, "unit": "km"}},
+            {**SPHERE, "radius": {"value": 0, "unit": "km"}},
+        ):
+            assert (
+                await gm.post(f"/tenants/{t}/maps", json={"name": "No", "system": refused})
+            ).status_code == 422
+        # A projection is for a sphere, and a sphere draws its own lines.
+        for system, view in (
+            (SYSTEM, GLOBE),
+            (SPHERE, {"projection": {"kind": "mercator", "centre": [0, 0]}}),
+            (SPHERE, {"grid": {"kind": "square", "cell": {"size": 5}}}),
+        ):
+            assert (
+                await gm.post(
+                    f"/tenants/{t}/maps", json={"name": "No", "system": system, "view": view}
+                )
+            ).status_code == 422
+        # Places are held to their ranges and to the shapes a sphere draws, on every way in.
+        town, river = await entry(gm, t, "Town"), await entry(gm, t, "River")
+        assert (await draw(gm, t, chart, town, pin(-12.5, 41.25))).status_code == 200
+        assert (await draw(gm, t, chart, river, line((-10, 20), (30, 45)))).status_code == 200
+        for bad in (
+            pin(181, 0),
+            pin(0, -90.5),
+            line((0, 0), (0, 100)),
+            {
+                "format": "lorenzo.geometry/1",
+                "parts": [{"shape": "circle", "at": [0, 0], "r": 5}],
+            },
+        ):
+            assert (await draw(gm, t, chart, town, bad)).status_code == 422
+        refused = await batch(gm, t, chart, put=[{"entry_id": town, "geometry": pin(200, 0)}])
+        assert refused.status_code == 422 and "put[0]" in refused.json()["detail"]
+        assert len(ids(await read(gm, t, chart))) == 2
+        # The same numbers are fine on a plane.
+        flat = (await make_map(gm, t, "Flat"))["id"]
+        assert (await draw(gm, t, flat, town, pin(900, 700))).status_code == 200
+    finally:
+        await w.clean_up()
+
+
+async def test_a_sphere_cannot_be_entered_or_left_under_placements(raw_client, fake_jwks_server):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm = w.tenant_id, w.author
+        chart = (await make_map(gm, t, "Globe"))["id"]
+        # With nothing placed any change is fine.
+        free = await replace(gm, t, chart, SPHERE, view=GLOBE)
+        assert free.status_code == 200 and free.json()["view"] == GLOBE
+        one = await entry(gm, t, "One")
+        assert (await draw(gm, t, chart, one, pin(10, 10))).status_code == 200
+        for refused in (SYSTEM, GRIDS["pointy"]):
+            answer = await replace(gm, t, chart, refused)
+            assert answer.status_code == 409, answer.text
+        # The projection and the radius are only drawn or said, and change nothing under places.
+        turned = await replace(
+            gm,
+            t,
+            chart,
+            {**SPHERE, "radius": {"value": 3389.5, "unit": "km"}},
+            view={"projection": {"kind": "mercator"}},
+        )
+        assert turned.status_code == 200 and turned.json()["view"] == {
+            "projection": {"kind": "mercator"}
+        }
+        assert len(ids(await read(gm, t, chart))) == 1
+        # A plane with places cannot become a sphere either.
+        flat = (await make_map(gm, t, "Flat"))["id"]
+        assert (await draw(gm, t, flat, one, pin(1, 1))).status_code == 200
+        assert (await replace(gm, t, flat, SPHERE)).status_code == 409
+    finally:
+        await w.clean_up()

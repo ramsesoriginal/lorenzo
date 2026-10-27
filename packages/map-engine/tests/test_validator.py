@@ -195,7 +195,8 @@ def test_a_whole_placement():
 def test_a_system_a_reader_does_not_know_is_an_outline():
     assert effective_kind({"kind": "plane"}) == "plane"
     assert effective_kind({"kind": "hex"}) == "hex"
-    assert effective_kind({"kind": "sphere"}) == "outline"
+    assert effective_kind({"kind": "sphere"}) == "sphere"
+    assert effective_kind({"kind": "hologram"}) == "outline"
     assert effective_kind(None) == "outline"
 
 

@@ -8,10 +8,11 @@ from lorenzo_map.errors import MapDocumentError
 from lorenzo_map.grid import GRID_KINDS, require_room, validate_grid
 from lorenzo_map.limits import MAX_COORDINATE
 from lorenzo_map.numbers import canonical, clean_text, quantise
+from lorenzo_map.sphere import SPHERE_EXTENT, SPHERE_KIND
 
 SYSTEM_FORMAT = "lorenzo.map-system/1"
-# The systems this version can write. Others of RFC 0048 arrive with their own slices.
-WRITABLE_KINDS = ("plane", "outline", "square", "rect", "hex")
+# The systems this version can write: all six of RFC 0048.
+WRITABLE_KINDS = ("plane", "outline", "square", "rect", "hex", SPHERE_KIND)
 
 
 def validate_system(document: Any) -> dict[str, Any]:
@@ -25,6 +26,8 @@ def validate_system(document: Any) -> dict[str, Any]:
         raise MapDocumentError("this kind of system cannot be written yet")
     if kind in GRID_KINDS:
         allowed = {"format", "kind", "extent", "cell", "measure", "sub", "orientation"}
+    elif kind == SPHERE_KIND:
+        allowed = {"format", "kind", "extent", "radius"}
     else:
         allowed = {"format", "kind", "extent"} | ({"scale"} if kind == "plane" else set())
     if set(document) - allowed:
@@ -37,6 +40,8 @@ def validate_system(document: Any) -> dict[str, Any]:
     )
     if x1 <= x0 or y1 <= y0:
         raise MapDocumentError("an extent must have its far corner beyond its near one")
+    if kind == SPHERE_KIND and [canonical(v) for v in (x0, y0, x1, y1)] != SPHERE_EXTENT:
+        raise MapDocumentError("a sphere's extent is longitude -180 to 180 and latitude -90 to 90")
     result: dict[str, Any] = {
         "format": SYSTEM_FORMAT,
         "kind": kind,
@@ -58,6 +63,17 @@ def validate_system(document: Any) -> dict[str, Any]:
         result["scale"] = {
             "per_unit": canonical(per_unit),
             "unit": clean_text(scale["unit"], what="a unit"),
+        }
+    if "radius" in document:
+        radius = document["radius"]
+        if not isinstance(radius, dict) or set(radius) != {"value", "unit"}:
+            raise MapDocumentError("a radius is a value and a unit")
+        value = quantise(radius["value"], bound=1e12, what="a radius")
+        if value <= 0:
+            raise MapDocumentError("a radius must be positive")
+        result["radius"] = {
+            "value": canonical(value),
+            "unit": clean_text(radius["unit"], what="a unit"),
         }
     return result
 

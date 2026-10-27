@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 20
+FORMAT = 21
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -548,6 +548,11 @@ def _read_v19(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v20(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Format 21 only widens what a Map's system and view may hold (ADR 0357): nothing to add.
+    return _read_v21(document, files)
+
+
+def _read_v21(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -575,6 +580,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     18: _read_v18,
     19: _read_v19,
     20: _read_v20,
+    21: _read_v21,
 }
 
 

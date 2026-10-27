@@ -885,7 +885,8 @@ class _Applier:
         if name.startswith("placements:"):
             from lorenzo_map import MapDocumentError, validate_placement
 
-            if await s.get(Map, e) is None:
+            placed_on = await s.get(Map, e)
+            if placed_on is None:
                 self.skip(row, name, "The local entry is no longer a Map")
                 return False
             drawn = self.resolve("entity", name.partition(":")[2])
@@ -904,6 +905,7 @@ class _Applier:
                     upstream_placement["role"],
                     upstream_placement["style"],
                     upstream_placement["z"],
+                    placed_on.system,
                 )
             except MapDocumentError as error:
                 self.skip(row, name, error.reason)

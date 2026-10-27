@@ -11,10 +11,13 @@ def _hex_orientation(system: dict[str, Any]) -> str | None:
 
 
 def refusal(old: dict[str, Any], new: dict[str, Any]) -> str | None:
-    """A sentence when the change would turn a hex Map into another kind or another into hex, or
-    turn its hexes, and none otherwise. Only asked when the Map has placements."""
+    """A sentence when the change would turn a hex or a sphere Map into another kind or another into
+    one of them, or turn a hex Map's hexes, and none otherwise (ADR 0354, 0357). Only asked when the
+    Map has placements."""
     if (old.get("kind") == "hex") != (new.get("kind") == "hex"):
         return "A Map with places cannot become a hex Map, or stop being one."
+    if (old.get("kind") == "sphere") != (new.get("kind") == "sphere"):
+        return "A Map with places cannot become a sphere, or stop being one."
     if _hex_orientation(old) != _hex_orientation(new):
         return "A hex Map with places cannot turn its hexes between flat and pointy."
     return None

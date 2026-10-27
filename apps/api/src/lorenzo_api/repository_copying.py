@@ -1016,7 +1016,11 @@ class _Planner:
                 continue
             try:
                 checked = validate_placement(
-                    record["geometry"], record["role"], record["style"], record["z"]
+                    record["geometry"],
+                    record["role"],
+                    record["style"],
+                    record["z"],
+                    c.maps[drawn_on]["system"],
                 )
             except MapDocumentError:
                 drop("map_placement", drawn_on, "its geometry is not valid here")

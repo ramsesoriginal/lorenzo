@@ -162,6 +162,36 @@
           "aperture": 7
         }
       }
+    },
+    {
+      "name": "a sphere",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          -180,
+          -90,
+          180,
+          90
+        ]
+      }
+    },
+    {
+      "name": "a sphere with a radius",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          -180,
+          -90,
+          180,
+          90
+        ],
+        "radius": {
+          "value": 6371,
+          "unit": "km"
+        }
+      }
     }
   ],
   "refused": [
@@ -195,7 +225,7 @@
       "name": "a kind this version cannot write",
       "document": {
         "format": "lorenzo.map-system/1",
-        "kind": "sphere",
+        "kind": "hologram",
         "extent": [
           0,
           0,
@@ -675,6 +705,115 @@
         }
       },
       "reason": "too many cells"
+    },
+    {
+      "name": "a sphere with another extent",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          0,
+          0,
+          360,
+          180
+        ]
+      }
+    },
+    {
+      "name": "a sphere with a half extent",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          -180,
+          -90,
+          180,
+          0
+        ]
+      }
+    },
+    {
+      "name": "a sphere with a scale",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          -180,
+          -90,
+          180,
+          90
+        ],
+        "scale": {
+          "per_unit": 1,
+          "unit": "km"
+        }
+      }
+    },
+    {
+      "name": "a sphere with a cell",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          -180,
+          -90,
+          180,
+          90
+        ],
+        "cell": {
+          "size": 5
+        }
+      }
+    },
+    {
+      "name": "a sphere with a zero radius",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          -180,
+          -90,
+          180,
+          90
+        ],
+        "radius": {
+          "value": 0,
+          "unit": "km"
+        }
+      }
+    },
+    {
+      "name": "a sphere with a radius and no unit",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "sphere",
+        "extent": [
+          -180,
+          -90,
+          180,
+          90
+        ],
+        "radius": {
+          "value": 5
+        }
+      }
+    },
+    {
+      "name": "a radius on a plane",
+      "document": {
+        "format": "lorenzo.map-system/1",
+        "kind": "plane",
+        "extent": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "radius": {
+          "value": 5,
+          "unit": "km"
+        }
+      }
     }
   ]
 }

@@ -25,6 +25,7 @@ from lorenzo_map import (
 )
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Select, delete, func, literal, select, tuple_
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
@@ -395,6 +396,12 @@ async def put_map(
     return out
 
 
+async def _system_of(session: AsyncSession, map_id: uuid.UUID) -> dict[str, Any] | None:
+    """The Map's own system, which a sphere's geometry is held to (ADR 0357)."""
+    row = await session.get(Map, map_id)
+    return row.system if row is not None else None
+
+
 @router.put("/maps/{map_id}/placements/{entry_id}")
 async def put_placement(
     tenant_id: uuid.UUID,
@@ -409,7 +416,9 @@ async def put_placement(
     await _visible_map(session, user, tenant_id, map_id)
     entry = await _visible_entry(session, user, tenant_id, entry_id)
     try:
-        checked = validate_placement(body.geometry, body.role, body.style, body.z)
+        checked = validate_placement(
+            body.geometry, body.role, body.style, body.z, await _system_of(session, map_id)
+        )
     except MapDocumentError as error:
         raise InvalidMapError(detail=error.reason) from None
     placed = await session.get(MapPlacement, (map_id, entry_id))
@@ -518,9 +527,10 @@ async def batch_placements(
     if len(set(entries)) != len(entries):
         raise InvalidMapError(detail="An entry appears more than once in one batch")
     checked = []
+    system = await _system_of(session, map_id)
     for index, item in enumerate(body.put):
         try:
-            checked.append(validate_placement(item.geometry, item.role, item.style, item.z))
+            checked.append(validate_placement(item.geometry, item.role, item.style, item.z, system))
         except MapDocumentError as error:
             raise InvalidMapError(detail=f"put[{index}]: {error.reason}") from None
     if entries:

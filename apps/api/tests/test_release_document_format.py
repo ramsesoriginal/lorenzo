@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 20
+    assert rd.FORMAT == 21
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -234,3 +234,20 @@ def test_version_nineteen_maps_have_no_view() -> None:
         "theme": "plain",
         "view": None,
     }
+
+
+def test_version_twenty_maps_are_read_as_they_are_written() -> None:
+    """Format 21 only widens what a system and a view may hold (ADR 0357)."""
+    identity = uuid.UUID(int=79)
+    system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
+    record = {
+        "system": system,
+        "subject": None,
+        "theme": None,
+        "view": {"grid": {"kind": "square", "cell": {"size": 2}}},
+    }
+    document, files = rd.encode(full_content())
+
+    content = rd.READERS[20]({**document, "maps": {str(identity): record}}, files)
+
+    assert content.maps[identity] == record

@@ -21,6 +21,7 @@ from lorenzo_map.limits import (
 )
 from lorenzo_map.numbers import SCALE, canonical, clean_text, quantise
 from lorenzo_map.simple import check_polygon
+from lorenzo_map.sphere import in_range
 
 GEOMETRY_FORMAT = "lorenzo.geometry/1"
 _COMMON = {"shape", "value", "unit"}
@@ -129,8 +130,10 @@ def _part(raw: Any) -> tuple[dict[str, Any], int, list[tuple[int, int]]]:
     return stored, vertices, bounds
 
 
-def validate_geometry(document: Any) -> Validated:
-    """The geometry in its stored form, its size and its bounding box, or a refusal."""
+def validate_geometry(document: Any, *, sphere: bool = False) -> Validated:
+    """The geometry in its stored form, its size and its bounding box, or a refusal. On a `sphere`
+    Map (ADR 0357) a part is a point, a polyline or a polygon and every coordinate is a longitude
+    and a latitude in range."""
     if not isinstance(document, dict) or set(document) != {"format", "parts"}:
         raise MapDocumentError("a geometry is a format and its parts")
     if document["format"] != GEOMETRY_FORMAT:
@@ -143,6 +146,13 @@ def validate_geometry(document: Any) -> Validated:
     low_x = low_y = high_x = high_y = None
     for raw in parts_raw:
         stored, count, bounds = _part(raw)
+        if sphere:
+            if stored["shape"] in ("circle", "bezier"):
+                raise MapDocumentError("a sphere draws points, lines and areas")
+            if not all(in_range(p) for p in bounds):
+                raise MapDocumentError(
+                    "a longitude is from -180 to 180 and a latitude from -90 to 90"
+                )
         parts.append(stored)
         vertices += count
         if vertices > MAX_VERTICES:

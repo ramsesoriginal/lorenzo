@@ -9,6 +9,7 @@ from lorenzo_map.errors import MapDocumentError
 from lorenzo_map.geometry import validate_geometry
 from lorenzo_map.limits import MAX_Z, MIN_Z
 from lorenzo_map.roles import validate_role, validate_style
+from lorenzo_map.sphere import is_sphere
 
 
 @dataclass(frozen=True)
@@ -28,9 +29,14 @@ def validate_z(z: Any) -> int:
 
 
 def validate_placement(
-    geometry: Any, role: Any = None, style: Any = None, z: Any = 0
+    geometry: Any,
+    role: Any = None,
+    style: Any = None,
+    z: Any = 0,
+    system: Any = None,
 ) -> ValidatedPlacement:
-    checked = validate_geometry(geometry)
+    """`system` is the Map's own, when it is known: a sphere's geometry is held to its ranges."""
+    checked = validate_geometry(geometry, sphere=is_sphere(system))
     return ValidatedPlacement(
         geometry=checked.geometry,
         role=validate_role(role),
