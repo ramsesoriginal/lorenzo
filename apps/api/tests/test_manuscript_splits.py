@@ -12,6 +12,7 @@ from httpx import AsyncClient
 from sqlalchemy import select, text
 
 from lorenzo_api.models import (
+    ContentReference,
     Edition,
     ManuscriptRevision,
     ManuscriptSplit,
@@ -110,6 +111,22 @@ async def test_split_preserves_source_and_retries(
         assert left in [el["content"] for entry in review["entries"] for el in entry["elements"]]
         assert right in [el["content"] for entry in review["entries"] for el in entry["elements"]]
         async with admin_session_factory() as session:
+            first_refs = list(
+                await session.scalars(
+                    select(ContentReference.target).where(
+                        ContentReference.payload_id == uuid.UUID(first)
+                    )
+                )
+            )
+            second_refs = list(
+                await session.scalars(
+                    select(ContentReference.target).where(
+                        ContentReference.payload_id == uuid.UUID(second)
+                    )
+                )
+            )
+            assert first_refs == []
+            assert second_refs == ["eira"]
             revision = await session.scalar(
                 select(ManuscriptRevision)
                 .where(ManuscriptRevision.information_id == uuid.UUID(info["id"]))

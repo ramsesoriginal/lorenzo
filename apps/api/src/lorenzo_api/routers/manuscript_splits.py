@@ -16,6 +16,7 @@ from lorenzo_api.dependencies import (
     get_tenant_or_404,
     set_tenant_rls_context,
 )
+from lorenzo_api.description_payloads import write_description
 from lorenzo_api.exceptions import (
     ClientIdUnavailableError,
     ManuscriptMoveConflictError,
@@ -179,15 +180,13 @@ async def split(
         id=body.second_payload_id, tenant_id=tenant_id, information_id=info.id, order=position + 1
     )
     await insert_with_client_id(session, second)
-    session.add(
-        PayloadDescription(
-            payload_id=second.id,
-            tenant_id=tenant_id,
-            locale=description.locale,
-            content=original[body.offset :],
-        )
+    await session.refresh(second, ["description"])
+    await write_description(
+        session, payload=second, locale=description.locale, content=original[body.offset :]
     )
-    description.content = original[: body.offset]
+    first = payloads[position]
+    await session.refresh(first, ["description"])
+    await write_description(session, payload=first, locale=None, content=original[: body.offset])
     for index, payload in enumerate(payloads):
         payload.order = index if index <= position else index + 1
         payload.updated_at = datetime.now(UTC)
