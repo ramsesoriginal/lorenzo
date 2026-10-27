@@ -95,8 +95,8 @@ test('a writer makes a Map, draws, changes and undoes', async ({ browser }) => {
     // Make a Map from the library's list; a player is not offered the form.
     await page.goto(`/maps/?tenant=${w.tenant.id}`);
     await page.getByLabel('Name', { exact: true }).fill('Frostmarch');
-    await page.getByLabel('Width').fill('500');
-    await page.getByLabel('Height').fill('400');
+    await page.getByLabel('Width', { exact: true }).fill('500');
+    await page.getByLabel('Height', { exact: true }).fill('400');
     await page.getByRole('button', { name: 'Make the Map' }).click();
     await expect(page.getByRole('heading', { name: 'Frostmarch', exact: true })).toBeVisible();
     // Back to the Map the world made.
@@ -259,9 +259,9 @@ test('the children of a place, the look, the legend and the settings', async ({ 
     );
     expect(header.theme_hint).toBe('plain');
     // The sheet: a new width.
-    await page.getByLabel('Width').fill('2000');
+    await page.getByLabel('Width', { exact: true }).fill('2000');
     await page.getByRole('button', { name: 'Save settings' }).click();
-    await expect(page.getByLabel('Width')).toHaveValue('2000');
+    await expect(page.getByLabel('Width', { exact: true })).toHaveValue('2000');
   } finally {
     await page.context().close();
   }

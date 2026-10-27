@@ -1,5 +1,6 @@
 // Making a Map and setting it up (ADR 0353): what the sheet is, what it shows, how it is drawn by
 // default and who may see it. The API decides every write; a refusal is shown as it is given.
+import type { BBox, GridKind } from '@lorenzo/map-renderer';
 import { client, unwrap } from './api';
 import {
   actions,
@@ -14,6 +15,7 @@ import {
   statusLine,
   submit,
 } from './dom';
+import { type GridDoc, gridBlock } from './grid-fields';
 import { findLocations, type Header } from './map-api';
 
 const FORMAT = 'lorenzo.map-system/1';
@@ -21,7 +23,12 @@ const FORMAT = 'lorenzo.map-system/1';
 const KINDS: [string, string][] = [
   ['plane', 'A plane, with its own units'],
   ['outline', 'An outline, with no measure'],
+  ['square', 'A grid of squares'],
+  ['rect', 'A grid of rectangles'],
+  ['hex', 'A grid of hexes'],
 ];
+
+const GRID_KINDS = ['square', 'rect', 'hex'];
 
 const THEMES: [string, string][] = [
   ['', 'The default'],
@@ -34,7 +41,7 @@ type System = {
   kind?: string;
   extent?: number[];
   scale?: { per_unit: number; unit: string };
-};
+} & Omit<Partial<GridDoc>, 'kind'>;
 
 /** The fields that say what a sheet is, and a way to read them as the system document. */
 export function systemFields(current?: System) {
@@ -55,9 +62,45 @@ export function systemFields(current?: System) {
   );
   per.input.step = 'any';
   per.input.min = '0';
-  const grid = el('div', '', 'grid');
-  grid.style.setProperty('--grid-min', '200px');
-  grid.append(kind.label, width.label, height.label, unit.label, per.label);
+  const gridPart = gridBlock({
+    kinds: ['square', 'rect', 'hex'],
+    measured: true,
+    current: GRID_KINDS.includes(current?.kind ?? '')
+      ? ({ ...current, kind: current?.kind as GridKind } as Partial<GridDoc>)
+      : null,
+  });
+  // The kind of the sheet is the kind of the grid: one select, so the block's own is hidden.
+  gridPart.kind.label.hidden = true;
+  const grid = el('div', '', 'stack');
+  const plain = el('div', '', 'grid');
+  plain.style.setProperty('--grid-min', '200px');
+  plain.append(kind.label, width.label, height.label);
+  const planeBlock = el('div', '', 'grid');
+  planeBlock.style.setProperty('--grid-min', '200px');
+  planeBlock.append(unit.label, per.label);
+  grid.append(plain, planeBlock, gridPart.root);
+
+  const isGrid = () => GRID_KINDS.includes(kind.input.value);
+  const sync = () => {
+    planeBlock.hidden = kind.input.value !== 'plane';
+    gridPart.hidden = !isGrid();
+    // The grid block's kind follows the sheet's.
+    gridPart.kind.input.value = isGrid() ? kind.input.value : gridPart.kind.input.value;
+    gridPart.kind.input.dispatchEvent(new Event('change'));
+    gridPart.note(extentNow());
+  };
+  const extentNow = (): BBox => {
+    const w = Number(width.input.value) || 1;
+    const h = Number(height.input.value) || 1;
+    const x0 = extent[0] ?? 0;
+    const y0 = extent[1] ?? 0;
+
+    return [x0, y0, x0 + w, y0 + h];
+  };
+  kind.input.addEventListener('change', sync);
+  for (const f of [width, height])
+    f.input.addEventListener('input', () => gridPart.note(extentNow()));
+  gridPart.onChange(() => gridPart.note(extentNow()));
 
   function read(): System {
     const w = Number(width.input.value);
@@ -76,9 +119,48 @@ export function systemFields(current?: System) {
         throw new Error('One unit of the sheet must be more than zero of the unit.');
       system.scale = { per_unit: amount, unit: unit.input.value.trim() };
     }
+    if (isGrid()) {
+      const { kind: _kind, ...rest } = gridPart.read();
+      Object.assign(system, rest);
+    }
     return system;
   }
-  return { grid, read };
+  sync();
+  return { grid, read, kind: () => kind.input.value, extent: extentNow };
+}
+
+/** A visual grid to draw over a plane or an outline: a switch and the fields of a grid. */
+export function viewFields(
+  current: { grid?: Partial<GridDoc> } | null | undefined,
+  sheetKind: () => string,
+  extent: () => BBox,
+) {
+  const on = field('Draw a grid over it', '', 'checkbox');
+  on.input.checked = Boolean(current?.grid);
+  const block = gridBlock({
+    kinds: ['square', 'rect', 'hex'],
+    measured: false,
+    current: current?.grid ?? null,
+  });
+  const root = el('div', '', 'stack-tight');
+  root.append(on.label, block.root);
+  const sync = () => {
+    const over = !GRID_KINDS.includes(sheetKind());
+    root.hidden = !over;
+    block.hidden = !over || !on.input.checked;
+    block.note(extent());
+  };
+  on.input.addEventListener('change', sync);
+  block.onChange(() => block.note(extent()));
+  sync();
+
+  function read(): { grid: GridDoc } | null {
+    if (!on.input.checked || GRID_KINDS.includes(sheetKind())) return null;
+
+    return { grid: block.read() };
+  }
+
+  return { root, read, sync };
 }
 
 /** *Make a Map*: for the library page of those who may write. */
@@ -88,9 +170,11 @@ export function makeMapForm(tenant: string, onMade: (id: string, slug: string | 
   name.input.required = true;
   const open = field('Everyone in the library may see it', '', 'checkbox');
   const sheet = systemFields();
+  const over = viewFields(null, sheet.kind, sheet.extent);
   const status = statusLine();
   const save = submit('Make the Map');
-  form.append(name.label, sheet.grid, open.label, actions(save), status);
+  form.append(name.label, sheet.grid, over.root, open.label, actions(save), status);
+  form.addEventListener('change', over.sync);
   const id = crypto.randomUUID();
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -105,6 +189,7 @@ export function makeMapForm(tenant: string, onMade: (id: string, slug: string | 
               id,
               name: name.input.value.trim(),
               system: sheet.read() as Record<string, unknown>,
+              view: over.read() as Record<string, unknown> | null,
               is_public: open.input.checked,
             },
           }),
@@ -156,6 +241,12 @@ export function settingsSection(
   // The sheet, the Location it shows and the default look: one replace of the Map.
   const form = el('form', '', 'stack');
   const sheet = systemFields(header.system as System);
+  const over = viewFields(
+    header.view as { grid?: Partial<GridDoc> } | null,
+    sheet.kind,
+    sheet.extent,
+  );
+  form.addEventListener('change', over.sync);
   const theme = select('How it is drawn unless a viewer chooses', THEMES, header.theme_hint ?? '');
   const find = field('The Location it shows (type a name)');
   find.input.type = 'search';
@@ -192,6 +283,7 @@ export function settingsSection(
   const settingsStatus = statusLine();
   form.append(
     sheet.grid,
+    over.root,
     find.label,
     choices,
     theme.label,
@@ -211,6 +303,7 @@ export function settingsSection(
               system: sheet.read() as Record<string, unknown>,
               subject_entity_id: choices.value || null,
               theme_hint: theme.input.value || null,
+              view: over.read() as Record<string, unknown> | null,
             },
           }),
         );

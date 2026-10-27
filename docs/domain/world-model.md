@@ -67,7 +67,17 @@ undone and done again while the page is open. A Map may name a theme: how it loo
 choice, then the Map's, then the default, and a legend shows what each role on the Map looks like
 ([ADR 0351](../adr/0351-writing-placements-in-bulk.md), [ADR 0352](../adr/0352-the-look-of-a-map.md),
 [ADR 0353](../adr/0353-authoring-a-map-in-lorenzo-maps.md)).
-Grids and a sphere, pictures, connections, distances and optionally tying a map to a calendar period
+A Map may be a grid instead of a free plane: squares, rectangles or hexes (flat-topped or
+pointed-top, always chosen), each cell given a size on the sheet and optionally what it is in the world
+(six miles a hex), and optionally divided for the eye. A cell is named by a column and a row, and the
+convention for hexes and for a point on a shared edge is written once
+([ADR 0354](../adr/0354-grid-systems-square-rectangular-and-hex.md)). Any Map, a plane or an outline
+included, can also have a grid drawn over it that measures nothing. Places stay where they are drawn,
+in drawing units, and may lie anywhere on the sheet; the editor can snap to the grid and can draw a
+region as a set of whole cells ([ADR 0355](../adr/0355-the-cell-functions-and-drawing-a-grid.md),
+[ADR 0356](../adr/0356-authoring-on-a-grid.md)). Turning a Map into a hex Map, out of one, or turning its
+hexes, once places are drawn, is refused, since it would move all of them.
+A sphere, pictures, connections, distances and optionally tying a map to a calendar period
 are proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and come in
 later slices.
 

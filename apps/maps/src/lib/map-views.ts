@@ -2,15 +2,19 @@ import { installEntryPreview } from '@lorenzo/entry-preview';
 import {
   createMapView,
   type Geometry,
+  type GridSpec,
   type Groups,
+  gridOf,
   type MapModel,
   type MapViewController,
   type Placement,
   type Style,
   type System,
+  screenToDrawing,
   zoomLabel,
 } from '@lorenzo/map-renderer';
 import { client, unwrap } from './api';
+import { cellOfPoint, cellWords } from './cells-edit';
 import { BRANDING_CSS_URL } from './config';
 import {
   audienceBadge,
@@ -55,7 +59,11 @@ function modelOf(header: Header, rows: Row[]): MapModel {
     style: (row.style ?? null) as Style | null,
     z: row.z,
   }));
-  return { system: header.system as unknown as System, placements };
+  return {
+    system: header.system as unknown as System,
+    placements,
+    overlay: ((header.view as { grid?: GridSpec } | null)?.grid ?? null) as GridSpec | null,
+  };
 }
 
 /** Libraries first, as for Locations: a person opens Maps from the library they are working in. */
@@ -150,7 +158,7 @@ export async function mountMaps() {
 }
 
 /** What the selection panel says of one placement. */
-async function describe(tenant: string, row: Row, panel: HTMLElement) {
+async function describe(tenant: string, row: Row, panel: HTMLElement, cell: string | null = null) {
   panel.replaceChildren();
   const isLocation = row.kinds.includes('location');
   const title = el('h3', '', 'group-title');
@@ -159,6 +167,7 @@ async function describe(tenant: string, row: Row, panel: HTMLElement) {
   const others = row.kinds.map(words);
   if (others.length) panel.append(el('p', others.join(', '), 'status-text'));
   if (row.role) panel.append(el('p', words(row.role), 'chip'));
+  if (cell) panel.append(el('p', `In cell: ${cell}`, 'status-text'));
   if (!isLocation) return;
   try {
     const place = await unwrap(
@@ -219,6 +228,20 @@ export async function mountMap() {
         readPlacements(tenant, id),
       ]);
       const mapId = id;
+      // The cell a pin is in, in words, on a grid Map.
+      const pinCell = (row: Row): string | null => {
+        const grid = gridOf(modelOf(header, rows));
+        const part = (row.geometry as unknown as Geometry).parts[0];
+        const extent = (header.system as { extent: number[] }).extent as unknown as [
+          number,
+          number,
+          number,
+          number,
+        ];
+        if (!grid || part?.shape !== 'point') return null;
+        const cell = cellOfPoint(grid, extent, part.at);
+        return cell ? cellWords(cell) : null;
+      };
       let rows: Row[] = found.rows;
       let controller: MapViewController | undefined;
       let editor: Editor | undefined;
@@ -250,12 +273,26 @@ export async function mountMap() {
         ['names', 'Names'],
         ['showPlaces', 'Show places'],
       ];
+      const gridSpec = gridOf(modelOf(header, rows));
+      // "Zoom in to see the grid" when the grid is on but too fine to draw (ADR 0355), and the cell
+      // under the pointer in words (ADR 0356).
+      const gridNote = el('span', '', 'status-text map-grid-note');
+      const cellNote = el('span', '', 'status-text map-cell');
+      cellNote.setAttribute('aria-hidden', 'true');
+      const updateGridNote = () =>
+        requestAnimationFrame(() => {
+          const drawn = controller?.scene()?.prims.some((prim) => prim.id === 'grid');
+          const on = controller?.getView().groups.grid ?? true;
+          gridNote.textContent = gridSpec && on && !drawn ? 'Zoom in to see the grid.' : '';
+        });
+      if (gridSpec) toggles.push(['grid', 'Grid']);
       for (const [key, label] of toggles) {
         const box = field(label, '', 'checkbox');
         box.input.checked = true;
-        box.input.addEventListener('change', () =>
-          controller?.setGroups({ [key]: box.input.checked }),
-        );
+        box.input.addEventListener('change', () => {
+          controller?.setGroups({ [key]: box.input.checked });
+          updateGridNote();
+        });
         toolbar.append(box.label);
       }
       let look: Look = readLook();
@@ -294,6 +331,8 @@ export async function mountMap() {
       centre.type = 'button';
       centre.hidden = true;
       zoomControls.append(
+        cellNote,
+        gridNote,
         zoomButton('Zoom out', '−', () => controller?.zoomOut()),
         zoom,
         zoomButton('Zoom in', '+', () => controller?.zoomIn()),
@@ -325,7 +364,7 @@ export async function mountMap() {
         for (const [key, button] of buttons)
           button.setAttribute('aria-pressed', String(key === entryId));
         const row = entryId ? rows.find((r) => r.id === entryId) : undefined;
-        if (row) void describe(tenant, row, panel);
+        if (row) void describe(tenant, row, panel, pinCell(row));
         else noSelection();
         centre.hidden = !row;
         if (row) centre.textContent = `Centre on ${row.name}`;
@@ -402,9 +441,35 @@ export async function mountMap() {
         onSelect: (entryId) => select(entryId),
         onView: (state) => {
           zoom.textContent = zoomLabel(state.zoom);
+          updateGridNote();
         },
       });
       zoom.textContent = zoomLabel(controller.getView().zoom);
+      updateGridNote();
+      if (gridSpec) {
+        const sheet = (header.system as { extent: number[] }).extent as unknown as [
+          number,
+          number,
+          number,
+          number,
+        ];
+        stage.addEventListener('pointermove', (event) => {
+          const box = stage.getBoundingClientRect();
+          const state = controller?.getView();
+          if (!state) return;
+          const at = screenToDrawing(
+            model.system,
+            { width: stage.clientWidth, height: stage.clientHeight },
+            { zoom: state.zoom, centre: state.centre },
+            [event.clientX - box.left, event.clientY - box.top],
+          );
+          const cell = cellOfPoint(gridSpec, sheet, at);
+          cellNote.textContent = cell ? cellWords(cell) : '';
+        });
+        stage.addEventListener('pointerleave', () => {
+          cellNote.textContent = '';
+        });
+      }
       legend.update(model, themeNow());
 
       const setRows = (next: Row[]) => {
@@ -416,7 +481,7 @@ export async function mountMap() {
         if (selected && !rows.some((r) => r.id === selected)) select(null);
         else if (selected) {
           const row = rows.find((r) => r.id === selected);
-          if (row) void describe(tenant, row, panel);
+          if (row) void describe(tenant, row, panel, pinCell(row));
         }
       };
 
@@ -427,6 +492,7 @@ export async function mountMap() {
           mapId,
           mapIsPublic: header.is_public === true,
           extent: [extent[0] ?? 0, extent[1] ?? 0, extent[2] ?? 1000, extent[3] ?? 800],
+          grid: () => gridOf(model),
           view: () => controller as MapViewController,
           rows: () => rows,
           setRows,

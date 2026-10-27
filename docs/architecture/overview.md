@@ -343,6 +343,17 @@ repository copy and update (release format 19). The renderer gains the `plain` t
 drawing units while set and an `Overlay` of lines, discs and handles drawn above the marks. Lorenzo
 Maps builds the tools, the panel, undo and redo and the settings on it.
 
+Grids (RFC 0048 slice 7, ADR 0354 to 0356, 2026-10-27): `lorenzo.map-system/1` gains `square`, `rect`
+and `hex` (a `cell`, an optional `measure` of what a cell is in the world, an optional `sub` division,
+and for hexes a required `orientation`), and `map.view` (release format 20) holds a visual grid for any
+system that has none. The cell functions (`cell_at`, `cell_centre`, `cell_polygon`, `in_grid`,
+`cell_count`) are pure, exist in `packages/map-engine` and `packages/map-renderer`, and are held to one
+golden file; the hex convention is odd-r (pointy) and odd-q (flat) with cell (0, 0) at the sheet's near
+corner, nearest centre wins and a tie goes to the lower row then the lower column. `PUT /maps/{id}`
+refuses (409) a change into or out of hex, or of a hex Map's orientation, once placements exist, and
+answers other changes with `warnings`. The renderer draws the grid under the placements with a level of
+detail; Maps adds a Grid switch, the cell under the pointer, Snap to the grid and a Cells tool.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.

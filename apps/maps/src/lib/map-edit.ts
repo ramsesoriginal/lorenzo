@@ -2,7 +2,11 @@
 // panel for what is being drawn or what is selected, and every write. The renderer draws; this
 // decides what a click means and asks the API. Nothing here is shown to those who may not write.
 import {
+  type Cell,
+  cellPolygon,
   type Geometry,
+  type GridSpec,
+  inGrid,
   type MapViewController,
   type Overlay,
   ROLE_WORDS,
@@ -11,6 +15,16 @@ import {
   type ToolEvent,
 } from '@lorenzo/map-renderer';
 import { LorenzoApiError } from './api';
+import {
+  cellOfPoint,
+  cellsGeometry,
+  cellsOf,
+  cellWords,
+  MAX_CELLS_PER_PLACEMENT,
+  snapCentre,
+  snapCorner,
+  toggleCell,
+} from './cells-edit';
 import { button, el, field, groupTitle, message, select, statusLine } from './dom';
 import {
   type Editable,
@@ -46,6 +60,8 @@ export type EditorContext = {
   mapIsPublic: boolean;
   /** The sheet the Map draws on, `[x0, y0, x1, y1]`. */
   extent: [number, number, number, number];
+  /** The Map's grid, its system's own or its view's, when it has one (ADR 0356). */
+  grid: () => GridSpec | null;
   view: () => MapViewController;
   rows: () => Row[];
   /** Replaces the placements the page shows. */
@@ -63,7 +79,7 @@ export type Editor = {
   destroy(): void;
 };
 
-type ToolName = 'select' | 'pin' | 'circle' | 'line' | 'area';
+type ToolName = 'select' | 'pin' | 'circle' | 'line' | 'area' | 'cells';
 
 const TOOLS: [ToolName, string][] = [
   ['select', 'Select'],
@@ -71,6 +87,7 @@ const TOOLS: [ToolName, string][] = [
   ['circle', 'Circle'],
   ['line', 'Line'],
   ['area', 'Area'],
+  ['cells', 'Cells'],
 ];
 
 const STROKES: [string, string][] = [
@@ -117,6 +134,10 @@ export function createEditor(context: EditorContext): Editor {
   let toolName: ToolName = 'select';
   let target: { id?: string; name: string; create?: { isPublic: boolean } } | null = null;
   let draft: Pt[] = [];
+  // The cells chosen so far by the Cells tool, counted from 0.
+  let cells: Cell[] = [];
+  // Snap to the grid while one is there (ADR 0356).
+  let snap = true;
   let rubber: Pt | null = null;
   let selectedId: string | null = null;
   // The selected shape while a handle or the shape is being dragged, drawn as an overlay.
@@ -128,6 +149,18 @@ export function createEditor(context: EditorContext): Editor {
     status.textContent = text;
     status.classList.toggle('error-text', failed);
     status.setAttribute('role', failed ? 'alert' : 'status');
+  };
+  const gridNow = () => context.grid();
+  const snapped = (kind: 'centre' | 'corner', p: Pt): Pt => {
+    const grid = gridNow();
+    if (!snap || !grid) return p;
+    return kind === 'centre'
+      ? snapCentre(grid, context.extent, p)
+      : snapCorner(grid, context.extent, p);
+  };
+  const snapHandle = (handle: string, p: Pt): Pt => {
+    if (handle === 'r') return p;
+    return snapped(handle === 'p' || handle === 'c' ? 'centre' : 'corner', p);
   };
   const rowOf = (id: string | null) =>
     id ? context.rows().find((row) => row.id === id) : undefined;
@@ -155,6 +188,16 @@ export function createEditor(context: EditorContext): Editor {
 
   function overlay(): Overlay {
     if (!editing) return [];
+    if (toolName === 'cells') {
+      const grid = gridNow();
+      if (!grid) return [];
+      return cells.map((cell) => ({
+        id: `c${cell[0]}_${cell[1]}`,
+        kind: 'line' as const,
+        pts: cellPolygon(grid, context.extent, cell),
+        closed: true,
+      }));
+    }
     if (toolName !== 'select') {
       if (draft.length === 0) return [];
       const last = draft[draft.length - 1] as Pt;
@@ -251,6 +294,7 @@ export function createEditor(context: EditorContext): Editor {
       ]);
       context.setRows(upsert(saved));
       draft = [];
+      cells = [];
       rubber = null;
       target = null;
       toolName = 'select';
@@ -360,6 +404,13 @@ export function createEditor(context: EditorContext): Editor {
     }
   };
 
+  const finishCells = () => {
+    const grid = gridNow();
+    if (!grid) return;
+    if (cells.length === 0) say('Choose at least one cell.', true);
+    else void finish(cellsGeometry(grid, context.extent, cells));
+  };
+
   const selectTool: Tool = {
     down(event: ToolEvent) {
       const row = rowOf(selectedId);
@@ -376,7 +427,7 @@ export function createEditor(context: EditorContext): Editor {
       if (!dragging) return;
       const { handle, base, start } = dragging;
       working = handle
-        ? moveHandle(base, handle, event.point)
+        ? moveHandle(base, handle, snapHandle(handle, event.point))
         : translate(base, event.point[0] - start[0], event.point[1] - start[1]);
       refresh();
     },
@@ -401,8 +452,30 @@ export function createEditor(context: EditorContext): Editor {
         say('Choose what you are drawing first.', true);
         return true;
       }
-      const p: Pt = [round2(event.point[0]), round2(event.point[1])];
-      if (!inSheet(p)) return true;
+      if (toolName === 'cells') {
+        const grid = gridNow();
+        const cell = grid ? cellOfPoint(grid, context.extent, event.point) : null;
+        if (!cell) return true;
+        const next = toggleCell(cells, cell);
+        if (
+          next.length === cells.length &&
+          !cells.some((c) => c[0] === cell[0] && c[1] === cell[1])
+        ) {
+          say(`A region has at most ${MAX_CELLS_PER_PLACEMENT} cells.`, true);
+        }
+        cells = next;
+        refresh();
+        render();
+        return true;
+      }
+      const raw: Pt = [round2(event.point[0]), round2(event.point[1])];
+      if (!inSheet(raw)) return true;
+      const p =
+        toolName === 'pin' || (toolName === 'circle' && draft.length === 0)
+          ? snapped('centre', raw)
+          : toolName === 'circle'
+            ? raw
+            : snapped('corner', raw);
       if (toolName === 'pin') {
         void finish(toGeometry({ kind: 'point', at: p }));
       } else if (toolName === 'circle') {
@@ -435,6 +508,26 @@ export function createEditor(context: EditorContext): Editor {
       refresh();
     },
     key(event: KeyboardEvent) {
+      if (toolName === 'cells') {
+        if (event.key === 'Enter') {
+          finishCells();
+          return true;
+        }
+        if (event.key === 'Backspace' && cells.length > 0) {
+          cells = cells.slice(0, -1);
+          refresh();
+          render();
+          return true;
+        }
+        if (event.key === 'Escape') {
+          if (cells.length > 0) cells = [];
+          else setTool('select');
+          refresh();
+          render();
+          return true;
+        }
+        return false;
+      }
       if (event.key === 'Enter' && (toolName === 'line' || toolName === 'area')) {
         finishDraft();
         return true;
@@ -462,6 +555,7 @@ export function createEditor(context: EditorContext): Editor {
   function setTool(next: ToolName) {
     toolName = next;
     draft = [];
+    cells = [];
     rubber = null;
     working = null;
     dragging = null;
@@ -498,6 +592,7 @@ export function createEditor(context: EditorContext): Editor {
     tools.setAttribute('role', 'group');
     tools.setAttribute('aria-label', 'Tool');
     for (const [name, label] of TOOLS) {
+      if (name === 'cells' && !gridNow()) continue;
       const node = el('button', label, 'btn btn-secondary');
       node.type = 'button';
       node.setAttribute('aria-pressed', String(toolName === name));
@@ -512,7 +607,16 @@ export function createEditor(context: EditorContext): Editor {
     redoButton.type = 'button';
     redoButton.disabled = busy || !history.canRedo();
     redoButton.addEventListener('click', () => void redo());
-    toolbar.append(tools, undoButton, redoButton, status);
+    toolbar.append(tools);
+    if (gridNow()) {
+      const box = field('Snap to the grid', '', 'checkbox');
+      box.input.checked = snap;
+      box.input.addEventListener('change', () => {
+        snap = box.input.checked;
+      });
+      toolbar.append(box.label);
+    }
+    toolbar.append(undoButton, redoButton, status);
   }
 
   // --- the panel ------------------------------------------------------------------------------
@@ -542,7 +646,9 @@ export function createEditor(context: EditorContext): Editor {
             ? 'Click the map to place it.'
             : toolName === 'circle'
               ? 'Click the centre, then the edge.'
-              : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
+              : toolName === 'cells'
+                ? 'Click a cell to add it and click it again to take it away. Press Enter to finish, Backspace to take back a cell, Escape to start again.'
+                : 'Click each point. Press Enter or double-click to finish, Backspace to take back a point, Escape to start again.',
           'status-text',
         ),
       );
@@ -550,6 +656,7 @@ export function createEditor(context: EditorContext): Editor {
         button('Choose another', () => {
           target = null;
           draft = [];
+          cells = [];
           refresh();
           render();
         }),
@@ -581,6 +688,15 @@ export function createEditor(context: EditorContext): Editor {
                     pick.type = 'button';
                     pick.addEventListener('click', () => {
                       target = { id: entry.id, name: entry.name };
+                      // A region already of whole cells opens with its cells chosen.
+                      const grid = gridNow();
+                      const placed = rowOf(entry.id);
+                      if (toolName === 'cells' && grid && placed) {
+                        cells =
+                          cellsOf(placed.geometry as unknown as Geometry, grid, context.extent) ??
+                          [];
+                      }
+                      refresh();
                       render();
                     });
                     if (entry.kinds.length) {
@@ -721,6 +837,54 @@ export function createEditor(context: EditorContext): Editor {
     return box;
   }
 
+  function cellsPanel(row: Row, grid: GridSpec, current: Cell[]): HTMLElement {
+    const box = el('div', '', 'stack-tight');
+    box.append(groupTitle('h4', 'Cells'));
+    const write = (next: Cell[]) =>
+      saveRow(row, { geometry: cellsGeometry(grid, context.extent, next) });
+    for (const cell of current) {
+      const line = el('div', '', 'row-tight');
+      line.append(el('span', cellWords(cell), 'grow'));
+      if (current.length > 1) {
+        const remove = button(
+          'Remove',
+          () => write(current.filter((c) => c[0] !== cell[0] || c[1] !== cell[1])),
+          { variant: 'secondary' },
+        );
+        remove.setAttribute('aria-label', `Remove ${cellWords(cell)}`);
+        line.append(remove);
+      }
+      box.append(line);
+    }
+    const form = el('div', '', 'row-tight');
+    const col = field('Column', '', 'number');
+    const rowField = field('Row', '', 'number');
+    for (const f of [col, rowField]) {
+      f.input.min = '1';
+      f.input.step = '1';
+    }
+    form.append(
+      col.label,
+      rowField.label,
+      button(
+        'Add cell',
+        async () => {
+          const cell: Cell = [Number(col.input.value) - 1, Number(rowField.input.value) - 1];
+          if (!Number.isInteger(cell[0]) || !Number.isInteger(cell[1]) || !inGridCell(grid, cell)) {
+            throw new Error('That cell is not on this Map.');
+          }
+          if (current.some((c) => c[0] === cell[0] && c[1] === cell[1])) return;
+          await write(toggleCell(current, cell));
+        },
+        { variant: 'secondary' },
+      ),
+    );
+    box.append(form);
+    return box;
+  }
+
+  const inGridCell = (grid: GridSpec, cell: Cell) => inGrid(grid, context.extent, cell);
+
   function editPanel(row: Row): HTMLElement {
     const box = el('div', '', 'stack-tight');
     box.append(groupTitle('h3', `Change ${row.name}`));
@@ -756,8 +920,14 @@ export function createEditor(context: EditorContext): Editor {
       void saveRow(row, { z });
     });
     box.append(role.label, stroke.label, weight.label, order.label);
-    const shape = editableOf(row.geometry as unknown as Geometry);
-    if (shape) {
+    const grid = gridNow();
+    const regionCells = grid
+      ? cellsOf(row.geometry as unknown as Geometry, grid, context.extent)
+      : null;
+    const shape = regionCells ? null : editableOf(row.geometry as unknown as Geometry);
+    if (regionCells && grid) {
+      box.append(cellsPanel(row, grid, regionCells));
+    } else if (shape) {
       box.append(pointFields(row, shape));
       const children = childrenControl(row, shape);
       if (children) box.append(children);

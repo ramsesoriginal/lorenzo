@@ -22,7 +22,11 @@ roads and names can be switched off, the drawing zooms and pans, and selecting a
 [ADR 0353](../../docs/adr/0353-authoring-a-map-in-lorenzo-maps.md)): *Make a Map* on `/maps/`, and on
 `/map/` *Edit this map* with Pin, Circle, Line and Area tools (a handle is dragged; every point is also a
 number field), role, line and drawing order, "place the children" of a Location drawn as an area,
-undo and redo, and *Settings* (name, sheet, the Location it shows, theme name, who sees it). *Look* and
+undo and redo, and *Settings* (name, sheet, the Location it shows, theme name, who sees it). A Map may be a grid of squares, rectangles or hexes (the
+hexes' orientation is always chosen), or have a grid drawn over it; a Grid switch, the cell under the
+pointer in words, *Snap to the grid* and a *Cells* tool for regions of whole cells come with it
+([ADR 0354](../../docs/adr/0354-grid-systems-square-rectangular-and-hex.md) to
+[ADR 0356](../../docs/adr/0356-authoring-on-a-grid.md)). *Look* and
 a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md)). The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.
