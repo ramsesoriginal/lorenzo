@@ -12,6 +12,8 @@ import {
 } from './grid';
 import { extentOf, type Transform, toScreen } from './project';
 import type { PathPrim, Prim } from './scene';
+import { isSphere } from './sphere';
+import { graticulePrims } from './sphereDraw';
 import type { BBox, MapModel, Point } from './types';
 
 /** Cells whose shortest side is under this many screen pixels are not drawn (ADR 0355). */
@@ -269,6 +271,9 @@ function hexGrid(grid: GridSpec, extent: BBox, t: Transform, box: Bounds): [Prim
 
 /** The primitives of a Map's grid for a view, and whether it could be drawn. */
 export function gridPrims(model: MapModel, t: Transform): { prims: Prim[]; state: GridState } {
+  // A sphere's grid is its lines of longitude and latitude (ADR 0358).
+  if (isSphere(model.system)) return { prims: graticulePrims(model, t), state: 'drawn' };
+
   const grid = gridOf(model);
 
   if (!grid) return { prims: [], state: 'none' };

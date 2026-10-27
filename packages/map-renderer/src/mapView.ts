@@ -3,8 +3,9 @@ import { placementCentre } from './geom';
 import { hitTest } from './hit';
 import { layout } from './layout';
 import { type PaintOptions, paintSvg, SVG_NS } from './paint';
-import { transformOf } from './project';
+import { project, transformOf, unproject } from './project';
 import type { Scene } from './scene';
+import { isSphere, onGlobe, projectionOf } from './sphere';
 import type { Theme } from './theme';
 import { defaultTheme } from './themes/default';
 import { DEFAULT_GROUPS, type Groups, type MapModel, type Point, type View } from './types';
@@ -231,14 +232,26 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
     if (svg.getAttribute('data-cursor') !== shown) svg.setAttribute('data-cursor', shown);
   }
 
-  /** A pointer event as a tool sees it: in drawing units, with what is under it. */
+  /** The tool, unless the pointer is off the globe of a sphere, where no tool is given it. */
+  function toolFor(e: MouseEvent): Tool | null {
+    if (!tool || !isSphere(model.system)) return tool;
+
+    const at = screenToDrawing(model.system, viewport(), state, pointOf(e));
+
+    return onGlobe(projectionOf(model.system), at[0], at[1]) ? tool : null;
+  }
+
+  /**
+   * A pointer event as a tool sees it: in the units geometry is stored in (a sphere's longitude and
+   * latitude, ADR 0358), with what is under it.
+   */
   function toolEvent(e: MouseEvent): ToolEvent {
     const screen = pointOf(e);
     const vp = viewport();
     const hit = scene ? hitTest(scene, screen) : null;
 
     return {
-      point: screenToDrawing(model.system, vp, state, screen),
+      point: unproject(model.system, screenToDrawing(model.system, vp, state, screen)),
       hit,
       handle:
         overlay.length > 0
@@ -265,7 +278,7 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
 
     suppressClick = false;
 
-    if (tool?.down?.(toolEvent(e))) {
+    if (toolFor(e)?.down?.(toolEvent(e))) {
       toolDrag = e.pointerId;
       suppressClick = true;
       svg.setPointerCapture?.(e.pointerId);
@@ -305,7 +318,7 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
       return;
     }
 
-    tool?.move?.(toolEvent(e));
+    toolFor(e)?.move?.(toolEvent(e));
 
     const id = scene ? hitTest(scene, pointOf(e)) : null;
 
@@ -347,7 +360,7 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
       return;
     }
 
-    if (tool?.click?.(toolEvent(e))) return;
+    if (toolFor(e)?.click?.(toolEvent(e))) return;
 
     // A click with no detail was made by a keyboard or an assistive technology, which has no
     // pointer position: it names the mark by the element it landed on.
@@ -355,7 +368,7 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
   });
 
   on('dblclick', (e) => {
-    if (tool?.dblclick?.(toolEvent(e))) e.preventDefault();
+    if (toolFor(e)?.dblclick?.(toolEvent(e))) e.preventDefault();
   });
 
   on(
@@ -480,7 +493,7 @@ export function createMapView(host: HTMLElement, options: MapViewOptions): MapVi
 
       if (!at) return false;
 
-      setView(centreOn(state, at));
+      setView(centreOn(state, project(model.system, at)));
 
       return true;
     },

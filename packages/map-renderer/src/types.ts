@@ -17,6 +17,9 @@ export type System = {
   orientation?: GridSpec['orientation'];
   measure?: { per_cell: number; unit: string };
   sub?: GridSpec['sub'];
+  /** A sphere (ADR 0357): its radius, and the projection it is drawn with (ADR 0358). */
+  radius?: { value: number; unit: string };
+  projection?: Projection;
 };
 
 export type Part =
@@ -155,6 +158,7 @@ export const DEFAULT_GROUPS: Groups = {
 
 import type { Overlay } from './edit';
 import type { GridSpec } from './grid';
+import type { Projection } from './sphere';
 
 export type View = {
   /** The drawing's size in screen pixels. */

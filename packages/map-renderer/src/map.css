@@ -330,3 +330,11 @@
   stroke-dasharray: 2 3;
   opacity: 0.8;
 }
+
+/* The globe's disc (ADR 0358): the sphere seen from outside, under the lines and the places. */
+.m-limb {
+  fill: var(--surface-default);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  pointer-events: none;
+}

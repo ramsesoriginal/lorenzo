@@ -3,6 +3,8 @@ import { bboxOf, finitePoint, flattenCubic, growBBox, num } from './geom';
 import { gridPrims } from './gridDraw';
 import { project, toScreen, transformOf } from './project';
 import type { Hit, Prim, Scene } from './scene';
+import { isSphere } from './sphere';
+import { buildSphereShape, limbPrims } from './sphereDraw';
 import type { DrawableShape, Mark, Shape, Theme, ThemeContext } from './theme';
 import { defaultTheme } from './themes/default';
 import {
@@ -304,7 +306,12 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
     },
   ];
 
+  prims.push(...limbPrims(model, t));
+
   if (view.groups.grid) prims.push(...gridPrims(model, t).prims);
+
+  const onSphere = isSphere(system);
+  const onScreen = (p: Point): Point => sp(toScreen(t, p));
 
   for (const { placement, role } of visible) {
     const entryId = placement.entry.id;
@@ -312,7 +319,9 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
     const first = prims.length;
 
     placement.geometry.parts.forEach((part, partIndex) => {
-      const shape = buildShape(part, place, t.scale);
+      const shape = onSphere
+        ? buildSphereShape(part, system, onScreen)
+        : buildShape(part, place, t.scale);
 
       if (!shape) return;
 

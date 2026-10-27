@@ -17,10 +17,22 @@ export type {
 export { createMapView } from './mapView';
 export type { PaintOptions, TreeNode } from './paint';
 export { iconHref, paintSvg, sceneToSvg, sceneTree } from './paint';
-export { project } from './project';
+export { project, unproject } from './project';
 export type { Arc } from './relief';
 export { reliefArcs } from './relief';
 export type { CirclePrim, Hit, IconPrim, PathPrim, Prim, RectPrim, Scene, TextPrim } from './scene';
+export type { Projection, ProjectionKind } from './sphere';
+export {
+  GLOBE_RADIUS,
+  isSphere,
+  isVisible,
+  MERCATOR_LIMIT,
+  onGlobe,
+  PROJECTION_KINDS,
+  projectionOf,
+  projectLonLat,
+  unprojectPoint,
+} from './sphere';
 export type {
   DrawableShape,
   DrawMark,

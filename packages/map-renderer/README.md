@@ -124,6 +124,17 @@ are not drawn (8 for a sub-grid) and at most 6,000 at once; `gridPrims` also say
 `drawn`, `too_fine` or `none`. `cellAt`, `cellCentre`, `cellPolygon`, `inGrid` and `cellCount` mirror
 `packages/map-engine`'s functions and read the same `golden/cells.json`. `Groups.grid` is the switch.
 
+## Spheres
+
+A system of kind `sphere` stores `[longitude, latitude]`; `System.projection` (`equirectangular`,
+`mercator` or `orthographic` with a `centre`) says how it is seen (ADR 0358). `project(system, point)` and
+`unproject(system, point)` are the one way between stored and drawing positions, and `extentOf` is the
+projected sheet. A segment is straight in longitude and latitude, so the curved projections draw it from
+samples; a globe is cut where a line goes behind its limb, a pin behind it is not drawn and an area keeps
+its hidden vertices on the limb. The globe's disc is `m-limb` and the lines of longitude and latitude are
+`m-grid`, under the Grid switch. A tool receives its pointer already as longitude and latitude and is not
+given a press off the globe.
+
 ## Tests
 
 `pnpm run test` (vitest): Scene determinism, rejection of non-finite numbers, each shape and role,

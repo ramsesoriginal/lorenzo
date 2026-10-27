@@ -1,12 +1,23 @@
 import { num } from './geom';
+import { isSphere, projectionOf, projectLonLat, sphereExtent, unprojectPoint } from './sphere';
 import type { BBox, Point, System, View } from './types';
 
 /**
- * The one place a stored position becomes a drawing position. For `plane` and `outline` it is the
- * identity, as storage and SVG are both y-down; a kind this version does not know is read as an
- * outline (ADR 0336).
+ * The one place a stored position becomes a drawing position. For `plane`, the grids and `outline`
+ * it is the identity, as storage and SVG are both y-down; a kind this version does not know is read
+ * as an outline (ADR 0336). A sphere's positions are longitude and latitude and are projected
+ * (ADR 0358).
  */
-export function project(_system: System, point: Point): Point {
+export function project(system: System, point: Point): Point {
+  if (isSphere(system)) return projectLonLat(projectionOf(system), point[0], point[1]);
+
+  return [point[0], point[1]];
+}
+
+/** A drawing point as a stored position: the inverse of `project`, for the pointer. */
+export function unproject(system: System, point: Point): Point {
+  if (isSphere(system)) return unprojectPoint(projectionOf(system), point[0], point[1]);
+
   return [point[0], point[1]];
 }
 
@@ -23,7 +34,10 @@ export type Transform = {
   designUnit: number;
 };
 
+/** The sheet in drawing units: the extent, or a sphere's projected sheet. */
 export function extentOf(system: System): BBox {
+  if (isSphere(system)) return sphereExtent(projectionOf(system));
+
   const e = system.extent;
 
   if (!Array.isArray(e) || e.length !== 4 || e.some((n) => !Number.isFinite(n))) {
@@ -55,7 +69,8 @@ export function transformOf(system: System, view: View): Transform {
     throw new RangeError('map-renderer: the zoom is not a positive number');
   }
 
-  const centre = project(system, view.centre);
+  // The view's centre is already a drawing point (the middle of the viewport), never a stored one.
+  const centre: Point = [view.centre[0], view.centre[1]];
 
   if (!Number.isFinite(centre[0]) || !Number.isFinite(centre[1])) {
     throw new RangeError('map-renderer: the centre is not finite');
