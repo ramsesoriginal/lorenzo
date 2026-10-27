@@ -18,6 +18,10 @@ class Map(Base):
     __tablename__ = "map"
     __table_args__ = (
         CheckConstraint("jsonb_typeof(system) = 'object'", name="map_system_object"),
+        CheckConstraint(
+            "theme_hint IS NULL OR char_length(theme_hint) BETWEEN 1 AND 32",
+            name="map_theme_hint_length",
+        ),
         same_tenant_fk("map_entity_fkey", ["entity_id"], "entity", ondelete="CASCADE"),
         same_tenant_fk(
             "map_subject_fkey",
@@ -31,6 +35,8 @@ class Map(Base):
     tenant_id: Mapped[TenantFk]
     system: Mapped[dict[str, Any]] = mapped_column(JSONB)
     subject_entity_id: Mapped[uuid.UUID | None] = mapped_column(default=None)
+    # A theme name the renderer has (ADR 0352), kept as it is when this version does not know it.
+    theme_hint: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class MapPlacement(Base):

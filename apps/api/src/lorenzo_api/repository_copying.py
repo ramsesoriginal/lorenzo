@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
 
-from lorenzo_map import MapDocumentError, validate_placement
+from lorenzo_map import MapDocumentError, keep_theme_hint, validate_placement
 from sqlalchemy import delete, exists, func, insert, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError
@@ -649,6 +649,7 @@ class _Planner:
                         "entity_id": new,
                         "tenant_id": tenant_id,
                         "system": c.maps[e]["system"],
+                        "theme_hint": keep_theme_hint(c.maps[e]["theme"]),
                         "subject_entity_id": None
                         if subject is None
                         else self._local(c, "entity", subject),

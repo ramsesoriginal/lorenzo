@@ -13,3 +13,6 @@ MIN_Z = -100
 MAX_Z = 100
 # Segment-pair tests a simplicity check may spend before the polygon is called too complex.
 SIMPLICITY_BUDGET = 4_000_000
+MAX_THEME_NAME = 32
+# Operations in one batch of placement writes (ADR 0351).
+MAX_BATCH_OPERATIONS = 100

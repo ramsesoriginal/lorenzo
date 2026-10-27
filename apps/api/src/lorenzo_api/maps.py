@@ -23,15 +23,15 @@ async def require_map_room(session: AsyncSession, *, tenant_id: uuid.UUID) -> No
 
 
 async def require_placement_room(
-    session: AsyncSession, *, tenant_id: uuid.UUID, map_id: uuid.UUID
+    session: AsyncSession, *, tenant_id: uuid.UUID, map_id: uuid.UUID, adding: int = 1
 ) -> None:
-    """Refuses a placement beyond the Map's limit."""
+    """Refuses placements beyond the Map's limit: `adding` more than there are now."""
     count = await session.scalar(
         select(func.count())
         .select_from(MapPlacement)
         .where(MapPlacement.tenant_id == tenant_id, MapPlacement.map_entity_id == map_id)
     )
-    if (count or 0) >= MAX_PLACEMENTS_PER_MAP:
+    if (count or 0) + adding > MAX_PLACEMENTS_PER_MAP:
         raise InvalidMapError(detail=f"A Map holds at most {MAX_PLACEMENTS_PER_MAP} placements")
 
 

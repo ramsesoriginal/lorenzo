@@ -196,3 +196,19 @@ def test_a_system_a_reader_does_not_know_is_an_outline():
     assert effective_kind({"kind": "plane"}) == "plane"
     assert effective_kind({"kind": "hex"}) == "outline"
     assert effective_kind(None) == "outline"
+
+
+def test_theme_names_are_the_golden_list_and_a_stored_name_is_read_kindly():
+    from lorenzo_map import THEME_NAMES, keep_theme_hint, read_theme_hint, validate_theme_hint
+
+    golden = json.loads((GOLDEN / "themes.json").read_text(encoding="utf-8"))
+
+    assert list(THEME_NAMES) == golden["names"]
+    assert validate_theme_hint(None) is None and validate_theme_hint("plain") == "plain"
+    for refused in ("Plain", "tube", "", 3, ["plain"]):
+        with pytest.raises(MapDocumentError):
+            validate_theme_hint(refused)
+    # A newer version's name is read as the default but carried unchanged by a copy.
+    assert read_theme_hint("tube") is None and read_theme_hint("plain") == "plain"
+    assert keep_theme_hint("tube") == "tube" and keep_theme_hint("x" * 33) is None
+    assert keep_theme_hint(None) is None and keep_theme_hint("") is None

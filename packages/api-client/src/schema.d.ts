@@ -3318,7 +3318,8 @@ export interface paths {
         get: operations["get_map"];
         /**
          * Put Map
-         * @description Replaces the system and the subject under `If-Match`. No placement is touched.
+         * @description Replaces the system, the subject and the theme name under `If-Match`. No placement is
+         *     touched.
          */
         put: operations["put_map"];
         post?: never;
@@ -3344,6 +3345,27 @@ export interface paths {
         post?: never;
         /** Delete Placement */
         delete: operations["delete_placement"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/maps/{map_id}/placements/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Batch Placements
+         * @description Draws, redraws and removes placements as one transaction: if any operation is refused,
+         *     nothing is written, and the answer names the first refusal by its place in the request.
+         */
+        post: operations["batch_placements"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6552,6 +6574,29 @@ export interface components {
             title: string;
             /** Type */
             type: string;
+        };
+        /** BatchPut */
+        BatchPut: {
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /** Role */
+            role?: string | null;
+            /** Style */
+            style?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Z
+             * @default 0
+             */
+            z: number;
         };
         /**
          * BeingSummaryOut
@@ -10121,6 +10166,8 @@ export interface components {
             };
             /** Subject Entity Id */
             subject_entity_id?: string | null;
+            /** Theme Hint */
+            theme_hint?: string | null;
             /**
              * Is Public
              * @default false
@@ -10144,6 +10191,8 @@ export interface components {
             system: {
                 [key: string]: unknown;
             };
+            /** Theme Hint */
+            theme_hint?: string | null;
             subject?: components["schemas"]["MapStub"] | null;
             /**
              * Updated At
@@ -10163,6 +10212,8 @@ export interface components {
             };
             /** Subject Entity Id */
             subject_entity_id?: string | null;
+            /** Theme Hint */
+            theme_hint?: string | null;
         };
         /** MapStub */
         MapStub: {
@@ -11543,6 +11594,23 @@ export interface components {
             name: string;
             /** Slug */
             slug?: string | null;
+        };
+        /**
+         * PlacementBatchIn
+         * @description At most 100 operations in all (ADR 0351): redraws or draws, and removals.
+         */
+        PlacementBatchIn: {
+            /** Put */
+            put?: components["schemas"]["BatchPut"][];
+            /** Remove */
+            remove?: string[];
+        };
+        /** PlacementBatchOut */
+        PlacementBatchOut: {
+            /** Put */
+            put: number;
+            /** Removed */
+            removed: number;
         };
         /** PlacementIn */
         PlacementIn: {
@@ -27078,6 +27146,76 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    batch_placements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlacementBatchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlacementBatchOut"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -15,7 +15,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Query, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from lorenzo_map import MapDocumentError, validate_placement, validate_system
+from lorenzo_map import (
+    MAX_BATCH_OPERATIONS,
+    MapDocumentError,
+    validate_placement,
+    validate_system,
+    validate_theme_hint,
+)
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Select, delete, func, literal, select, tuple_
 
@@ -79,6 +85,8 @@ class MapCreate(BaseModel):
     slug: Slug | None = None
     system: dict[str, Any]
     subject_entity_id: uuid.UUID | None = None
+    # A theme name (ADR 0352); none draws the default.
+    theme_hint: str | None = None
     is_public: bool = False
 
 
@@ -86,10 +94,13 @@ class MapPut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     system: dict[str, Any]
     subject_entity_id: uuid.UUID | None = None
+    theme_hint: str | None = None
 
 
 class MapOut(MapStub):
     system: dict[str, Any]
+    # The theme name the Map asks for; one this version does not know draws as the default.
+    theme_hint: str | None = None
     # The Location it shows, only when this reader may see that Location.
     subject: MapStub | None = None
     updated_at: datetime
@@ -209,6 +220,7 @@ async def _out(
     return MapOut(
         **stub.model_dump(),
         system=row.system,
+        theme_hint=row.theme_hint,
         subject=subject,
         updated_at=entity.updated_at,
         can_manage=manage,
@@ -258,6 +270,7 @@ async def create_map(
     vis = await require_manager(session, user, tenant_id)
     try:
         validate_system(body.system)
+        theme = validate_theme_hint(body.theme_hint)
     except MapDocumentError as error:
         raise InvalidMapError(detail=error.reason) from None
     if body.subject_entity_id is not None:
@@ -277,6 +290,7 @@ async def create_map(
     row = await session.get(Map, entity.id)
     assert row is not None
     row.subject_entity_id = body.subject_entity_id
+    row.theme_hint = theme
     if body.is_public:
         audience = await session.get(EntityAudience, entity.id)
         assert audience is not None
@@ -320,7 +334,8 @@ async def put_map(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> MapOut:
-    """Replaces the system and the subject under `If-Match`. No placement is touched."""
+    """Replaces the system, the subject and the theme name under `If-Match`. No placement is
+    touched."""
     vis = await require_manager(session, user, tenant_id)
     entity = await _visible_map(session, user, tenant_id, map_id)
     if if_match is None:
@@ -328,6 +343,7 @@ async def put_map(
     check_if_match(if_match, updated_at=entity.updated_at)
     try:
         stored = validate_system(body.system)
+        theme = validate_theme_hint(body.theme_hint)
     except MapDocumentError as error:
         raise InvalidMapError(detail=error.reason) from None
     if body.subject_entity_id is not None:
@@ -336,6 +352,7 @@ async def put_map(
     assert row is not None
     row.system = stored
     row.subject_entity_id = body.subject_entity_id
+    row.theme_hint = theme
     entity = await touch_map(session, tenant_id=tenant_id, map_id=map_id, user_id=user.id)
     await record_activity(
         session,
@@ -432,6 +449,114 @@ async def delete_placement(
             detail=str(entry_id),
         )
     await _commit(session, tenant_id)
+
+
+class BatchPut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entry_id: uuid.UUID
+    geometry: dict[str, Any]
+    role: str | None = None
+    style: dict[str, Any] | None = None
+    z: Annotated[int, Field(strict=True)] = 0
+
+
+class PlacementBatchIn(BaseModel):
+    """At most 100 operations in all (ADR 0351): redraws or draws, and removals."""
+
+    model_config = ConfigDict(extra="forbid")
+    put: list[BatchPut] = Field(default_factory=list)
+    remove: list[uuid.UUID] = Field(default_factory=list)
+
+
+class PlacementBatchOut(BaseModel):
+    put: int
+    removed: int
+
+
+@router.post("/maps/{map_id}/placements/batch")
+async def batch_placements(
+    tenant_id: uuid.UUID,
+    map_id: uuid.UUID,
+    body: PlacementBatchIn,
+    session: SessionDep,
+    user: CurrentUser,
+) -> PlacementBatchOut:
+    """Draws, redraws and removes placements as one transaction: if any operation is refused,
+    nothing is written, and the answer names the first refusal by its place in the request."""
+    vis = await require_manager(session, user, tenant_id)
+    await _visible_map(session, user, tenant_id, map_id)
+    entries = [item.entry_id for item in body.put] + body.remove
+    if len(entries) > MAX_BATCH_OPERATIONS:
+        raise InvalidMapError(detail=f"A batch holds at most {MAX_BATCH_OPERATIONS} operations")
+    if len(set(entries)) != len(entries):
+        raise InvalidMapError(detail="An entry appears more than once in one batch")
+    checked = []
+    for index, item in enumerate(body.put):
+        try:
+            checked.append(validate_placement(item.geometry, item.role, item.style, item.z))
+        except MapDocumentError as error:
+            raise InvalidMapError(detail=f"put[{index}]: {error.reason}") from None
+    if entries:
+        found = set(
+            await session.scalars(
+                select(Entity.id).where(
+                    Entity.tenant_id == tenant_id,
+                    Entity.id.in_(entries),
+                    visible_entry_clause(vis, Entity.id),
+                )
+            )
+        )
+        if found != set(entries):
+            raise EntityNotFoundError(detail=_NO_ENTRY)
+    existing = {
+        row.entry_entity_id: row
+        for row in await session.scalars(
+            select(MapPlacement).where(
+                MapPlacement.tenant_id == tenant_id,
+                MapPlacement.map_entity_id == map_id,
+                MapPlacement.entry_entity_id.in_([item.entry_id for item in body.put]),
+            )
+        )
+    }
+    added = sum(1 for item in body.put if item.entry_id not in existing)
+    if added:
+        await require_placement_room(session, tenant_id=tenant_id, map_id=map_id, adding=added)
+    for item, valid in zip(body.put, checked, strict=True):
+        placed = existing.get(item.entry_id)
+        if placed is None:
+            placed = MapPlacement(
+                map_entity_id=map_id, entry_entity_id=item.entry_id, tenant_id=tenant_id
+            )
+            session.add(placed)
+        placed.geometry = valid.geometry
+        placed.role = valid.role
+        placed.style = valid.style
+        placed.z = valid.z
+        placed.bytes = valid.bytes
+        placed.minx, placed.miny, placed.maxx, placed.maxy = valid.bbox
+    removed = 0
+    if body.remove:
+        gone = await session.execute(
+            delete(MapPlacement).where(
+                MapPlacement.tenant_id == tenant_id,
+                MapPlacement.map_entity_id == map_id,
+                MapPlacement.entry_entity_id.in_(body.remove),
+            )
+        )
+        removed = gone.rowcount  # type: ignore[attr-defined]
+    if body.put or removed:
+        await touch_map(session, tenant_id=tenant_id, map_id=map_id, user_id=user.id)
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="map.placements_changed",
+            target_type="entity",
+            target_id=map_id,
+            detail=f"put={len(body.put)} removed={removed}",
+        )
+    await _commit(session, tenant_id)
+    return PlacementBatchOut(put=len(body.put), removed=removed)
 
 
 def _encode_cursor(z: int, entry_id: uuid.UUID) -> str:

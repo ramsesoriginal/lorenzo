@@ -10,7 +10,7 @@ from test_locations import place
 from test_placement import entry
 from test_story_sessions import world
 
-from lorenzo_api.models import Map, MapPlacement
+from lorenzo_api.models import AuditLog, Map, MapPlacement
 
 SYSTEM = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1000, 800]}
 
@@ -435,6 +435,7 @@ async def test_a_copy_carries_a_map_and_its_placements_and_drops_what_is_not_val
             )
         (chart,) = plan.rows["map"]
         assert chart["system"]["kind"] == "plane" and chart["subject_entity_id"] is None
+        assert chart["theme_hint"] == "plain"
         (placed,) = plan.rows["map_placement"]
         assert placed["map_entity_id"] == chart["entity_id"] and placed["role"] == "site"
         assert (placed["minx"], placed["miny"], placed["maxx"], placed["maxy"]) == (1, 2, 1, 2)
@@ -444,3 +445,159 @@ async def test_a_copy_carries_a_map_and_its_placements_and_drops_what_is_not_val
             for tenant_id in (library_id, repository_id):
                 await session.delete(await session.get_one(Tenant, tenant_id))
             await session.commit()
+
+
+async def test_a_theme_name_is_written_read_and_refused_when_unknown(raw_client, fake_jwks_server):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm = w.tenant_id, w.author
+        made = await make_map(gm, t, is_public=True, theme_hint="plain")
+        assert made["theme_hint"] == "plain"
+        assert (await make_map(gm, t, "Plain one"))["theme_hint"] is None
+        refused = await gm.post(
+            f"/tenants/{t}/maps", json={"name": "X", "system": SYSTEM, "theme_hint": "tube"}
+        )
+        assert refused.status_code == 422, refused.text
+        url = f"/tenants/{t}/maps/{made['id']}"
+        header = await gm.get(url)
+        assert header.json()["theme_hint"] == "plain"
+        body = {"system": SYSTEM, "subject_entity_id": None, "theme_hint": "default"}
+        saved = await gm.client.put(
+            url, headers={**gm.headers, "If-Match": header.headers["etag"]}, json=body
+        )
+        assert saved.status_code == 200 and saved.json()["theme_hint"] == "default"
+        cleared = await gm.client.put(
+            url,
+            headers={**gm.headers, "If-Match": saved.headers["etag"]},
+            json={"system": SYSTEM},
+        )
+        assert cleared.json()["theme_hint"] is None
+        # A name this version does not know is kept as it is.
+        async with admin_session_factory() as session:
+            row = await session.get(Map, uuid.UUID(made["id"]))
+            assert row is not None
+            row.theme_hint = "tube"
+            await session.commit()
+        assert (await gm.get(url)).json()["theme_hint"] == "tube"
+    finally:
+        await w.clean_up()
+
+
+async def batch(actor: Any, t: Any, chart: str, **body: Any):
+    return await actor.post(f"/tenants/{t}/maps/{chart}/placements/batch", json=body)
+
+
+async def test_a_batch_draws_redraws_and_removes_as_one(raw_client, fake_jwks_server):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm, player = w.tenant_id, w.author, w.outsider
+        chart = (await make_map(gm, t, is_public=True))["id"]
+        one = await entry(gm, t, "One")
+        two = await entry(gm, t, "Two")
+        three = await entry(gm, t, "Three")
+        elsewhere = await entry(gm, t, "Elsewhere")
+        before = await gm.get(f"/tenants/{t}/maps/{chart}")
+        made = await batch(
+            gm,
+            t,
+            chart,
+            put=[
+                {"entry_id": one, "geometry": pin(1, 1), "role": "site"},
+                {"entry_id": two, "geometry": square(10, 10, 5), "z": 2},
+                {"entry_id": three, "geometry": pin(3, 3)},
+            ],
+        )
+        assert made.status_code == 200 and made.json() == {"put": 3, "removed": 0}
+        assert len(ids(await read(gm, t, chart))) == 3
+        # One touch for the whole batch, and one activity entry.
+        after = await gm.get(f"/tenants/{t}/maps/{chart}")
+        assert after.headers["etag"] != before.headers["etag"]
+        async with admin_session_factory() as session:
+            logged = await session.scalar(
+                select(func.count())
+                .select_from(AuditLog)
+                .where(AuditLog.tenant_id == t, AuditLog.action == "map.placements_changed")
+            )
+            assert logged == 1
+        # Redraw one, remove one and one that is not there, in one go.
+        mixed = await batch(
+            gm,
+            t,
+            chart,
+            put=[{"entry_id": one, "geometry": pin(9, 9), "role": "marker"}],
+            remove=[two, elsewhere],
+        )
+        assert mixed.json() == {"put": 1, "removed": 1}
+        page = await read(gm, t, chart)
+        assert {r["name"]: (r["role"], r["geometry"]["parts"][0]["at"]) for r in page["items"]} == {
+            "One": ("marker", [9, 9]),
+            "Three": (None, [3, 3]),
+        }
+        # An empty batch changes nothing, and a player may not write.
+        assert (await batch(gm, t, chart)).json() == {"put": 0, "removed": 0}
+        assert (await batch(player, t, chart, remove=[one])).status_code == 403
+    finally:
+        await w.clean_up()
+
+
+async def test_a_batch_that_is_refused_writes_nothing(raw_client, fake_jwks_server, monkeypatch):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm = w.tenant_id, w.author
+        chart = (await make_map(gm, t, is_public=True))["id"]
+        one, two = await entry(gm, t, "One"), await entry(gm, t, "Two")
+        third = await entry(gm, t, "Third")
+        bad = {"format": "lorenzo.geometry/1", "parts": []}
+        refused = await batch(
+            gm,
+            t,
+            chart,
+            put=[{"entry_id": one, "geometry": pin(1, 1)}, {"entry_id": two, "geometry": bad}],
+        )
+        assert refused.status_code == 422 and "put[1]" in refused.json()["detail"]
+        assert (await read(gm, t, chart))["items"] == []
+        # The same entry twice, an entry that is missing, and a batch that is too big.
+        twice = await batch(
+            gm, t, chart, put=[{"entry_id": one, "geometry": pin(1, 1)}], remove=[one]
+        )
+        assert twice.status_code == 422
+        missing = await batch(
+            gm,
+            t,
+            chart,
+            put=[
+                {"entry_id": one, "geometry": pin(1, 1)},
+                {"entry_id": str(uuid.uuid4()), "geometry": pin(2, 2)},
+            ],
+        )
+        assert missing.status_code == 404
+        assert (await read(gm, t, chart))["items"] == []
+        many = [{"entry_id": str(uuid.uuid4()), "geometry": pin(1, 1)} for _ in range(101)]
+        assert (await batch(gm, t, chart, put=many)).status_code == 422
+        # The placement cap counts only the rows a batch adds.
+        import lorenzo_api.maps as limits
+
+        monkeypatch.setattr(limits, "MAX_PLACEMENTS_PER_MAP", 2)
+        assert (await draw(gm, t, chart, one, pin(1, 1))).status_code == 200
+        over = await batch(
+            gm,
+            t,
+            chart,
+            put=[
+                {"entry_id": two, "geometry": pin(2, 2)},
+                {"entry_id": third, "geometry": pin(3, 3)},
+            ],
+        )
+        assert over.status_code == 422
+        fits = await batch(
+            gm,
+            t,
+            chart,
+            put=[
+                {"entry_id": one, "geometry": pin(5, 5)},
+                {"entry_id": two, "geometry": pin(2, 2)},
+            ],
+        )
+        assert fits.json() == {"put": 2, "removed": 0}
+    finally:
+        await w.clean_up()

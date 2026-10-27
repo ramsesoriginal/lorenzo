@@ -127,6 +127,7 @@ async def seed_every_content_table(
                     "kind": "plane",
                     "extent": [0, 0, 10, 10],
                 },
+                theme_hint="plain",
             ),
             Clock(entity_id=reference_clock.id, tenant_id=tenant_id),
             EntityAudience(entity_id=reference_clock.id, tenant_id=tenant_id, is_public=False),

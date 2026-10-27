@@ -852,6 +852,15 @@ class _Applier:
                 self.skip(row, name, error.reason)
                 return False
             return True
+        if name == "map_theme":
+            from lorenzo_map import keep_theme_hint
+
+            map_row = await s.get(Map, e)
+            if map_row is None or map_row.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            map_row.theme_hint = keep_theme_hint(change.upstream)
+            return True
         if name == "map_subject":
             map_row = await s.get(Map, e)
             if map_row is None or map_row.tenant_id != t:

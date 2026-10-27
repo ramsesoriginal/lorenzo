@@ -161,6 +161,17 @@ class BacklinkOut(BaseModel):
     type: str = Field(..., title="Type")
 
 
+class BatchPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entry_id: UUID = Field(..., title="Entry Id")
+    geometry: dict[str, Any] = Field(..., title="Geometry")
+    role: str | None = Field(None, title="Role")
+    style: dict[str, Any] | None = Field(None, title="Style")
+    z: int | None = Field(0, title="Z")
+
+
 class BeingSummaryOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
@@ -1247,6 +1258,7 @@ class MapCreate(BaseModel):
     )
     system: dict[str, Any] = Field(..., title="System")
     subject_entity_id: UUID | None = Field(None, title="Subject Entity Id")
+    theme_hint: str | None = Field(None, title="Theme Hint")
     is_public: bool | None = Field(False, title="Is Public")
 
 
@@ -1256,6 +1268,7 @@ class MapPut(BaseModel):
     )
     system: dict[str, Any] = Field(..., title="System")
     subject_entity_id: UUID | None = Field(None, title="Subject Entity Id")
+    theme_hint: str | None = Field(None, title="Theme Hint")
 
 
 class MapStub(BaseModel):
@@ -1761,6 +1774,19 @@ class PlaceOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
+
+
+class PlacementBatchIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    put: list[BatchPut] | None = Field(None, title="Put")
+    remove: list[UUID] | None = Field(None, title="Remove")
+
+
+class PlacementBatchOut(BaseModel):
+    put: int = Field(..., title="Put")
+    removed: int = Field(..., title="Removed")
 
 
 class PlacementIn(BaseModel):
@@ -3284,6 +3310,7 @@ class MapOut(BaseModel):
     slug: str | None = Field(None, title="Slug")
     kinds: list[Kind16] = Field(..., title="Kinds")
     system: dict[str, Any] = Field(..., title="System")
+    theme_hint: str | None = Field(None, title="Theme Hint")
     subject: MapStub | None = None
     updated_at: AwareDatetime = Field(..., title="Updated At")
     can_manage: bool = Field(..., title="Can Manage")
