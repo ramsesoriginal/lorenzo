@@ -333,6 +333,16 @@ pages after the visibility join, with a body-hash `ETag`. Neither table feeds GM
 draws a Map with [`packages/map-renderer`](../../packages/map-renderer): a pure layout to a Scene, a
 reconciling SVG painter and hit testing, with the default theme in one place.
 
+Authoring (RFC 0048 slice 6, ADR 0351 to 0353, 2026-10-27): `POST .../maps/{id}/placements/batch` writes
+at most 100 placements and removals as one transaction through the single write's validator and
+visibility, with one touch and one activity entry. `map.theme_hint` keeps a theme name (`default` or
+`plain`, held to the renderer's list by a golden file; an unknown name is kept and read as the default),
+returned by the header, replaced with the system and the subject under `If-Match`, and carried by
+repository copy and update (release format 19). The renderer gains the `plain` theme, `legend()`,
+`setTheme` and an editor interface that knows nothing of editing: a `Tool` that receives the pointer in
+drawing units while set and an `Overlay` of lines, discs and handles drawn above the marks. Lorenzo
+Maps builds the tools, the panel, undo and redo and the settings on it.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.

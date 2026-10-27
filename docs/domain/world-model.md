@@ -59,8 +59,17 @@ write Locations draw and redraw; everyone reads what they may see
 ([ADR 0336](../adr/0336-maps-the-kind-its-system-and-its-placements.md),
 [ADR 0337](../adr/0337-geometry-roles-and-the-validator.md), [ADR 0338](../adr/0338-reading-and-writing-maps.md)).
 A repository carries its Maps and their placements through copy and update like any other entry.
-Drawing tools, connections, distances and optionally tying a map to a calendar period are proposed in
-[RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and come in later slices.
+A Map can be drawn by those who write Locations: a pin, a circle, a line or an area for an entry, or
+for a new Location made on the spot; its role, line and drawing order changed, its points moved by
+dragging or typed as numbers, and the places inside a Location placed as pins in one action that
+writes explicit rows (nothing on the server expands a Location into its children). A drawing can be
+undone and done again while the page is open. A Map may name a theme: how it looks is the viewer's
+choice, then the Map's, then the default, and a legend shows what each role on the Map looks like
+([ADR 0351](../adr/0351-writing-placements-in-bulk.md), [ADR 0352](../adr/0352-the-look-of-a-map.md),
+[ADR 0353](../adr/0353-authoring-a-map-in-lorenzo-maps.md)).
+Grids and a sphere, pictures, connections, distances and optionally tying a map to a calendar period
+are proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and come in
+later slices.
 
 ## Sessions, Scenes and personal lived order
 

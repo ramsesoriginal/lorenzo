@@ -33,4 +33,6 @@ Open the app and sign in as a GM. Add a top-level Location and a Location inside
 
 Make a Map with `POST /tenants/{id}/maps`, draw a Location on it with `PUT /tenants/{id}/maps/{map_id}/placements/{entry_id}`, and open the Map from the Maps page: the place is drawn, selecting it names it, and a player sees only the places they may see.
 
+As a GM, choose *Edit this map* and draw a pin for a Location and an area for a new one, change a role, drag a handle, undo, and place the children of an area; check that a player sees the same Map with no tools, and that *Look* and *Legend* work. The API must be the version with `POST .../placements/batch` and the Map's theme name before the app is deployed.
+
 No setting data, Location, Map or axis is seeded during deployment.

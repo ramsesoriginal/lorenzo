@@ -17,8 +17,13 @@ A Map is an entry kind too ([ADR 0336](../../docs/adr/0336-maps-the-kind-its-sys
 to [ADR 0340](../../docs/adr/0340-the-map-view-in-lorenzo-maps.md)). `/maps/` lists the Maps a person may
 see and `/map/` draws one with [`@lorenzo/map-renderer`](../../packages/map-renderer): places, people,
 roads and names can be switched off, the drawing zooms and pans, and selecting a mark, here or in the
-"Places on this map" list, opens a panel, and hovering or focusing a mark or a row opens the entry's card ([ADR 0350](../../docs/adr/0350-location-and-map-previews.md)). The view is read-only; placements are written through the API
-until a drawing tool arrives. The drawing is a named group of buttons, because axe reports focusable marks
+"Places on this map" list, opens a panel, and hovering or focusing a mark or a row opens the entry's card ([ADR 0350](../../docs/adr/0350-location-and-map-previews.md)). Those who write Locations can author a Map
+([ADR 0351](../../docs/adr/0351-writing-placements-in-bulk.md) to
+[ADR 0353](../../docs/adr/0353-authoring-a-map-in-lorenzo-maps.md)): *Make a Map* on `/maps/`, and on
+`/map/` *Edit this map* with Pin, Circle, Line and Area tools (a handle is dragged; every point is also a
+number field), role, line and drawing order, "place the children" of a Location drawn as an area,
+undo and redo, and *Settings* (name, sheet, the Location it shows, theme name, who sees it). *Look* and
+a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md)). The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.
 
