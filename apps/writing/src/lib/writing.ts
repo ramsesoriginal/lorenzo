@@ -253,6 +253,31 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
   });
   const entity = await unwrap(entityResult);
   const writingEntry = await outlineOf(tenant, entry);
+  if (writingEntry.joined) {
+    await compositionScreen(host, tenant, entry, true);
+    const drafts = await readDrafts(draftKey(API_BASE_URL, account, tenant, entry)).catch(() => []);
+    for (const saved of drafts) {
+      const details = element('details');
+      details.append(element('summary', 'Unsent draft before this join'));
+      details.append(
+        element(
+          'p',
+          'This local draft has not been applied to the joined manuscript. You can copy text from it.',
+        ),
+      );
+      for (const payload of saved.draft.payloads) {
+        if (payload.kind !== 'description') continue;
+        const text = element('textarea');
+        text.className = 'text-input';
+        text.readOnly = true;
+        text.value = payload.content;
+        text.setAttribute('aria-label', 'Unsent draft text');
+        details.append(text);
+      }
+      host.append(details);
+    }
+    return;
+  }
   const structured = ['book', 'edition', 'chapter'].includes(writingEntry.kind);
   if (writingEntry.uses_scene_manuscript) {
     await compositionScreen(host, tenant, entry, true);

@@ -3013,6 +3013,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/writing/entries/{id}/joins/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join */
+        post: operations["join"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/writing/entries/{id}/extractions/{operation_id}": {
         parameters: {
             query?: never;
@@ -9769,6 +9786,56 @@ export interface components {
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
         };
+        /** JoinAcknowledgement */
+        JoinAcknowledgement: {
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Destination Id
+             * Format: uuid
+             */
+            destination_id: string;
+        };
+        /** JoinChapters */
+        JoinChapters: {
+            /**
+             * Destination Id
+             * Format: uuid
+             */
+            destination_id: string;
+            /**
+             * Parent Id
+             * Format: uuid
+             */
+            parent_id: string;
+            /** Destination Version */
+            destination_version: string;
+            /** Parent Version */
+            parent_version: string;
+        };
+        /** JoinedDestination */
+        JoinedDestination: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Element Id
+             * Format: uuid
+             */
+            element_id: string;
+        };
         JsonValue: unknown;
         /** KindCountsOut */
         KindCountsOut: {
@@ -14133,6 +14200,12 @@ export interface components {
              * @default false
              */
             uses_scene_manuscript: boolean;
+            /**
+             * Joined
+             * @default false
+             */
+            joined: boolean;
+            joined_destination?: components["schemas"]["JoinedDestination"] | null;
             /**
              * Editions
              * @default []
@@ -25638,6 +25711,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SplitAcknowledgement"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    join: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinChapters"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinAcknowledgement"];
                 };
             };
             /** @description Validation Error */

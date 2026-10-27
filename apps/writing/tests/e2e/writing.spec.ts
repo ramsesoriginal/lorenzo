@@ -757,3 +757,75 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
     await context.close();
   }
 });
+
+test('join adjacent Chapters and follow the preserved source to its stable section', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('Joined journeys');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await expect(text).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    const ids: string[] = [];
+    for (const [name, prose] of [
+      ['Dawn', 'The first **account**.'],
+      ['Dusk', 'The second account[^a].\n\n[^a]: A local note.'],
+    ]) {
+      await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await page.getByRole('link', { name, exact: true }).click();
+      await expect(text).toBeVisible();
+      const entryId = new URL(page.url()).searchParams.get('entry');
+      if (!entryId) throw new Error('The Chapter address is missing.');
+      ids.push(entryId);
+      await text.fill(prose);
+      await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    }
+    await ok(
+      api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+        params: { path: { tenant_id: tenant.id, entity_id: ids[1] } },
+        body: {
+          type: 'note',
+          title: 'Research',
+          content: 'Keep this source note.',
+          is_public: false,
+          locale: 'en',
+        },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByText('Join with previous', { exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Join chapters', exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('join-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath('join-phone.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Join chapters', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Dusk', exact: true })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${ids[1]}`);
+    await expect(text).toHaveCount(0);
+    await expect(page.getByText('Keep this source note.', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Open joined section in Dawn', exact: true }).click();
+    await expect(page.locator('article')).toContainText('The first account.');
+    await expect(page.locator('article')).toContainText('The second account');
+    await expect(page.locator('article')).toContainText('A local note.');
+    const anchor = new URL(page.url()).hash;
+    await expect(page.locator(anchor)).toContainText('The second account');
+    await page.getByRole('link', { name: 'Write', exact: true }).click();
+    await expect(text.first()).toHaveValue('The first **account**.');
+    const secondText = page.getByRole('textbox', { name: 'Text 2', exact: true });
+    await secondText.fill('A revised second account.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${ids[1]}`);
+    await page.getByRole('link', { name: 'Open joined section in Dawn', exact: true }).click();
+    await expect(page.locator('article')).toContainText('A revised second account.');
+  } finally {
+    await context.close();
+  }
+});

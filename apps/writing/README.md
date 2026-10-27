@@ -50,8 +50,13 @@ accepts boundaries between complete lists, quotations, tables, code, display mat
 blocks, as well as distinct headings. It keeps footnote dependencies and potentially colliding
 heading anchors together. Texts with contents directives, abbreviations or local fragment links
 still stay whole. Place the cursor after a blank line at the start of the next section;
-an unsafe boundary is refused without moving the cursor's choice. Joins and guarded redirects
-remain subsequent W5 work.
+an unsafe boundary is refused without moving the cursor's choice.
+
+**Join with previous** combines adjacent sibling Chapters ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md)).
+Text blocks, pictures and children keep their identities and wording. The former Chapter keeps
+its notes and history, with a link to its section in the destination when that section is still
+available to the reader. Matching sharing and current versions are required. Old unsent text
+can be copied from a read-only recovery view. Other join shapes remain later W5 work.
 
 ## Run and verify
 

@@ -1081,6 +1081,25 @@ class ItemUpdate(BaseModel):
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
 
 
+class JoinAcknowledgement(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    source_id: UUID = Field(..., title="Source Id")
+    destination_id: UUID = Field(..., title="Destination Id")
+
+
+class JoinChapters(BaseModel):
+    destination_id: UUID = Field(..., title="Destination Id")
+    parent_id: UUID = Field(..., title="Parent Id")
+    destination_version: str = Field(..., title="Destination Version")
+    parent_version: str = Field(..., title="Parent Version")
+
+
+class JoinedDestination(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    element_id: UUID = Field(..., title="Element Id")
+
+
 class JsonValue(RootModel[Any]):
     root: Any
 
@@ -2737,6 +2756,8 @@ class WritingEntry(BaseModel):
     viewpoint_id: UUID | None = Field(None, title="Viewpoint Id")
     manuscript_source_id: UUID | None = Field(None, title="Manuscript Source Id")
     uses_scene_manuscript: bool | None = Field(False, title="Uses Scene Manuscript")
+    joined: bool | None = Field(False, title="Joined")
+    joined_destination: JoinedDestination | None = None
     editions: list[ManuscriptSummary] | None = Field([], title="Editions", validate_default=True)
     elements: list[Element] | None = Field([], title="Elements", validate_default=True)
     version: str = Field(..., title="Version")
