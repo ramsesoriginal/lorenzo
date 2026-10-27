@@ -42,8 +42,8 @@ sheet's near corner `(x0, y0)`:
 
 Angles are measured with y downward, as the sheet is. A `square` or `rect` cell `(col, row)` is the
 half-open rectangle starting at `(x0 + col*width, y0 + row*height)`. **A cell is in the grid when its
-centre lies in the extent** (`x0 <= x < x1` and `y0 <= y < y1`); the count that limits a grid is the
-count of such cells. Cell addresses are derived, never stored: a placement is geometry in drawing
+column and its row are not negative and its centre lies before the extent's far edges** (`x < x1`
+and `y < y1`); the count that limits a grid is the count of such cells. Cell addresses are derived, never stored: a placement is geometry in drawing
 units as before and may lie anywhere on the sheet.
 
 **The tie rule.** A point belongs to the cell whose centre is nearest it; a point equally near two or
