@@ -2,8 +2,9 @@
 
 A template says, for one kind of entry, which stats a card shows (by the name the library gave
 the stat), how many of them, and how much of the description. The kinds are the ones an entry
-can be (ADR 0217: `item`, `item_instance`, `being`, `character`) and a fallback for a bare
-entry. The templates are code, not data: a library does not edit them (ADR 0264).
+can be that a card has words for (ADR 0217: `item`, `item_instance`, `being`, `character`; ADR 0350:
+`location`, `map`) and a fallback for any other entry. The templates are code, not data: a
+library does not edit them (ADR 0264).
 
 Pure Python, no database: `template_for` picks the template from an entry's kinds, `pick_stats`
 and `excerpt_of` apply it to values the router has already read.
@@ -45,6 +46,9 @@ TEMPLATES: dict[str, PreviewTemplate] = {
     "item": PreviewTemplate(
         name="item", stats=("damage", "armor", "weight", "price", "rarity"), max_stats=4
     ),
+    # ADR 0350: a place and a map show no numbers, only what they are and how they are described.
+    "location": PreviewTemplate(name="location", stats=(), max_stats=0),
+    "map": PreviewTemplate(name="map", stats=(), max_stats=0),
 }
 
 
