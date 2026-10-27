@@ -62,6 +62,8 @@ export type EditorContext = {
   extent: [number, number, number, number];
   /** The Map's grid, its system's own or its view's, when it has one (ADR 0356). */
   grid: () => GridSpec | null;
+  /** A sphere: positions are longitudes and latitudes, and a circle and cells are not drawn (ADR 0359). */
+  sphere?: boolean;
   view: () => MapViewController;
   rows: () => Row[];
   /** Replaces the placements the page shows. */
@@ -493,6 +495,12 @@ export function createEditor(context: EditorContext): Editor {
       } else {
         const last = draft[draft.length - 1];
         if (!last || !same(last, p)) draft = [...draft, p];
+        // Longitude does not wrap: a segment over half a turn goes the long way round (ADR 0357).
+        if (context.sphere && last && Math.abs(p[0] - last[0]) > 180) {
+          say(
+            'That segment goes more than half way round the world. A line or an area over the antimeridian is two parts.',
+          );
+        }
       }
       refresh();
       render();
@@ -593,6 +601,7 @@ export function createEditor(context: EditorContext): Editor {
     tools.setAttribute('aria-label', 'Tool');
     for (const [name, label] of TOOLS) {
       if (name === 'cells' && !gridNow()) continue;
+      if (name === 'circle' && context.sphere) continue;
       const node = el('button', label, 'btn btn-secondary');
       node.type = 'button';
       node.setAttribute('aria-pressed', String(toolName === name));
@@ -755,14 +764,26 @@ export function createEditor(context: EditorContext): Editor {
     const pair = (label: string, x: number, y: number | null, index: number) => {
       const line = el('fieldset', '', 'map-point');
       line.append(el('legend', label, 'map-point-name'));
-      const first = field(y === null ? 'Value' : 'x', String(x), 'number');
+      const first = field(
+        y === null ? 'Value' : context.sphere ? 'Longitude' : 'x',
+        String(x),
+        'number',
+      );
       first.input.step = 'any';
+      if (context.sphere && y !== null) {
+        first.input.min = '-180';
+        first.input.max = '180';
+      }
       first.input.addEventListener('change', commit);
       const group: HTMLInputElement[] = [first.input];
       line.append(first.label);
       if (y !== null) {
-        const second = field('y', String(y), 'number');
+        const second = field(context.sphere ? 'Latitude' : 'y', String(y), 'number');
         second.input.step = 'any';
+        if (context.sphere) {
+          second.input.min = '-90';
+          second.input.max = '90';
+        }
         second.input.addEventListener('change', commit);
         group.push(second.input);
         line.append(second.label);

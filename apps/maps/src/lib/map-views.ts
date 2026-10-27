@@ -5,12 +5,18 @@ import {
   type GridSpec,
   type Groups,
   gridOf,
+  isSphere,
   type MapModel,
   type MapViewController,
+  onGlobe,
   type Placement,
+  type Projection,
+  placementCentre,
+  projectionOf,
   type Style,
   type System,
   screenToDrawing,
+  unproject,
   zoomLabel,
 } from '@lorenzo/map-renderer';
 import { client, unwrap } from './api';
@@ -42,6 +48,15 @@ import { makeMapForm, settingsSection } from './map-settings';
 import { canManage, libraryName, myLibraries } from './names';
 import { loadCard, loadPicture } from './previews';
 import { start } from './sign-in';
+import {
+  PROJECTION_WORDS,
+  positionWords,
+  projectionFrom,
+  readProjectionChoice,
+  type Turn,
+  turned,
+  writeProjectionChoice,
+} from './sphere-words';
 import { resolveEntry } from './views';
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
@@ -51,7 +66,8 @@ export const mapHref = (tenant: string, id: string, slug?: string | null) =>
 
 const words = (text: string) => text.replaceAll('_', ' ').replaceAll('-', ' ');
 
-function modelOf(header: Header, rows: Row[]): MapModel {
+/** The Map as the renderer draws it; a sphere takes the projection it is to be seen through. */
+function modelOf(header: Header, rows: Row[], projection?: Projection): MapModel {
   const placements: Placement[] = rows.map((row) => ({
     entry: { id: row.id, name: row.name, slug: row.slug ?? null, kinds: row.kinds },
     geometry: row.geometry as unknown as Geometry,
@@ -59,11 +75,31 @@ function modelOf(header: Header, rows: Row[]): MapModel {
     style: (row.style ?? null) as Style | null,
     z: row.z,
   }));
+  const system = header.system as unknown as System;
+  const seen = projection ?? projectionFrom(header.view);
   return {
-    system: header.system as unknown as System,
+    system: isSphere(system) && seen ? { ...system, projection: seen } : system,
     placements,
     overlay: ((header.view as { grid?: GridSpec } | null)?.grid ?? null) as GridSpec | null,
   };
+}
+
+/** Where a place is, for the panel: the cell on a grid Map, the position on a sphere. */
+function whereWords(row: Row, model: MapModel): string | null {
+  const part = (row.geometry as unknown as Geometry).parts[0];
+  if (!part) return null;
+  if (isSphere(model.system)) {
+    const at =
+      part.shape === 'point'
+        ? part.at
+        : placementCentre({ geometry: row.geometry } as unknown as Placement);
+    return at ? `${part.shape === 'point' ? 'At' : 'Around'} ${positionWords(at)}` : null;
+  }
+  const grid = gridOf(model);
+  const extent = model.system.extent as unknown as [number, number, number, number];
+  if (!grid || part.shape !== 'point') return null;
+  const cell = cellOfPoint(grid, extent, part.at);
+  return cell ? `In cell: ${cellWords(cell)}` : null;
 }
 
 /** Libraries first, as for Locations: a person opens Maps from the library they are working in. */
@@ -158,7 +194,7 @@ export async function mountMaps() {
 }
 
 /** What the selection panel says of one placement. */
-async function describe(tenant: string, row: Row, panel: HTMLElement, cell: string | null = null) {
+async function describe(tenant: string, row: Row, panel: HTMLElement, where: string | null = null) {
   panel.replaceChildren();
   const isLocation = row.kinds.includes('location');
   const title = el('h3', '', 'group-title');
@@ -167,7 +203,7 @@ async function describe(tenant: string, row: Row, panel: HTMLElement, cell: stri
   const others = row.kinds.map(words);
   if (others.length) panel.append(el('p', others.join(', '), 'status-text'));
   if (row.role) panel.append(el('p', words(row.role), 'chip'));
-  if (cell) panel.append(el('p', `In cell: ${cell}`, 'status-text'));
+  if (where) panel.append(el('p', where, 'status-text'));
   if (!isLocation) return;
   try {
     const place = await unwrap(
@@ -228,21 +264,16 @@ export async function mountMap() {
         readPlacements(tenant, id),
       ]);
       const mapId = id;
-      // The cell a pin is in, in words, on a grid Map.
-      const pinCell = (row: Row): string | null => {
-        const grid = gridOf(modelOf(header, rows));
-        const part = (row.geometry as unknown as Geometry).parts[0];
-        const extent = (header.system as { extent: number[] }).extent as unknown as [
-          number,
-          number,
-          number,
-          number,
-        ];
-        if (!grid || part?.shape !== 'point') return null;
-        const cell = cellOfPoint(grid, extent, part.at);
-        return cell ? cellWords(cell) : null;
-      };
       let rows: Row[] = found.rows;
+      // How a sphere is seen: what this reader chose for themselves, else what the Map is saved
+      // with (ADR 0359). Nothing for any other kind.
+      const onSphere = isSphere(header.system as unknown as System);
+      let projection: Projection | undefined = onSphere
+        ? (readProjectionChoice(mapId) ?? projectionFrom(header.view))
+        : undefined;
+      const build = (next: Row[] = rows): MapModel => modelOf(header, next, projection);
+      // Where a place is, in words: the cell on a grid Map and the position on a sphere.
+      const pinCell = (row: Row): string | null => whereWords(row, build());
       let controller: MapViewController | undefined;
       let editor: Editor | undefined;
       const writer = manage && header.can_manage;
@@ -273,7 +304,7 @@ export async function mountMap() {
         ['names', 'Names'],
         ['showPlaces', 'Show places'],
       ];
-      const gridSpec = gridOf(modelOf(header, rows));
+      const gridSpec = gridOf(build());
       // "Zoom in to see the grid" when the grid is on but too fine to draw (ADR 0355), and the cell
       // under the pointer in words (ADR 0356).
       const gridNote = el('span', '', 'status-text map-grid-note');
@@ -285,7 +316,8 @@ export async function mountMap() {
           const on = controller?.getView().groups.grid ?? true;
           gridNote.textContent = gridSpec && on && !drawn ? 'Zoom in to see the grid.' : '';
         });
-      if (gridSpec) toggles.push(['grid', 'Grid']);
+      // A sphere's grid is its lines of longitude and latitude (ADR 0358).
+      if (gridSpec || onSphere) toggles.push(['grid', 'Grid']);
       for (const [key, label] of toggles) {
         const box = field(label, '', 'checkbox');
         box.input.checked = true;
@@ -310,10 +342,70 @@ export async function mountMap() {
         look = lookSelect.value as Look;
         writeLook(look);
         controller?.setTheme(themeNow());
-        legend.update(modelOf(header, rows), themeNow());
+        legend.update(build(), themeNow());
       });
       looks.append(el('span', 'Look', 'field-label'), lookSelect);
       toolbar.append(looks);
+
+      // A sphere: how it is drawn, and for a globe the buttons that turn it. Both are this reader's
+      // own and nothing is saved (ADR 0359).
+      const turnBar = el('div', '', 'row-tight map-turn');
+      turnBar.setAttribute('role', 'group');
+      turnBar.setAttribute('aria-label', 'Turn the globe');
+      const redrawSphere = (fit: boolean) => {
+        controller?.setModel(build());
+        if (fit) controller?.fit();
+        updateTurn();
+      };
+      const drawnAs = el('label', '', 'field-inline');
+      const drawnSelect = el('select', '', 'text-input');
+      for (const [value, label] of PROJECTION_WORDS) {
+        const option = el('option', label);
+        option.value = value;
+        drawnSelect.append(option);
+      }
+      const seenAs = () => projectionOf(projection ? { projection } : {});
+      drawnSelect.value = seenAs().kind;
+      drawnSelect.addEventListener('change', () => {
+        const kind = drawnSelect.value as Projection['kind'];
+        projection =
+          kind === 'orthographic'
+            ? { kind, centre: projection?.centre ?? projectionFrom(header.view)?.centre ?? [0, 0] }
+            : { kind };
+        writeProjectionChoice(mapId, projection);
+        redrawSphere(true);
+      });
+      drawnAs.append(el('span', 'Drawn as', 'field-label'), drawnSelect);
+      const turnButton = (label: string, turn: Turn) => {
+        const node = el('button', label, 'btn btn-secondary');
+        node.type = 'button';
+        node.addEventListener('click', () => {
+          projection = { kind: 'orthographic', centre: turned(seenAs().centre ?? [0, 0], turn) };
+          writeProjectionChoice(mapId, projection);
+          redrawSphere(false);
+        });
+        return node;
+      };
+      const saved = el('button', 'Back to the saved view', 'btn btn-secondary');
+      saved.type = 'button';
+      saved.addEventListener('click', () => {
+        projection = projectionFrom(header.view);
+        writeProjectionChoice(mapId, undefined);
+        drawnSelect.value = seenAs().kind;
+        redrawSphere(true);
+      });
+      turnBar.append(
+        turnButton('Turn west', 'west'),
+        turnButton('Turn east', 'east'),
+        turnButton('Turn north', 'north'),
+        turnButton('Turn south', 'south'),
+        saved,
+      );
+      const updateTurn = () => {
+        turnBar.hidden = seenAs().kind !== 'orthographic';
+      };
+      updateTurn();
+      if (onSphere) toolbar.append(drawnAs, turnBar);
       const zoom = el('span', '100%', 'chip');
       zoom.setAttribute('aria-live', 'polite');
       const zoomControls = el('div', '', 'row-tight map-zoom');
@@ -426,7 +518,7 @@ export async function mountMap() {
       }
       host.replaceChildren(view);
 
-      const model = modelOf(header, rows);
+      const model = build();
       controller = createMapView(stage, {
         model,
         theme: themeNow(),
@@ -470,11 +562,32 @@ export async function mountMap() {
           cellNote.textContent = '';
         });
       }
+      if (onSphere) {
+        // Where the pointer is, in words; nothing on the far side of a globe (ADR 0359).
+        stage.addEventListener('pointermove', (event) => {
+          const box = stage.getBoundingClientRect();
+          const state = controller?.getView();
+          if (!state) return;
+          const now = build();
+          const at = screenToDrawing(
+            now.system,
+            { width: stage.clientWidth, height: stage.clientHeight },
+            { zoom: state.zoom, centre: state.centre },
+            [event.clientX - box.left, event.clientY - box.top],
+          );
+          cellNote.textContent = onGlobe(projectionOf(now.system), at[0], at[1])
+            ? positionWords(unproject(now.system, at))
+            : '';
+        });
+        stage.addEventListener('pointerleave', () => {
+          cellNote.textContent = '';
+        });
+      }
       legend.update(model, themeNow());
 
       const setRows = (next: Row[]) => {
         rows = next;
-        const updated = modelOf(header, rows);
+        const updated = build();
         controller?.setModel(updated);
         legend.update(updated, themeNow());
         drawList();
@@ -493,6 +606,7 @@ export async function mountMap() {
           mapIsPublic: header.is_public === true,
           extent: [extent[0] ?? 0, extent[1] ?? 0, extent[2] ?? 1000, extent[3] ?? 800],
           grid: () => gridOf(model),
+          sphere: onSphere,
           view: () => controller as MapViewController,
           rows: () => rows,
           setRows,

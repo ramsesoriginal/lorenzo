@@ -354,6 +354,18 @@ refuses (409) a change into or out of hex, or of a hex Map's orientation, once p
 answers other changes with `warnings`. The renderer draws the grid under the placements with a level of
 detail; Maps adds a Grid switch, the cell under the pointer, Snap to the grid and a Cells tool.
 
+Spheres (RFC 0048 slice 8, ADR 0357 to 0359, 2026-10-28): `lorenzo.map-system/1` gains `sphere`, whose
+extent is always `[-180, -90, 180, 90]` and whose positions are `[longitude, latitude]`, with an optional
+`radius`. Geometry on a sphere is points, polylines and polygons only, every coordinate in range
+(`validate_placement` takes the Map's own system), a segment is straight in longitude and latitude and
+nothing wraps. `map.view` may hold a `projection` (`equirectangular`, `mercator` or `orthographic` with a
+`centre`), release format 21; `PUT /maps/{id}` refuses (409) a change into or out of a sphere under
+placements. The renderer's `project` and `unproject` turn a position into the projected sheet and back
+(the pointer reaches tools as longitude and latitude), samples bend a segment, a globe is cut at its limb and its
+far side draws nothing, and lines of longitude and latitude are the sphere's grid. Maps adds the sphere
+in Make a Map and Settings, the pointer in words, a reader's own projection and Turn buttons, and Pin,
+Line and Area on it.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.

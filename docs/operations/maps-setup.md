@@ -33,7 +33,7 @@ Open the app and sign in as a GM. Add a top-level Location and a Location inside
 
 Make a Map with `POST /tenants/{id}/maps`, draw a Location on it with `PUT /tenants/{id}/maps/{map_id}/placements/{entry_id}`, and open the Map from the Maps page: the place is drawn, selecting it names it, and a player sees only the places they may see.
 
-Make a hex Map (the orientation must be chosen), draw a pin and a region of cells on it, and check that the pin snaps to a cell and a player sees the grid. The API must be the version with the Map view (`map.view`) before the app is deployed.
+Make a hex Map (the orientation must be chosen), draw a pin and a region of cells on it, and check that the pin snaps to a cell and a player sees the grid. Make a sphere too, with a radius and as a globe, turn it, and draw a pin on it. The API must be the version with sphere systems and projections (release format 21) before the app is deployed.
 
 As a GM, choose *Edit this map* and draw a pin for a Location and an area for a new one, change a role, drag a handle, undo, and place the children of an area; check that a player sees the same Map with no tools, and that *Look* and *Legend* work. The API must be the version with `POST .../placements/batch` and the Map's theme name before the app is deployed.
 

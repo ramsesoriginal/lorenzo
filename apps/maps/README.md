@@ -26,7 +26,11 @@ undo and redo, and *Settings* (name, sheet, the Location it shows, theme name, w
 hexes' orientation is always chosen), or have a grid drawn over it; a Grid switch, the cell under the
 pointer in words, *Snap to the grid* and a *Cells* tool for regions of whole cells come with it
 ([ADR 0354](../../docs/adr/0354-grid-systems-square-rectangular-and-hex.md) to
-[ADR 0356](../../docs/adr/0356-authoring-on-a-grid.md)). *Look* and
+[ADR 0356](../../docs/adr/0356-authoring-on-a-grid.md)). A Map may be a *sphere*, with places given by
+longitude and latitude and drawn flat, as Mercator or as a globe; a reader may choose how it is drawn
+for themselves and turn a globe, the pointer says where it is in words, and a writer draws pins, lines
+and areas on it ([ADR 0357](../../docs/adr/0357-the-sphere-system.md) to
+[ADR 0359](../../docs/adr/0359-authoring-on-a-sphere.md)). *Look* and
 a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md)). The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.

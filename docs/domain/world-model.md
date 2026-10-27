@@ -77,7 +77,15 @@ in drawing units, and may lie anywhere on the sheet; the editor can snap to the 
 region as a set of whole cells ([ADR 0355](../adr/0355-the-cell-functions-and-drawing-a-grid.md),
 [ADR 0356](../adr/0356-authoring-on-a-grid.md)). Turning a Map into a hex Map, out of one, or turning its
 hexes, once places are drawn, is refused, since it would move all of them.
-A sphere, pictures, connections, distances and optionally tying a map to a calendar period
+A Map may also be a sphere, a world whose places are given by longitude and latitude. It has
+no edges to wrap round: what crosses the antimeridian is two parts, and a line between two places is the
+straight line between them in longitude and latitude, never a great circle. How it is drawn (flat, as
+Mercator, or as a globe facing a chosen point) is only a look; the globe can be turned by a reader, and its far
+side draws nothing. A sphere holds points, lines and areas, no circles or curves; it can be given a radius in
+the author's own unit, and a Map with places cannot become a sphere or stop being one
+([ADR 0357](../adr/0357-the-sphere-system.md), [ADR 0358](../adr/0358-projections-and-drawing-a-sphere.md),
+[ADR 0359](../adr/0359-authoring-on-a-sphere.md)).
+Pictures, connections, distances and optionally tying a map to a calendar period
 are proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and come in
 later slices.
 

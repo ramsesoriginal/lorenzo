@@ -1,6 +1,6 @@
 // Making a Map and setting it up (ADR 0353): what the sheet is, what it shows, how it is drawn by
 // default and who may see it. The API decides every write; a refusal is shown as it is given.
-import type { BBox, GridKind } from '@lorenzo/map-renderer';
+import type { BBox, GridKind, ProjectionKind } from '@lorenzo/map-renderer';
 import { client, unwrap } from './api';
 import {
   actions,
@@ -17,6 +17,7 @@ import {
 } from './dom';
 import { type GridDoc, gridBlock } from './grid-fields';
 import { findLocations, type Header } from './map-api';
+import { PROJECTION_WORDS } from './sphere-words';
 
 const FORMAT = 'lorenzo.map-system/1';
 
@@ -26,9 +27,11 @@ const KINDS: [string, string][] = [
   ['square', 'A grid of squares'],
   ['rect', 'A grid of rectangles'],
   ['hex', 'A grid of hexes'],
+  ['sphere', 'A sphere, in longitude and latitude'],
 ];
 
 const GRID_KINDS = ['square', 'rect', 'hex'];
+const SPHERE_EXTENT = [-180, -90, 180, 90];
 
 const THEMES: [string, string][] = [
   ['', 'The default'],
@@ -41,7 +44,13 @@ type System = {
   kind?: string;
   extent?: number[];
   scale?: { per_unit: number; unit: string };
+  radius?: { value: number; unit: string };
 } & Omit<Partial<GridDoc>, 'kind'>;
+
+type ViewDoc = {
+  grid?: Partial<GridDoc>;
+  projection?: { kind: ProjectionKind; centre?: [number, number] };
+};
 
 /** The fields that say what a sheet is, and a way to read them as the system document. */
 export function systemFields(current?: System) {
@@ -62,6 +71,14 @@ export function systemFields(current?: System) {
   );
   per.input.step = 'any';
   per.input.min = '0';
+  const radius = field(
+    "The world's radius (optional)",
+    String(current?.radius?.value ?? ''),
+    'number',
+  );
+  radius.input.step = 'any';
+  radius.input.min = '0';
+  const radiusUnit = field('of (a unit)', current?.radius?.unit ?? '');
   const gridPart = gridBlock({
     kinds: ['square', 'rect', 'hex'],
     measured: true,
@@ -78,11 +95,21 @@ export function systemFields(current?: System) {
   const planeBlock = el('div', '', 'grid');
   planeBlock.style.setProperty('--grid-min', '200px');
   planeBlock.append(unit.label, per.label);
-  grid.append(plain, planeBlock, gridPart.root);
+  const sphereBlock = el('div', '', 'grid');
+  sphereBlock.style.setProperty('--grid-min', '200px');
+  sphereBlock.append(radius.label, radiusUnit.label);
+  grid.append(plain, planeBlock, sphereBlock, gridPart.root);
 
   const isGrid = () => GRID_KINDS.includes(kind.input.value);
+  const isSphere = () => kind.input.value === 'sphere';
   const sync = () => {
     planeBlock.hidden = kind.input.value !== 'plane';
+    sphereBlock.hidden = !isSphere();
+    // A sphere's sheet is the rectangle of longitudes and latitudes: nothing to ask for.
+    width.label.hidden = isSphere();
+    height.label.hidden = isSphere();
+    width.input.required = !isSphere();
+    height.input.required = !isSphere();
     gridPart.hidden = !isGrid();
     // The grid block's kind follows the sheet's.
     gridPart.kind.input.value = isGrid() ? kind.input.value : gridPart.kind.input.value;
@@ -103,6 +130,16 @@ export function systemFields(current?: System) {
   gridPart.onChange(() => gridPart.note(extentNow()));
 
   function read(): System {
+    if (isSphere()) {
+      const sphere: System = { format: FORMAT, kind: 'sphere', extent: SPHERE_EXTENT };
+      if (radius.input.value || radiusUnit.input.value.trim()) {
+        const value = Number(radius.input.value);
+        if (!(value > 0) || !radiusUnit.input.value.trim())
+          throw new Error('Give both the radius, more than zero, and its unit, or neither.');
+        sphere.radius = { value, unit: radiusUnit.input.value.trim() };
+      }
+      return sphere;
+    }
     const w = Number(width.input.value);
     const h = Number(height.input.value);
     if (!(w > 0) || !(h > 0)) throw new Error('The width and the height must be more than zero.');
@@ -129,9 +166,12 @@ export function systemFields(current?: System) {
   return { grid, read, kind: () => kind.input.value, extent: extentNow };
 }
 
-/** A visual grid to draw over a plane or an outline: a switch and the fields of a grid. */
+/**
+ * What a Map only draws (`map.view`): a visual grid to draw over a plane or an outline (a switch and
+ * the fields of a grid), or how a sphere is drawn (ADR 0357).
+ */
 export function viewFields(
-  current: { grid?: Partial<GridDoc> } | null | undefined,
+  current: ViewDoc | null | undefined,
   sheetKind: () => string,
   extent: () => BBox,
 ) {
@@ -142,19 +182,62 @@ export function viewFields(
     measured: false,
     current: current?.grid ?? null,
   });
+  const gridRoot = el('div', '', 'stack-tight');
+  gridRoot.append(on.label, block.root);
+
+  const projection = select(
+    'The sphere is drawn',
+    PROJECTION_WORDS,
+    current?.projection?.kind ?? 'equirectangular',
+  );
+  const faceLon = field(
+    'The globe faces longitude',
+    String(current?.projection?.centre?.[0] ?? 0),
+    'number',
+  );
+  const faceLat = field('and latitude', String(current?.projection?.centre?.[1] ?? 0), 'number');
+  faceLon.input.min = '-180';
+  faceLon.input.max = '180';
+  faceLat.input.min = '-90';
+  faceLat.input.max = '90';
+  for (const f of [faceLon, faceLat]) f.input.step = 'any';
+  const sphereRoot = el('div', '', 'grid');
+  sphereRoot.style.setProperty('--grid-min', '200px');
+  sphereRoot.append(projection.label, faceLon.label, faceLat.label);
+
   const root = el('div', '', 'stack-tight');
-  root.append(on.label, block.root);
+  root.append(gridRoot, sphereRoot);
+  const isSphere = () => sheetKind() === 'sphere';
   const sync = () => {
-    const over = !GRID_KINDS.includes(sheetKind());
-    root.hidden = !over;
+    const over = !GRID_KINDS.includes(sheetKind()) && !isSphere();
+    gridRoot.hidden = !over;
     block.hidden = !over || !on.input.checked;
     block.note(extent());
+    sphereRoot.hidden = !isSphere();
+    const globe = projection.input.value === 'orthographic';
+    faceLon.label.hidden = !globe;
+    faceLat.label.hidden = !globe;
+    faceLon.input.required = isSphere() && globe;
+    faceLat.input.required = isSphere() && globe;
   };
   on.input.addEventListener('change', sync);
+  projection.input.addEventListener('change', sync);
   block.onChange(() => block.note(extent()));
   sync();
 
-  function read(): { grid: GridDoc } | null {
+  function read(): ViewDoc | null {
+    if (isSphere()) {
+      const kind = projection.input.value as ProjectionKind;
+      if (kind === 'equirectangular') return null;
+      if (kind === 'mercator') return { projection: { kind } };
+      const lon = Number(faceLon.input.value);
+      const lat = Number(faceLat.input.value);
+      if (!(Math.abs(lon) <= 180) || !(Math.abs(lat) <= 90))
+        throw new Error(
+          'The globe faces a longitude from -180 to 180 and a latitude from -90 to 90.',
+        );
+      return { projection: { kind, centre: [lon, lat] } };
+    }
     if (!on.input.checked || GRID_KINDS.includes(sheetKind())) return null;
 
     return { grid: block.read() };
@@ -241,11 +324,7 @@ export function settingsSection(
   // The sheet, the Location it shows and the default look: one replace of the Map.
   const form = el('form', '', 'stack');
   const sheet = systemFields(header.system as System);
-  const over = viewFields(
-    header.view as { grid?: Partial<GridDoc> } | null,
-    sheet.kind,
-    sheet.extent,
-  );
+  const over = viewFields(header.view as ViewDoc | null, sheet.kind, sheet.extent);
   form.addEventListener('change', over.sync);
   const theme = select('How it is drawn unless a viewer chooses', THEMES, header.theme_hint ?? '');
   const find = field('The Location it shows (type a name)');
