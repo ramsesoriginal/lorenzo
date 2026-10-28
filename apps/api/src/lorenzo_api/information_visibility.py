@@ -545,7 +545,7 @@ async def resolve_information_visibility(
         if character_ids
         else frozenset()
     )
-    from lorenzo_api.models import Scene
+    from lorenzo_api.models import Book, Chapter, Edition, Scene, SceneTelling, WritingBiography
     from lorenzo_api.session_access import session_scope
 
     scope = await session_scope(session, tenant_id, user_id)
@@ -559,6 +559,15 @@ async def resolve_information_visibility(
         author_entry_ids |= frozenset(
             await session.scalars(select(Scene.entity_id).where(Scene.tenant_id == tenant_id))
         )
+    if (
+        author_sees_all
+        or await membership_role_of(session, tenant_id=tenant_id, user_id=user_id)
+        is MembershipRole.AUTHOR
+    ):
+        for model in (Book, Chapter, Edition, SceneTelling, WritingBiography):
+            author_entry_ids |= frozenset(
+                await session.scalars(select(model.entity_id).where(model.tenant_id == tenant_id))
+            )
     vis = InformationVisibility(
         session_entry_ids=scope.entries,
         session_reader_ids=scope.readers,

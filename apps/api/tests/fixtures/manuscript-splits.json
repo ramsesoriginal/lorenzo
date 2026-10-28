@@ -1,0 +1,422 @@
+[
+  {
+    "name": "paragraphs",
+    "marked": "First paragraph.\n\n<SPLIT>Second paragraph.",
+    "allowed": true,
+    "points": [
+      18
+    ]
+  },
+  {
+    "name": "inline",
+    "marked": "**Bold** and [a link](https://example.com).\n\n<SPLIT>[[A being]] with *emphasis* and `code`.",
+    "allowed": true,
+    "points": [
+      45
+    ]
+  },
+  {
+    "name": "unicode",
+    "marked": "A 🐉 and café.\n\n<SPLIT>水面に映る月。",
+    "allowed": true,
+    "points": [
+      15
+    ]
+  },
+  {
+    "name": "crlf",
+    "marked": "First.\r\n \r\n<SPLIT>Second.",
+    "allowed": true,
+    "points": [
+      11
+    ]
+  },
+  {
+    "name": "footnote-left",
+    "marked": "First[^a].\n\n[^a]: A complete local note.\n\n<SPLIT>Second.",
+    "allowed": true,
+    "points": [
+      42
+    ]
+  },
+  {
+    "name": "footnote-right",
+    "marked": "First.\n\n<SPLIT>Second[^a].\n\n[^a]: The complete note.",
+    "allowed": true,
+    "points": [
+      8
+    ]
+  },
+  {
+    "name": "footnotes-both",
+    "marked": "First[^a].\n\n[^a]: First note.\n\n<SPLIT>Second[^b].\n\n[^b]: Second note.",
+    "allowed": true,
+    "points": [
+      31
+    ]
+  },
+  {
+    "name": "crossed-note",
+    "marked": "First[^a].\n\n<SPLIT>Second.\n\n[^a]: Required by first.",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "reused-note",
+    "marked": "First[^ A ].\n\n[^a]: Note.\n\n<SPLIT>Second[^a].",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "footnote-nesting",
+    "marked": "First[^a].\n\n[^a]: See[^b].\n\n<SPLIT>Second.\n\n[^b]: Required by first note.",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "inside-paragraph",
+    "marked": "First <SPLIT>sentence.",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "fence",
+    "marked": "```\nFirst\n\n<SPLIT>Second\n```",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "quote",
+    "marked": "> First\n\n<SPLIT>> Second",
+    "allowed": true,
+    "points": [
+      9
+    ]
+  },
+  {
+    "name": "list",
+    "marked": "- First\n\n<SPLIT>- Second",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "ordered",
+    "marked": "1. First\n\n<SPLIT>2. Second",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "indent",
+    "marked": "    First\n\n<SPLIT>    Second",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "tabs",
+    "marked": "\tFirst\n\n<SPLIT>Second",
+    "allowed": true,
+    "points": [
+      8
+    ]
+  },
+  {
+    "name": "table",
+    "marked": "A | B\n- | -\n1 | 2\n\n<SPLIT>Second",
+    "allowed": true,
+    "points": [
+      19
+    ]
+  },
+  {
+    "name": "math",
+    "marked": "$$\nx\n\n<SPLIT>y\n$$",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "class",
+    "marked": "{{.note\nFirst\n\n<SPLIT>Second\n}}",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "abbreviation",
+    "marked": "*[GM]: Game Master\n\nFirst\n\n<SPLIT>GM",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "heading",
+    "marked": "# First\n\n<SPLIT># First",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "fragment",
+    "marked": "[First](#later)\n\n<SPLIT>*Second*{#later}",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "toc",
+    "marked": "{{TOC}}\n\n<SPLIT>Second",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "inline-date",
+    "marked": "On {{date 2026-10-26}}, [[Eira]] arrived.\n\n<SPLIT>She carried {weight} pounds.",
+    "allowed": true,
+    "points": [
+      43
+    ]
+  },
+  {
+    "name": "unclosed-inline",
+    "marked": "An *unclosed paragraph.\n\n<SPLIT>Another paragraph*.",
+    "allowed": true,
+    "points": [
+      25
+    ]
+  },
+  {
+    "name": "empty-first",
+    "marked": "\n\n<SPLIT>Second",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "empty-last",
+    "marked": "First\n\n<SPLIT> ",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "before-list",
+    "marked": "Prose.\n\n<SPLIT>- One\n- Two",
+    "allowed": true,
+    "points": [
+      8
+    ]
+  },
+  {
+    "name": "after-list",
+    "marked": "- One\n\n  Two paragraphs.\n\n<SPLIT>After.",
+    "allowed": true,
+    "points": [
+      26
+    ]
+  },
+  {
+    "name": "inside-list-item",
+    "marked": "- One\n\n<SPLIT>  Two paragraphs.",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "nested-list",
+    "marked": "- One\n  - Nested\n\n<SPLIT>    Another paragraph.",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "after-quote",
+    "marked": "> First\n>\n> Second\n\n<SPLIT>After.",
+    "allowed": true,
+    "points": [
+      20
+    ]
+  },
+  {
+    "name": "lazy-quote",
+    "marked": "> First\n<SPLIT>continuation",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "after-fence",
+    "marked": "```python\n# A heading inside code\n\nvalue = 1\n```\n\n<SPLIT>After.",
+    "allowed": true,
+    "points": [
+      50
+    ]
+  },
+  {
+    "name": "before-fence",
+    "marked": "Before.\n\n<SPLIT>~~~\nText\n\nMore\n~~~",
+    "allowed": true,
+    "points": [
+      9
+    ]
+  },
+  {
+    "name": "unfinished-fence",
+    "marked": "```\nFirst\n\n<SPLIT>Second",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "after-math",
+    "marked": "$$\nx + y\n\n= z\n$$\n\n<SPLIT>After.",
+    "allowed": true,
+    "points": [
+      18
+    ]
+  },
+  {
+    "name": "after-class",
+    "marked": "{{.note\nFirst\n\n{{.inner\nNested\n}}\n}}\n\n<SPLIT>After.",
+    "allowed": true,
+    "points": [
+      38
+    ]
+  },
+  {
+    "name": "inside-nested-class",
+    "marked": "{{.note\nFirst\n\n<SPLIT>{{.inner\nNested\n}}\n}}",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "unfinished-class",
+    "marked": "{{.note\nFirst\n\n<SPLIT>Second",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "after-indented-code",
+    "marked": "    First\n\n    Second\n\n<SPLIT>After.",
+    "allowed": true,
+    "points": [
+      23
+    ]
+  },
+  {
+    "name": "distinct-headings",
+    "marked": "# Dawn\n\nFirst.\n\n<SPLIT>## Dusk\n\nSecond.",
+    "allowed": true,
+    "points": [
+      8,
+      16,
+      25
+    ]
+  },
+  {
+    "name": "same-headings-kept",
+    "marked": "# Dawn\n\n# Dawn\n\n<SPLIT>After.",
+    "allowed": true,
+    "points": [
+      16
+    ]
+  },
+  {
+    "name": "suffix-heading-collision",
+    "marked": "# Dawn-2\n\n# Dawn\n\n<SPLIT># Dawn",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "explicit-heading-collision",
+    "marked": "# Title {#dawn}\n\n<SPLIT># Dawn",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "distinct-explicit-headings",
+    "marked": "# Title {#dawn}\n\n<SPLIT># Another {#dusk}",
+    "allowed": true,
+    "points": [
+      17
+    ]
+  },
+  {
+    "name": "nested-heading-collision",
+    "marked": "> # Dawn\n\n<SPLIT># Dawn",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "footnote-heading-collision",
+    "marked": "Text[^a].\n\n[^a]: # Dawn\n\n<SPLIT># Dawn",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "distinct-footnote-heading",
+    "marked": "Text[^a].\n\n[^a]: # Dawn\n\n<SPLIT># Dusk",
+    "allowed": true,
+    "points": [
+      25
+    ]
+  },
+  {
+    "name": "compound-footnote",
+    "marked": "Text[^a].\n\n[^a]: A note\n\n    - One\n    - Two\n\n<SPLIT>After.",
+    "allowed": true,
+    "points": [
+      46
+    ]
+  },
+  {
+    "name": "inside-compound-footnote",
+    "marked": "Text[^a].\n\n[^a]: A note\n\n<SPLIT>    - One",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "escaped-fragment",
+    "marked": "[Link](\\#dawn)\n\n<SPLIT># Dawn",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "angle-fragment",
+    "marked": "[Link](<#dawn>)\n\n<SPLIT># Dawn",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "whitespace-fragment",
+    "marked": "[Link](\n #dawn)\n\n<SPLIT># Dawn",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "nested-abbreviation",
+    "marked": "> *[GM]: Game Master\n\n<SPLIT>GM",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "nested-toc",
+    "marked": "{{.note\n{{toc}}\n}}\n\n<SPLIT># Dawn",
+    "allowed": false,
+    "points": []
+  },
+  {
+    "name": "fenced-directives",
+    "marked": "```\n{{toc}}\n*[GM]: Game Master\n```\n\n<SPLIT># Dawn",
+    "allowed": true,
+    "points": [
+      36
+    ]
+  },
+  {
+    "name": "rich-crlf",
+    "marked": "# Dawn\r\n\r\n- One 🐉\r\n- Two\r\n\r\n<SPLIT># Dusk",
+    "allowed": true,
+    "points": [
+      10,
+      28
+    ]
+  },
+  {
+    "name": "rule",
+    "marked": "First.\n\n---\n\n<SPLIT>Second.",
+    "allowed": true,
+    "points": [
+      8,
+      13
+    ]
+  }
+]
