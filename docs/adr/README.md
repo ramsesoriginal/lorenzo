@@ -348,3 +348,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0347 - Syntax-aware manuscript splits](0347-syntax-aware-manuscript-splits.md) — RFC 0047 W5d.
 
 - [0348 - Chapter joins and guarded redirects](0348-chapter-joins-and-guarded-redirects.md) — RFC 0047 W5e.
+
+- [0374 - Join a Chapter into its parent](0374-join-chapter-into-parent.md) — RFC 0047 W5f.
