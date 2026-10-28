@@ -82,6 +82,7 @@ from lorenzo_api.models.v_item_instance import VItemInstance
 __all__ = [
     "Clock",
     "ClockRelationship",
+    "Connection",
     "Location",
     "LocationPart",
     "EntityLocation",
@@ -195,6 +196,7 @@ __all__ = [
 ]
 
 from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
+from lorenzo_api.models.connection import Connection
 from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.location import EntityLocation, Location, LocationPart
 from lorenzo_api.models.map import Map, MapLayer, MapPlacement

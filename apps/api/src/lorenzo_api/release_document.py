@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 22
+FORMAT = 23
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -424,6 +424,12 @@ _CONTENT = _dataclass(
         ),
         "map_placements": _keyed(_PLAIN),
         "map_layers": _id_map(_PLAIN),
+        "connections": _id_map(
+            _record(
+                {"end_a": _ID, "end_b": _ID, "one_way": _optional(_PLAIN)},
+                name="Content.connections",
+            )
+        ),
         "location_parts": _id_map(
             _record({"parent": _ID, "ordinal": _PLAIN}, name="Content.location_parts")
         ),
@@ -558,6 +564,10 @@ def _read_v21(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v22(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v23({**document, "connections": {}}, files)
+
+
+def _read_v23(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -587,6 +597,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     20: _read_v20,
     21: _read_v21,
     22: _read_v22,
+    23: _read_v23,
 }
 
 

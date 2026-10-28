@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.calendar_period import CalendarPeriod, StoryEvent
     from lorenzo_api.models.campaign import Campaign
     from lorenzo_api.models.clock import Clock
+    from lorenzo_api.models.connection import Connection
     from lorenzo_api.models.containment import Containment
     from lorenzo_api.models.entity_prototype import EntityPrototype
     from lorenzo_api.models.entity_slug import EntitySlug
@@ -54,6 +55,10 @@ class Entity(Base):
 
     map: Mapped[Map | None] = relationship(
         "Map", foreign_keys="Map.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+
+    connection: Mapped[Connection | None] = relationship(
+        "Connection", foreign_keys="Connection.entity_id", viewonly=True, lazy="raise_on_sql"
     )
 
     clock: Mapped[Clock | None] = relationship(

@@ -48,6 +48,7 @@ EntityKind = Literal[
     "clock",
     "location",
     "map",
+    "connection",
     "calendar_period",
     "event",
     "observance",
@@ -334,6 +335,8 @@ def _kinds_out(entity: Entity) -> list[EntityKind]:
         kinds.append("location")
     if entity.__dict__.get("map") is not None:
         kinds.append("map")
+    if entity.__dict__.get("connection") is not None:
+        kinds.append("connection")
     return kinds
 
 

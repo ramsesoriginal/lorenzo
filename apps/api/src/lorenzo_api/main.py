@@ -35,6 +35,7 @@ from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.clock_relationships import router as clock_relationships_router
 from lorenzo_api.routers.clocks import router as clocks_router
 from lorenzo_api.routers.computed_stats import router as computed_stats_router
+from lorenzo_api.routers.connections import router as connections_router
 from lorenzo_api.routers.discover import router as discover_router
 from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.entity_export import router as entity_export_router
@@ -162,6 +163,7 @@ def create_app() -> FastAPI:
     app.include_router(clocks_router)
     app.include_router(locations_router)
     app.include_router(maps_router)
+    app.include_router(connections_router)
     app.include_router(clock_relationships_router)
     app.include_router(calendar_references_router)
     app.include_router(calendar_periods_router)

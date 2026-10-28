@@ -80,6 +80,8 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("location", "map"): None,
     ("map", "observance"): None,
     ("map", "scene"): None,
+    # ADR 0363: a connection is its own kind and combines with none.
+    ("connection",): None,
 }
 _ORDER = [
     "item",
@@ -95,6 +97,7 @@ _ORDER = [
     "scene",
     "location",
     "map",
+    "connection",
 ]
 
 MAP_SYSTEM = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 100, 100]}
@@ -170,6 +173,30 @@ async def _make(
 ) -> uuid.UUID:
     """An entry of those kinds in a repository: through the route where one exists, and straight
     in the database for an inventory item and a character, which no route makes this way."""
+    if kinds == ("connection",):
+        # It joins the parent to a hub that every entry of the matrix shares.
+        async with admin_session_factory() as session:
+            hub = await session.scalar(
+                select(Entity.id).where(Entity.tenant_id == repository, Entity.name == "Matrix hub")
+            )
+        if hub is None:
+            made_hub = await scene_author.post(
+                f"/tenants/{repository}/entities", json={"name": "Matrix hub", "kinds": []}
+            )
+            assert made_hub.status_code == 201, made_hub.text
+            hub = uuid.UUID(made_hub.json()["id"])
+        response = await scene_author.post(
+            f"/tenants/{repository}/connections",
+            json={"name": name, "is_public": True, "end_a": str(parents[0]), "end_b": str(hub)},
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
     if "map" in kinds:
         rest = tuple(k for k in kinds if k != "map")
         if rest:

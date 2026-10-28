@@ -36,6 +36,7 @@ from lorenzo_api.models import (
     Campaign,
     Character,
     Clock,
+    Connection,
     Entity,
     EntityAudience,
     EntityPrototype,
@@ -52,7 +53,7 @@ from lorenzo_api.models import (
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 # The kinds a route may add or remove.
-Kind = Literal["item", "being", "fact", "event", "location", "map"]
+Kind = Literal["item", "being", "fact", "event", "location", "map", "connection"]
 
 # The combinations of kinds a repository may be published with, each as its kinds in the order
 # `entity_snapshot` writes them (alphabetical). A draft repository may hold any combination the
@@ -102,6 +103,8 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("location", "map"),
         ("map", "observance"),
         ("map", "scene"),
+        # ADR 0363: a connection is its own kind and combines with none.
+        ("connection",),
     }
 )
 
@@ -148,6 +151,10 @@ async def create_entry(
             raise EntitySlugConflictError(
                 detail=f"Slug {slug!r} is already in use in tenant {tenant_id}"
             )
+    if "connection" in kinds:
+        raise InvalidKindRequestError(
+            detail="A connection joins two entries: make one with POST /connections."
+        )
     if "event" in kinds and set(kinds) - {"location", "map"} != {"event"}:
         raise InvalidKindRequestError(
             detail="An Event does not combine with other kinds in this slice."
@@ -240,6 +247,12 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
+    if kind == "connection":
+        raise InvalidKindRequestError(
+            detail="A connection joins two entries: make one with POST /connections."
+        )
+    if "connection" in existing_kinds:
+        raise InvalidKindRequestError(detail="A connection is its own kind and has no other.")
     if kind not in ("location", "map") and existing_kinds & {
         "scene",
         "scene_appearance",
@@ -371,11 +384,13 @@ async def remove_kind(
                 detail=f"Entry {entity_id} is still a direct prototype of at least one "
                 "inventory item"
             )
-        marker: type[Item | Being | Fact | Location | Map] = Item
+        marker: type[Item | Being | Fact | Location | Map | Connection] = Item
     elif kind == "location":
         marker = Location
     elif kind == "map":
         marker = Map
+    elif kind == "connection":
+        marker = Connection
     else:
         if await session.get(Character, entity_id) is not None:
             raise EntityKindInUseError(
@@ -383,7 +398,7 @@ async def remove_kind(
                 f"DELETE /tenants/{tenant_id}/characters/{entity_id} before it stops being a being"
             )
         marker = Being
-    if kind in ("location", "map"):
+    if kind in ("location", "map", "connection"):
         audience = await session.get(EntityAudience, entity_id)
         if audience is not None:
             if not audience.is_public:
@@ -444,6 +459,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("clock", Clock),
             ("location", Location),
             ("map", Map),
+            ("connection", Connection),
             ("calendar_period", CalendarPeriod),
             ("observance", CalendarObservance),
             ("event", StoryEvent),
@@ -593,6 +609,7 @@ KIND_WORDS = {
     "clock": "clock",
     "location": "location",
     "map": "map",
+    "connection": "connection",
     "calendar_period": "calendar period",
     "event": "event",
     "observance": "observance",

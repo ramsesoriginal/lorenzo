@@ -78,6 +78,7 @@ from lorenzo_api.models import (
     CalendarPeriod,
     Character,
     Clock,
+    Connection,
     Containment,
     ContentReference,
     Entity,
@@ -164,6 +165,7 @@ _KINDS: tuple[
             | Clock
             | Location
             | Map
+            | Connection
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
@@ -189,6 +191,7 @@ _KINDS: tuple[
     ("session", StorySession),
     ("location", Location),
     ("map", Map),
+    ("connection", Connection),
 )
 
 
@@ -613,6 +616,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.clock),
             joinedload(Entity.location),
             joinedload(Entity.map),
+            joinedload(Entity.connection),
             joinedload(Entity.calendar_period),
             joinedload(Entity.calendar_observance),
             joinedload(Entity.story_event),
@@ -1725,6 +1729,7 @@ async def editable_fact_audience(
                 Clock,
                 Location,
                 Map,
+                Connection,
                 CalendarPeriod,
                 StoryEvent,
                 CalendarObservance,

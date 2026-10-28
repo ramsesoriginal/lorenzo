@@ -49,6 +49,8 @@ TEMPLATES: dict[str, PreviewTemplate] = {
     # ADR 0350: a place and a map show no numbers, only what they are and how they are described.
     "location": PreviewTemplate(name="location", stats=(), max_stats=0),
     "map": PreviewTemplate(name="map", stats=(), max_stats=0),
+    # ADR 0363: a connection shows what it is called and how it is described.
+    "connection": PreviewTemplate(name="connection", stats=(), max_stats=0),
 }
 
 

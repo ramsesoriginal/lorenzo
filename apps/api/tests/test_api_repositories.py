@@ -63,6 +63,7 @@ async def test_granting_publishing_browsing_and_removing(
         entities = (await gm.get(f"/tenants/{table}/repositories/{faerun}/entities")).json()
         by_name = {e["name"]: e for e in entities["items"]}
         assert set(by_name) == {
+            "Fixture road",
             "Blade",
             "Chest",
             "Elminster",

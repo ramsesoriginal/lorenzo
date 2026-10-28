@@ -35,6 +35,7 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
+    Connection,
     Containment,
     Entity,
     EntityAudience,
@@ -91,6 +92,7 @@ KINDS = (
     "clock",
     "location",
     "map",
+    "connection",
     "calendar_period",
     "event",
     "observance",
@@ -219,6 +221,8 @@ class Content:
     # map -> {system, subject}, and (map, entry) -> {geometry, role, style, z} (ADR 0336).
     maps: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     map_placements: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
+    # connection -> {end_a, end_b, one_way}: the entries it joins, and one way or not (ADR 0363).
+    connections: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     # map -> its layers in order, each {information, calibration, opacity, reviewed}: `information`
     # an id as text, `reviewed` a hex fingerprint or none (ADR 0361).
     map_layers: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
@@ -358,6 +362,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("clock", Clock),
         ("location", Location),
         ("map", Map),
+        ("connection", Connection),
         ("calendar_period", CalendarPeriod),
         ("event", StoryEvent),
         ("observance", CalendarObservance),
@@ -695,6 +700,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=MapPlacement.tenant_id == t,
         )
     }
+    c.connections = {
+        entity: {"end_a": end_a, "end_b": end_b, "one_way": one_way}
+        for entity, end_a, end_b, one_way in await rows(
+            Connection.entity_id,
+            Connection.end_a,
+            Connection.end_b,
+            Connection.one_way,
+            where=Connection.tenant_id == t,
+        )
+    }
     for drawn_on, _position, info, calibration, opacity, reviewed in await rows(
         MapLayer.map_entity_id,
         MapLayer.position,
@@ -1011,6 +1026,17 @@ def entity_snapshot(
                 },
             }
             if entity_id in content.maps
+            else {}
+        ),
+        **(
+            {
+                "connection": {
+                    "end_a": name("entity", content.connections[entity_id]["end_a"]),
+                    "end_b": name("entity", content.connections[entity_id]["end_b"]),
+                    "one_way": bool(content.connections[entity_id]["one_way"]),
+                }
+            }
+            if entity_id in content.connections
             else {}
         ),
         **(

@@ -932,6 +932,23 @@ class _Applier:
                     setattr(placed, field_name, field_value)
             await s.flush()
             return True
+        if name == "connection":
+            from lorenzo_api.models import Connection
+
+            joined = await s.get(Connection, e)
+            if joined is None or joined.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a connection")
+                return False
+            end_a = self.resolve("entity", change.upstream["end_a"])
+            end_b = self.resolve("entity", change.upstream["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                self.skip(row, name, "Copy the entries it joins first")
+                return False
+            joined.end_a = end_a
+            joined.end_b = end_b
+            joined.one_way = True if change.upstream["one_way"] else None
+            await s.flush()
+            return True
         if name == "place":
             if await s.get(Entity, e) is None:
                 self.skip(row, name, "The local entry is gone")

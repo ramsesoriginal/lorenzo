@@ -43,6 +43,7 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
+    Connection,
     Containment,
     ContentReference,
     Entity,
@@ -179,6 +180,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(EntityLocation, "entity_location", counted_on_purge=True),
     _rows(Map, "map", carried_by="entity"),
     _rows(MapPlacement, "map_placement", counted_on_purge=True),
+    # Joins two entries, so it comes after every entry (ADR 0363).
+    _rows(Connection, "connection"),
     _rows(ClockRelationship, "clock_relationship", counted_on_purge=True),
     _rows(StoryEvent, "story_event", carried_by="entity"),
     _rows(EventClockReading, "event_clock_reading", counted_on_purge=True),

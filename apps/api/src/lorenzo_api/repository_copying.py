@@ -935,6 +935,24 @@ class _Planner:
                         else bytes.fromhex(layer["reviewed"]),
                     }
                 )
+        # A connection joins two entries: written once every entry has its place (ADR 0363).
+        for e, joined in c.connections.items():
+            if not copies("entity", e):
+                continue
+            end_a = self._local(c, "entity", joined["end_a"])
+            end_b = self._local(c, "entity", joined["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                drop("connection", e, "an end of it was not copied")
+                continue
+            self.rows["connection"].append(
+                {
+                    "entity_id": self.local["entity"][e],
+                    "tenant_id": tenant_id,
+                    "end_a": end_a,
+                    "end_b": end_b,
+                    "one_way": True if joined["one_way"] else None,
+                }
+            )
         for e, knower in c.entry_knowledge:
             if copies("entity", e):
                 target = self._local(c, "entity", knower)

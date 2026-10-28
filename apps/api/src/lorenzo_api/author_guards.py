@@ -32,6 +32,7 @@ LIBRARY_AUTHOR_KINDS = frozenset(
         "clock",
         "location",
         "map",
+        "connection",
         "calendar_period",
         "event",
         "observance",

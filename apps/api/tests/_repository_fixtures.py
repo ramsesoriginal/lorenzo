@@ -24,6 +24,7 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
+    Connection,
     Containment,
     ContentReference,
     Entity,
@@ -111,6 +112,7 @@ async def seed_every_content_table(
     observance = entity("Fixture observance")
     fact = entity("The blade belongs to Elminster")
     chart = entity("Fixture map")
+    road = entity("Fixture road")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     await session.flush()
@@ -120,6 +122,9 @@ async def seed_every_content_table(
             Clock(entity_id=clock.id, tenant_id=tenant_id),
             Location(entity_id=place.id, tenant_id=tenant_id),
             Location(entity_id=room.id, tenant_id=tenant_id),
+            Connection(
+                entity_id=road.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=True
+            ),
             Map(
                 entity_id=chart.id,
                 tenant_id=tenant_id,

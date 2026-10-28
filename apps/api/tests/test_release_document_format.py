@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 22
+    assert rd.FORMAT == 23
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -108,6 +108,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "maps": {},
         "map_placements": [],
         "map_layers": {},
+        "connections": {},
         "clocks": {},
         "clock_readings": [],
         "clock_relationships": [],
@@ -278,3 +279,24 @@ def test_layers_survive_a_round_trip() -> None:
     document, files = rd.encode(content)
 
     assert rd.decode(document, files).map_layers == {identity: layers}
+
+
+def test_version_twenty_two_has_no_connections() -> None:
+    """A repository written before connections reads with none (ADR 0363)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "connections"}
+
+    assert rd.READERS[22](old, files).connections == {}
+
+
+def test_connections_survive_a_round_trip() -> None:
+    identity, first, second = uuid.UUID(int=90), uuid.UUID(int=91), uuid.UUID(int=92)
+    content = full_content()
+    content.connections = {
+        identity: {"end_a": first, "end_b": second, "one_way": True},
+        uuid.UUID(int=93): {"end_a": second, "end_b": first, "one_way": None},
+    }
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).connections == content.connections

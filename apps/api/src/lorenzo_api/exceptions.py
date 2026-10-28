@@ -1461,6 +1461,12 @@ class InvalidMapError(UnprocessableProblem):
     title = "That is not a valid map document"
 
 
+class InvalidConnectionError(UnprocessableProblem):
+    """A connection the rules of ADR 0363 refuse: equal ends, a repeated spoke, a limit."""
+
+    title = "That is not a valid connection"
+
+
 class MapSystemConflictError(ConflictProblem):
     """A change to a Map's system that would move every place drawn on the old cells (ADR 0354)."""
 
