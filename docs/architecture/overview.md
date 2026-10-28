@@ -359,7 +359,7 @@ extent is always `[-180, -90, 180, 90]` and whose positions are `[longitude, lat
 `radius`. Geometry on a sphere is points, polylines and polygons only, every coordinate in range
 (`validate_placement` takes the Map's own system), a segment is straight in longitude and latitude and
 nothing wraps. `map.view` may hold a `projection` (`equirectangular`, `mercator` or `orthographic` with a
-`centre`), release format 21; `PUT /maps/{id}` refuses (409) a change into or out of a sphere under
+`centre`), release format 23; `PUT /maps/{id}` refuses (409) a change into or out of a sphere under
 placements. The renderer's `project` and `unproject` turn a position into the projected sheet and back
 (the pointer reaches tools as longitude and latitude), samples bend a segment, a globe is cut at its limb and its
 far side draws nothing, and lines of longitude and latitude are the sphere's grid. Maps adds the sphere
