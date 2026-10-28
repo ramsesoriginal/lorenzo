@@ -48,6 +48,9 @@ from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.knowledge import router as knowledge_router
 from lorenzo_api.routers.link_previews import router as link_previews_router
+from lorenzo_api.routers.manuscript_extraction import router as manuscript_extraction_router
+from lorenzo_api.routers.manuscript_moves import router as manuscript_moves_router
+from lorenzo_api.routers.manuscript_splits import router as manuscript_splits_router
 from lorenzo_api.routers.payloads import router as payloads_router
 from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
 from lorenzo_api.routers.pictures import router as pictures_router
@@ -67,6 +70,8 @@ from lorenzo_api.routers.stats import router as stats_router
 from lorenzo_api.routers.tenant_invites import router as tenant_invites_router
 from lorenzo_api.routers.tenants import router as tenants_router
 from lorenzo_api.routers.users import router as users_router
+from lorenzo_api.routers.writing import router as writing_router
+from lorenzo_api.routers.writing_reviews import router as writing_reviews_router
 
 install_repository_quotas()
 
@@ -153,6 +158,11 @@ def create_app() -> FastAPI:
     app.include_router(tenant_invites_router)
     app.include_router(players_router)
     app.include_router(characters_router)
+    app.include_router(writing_router)
+    app.include_router(manuscript_moves_router)
+    app.include_router(manuscript_splits_router)
+    app.include_router(manuscript_extraction_router)
+    app.include_router(writing_reviews_router)
     app.include_router(beings_router)
     app.include_router(calendars_router)
     app.include_router(clocks_router)
@@ -174,6 +184,9 @@ def create_app() -> FastAPI:
     app.include_router(entity_stats_router)
     app.include_router(computed_stats_router)
     app.include_router(groups_router)
+    from lorenzo_api.routers.manuscripts import router as manuscripts_router
+
+    app.include_router(manuscripts_router)
     app.include_router(information_router)
     app.include_router(items_router)
     app.include_router(item_instances_router)
