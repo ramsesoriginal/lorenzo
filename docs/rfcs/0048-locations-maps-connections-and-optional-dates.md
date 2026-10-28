@@ -1,6 +1,6 @@
 # 0048 - Locations, Maps, connections and optional dates
 
-Status: accepted for the fourteen delivery slices agreed with the maintainer on 2026-10-23, and built (2026-10-28).
+Status: accepted for the fourteen delivery slices agreed with the maintainer on 2026-10-23, and built.
 Decisions: one ADR per slice, written before its implementation (the Locations and Maps ADRs, 0330 to 0377 with the Writing ADRs among them, are in the [ADR index](../adr/README.md)).
 This narrows [RFC 0026](0026-world-model-axes-and-address.md); it does not accept either of RFC 0026's
 axis candidates as a whole. It uses [RFC 0028](0028-time-causality-and-calendars.md) only through the
