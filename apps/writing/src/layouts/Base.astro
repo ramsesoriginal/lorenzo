@@ -1,0 +1,21 @@
+---
+import AppPage from '@lorenzo/app-shell/AppPage.astro';
+import { BRANDING_CSS_URL } from '../lib/config';
+interface Props {
+  title?: string;
+  status?: string;
+}
+const { title = 'Lorenzo Writing', status = 'Opening your writing�' } = Astro.props;
+---
+
+<AppPage
+  title={title}
+  product="Writing"
+  brandingUrl={BRANDING_CSS_URL}
+  themeKey="lorenzo:writing:theme"
+  nav={[]}
+  path="apps/writing"
+  welcome={{ title: 'Writing', text: 'Begin with a sentence, a picture, or an idea.', status }}
+>
+  <slot />
+</AppPage>
