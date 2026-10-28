@@ -1,0 +1,11 @@
+[tasks.dev]
+run = "uv run pytest"
+
+[tasks.lint]
+run = ["uv lock --check", "uv run ruff check .", "uv run ruff format --check .", "uv run mypy src"]
+
+[tasks.test]
+run = "uv run pytest"
+
+[tasks.build]
+run = "uv build"

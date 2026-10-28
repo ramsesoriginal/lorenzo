@@ -1,0 +1,13 @@
+---
+import Base from '../../layouts/Base.astro';
+import '@lorenzo/entry-preview/entry-preview.css';
+import '@lorenzo/map-renderer/map.css';
+---
+
+<Base title="Map — Lorenzo Maps" status="Opening this Map…">
+  <div id="maps-map" class="stack"></div>
+  <script>
+    import { mountMap } from '../../lib/map-views';
+    document.addEventListener('astro:page-load', () => void mountMap());
+  </script>
+</Base>

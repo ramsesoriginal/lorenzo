@@ -28,6 +28,7 @@ from lorenzo_api.models import RepositoryRelease, RepositorySubscription, Tenant
 from lorenzo_api.release_document_store import prune_release_documents, store_release_document
 from lorenzo_api.release_fanout import announce
 from lorenzo_api.repository_built_on import built_on_behind
+from lorenzo_api.repository_content import assert_acyclic
 from lorenzo_api.repository_digest import assess, replace_stored_rows
 from lorenzo_api.repository_listing import set_listing_facts
 from lorenzo_api.repository_releases import (
@@ -115,6 +116,7 @@ async def publish_release(
     if public and not flipped:
         await refuse_inside_cooldown(session, tenant_id)
     assessed = await assess(session, tenant_id)
+    assert_acyclic(assessed.content.location_parts)
     if assessed.unproven_kinds:
         raise RepositoryHasUnprovenKindsError(
             detail=unpublishable_sentence(assessed.unproven_kinds),

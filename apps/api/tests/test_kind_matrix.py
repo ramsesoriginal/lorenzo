@@ -59,6 +59,33 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("being", "item"): "being",
     ("item_instance",): None,
     ("being", "character"): None,
+    # ADR 0331: a Location beside every other kind. Pairs only.
+    ("location",): "item",
+    ("being", "location"): None,
+    ("calendar", "location"): None,
+    ("calendar_period", "location"): None,
+    ("clock", "location"): None,
+    ("event", "location"): None,
+    ("fact", "location"): None,
+    ("item", "location"): None,
+    ("item_instance", "location"): None,
+    ("location", "observance"): None,
+    ("location", "scene"): None,
+    # ADR 0336: a Map beside every other kind. Pairs only.
+    ("map",): "item",
+    ("being", "map"): None,
+    ("calendar", "map"): None,
+    ("calendar_period", "map"): None,
+    ("clock", "map"): None,
+    ("event", "map"): None,
+    ("fact", "map"): None,
+    ("item", "map"): None,
+    ("item_instance", "map"): None,
+    ("location", "map"): None,
+    ("map", "observance"): None,
+    ("map", "scene"): None,
+    # ADR 0363: a connection is its own kind and combines with none.
+    ("connection",): None,
 }
 _ORDER = [
     "book",
@@ -76,7 +103,12 @@ _ORDER = [
     "event",
     "observance",
     "scene",
+    "location",
+    "map",
+    "connection",
 ]
+
+MAP_SYSTEM = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 100, 100]}
 
 
 def test_the_matrix_holds_exactly_the_combinations_publishing_allows() -> None:
@@ -216,6 +248,71 @@ async def _make(
             json={"parent_ids": [str(p) for p in parents]},
         )
         assert linked.status_code == 200, linked.text
+        return uuid.UUID(entity_id)
+    if kinds == ("connection",):
+        # It joins the parent to a hub that every entry of the matrix shares.
+        async with admin_session_factory() as session:
+            hub = await session.scalar(
+                select(Entity.id).where(Entity.tenant_id == repository, Entity.name == "Matrix hub")
+            )
+        if hub is None:
+            made_hub = await scene_author.post(
+                f"/tenants/{repository}/entities", json={"name": "Matrix hub", "kinds": []}
+            )
+            assert made_hub.status_code == 201, made_hub.text
+            hub = uuid.UUID(made_hub.json()["id"])
+        response = await scene_author.post(
+            f"/tenants/{repository}/connections",
+            json={"name": name, "is_public": True, "end_a": str(parents[0]), "end_b": str(hub)},
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if "map" in kinds:
+        rest = tuple(k for k in kinds if k != "map")
+        if rest:
+            entity_id = await _make(scene_author, repository, name, rest, parents)
+            added = await scene_author.put(
+                f"/tenants/{repository}/entities/{entity_id}/kinds/map", json={"system": MAP_SYSTEM}
+            )
+            assert added.status_code in (200, 201), added.text
+            return entity_id
+        response = await scene_author.post(
+            f"/tenants/{repository}/maps",
+            json={"name": name, "is_public": True, "system": MAP_SYSTEM},
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if "location" in kinds:
+        rest = tuple(k for k in kinds if k != "location")
+        if rest:
+            entity_id = await _make(scene_author, repository, name, rest, parents)
+            added = await scene_author.put(
+                f"/tenants/{repository}/entities/{entity_id}/kinds/location"
+            )
+            assert added.status_code in (200, 201), added.text
+            return entity_id
+        response = await scene_author.post(
+            f"/tenants/{repository}/locations", json={"name": name, "is_public": True}
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
         return uuid.UUID(entity_id)
     if kinds == ("scene",):
         response = await scene_author.post(f"/tenants/{repository}/scenes", json={"name": name})

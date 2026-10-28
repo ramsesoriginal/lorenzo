@@ -72,3 +72,12 @@ Grid and sphere projections (slices 7 and 8), pictures and layers (slice 9), dra
 (slice 6), links and routes drawn from connections (slice 10), themes other than the default and a
 way to choose one (slice 6), and animation beyond what the brand allows (calm, short, reduced-motion
 respected).
+
+## Addendum: what the browser check changed (2026-10-23)
+
+Axe reports a focusable mark inside `role="img"` as `nested-interactive`, so the app draws the map as
+a named `role="group"` of buttons (`PaintOptions.role` and `MapViewOptions.role` already allowed it);
+`img` stays the renderer's default for a drawing nobody can focus into. A mark's accessible name
+holds any text drawn in it that the name lacks, so a person's initials are read as "Bram the guide,
+BT, presence" (`label-content-name-mismatch`; a parenthesis does not count, as axe drops
+parentheticals). `iconBase` is the directory the brand's `icons.svg` is served from, not the file.

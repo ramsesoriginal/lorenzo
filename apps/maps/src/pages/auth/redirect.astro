@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Signing in — Lorenzo" status="Signing you in…">
+  <p>Signing you in…</p>
+  <script>
+    import { completeLogin } from '../../lib/auth';
+    await completeLogin();
+    const next = sessionStorage.getItem('lorenzo:maps:return');
+    sessionStorage.removeItem('lorenzo:maps:return');
+    window.location.replace(next?.startsWith('/') && !next.startsWith('//') ? next : '/');
+  </script>
+</Base>

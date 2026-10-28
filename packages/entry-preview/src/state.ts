@@ -1,8 +1,8 @@
-// When the card for a link opens and closes (ADR 0264), apart from how it is drawn, so the timing
-// is tested without a browser. A pointer resting on a link opens it after a moment; leaving
-// closes it after a shorter one that coming back (to the link, or onto the card) cancels, so a
-// pointer crossing the gap does not make it flicker. Focus opens and blurs close at once, Escape
-// closes, and a tap opens it, the next tap on the same link following it.
+// When the card for a trigger opens and closes (ADR 0264, 0349), apart from how it is drawn, so the
+// timing is tested without a browser. A pointer resting on a trigger opens it after a moment;
+// leaving closes it after a shorter one that coming back (to the trigger, or onto the card) cancels,
+// so a pointer crossing the gap does not make it flicker. Focus opens and blurs close at once,
+// Escape closes, and a tap opens it, the next tap on the same trigger following it.
 
 export type Timers = {
   set(run: () => void, ms: number): unknown;
@@ -10,21 +10,21 @@ export type Timers = {
 };
 
 export type PreviewState<T> = {
-  /** The pointer came to `link`. */
-  enter(link: T): void;
-  /** The pointer left the link or the card. */
+  /** The pointer came to `trigger`. */
+  enter(trigger: T): void;
+  /** The pointer left the trigger or the card. */
   leave(): void;
   /** The pointer is on the card: it stays. */
   holdCard(): void;
-  /** `link` got keyboard focus. */
-  focus(link: T): void;
+  /** `trigger` got keyboard focus. */
+  focus(trigger: T): void;
   /** The focus left. */
   blur(): void;
   escape(): void;
   /** Anything else was touched. */
   dismiss(): void;
-  /** `link` was tapped: true when the tap should follow it, false when it only opened the card. */
-  tap(link: T): boolean;
+  /** `trigger` was tapped: true when the tap should follow it, false when it only opened the card. */
+  tap(trigger: T): boolean;
   shown(): T | null;
 };
 
@@ -32,7 +32,7 @@ export const SHOW_MS = 300;
 export const HIDE_MS = 150;
 
 export function createPreviewState<T>(
-  open: (link: T) => void,
+  open: (trigger: T) => void,
   close: () => void,
   timers: Timers = {
     set: (run, ms) => setTimeout(run, ms),
@@ -48,11 +48,11 @@ export function createPreviewState<T>(
     timers.clear(closing);
     opening = closing = undefined;
   };
-  const show = (link: T) => {
+  const show = (trigger: T) => {
     stop();
-    if (current === link) return;
-    current = link;
-    open(link);
+    if (current === trigger) return;
+    current = trigger;
+    open(trigger);
   };
   const hide = () => {
     stop();
@@ -62,12 +62,12 @@ export function createPreviewState<T>(
   };
 
   return {
-    enter(link) {
+    enter(trigger) {
       timers.clear(closing);
       closing = undefined;
-      if (current === link) return;
+      if (current === trigger) return;
       timers.clear(opening);
-      opening = timers.set(() => show(link), SHOW_MS);
+      opening = timers.set(() => show(trigger), SHOW_MS);
     },
     leave() {
       timers.clear(opening);
@@ -84,9 +84,9 @@ export function createPreviewState<T>(
     blur: hide,
     escape: hide,
     dismiss: hide,
-    tap(link) {
-      if (current === link) return true;
-      show(link);
+    tap(trigger) {
+      if (current === trigger) return true;
+      show(trigger);
       return false;
     },
     shown: () => current,

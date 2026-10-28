@@ -13,6 +13,7 @@ class AppsOut(BaseModel):
     calendars: AppOut
     sessions: AppOut | None = None
     writing: AppOut | None = None
+    maps: AppOut | None = None
 
 
 class AppLinksOut(BaseModel):

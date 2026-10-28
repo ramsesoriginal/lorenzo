@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/api/**'
       - 'packages/calendar-engine/**'
+      - 'packages/map-engine/**'
   workflow_dispatch:
 
 concurrency:
@@ -140,7 +141,7 @@ jobs:
           # means no link. PUBLIC_REPOSITORIES_ENABLED (ADR 0290): whether a repository can be made
           # public; an unset GitHub variable means off. Both are set under Settings, Secrets and
           # variables, Actions, Variables; see docs/operations/public-launch.md.
-          # ACCOUNT_HUB_URL, INVENTORY_WEB_URL, BEINGS_URL, BENCH_URL, CALENDARS_URL, SESSIONS_URL,
+          # ACCOUNT_HUB_URL, INVENTORY_WEB_URL, BEINGS_URL, BENCH_URL, CALENDARS_URL, SESSIONS_URL, MAPS_URL,
           # APP_LINK_TEMPLATES
           # (ADR 0273): the registry GET /app-links serves. All optional: unset (empty)
           # means the official *.pages.dev address. APP_LINK_TEMPLATES is space-separated
@@ -157,6 +158,7 @@ jobs:
             BEINGS_URL=${{ vars.BEINGS_URL }}
             CALENDARS_URL=${{ vars.CALENDARS_URL }}
             SESSIONS_URL=${{ vars.SESSIONS_URL }}
+            MAPS_URL=${{ vars.MAPS_URL }}
             BENCH_URL=${{ vars.BENCH_URL }}
             APP_LINK_TEMPLATES=${{ vars.APP_LINK_TEMPLATES }}
             REPORT_ADDRESS=${{ vars.REPORT_ADDRESS }}

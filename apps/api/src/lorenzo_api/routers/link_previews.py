@@ -119,6 +119,8 @@ async def get_entity_preview(
             selectinload(Entity.calendar_observance),
             selectinload(Entity.item),
             selectinload(Entity.item_instance),
+            selectinload(Entity.location),
+            selectinload(Entity.map),
             selectinload(Entity.being).selectinload(Being.character),
         )
     )

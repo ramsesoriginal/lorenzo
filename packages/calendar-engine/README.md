@@ -17,3 +17,7 @@ it never shifts to a neighbouring date. Calculation creates no entries and recor
 coordinates for read-only links (ADR 0313). Months accept a unique normalized name,
 stable key, or one-based position in the full definition, including conditional festivals.
 Explicit `name:` and `key:` prefixes disambiguate. An absent or ambiguous date is unresolved.
+
+`containing_periods` returns the periods that contain a `PeriodCoordinate`, narrowest first: a day in its
+month or festival and year, a month or festival in its year (ADR 0371). It follows the period hierarchy of
+stored periods and reads no definition, so it is the one rule the Maps date lens matches with.
