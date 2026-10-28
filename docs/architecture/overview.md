@@ -390,6 +390,17 @@ alone, what the places drawn on a Map lead to with the direction and the other M
 format 23 carries `connections`; a copy writes one only with both ends and an update applies its ends as one unit.
 Maps adds a Connections section to the Location page and a Leads to list to a placed entry's side panel.
 
+Distance (RFC 0048 slice 11, ADR 0366 to 0368, 2026-10-28): `lorenzo_map.straight_distance` is a pure function of a
+validated system and two positions (a plane's scale, a grid's `measure` counted by the new `metric` key on square and
+rectangular systems, hex steps as cube distance, a sphere's haversine times its radius), always in the author's unit;
+`golden/distance.json` holds the vectors. `GET /distance` answers `known`, `partial`, `unknown` or `limit_reached`:
+the straight line on one Map, or a bounded Dijkstra in the application (`routing.py`) over the connections the
+reader sees, read in batches with the visibility predicate in SQL and measured in a number stat (the effective
+value, so inherited lengths count and formulas do not), where a fully measured route beats a shorter one with an
+unmeasured leg and ties go to the lower connection id. It stores nothing; it is capped at 2,000 places, 10,000
+connections and 64 legs, and limited per user per instance (`DISTANCE_RATE_LIMIT_PER_MINUTE`, 60). Release format 24
+carries the `metric` key. Maps adds a Distance section to the Map page and "Diagonals count as" to a grid's setup.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.

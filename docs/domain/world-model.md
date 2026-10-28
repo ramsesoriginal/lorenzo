@@ -101,9 +101,16 @@ A Map says where a place leads from the connections at the entries drawn on it, 
 is drawn, without ever saying where anything is
 ([ADR 0363](../adr/0363-connections-the-kind-and-its-two-ends.md),
 [ADR 0364](../adr/0364-links-derived-from-connections.md), [ADR 0365](../adr/0365-connections-in-lorenzo-maps.md)).
-Distances and optionally tying a map to a calendar period
-are proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and come in
-later slices.
+How far one place is from another is asked in two ways. The straight line is measured on a Map, in the
+unit its author gave it (a scale on a plane, what a cell is on a grid, a radius on a sphere), counting a grid's
+diagonals the way its author chose; it is never converted, and a Map with no size says so instead of answering
+zero. A route is the shortest way over the connections the reader can see, measured in a number stat such as miles,
+where a connection with no length makes the answer "at least" and no route at all makes it unknown; a reader is
+never told of a road they cannot see
+([ADR 0366](../adr/0366-straight-line-distance-on-a-map.md), [ADR 0367](../adr/0367-the-distance-read.md),
+[ADR 0368](../adr/0368-distance-in-lorenzo-maps.md)). Optionally tying a map to a calendar period
+is proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and comes in
+a later slice.
 
 ## Sessions, Scenes and personal lived order
 

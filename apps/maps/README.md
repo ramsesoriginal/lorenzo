@@ -38,7 +38,11 @@ of Settings, and which a reader may hide with the Pictures switch
 the connections it is an end of and lets a writer join it to another place or remove a connection, and a placed
 entry's side panel says where it leads and on which other Maps the far end is
 ([ADR 0363](../../docs/adr/0363-connections-the-kind-and-its-two-ends.md) to
-[ADR 0365](../../docs/adr/0365-connections-in-lorenzo-maps.md)). *Look* and
+[ADR 0365](../../docs/adr/0365-connections-in-lorenzo-maps.md)). A Map page can measure how far one place is
+from another, by the straight line on the Map in its author's own unit and, when a number stat is chosen, by the
+connections, and a square or rectangular grid says how it counts a diagonal
+([ADR 0366](../../docs/adr/0366-straight-line-distance-on-a-map.md) to
+[ADR 0368](../../docs/adr/0368-distance-in-lorenzo-maps.md)). *Look* and
 a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md)). The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.
