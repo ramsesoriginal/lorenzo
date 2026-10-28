@@ -53,7 +53,7 @@ class FrameIn(BaseModel):
     frame_entity_id: uuid.UUID
 
 
-class MembershipOut(BaseModel):
+class FrameMembershipOut(BaseModel):
     entity_id: uuid.UUID
     axis: str
     frame_entity_id: uuid.UUID
@@ -130,7 +130,7 @@ async def put_frame(
     body: FrameIn,
     session: SessionDep,
     user: CurrentUser,
-) -> MembershipOut:
+) -> FrameMembershipOut:
     """The entry is on this frame on the axis, replacing the frame it was on."""
     await placer(session, user, tenant_id, entity_id)
     require_axis(axis)
@@ -152,7 +152,7 @@ async def put_frame(
         )
     )
     await _commit(session, tenant_id)
-    return MembershipOut(entity_id=entity_id, axis=axis, frame_entity_id=target.id)
+    return FrameMembershipOut(entity_id=entity_id, axis=axis, frame_entity_id=target.id)
 
 
 @router.delete("/entities/{entity_id}/frames/{axis}", status_code=204)
