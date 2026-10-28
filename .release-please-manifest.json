@@ -23,5 +23,6 @@
   "packages/calendar-engine": "0.0.0",
   "apps/calendars": "0.0.0",
   "apps/sessions": "0.0.0",
+  "apps/writing": "0.0.0",
   "apps/maps": "0.0.0"
 }
