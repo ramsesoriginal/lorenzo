@@ -108,7 +108,15 @@ zero. A route is the shortest way over the connections the reader can see, measu
 where a connection with no length makes the answer "at least" and no route at all makes it unknown; a reader is
 never told of a road they cannot see
 ([ADR 0366](../adr/0366-straight-line-distance-on-a-map.md), [ADR 0367](../adr/0367-the-distance-read.md),
-[ADR 0368](../adr/0368-distance-in-lorenzo-maps.md)). Optionally tying a map to a calendar period
+[ADR 0368](../adr/0368-distance-in-lorenzo-maps.md)).
+A world can also say which plane, sphere, timeline or universe something belongs to. An entry becomes a *frame* on one
+of those four axes (a plane such as the Ethereal, a timeline, a universe), and other entries are put *on* it, one frame
+per axis; a frame can itself be on a bigger frame of the same axis, which is how a multiverse is written. What an entry
+is on is read from the nearest row along where it sits: itself, what holds it, its owner, its place and the Locations
+above that, never through its prototype. Only those who write Locations can set or read any of this, the GM's address
+shows it, and nothing a player reads changes
+([ADR 0369](../adr/0369-frames-and-axes.md), [ADR 0370](../adr/0370-frame-resolution-and-the-gms-reads.md)).
+Optionally tying a map to a calendar period
 is proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and comes in
 a later slice.
 

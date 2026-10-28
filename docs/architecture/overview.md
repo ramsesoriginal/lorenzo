@@ -401,6 +401,17 @@ unmeasured leg and ties go to the lower connection id. It stores nothing; it is 
 connections and 64 legs, and limited per user per instance (`DISTANCE_RATE_LIMIT_PER_MINUTE`, 60). Release format 24
 carries the `metric` key. Maps adds a Distance section to the Map page and "Diagonals count as" to a grid's setup.
 
+Frames and axes (RFC 0048 slice 12, ADR 0369 and 0370, 2026-10-28; API only): `frame(entity_id, axis)` is a designation
+on any entry, not a kind, and `entity_frame(entity_id, axis, frame_entity_id)` puts an entry on at most one frame per
+axis, the axis matched by a composite key (migration `c03690000001`). The axes are a closed list in code (`plane`,
+`sphere`, `timeline`, `universe`) behind a format check in the database, so a later axis is a code change; a frame
+may be on a frame of the same axis, which is how a multiverse is written, with a loop and a chain over eight
+refused on write and ended quietly on read. Writes are for those who write Locations. Resolution is per axis and
+the nearest explicit row wins along the address's own chain (the entry, its containers, its owner, its place and
+the Locations above it, and for a Location those above it), never through prototypes; the GM's `/address` gains
+`frame` steps with an `axis`, and `/entities/{id}/frames`, `/frames` and `/entities/{id}/frame-members` read the rows.
+No player read changes and no reach code names a frame. Release format 25 carries `frames` and `entity_frames`.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.
