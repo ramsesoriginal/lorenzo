@@ -1,0 +1,22 @@
+{
+  "name": "@lorenzo/entry-preview",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "The card an entry opens when it is hovered, focused or tapped: timing, cache, drawing and stylesheet (ADR 0349).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./entry-preview.css": "./src/entry-preview.css"
+  },
+  "scripts": {
+    "lint": "biome check . && tsc --noEmit",
+    "format": "biome check --write .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

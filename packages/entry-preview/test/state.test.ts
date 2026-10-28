@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createPreviewState, HIDE_MS, SHOW_MS, type Timers } from './previewState';
+import { createPreviewState, HIDE_MS, SHOW_MS, type Timers } from '../src/state';
 
 function setup() {
   let now = 0;

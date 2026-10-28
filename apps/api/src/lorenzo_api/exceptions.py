@@ -1461,3 +1461,60 @@ class ManuscriptMoveConflictError(ConflictProblem):
 class ManuscriptMovePreconditionRequiredError(StatusProblem):
     status = 428
     title = "Read the entry and both outlines before moving it"
+
+
+class InvalidDateError(UnprocessableProblem):
+    """A date a list is asked to be looked at through that the rules of ADR 0372 refuse: no
+    calendar or year, a day without its month, a coordinate that is not one, or a date with the
+    tree of roots (ADR 0376)."""
+
+    title = "That is not a date we can look through"
+
+
+class InvalidMapError(UnprocessableProblem):
+    """A map document or placement the validator refuses, or a limit of ADR 0337: the detail
+    says which (ADR 0338)."""
+
+    title = "That is not a valid map document"
+
+
+class InvalidConnectionError(UnprocessableProblem):
+    """A connection the rules of ADR 0363 refuse: equal ends, a repeated spoke, a limit."""
+
+    title = "That is not a valid connection"
+
+
+class InvalidDistanceError(UnprocessableProblem):
+    """A question about a distance the rules of ADR 0367 cannot answer: no stat to measure in, one
+    that is not a number, or two Maps that both hold both places."""
+
+    title = "That is not a distance we can read"
+
+
+class InvalidFrameError(UnprocessableProblem):
+    """A frame or a membership the rules of ADR 0369 refuse: an axis that is not one, a target that
+    is not a frame on it, a loop, a chain too long, a limit."""
+
+    title = "That is not a valid frame"
+
+
+class MapSystemConflictError(ConflictProblem):
+    """A change to a Map's system that would move every place drawn on the old cells (ADR 0354)."""
+
+    title = "That change would move every place drawn on the old cells"
+
+
+class MapPreconditionRequiredError(StatusProblem):
+    status = 428
+    title = "Read the Map before changing it"
+
+
+class LocationAuthoringForbiddenError(ForbiddenProblem):
+    title = "Locations are edited by Authors, GMs and full-visibility Owners or Organizers"
+
+
+class LocationTreeError(UnprocessableProblem):
+    """One generic text for a cycle, a self reference and a chain too deep: it names no row
+    (ADR 0330)."""
+
+    title = "A Location cannot be part of itself, however indirectly, or nest that deeply"

@@ -306,3 +306,61 @@ async def test_a_missing_entry_and_a_stranger_get_404(
     assert (await client.get(f"/tenants/{tenant_id}/entities/{other}/preview")).status_code == 404
     elsewhere = uuid.uuid4()
     assert (await client.get(f"/tenants/{elsewhere}/entities/{other}/preview")).status_code == 404
+
+
+async def test_a_location_and_a_map_get_their_own_cards(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    from lorenzo_api.models import EntityAudience, Location, Map
+
+    tenant_id = await _tenant(test_user_id)
+    system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 10, 10]}
+    async with admin_session_factory() as session:
+        realm = Entity(tenant_id=tenant_id, name="Realm")
+        port = Entity(tenant_id=tenant_id, name="Free port")
+        chart = Entity(tenant_id=tenant_id, name="Coast chart")
+        crew = Entity(tenant_id=tenant_id, name="Ship")
+        session.add_all([realm, port, chart, crew])
+        await session.flush()
+        session.add_all(
+            [
+                Location(entity_id=realm.id, tenant_id=tenant_id),
+                Location(entity_id=port.id, tenant_id=tenant_id),
+                Map(entity_id=chart.id, tenant_id=tenant_id, system=system),
+                Location(entity_id=crew.id, tenant_id=tenant_id),
+                Being(entity_id=crew.id, tenant_id=tenant_id),
+                EntityAudience(entity_id=port.id, tenant_id=tenant_id, is_public=False),
+            ]
+        )
+        await session.flush()
+        session.add(EntityPrototype(entity_id=port.id, prototype_id=realm.id, tenant_id=tenant_id))
+        await _text(session, tenant_id, realm.id, "A wide **realm** of harbours.")
+        await _text(session, tenant_id, chart.id, "The coast as the pilots draw it.")
+        await _picture(session, tenant_id, realm.id)
+        await session.commit()
+        ids = {"realm": realm.id, "port": port.id, "chart": chart.id, "crew": crew.id}
+
+    def url(name: str) -> str:
+        return f"/tenants/{tenant_id}/entities/{ids[name]}/preview"
+
+    card = (await client.get(url("realm"))).json()
+    assert card["template"] == "location" and card["kinds"] == ["location"]
+    assert card["stats"] == [] and card["excerpt"] == "A wide realm of harbours."
+    assert card["picture_url"] is not None
+    # A part of it with no description of its own shows what it inherits.
+    inherited = (await client.get(url("port"))).json()
+    assert inherited["template"] == "location"
+    assert inherited["excerpt"] == "A wide realm of harbours."
+    assert inherited["picture_url"] is not None
+    chart_card = (await client.get(url("chart"))).json()
+    assert chart_card["template"] == "map" and chart_card["kinds"] == ["map"]
+    assert chart_card["excerpt"] == "The coast as the pilots draw it."
+    assert chart_card["stats"] == [] and "system" not in chart_card
+    assert (await client.get(url("crew"))).json()["template"] == "being"
+
+    # A reader who may not see the restricted place has no card for it, and none says it exists.
+    await make_plain_participant(tenant_id, test_user_id)
+    missing = await client.get(f"/tenants/{tenant_id}/entities/{uuid.uuid4()}/preview")
+    hidden = await client.get(url("port"))
+    assert hidden.status_code == missing.status_code == 404
+    assert (await client.get(url("realm"))).status_code == 200

@@ -1,0 +1,228 @@
+{
+  "accepted": [
+    {
+      "name": "a pin at the corner of the sheet",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "point",
+            "at": [
+              -180,
+              -90
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a pin at the far corner",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "point",
+            "at": [
+              180,
+              90
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a line on a sphere",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "polyline",
+            "pts": [
+              [
+                -10.5,
+                20
+              ],
+              [
+                30,
+                45.25
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "an area on a sphere",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "polygon",
+            "rings": [
+              [
+                [
+                  -10,
+                  -10
+                ],
+                [
+                  10,
+                  -10
+                ],
+                [
+                  10,
+                  10
+                ],
+                [
+                  -10,
+                  10
+                ]
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "refused": [
+    {
+      "name": "a circle on a sphere",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "circle",
+            "at": [
+              0,
+              0
+            ],
+            "r": 5
+          }
+        ]
+      }
+    },
+    {
+      "name": "a curve on a sphere",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "bezier",
+            "start": [
+              0,
+              0
+            ],
+            "segs": [
+              [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  2
+                ],
+                [
+                  3,
+                  3
+                ]
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a longitude beyond the sheet",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "point",
+            "at": [
+              180.000001,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a longitude below the sheet",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "point",
+            "at": [
+              -181,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a latitude beyond the sheet",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "point",
+            "at": [
+              0,
+              90.5
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a point of a line beyond the sheet",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "polyline",
+            "pts": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                100
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "a ring beyond the sheet",
+      "document": {
+        "format": "lorenzo.geometry/1",
+        "parts": [
+          {
+            "shape": "polygon",
+            "rings": [
+              [
+                [
+                  0,
+                  0
+                ],
+                [
+                  200,
+                  0
+                ],
+                [
+                  100,
+                  50
+                ]
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

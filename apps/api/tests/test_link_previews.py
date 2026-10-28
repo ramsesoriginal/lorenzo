@@ -8,6 +8,12 @@ def test_the_most_specific_kind_chooses_the_template() -> None:
     assert template_for(["being"]).name == "being"
     assert template_for(["item", "item_instance"]).name == "item_instance"
     assert template_for(["item"]).name == "item"
+    assert template_for(["location"]).name == "location"
+    assert template_for(["map"]).name == "map"
+    # A being's numbers come first; a place that is also a map is a place.
+    assert template_for(["being", "location"]).name == "being"
+    assert template_for(["item", "location"]).name == "item"
+    assert template_for(["location", "map"]).name == "location"
 
 
 def test_a_bare_entry_gets_the_fallback_which_shows_no_stats() -> None:

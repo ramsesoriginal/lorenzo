@@ -107,6 +107,7 @@ updates:
       - "/apps/calendars"
       - "/apps/sessions"
       - "/apps/writing"
+      - "/apps/maps"
       - "/apps/bench"
       - "/apps/inventory-web"
       - "/apps/loot-bot"
@@ -120,6 +121,8 @@ updates:
       - "/packages/app-shell"
       - "/packages/period-picker"
       - "/packages/read-cache"
+      - "/packages/map-renderer"
+      - "/packages/entry-preview"
     schedule:
       interval: "weekly"
     commit-message:
@@ -171,6 +174,20 @@ updates:
 
   - package-ecosystem: "uv"
     directory: "/packages/calendar-engine"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      uv-minor-patch:
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+      uv-major:
+        update-types: ["major"]
+        patterns: ["*"]
+
+  - package-ecosystem: "uv"
+    directory: "/packages/map-engine"
     schedule:
       interval: "weekly"
     commit-message:

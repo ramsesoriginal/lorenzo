@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 18
+FORMAT = 28
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -410,6 +410,31 @@ _CONTENT = _dataclass(
             lambda rows, f: [(uuid.UUID(a), uuid.UUID(b), k) for a, b, k in rows],
         ),
         "calendars": _id_map(_PLAIN),
+        "entity_locations": _id_map(_ID),
+        "frames": _id_map(_PLAIN),
+        "entity_frames": _id_map(_text_map(_ID)),
+        "maps": _id_map(
+            _record(
+                {
+                    "system": _PLAIN,
+                    "subject": _optional(_ID),
+                    "theme": _optional(_PLAIN),
+                    "view": _optional(_PLAIN),
+                },
+                name="Content.maps",
+            )
+        ),
+        "map_placements": _keyed(_PLAIN),
+        "map_layers": _id_map(_PLAIN),
+        "connections": _id_map(
+            _record(
+                {"end_a": _ID, "end_b": _ID, "one_way": _optional(_PLAIN)},
+                name="Content.connections",
+            )
+        ),
+        "location_parts": _id_map(
+            _record({"parent": _ID, "ordinal": _PLAIN}, name="Content.location_parts")
+        ),
         "clocks": _id_map(_PLAIN),
         "clock_readings": _keyed(_PLAIN),
         "clock_relationships": _keyed(_PLAIN),
@@ -541,10 +566,54 @@ def _read_v16(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v17(document: Document, files: Mapping[str, bytes]) -> Content:
-    return _read_v18({**document, "manuscript_redirects": {}}, files)
+    return _read_v18({**document, "location_parts": {}}, files)
 
 
 def _read_v18(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v19({**document, "entity_locations": {}}, files)
+
+
+def _read_v19(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v20({**document, "maps": {}, "map_placements": []}, files)
+
+
+def _read_v20(document: Document, files: Mapping[str, bytes]) -> Content:
+    maps = {key: {**record, "theme": None} for key, record in document["maps"].items()}
+    return _read_v21({**document, "maps": maps}, files)
+
+
+def _read_v21(document: Document, files: Mapping[str, bytes]) -> Content:
+    maps = {key: {**record, "view": None} for key, record in document["maps"].items()}
+    return _read_v22({**document, "maps": maps}, files)
+
+
+def _read_v22(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Format 23 only widens what a Map's system and view may hold (ADR 0357): nothing to add.
+    return _read_v23(document, files)
+
+
+def _read_v23(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v24({**document, "map_layers": {}}, files)
+
+
+def _read_v24(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v25({**document, "connections": {}}, files)
+
+
+def _read_v25(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Format 26 only widens what a square or rectangular Map system may hold (ADR 0366): its metric.
+    return _read_v26(document, files)
+
+
+def _read_v26(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v27({**document, "frames": {}, "entity_frames": {}}, files)
+
+
+def _read_v27(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v28({**document, "manuscript_redirects": {}}, files)
+
+
+def _read_v28(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -570,6 +639,16 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     16: _read_v16,
     17: _read_v17,
     18: _read_v18,
+    19: _read_v19,
+    20: _read_v20,
+    21: _read_v21,
+    22: _read_v22,
+    23: _read_v23,
+    24: _read_v24,
+    25: _read_v25,
+    26: _read_v26,
+    27: _read_v27,
+    28: _read_v28,
 }
 
 

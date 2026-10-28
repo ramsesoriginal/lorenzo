@@ -162,6 +162,16 @@ async def test_repository_rows_are_never_writable(world: _World, table: str) -> 
             text(f'DELETE FROM "{table}" WHERE tenant_id = :t'), {"t": world.repository}
         )
         assert deleted.rowcount == 0
+        # A generated column (a picture's fingerprint) cannot be inserted into.
+        names = await conn.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = current_schema() AND table_name = :t "
+                "AND is_generated = 'NEVER' ORDER BY ordinal_position"
+            ),
+            {"t": table},
+        )
+        columns = ", ".join(f'"{name}"' for name in names.scalars())
         # Re-inserting one of its own rows, still labelled as the
         # repository's: refused by tenant_isolation's check, whatever the
         # read policy shows.
@@ -169,7 +179,7 @@ async def test_repository_rows_are_never_writable(world: _World, table: str) -> 
             async with conn.begin_nested():
                 await conn.execute(
                     text(
-                        f'INSERT INTO "{table}" SELECT * FROM "{table}" '
+                        f'INSERT INTO "{table}" ({columns}) SELECT {columns} FROM "{table}" '
                         "WHERE tenant_id = :t LIMIT 1"
                     ),
                     {"t": world.repository},
