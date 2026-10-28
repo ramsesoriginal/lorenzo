@@ -1,10 +1,10 @@
 # Setting up Lorenzo Maps for hosting
 
-[Lorenzo Maps](../../apps/maps/README.md) is a static Astro app ([ADR 0332](../adr/0332-lorenzo-maps-the-app.md)). Its planned production address is `https://lorenzo-maps.pages.dev`, the default of `MAPS_URL` in the API's settings. It follows the other static apps: Cloudflare Git integration builds from `main`, without a separate GitHub deployment workflow. See [deployment setup](deployment-setup.md) for shared Authgear, Cloudflare and CORS details, and [Lorenzo Sessions hosting](sessions-setup.md), which this procedure mirrors.
+[Lorenzo Maps](../../apps/maps/README.md) is a static Astro app ([ADR 0332](../adr/0332-lorenzo-maps-the-app.md)). The production app is at [lorenzo-maps.pages.dev](https://lorenzo-maps.pages.dev/), the default of `MAPS_URL` in the API's settings. The following records its setup procedure. It follows the other static apps: Cloudflare Git integration builds from `main`, without a separate GitHub deployment workflow. See [deployment setup](deployment-setup.md) for shared Authgear, Cloudflare and CORS details, and [Lorenzo Sessions hosting](sessions-setup.md), which this procedure mirrors.
 
 ## Pages
 
-Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-maps`, production branch `main`. Set the root to `apps/maps`, output to `dist`, and the `NODE_VERSION` environment variable to the Node major in the root `mise.toml` (currently 26). Build with:
+Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-maps`, production branch `main`. Set the root to `apps/maps`, output to `dist`, and the `NODE_VERSION` environment variable to the Node major in the root `mise.toml`. Build with:
 
 ```bash
 npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build
@@ -12,7 +12,7 @@ npm install --global corepack@latest && corepack enable && pnpm install --frozen
 
 `pnpm run build` builds `@lorenzo/brand`, copies its files into `public/branding/` (`scripts/copy-branding.mjs`) and then runs `astro build`.
 
-Watch `apps/maps/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/read-cache/**`, `packages/brand/**`, `apps/brand/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/maps/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/entry-preview/**`, `packages/map-renderer/**`, `packages/period-picker/**`, `packages/read-cache/**` and `pnpm-lock.yaml`.
 
 ## Authgear and public configuration
 
@@ -25,16 +25,12 @@ Allow the respective origins as post-logout redirect addresses. Supply the Pages
 
 ## API and verification
 
-Add the production origin to the API's existing space-separated `CORS_ALLOWED_ORIGINS` list and deploy the API through its normal workflow. The app registry already has the planned `https://lorenzo-maps.pages.dev` address; set the API/GitHub `MAPS_URL` variable for a different origin. Deployment passes an unset value through to the API's default. Preview origins need their own explicit CORS and callback authorization.
+Add the production origin to the API's existing space-separated `CORS_ALLOWED_ORIGINS` list and deploy the API through its normal workflow. The app registry already has the `https://lorenzo-maps.pages.dev` address; set the API/GitHub `MAPS_URL` variable for a different origin. Deployment passes an unset value through to the API's default. Preview origins need their own explicit CORS and callback authorization.
 
 Call `GET /app-links` and confirm that `apps.maps.url` is the address you deployed and that the `location`, `location_by_slug`, `map` and `map_by_slug` links point at it.
 
 Open the app and sign in as a GM. Add a top-level Location and a Location inside it, keep one restricted, and move one. Check as a player that a restricted Location does not appear, and that a visible Location inside a restricted one shows directly under the nearest Location the player can see. Check that logout works. Without `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIENT_ID` the app reports that Authgear is not configured.
 
-Make a Map with `POST /tenants/{id}/maps`, draw a Location on it with `PUT /tenants/{id}/maps/{map_id}/placements/{entry_id}`, and open the Map from the Maps page: the place is drawn, selecting it names it, and a player sees only the places they may see.
+Then choose *Make a Map* on the Maps page, open it, choose *Edit this map* and draw a pin for a Location, and check that a player sees the same Map with no tools and only the places they may see.
 
-Make a hex Map (the orientation must be chosen), draw a pin and a region of cells on it, and check that the pin snaps to a cell and a player sees the grid. Make a sphere too, with a radius and as a globe, turn it, and draw a pin on it. Add a PNG and an SVG as pictures under a plane Map, place one by two points, replace it and mark it reviewed, and check that a player sees only the pictures whose note is open to them. Join two Locations with a road and a one-way portal, check each page says where it goes, and that a placed entry lists what it leads to and the other Maps. Make a square grid Map with a measure and a way of counting diagonals, draw two pins and check the Distance section says the straight line, and with a number stat and two connected places that it also says the route and its legs. In a library with a calendar, tie a Map to a day and another to a year (in the Calendars app), then on the Maps list choose that day and check the two Maps read as tied to it, a Map with no date as not tied, and one tied to another date last and quieter; a library with no calendar shows no date control. Do the same on the Locations page with a Location inside another, and check that choosing a date lists the Locations by name with the same words and that clearing it brings the tree back. The API must be the version with the date lens (`tied_*` on `GET /maps` and `GET /locations`) before the app is deployed.
-
-As a GM, choose *Edit this map* and draw a pin for a Location and an area for a new one, change a role, drag a handle, undo, and place the children of an area; check that a player sees the same Map with no tools, and that *Look* and *Legend* work. The API must be the version with `POST .../placements/batch` and the Map's theme name before the app is deployed.
-
-No setting data, Location, Map or axis is seeded during deployment.
+No setting data, Location, Map or axis is seeded during deployment. What the app does, from Locations to the date lens, is described in the [Lorenzo Maps guide](../guides/maps.md).

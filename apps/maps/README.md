@@ -1,10 +1,9 @@
 # Lorenzo Maps
 
-Static Astro app for the places of a library: Locations, their part-of tree and, in later slices of
-[RFC 0048](../../docs/rfcs/0048-locations-maps-connections-and-optional-dates.md), maps drawn from them.
+Static Astro app for the places of a library: Locations, their part-of tree and the Maps drawn from them ([RFC 0048](../../docs/rfcs/0048-locations-maps-connections-and-optional-dates.md)).
 [ADR 0330](../../docs/adr/0330-locations-the-kind-and-the-part-of-tree.md),
 [ADR 0331](../../docs/adr/0331-a-location-may-be-any-kind.md) and
-[ADR 0332](../../docs/adr/0332-lorenzo-maps-the-app.md). Desktop only for now: no phone layout, no offline use.
+[ADR 0332](../../docs/adr/0332-lorenzo-maps-the-app.md). Desktop is the design target: below 720px the Map view is one column and what is pressed is larger, but there is no phone layout of its own and no offline use.
 
 A Location is an entry kind. It sits in a single-parent tree that skips levels: a universe, a village
 and one floor of a building are all Locations, and a floor is an ordinary Location in the one above
@@ -53,19 +52,19 @@ a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.
 
+Frames and axes ([ADR 0369](../../docs/adr/0369-frames-and-axes.md), [ADR 0370](../../docs/adr/0370-frame-resolution-and-the-gms-reads.md)) are API-only: no screen here shows or sets them.
+
 ## Development
 
 Set `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIENT_ID` from `.env.example`.
-Use Node and pnpm from the repository. `mise run //apps/maps:dev` serves port 4328. The app owns
-`lint`, `test`, `build` and `test-e2e` tasks; the browser tests run against the real API on a disposable
+Use Node and pnpm from the repository. `mise run //apps/maps:dev` serves port 4328; `lint`, `test`, `build` and `test-e2e` are the other tasks (`mise run //apps/maps:<task>`). The browser tests run against the real API on a disposable
 database, with launcher ports of their own (Authgear 4415, API 8780, site 4346). Reads are held in memory
 for a few seconds under the viewer's scope (`@lorenzo/read-cache`); nothing private is kept in browser
-storage. Only the appearance preference is remembered.
+storage. Remembered in this browser: the theme, the Map's Look and how each sphere Map is drawn, ; the tab's `sessionStorage` holds who you are and your libraries, never entry content.
 
 ## Hosting
 
-See [docs/operations/maps-setup.md](../../docs/operations/maps-setup.md). The planned Pages address is a
-fallback until configured; cross-app destinations are resolved through `GET /app-links`.
+Deployed at <https://lorenzo-maps.pages.dev/> on Cloudflare Pages; [docs/operations/maps-setup.md](../../docs/operations/maps-setup.md) records the setup procedure. Cross-app destinations are resolved through `GET /app-links`.
 
 ## Page frame
 

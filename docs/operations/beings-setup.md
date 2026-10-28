@@ -1,6 +1,6 @@
 # Setting up Lorenzo Beings for hosting
 
-[`apps/beings`](../../apps/beings) is built and tested, but nothing hosts it yet: the Authgear client and the Cloudflare Pages project do not exist ([ADR 0270](../adr/0270-beings-app.md)). It deploys the way the other static apps do, through Cloudflare's own Git integration ([ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload)): there is no deploy workflow, Pages builds and publishes every push to `main` itself. This is the order to do it in, once. It is a static site, so nothing here involves a container or a database ([ADR 0004](../adr/0004-static-astro-frontend.md)); the general Cloudflare and Authgear background is in [deployment-setup.md](deployment-setup.md).
+[Lorenzo Beings](../../apps/beings/README.md) is a static Astro app ([ADR 0270](../adr/0270-beings-app.md)). The production app is at [lorenzo-beings.pages.dev](https://lorenzo-beings.pages.dev/). The following records its setup procedure. It deploys the way the other static apps do, through Cloudflare's own Git integration ([ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload)): there is no deploy workflow, Pages builds and publishes every push to `main` itself. This is the order to do it in, once. It is a static site, so nothing here involves a container or a database ([ADR 0004](../adr/0004-static-astro-frontend.md)); the general Cloudflare and Authgear background is in [deployment-setup.md](deployment-setup.md).
 
 ## 1. Create the Cloudflare Pages project
 
@@ -10,8 +10,8 @@
    - **Root directory**: `apps/beings`
    - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`
    - **Build output directory**: `dist`
-   - **Node version**: the environment variable `NODE_VERSION` set to the major in `mise.toml` (26).
-4. **Build watch paths** (Settings, Builds & deployments): `apps/beings/**`, `packages/api-client/**`, `packages/brand/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**` and `packages/stat-values/**` (double star).
+   - **Node version**: the environment variable `NODE_VERSION` set to the major in the root `mise.toml`.
+4. **Build watch paths** ([the rule](deployment-setup.md#build-watch-paths)): `apps/beings/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/stat-values/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ## 2. Create the Authgear client
 

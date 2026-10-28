@@ -1,6 +1,6 @@
 # @lorenzo/api-client
 
-The typed client for [`apps/api`](../../apps/api) that [`apps/loot-bot`](../../apps/loot-bot), [`apps/inventory-web`](../../apps/inventory-web), [`apps/account-hub`](../../apps/account-hub), [`apps/bench`](../../apps/bench), and [`apps/beings`](../../apps/beings) share. See [ADR 0122](../../docs/adr/0122-api-client-package.md) for why it exists and what it deliberately leaves out.
+The typed client for [`apps/api`](../../apps/api) that every TypeScript app talking to it shares. See [ADR 0122](../../docs/adr/0122-api-client-package.md) for why it exists and what it deliberately leaves out.
 
 ## What's in it
 
@@ -9,6 +9,8 @@ The typed client for [`apps/api`](../../apps/api) that [`apps/loot-bot`](../../a
 - `LorenzoApiError`, `toLorenzoApiError()`, and `unwrap()`: one error type for every failed call, carrying the API's own message and the whole problem body.
 - `fetchAllPages()`, `MAX_PAGE_SIZE`, `Page<T>`: paging (ADR 0020).
 - `etagOf()`: a response's `ETag`, for a later `If-Match` (ADR 0042).
+- `getAppLinks()`, `clearAppLinksCache()`, `fill()`, `AppLinks`: the registry of app links (`GET /app-links`), fetched once per page load, and the filling of its URL templates (ADR 0273).
+- `calendarDateLinks()`, `calendarEntryHref()`, `isCalendarKind()`, `CalendarLink`: the addresses of calendar entries and dates, for links in texts.
 
 What it doesn't hold: rules (the API decides what's allowed), app-shaped data, and presentation.
 
@@ -32,4 +34,4 @@ Commit the result. CI's `client-drift` job (`mise run //packages/api-client:chec
 
 ## Using it
 
-It ships TypeScript source, like `@lorenzo/lorenzoscript`, so there's nothing to build. inventory-web's Vite build compiles it. loot-bot's `tsup` bundles it (`noExternal`), since loot-bot runs on Node from its own `dist/`.
+It ships TypeScript source, like `@lorenzo/lorenzoscript`, so there's nothing to build. The Astro apps' Vite builds compile it. loot-bot's `tsup` bundles it (`noExternal`), since loot-bot runs on Node from its own `dist/`.

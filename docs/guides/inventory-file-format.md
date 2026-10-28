@@ -50,7 +50,7 @@ The match is not case-sensitive. Any other `##` heading is **ignored, together w
 - [N x ]NAME[ | field: value][ | field: value]…
 ```
 
-- **`N x`** is how many, a whole number. Left out, it is 1. `x` and `×` both work.
+- **`N x`** is how many, a whole number from 1 to 1000. Left out, it is 1. `x` and `×` both work.
 - **`NAME`** is what you call it, as you would write it on a sheet, in any language. It becomes the item's own name. If you know exactly which catalog item it is, give a reference as well (below), or write it as a link, `[Label](reference)`, which is the same pack-list shape [ADR 0145](../adr/0145-pack-contents-in-the-description.md) uses.
 - **Fields** come after the name, each after a `|`. All are optional. Unknown fields are ignored with a warning, so a newer file still reads in an older reader.
 
@@ -216,7 +216,7 @@ where the quiver had to be written in, because a stack of 98 needs something to 
 
 ## Converters
 
-Turning a spreadsheet, a document or a character sheet into this format is a conversion step, not part of Lorenzo itself, and `lorenzo inventory import` only ever reads this format. [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) converts a public D&D Beyond character: `uvx lorenzo-beyond` writes a ledger, with each item's text as its description, and `lorenzo inventory import` makes it. It is a package of its own, in its own repository. Converters for CSV and for LaTeX lists are planned and will be published when ready. If you want to write one yourself, this page is the specification, and the examples above are a test you can check yours against.
+Turning a spreadsheet, a document or a character sheet into this format is a conversion step of its own, and `lorenzo inventory import` only ever reads this format. A spreadsheet or CSV becomes a ledger with `lorenzo-convert sheet` in [`packages/converters`](../../packages/converters/README.md). [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) converts a public D&D Beyond character: `uvx lorenzo-beyond` writes a ledger, with each item's text as its description, and `lorenzo inventory import` makes it. It is a package of its own, in its own repository. LaTeX lists have no converter yet. If you want to write one yourself, this page is the specification, and the examples above are a test you can check yours against.
 
 ## Versions
 

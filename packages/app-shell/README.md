@@ -1,6 +1,6 @@
 # @lorenzo/app-shell
 
-The head, header, footer and page frame of Lorenzo Calendars and Lorenzo Sessions, over the shared brand ([ADR 0322](../../docs/adr/0322-calendars-and-sessions-share-a-header-and-the-brand-base.md)). It ships its source (Astro components and TypeScript) and has no build and no styles of its own: everything is `apps/brand`'s classes and tokens.
+The head, header, footer and page frame of the Lorenzo apps that share it, over the shared brand ([ADR 0322](../../docs/adr/0322-calendars-and-sessions-share-a-header-and-the-brand-base.md)). It ships its source (Astro components and TypeScript) and has no build and no styles of its own: everything is `apps/brand`'s classes and tokens.
 
 ## Using it
 
@@ -37,6 +37,7 @@ const shell = bindShell({ themeKey, onLogin, onLogout });
 shell?.account({ state: 'signed-in', label: viewer.email }); // read aloud by assistive technology, not drawn
 shell?.libraries(choices, currentId, (id) => switchTo(id));
 shell?.library(tenantAddress); // for the links that belong to a library
+shell?.accountLink(hubUrl); // show the link to the account hub, once the app-links registry says where it is
 shell?.status('Log in to open your calendars.');
 shell?.reveal(); // hide the welcome and show the page
 ```

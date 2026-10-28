@@ -2,7 +2,7 @@
 
 See [ADR 0009](../adr/0009-identity-provider-authgear.md) for why Authgear, [ADR 0023](../adr/0023-authgear-token-verification.md) for how `apps/api` verifies its tokens, and [ADR 0027](../adr/0027-authgear-cloud-not-self-hosted.md) for why this is Authgear Cloud rather than a self-hosted instance. This doc is the other half: getting a real Authgear project, and a real login round-trip against it, working locally. **Not required for `apps/api`'s own test suite** - that runs against a real fake-JWKS server instead (`apps/api/tests/_fake_jwks.py`), specifically so nobody needs a real Authgear project just to run `pytest`.
 
-Use a **separate Authgear Cloud project from production** - free-tier accounts support more than one project, confirmed directly rather than assumed (see ADR 0027). Local dev never touches the production project at all.
+Use a **separate Authgear Cloud project from production** - free-tier accounts support more than one project, confirmed directly rather than assumed (see ADR 0027). Nothing in the steps below touches the production project, but see the first gotcha: tasks run through `mise` carry the production Authgear values.
 
 ## Steps
 
@@ -23,8 +23,10 @@ Use a **separate Authgear Cloud project from production** - free-tier accounts s
    AUTHGEAR_USERINFO_URL=<userinfo_endpoint from step 3>
    ```
 
-5. Get a real access token with `mise run //apps/api:dev-token` (needs `AUTHGEAR_DEV_CLIENT_ID`/`AUTHGEAR_DEV_CLIENT_SECRET` set in your shell first, from step 2 - deliberately not read from `.env`, since they identify a login-flow client, not something `apps/api` itself needs to run). Opens your browser, logs you in, and prints a ready-to-use token - no manual URL-building or curl required. Call `GET /me` with it as a `Bearer` token - a fresh subject auto-provisions an `app_user` row on first call (ADR 0023).
+5. Get a real access token with `mise run //apps/api:dev-token` (against production unless run as the first gotcha describes; needs `AUTHGEAR_DEV_CLIENT_ID`/`AUTHGEAR_DEV_CLIENT_SECRET` set in your shell first, from step 2 - deliberately not read from `.env`, since they identify a login-flow client, not something `apps/api` itself needs to run). Opens your browser, logs you in, and prints a ready-to-use token - no manual URL-building or curl required. Call `GET /me` with it as a `Bearer` token - a fresh subject auto-provisions an `app_user` row on first call (ADR 0023).
 
-## Known gotcha
+## Known gotchas
 
-Authgear's access-token `aud` claim is the **project endpoint URL** - the OIDC client id from step 2 is *not* the audience apps/api checks against (that's only true for ID tokens). Getting this backwards produces a confusing "wrong audience" 401 for an otherwise-correctly-configured setup.
+**The root `mise.toml` sets production values.** Its `[env]` block names the production Authgear project (`AUTHGEAR_ISSUER`, `AUTHGEAR_JWKS_URL`, `AUTHGEAR_AUDIENCE`, `AUTHGEAR_DEV_CLIENT_ID`, `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID`), and `mise` applies it to every task and `mise exec`, over the shell's own variables as well. A process that is handed an environment variable ignores the same name in `.env` (pydantic-settings for `apps/api`, Vite for the web apps), so `mise run //apps/api:dev` and `:dev-token` verify and sign in against production, whatever `apps/api/.env` says in step 4. To use the development project, run the tool without `mise` supplying that block: from `apps/api`, `uv run fastapi dev src/lorenzo_api/main.py` reads `.env`, and `uv run python scripts/get_dev_token.py --issuer <issuer from step 3>` with `AUTHGEAR_DEV_CLIENT_ID` and `AUTHGEAR_DEV_CLIENT_SECRET` set in a shell where `mise` is not active.
+
+**The audience is the project endpoint.** Authgear's access-token `aud` claim is the **project endpoint URL** - the OIDC client id from step 2 is *not* the audience apps/api checks against (that's only true for ID tokens). Getting this backwards produces a confusing "wrong audience" 401 for an otherwise-correctly-configured setup.

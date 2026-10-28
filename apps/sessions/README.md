@@ -1,7 +1,7 @@
 # Lorenzo Sessions
 
 Static Astro app for campaign Session planning, reusable Scenes and personal/shared notes.
-RFC 0046, ADR 0317. Uses the shared brand, Authgear, typed API client and Information editor.
+[RFC 0046](../../docs/rfcs/0046-sessions-scenes-and-lived-order.md), [ADR 0317](../../docs/adr/0317-sessions-scenes-and-collaborative-planning.md) (planning), [ADR 0318](../../docs/adr/0318-explicit-session-and-play-order.md) (play order) and [ADR 0319](../../docs/adr/0319-personal-lived-order-as-event-evidence.md) (lived order). Uses the shared brand, Authgear, typed API client and Information editor.
 
 My sessions lists Sessions where you are an assigned GM or player. A Session has one campaign,
 optional real-world date and in-world starting period, GMs and an initially empty player roster.
@@ -16,15 +16,21 @@ and preparation order do not infer learning, lived order, causes or occurrence.
 
 ## Development
 
-Set PUBLIC_API_BASE_URL, PUBLIC_AUTHGEAR_ENDPOINT and PUBLIC_AUTHGEAR_CLIENT_ID from .env.example.
-Use Node/pnpm from the repository. `mise run //apps/sessions:dev` serves port 4326. The app owns
-lint, test, build and test-e2e tasks; browser tests run against the real API and disposable DB.
+Copy `.env.example` to `.env` and set the Authgear endpoint and client id (`PUBLIC_API_BASE_URL` is optional). Use Node/pnpm from the repository.
+
+```bash
+mise run //apps/sessions:dev        # port 4326
+mise run //apps/sessions:lint
+mise run //apps/sessions:test
+mise run //apps/sessions:build
+mise run //apps/sessions:test-e2e   # real API on a disposable database, fake Authgear
+```
+
 No private bodies are persisted in browser storage. Appearance preference alone is remembered.
 
 ## Hosting
 
-See docs/operations/sessions-setup.md. The planned Pages address is a fallback until configured;
-all cross-app destinations are resolved through GET /app-links.
+Deployed at <https://lorenzo-sessions.pages.dev/> on Cloudflare Pages; [docs/operations/sessions-setup.md](../../docs/operations/sessions-setup.md) records the setup procedure. Cross-app destinations are resolved through `GET /app-links`.
 
 ## Reusable Scene context
 

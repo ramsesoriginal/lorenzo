@@ -1,4 +1,4 @@
-# Authored calendars
+# lorenzo-calendar
 
 Pure Python validation and calculation for `lorenzo.calendar/1` (ADR 0308).
 No database, clock, setting data, or inferred current date. Years include zero.
@@ -21,3 +21,8 @@ Explicit `name:` and `key:` prefixes disambiguate. An absent or ambiguous date i
 `containing_periods` returns the periods that contain a `PeriodCoordinate`, narrowest first: a day in its
 month or festival and year, a month or festival in its year (ADR 0371). It follows the period hierarchy of
 stored periods and reads no definition, so it is the one rule the Maps date lens matches with.
+
+`lorenzo_calendar.document` reads the portable calendar document: `parse_document` strictly parses one
+file (at most 2 MB) into a `CalendarDocument`, which keeps source material (`Annotation`) and
+`DocumentWarning`s apart from the authored definition (ADR 0311). It is not a ledger and says nothing about
+temporal truth.
