@@ -10,12 +10,22 @@ export type GridDoc = {
   orientation?: 'flat' | 'pointy';
   sub?: { cols?: number; rows?: number; aperture?: number };
   measure?: { per_cell: number; unit: string };
+  metric?: string;
 };
 
 const ORIENTATIONS: [string, string][] = [
   ['', 'Choose…'],
   ['flat', 'Flat-topped, in columns'],
   ['pointy', 'Pointed-top, in rows'],
+];
+
+// How a square or rectangular grid counts a diagonal step (ADR 0366, 0368); the first is what a Map
+// without a metric does, so it is stored as nothing.
+const METRICS: [string, string][] = [
+  ['', 'Euclidean (the default)'],
+  ['chebyshev', 'The larger of the two (chebyshev)'],
+  ['manhattan', 'Both added (manhattan)'],
+  ['alternating', 'Every second one double (alternating)'],
 ];
 
 const APERTURES: [string, string][] = [
@@ -80,6 +90,7 @@ export function gridBlock(options: {
   perCell.input.step = 'any';
   perCell.input.min = '0';
   const unit = field('of (a unit)', current?.measure?.unit ?? '');
+  const metric = select('Diagonals count as', METRICS, current?.metric ?? '');
   const count = el('p', '', 'status-text');
   const parts = {
     orientation: orientation.label,
@@ -91,11 +102,14 @@ export function gridBlock(options: {
     aperture: aperture.label,
     perCell: perCell.label,
     unit: unit.label,
+    metric: metric.label,
   };
   // A visual grid measures nothing, so it has no measure fields to confuse anyone.
   const shownParts = options.measured
     ? Object.values(parts)
-    : Object.values(parts).filter((label) => label !== parts.perCell && label !== parts.unit);
+    : Object.values(parts).filter(
+        (label) => label !== parts.perCell && label !== parts.unit && label !== parts.metric,
+      );
   root.append(kind.label, ...shownParts, count);
 
   const shown = () => kind.input.value as GridKind;
@@ -109,6 +123,8 @@ export function gridBlock(options: {
     parts.cols.hidden = k === 'hex';
     parts.rows.hidden = k === 'hex';
     parts.aperture.hidden = k !== 'hex';
+    // A hex has one way to count a step.
+    parts.metric.hidden = k === 'hex';
   };
   sync();
   kind.input.addEventListener('change', sync);
@@ -147,6 +163,8 @@ export function gridBlock(options: {
         unit: unit.input.value.trim(),
       };
     }
+
+    if (options.measured && k !== 'hex' && metric.input.value) doc.metric = metric.input.value;
 
     return doc;
   }

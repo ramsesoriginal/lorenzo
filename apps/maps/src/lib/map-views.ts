@@ -24,6 +24,7 @@ import { client, unwrap } from './api';
 import { cellOfPoint, cellWords } from './cells-edit';
 import { BRANDING_CSS_URL } from './config';
 import { wayWords } from './connection-words';
+import { distanceSection } from './distance-section';
 import {
   audienceBadge,
   backLink,
@@ -571,6 +572,13 @@ export async function mountMap() {
           ),
         );
       view.append(places);
+      view.append(
+        distanceSection({
+          tenant,
+          map: { id: header.id, system: header.system as Record<string, unknown> },
+          places: rows,
+        }),
+      );
       if (writer) {
         const settings = el('section', '', 'stack');
         settings.append(sectionHead('Settings'), settingsSection(tenant, header, version, render));
