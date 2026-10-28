@@ -1087,7 +1087,13 @@ class JoinAcknowledgement(BaseModel):
     destination_id: UUID = Field(..., title="Destination Id")
 
 
+class Mode1(StrEnum):
+    previous = "previous"
+    parent = "parent"
+
+
 class JoinChapters(BaseModel):
+    mode: Mode1 | None = Field("previous", title="Mode")
     destination_id: UUID = Field(..., title="Destination Id")
     parent_id: UUID = Field(..., title="Parent Id")
     destination_version: str = Field(..., title="Destination Version")
@@ -1925,13 +1931,13 @@ class PreviewStatOut(BaseModel):
     value: Any = Field(..., title="Value")
 
 
-class Mode1(StrEnum):
+class Mode2(StrEnum):
     keep = "keep"
     purge = "purge"
 
 
 class PreviousCopyOut(BaseModel):
-    mode: Mode1 = Field(..., title="Mode")
+    mode: Mode2 = Field(..., title="Mode")
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
