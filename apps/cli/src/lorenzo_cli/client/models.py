@@ -1096,6 +1096,12 @@ class FrameIn(BaseModel):
     frame_entity_id: UUID = Field(..., title="Frame Entity Id")
 
 
+class FrameMembershipOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    axis: str = Field(..., title="Axis")
+    frame_entity_id: UUID = Field(..., title="Frame Entity Id")
+
+
 class FrameOut(BaseModel):
     entry: EntryStub
     axes: list[str] = Field(..., title="Axes")
@@ -1567,6 +1573,11 @@ class MemberProfileOut(BaseModel):
 class MembershipCreate(BaseModel):
     user_id: UUID = Field(..., title="User Id")
     role: Role = Field(..., title="Role")
+
+
+class MembershipOut(BaseModel):
+    tenant_id: UUID = Field(..., title="Tenant Id")
+    role: str = Field(..., title="Role")
 
 
 class MembershipRosterEntryOut(BaseModel):
@@ -3193,17 +3204,6 @@ class YearPreview(BaseModel):
     segments: list[SegmentPreview] = Field(..., title="Segments")
 
 
-class LorenzoApiRoutersFramesMembershipOut(BaseModel):
-    entity_id: UUID = Field(..., title="Entity Id")
-    axis: str = Field(..., title="Axis")
-    frame_entity_id: UUID = Field(..., title="Frame Entity Id")
-
-
-class LorenzoApiSchemasUsersMembershipOut(BaseModel):
-    tenant_id: UUID = Field(..., title="Tenant Id")
-    role: str = Field(..., title="Role")
-
-
 class Problem(BaseModel):
     title: str = Field(..., title="Problem title")
     type: str = Field(..., title="Problem type")
@@ -3830,7 +3830,7 @@ class MeOut(BaseModel):
     locales: list[str] = Field(..., title="Locales")
     user_color: str | None = Field(..., title="User Color")
     picture_url: str = Field(..., title="Picture Url")
-    memberships: list[LorenzoApiSchemasUsersMembershipOut] = Field(..., title="Memberships")
+    memberships: list[MembershipOut] = Field(..., title="Memberships")
     players: list[MePlayerOut] = Field(..., title="Players")
     campaign_gm_grants: list[CampaignSummaryOut] = Field(..., title="Campaign Gm Grants")
     capabilities: MeCapabilitiesOut
