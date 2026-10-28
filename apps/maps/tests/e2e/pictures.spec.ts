@@ -259,7 +259,10 @@ test('a writer adds a picture, sets it by two points, orders two and reviews a r
     await expect
       .poll(async () => ((await w.header(chart.id)).layers ?? []).map((l) => l.title))
       .toEqual(['Roads']);
-    expect((await w.information(chart.id)).map((i) => i.title)).toEqual(['Roads']);
+    // The Information goes in the request after the layer's, so it is waited for as well.
+    await expect
+      .poll(async () => (await w.information(chart.id)).map((i) => i.title))
+      .toEqual(['Roads']);
     expect(titles).toHaveLength(2);
   } finally {
     await page.context().close();
