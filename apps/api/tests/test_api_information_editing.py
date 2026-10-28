@@ -206,7 +206,12 @@ async def test_singleton_list_agrees_across_catalog_model_migration_and_index() 
     assert catalog == set(SINGLETON_INFORMATION_TYPES)
     for name in SINGLETON_INFORMATION_TYPES:
         assert f"'{name}'" in index_def
-        assert f'"{name}"' in _MIGRATION.read_text()
+        migration = (
+            _MIGRATION.parent / "c03280000001_manuscript_revisions.py"
+            if name == "manuscript"
+            else _MIGRATION
+        )
+        assert f"'{name}'" in migration.read_text() or f'"{name}"' in migration.read_text()
     assert index_def.count("::text") == len(SINGLETON_INFORMATION_TYPES)
 
 

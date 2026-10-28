@@ -8,7 +8,7 @@ from lorenzo_api.db import Base
 # (ADR 0101). The index predicate can't read this table, so this list (which
 # models/information.py builds the predicate from) and the migration's copy
 # are separate facts from the seeded rows; a test checks they agree.
-SINGLETON_INFORMATION_TYPES = ("description", "main_picture")
+SINGLETON_INFORMATION_TYPES = ("description", "main_picture", "manuscript")
 
 
 class InformationType(Base):

@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base>
+  <div id="writing" class="stack"></div>
+  <script>
+    import { start } from '../lib/writing';
+    void start();
+  </script>
+</Base>
