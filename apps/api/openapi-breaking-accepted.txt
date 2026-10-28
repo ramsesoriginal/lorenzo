@@ -743,3 +743,4 @@ PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `connection` enum va
 GET /tenants/{tenant_id}/maps/{map_id}/placements added the new `connection` enum value to the `items/items/kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/maps/{map_id}/placements/{entry_id} added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
 GET /tenants/{tenant_id}/entities/{entity_id}/address added the new `frame` enum value to the `interior/anyOf[subschema #1]/items/via` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/address added the new `frame` enum value to the `interior/anyOf[subschema #1]/items/via` response property for the response status `200` (shared schema: `StepOut`, also at `segments/items/via`)
