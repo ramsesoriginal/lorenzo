@@ -412,6 +412,14 @@ the Locations above it, and for a Location those above it), never through protot
 `frame` steps with an `axis`, and `/entities/{id}/frames`, `/frames` and `/entities/{id}/frame-members` read the rows.
 No player read changes and no reach code names a frame. Release format 25 carries `frames` and `entity_frames`.
 
+The date lens on Maps (RFC 0048 slice 13, ADR 0371 to 0373, 2026-10-28): no table, no column, no write.
+`lorenzo_calendar.containing_periods` is the one pure rule (a day is in its month or festival and its year, a month in
+its year). `GET /maps` takes `tied_calendar`, `tied_year`, `tied_segment`, `tied_day` and `exclude_other`; with a date
+each row carries a `tie` of `tied`, `untied` or `other` (two `EXISTS` tests over `entry_calendar_period` in the same
+statement, counting only associations whose period and calendar the reader sees), ordered tied, untied, other, and
+without the parameters the response is byte for byte what it was. Maps shows the shared period picker, read only and
+empty by default, over the list, only when the library has a calendar.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.

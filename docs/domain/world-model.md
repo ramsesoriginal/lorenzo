@@ -116,9 +116,14 @@ is on is read from the nearest row along where it sits: itself, what holds it, i
 above that, never through its prototype. Only those who write Locations can set or read any of this, the GM's address
 shows it, and nothing a player reads changes
 ([ADR 0369](../adr/0369-frames-and-axes.md), [ADR 0370](../adr/0370-frame-resolution-and-the-gms-reads.md)).
-Optionally tying a map to a calendar period
-is proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and comes in
-a later slice.
+A map may optionally be tied to a calendar period, and a library with no calendar never has to. The Maps list can be
+looked at through a date: each Map is *tied to* it (it is tied to that day, to its month or festival, or to its year),
+*not tied to a date*, or *tied to other dates*, in that order, and the last can be left out. Nothing is guessed, there is
+no "today" and no nearest or latest Map, a date a reader cannot see counts as no date, and it never says anything
+*existed at* a date
+([ADR 0371](../adr/0371-the-periods-a-date-is-tied-through.md), [ADR 0372](../adr/0372-the-date-lens-on-the-maps-list.md),
+[ADR 0373](../adr/0373-the-date-lens-in-lorenzo-maps.md)). The same lens for Locations comes in a later slice of
+[RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md).
 
 ## Sessions, Scenes and personal lived order
 
