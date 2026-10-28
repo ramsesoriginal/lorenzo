@@ -48,3 +48,7 @@ The phone layout; real-time collaboration; anything the prototype fakes (see its
 - **Does the map need tiles or images** for frames, or only the vector schematic of the prototype? Pictures (K8) decide.
 - **Layout persistence.** Per user and repository on the device only, or synced as a setting? Device only is assumed.
 - **Accessibility of docking.** Drag is the prototype's only way to move a tab; keyboard moves are needed before it ships.
+
+## Manuscript decision (2026-10-23)
+
+[RFC 0047](0047-lorenzo-writing.md) and [ADR 0327](../adr/0327-lorenzo-writing.md) supersede W-G's manuscript portion with a shared manuscript model and the dedicated Lorenzo Writing app. The sheets/templates portion remains open. A later Bench view must consume that model rather than introduce a second chapter-order representation.

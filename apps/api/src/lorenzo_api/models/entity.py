@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.item_instance import ItemInstance
     from lorenzo_api.models.knowledge import Knowledge
     from lorenzo_api.models.location import Location
+    from lorenzo_api.models.manuscript import Book, Chapter, Edition, SceneTelling
     from lorenzo_api.models.ownership import Ownership
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
@@ -47,6 +48,18 @@ class Entity(Base):
     # authgear_roles precedent.
     __allow_unmapped__ = True
 
+    book: Mapped[Book | None] = relationship(
+        "Book", foreign_keys="Book.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+    edition: Mapped[Edition | None] = relationship(
+        "Edition", foreign_keys="Edition.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+    scene_telling: Mapped[SceneTelling | None] = relationship(
+        "SceneTelling", foreign_keys="SceneTelling.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+    chapter: Mapped[Chapter | None] = relationship(
+        "Chapter", foreign_keys="Chapter.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
     location: Mapped[Location | None] = relationship(
         "Location", foreign_keys="Location.entity_id", viewonly=True, lazy="raise_on_sql"
     )

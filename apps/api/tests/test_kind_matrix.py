@@ -50,6 +50,10 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("calendar_period",): None,
     ("event",): None,
     ("observance",): None,
+    ("book",): None,
+    ("edition",): None,
+    ("chapter",): None,
+    ("scene_telling",): None,
     ("scene",): None,
     ("being",): "item",
     ("being", "item"): "being",
@@ -69,6 +73,10 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("location", "scene"): None,
 }
 _ORDER = [
+    "book",
+    "edition",
+    "chapter",
+    "scene_telling",
     "item",
     "item_instance",
     "being",
@@ -154,6 +162,73 @@ async def _make(
 ) -> uuid.UUID:
     """An entry of those kinds in a repository: through the route where one exists, and straight
     in the database for an inventory item and a character, which no route makes this way."""
+    if kinds in (("book",), ("edition",), ("chapter",)):
+        if kinds == ("chapter",):
+            response = await scene_author.post(
+                f"/tenants/{repository}/writing/chapters", json={"name": name}
+            )
+            assert response.status_code == 201, response.text
+            entity_id = response.json()["id"]
+        elif kinds == ("book",):
+            response = await scene_author.post(
+                f"/tenants/{repository}/writing/books", json={"name": name}
+            )
+            assert response.status_code == 201, response.text
+            entity_id = response.json()["id"]
+            # This row tests a bare Book marker. The W2 composition test covers its Editions.
+            removed = await scene_author.delete(
+                f"/tenants/{repository}/entities/{response.json()['editions'][0]['id']}"
+            )
+            assert removed.status_code == 204, removed.text
+        else:
+            existing = await scene_author.get(
+                f"/tenants/{repository}/entities", params={"kind": "edition"}
+            )
+            if existing.json()["items"]:
+                response = await scene_author.post(
+                    f"/tenants/{repository}/writing/editions",
+                    json={"name": name, "source_edition_id": existing.json()["items"][0]["id"]},
+                )
+                assert response.status_code == 201, response.text
+                entity_id = response.json()["id"]
+            else:
+                response = await scene_author.post(
+                    f"/tenants/{repository}/writing/books", json={"name": "Manuscript work"}
+                )
+                assert response.status_code == 201, response.text
+                entity_id = response.json()["editions"][0]["id"]
+                renamed = await scene_author.patch(
+                    f"/tenants/{repository}/entities/{entity_id}", json={"name": name}
+                )
+                assert renamed.status_code == 200, renamed.text
+        parents_response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert parents_response.status_code == 200, parents_response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("scene_telling",):
+        existing = (
+            await scene_author.get(f"/tenants/{repository}/entities", params={"kind": "scene"})
+        ).json()["items"]
+        if existing:
+            scene_id = existing[0]["id"]
+        else:
+            source = await scene_author.post(
+                f"/tenants/{repository}/scenes", json={"name": "Shared narrative"}
+            )
+            assert source.status_code == 201, source.text
+            scene_id = source.json()["id"]
+        made = await scene_author.post(
+            f"/tenants/{repository}/writing/tellings", json={"name": name, "scene_id": scene_id}
+        )
+        assert made.status_code == 201, made.text
+        entity_id = made.json()["id"]
+        linked = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert linked.status_code == 200, linked.text
     if "location" in kinds:
         rest = tuple(k for k in kinds if k != "location")
         if rest:
