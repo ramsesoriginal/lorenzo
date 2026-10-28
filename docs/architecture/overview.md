@@ -338,14 +338,14 @@ at most 100 placements and removals as one transaction through the single write'
 visibility, with one touch and one activity entry. `map.theme_hint` keeps a theme name (`default` or
 `plain`, held to the renderer's list by a golden file; an unknown name is kept and read as the default),
 returned by the header, replaced with the system and the subject under `If-Match`, and carried by
-repository copy and update (release format 19). The renderer gains the `plain` theme, `legend()`,
+repository copy and update (release format 21). The renderer gains the `plain` theme, `legend()`,
 `setTheme` and an editor interface that knows nothing of editing: a `Tool` that receives the pointer in
 drawing units while set and an `Overlay` of lines, discs and handles drawn above the marks. Lorenzo
 Maps builds the tools, the panel, undo and redo and the settings on it.
 
 Grids (RFC 0048 slice 7, ADR 0354 to 0356, 2026-10-27): `lorenzo.map-system/1` gains `square`, `rect`
 and `hex` (a `cell`, an optional `measure` of what a cell is in the world, an optional `sub` division,
-and for hexes a required `orientation`), and `map.view` (release format 20) holds a visual grid for any
+and for hexes a required `orientation`), and `map.view` (release format 22) holds a visual grid for any
 system that has none. The cell functions (`cell_at`, `cell_centre`, `cell_polygon`, `in_grid`,
 `cell_count`) are pure, exist in `packages/map-engine` and `packages/map-renderer`, and are held to one
 golden file; the hex convention is odd-r (pointy) and odd-q (flat) with cell (0, 0) at the sheet's near
@@ -359,7 +359,7 @@ extent is always `[-180, -90, 180, 90]` and whose positions are `[longitude, lat
 `radius`. Geometry on a sphere is points, polylines and polygons only, every coordinate in range
 (`validate_placement` takes the Map's own system), a segment is straight in longitude and latitude and
 nothing wraps. `map.view` may hold a `projection` (`equirectangular`, `mercator` or `orthographic` with a
-`centre`), release format 21; `PUT /maps/{id}` refuses (409) a change into or out of a sphere under
+`centre`), release format 23; `PUT /maps/{id}` refuses (409) a change into or out of a sphere under
 placements. The renderer's `project` and `unproject` turn a position into the projected sheet and back
 (the pointer reaches tools as longitude and latitude), samples bend a segment, a globe is cut at its limb and its
 far side draws nothing, and lines of longitude and latitude are the sphere's grid. Maps adds the sphere
