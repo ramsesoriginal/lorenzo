@@ -263,7 +263,7 @@ def test_a_missing_api_url_says_how_to_remember_one(tmp_path: Path) -> None:
     assert result.exit_code == 1
     said = " ".join(result.output.split())  # the terminal wraps long lines
     assert "LORENZO_API_URL" in said
-    assert "lorenzo login --api-url" in said
+    assert "lorenzo --api-url ... login" in said
     assert "the issuer here names another" in said
 
 
