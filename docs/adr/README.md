@@ -329,6 +329,24 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0324 - Bulk reads for calendar periods and day content](0324-bulk-reads-for-calendar-periods-and-day-content.md) — periods with coordinates and by id, per-year period summaries in one request, and an idempotent batch materialize, all additive and visibility-gated
 - [0325 - One read cache, and what it may hold](0325-one-read-cache-and-what-it-may-hold.md) — `packages/read-cache`: viewer-scoped stale-while-revalidate in memory for private data, `sessionStorage` only for `/me`, `/tenants` and `/app-links`, access revalidated before private data is drawn
 - [0326 - Moon phases in the icon atlas](0326-moon-phases-in-the-icon-atlas.md) — eight custom `icon-moon-*` symbols in Tabler's grammar replace the emoji
+- [0327 - Lorenzo Writing: manuscripts, editions and carriers](0327-lorenzo-writing.md) — accepted writing model and stacked vertical delivery; RFC 0047
+- [0328 - Manuscript bundles and saved revisions](0328-manuscript-bundles-and-revisions.md) — designated manuscript Information and private transaction checkpoints
+- [0329 - Writing screen and local draft recovery](0329-writing-screen-and-local-recovery.md) — shared editors, conditional autosave and account-scoped browser recovery
 - [0330 - Locations: the kind and the part-of tree](0330-locations-the-kind-and-the-part-of-tree.md) — a `location` marker kind and a single-parent, skip-level `location_part` tree separate from `containment`; the entry audience is the visibility, a hidden level is skipped without a marker, Locations are authored world content in GM reach, and nothing in the tree feeds ADR 0046
 - [0331 - A Location may be any kind](0331-a-location-may-be-any-kind.md) — every other kind may also be a Location, in both directions, proved by a generated kind-matrix test; today's refusals between other kinds stay
 - [0332 - Lorenzo Maps: a static app for Locations and, later, Maps](0332-lorenzo-maps-the-app.md) — `apps/maps` in the shape of Calendars and Sessions, desktop only, Cloudflare Pages `lorenzo-maps`; the first slice lists, nests and edits Locations
+- [0341 - Books, Editions and Chapter composition](0341-books-editions-and-chapter-composition.md)
+
+- [0342 - Scene tellings and writing references](0342-scene-tellings-and-writing-references.md) — RFC 0047 W3: reusable Scenes, shared or independent tellings, viewpoints and scoped biographies.
+
+- [0343 - Book-scoped reviewers and private review notes](0343-book-scoped-reviewers.md) — RFC 0047 W4.
+
+- [0344 - Atomic manuscript moves](0344-atomic-manuscript-moves.md) — RFC 0047 W5a.
+
+- [0345 - Extract outline elements into a Chapter](0345-extract-outline-into-chapter.md) — RFC 0047 W5b.
+
+- [0346 - Safe paragraph splits](0346-safe-paragraph-splits.md) — RFC 0047 W5c.
+
+- [0347 - Syntax-aware manuscript splits](0347-syntax-aware-manuscript-splits.md) — RFC 0047 W5d.
+
+- [0348 - Chapter joins and guarded redirects](0348-chapter-joins-and-guarded-redirects.md) — RFC 0047 W5e.
