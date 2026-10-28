@@ -688,3 +688,13 @@ PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `map` e
 PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `map` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+
+# The map kind reaches the Location routes' kinds too (their stubs carry the same enum).
+GET /tenants/{tenant_id}/locations added the new `map` enum value to the `items/items/kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/locations added the new `map` enum value to the `kinds/items/` response property for the response status `201`
+POST /tenants/{tenant_id}/locations added the new `map` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `201`
+GET /tenants/{tenant_id}/locations/{location_id} added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id} added the new `map` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `map` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `map` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id}/parts added the new `map` enum value to the `items/items/kinds/items/` response property for the response status `200`
