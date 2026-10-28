@@ -14,6 +14,7 @@ from lorenzo_api.models import (
     SceneBeing,
     SceneEvent,
     SceneFact,
+    SceneTelling,
     SessionEvent,
     SessionFact,
     StoryEvent,
@@ -58,6 +59,16 @@ async def require_no_context_references(
         raise EntityKindInUseError(
             detail="This entry has references that prevent deletion or kind removal."
         )
+    if await session.scalar(
+        select(SceneTelling.entity_id)
+        .where(
+            SceneTelling.tenant_id == tenant_id,
+            (SceneTelling.scene_entity_id == entity_id)
+            | (SceneTelling.viewpoint_entity_id == entity_id),
+        )
+        .limit(1)
+    ):
+        raise EntityKindInUseError(detail="Remove the Scene telling reference first.")
     for binding in [*SCENE_REFERENCES.values(), *SESSION_REFERENCES.values()]:
         if (
             await session.scalar(

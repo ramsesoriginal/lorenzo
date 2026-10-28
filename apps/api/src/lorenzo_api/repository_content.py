@@ -22,10 +22,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.models import (
     Being,
+    Book,
     Calendar,
     CalendarObservance,
     CalendarPeriod,
     CalendarReckoning,
+    Chapter,
     Character,
     Clock,
     ClockRelationship,
@@ -37,6 +39,7 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     Connection,
     Containment,
+    Edition,
     Entity,
     EntityAudience,
     EntityKnowledge,
@@ -60,6 +63,7 @@ from lorenzo_api.models import (
     LivedBefore,
     Location,
     LocationPart,
+    ManuscriptPlacement,
     Map,
     MapLayer,
     MapPlacement,
@@ -74,10 +78,12 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    SceneTelling,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StoryEvent,
+    WritingBiography,
 )
 from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
@@ -211,6 +217,10 @@ class Content:
     scene_events: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
     scene_beings: dict[tuple[uuid.UUID, uuid.UUID], bool] = field(default_factory=dict)
     scenes: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
+    tellings: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    writing_biographies: set[uuid.UUID] = field(default_factory=set)
+    editions: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    manuscript_placements: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     clocks: dict[uuid.UUID, bool] = field(default_factory=dict)
@@ -345,6 +355,32 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
                 )
             },
         )
+    c.tellings = {
+        e: {"scene": scene, "viewpoint": viewpoint, "shared": shared}
+        for e, scene, viewpoint, shared in await rows(
+            SceneTelling.entity_id,
+            SceneTelling.scene_entity_id,
+            SceneTelling.viewpoint_entity_id,
+            SceneTelling.uses_scene_manuscript,
+            where=SceneTelling.tenant_id == t,
+        )
+    }
+    c.writing_biographies = {
+        e for (e,) in await rows(WritingBiography.entity_id, where=WritingBiography.tenant_id == t)
+    }
+    c.editions = dict(
+        await rows(Edition.entity_id, Edition.book_entity_id, where=Edition.tenant_id == t)
+    )
+    c.manuscript_placements = {
+        child: {"parent": parent, "before": before, "position": position}
+        for child, parent, before, position in await rows(
+            ManuscriptPlacement.child_entity_id,
+            ManuscriptPlacement.parent_entity_id,
+            ManuscriptPlacement.before_payload_id,
+            ManuscriptPlacement.position,
+            where=ManuscriptPlacement.tenant_id == t,
+        )
+    }
     c.scenes = dict(await rows(Scene.entity_id, Scene.period_entity_id, where=Scene.tenant_id == t))
     for entity_id in c.scenes:
         c.kinds[entity_id].add("scene")
@@ -354,6 +390,10 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         c.kinds[entity_id].add("item")
         c.in_public_catalog[entity_id] = public
     for kind, model in (
+        ("book", Book),
+        ("edition", Edition),
+        ("chapter", Chapter),
+        ("scene_telling", SceneTelling),
         ("item_instance", ItemInstance),
         ("being", Being),
         ("character", Character),

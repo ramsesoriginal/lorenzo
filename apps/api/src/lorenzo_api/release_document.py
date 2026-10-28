@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 23
+FORMAT = 25
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -441,6 +441,23 @@ _CONTENT = _dataclass(
         "scene_events": _keyed(_PLAIN),
         "scene_beings": _keyed(_PLAIN),
         "scenes": _id_map(_optional(_ID)),
+        "editions": _id_map(_ID),
+        "tellings": _id_map(
+            _record(
+                {"scene": _ID, "viewpoint": _optional(_ID), "shared": _PLAIN},
+                name="Content.tellings",
+            )
+        ),
+        "writing_biographies": _Codec(
+            lambda rows, f: [str(i) for i in sorted(rows)],
+            lambda rows, f: {uuid.UUID(i) for i in rows},
+        ),
+        "manuscript_placements": _id_map(
+            _record(
+                {"parent": _ID, "before": _optional(_ID), "position": _PLAIN},
+                name="Content.manuscript_placements",
+            )
+        ),
         "observances": _id_map(
             _record({"calendar": _ID, "rule": _PLAIN}, name="Content.observances")
         ),
@@ -533,41 +550,49 @@ def _read_v14(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v15(document: Document, files: Mapping[str, bytes]) -> Content:
-    return _read_v16({**document, "location_parts": {}}, files)
+    return _read_v16({**document, "editions": {}, "manuscript_placements": {}}, files)
 
 
 def _read_v16(document: Document, files: Mapping[str, bytes]) -> Content:
-    return _read_v17({**document, "entity_locations": {}}, files)
+    return _read_v17({**document, "tellings": {}, "writing_biographies": []}, files)
 
 
 def _read_v17(document: Document, files: Mapping[str, bytes]) -> Content:
-    return _read_v18({**document, "maps": {}, "map_placements": []}, files)
+    return _read_v18({**document, "location_parts": {}}, files)
 
 
 def _read_v18(document: Document, files: Mapping[str, bytes]) -> Content:
-    maps = {key: {**record, "theme": None} for key, record in document["maps"].items()}
-    return _read_v19({**document, "maps": maps}, files)
+    return _read_v19({**document, "entity_locations": {}}, files)
 
 
 def _read_v19(document: Document, files: Mapping[str, bytes]) -> Content:
-    maps = {key: {**record, "view": None} for key, record in document["maps"].items()}
-    return _read_v20({**document, "maps": maps}, files)
+    return _read_v20({**document, "maps": {}, "map_placements": []}, files)
 
 
 def _read_v20(document: Document, files: Mapping[str, bytes]) -> Content:
-    # Format 21 only widens what a Map's system and view may hold (ADR 0357): nothing to add.
-    return _read_v21(document, files)
+    maps = {key: {**record, "theme": None} for key, record in document["maps"].items()}
+    return _read_v21({**document, "maps": maps}, files)
 
 
 def _read_v21(document: Document, files: Mapping[str, bytes]) -> Content:
-    return _read_v22({**document, "map_layers": {}}, files)
+    maps = {key: {**record, "view": None} for key, record in document["maps"].items()}
+    return _read_v22({**document, "maps": maps}, files)
 
 
 def _read_v22(document: Document, files: Mapping[str, bytes]) -> Content:
-    return _read_v23({**document, "connections": {}}, files)
+    # Format 23 only widens what a Map's system and view may hold (ADR 0357): nothing to add.
+    return _read_v23(document, files)
 
 
 def _read_v23(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v24({**document, "map_layers": {}}, files)
+
+
+def _read_v24(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v25({**document, "connections": {}}, files)
+
+
+def _read_v25(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -598,6 +623,8 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     21: _read_v21,
     22: _read_v22,
     23: _read_v23,
+    24: _read_v24,
+    25: _read_v25,
 }
 
 
