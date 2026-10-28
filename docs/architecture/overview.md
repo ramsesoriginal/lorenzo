@@ -420,6 +420,12 @@ statement, counting only associations whose period and calendar the reader sees)
 without the parameters the response is byte for byte what it was. Maps shows the shared period picker, read only and
 empty by default, over the list, only when the library has a calendar.
 
+The date lens on Locations (RFC 0048 slice 14, ADR 0374 and 0375, 2026-10-28; the last slice): `GET /locations` takes
+the same `tied_*` and `exclude_other` parameters and answers the same `tie`, from one validating function
+(`date_lens.py`, which the Maps list now uses too) so the two lists cannot drift. The flat list only: a date with
+`root=true` is a 422, the parts read takes none, and a date is never inherited through part-of. The Locations page
+shows the same control and words, and lists by name while a date is chosen, bringing the tree back on clearing.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.

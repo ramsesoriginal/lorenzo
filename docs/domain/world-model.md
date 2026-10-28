@@ -122,8 +122,11 @@ looked at through a date: each Map is *tied to* it (it is tied to that day, to i
 no "today" and no nearest or latest Map, a date a reader cannot see counts as no date, and it never says anything
 *existed at* a date
 ([ADR 0371](../adr/0371-the-periods-a-date-is-tied-through.md), [ADR 0372](../adr/0372-the-date-lens-on-the-maps-list.md),
-[ADR 0373](../adr/0373-the-date-lens-in-lorenzo-maps.md)). The same lens for Locations comes in a later slice of
-[RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md).
+[ADR 0373](../adr/0373-the-date-lens-in-lorenzo-maps.md)). The Locations list takes the same lens, by the same rule,
+so a Location and a Map tied to the same dates read alike; a Location's date is its own and is never passed to what is
+part of it, and while a date is chosen the page lists Locations by name instead of as a tree
+([ADR 0374](../adr/0374-the-date-lens-on-the-locations-list.md),
+[ADR 0375](../adr/0375-the-date-lens-on-locations-in-lorenzo-maps.md)).
 
 ## Sessions, Scenes and personal lived order
 
