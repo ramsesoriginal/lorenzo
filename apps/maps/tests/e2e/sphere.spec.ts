@@ -123,7 +123,7 @@ test('a writer makes a sphere with a radius and a globe projection, and it is sa
     // A sphere's sheet has no width or height to ask for.
     await expect(page.getByLabel('Width', { exact: true })).toBeHidden();
     await page.getByLabel("The world's radius (optional)").fill('6371');
-    await page.getByLabel('of (a unit)').filter({ visible: true }).fill('km');
+    await page.getByLabel('Unit of the radius').fill('km');
     await page.getByRole('combobox', { name: 'The sphere is drawn' }).selectOption('orthographic');
     await page.getByLabel('The globe faces longitude').fill('10');
     await page.getByLabel('and latitude', { exact: true }).filter({ visible: true }).fill('20');

@@ -78,7 +78,7 @@ export function systemFields(current?: System) {
   );
   radius.input.step = 'any';
   radius.input.min = '0';
-  const radiusUnit = field('of (a unit)', current?.radius?.unit ?? '');
+  const radiusUnit = field('Unit of the radius', current?.radius?.unit ?? '');
   const gridPart = gridBlock({
     kinds: ['square', 'rect', 'hex'],
     measured: true,
