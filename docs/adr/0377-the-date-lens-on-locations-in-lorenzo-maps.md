@@ -1,8 +1,8 @@
-# 0375 - The date lens on Locations in Lorenzo Maps
+# 0377 - The date lens on Locations in Lorenzo Maps
 
 Status: accepted with the maintainer on 2026-10-28; RFC 0048 slice 14. Extends
 [ADR 0373](0373-the-date-lens-in-lorenzo-maps.md) to the Locations page for the list of
-[ADR 0374](0374-the-date-lens-on-the-locations-list.md). Desktop only.
+[ADR 0376](0376-the-date-lens-on-the-locations-list.md). Desktop only.
 
 ## Decision
 

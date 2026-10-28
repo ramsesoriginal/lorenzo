@@ -96,7 +96,7 @@ class LocationStub(BaseModel):
 
 class LocationListItem(LocationStub):
     """A row of the Locations list. `tie` is there only when the list was asked through a date
-    (ADR 0374): `tied` to it, `other` (tied to other dates) or `untied`."""
+    (ADR 0376): `tied` to it, `other` (tied to other dates) or `untied`."""
 
     tie: Literal["tied", "untied", "other"] | None = None
 
@@ -246,7 +246,7 @@ async def list_locations(
 ) -> Page[LocationListItem]:
     """The Locations the reader may see, by name then id; with `root`, the visible roots, ordered
     by ordinal. Hidden Locations are absent: they appear in no row, count or page. Asked through
-    a date (ADR 0374), the flat list says for each whether it is `tied` to it, tied to `other`
+    a date (ADR 0376), the flat list says for each whether it is `tied` to it, tied to `other`
     dates or `untied`, in that order; a date takes no `root`."""
     vis = await standing(session, user, tenant_id)
     lens = await lens_for_request(

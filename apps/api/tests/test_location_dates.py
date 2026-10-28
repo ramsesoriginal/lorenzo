@@ -1,4 +1,4 @@
-"""The date lens on the Locations list (ADR 0374), held to the Maps list's own results: one rule,
+"""The date lens on the Locations list (ADR 0376), held to the Maps list's own results: one rule,
 two lists."""
 
 from typing import Any

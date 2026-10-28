@@ -28,6 +28,6 @@ export function leftWords(count: number, what: 'Map' | 'Location' = 'Map'): stri
   return `${count} ${count === 1 ? what : `${what}s`} left.`;
 }
 
-/** Said under the Locations while a date is chosen: the tree gives way to a list (ADR 0375). */
+/** Said under the Locations while a date is chosen: the tree gives way to a list (ADR 0377). */
 export const LIST_NOTE =
   'With a date chosen the Locations are listed by name, not by where they are.';

@@ -1,4 +1,4 @@
-# 0374 - The date lens on the Locations list
+# 0376 - The date lens on the Locations list
 
 Status: accepted with the maintainer on 2026-10-28; RFC 0048 slice 14, the last of the slices. The lens of
 [ADR 0372](0372-the-date-lens-on-the-maps-list.md) on the Locations list, by the same rule and the same code.

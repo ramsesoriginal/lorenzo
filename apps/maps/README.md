@@ -47,8 +47,8 @@ be looked at through a date, chosen with the shared period picker, saying which 
 date or tied to other dates ([ADR 0371](../../docs/adr/0371-the-periods-a-date-is-tied-through.md) to
 [ADR 0373](../../docs/adr/0373-the-date-lens-in-lorenzo-maps.md)); the Locations page has the same control, and
 lists Locations by name instead of as a tree while a date is chosen
-([ADR 0374](../../docs/adr/0374-the-date-lens-on-the-locations-list.md),
-[ADR 0375](../../docs/adr/0375-the-date-lens-on-locations-in-lorenzo-maps.md)). *Look* and
+([ADR 0376](../../docs/adr/0376-the-date-lens-on-the-locations-list.md),
+[ADR 0377](../../docs/adr/0377-the-date-lens-on-locations-in-lorenzo-maps.md)). *Look* and
 a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md)). The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.

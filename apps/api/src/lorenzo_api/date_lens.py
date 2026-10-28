@@ -1,4 +1,4 @@
-"""The date lens on the entry lists (ADR 0372, 0374): is an entry tied to a date, to other dates, or
+"""The date lens on the entry lists (ADR 0372, 0376): is an entry tied to a date, to other dates, or
 to none, as the reader sees it.
 
 Read only, over the existing `entry_calendar_period`. An association counts when the reader sees its
@@ -108,7 +108,7 @@ async def lens_for_request(
     exclude_other: bool,
 ) -> DateLens | None:
     """The lens a list was asked through, or None when it was not asked for one. The one place the
-    Maps list and the Locations list validate a date, so they answer alike (ADR 0374)."""
+    Maps list and the Locations list validate a date, so they answer alike (ADR 0376)."""
     if calendar_id is None:
         if any(v is not None for v in (year, segment, day)) or exclude_other:
             raise InvalidDateError(detail="A date needs its Calendar")

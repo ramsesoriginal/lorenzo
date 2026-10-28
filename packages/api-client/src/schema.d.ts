@@ -3125,7 +3125,7 @@ export interface paths {
          * List Locations
          * @description The Locations the reader may see, by name then id; with `root`, the visible roots, ordered
          *     by ordinal. Hidden Locations are absent: they appear in no row, count or page. Asked through
-         *     a date (ADR 0374), the flat list says for each whether it is `tied` to it, tied to `other`
+         *     a date (ADR 0376), the flat list says for each whether it is `tied` to it, tied to `other`
          *     dates or `untied`, in that order; a date takes no `root`.
          */
         get: operations["list_locations"];
@@ -10517,7 +10517,7 @@ export interface components {
         /**
          * LocationListItem
          * @description A row of the Locations list. `tie` is there only when the list was asked through a date
-         *     (ADR 0374): `tied` to it, `other` (tied to other dates) or `untied`.
+         *     (ADR 0376): `tied` to it, `other` (tied to other dates) or `untied`.
          */
         LocationListItem: {
             /**

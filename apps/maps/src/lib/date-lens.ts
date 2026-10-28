@@ -1,4 +1,4 @@
-// The date lens over the Maps list and the Locations list (ADR 0373, 0375): the shared period
+// The date lens over the Maps list and the Locations list (ADR 0373, 0377): the shared period
 // picker, one choice and read only, beside a way to leave out what is tied only to other dates. It
 // opens empty, has no "today" and is not on the page at all when the library has no calendar.
 import { createPeriodPicker, loadCalendars } from '@lorenzo/period-picker';

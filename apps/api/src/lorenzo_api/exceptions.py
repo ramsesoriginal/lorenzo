@@ -1457,7 +1457,7 @@ class EventOrderPreconditionRequiredError(StatusProblem):
 class InvalidDateError(UnprocessableProblem):
     """A date a list is asked to be looked at through that the rules of ADR 0372 refuse: no
     calendar or year, a day without its month, a coordinate that is not one, or a date with the
-    tree of roots (ADR 0374)."""
+    tree of roots (ADR 0376)."""
 
     title = "That is not a date we can look through"
 

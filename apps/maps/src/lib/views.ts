@@ -67,7 +67,7 @@ export async function mountHome() {
   }
 }
 
-/** The roots of the tree, or the flat list when searching or when a date is asked for (ADR 0375). */
+/** The roots of the tree, or the flat list when searching or when a date is asked for (ADR 0377). */
 async function roots(tenant: string, q?: string, date: ReturnType<typeof dateQuery> = {}) {
   const dated = Object.keys(date).length > 0;
 

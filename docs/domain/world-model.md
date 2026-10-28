@@ -125,8 +125,8 @@ no "today" and no nearest or latest Map, a date a reader cannot see counts as no
 [ADR 0373](../adr/0373-the-date-lens-in-lorenzo-maps.md)). The Locations list takes the same lens, by the same rule,
 so a Location and a Map tied to the same dates read alike; a Location's date is its own and is never passed to what is
 part of it, and while a date is chosen the page lists Locations by name instead of as a tree
-([ADR 0374](../adr/0374-the-date-lens-on-the-locations-list.md),
-[ADR 0375](../adr/0375-the-date-lens-on-locations-in-lorenzo-maps.md)).
+([ADR 0376](../adr/0376-the-date-lens-on-the-locations-list.md),
+[ADR 0377](../adr/0377-the-date-lens-on-locations-in-lorenzo-maps.md)).
 
 ## Sessions, Scenes and personal lived order
 
