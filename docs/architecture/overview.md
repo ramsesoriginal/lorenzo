@@ -387,7 +387,7 @@ hub of up to 50 spokes in one transaction at `POST /connections/hub`). A connect
 who sees the entry and both ends, in SQL, so a hidden end leaves no trace; connections are in the GMs' reach as
 authored content and no reach code reads an end. `GET /maps/{id}/links` derives, at read time and from the ends
 alone, what the places drawn on a Map lead to with the direction and the other Maps the far end is on. Release
-format 23 carries `connections`; a copy writes one only with both ends and an update applies its ends as one unit.
+format 25 carries `connections`; a copy writes one only with both ends and an update applies its ends as one unit.
 Maps adds a Connections section to the Location page and a Leads to list to a placed entry's side panel.
 
 ### What's next
