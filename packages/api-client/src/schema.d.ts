@@ -9800,6 +9800,21 @@ export interface components {
              */
             frame_entity_id: string;
         };
+        /** FrameMembershipOut */
+        FrameMembershipOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Axis */
+            axis: string;
+            /**
+             * Frame Entity Id
+             * Format: uuid
+             */
+            frame_entity_id: string;
+        };
         /** FrameOut */
         FrameOut: {
             entry: components["schemas"]["EntryStub"];
@@ -11267,7 +11282,7 @@ export interface components {
             /** Picture Url */
             picture_url: string;
             /** Memberships */
-            memberships: components["schemas"]["lorenzo_api__schemas__users__MembershipOut"][];
+            memberships: components["schemas"]["MembershipOut"][];
             /** Players */
             players: components["schemas"]["MePlayerOut"][];
             /** Campaign Gm Grants */
@@ -11366,6 +11381,19 @@ export interface components {
              * @enum {string}
              */
             role: "owner" | "orga" | "author";
+        };
+        /**
+         * MembershipOut
+         * @description A tenant-wide administrative access grant - see ADR 0022/0023.
+         */
+        MembershipOut: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Role */
+            role: string;
         };
         /**
          * MembershipRosterEntryOut
@@ -15394,34 +15422,6 @@ export interface components {
             year: number;
             /** Segments */
             segments: components["schemas"]["SegmentPreview"][];
-        };
-        /** MembershipOut */
-        lorenzo_api__routers__frames__MembershipOut: {
-            /**
-             * Entity Id
-             * Format: uuid
-             */
-            entity_id: string;
-            /** Axis */
-            axis: string;
-            /**
-             * Frame Entity Id
-             * Format: uuid
-             */
-            frame_entity_id: string;
-        };
-        /**
-         * MembershipOut
-         * @description A tenant-wide administrative access grant - see ADR 0022/0023.
-         */
-        lorenzo_api__schemas__users__MembershipOut: {
-            /**
-             * Tenant Id
-             * Format: uuid
-             */
-            tenant_id: string;
-            /** Role */
-            role: string;
         };
         /** Problem */
         Problem: {
@@ -30977,7 +30977,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["lorenzo_api__routers__frames__MembershipOut"];
+                    "application/json": components["schemas"]["FrameMembershipOut"];
                 };
             };
             /** @description Validation Error */
