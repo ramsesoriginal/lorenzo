@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
 from typing import Any
 
 Node = dict[str, Any]
@@ -161,7 +162,8 @@ def _parent(fields: Node) -> Callable[[list[Node]], Node]:
 
 
 class _Inline:
-    def __init__(self, src: str) -> None:
+    def __init__(self, src: str, destinations: list[str] | None = None) -> None:
+        self.destinations = destinations
         self.src = src
         self.nodes: list[Node] = []
         self.brackets: list[Node] = []  # {at, image, active}
@@ -266,6 +268,8 @@ class _Inline:
                     i += 1
                     continue
                 url, end = dest
+                if self.destinations is not None:
+                    self.destinations.append(url)
                 link: Node = {"type": "image" if bracket["image"] else "link"}
                 if ref := _entity_ref(url):
                     link["ref"] = ref
@@ -312,8 +316,8 @@ class _Inline:
         return _literal(_resolve_emphasis(self.nodes))
 
 
-def parse_inline(src: str) -> list[Node]:
-    return _Inline(src).parse()
+def parse_inline(src: str, *, destinations: list[str] | None = None) -> list[Node]:
+    return _Inline(src, destinations).parse()
 
 
 Token = tuple[Node, int] | None
@@ -740,8 +744,24 @@ def _trailing_attrs(text: str) -> str:
     return rest if len(rest) < at or at == 0 else text
 
 
+@dataclass
+class SplitStructure:
+    """Top-level line starts and conservative heading families, from one parser pass.
+
+    Line numbers address the normalized lines; the caller maps them to untouched source.
+    This analysis is separate from the reference AST, whose contract stays unchanged.
+    """
+
+    starts: list[int] = field(default_factory=list)
+    headings: dict[str, list[int]] = field(default_factory=dict)
+    destinations: list[str] = field(default_factory=list)
+    document_wide: bool = False
+
+
 class _Parser:
-    def __init__(self) -> None:
+    def __init__(self, structure: SplitStructure | None = None) -> None:
+        self.structure = structure
+        self.owner = 0
         self.footnotes: dict[str, list[Node]] = {}
         self.depth = 0
 
@@ -752,6 +772,9 @@ class _Parser:
             if _blank(lines[i]):
                 i += 1
                 continue
+            if self.structure is not None and self.depth == 0:
+                self.owner = i
+                self.structure.starts.append(i)
             found = _match(lines, i)
             if found:
                 block, i = getattr(self, found[0][2])(lines, i, found[1])
@@ -765,28 +788,45 @@ class _Parser:
         """A container's content, one level deeper. The last level holds only text."""
         if self.depth >= MAX_NESTING - 1:
             text = _trim("\n".join(lines))
-            return [{"type": "paragraph", "children": parse_inline(text)}] if text else []
+            return [{"type": "paragraph", "children": self.inlines(text)}] if text else []
         self.depth += 1
         try:
             return self.blocks(lines)
         finally:
             self.depth -= 1
 
+    def inlines(self, source: str) -> list[Node]:
+        return parse_inline(
+            source, destinations=self.structure.destinations if self.structure is not None else None
+        )
+
     def paragraph(self, lines: Lines, i: int) -> tuple[Node, int]:
         j = i + 1
         while j < len(lines) and not _blank(lines[j]) and not _interrupts(lines, j):
             j += 1
         text = "\n".join(line.lstrip(_WS) for line in lines[i:j]).rstrip(_WS)
-        return {"type": "paragraph", "children": parse_inline(text)}, j
+        return {"type": "paragraph", "children": self.inlines(text)}, j
 
     def heading(self, lines: Lines, i: int, m: Match) -> tuple[Node, int]:
         text = _trim(re.sub(r"(^|[ \t])#+\Z", "", _trim(m[2]), count=1))
-        return {"type": "heading", "children": parse_inline(_trailing_attrs(text))}, i + 1
+        content = _trailing_attrs(text)
+        children = self.inlines(content)
+        if self.structure is not None:
+            explicit = ""
+            if content != text:
+                match = _ATTR_BLOCK.fullmatch(text, text.rfind("{"))
+                if match:
+                    explicit = attributes(match[1])["id"]
+            key = explicit or slugify(plain_text(children)) or "section"
+            self.structure.headings.setdefault(key, []).append(self.owner)
+        return {"type": "heading", "children": children}, i + 1
 
     def rule(self, lines: Lines, i: int, m: Match) -> tuple[Node, int]:
         return {"type": "rule"}, i + 1
 
     def toc(self, lines: Lines, i: int, m: Match) -> tuple[Node, int]:
+        if self.structure is not None:
+            self.structure.document_wide = True
         return {"type": "toc"}, i + 1
 
     def indented_code(self, lines: Lines, i: int, m: Match) -> tuple[Node, int]:
@@ -853,6 +893,8 @@ class _Parser:
         return None, j
 
     def abbreviation(self, lines: Lines, i: int, m: Match) -> tuple[None, int]:
+        if self.structure is not None:
+            self.structure.document_wide = True
         return None, i + 1
 
     def table(self, lines: Lines, i: int, m: Match) -> tuple[Node, int]:
@@ -861,9 +903,9 @@ class _Parser:
         j = i + 2
         while j < len(lines) and not _blank(lines[j]) and not _interrupts(lines, j):
             row = _cells(lines[j])
-            rows.append([parse_inline(row[k] if k < len(row) else "") for k in range(len(head))])
+            rows.append([self.inlines(row[k] if k < len(row) else "") for k in range(len(head))])
             j += 1
-        return {"type": "table", "head": [parse_inline(c) for c in head], "rows": rows}, j
+        return {"type": "table", "head": [self.inlines(c) for c in head], "rows": rows}, j
 
     def list_block(self, lines: Lines, i: int, first: Match) -> tuple[Node, int]:
         items: list[Node] = []
@@ -921,14 +963,26 @@ def _sibling(line: str, of: str) -> Match | None:
     return m if m and (m[2] or m[4]) == of and not _RULE.match(line) else None
 
 
-def parse(source: str) -> Node:
-    """The syntax tree: `children` blocks, and `footnotes`, one per label, first wins."""
+def _source_lines(source: str) -> Lines:
     text = re.sub(r"\r\n?", "\n", source).replace("\0", "\ufffd")
     # A final newline ends the last line; it doesn't start another one.
     if text.endswith("\n"):
         text = text[:-1]
+    return [_expand_tabs(line) for line in text.split("\n")]
+
+
+def split_structure(source: str) -> SplitStructure:
+    """Analyze complete blocks using the same grammar and nesting limits as references."""
+    structure = SplitStructure()
+    _Parser(structure).blocks(_source_lines(source))
+    structure.document_wide |= any(url.startswith("#") for url in structure.destinations)
+    return structure
+
+
+def parse(source: str) -> Node:
+    """The syntax tree: `children` blocks, and `footnotes`, one per label, first wins."""
     parser = _Parser()
-    children = parser.blocks([_expand_tabs(line) for line in text.split("\n")])
+    children = parser.blocks(_source_lines(source))
     return {"children": children, "footnotes": list(parser.footnotes.values())}
 
 
