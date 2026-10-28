@@ -1,6 +1,6 @@
 # Lorenzo Calendars
 
-Calendar authoring and browsing for a library or repository: static Astro and plain TypeScript, the shared brand, Authgear PKCE and the typed API client. [ADR 0311](../../docs/adr/0311-calendar-documents-import-and-app.md) records this slice; [the calendar file guide](../../docs/guides/calendar-file-format.md) covers CLI import and the offline donjon converter.
+Calendar authoring and browsing for a library or repository: static Astro and plain TypeScript, the shared brand, Authgear PKCE and the typed API client. [ADR 0311](../../docs/adr/0311-calendar-documents-import-and-app.md) records it; [the calendar file guide](../../docs/guides/calendar-file-format.md) covers CLI import and the offline donjon converter.
 
 ## Using it
 
@@ -18,7 +18,7 @@ Readers can open **Order and causes** on an Event they can see ([ADR 0315](../..
 
 Authors, GMs and full-visibility Owners/Organizers can also add/remove assertions and use **Share relationship** or **Make relationship private** on each relationship. Existing and newly created assertions start private. Sharing does not open either Event or its Information. Happened before and Caused on the same pair have independent sharing choices. Conflicting edits retain the selection and require refreshing saved relationships before retrying. Ordering edits remain unavailable to players and administrators using an opt-out.
 
-Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Expanded clocks, calendar placement/inheritance, today, full historical knowledge and time travel remain later work.
+Import is through `lorenzo calendar import`; this app has no import UI. Event creation and date association are two API writes. A failed association keeps the form and identifies the created entry so it can be completed without deliberately making another event. Calendar placement/inheritance, today, full historical knowledge and time travel are not built.
 
 The **Events** page creates undated Events, searches their names, and offers Authors/GM participant filters, and all readers permitted causal filters and story order ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
 Causal filters follow causes in either direction from one Event; branches remain independent.
@@ -40,7 +40,7 @@ calendar links through the app registry.
 
 In-app links keep a bounded session-memory cache and revalidate the account, library role
 and Event-order capability before a protected view is drawn. Full-visibility staff can reuse
-recent responses (10 seconds, at most 64 bodies / 2 MiB, with oversized bodies skipped).
+recent responses (10 seconds; the cache limits are in [`packages/read-cache`](../../packages/read-cache/README.md)).
 Other readers deduplicate simultaneous requests but fetch private content afresh on entering
 a view. Slug lookups always stay fresh; cache identities use resolved UUIDs. Writes invalidate
 reads before and after the request, and late reads cannot repopulate an invalidated cache.
@@ -76,7 +76,7 @@ The browser fixtures import the supplied nineteen-segment, 387-day calendar stru
 
 ## Hosting
 
-The app is deployed at [lorenzo-calendars.pages.dev](https://lorenzo-calendars.pages.dev/). Follow [calendars-setup.md](../../docs/operations/calendars-setup.md). Other app addresses come from `GET /app-links`; the API's optional `CALENDARS_URL` overrides the planned Pages address.
+The production app is at [lorenzo-calendars.pages.dev](https://lorenzo-calendars.pages.dev/); [calendars-setup.md](../../docs/operations/calendars-setup.md) records its setup procedure. Other app addresses come from `GET /app-links`; the API's optional `CALENDARS_URL` overrides the default Pages address.
 
 ## Optional learning records
 
@@ -105,7 +105,7 @@ control; individual grants remain additive. Information on an Event has its own 
 checkbox. These live audiences follow current participating beings controlled through player
 seats; removing participation removes this route to access, without recording learning or
 permanent memory. Facts have no Participants audience. Copies retain the flags locally and
-release format 10 preserves them; older releases default false.
+release documents preserve them (since release format 10); older releases default false.
 
 Event managers can open Create group from event participants, review the current beings and
 choose a group name. Creation takes a versioned snapshot, including untracked NPCs. It never
@@ -141,8 +141,7 @@ or be deleted until dependencies are resolved. Browsing creates no periods or re
 
 Repository copies remap clock dependencies, retain local values and preserve sharing choices.
 Entered records participate in release digests and explicit three-way update review. Missing
-clock dependencies are reported in copy plans. Release format 15 retains earlier readers.
-Ratios and automatic conversion belong to the separately stacked ADR 0321 slice.
+clock dependencies are reported in copy plans. Release documents since format 15 carry clock relationships and keep earlier formats readable. Ratios and automatic conversion are described next ([ADR 0321](../../docs/adr/0321-constant-clock-ratios-and-reader-conversion.md)).
 
 On a ticking Clock, **Clock relationships and conversion** pairs it with another Clock using
 an exact ratio and, optionally, two anchor readings (ADR 0321). Preview before saving;
