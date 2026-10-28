@@ -89,6 +89,7 @@ See [docs/guides/getting-started.md](docs/guides/getting-started.md).
 | Read, play or edit a character or NPC | [`apps/beings`](apps/beings) | port 4323 |
 | Keep a calendar, its dated notes and Events | [`apps/calendars`](apps/calendars) | port 4325 |
 | Prepare a Session, its Scenes and notes | [`apps/sessions`](apps/sessions) | port 4326 |
+| Write a standalone manuscript | [`apps/writing`](apps/writing) | port 4327 |
 | Write a repository's entries | [`apps/bench`](apps/bench) | `mise run //apps/bench:dev` |
 | Work from Discord (`/inventory`, `/give`, `/drop` and more) | [`apps/loot-bot`](apps/loot-bot) | see its README for the command list |
 | Do bulk work the web apps don't | [`apps/cli`](apps/cli) | `uv tool install "git+https://github.com/ramsesoriginal/lorenzo#subdirectory=apps/cli"` |
