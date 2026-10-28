@@ -124,9 +124,9 @@ Rendered at 1280 px (phones at 390 px) with Playwright. If a screen and the prot
 | [11 Dark theme](screens/11-dark-play.png)                                                          | The same through `[data-theme="dark"]`                               |
 | [12 Where a number comes from](screens/12-why-popover.png)                                         | Armour class, in parts                                               |
 | [13 Sticky bar](screens/13-sticky-play.png)                                                        | Three numbers and the section links, kept in view                    |
-| [14 Play after damage](screens/14-play-after-damage.png) | Play mode after a change, with undo offered |
-| [15 Phone, sticky mode](screens/15-phone-sticky-mode.png) | The sticky bar with the mode switch on a phone |
-| [16 Phone, adjuster](screens/16-phone-adjuster.png) | The number adjuster on a phone |
+| [14 Play after damage](screens/14-play-after-damage.png)                                           | Play mode after a change, with undo offered                          |
+| [15 Phone, sticky mode](screens/15-phone-sticky-mode.png)                                          | The sticky bar with the mode switch on a phone                       |
+| [16 Phone, adjuster](screens/16-phone-adjuster.png)                                                | The number adjuster on a phone                                       |
 
 ## What the prototype fakes
 
