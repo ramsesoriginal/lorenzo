@@ -1,6 +1,6 @@
 # GitHub repository setup (manual steps)
 
-Things configured by hand because this machine had no `gh` CLI / API token when the rest of this repo was bootstrapped. Do these once, from the GitHub web UI, as the repo owner.
+Settings configured by hand in the GitHub web UI, once, as the repo owner.
 
 ## Repository visibility
 
@@ -23,6 +23,10 @@ Settings → Actions → General → Workflow permissions → check **"Allow Git
 
 GitHub disables this by default on every repo, regardless of visibility. `release-please-action` (`.github/workflows/release.yml`) needs it to open its release PRs — it authenticates as the workflow's own `GITHUB_TOKEN`, unlike Dependabot, which has a separate exemption built into GitHub and opens PRs fine either way. Confirmed via a real failed run: release-please got as far as creating its release branch and commit, then failed on the PR-creation API call with `GitHub Actions is not permitted to create or approve pull requests.` Nothing to fix in the workflow itself — this is purely the one-time repo setting.
 
+## Release workflow push token
+
+`release.yml` pushes its `uv.lock` fix-up to the release-please branch with a personal access token, not `GITHUB_TOKEN`, so the CI run that push should start does start ([releasing.md](releasing.md)). Create a fine-grained token for this repository only with **Contents: read and write**, and store it as the repository secret `RELEASE_PLEASE_PUSH_TOKEN` (Settings → Secrets and variables → Actions → Secrets; not the `production` Environment, which `release.yml` does not use). Without it the `sync-lockfile` job fails at checkout.
+
 ## Security
 
 Settings → Code security:
@@ -41,7 +45,7 @@ Settings → General:
 
 ## Pages
 
-The static frontends use **Cloudflare Pages Git integration**, not GitHub Pages or a GitHub Actions upload. Each app needs a Cloudflare Pages project and its Authgear client; see [deployment-setup.md](deployment-setup.md) and [beings-setup.md](beings-setup.md). No GitHub Pages setting is required for these apps.
+The static frontends use **Cloudflare Pages Git integration**, not GitHub Pages or a GitHub Actions upload. Each app needs a Cloudflare Pages project and its Authgear client; see [deployment-setup.md](deployment-setup.md) and the per-app setup documents listed in the [operations index](README.md). No GitHub Pages setting is required for these apps.
 
 ## Optional, once every laptop is set up for it
 

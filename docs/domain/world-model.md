@@ -2,12 +2,14 @@
 
 A single "thing" in Lorenzo (a building, a person, an army) can be located along several independent axes at once. None of these are optional add-ons — they're all first-class, and something can be positioned on all of them simultaneously:
 
-- **Physical location.** The familiar containment hierarchy: building, in a city, in a province, in a kingdom, on a continent, on a planet.
-- **Position in space.** The planet itself sits in a solar system, in a cluster, in a sector, in a galaxy, in a galaxy cluster.
+- **Place.** The familiar "part of" hierarchy: a building, in a city, in a province, in a kingdom, on a continent, on a planet. Lorenzo keeps it as the [Locations](#locations) tree, separate from what holds what: a bag still holds what it carries.
+- **Position in space.** The planet itself sits in a solar system, in a cluster, in a sector, in a galaxy, in a galaxy cluster. This is the same Locations tree, taken up to the largest places; it is not a fifth axis.
 - **Sphere.** A parallel grouping of planets — it might line up with a solar system, or it might not. Spheres are their own axis, not a rename of "position in space."
 - **Plane.** Some planes mirror each other closely (D&D's Ethereal Plane mirrors the Material Plane); others are nothing alike. A location's plane is independent of where it sits physically or in space.
 - **Parallel reality (timeline).** The classic "one decision split history into two branches" — the same place can exist differently across timelines that diverged at some point.
 - **Multiverse.** Parallel worlds that differ in some more fundamental way than a single diverging decision — think Marvel's multiverse of Earths.
+
+Built: places and space are Locations, and plane, sphere, timeline and universe are the four axes that [frames](#frames-and-axes) cover. A multiverse is written as universe frames on a bigger universe frame. What stays proposed is a place that differs between timelines ([RFC 0026](../rfcs/0026-world-model-axes-and-address.md)).
 
 ## Why this isn't one hierarchy
 
@@ -22,9 +24,11 @@ How far this needs to be modeled — a shared "true" timeline versus many indepe
 - **Authored calendars.** A calendar is an entry with its own months, festivals, weeks and moons. Dates are positions in that calendar, calculated by the API, and never a clock reading or a "today" ([ADR 0308](../adr/0308-authored-calendars-and-calculation.md) to [0311](../adr/0311-calendar-documents-import-and-app.md)).
 - **Explicit Event order.** Events relate by explicit "happened before" and "causes" assertions in one graph that cannot loop. A date, a Scene or a Session never creates an assertion ([ADR 0312](../adr/0312-explicit-event-order-and-causality.md), [0315](../adr/0315-reader-scoped-event-order-and-sharing.md)).
 - **Participation and learning.** Who took part in an Event, and optionally when someone learned of it, are separate records ([ADR 0313](../adr/0313-event-participation-browsing-and-calendar-addresses.md), [0314](../adr/0314-optional-event-learning-records.md)).
+- **Dated notes and associations.** Notes can sit on a day, a month or a year of a calendar, Events and Facts can be tied to a calendar period, and a calendar can name recurring observances. None of these creates an order, or says that something "existed at" a date ([ADR 0309](../adr/0309-calendar-periods-events-and-date-associations.md), [ADR 0310](../adr/0310-recurring-calendar-observances.md)).
+- **Clocks.** A clock is an entry that either ticks or is timeless; one that is not said to be either is simply not modeled. An Event can carry a reading on a clock, a calendar can be reckoned on a clock, and two clocks can be related by one constant ratio so a reading converts from one to the other. Nothing is assumed or guessed: no default clock, and no "today" ([ADR 0320](../adr/0320-explicit-clocks-readings-and-reckonings.md), [ADR 0321](../adr/0321-constant-clock-ratios-and-reader-conversion.md)).
 - **Personal lived order.** What one being experienced before what, below.
 
-Clocks that run at different rates, branching or looping timelines, and the state of the world as of a date are not built. The non-containment address axes are likewise proposed in [RFC 0026](../rfcs/0026-world-model-axes-and-address.md).
+Clocks whose rate changes, branching or looping timelines, and the state of the world as of a date are not built. Nor is a place that differs between timelines: the frames and axes of [Frames and axes](#frames-and-axes) are built, the rest of [RFC 0026](../rfcs/0026-world-model-axes-and-address.md) is not.
 
 ## Locations
 
@@ -46,6 +50,8 @@ it is not the character's own place), elsewhere, or unknown, using only what tha
 where it is and every Location above that, and what a Location is itself within) and a list of
 probable mistakes in the library's places, such as a place the players cannot see
 ([ADR 0335](../adr/0335-the-gms-address-and-the-location-lint.md)).
+
+## Maps
 
 A Map is an entry too, of the `map` kind, and may be any other kind as well. It says what its
 positions mean (a flat plane in the Map's own units, or an outline with no measure) and holds
@@ -77,7 +83,7 @@ in drawing units, and may lie anywhere on the sheet; the editor can snap to the 
 region as a set of whole cells ([ADR 0355](../adr/0355-the-cell-functions-and-drawing-a-grid.md),
 [ADR 0356](../adr/0356-authoring-on-a-grid.md)). Turning a Map into a hex Map, out of one, or turning its
 hexes, once places are drawn, is refused, since it would move all of them.
-A Map may also be a sphere, a world whose places are given by longitude and latitude. It has
+A Map may also be a sphere (a globe Map, not the sphere axis above), a world whose places are given by longitude and latitude. It has
 no edges to wrap round: what crosses the antimeridian is two parts, and a line between two places is the
 straight line between them in longitude and latitude, never a great circle. How it is drawn (flat, as
 Mercator, or as a globe facing a chosen point) is only a look; the globe can be turned by a reader, and its far
@@ -93,6 +99,9 @@ picture is flagged for a writer to look at against the places, and to mark revie
 drawn without pictures. SVG pictures are accepted when they hold nothing that could run or fetch
 ([ADR 0360](../adr/0360-pictures-a-stored-fingerprint-svg-and-when-to-leave-postgres.md),
 [ADR 0361](../adr/0361-map-layers.md), [ADR 0362](../adr/0362-drawing-and-setting-up-pictures-in-lorenzo-maps.md)).
+
+## Connections and distance
+
 A connection joins two entries (a road, a portal, stairs, a mirror) and is an entry itself: it is named, it has a
 kind of its own as a prototype, it can carry a length as an ordinary stat, and it can be drawn on a Map as a road. It goes
 both ways or one way, and a stair shaft joining twelve floors is a Location with a connection to each floor, written
@@ -109,6 +118,9 @@ where a connection with no length makes the answer "at least" and no route at al
 never told of a road they cannot see
 ([ADR 0366](../adr/0366-straight-line-distance-on-a-map.md), [ADR 0367](../adr/0367-the-distance-read.md),
 [ADR 0368](../adr/0368-distance-in-lorenzo-maps.md)).
+
+## Frames and axes
+
 A world can also say which plane, sphere, timeline or universe something belongs to. An entry becomes a *frame* on one
 of those four axes (a plane such as the Ethereal, a timeline, a universe), and other entries are put *on* it, one frame
 per axis; a frame can itself be on a bigger frame of the same axis, which is how a multiverse is written. What an entry
@@ -116,6 +128,9 @@ is on is read from the nearest row along where it sits: itself, what holds it, i
 above that, never through its prototype. Only those who write Locations can set or read any of this, the GM's address
 shows it, and nothing a player reads changes
 ([ADR 0369](../adr/0369-frames-and-axes.md), [ADR 0370](../adr/0370-frame-resolution-and-the-gms-reads.md)).
+
+## Time on Maps and Locations
+
 A map may optionally be tied to a calendar period, and a library with no calendar never has to. The Maps list can be
 looked at through a date: each Map is *tied to* it (it is tied to that day, to its month or festival, or to its year),
 *not tied to a date*, or *tied to other dates*, in that order, and the last can be left out. Nothing is guessed, there is

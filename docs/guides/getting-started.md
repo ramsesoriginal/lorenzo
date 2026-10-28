@@ -24,7 +24,7 @@ No `.env` needed for this baseline — `apps/api`'s own config defaults already 
 
 ## The other apps
 
-Every other app is built on top of `apps/api`, so start the API first. Each web frontend needs its own `.env` (copy its `.env.example`) with an Authgear client of its own, and the API has to allow the app's local origin through CORS; the app's README says how.
+Every other app is built on top of `apps/api`, so start the API first. Each web frontend needs its own `.env` (copy its `.env.example`) with an Authgear client of its own, and the API has to allow the app's local origin through CORS. Set `CORS_ALLOWED_ORIGINS` in `apps/api/.env` to the exact origins you open the apps at, separated by spaces (`127.0.0.1` and `localhost` are different origins), and restart the API: for example `CORS_ALLOWED_ORIGINS="http://127.0.0.1:4325 http://127.0.0.1:4326"`. Without it the browser reports "blocked by CORS policy". The setting is described in [ADR 0048](../adr/0048-cors-configuration.md), and the deployed value in [deployment-setup.md](../operations/deployment-setup.md).
 
 | App | Command | Local address |
 | --- | --- | --- |
@@ -33,6 +33,8 @@ Every other app is built on top of `apps/api`, so start the API first. Each web 
 | [`apps/beings`](../../apps/beings) | `mise run //apps/beings:dev` | <http://localhost:4323> |
 | [`apps/calendars`](../../apps/calendars) | `mise run //apps/calendars:dev` | `http://127.0.0.1:4325` (the address its Authgear client allows) |
 | [`apps/sessions`](../../apps/sessions) | `mise run //apps/sessions:dev` | port 4326 |
+| [`apps/writing`](../../apps/writing) | `mise run //apps/writing:dev` | port 4327 |
+| [`apps/maps`](../../apps/maps) | `mise run //apps/maps:dev` | port 4328 |
 | [`apps/bench`](../../apps/bench) | `mise run //apps/bench:dev` | no fixed port (see below) |
 | [`apps/loot-bot`](../../apps/loot-bot) | `mise run //apps/loot-bot:dev` | port 8090 (`LOOT_BOT_HTTP_PORT`), where Discord's interactions endpoint is served |
 
@@ -42,7 +44,7 @@ Every other app is built on top of `apps/api`, so start the API first. Each web 
 
 The two inventory companions are native apps. [`apps/inventory-mobile`](../../apps/inventory-mobile), Lorenzo Inventory for Android, needs a JDK and the Android SDK: follow its [JDK/SDK setup and local APK installation](../../apps/inventory-mobile/README.md#install-or-run), then connect through account hub. [`apps/inventory-ios`](../../apps/inventory-ios), Lorenzo Inventory for iOS, needs macOS with Xcode for its native checks; see its README.
 
-What Calendars and Sessions do, from a user's side, is described in [Lorenzo Calendars](calendars.md) and [Lorenzo Sessions](sessions.md). For the shape of the whole system see [docs/architecture/overview.md](../architecture/overview.md); to add another app, see [docs/guides/adding-an-app.md](adding-an-app.md).
+What Calendars, Sessions and Maps do, from a user's side, is described in [Lorenzo Calendars](calendars.md), [Lorenzo Sessions](sessions.md) and [Lorenzo Maps](maps.md). For the shape of the whole system see [docs/architecture/overview.md](../architecture/overview.md); to add another app, see [docs/guides/adding-an-app.md](adding-an-app.md).
 
 ## Running tests
 
@@ -52,7 +54,7 @@ mise run test
 
 Root tests also include inventory-mobile's JVM and Android unit tests. Install JDK 17 with `mise install` from `apps/inventory-mobile`, and set up its Android SDK before running root checks; no emulator is needed for unit tests.
 
-`apps/api`'s `test_readyz` and `test_tracing` need the live Postgres container above; they're real connectivity checks, not mocked.
+`mise run //apps/api:test` needs the Postgres container above: every test worker clones a migrated database of its own from it.
 
 ## Troubleshooting
 
