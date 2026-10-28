@@ -71,6 +71,7 @@ from lorenzo_api.models import (
     Location,
     LocationPart,
     Map,
+    MapLayer,
     MapPlacement,
     Membership,
     Notification,
@@ -212,6 +213,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(SceneEvent, "scene_event", counted_on_purge=True),
     _rows(SceneBeing, "scene_being", counted_on_purge=True),
     _rows(Information, "information"),
+    # A layer points at the Information that holds its picture, so it comes after it (ADR 0361).
+    _rows(MapLayer, "map_layer"),
     _rows(LivedBefore, "lived_before", counted_on_purge=True),
     _rows(EventLearning, "event_learning", counted_on_purge=True),
     _rows(Payload, "payload"),

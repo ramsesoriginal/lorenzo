@@ -18,7 +18,13 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
 
-from lorenzo_map import MapDocumentError, keep_theme_hint, validate_placement
+from lorenzo_map import (
+    MapDocumentError,
+    keep_theme_hint,
+    validate_calibration,
+    validate_opacity,
+    validate_placement,
+)
 from sqlalchemy import delete, exists, func, insert, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError
@@ -97,6 +103,7 @@ from lorenzo_api.repository_content import (
     stat_group_snapshot,
 )
 from lorenzo_api.repository_upstream import is_public, load_upstream, upstream_copies
+from lorenzo_api.svg_lint import SvgRefused, check_svg
 
 CollisionKind = Literal["stat_group", "stat_definition", "slug"]
 Action = Literal["rename", "merge", "skip"]
@@ -863,10 +870,16 @@ class _Planner:
                 }
             )
             step.information += 1
-        for payload in c.payloads.values():
+        for payload_id, payload in c.payloads.items():
             local_info = local_information.get(payload.information_id)
             if local_info is None:
                 continue
+            if payload.kind == "picture" and payload.fields["file_type"] == "image/svg+xml":
+                try:
+                    check_svg(payload.fields["data"])
+                except SvgRefused:
+                    drop("payload_picture", payload_id, "its SVG is not valid here")
+                    continue
             new = uuid.uuid4()
             self.rows["payload"].append(
                 {
@@ -893,6 +906,35 @@ class _Planner:
                             "target": target_text,
                         }
                     )
+        # The pictures under a Map: a layer goes with its Information (ADR 0361), keeping the
+        # fingerprint it was reviewed against, since the bytes are the same.
+        for drawn_on, layers in c.map_layers.items():
+            if not copies("entity", drawn_on):
+                continue
+            for position, layer in enumerate(layers):
+                local_info = local_information.get(uuid.UUID(layer["information"]))
+                if local_info is None:
+                    drop("map_layer", drawn_on, "its picture's Information was not copied")
+                    continue
+                try:
+                    calibration = validate_calibration(layer["calibration"])
+                    opacity = validate_opacity(layer["opacity"])
+                except MapDocumentError:
+                    drop("map_layer", drawn_on, "its calibration is not valid here")
+                    continue
+                self.rows["map_layer"].append(
+                    {
+                        "tenant_id": tenant_id,
+                        "map_entity_id": self.local["entity"][drawn_on],
+                        "position": position,
+                        "information_id": local_info,
+                        "calibration": calibration,
+                        "opacity": opacity,
+                        "reviewed_sha256": None
+                        if layer["reviewed"] is None
+                        else bytes.fromhex(layer["reviewed"]),
+                    }
+                )
         for e, knower in c.entry_knowledge:
             if copies("entity", e):
                 target = self._local(c, "entity", knower)

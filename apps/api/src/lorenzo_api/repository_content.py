@@ -60,6 +60,7 @@ from lorenzo_api.models import (
     Location,
     LocationPart,
     Map,
+    MapLayer,
     MapPlacement,
     Ownership,
     Payload,
@@ -218,6 +219,9 @@ class Content:
     # map -> {system, subject}, and (map, entry) -> {geometry, role, style, z} (ADR 0336).
     maps: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     map_placements: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
+    # map -> its layers in order, each {information, calibration, opacity, reviewed}: `information`
+    # an id as text, `reviewed` a hex fingerprint or none (ADR 0361).
+    map_layers: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
     clock_readings: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
     clock_relationships: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
         default_factory=dict
@@ -290,8 +294,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     c = Content(tenant_id=tenant_id)
     t = tenant_id
 
-    async def rows(*columns: Any, where: Any) -> Any:
-        return (await session.execute(select(*columns).where(where))).all()
+    async def rows(*columns: Any, where: Any, order_by: tuple[Any, ...] = ()) -> Any:
+        return (await session.execute(select(*columns).where(where).order_by(*order_by))).all()
 
     for entity_id, name in await rows(Entity.id, Entity.name, where=Entity.tenant_id == t):
         c.entities[entity_id] = name
@@ -691,6 +695,24 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=MapPlacement.tenant_id == t,
         )
     }
+    for drawn_on, _position, info, calibration, opacity, reviewed in await rows(
+        MapLayer.map_entity_id,
+        MapLayer.position,
+        MapLayer.information_id,
+        MapLayer.calibration,
+        MapLayer.opacity,
+        MapLayer.reviewed_sha256,
+        where=MapLayer.tenant_id == t,
+        order_by=(MapLayer.map_entity_id, MapLayer.position),
+    ):
+        c.map_layers.setdefault(drawn_on, []).append(
+            {
+                "information": str(info),
+                "calibration": calibration,
+                "opacity": opacity,
+                "reviewed": None if reviewed is None else bytes(reviewed).hex(),
+            }
+        )
     c.entity_locations = dict(
         await rows(
             EntityLocation.entity_id,

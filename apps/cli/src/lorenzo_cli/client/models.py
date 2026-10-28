@@ -1093,6 +1093,35 @@ class KnowledgeEntryOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class LayerIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    information_id: UUID = Field(..., title="Information Id")
+    calibration: dict[str, Any] | None = Field(None, title="Calibration")
+    opacity: float | None = Field(None, title="Opacity")
+    reviewed: bool | None = Field(False, title="Reviewed")
+
+
+class LayerOut(BaseModel):
+    position: int = Field(..., title="Position")
+    information_id: UUID = Field(..., title="Information Id")
+    title: str = Field(..., title="Title")
+    payload_id: UUID | None = Field(None, title="Payload Id")
+    content_type: str | None = Field(None, title="Content Type")
+    sha256: str | None = Field(None, title="Sha256")
+    opacity: float | None = Field(None, title="Opacity")
+    calibration: dict[str, Any] | None = Field(None, title="Calibration")
+    needs_review: bool | None = Field(False, title="Needs Review")
+
+
+class LayersPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    layers: list[LayerIn] = Field(..., max_length=8, title="Layers")
+
+
 class LearningOut(BaseModel):
     event_entity_id: UUID = Field(..., title="Event Entity Id")
     event_name: str = Field(..., title="Event Name")
@@ -3314,6 +3343,7 @@ class MapOut(BaseModel):
     system: dict[str, Any] = Field(..., title="System")
     theme_hint: str | None = Field(None, title="Theme Hint")
     view: dict[str, Any] | None = Field(None, title="View")
+    layers: list[LayerOut] | None = Field(None, title="Layers")
     warnings: list[str] | None = Field(None, title="Warnings")
     subject: MapStub | None = None
     updated_at: AwareDatetime = Field(..., title="Updated At")

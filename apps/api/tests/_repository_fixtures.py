@@ -50,6 +50,7 @@ from lorenzo_api.models import (
     Location,
     LocationPart,
     Map,
+    MapLayer,
     MapPlacement,
     Ownership,
     Payload,
@@ -401,6 +402,39 @@ async def seed_every_content_table(
                 target="elminster",
             ),
             Knowledge(tenant_id=tenant_id, knower_entity_id=elminster.id, information_id=info.id),
+        ]
+    )
+    # A picture under the Map (ADR 0361): its own Information, a picture payload and a layer.
+    backdrop = Information(
+        tenant_id=tenant_id, entity_id=chart.id, title="Backdrop", type="picture", is_public=True
+    )
+    session.add(backdrop)
+    await session.flush()
+    backdrop_payload = Payload(tenant_id=tenant_id, information_id=backdrop.id, order=0)
+    session.add(backdrop_payload)
+    await session.flush()
+    session.add_all(
+        [
+            PayloadPicture(
+                payload_id=backdrop_payload.id,
+                tenant_id=tenant_id,
+                data=b"\x89PNG",
+                file_type="image/png",
+            ),
+            MapLayer(
+                map_entity_id=chart.id,
+                position=0,
+                information_id=backdrop.id,
+                tenant_id=tenant_id,
+                calibration={
+                    "anchors": [
+                        {"image": [0, 0], "at": [0, 0]},
+                        {"image": [1, 1], "at": [10, 10]},
+                    ]
+                },
+                opacity=0.5,
+                reviewed_sha256=hashlib.sha256(b"\x89PNG").digest(),
+            ),
         ]
     )
     session.add(

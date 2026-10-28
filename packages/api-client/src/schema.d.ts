@@ -3330,6 +3330,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/maps/{map_id}/layers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Layers
+         * @description Replaces the Map's pictures, bottom first, under `If-Match` (ADR 0361). Each is a picture of
+         *     one of the Map's own Information rows that the writer may see. A layer that stays keeps the
+         *     fingerprint it was reviewed against unless it says it was reviewed again; a new one takes the
+         *     picture as it is. A Map holding pictures the writer cannot see is not changed by them.
+         */
+        put: operations["put_layers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/maps/{map_id}/placements/{entry_id}": {
         parameters: {
             query?: never;
@@ -9763,6 +9786,64 @@ export interface components {
              */
             created_at: string;
         };
+        /** LayerIn */
+        LayerIn: {
+            /**
+             * Information Id
+             * Format: uuid
+             */
+            information_id: string;
+            /** Calibration */
+            calibration?: {
+                [key: string]: unknown;
+            } | null;
+            /** Opacity */
+            opacity?: number | null;
+            /**
+             * Reviewed
+             * @default false
+             */
+            reviewed: boolean;
+        };
+        /**
+         * LayerOut
+         * @description A picture the Map is drawn over (ADR 0361). The picture is read from
+         *     `GET /payloads/{payload_id}/content`; `payload_id`, `content_type` and `sha256` are null when
+         *     the Information holds no picture.
+         */
+        LayerOut: {
+            /** Position */
+            position: number;
+            /**
+             * Information Id
+             * Format: uuid
+             */
+            information_id: string;
+            /** Title */
+            title: string;
+            /** Payload Id */
+            payload_id?: string | null;
+            /** Content Type */
+            content_type?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Opacity */
+            opacity?: number | null;
+            /** Calibration */
+            calibration?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Needs Review
+             * @default false
+             */
+            needs_review: boolean;
+        };
+        /** LayersPut */
+        LayersPut: {
+            /** Layers */
+            layers: components["schemas"]["LayerIn"][];
+        };
         /** LearningOut */
         LearningOut: {
             /**
@@ -10202,6 +10283,8 @@ export interface components {
             view?: {
                 [key: string]: unknown;
             } | null;
+            /** Layers */
+            layers?: components["schemas"]["LayerOut"][];
             /** Warnings */
             warnings?: string[];
             subject?: components["schemas"]["MapStub"] | null;
@@ -27014,6 +27097,78 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MapPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_layers: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                map_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayersPut"];
             };
         };
         responses: {

@@ -441,6 +441,15 @@ async def test_a_copy_carries_a_map_and_its_placements_and_drops_what_is_not_val
         assert placed["map_entity_id"] == chart["entity_id"] and placed["role"] == "site"
         assert (placed["minx"], placed["miny"], placed["maxx"], placed["maxy"]) == (1, 2, 1, 2)
         assert placed["bytes"] > 0 and placed["tenant_id"] == library_id
+        # The picture under the Map goes with its Information, keeping the review fingerprint.
+        import hashlib
+
+        (layer,) = plan.rows["map_layer"]
+        backdrop = next(i for i in plan.rows["information"] if i["title"] == "Backdrop")
+        assert layer["map_entity_id"] == chart["entity_id"] and layer["position"] == 0
+        assert layer["information_id"] == backdrop["id"] and layer["opacity"] == 0.5
+        assert layer["calibration"]["anchors"][1]["at"] == [10, 10]
+        assert layer["reviewed_sha256"] == hashlib.sha256(b"\x89PNG").digest()
     finally:
         async with admin_session_factory() as session:
             for tenant_id in (library_id, repository_id):

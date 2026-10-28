@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 21
+    assert rd.FORMAT == 22
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -107,6 +107,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "entity_locations": {},
         "maps": {},
         "map_placements": [],
+        "map_layers": {},
         "clocks": {},
         "clock_readings": [],
         "clock_relationships": [],
@@ -251,3 +252,29 @@ def test_version_twenty_maps_are_read_as_they_are_written() -> None:
     content = rd.READERS[20]({**document, "maps": {str(identity): record}}, files)
 
     assert content.maps[identity] == record
+
+
+def test_version_twenty_one_maps_have_no_layers() -> None:
+    """A Map written before it could have pictures under it reads with none (ADR 0361)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "map_layers"}
+
+    assert rd.READERS[21](old, files).map_layers == {}
+
+
+def test_layers_survive_a_round_trip() -> None:
+    identity = uuid.UUID(int=80)
+    layers = [
+        {
+            "information": str(uuid.UUID(int=81)),
+            "calibration": {"anchors": [{"image": [0, 0], "at": [0, 0]}]},
+            "opacity": 0.5,
+            "reviewed": "ab" * 32,
+        }
+    ]
+    content = full_content()
+    content.map_layers = {identity: layers}
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).map_layers == {identity: layers}

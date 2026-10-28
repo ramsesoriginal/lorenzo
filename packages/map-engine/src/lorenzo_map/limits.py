@@ -19,3 +19,5 @@ MAX_CELLS = 250_000
 MAX_SUB_DIVISIONS = 16
 # Operations in one batch of placement writes (ADR 0351).
 MAX_BATCH_OPERATIONS = 100
+# Pictures under one Map (ADR 0361).
+MAX_LAYERS = 8

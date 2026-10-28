@@ -3,7 +3,7 @@
 import uuid
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Float, Integer, SmallInteger, Text, text
+from sqlalchemy import CheckConstraint, Float, Integer, LargeBinary, SmallInteger, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -68,3 +68,36 @@ class MapPlacement(Base):
     miny: Mapped[float] = mapped_column(Float)
     maxx: Mapped[float] = mapped_column(Float)
     maxy: Mapped[float] = mapped_column(Float)
+
+
+class MapLayer(Base):
+    """A picture a Map is drawn over (ADR 0361): the first picture of one of the Map's own
+    Information rows, so it is seen by those who see that row. `reviewed_sha256` is the fingerprint
+    of the picture the layer was last set up for."""
+
+    __tablename__ = "map_layer"
+    __table_args__ = (
+        CheckConstraint("position BETWEEN 0 AND 7", name="map_layer_position_range"),
+        CheckConstraint(
+            "opacity IS NULL OR opacity BETWEEN 0 AND 1", name="map_layer_opacity_range"
+        ),
+        CheckConstraint(
+            "calibration IS NULL OR jsonb_typeof(calibration) = 'object'",
+            name="map_layer_calibration_object",
+        ),
+        same_tenant_fk(
+            "map_layer_map_fkey", ["map_entity_id"], "map", ["entity_id"], ondelete="CASCADE"
+        ),
+        same_tenant_fk(
+            "map_layer_information_fkey", ["information_id"], "information", ondelete="CASCADE"
+        ),
+    )
+    map_entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    position: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    information_id: Mapped[uuid.UUID]
+    tenant_id: Mapped[TenantFk] = mapped_column(primary_key=True)
+    calibration: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB(none_as_null=True), default=None
+    )
+    opacity: Mapped[float | None] = mapped_column(Float, default=None)
+    reviewed_sha256: Mapped[bytes | None] = mapped_column(LargeBinary, default=None)

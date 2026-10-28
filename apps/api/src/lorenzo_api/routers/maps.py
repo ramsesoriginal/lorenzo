@@ -17,7 +17,11 @@ from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from lorenzo_map import (
     MAX_BATCH_OPERATIONS,
+    MAX_LAYERS,
     MapDocumentError,
+    is_sphere,
+    validate_calibration,
+    validate_opacity,
     validate_placement,
     validate_system,
     validate_theme_hint,
@@ -26,6 +30,7 @@ from lorenzo_map import (
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Select, delete, func, literal, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
 from lorenzo_api.dependencies import (
@@ -51,9 +56,13 @@ from lorenzo_api.models import (
     Entity,
     EntityAudience,
     EntitySlug,
+    Information,
     Location,
     Map,
+    MapLayer,
     MapPlacement,
+    Payload,
+    PayloadPicture,
 )
 from lorenzo_api.routers.entities import kinds_of
 from lorenzo_api.routers.locations import manages, require_manager, standing
@@ -104,11 +113,44 @@ class MapPut(BaseModel):
     view: dict[str, Any] | None = None
 
 
+class LayerOut(BaseModel):
+    """A picture the Map is drawn over (ADR 0361). The picture is read from
+    `GET /payloads/{payload_id}/content`; `payload_id`, `content_type` and `sha256` are null when
+    the Information holds no picture."""
+
+    position: int
+    information_id: uuid.UUID
+    title: str
+    payload_id: uuid.UUID | None = None
+    content_type: str | None = None
+    sha256: str | None = None
+    opacity: float | None = None
+    calibration: dict[str, Any] | None = None
+    # The picture is not the one the layer was last set up for.
+    needs_review: bool = False
+
+
+class LayerIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    information_id: uuid.UUID
+    calibration: dict[str, Any] | None = None
+    opacity: float | None = None
+    # Say that the picture, as it is now, has been looked at against the places.
+    reviewed: bool = False
+
+
+class LayersPut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    layers: list[LayerIn] = Field(max_length=MAX_LAYERS)
+
+
 class MapOut(MapStub):
     system: dict[str, Any]
     # The theme name the Map asks for; one this version does not know draws as the default.
     theme_hint: str | None = None
     view: dict[str, Any] | None = None
+    # The pictures the reader may see, bottom first (ADR 0361).
+    layers: list[LayerOut] = Field(default_factory=list)
     # What a change of the system may leave out of line, said on the write that made it.
     warnings: list[str] = Field(default_factory=list)
     # The Location it shows, only when this reader may see that Location.
@@ -199,6 +241,66 @@ async def _stubs(
     return [MapStub(id=i, name=n, slug=s, kinds=kinds[i]) for i, n, s in rows]
 
 
+async def _first_picture(
+    session: SessionDep, tenant: uuid.UUID, information_id: uuid.UUID
+) -> tuple[uuid.UUID, str, bytes] | None:
+    """(payload id, content type, SHA-256) of the first picture of an Information, by its order."""
+    found = (
+        await session.execute(
+            select(Payload.id, PayloadPicture.file_type, PayloadPicture.sha256)
+            .join(PayloadPicture, PayloadPicture.payload_id == Payload.id)
+            .where(Payload.tenant_id == tenant, Payload.information_id == information_id)
+            .order_by(Payload.order)
+            .limit(1)
+        )
+    ).first()
+    return None if found is None else (found[0], found[1], bytes(found[2]))
+
+
+async def _layer_rows(
+    session: SessionDep, tenant: uuid.UUID, map_id: uuid.UUID
+) -> list[tuple[MapLayer, Information]]:
+    """Every layer of the Map with its Information and who knows it, whoever may see it."""
+    found = await session.execute(
+        select(MapLayer, Information)
+        .join(
+            Information,
+            (Information.id == MapLayer.information_id) & (Information.tenant_id == tenant),
+        )
+        .where(MapLayer.tenant_id == tenant, MapLayer.map_entity_id == map_id)
+        .options(selectinload(Information.knowledge_links))
+        .order_by(MapLayer.position)
+    )
+    return [(layer, information) for layer, information in found.all()]
+
+
+async def _layers(
+    session: SessionDep, vis: InformationVisibility, tenant: uuid.UUID, map_id: uuid.UUID
+) -> list[LayerOut]:
+    """The layers whose Information the reader may see; the others are simply not there."""
+    out: list[LayerOut] = []
+    for layer, information in await _layer_rows(session, tenant, map_id):
+        if not vis.can_see(information):
+            continue
+        picture = await _first_picture(session, tenant, information.id)
+        current = None if picture is None else picture[2]
+        out.append(
+            LayerOut(
+                position=layer.position,
+                information_id=information.id,
+                title=information.title,
+                payload_id=None if picture is None else picture[0],
+                content_type=None if picture is None else picture[1],
+                sha256=None if current is None else current.hex(),
+                opacity=layer.opacity,
+                calibration=layer.calibration,
+                needs_review=current is not None
+                and (layer.reviewed_sha256 is None or bytes(layer.reviewed_sha256) != current),
+            )
+        )
+    return out
+
+
 async def _out(
     session: SessionDep, vis: InformationVisibility, tenant: uuid.UUID, entity: Entity
 ) -> MapOut:
@@ -232,6 +334,7 @@ async def _out(
         system=row.system,
         theme_hint=row.theme_hint,
         view=row.view,
+        layers=await _layers(session, vis, tenant, entity.id),
         subject=subject,
         updated_at=entity.updated_at,
         can_manage=manage,
@@ -376,6 +479,14 @@ async def put_map(
         if why is not None:
             raise MapSystemConflictError(detail=why)
         said = warnings(row.system, stored)
+    if is_sphere(stored) and not is_sphere(row.system):
+        layered = await session.scalar(
+            select(func.count())
+            .select_from(MapLayer)
+            .where(MapLayer.tenant_id == tenant_id, MapLayer.map_entity_id == map_id)
+        )
+        if layered:
+            raise MapSystemConflictError(detail="A Map with pictures cannot become a sphere.")
     row.system = stored
     row.subject_entity_id = body.subject_entity_id
     row.theme_hint = theme
@@ -392,6 +503,97 @@ async def put_map(
     await _commit(session, tenant_id)
     out = await _out(session, vis, tenant_id, entity)
     out.warnings = said
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+@router.put("/maps/{map_id}/layers")
+async def put_layers(
+    tenant_id: uuid.UUID,
+    map_id: uuid.UUID,
+    body: LayersPut,
+    response: Response,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> MapOut:
+    """Replaces the Map's pictures, bottom first, under `If-Match` (ADR 0361). Each is a picture of
+    one of the Map's own Information rows that the writer may see. A layer that stays keeps the
+    fingerprint it was reviewed against unless it says it was reviewed again; a new one takes the
+    picture as it is. A Map holding pictures the writer cannot see is not changed by them."""
+    vis = await require_manager(session, user, tenant_id)
+    entity = await _visible_map(session, user, tenant_id, map_id)
+    if if_match is None:
+        raise MapPreconditionRequiredError(detail="Send the Map's ETag as If-Match.")
+    check_if_match(if_match, updated_at=entity.updated_at)
+    row = await session.get(Map, map_id)
+    assert row is not None
+    wanted = [item.information_id for item in body.layers]
+    if len(set(wanted)) != len(wanted):
+        raise InvalidMapError(detail="A picture is one layer at most.")
+    if wanted and is_sphere(row.system):
+        raise InvalidMapError(detail="A sphere is drawn without pictures.")
+    checked: list[tuple[dict[str, Any] | None, float | None]] = []
+    for index, item in enumerate(body.layers):
+        try:
+            checked.append((validate_calibration(item.calibration), validate_opacity(item.opacity)))
+        except MapDocumentError as error:
+            raise InvalidMapError(detail=f"layers[{index}]: {error.reason}") from None
+    held = await _layer_rows(session, tenant_id, map_id)
+    if any(not vis.can_see(information) for _, information in held):
+        raise MapSystemConflictError(
+            detail="This Map has pictures you cannot see; someone who can must change them."
+        )
+    stamps = {layer.information_id: layer.reviewed_sha256 for layer, _ in held}
+    rows: list[MapLayer] = []
+    for position, (item, (calibration, opacity)) in enumerate(
+        zip(body.layers, checked, strict=True)
+    ):
+        information = await session.scalar(
+            select(Information)
+            .where(
+                Information.tenant_id == tenant_id,
+                Information.id == item.information_id,
+                Information.entity_id == map_id,
+            )
+            .options(selectinload(Information.knowledge_links))
+        )
+        if information is None or not vis.can_see(information):
+            raise EntityNotFoundError(detail="No such picture on this Map")
+        picture = await _first_picture(session, tenant_id, information.id)
+        current = None if picture is None else picture[2]
+        if item.reviewed or item.information_id not in stamps:
+            stamp = current
+        else:
+            stamp = stamps[item.information_id]
+        rows.append(
+            MapLayer(
+                map_entity_id=map_id,
+                position=position,
+                information_id=item.information_id,
+                tenant_id=tenant_id,
+                calibration=calibration,
+                opacity=opacity,
+                reviewed_sha256=stamp,
+            )
+        )
+    await session.execute(
+        delete(MapLayer).where(MapLayer.tenant_id == tenant_id, MapLayer.map_entity_id == map_id)
+    )
+    session.add_all(rows)
+    await session.flush()
+    entity = await touch_map(session, tenant_id=tenant_id, map_id=map_id, user_id=user.id)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="map.layers_set",
+        target_type="entity",
+        target_id=map_id,
+        detail=f"layers={len(rows)}",
+    )
+    await _commit(session, tenant_id)
+    out = await _out(session, vis, tenant_id, entity)
     response.headers["ETag"] = etag_for(out.updated_at)
     return out
 
