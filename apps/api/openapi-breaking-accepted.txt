@@ -727,3 +727,16 @@ GET /tenants/{tenant_id}/locations/{location_id} added the new `connection` enum
 PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `connection` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
 GET /tenants/{tenant_id}/locations/{location_id}/parts added the new `connection` enum value to the `items/items/kinds/items/` response property for the response status `200`
+
+# The connection kind reaches the Map routes' kinds too (their stubs carry the same enum).
+GET /tenants/{tenant_id}/maps added the new `connection` enum value to the `items/items/kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/maps added the new `connection` enum value to the `kinds/items/` response property for the response status `201`
+POST /tenants/{tenant_id}/maps added the new `connection` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `201`
+GET /tenants/{tenant_id}/maps/{map_id} added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id} added the new `connection` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id} added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id} added the new `connection` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `connection` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/placements added the new `connection` enum value to the `items/items/kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/placements/{entry_id} added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
