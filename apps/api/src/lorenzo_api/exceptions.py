@@ -1454,6 +1454,14 @@ class EventOrderPreconditionRequiredError(StatusProblem):
     title = "Read the Event relationships before changing them"
 
 
+class InvalidDateError(UnprocessableProblem):
+    """A date a list is asked to be looked at through that the rules of ADR 0372 refuse: no
+    calendar or year, a day without its month, a coordinate that is not one, or a date with the
+    tree of roots (ADR 0374)."""
+
+    title = "That is not a date we can look through"
+
+
 class InvalidMapError(UnprocessableProblem):
     """A map document or placement the validator refuses, or a limit of ADR 0337: the detail
     says which (ADR 0338)."""

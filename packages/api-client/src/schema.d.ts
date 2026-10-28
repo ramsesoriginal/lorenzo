@@ -3124,7 +3124,9 @@ export interface paths {
         /**
          * List Locations
          * @description The Locations the reader may see, by name then id; with `root`, the visible roots, ordered
-         *     by ordinal. Hidden Locations are absent: they appear in no row, count or page.
+         *     by ordinal. Hidden Locations are absent: they appear in no row, count or page. Asked through
+         *     a date (ADR 0374), the flat list says for each whether it is `tied` to it, tied to `other`
+         *     dates or `untied`, in that order; a date takes no `root`.
          */
         get: operations["list_locations"];
         put?: never;
@@ -10512,6 +10514,28 @@ export interface components {
             /** Level Ordinal */
             level_ordinal?: number | string | null;
         };
+        /**
+         * LocationListItem
+         * @description A row of the Locations list. `tie` is there only when the list was asked through a date
+         *     (ADR 0374): `tied` to it, `other` (tied to other dates) or `untied`.
+         */
+        LocationListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            /** Level Ordinal */
+            level_ordinal?: string | null;
+            /** Tie */
+            tie?: ("tied" | "untied" | "other") | null;
+        };
         /** LocationOut */
         LocationOut: {
             /**
@@ -11556,6 +11580,19 @@ export interface components {
         Page_LintFindingOut_: {
             /** Items */
             items: components["schemas"]["LintFindingOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[LocationListItem] */
+        Page_LocationListItem_: {
+            /** Items */
+            items: components["schemas"]["LocationListItem"][];
             /** Total */
             total: number;
             /** Page */
@@ -26673,6 +26710,16 @@ export interface operations {
                 q?: string | null;
                 /** @description Only the Locations this reader sees as roots: those with no visible ancestor. */
                 root?: boolean;
+                /** @description Look at the Locations through a date in this Calendar. */
+                tied_calendar?: string | null;
+                /** @description The signed year of the date. */
+                tied_year?: number | null;
+                /** @description The month or festival key of the date. */
+                tied_segment?: string | null;
+                /** @description The day, with its month or festival. */
+                tied_day?: number | null;
+                /** @description Leave out the Locations tied only to other dates (with a date). */
+                exclude_other?: boolean;
                 page?: number;
                 size?: number;
             };
@@ -26690,7 +26737,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_LocationStub_"];
+                    "application/json": components["schemas"]["Page_LocationListItem_"];
                 };
             };
             /** @description Validation Error */

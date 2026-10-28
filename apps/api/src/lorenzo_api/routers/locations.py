@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Select, delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from lorenzo_api.date_lens import lens_for_request
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -28,6 +29,7 @@ from lorenzo_api.entry_visibility import require_visible_entry, visible_entry_cl
 from lorenzo_api.etag import etag_for
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
+    InvalidDateError,
     InvalidKindRequestError,
     LocationAuthoringForbiddenError,
 )
@@ -90,6 +92,13 @@ class LocationStub(BaseModel):
     slug: str | None = None
     kinds: list[EntityKind]
     level_ordinal: Decimal | None = None
+
+
+class LocationListItem(LocationStub):
+    """A row of the Locations list. `tie` is there only when the list was asked through a date
+    (ADR 0374): `tied` to it, `other` (tied to other dates) or `untied`."""
+
+    tie: Literal["tied", "untied", "other"] | None = None
 
 
 class LocationOut(LocationStub):
@@ -202,7 +211,7 @@ async def _out(
     )
 
 
-@router.get("/locations")
+@router.get("/locations", response_model_exclude_unset=True)
 async def list_locations(
     tenant_id: uuid.UUID,
     params: ParamsDep,
@@ -220,28 +229,75 @@ async def list_locations(
             )
         ),
     ] = False,
-) -> Page[LocationStub]:
+    tied_calendar: Annotated[
+        uuid.UUID | None,
+        Query(description="Look at the Locations through a date in this Calendar."),
+    ] = None,
+    tied_year: Annotated[int | None, Query(description="The signed year of the date.")] = None,
+    tied_segment: Annotated[
+        str | None, Query(description="The month or festival key of the date.")
+    ] = None,
+    tied_day: Annotated[int | None, Query(description="The day, with its month or festival.")] = (
+        None
+    ),
+    exclude_other: Annotated[
+        bool, Query(description="Leave out the Locations tied only to other dates (with a date).")
+    ] = False,
+) -> Page[LocationListItem]:
     """The Locations the reader may see, by name then id; with `root`, the visible roots, ordered
-    by ordinal. Hidden Locations are absent: they appear in no row, count or page."""
+    by ordinal. Hidden Locations are absent: they appear in no row, count or page. Asked through
+    a date (ADR 0374), the flat list says for each whether it is `tied` to it, tied to `other`
+    dates or `untied`, in that order; a date takes no `root`."""
     vis = await standing(session, user, tenant_id)
+    lens = await lens_for_request(
+        session,
+        vis,
+        user,
+        tenant_id=tenant_id,
+        calendar_id=tied_calendar,
+        year=tied_year,
+        segment=tied_segment,
+        day=tied_day,
+        exclude_other=exclude_other,
+    )
     stmt: Select[Any]
     if root:
+        if lens is not None:
+            raise InvalidDateError(detail="A date looks at the list, not at the tree of roots")
         stmt = visible_parts(vis, tenant_id=tenant_id, parent_id=None)
         if q is not None:
             stmt = stmt.where(Entity.name.icontains(q, autoescape=True))
     else:
         stmt = (
-            select(Entity.id, Entity.name, EntitySlug.slug, LocationPart.level_ordinal)
+            select(
+                Entity.id,
+                Entity.name,
+                EntitySlug.slug,
+                LocationPart.level_ordinal,
+                *([lens.label.label("tie")] if lens else []),
+            )
             .join(Location, Location.entity_id == Entity.id)
             .outerjoin(EntitySlug, EntitySlug.entity_id == Entity.id)
             .outerjoin(LocationPart, LocationPart.child_entity_id == Entity.id)
             .where(Entity.tenant_id == tenant_id, visible_entry_clause(vis, Entity.id))
-            .order_by(Entity.name, Entity.id)
+            .order_by(*([lens.order] if lens else []), Entity.name, Entity.id)
         )
         if q is not None:
             stmt = stmt.where(Entity.name.icontains(q, autoescape=True))
+        if lens is not None and exclude_other:
+            stmt = stmt.where(~lens.other_only)
 
-    return await _page(session, stmt, params)
+    async def rows(found: Sequence[Any]) -> list[LocationListItem]:
+        stubs = await _stubs(session, [(r[0], r[1], r[2], r[3]) for r in found])
+        if lens is None:
+            return [LocationListItem(**stub.model_dump()) for stub in stubs]
+        return [
+            LocationListItem(**stub.model_dump(), tie=r[4])
+            for stub, r in zip(stubs, found, strict=True)
+        ]
+
+    page: Page[LocationListItem] = await apaginate(session, stmt, params, transformer=rows)
+    return page
 
 
 @router.post("/locations", status_code=201)

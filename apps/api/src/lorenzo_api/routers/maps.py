@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
+from lorenzo_api.date_lens import lens_for_request
 from lorenzo_api.dependencies import (
     CurrentUser,
     ParamsDep,
@@ -50,11 +51,9 @@ from lorenzo_api.exceptions import (
     MapSystemConflictError,
 )
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.map_dates import coordinate_of, date_lens
 from lorenzo_api.map_systems import refusal, warnings
 from lorenzo_api.maps import require_placement_room, touch_map
 from lorenzo_api.models import (
-    Calendar,
     Entity,
     EntityAudience,
     EntitySlug,
@@ -379,21 +378,17 @@ async def list_maps(
     page. Asked through a date (ADR 0372), each row says whether it is `tied` to it, tied to
     `other` dates or `untied`, and they come in that order (tied, untied, other)."""
     vis = await standing(session, user, tenant_id)
-    lens = None
-    if tied_calendar is None:
-        if any(v is not None for v in (tied_year, tied_segment, tied_day)) or exclude_other:
-            raise InvalidMapError(detail="A date needs its Calendar")
-    else:
-        coordinate = coordinate_of(tied_year, tied_segment, tied_day)
-        try:
-            await require_visible_entry(
-                session, tenant_id=tenant_id, entity_id=tied_calendar, user_id=user.id
-            )
-        except EntityNotFoundError:
-            raise EntityNotFoundError(detail=_NO_CALENDAR) from None
-        if await session.get(Calendar, tied_calendar) is None:
-            raise EntityNotFoundError(detail=_NO_CALENDAR)
-        lens = date_lens(vis, tenant_id=tenant_id, calendar_id=tied_calendar, coordinate=coordinate)
+    lens = await lens_for_request(
+        session,
+        vis,
+        user,
+        tenant_id=tenant_id,
+        calendar_id=tied_calendar,
+        year=tied_year,
+        segment=tied_segment,
+        day=tied_day,
+        exclude_other=exclude_other,
+    )
     columns = [Entity.id, Entity.name, EntitySlug.slug]
     stmt: Select[Any] = (
         select(*columns, *([lens.label.label("tie")] if lens else []))
