@@ -49,6 +49,7 @@ from lorenzo_api.models import (
     Entity,
     EntityAudience,
     EntityChange,
+    EntityFrame,
     EntityKnowledge,
     EntityLocation,
     EntityPrototype,
@@ -63,6 +64,7 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Frame,
     GroupMember,
     Information,
     Invite,
@@ -178,6 +180,9 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(Location, "location", carried_by="entity"),
     _rows(LocationPart, "location_part", counted_on_purge=True),
     _rows(EntityLocation, "entity_location", counted_on_purge=True),
+    # A designation and a membership of the axes of ADR 0369; both come after every entry.
+    _rows(Frame, "frame", carried_by="entity"),
+    _rows(EntityFrame, "entity_frame", counted_on_purge=True),
     _rows(Map, "map", carried_by="entity"),
     _rows(MapPlacement, "map_placement", counted_on_purge=True),
     # Joins two entries, so it comes after every entry (ADR 0363).

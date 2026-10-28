@@ -39,6 +39,7 @@ from lorenzo_api.models import (
     Containment,
     Entity,
     EntityAudience,
+    EntityFrame,
     EntityKnowledge,
     EntityLocation,
     EntityPrototype,
@@ -52,6 +53,7 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Frame,
     GroupMember,
     Information,
     Item,
@@ -218,6 +220,9 @@ class Content:
     location_parts: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     # entry -> the Location it is at (ADR 0333).
     entity_locations: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    # entry -> the axes it is a frame on, and entry -> {axis: the frame it is on} (ADR 0369).
+    frames: dict[uuid.UUID, list[str]] = field(default_factory=dict)
+    entity_frames: dict[uuid.UUID, dict[str, uuid.UUID]] = field(default_factory=dict)
     # map -> {system, subject}, and (map, entry) -> {geometry, role, style, z} (ADR 0336).
     maps: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     map_placements: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
@@ -735,6 +740,17 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=EntityLocation.tenant_id == t,
         )
     )
+    for entry, axis in await rows(Frame.entity_id, Frame.axis, where=Frame.tenant_id == t):
+        c.frames.setdefault(entry, []).append(axis)
+    for axes in c.frames.values():
+        axes.sort()
+    for entry, axis, frame in await rows(
+        EntityFrame.entity_id,
+        EntityFrame.axis,
+        EntityFrame.frame_entity_id,
+        where=EntityFrame.tenant_id == t,
+    ):
+        c.entity_frames.setdefault(entry, {})[axis] = frame
     c.location_parts = {
         child: {"parent": parent, "ordinal": None if ordinal is None else str(ordinal)}
         for child, parent, ordinal in await rows(
@@ -1042,6 +1058,17 @@ def entity_snapshot(
         **(
             {"place": {"location": name("entity", content.entity_locations[entity_id])}}
             if entity_id in content.entity_locations
+            else {}
+        ),
+        **({"frame_axes": list(content.frames[entity_id])} if entity_id in content.frames else {}),
+        **(
+            {
+                "frames": {
+                    axis: name("entity", frame)
+                    for axis, frame in sorted(content.entity_frames[entity_id].items())
+                }
+            }
+            if entity_id in content.entity_frames
             else {}
         ),
         **(

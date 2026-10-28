@@ -44,6 +44,7 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     Containment,
     Entity,
+    EntityFrame,
     EntityLocation,
     EntityPrototype,
     EntitySlug,
@@ -969,6 +970,58 @@ class _Applier:
                 s.add(EntityLocation(entity_id=e, location_entity_id=target, tenant_id=t))
             else:
                 existing.location_entity_id = target
+            await s.flush()
+            return True
+        if name == "frame_axes":
+            from lorenzo_api.frames import AXES
+            from lorenzo_api.models import Frame
+
+            if await s.get(Entity, e) is None:
+                self.skip(row, name, "The local entry is gone")
+                return False
+            wanted_axes = {axis for axis in (change.upstream or []) if axis in AXES}
+            have = set(
+                await s.scalars(
+                    select(Frame.axis).where(Frame.tenant_id == t, Frame.entity_id == e)
+                )
+            )
+            for axis in have - wanted_axes:
+                await s.execute(
+                    delete(Frame).where(
+                        Frame.tenant_id == t, Frame.entity_id == e, Frame.axis == axis
+                    )
+                )
+            for axis in sorted(wanted_axes - have):
+                s.add(Frame(entity_id=e, axis=axis, tenant_id=t))
+            await s.flush()
+            return True
+        if name == "frames":
+            from lorenzo_api.exceptions import InvalidFrameError
+            from lorenzo_api.frames import AXES, check_membership, lock_frames
+            from lorenzo_api.models import Frame
+
+            if await s.get(Entity, e) is None:
+                self.skip(row, name, "The local entry is gone")
+                return False
+            wanted_frames: dict[str, uuid.UUID] = {}
+            for axis, frame_name in (change.upstream or {}).items():
+                target = self.resolve("entity", frame_name)
+                if axis not in AXES or target is None or await s.get(Frame, (target, axis)) is None:
+                    self.skip(row, name, "Copy the frame it is on first")
+                    return False
+                wanted_frames[axis] = target
+            await lock_frames(s, t)
+            try:
+                for axis, target in wanted_frames.items():
+                    await check_membership(s, tenant_id=t, entity_id=e, axis=axis, frame_id=target)
+            except InvalidFrameError:
+                self.skip(row, name, "That would make the frames here loop")
+                return False
+            await s.execute(
+                delete(EntityFrame).where(EntityFrame.tenant_id == t, EntityFrame.entity_id == e)
+            )
+            for axis, target in wanted_frames.items():
+                s.add(EntityFrame(entity_id=e, axis=axis, frame_entity_id=target, tenant_id=t))
             await s.flush()
             return True
         if name == "part_of":

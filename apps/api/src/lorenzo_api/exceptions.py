@@ -1474,6 +1474,13 @@ class InvalidDistanceError(UnprocessableProblem):
     title = "That is not a distance we can read"
 
 
+class InvalidFrameError(UnprocessableProblem):
+    """A frame or a membership the rules of ADR 0369 refuse: an axis that is not one, a target that
+    is not a frame on it, a loop, a chain too long, a limit."""
+
+    title = "That is not a valid frame"
+
+
 class MapSystemConflictError(ConflictProblem):
     """A change to a Map's system that would move every place drawn on the old cells (ADR 0354)."""
 

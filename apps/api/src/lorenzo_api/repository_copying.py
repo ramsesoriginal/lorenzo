@@ -43,6 +43,7 @@ from lorenzo_api.exceptions import (
     RepositoryCopyNeedsGrantsError,
     RepositoryNotFoundError,
 )
+from lorenzo_api.frames import AXES
 from lorenzo_api.models import (
     Calendar,
     CalendarObservance,
@@ -56,6 +57,7 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     Containment,
     Entity,
+    EntityFrame,
     EntityLocation,
     EntityPrototype,
     EntitySlug,
@@ -1116,6 +1118,46 @@ class _Planner:
                             "location_entity_id": local_at,
                         }
                     )
+        for entry, framed_axes in c.frames.items():
+            if copies("entity", entry):
+                for frame_axis in framed_axes:
+                    if frame_axis not in AXES:
+                        drop("frame", entry, f"this version does not know the axis {frame_axis}")
+                    else:
+                        self.rows["frame"].append(
+                            {
+                                "tenant_id": tenant_id,
+                                "entity_id": self.local["entity"][entry],
+                                "axis": frame_axis,
+                            }
+                        )
+        for entry, memberships in c.entity_frames.items():
+            if copies("entity", entry):
+                for member_axis, target_frame in memberships.items():
+                    local_frame = self._local(c, "entity", target_frame)
+                    if member_axis not in AXES:
+                        drop(
+                            "entity_frame",
+                            entry,
+                            f"this version does not know the axis {member_axis}",
+                        )
+                    elif member_axis not in c.frames.get(target_frame, []):
+                        drop(
+                            "entity_frame",
+                            entry,
+                            "its frame is not a frame on that axis",
+                        )
+                    elif local_frame is None:
+                        drop("entity_frame", entry, "its frame was not copied")
+                    else:
+                        self.rows["entity_frame"].append(
+                            {
+                                "tenant_id": tenant_id,
+                                "entity_id": self.local["entity"][entry],
+                                "axis": member_axis,
+                                "frame_entity_id": local_frame,
+                            }
+                        )
         for field_name, table, target_column in [
             ("scene_facts", "scene_fact", "fact_entity_id"),
             ("scene_events", "scene_event", "event_entity_id"),
@@ -1995,6 +2037,15 @@ async def forget_copy(
                 & MapPlacement.entry_entity_id.not_in(entities),
                 MapPlacement.entry_entity_id.in_(entities)
                 & MapPlacement.map_entity_id.not_in(entities),
+            ),
+        )
+        also["entity_frame"] = await _count(
+            session,
+            EntityFrame,
+            EntityFrame.tenant_id == t,
+            or_(
+                EntityFrame.entity_id.in_(entities) & EntityFrame.frame_entity_id.not_in(entities),
+                EntityFrame.frame_entity_id.in_(entities) & EntityFrame.entity_id.not_in(entities),
             ),
         )
         also["entity_location"] = await _count(

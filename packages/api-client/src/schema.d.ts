@@ -3527,6 +3527,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/frame-axes/{axis}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Frame Axis
+         * @description The entry is a frame on the axis. Saying it again changes nothing.
+         */
+        put: operations["put_frame_axis"];
+        post?: never;
+        /**
+         * Delete Frame Axis
+         * @description The entry is no longer a frame on the axis, and nothing is on it any more.
+         */
+        delete: operations["delete_frame_axis"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/frames/{axis}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Frame
+         * @description The entry is on this frame on the axis, replacing the frame it was on.
+         */
+        put: operations["put_frame"];
+        post?: never;
+        /** Delete Frame */
+        delete: operations["delete_frame"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/frames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Entry Frames
+         * @description The entry's own rows: the axes it is a frame on and the frames it is on (ADR 0370).
+         */
+        get: operations["get_entry_frames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/frames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Frames
+         * @description The entries that are frames, with the axes each is a frame on, by name then id (ADR 0370).
+         */
+        get: operations["list_frames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/frame-members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Frame Members
+         * @description What is explicitly on the frame, by name then id (ADR 0370): "everything on the Ethereal".
+         */
+        get: operations["list_frame_members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/clocks/{clock_id}/relationships": {
         parameters: {
             query?: never;
@@ -9086,6 +9191,16 @@ export interface components {
             editable_information_ids: string[];
         };
         /**
+         * EntryFramesOut
+         * @description What an entry is a frame on and the frames it is on itself: its own rows, never inherited.
+         */
+        EntryFramesOut: {
+            /** Frame Axes */
+            frame_axes: string[];
+            /** Frames */
+            frames: components["schemas"]["FrameRowOut"][];
+        };
+        /**
          * EntryKnowerOut
          * @description An explicit outer recipient, without inventing a grant date.
          */
@@ -9249,6 +9364,36 @@ export interface components {
             /** Publishers */
             publishers: components["schemas"]["PublisherOut"][];
             delisted?: components["schemas"]["DelistedOut"] | null;
+        };
+        /** FrameAxisOut */
+        FrameAxisOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Axis */
+            axis: string;
+        };
+        /** FrameIn */
+        FrameIn: {
+            /**
+             * Frame Entity Id
+             * Format: uuid
+             */
+            frame_entity_id: string;
+        };
+        /** FrameOut */
+        FrameOut: {
+            entry: components["schemas"]["EntryStub"];
+            /** Axes */
+            axes: string[];
+        };
+        /** FrameRowOut */
+        FrameRowOut: {
+            /** Axis */
+            axis: string;
+            frame: components["schemas"]["EntryStub"];
         };
         /**
          * GiveContentsRequest
@@ -10665,7 +10810,7 @@ export interface components {
             /** Picture Url */
             picture_url: string;
             /** Memberships */
-            memberships: components["schemas"]["MembershipOut"][];
+            memberships: components["schemas"]["lorenzo_api__schemas__users__MembershipOut"][];
             /** Players */
             players: components["schemas"]["MePlayerOut"][];
             /** Campaign Gm Grants */
@@ -10702,6 +10847,12 @@ export interface components {
             characters: components["schemas"]["CharacterSummaryOut"][];
             /** Self Service Effective */
             self_service_effective: boolean;
+        };
+        /** MemberOut */
+        MemberOut: {
+            entry: components["schemas"]["EntryStub"];
+            /** Axis */
+            axis: string;
         };
         /**
          * MemberProfileOut
@@ -10758,19 +10909,6 @@ export interface components {
              * @enum {string}
              */
             role: "owner" | "orga" | "author";
-        };
-        /**
-         * MembershipOut
-         * @description A tenant-wide administrative access grant - see ADR 0022/0023.
-         */
-        MembershipOut: {
-            /**
-             * Tenant Id
-             * Format: uuid
-             */
-            tenant_id: string;
-            /** Role */
-            role: string;
         };
         /**
          * MembershipRosterEntryOut
@@ -11302,6 +11440,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[FrameOut] */
+        Page_FrameOut_: {
+            /** Items */
+            items: components["schemas"]["FrameOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[InformationOut] */
         Page_InformationOut_: {
             /** Items */
@@ -11410,6 +11561,19 @@ export interface components {
         Page_MapStub_: {
             /** Items */
             items: components["schemas"]["MapStub"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[MemberOut] */
+        Page_MemberOut_: {
+            /** Items */
+            items: components["schemas"]["MemberOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -13959,7 +14123,7 @@ export interface components {
              * Via
              * @enum {string}
              */
-            via: "contained_in" | "with" | "at" | "part_of";
+            via: "contained_in" | "with" | "at" | "part_of" | "frame";
             /**
              * Entity Id
              * Format: uuid
@@ -13969,6 +14133,8 @@ export interface components {
             name: string;
             /** Slug */
             slug?: string | null;
+            /** Axis */
+            axis?: string | null;
         };
         /**
          * StorefrontOut
@@ -14443,6 +14609,34 @@ export interface components {
             year: number;
             /** Segments */
             segments: components["schemas"]["SegmentPreview"][];
+        };
+        /** MembershipOut */
+        lorenzo_api__routers__frames__MembershipOut: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Axis */
+            axis: string;
+            /**
+             * Frame Entity Id
+             * Format: uuid
+             */
+            frame_entity_id: string;
+        };
+        /**
+         * MembershipOut
+         * @description A tenant-wide administrative access grant - see ADR 0022/0023.
+         */
+        lorenzo_api__schemas__users__MembershipOut: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Role */
+            role: string;
         };
         /** Problem */
         Problem: {
@@ -28283,6 +28477,483 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DistanceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_frame_axis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                axis: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FrameAxisOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_frame_axis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                axis: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_frame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                axis: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FrameIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["lorenzo_api__routers__frames__MembershipOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_frame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+                axis: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_entry_frames: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryFramesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_frames: {
+        parameters: {
+            query?: {
+                /** @description Only frames on this axis. */
+                axis?: string | null;
+                /** @description Case-insensitive substring match against the name. */
+                q?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_FrameOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_frame_members: {
+        parameters: {
+            query?: {
+                /** @description Only what is on it on this axis. */
+                axis?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_MemberOut_"];
                 };
             };
             /** @description Validation Error */

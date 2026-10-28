@@ -29,6 +29,7 @@ from lorenzo_api.models import (
     ContentReference,
     Entity,
     EntityAudience,
+    EntityFrame,
     EntityKnowledge,
     EntityLocation,
     EntityPrototype,
@@ -42,6 +43,7 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Frame,
     GroupMember,
     Information,
     Item,
@@ -183,12 +185,16 @@ async def seed_every_content_table(
             EntityAudience(entity_id=event.id, tenant_id=tenant_id, is_public=False),
             EntityAudience(entity_id=later_event.id, tenant_id=tenant_id, is_public=False),
             EntityAudience(entity_id=period.id, tenant_id=tenant_id, is_public=False),
+            Frame(entity_id=place.id, axis="plane", tenant_id=tenant_id),
         ]
     )
     await session.flush()
     session.add_all(
         [
             EntityLocation(entity_id=calendar.id, location_entity_id=place.id, tenant_id=tenant_id),
+            EntityFrame(
+                entity_id=room.id, axis="plane", frame_entity_id=place.id, tenant_id=tenant_id
+            ),
             MapPlacement(
                 map_entity_id=chart.id,
                 entry_entity_id=place.id,

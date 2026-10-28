@@ -378,7 +378,7 @@ class WhereaboutsOut(BaseModel):
     place: PlaceOut | None = None
 
 
-async def _visible_entry(
+async def visible_entry(
     session: SessionDep, user: CurrentUser, tenant: uuid.UUID, identity: uuid.UUID
 ) -> Entity:
     """An entry the reader may see: a hidden one and a missing one are the same 404."""
@@ -394,13 +394,13 @@ async def _visible_entry(
     return entity
 
 
-async def _placer(
+async def placer(
     session: SessionDep, user: CurrentUser, tenant: uuid.UUID, identity: uuid.UUID
 ) -> Entity:
     """Standing to place the entry (ADR 0333): the standing that writes Locations, and the
     standing that writes the entry."""
     await require_manager(session, user, tenant)
-    entity = await _visible_entry(session, user, tenant, identity)
+    entity = await visible_entry(session, user, tenant, identity)
     await authorize_entity_write(session, tenant_id=tenant, user=user, entity_id=identity)
     return entity
 
@@ -415,7 +415,7 @@ async def put_at(
 ) -> AtOut:
     """The entry is at this Location. An entry in a container is placed by the container: the
     request is accepted and changes nothing, and answers as it would otherwise."""
-    entity = await _placer(session, user, tenant_id, entity_id)
+    entity = await placer(session, user, tenant_id, entity_id)
     target = await _visible_location(session, user, tenant_id, body.location_entity_id)
     if target.id == entity.id:
         raise InvalidKindRequestError(detail="An entry cannot be at itself.")
@@ -436,7 +436,7 @@ async def put_at(
 async def delete_at(
     tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep, user: CurrentUser
 ) -> None:
-    await _placer(session, user, tenant_id, entity_id)
+    await placer(session, user, tenant_id, entity_id)
     await session.execute(delete(EntityLocation).where(EntityLocation.entity_id == entity_id))
     await _commit(session, tenant_id)
 
@@ -452,7 +452,7 @@ async def get_whereabouts(
     """Where the entry is, as that character would say it: `with_you`, `stashed`, `elsewhere` or
     `unknown`, and at most one name, the place when it is not the character's own (ADR 0334)."""
     vis = await standing(session, user, tenant_id)
-    await _visible_entry(session, user, tenant_id, entity_id)
+    await visible_entry(session, user, tenant_id, entity_id)
     reach = await caller_reach(session, tenant_id=tenant_id, user=user, visibility=vis)
     is_character = await session.scalar(
         select(Character.entity_id).where(
@@ -474,10 +474,12 @@ async def get_whereabouts(
 
 
 class StepOut(BaseModel):
-    via: Literal["contained_in", "with", "at", "part_of"]
+    via: Literal["contained_in", "with", "at", "part_of", "frame"]
     entity_id: uuid.UUID
     name: str
     slug: str | None = None
+    # Only on a frame step (ADR 0370).
+    axis: str | None = None
 
 
 class AddressOut(BaseModel):
@@ -505,11 +507,14 @@ async def get_address(
     it, its owner for a thing in no container, the place of the top of that, every Location above
     the place, and, for a Location, what it is within."""
     vis = await require_manager(session, user, tenant_id)
-    await _visible_entry(session, user, tenant_id, entity_id)
+    await visible_entry(session, user, tenant_id, entity_id)
     found = await address_of(session, vis, tenant_id=tenant_id, entity_id=entity_id)
 
     def steps(items: list[Any]) -> list[StepOut]:
-        return [StepOut(via=s.via, entity_id=s.entity_id, name=s.name, slug=s.slug) for s in items]
+        return [
+            StepOut(via=s.via, entity_id=s.entity_id, name=s.name, slug=s.slug, axis=s.axis)
+            for s in items
+        ]
 
     return AddressOut(
         segments=steps(found.segments),

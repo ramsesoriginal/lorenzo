@@ -99,12 +99,14 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 24
+    assert rd.FORMAT == 25
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
         "location_parts": {},
         "entity_locations": {},
+        "frames": {},
+        "entity_frames": {},
         "maps": {},
         "map_placements": [],
         "map_layers": {},
@@ -307,3 +309,24 @@ def test_version_twenty_three_reads_as_twenty_four() -> None:
     document, files = rd.encode(full_content())
 
     assert differences(rd.READERS[23](document, files), rd.READERS[24](document, files)) == []
+
+
+def test_version_twenty_four_has_no_frames() -> None:
+    """A repository written before frames reads with none (ADR 0369)."""
+    document, files = rd.encode(full_content())
+    old = {k: v for k, v in document.items() if k not in ("frames", "entity_frames")}
+    content = rd.READERS[24](old, files)
+
+    assert content.frames == {} and content.entity_frames == {}
+
+
+def test_frames_survive_a_round_trip() -> None:
+    sky, ether, elf = uuid.UUID(int=95), uuid.UUID(int=96), uuid.UUID(int=97)
+    content = full_content()
+    content.frames = {sky: ["plane", "universe"], ether: ["plane"]}
+    content.entity_frames = {ether: {"plane": sky}, elf: {"plane": ether, "universe": sky}}
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(document, files)
+    assert back.frames == content.frames and back.entity_frames == content.entity_frames

@@ -612,3 +612,5 @@ PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `connec
 PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/address added the new `frame` enum value to the `segments/items/via` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/address added the new `frame` enum value to the `interior/items/via` response property for the response status `200`

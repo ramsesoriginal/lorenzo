@@ -15,11 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.entity_access import containment_paths, surroundings
 from lorenzo_api.entry_visibility import visible_entry_clause
+from lorenzo_api.frames import AXES, frames_along
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.locations import visible_ancestor_ids
 from lorenzo_api.models import Entity, EntityLocation, EntitySlug, Location
 
-Via = Literal["contained_in", "with", "at", "part_of"]
+Via = Literal["contained_in", "with", "at", "part_of", "frame"]
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,8 @@ class Step:
     entity_id: uuid.UUID
     name: str
     slug: str | None
+    # Only on a frame step: the axis the frame is on (ADR 0370).
+    axis: str | None = None
 
 
 @dataclass(frozen=True)
@@ -89,9 +92,12 @@ async def address_of(
                 session, vis, tenant_id=tenant_id, location_id=entity_id
             )
         ]
-    wanted = {node for _, node in hops} | {node for _, node in interior or []}
     named: dict[uuid.UUID, tuple[str, str | None]] = {}
-    if wanted:
+
+    async def name_all(wanted: set[uuid.UUID]) -> None:
+        wanted = wanted - named.keys()
+        if not wanted:
+            return
         for identity, name, slug in (
             await session.execute(
                 select(Entity.id, Entity.name, EntitySlug.slug)
@@ -105,9 +111,26 @@ async def address_of(
         ).tuples():
             named[identity] = (name, slug)
 
+    await name_all({node for _, node in hops} | {node for _, node in interior or []})
+
+    # The frames come from the entry and what it sits in, nearest first, as far as the caller sees
+    # them (ADR 0370).
+    chain: list[uuid.UUID] = [entity_id]
+    for _, node in [*hops, *(interior or [])]:
+        if node in named and node not in chain:
+            chain.append(node)
+    frames = await frames_along(session, vis, tenant_id=tenant_id, chain=chain)
+    await name_all({frame for found in frames.values() for frame in found})
+
     def steps(found: list[tuple[Via, uuid.UUID]]) -> list[Step]:
         return [
             Step(via, node, named[node][0], named[node][1]) for via, node in found if node in named
         ]
 
-    return Address(steps(hops), None if interior is None else steps(interior))
+    framed = [
+        Step("frame", frame, named[frame][0], named[frame][1], axis)
+        for axis in AXES
+        for frame in frames.get(axis, [])
+        if frame in named
+    ]
+    return Address([*steps(hops), *framed], None if interior is None else steps(interior))
