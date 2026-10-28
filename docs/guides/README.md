@@ -11,3 +11,4 @@ Task-oriented how-tos.
 - [Native calendar files](calendar-file-format.md)
 - [Lorenzo Calendars](calendars.md)
 - [Lorenzo Sessions](sessions.md)
+- [Lorenzo Maps](maps.md)
