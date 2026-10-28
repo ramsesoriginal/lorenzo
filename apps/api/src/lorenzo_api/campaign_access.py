@@ -123,15 +123,20 @@ async def entry_in_author_reach(
             is not None
         )
     from lorenzo_api.models import (
+        Book,
         Calendar,
         CalendarObservance,
         CalendarPeriod,
+        Chapter,
         Clock,
+        Edition,
         Fact,
         Location,
         Map,
         Scene,
+        SceneTelling,
         StoryEvent,
+        WritingBiography,
     )
 
     return any(
@@ -153,6 +158,11 @@ async def entry_in_author_reach(
                 StoryEvent,
                 CalendarObservance,
                 Scene,
+                Book,
+                Chapter,
+                SceneTelling,
+                WritingBiography,
+                Edition,
             )
         ]
     )

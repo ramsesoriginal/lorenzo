@@ -178,6 +178,13 @@ batch = "web-2"
 node = "apps/sessions"
 depends_on = ["apps/api"]
 
+[nodes."apps/writing"]
+batch = "web-2"
+
+[suites.writing-e2e]
+node = "apps/writing"
+depends_on = ["apps/api"]
+
 [nodes."apps/maps"]
 batch = "web-2"
 

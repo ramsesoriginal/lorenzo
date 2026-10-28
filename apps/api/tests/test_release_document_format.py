@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 22
+    assert rd.FORMAT == 24
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -113,6 +113,10 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "clock_relationships": [],
         "calendar_reckonings": [],
         "scenes": {},
+        "editions": {},
+        "manuscript_placements": {},
+        "tellings": {},
+        "writing_biographies": [],
         "scene_facts": [],
         "lived_before": [],
         "scene_events": [],
@@ -200,14 +204,14 @@ def test_event_assertions_round_trip_and_old_releases_have_none():
     assert rd.decode(old, files, format=5).event_relationships == []
 
 
-def test_version_eighteen_maps_have_no_theme_name() -> None:
+def test_version_twenty_maps_have_no_theme_name() -> None:
     """A Map written before a theme name existed reads with none (ADR 0352)."""
     identity = uuid.UUID(int=77)
     system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
     document, files = rd.encode(full_content())
     old = {**document, "maps": {str(identity): {"system": system, "subject": None}}}
 
-    content = rd.READERS[18](old, files)
+    content = rd.READERS[20](old, files)
 
     assert content.maps[identity] == {
         "system": system,
@@ -217,7 +221,7 @@ def test_version_eighteen_maps_have_no_theme_name() -> None:
     }
 
 
-def test_version_nineteen_maps_have_no_view() -> None:
+def test_version_twentyone_maps_have_no_view() -> None:
     """A Map written before it could draw a grid of its own reads with no view (ADR 0354)."""
     identity = uuid.UUID(int=78)
     system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
@@ -227,7 +231,7 @@ def test_version_nineteen_maps_have_no_view() -> None:
         "maps": {str(identity): {"system": system, "subject": None, "theme": "plain"}},
     }
 
-    content = rd.READERS[19](old, files)
+    content = rd.READERS[21](old, files)
 
     assert content.maps[identity] == {
         "system": system,
@@ -237,8 +241,8 @@ def test_version_nineteen_maps_have_no_view() -> None:
     }
 
 
-def test_version_twenty_maps_are_read_as_they_are_written() -> None:
-    """Format 21 only widens what a system and a view may hold (ADR 0357)."""
+def test_version_twentytwo_maps_are_read_as_they_are_written() -> None:
+    """Format 23 only widens what a system and a view may hold (ADR 0357)."""
     identity = uuid.UUID(int=79)
     system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
     record = {
@@ -249,17 +253,17 @@ def test_version_twenty_maps_are_read_as_they_are_written() -> None:
     }
     document, files = rd.encode(full_content())
 
-    content = rd.READERS[20]({**document, "maps": {str(identity): record}}, files)
+    content = rd.READERS[22]({**document, "maps": {str(identity): record}}, files)
 
     assert content.maps[identity] == record
 
 
-def test_version_twenty_one_maps_have_no_layers() -> None:
+def test_version_twenty_three_maps_have_no_layers() -> None:
     """A Map written before it could have pictures under it reads with none (ADR 0361)."""
     document, files = rd.encode(full_content())
     old = {key: value for key, value in document.items() if key != "map_layers"}
 
-    assert rd.READERS[21](old, files).map_layers == {}
+    assert rd.READERS[23](old, files).map_layers == {}
 
 
 def test_layers_survive_a_round_trip() -> None:
