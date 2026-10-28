@@ -345,7 +345,7 @@ Maps builds the tools, the panel, undo and redo and the settings on it.
 
 Grids (RFC 0048 slice 7, ADR 0354 to 0356, 2026-10-27): `lorenzo.map-system/1` gains `square`, `rect`
 and `hex` (a `cell`, an optional `measure` of what a cell is in the world, an optional `sub` division,
-and for hexes a required `orientation`), and `map.view` (release format 20) holds a visual grid for any
+and for hexes a required `orientation`), and `map.view` (release format 22) holds a visual grid for any
 system that has none. The cell functions (`cell_at`, `cell_centre`, `cell_polygon`, `in_grid`,
 `cell_count`) are pure, exist in `packages/map-engine` and `packages/map-renderer`, and are held to one
 golden file; the hex convention is odd-r (pointy) and odd-q (flat) with cell (0, 0) at the sheet's near
