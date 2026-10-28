@@ -8,7 +8,8 @@ Desktop only.
 
 **The Maps list can be looked at through a date.** Under the search there is a *Tied to a date* control,
 the shared period picker ([ADR 0323](0323-the-calendar-period-picker.md)) in its one-choice mode and read
-only: it creates no period and the page never offers to. It opens empty. There is no default date and no
+only: it creates no period and the page never offers to (the page reads the choice's coordinates and
+never asks the picker to save it, so a day nobody has saved can be looked at like any other). It opens empty. There is no default date and no
 *Today*. When the library has no calendar the control is not on the page at all, and the list is what it
 was.
 
