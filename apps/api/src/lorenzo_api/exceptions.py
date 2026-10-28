@@ -1467,6 +1467,13 @@ class InvalidConnectionError(UnprocessableProblem):
     title = "That is not a valid connection"
 
 
+class InvalidDistanceError(UnprocessableProblem):
+    """A question about a distance the rules of ADR 0367 cannot answer: no stat to measure in, one
+    that is not a number, or two Maps that both hold both places."""
+
+    title = "That is not a distance we can read"
+
+
 class MapSystemConflictError(ConflictProblem):
     """A change to a Map's system that would move every place drawn on the old cells (ADR 0354)."""
 

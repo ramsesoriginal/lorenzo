@@ -4,11 +4,14 @@ connection (ADR 0363)."""
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.exceptions import InvalidConnectionError
+from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import Connection, Entity
 
 #: A library holds at most this many connections.
@@ -17,6 +20,16 @@ MAX_CONNECTIONS_PER_LIBRARY = 10_000
 MAX_HUB_SPOKES = 50
 #: A Map's links answer at most this many rows.
 MAX_LINK_ROWS = 500
+
+
+def readable(vis: InformationVisibility) -> Any:
+    """A connection is read by someone who sees it and both its ends (ADR 0363): the one rule every
+    read of a connection, the route search of ADR 0367 included, applies in SQL."""
+    return (
+        visible_entry_clause(vis, Entity.id)
+        & visible_entry_clause(vis, Connection.end_a)
+        & visible_entry_clause(vis, Connection.end_b)
+    )
 
 
 async def require_connection_room(

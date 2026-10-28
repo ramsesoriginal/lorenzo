@@ -3505,6 +3505,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/distance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Distance
+         * @description How far `from` is from `to` (ADR 0366, 0367): the straight line between the two places on a
+         *     Map, or the shortest route over the connections the reader sees, measured in a stat. Only what
+         *     the reader sees counts, so what is hidden changes no answer.
+         */
+        get: operations["read_distance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/clocks/{clock_id}/relationships": {
         parameters: {
             query?: never;
@@ -8635,6 +8657,40 @@ export interface components {
              */
             released_at: string;
         };
+        /**
+         * DistanceOut
+         * @description An answer. `value` only when `state` is `known`; `partial` says what is measured so far in
+         *     `at_least` and how many legs have no length; `unknown` and `limit_reached` say why in `reason`.
+         *     An unknown distance is never zero.
+         */
+        DistanceOut: {
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "route" | "straight";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "known" | "partial" | "unknown" | "limit_reached";
+            /** Value */
+            value?: number | null;
+            /** At Least */
+            at_least?: number | null;
+            /** Unit */
+            unit?: string | null;
+            /** Unmeasured Legs */
+            unmeasured_legs?: number | null;
+            /**
+             * Route
+             * @default []
+             */
+            route: components["schemas"]["LegOut"][];
+            map?: components["schemas"]["EntryStub"] | null;
+            /** Reason */
+            reason?: string | null;
+        };
         /** DocumentWarning */
         DocumentWarning: {
             /** Key */
@@ -10072,6 +10128,18 @@ export interface components {
             information_entity_id: string;
             /** Information Entity Name */
             information_entity_name: string;
+        };
+        /**
+         * LegOut
+         * @description One step of a route: the connection, the place it leaves and the one it arrives at, and its
+         *     length in the unit of the answer (null when it has none).
+         */
+        LegOut: {
+            connection: components["schemas"]["EntryStub"];
+            start: components["schemas"]["EntryStub"];
+            end: components["schemas"]["EntryStub"];
+            /** Length */
+            length?: number | null;
         };
         /**
          * LicenceIn
@@ -28137,6 +28205,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    read_distance: {
+        parameters: {
+            query: {
+                /** @description The entry to measure from. */
+                from: string;
+                /** @description The entry to measure to. */
+                to: string;
+                /** @description `route` follows connections; `straight` measures on a Map. */
+                mode?: "route" | "straight";
+                /** @description The number stat a connection's length is read from (a route). */
+                measure?: string | null;
+                /** @description A yes-or-no stat; a connection that has it is not followed (a route). */
+                avoid?: string | null;
+                /** @description The Map to measure on (a straight line). */
+                map?: string | null;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DistanceOut"];
                 };
             };
             /** @description Validation Error */

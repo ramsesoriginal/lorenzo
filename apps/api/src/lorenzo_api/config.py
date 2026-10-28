@@ -133,6 +133,9 @@ class Settings(BaseSettings):
     # comes from the registry of app links (ADR 0273, `account_hub_url` above).
     device_rate_limit_per_minute: int = 60
     device_lookup_rate_limit_per_minute: int = 20
+    # The distance read (ADR 0367) searches the connections: requests per minute per signed-in
+    # user, per instance, as a backstop to the statement timeout. 0 disables it.
+    distance_rate_limit_per_minute: int = 60
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod

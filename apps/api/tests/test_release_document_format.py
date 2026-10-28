@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 23
+    assert rd.FORMAT == 24
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -300,3 +300,10 @@ def test_connections_survive_a_round_trip() -> None:
     document, files = rd.encode(content)
 
     assert rd.decode(document, files).connections == content.connections
+
+
+def test_version_twenty_three_reads_as_twenty_four() -> None:
+    """Format 24 only widens what a square or rectangular Map system may hold (ADR 0366)."""
+    document, files = rd.encode(full_content())
+
+    assert differences(rd.READERS[23](document, files), rd.READERS[24](document, files)) == []

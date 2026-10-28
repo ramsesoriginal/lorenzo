@@ -17,6 +17,7 @@ from lorenzo_api.activity_log import record_activity
 from lorenzo_api.connections import (
     MAX_HUB_SPOKES,
     MAX_LINK_ROWS,
+    readable,
     require_connection_room,
     touch_connection,
 )
@@ -150,16 +151,7 @@ async def _visible_entry(
     return entity
 
 
-def _readable(vis: InformationVisibility) -> Any:
-    """A connection is read by someone who sees it and both its ends (ADR 0363)."""
-    return (
-        visible_entry_clause(vis, Entity.id)
-        & visible_entry_clause(vis, Connection.end_a)
-        & visible_entry_clause(vis, Connection.end_b)
-    )
-
-
-async def _stubs(
+async def entry_stubs(
     session: SessionDep, tenant: uuid.UUID, ids: set[uuid.UUID]
 ) -> dict[uuid.UUID, EntryStub]:
     if not ids:
@@ -209,7 +201,7 @@ async def _read(
         await session.execute(
             select(Entity, Connection)
             .join(Connection, Connection.entity_id == Entity.id)
-            .where(Entity.tenant_id == tenant, Entity.id == identity, _readable(vis))
+            .where(Entity.tenant_id == tenant, Entity.id == identity, readable(vis))
         )
     ).first()
     if found is None:
@@ -224,7 +216,7 @@ async def _built(
     entity: Entity,
     marker: Connection,
 ) -> ConnectionOut:
-    stubs = await _stubs(session, tenant, {entity.id, marker.end_a, marker.end_b})
+    stubs = await entry_stubs(session, tenant, {entity.id, marker.end_a, marker.end_b})
     manage = manages(vis)
     is_public = None
     if manage:
@@ -350,7 +342,7 @@ async def list_connections(
         )
         .join(Connection, Connection.entity_id == Entity.id)
         .outerjoin(own, own.entity_id == Entity.id)
-        .where(Entity.tenant_id == tenant_id, _readable(vis))
+        .where(Entity.tenant_id == tenant_id, readable(vis))
         .order_by(Entity.name, Entity.id)
     )
     if end is not None:
@@ -361,7 +353,7 @@ async def list_connections(
 
     async def rows(found: Any) -> list[ConnectionOut]:
         ids = {row[0] for row in found} | {row[1] for row in found} | {row[2] for row in found}
-        stubs = await _stubs(session, tenant_id, ids)
+        stubs = await entry_stubs(session, tenant_id, ids)
         return [
             _out(
                 stubs,
@@ -530,7 +522,7 @@ async def map_links(
                 direction.label("d"),
             )
             .join(Entity, Entity.id == Connection.entity_id)
-            .where(Connection.tenant_id == tenant_id, here.in_(placed), _readable(vis))
+            .where(Connection.tenant_id == tenant_id, here.in_(placed), readable(vis))
         )
 
     both = union_all(
@@ -558,7 +550,7 @@ async def map_links(
     truncated = len(found) > MAX_LINK_ROWS
     found = found[:MAX_LINK_ROWS]
     ids = {row[0] for row in found} | {row[1] for row in found} | {row[2] for row in found}
-    stubs = await _stubs(session, tenant_id, ids)
+    stubs = await entry_stubs(session, tenant_id, ids)
     others = {row[2] for row in found}
     elsewhere: dict[uuid.UUID, list[EntryStub]] = {}
     if others:
@@ -572,7 +564,7 @@ async def map_links(
                 )
             )
         ).all()
-        map_stubs = await _stubs(session, tenant_id, {row[1] for row in maps})
+        map_stubs = await entry_stubs(session, tenant_id, {row[1] for row in maps})
         for entry, drawn_on in maps:
             elsewhere.setdefault(entry, []).append(map_stubs[drawn_on])
         for stubs_list in elsewhere.values():
