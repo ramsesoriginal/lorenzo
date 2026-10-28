@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dateQuery, leftWords, TIE_WORDS } from '../../src/lib/date-words';
+import { dateQuery, LIST_NOTE, leftWords, TIE_WORDS } from '../../src/lib/date-words';
 
 describe('the words of the date lens', () => {
   it('says tied to, never existed at', () => {
@@ -30,5 +30,13 @@ describe('the words of the date lens', () => {
   it('says how many are left', () => {
     expect(leftWords(1)).toBe('1 Map left.');
     expect(leftWords(4)).toBe('4 Maps left.');
+    expect(leftWords(1, 'Location')).toBe('1 Location left.');
+    expect(leftWords(3, 'Location')).toBe('3 Locations left.');
+  });
+
+  it('says why the tree gave way to a list', () => {
+    expect(LIST_NOTE).toBe(
+      'With a date chosen the Locations are listed by name, not by where they are.',
+    );
   });
 });

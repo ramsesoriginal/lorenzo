@@ -23,7 +23,11 @@ export function dateQuery(choice: DateChoice | null, excludeOther: boolean) {
   };
 }
 
-/** *3 Maps left*, said when the Maps tied only to other dates are left out. */
-export function leftWords(count: number): string {
-  return `${count} ${count === 1 ? 'Map' : 'Maps'} left.`;
+/** *3 Maps left*, said when what is tied only to other dates is left out. */
+export function leftWords(count: number, what: 'Map' | 'Location' = 'Map'): string {
+  return `${count} ${count === 1 ? what : `${what}s`} left.`;
 }
+
+/** Said under the Locations while a date is chosen: the tree gives way to a list (ADR 0375). */
+export const LIST_NOTE =
+  'With a date chosen the Locations are listed by name, not by where they are.';

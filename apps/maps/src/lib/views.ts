@@ -1,5 +1,7 @@
 import { client, fetchAllPages, type Schema, unwrap } from './api';
 import { connectionsSection } from './connections-section';
+import { dateLens } from './date-lens';
+import { type dateQuery, LIST_NOTE, leftWords, TIE_WORDS, type Tie } from './date-words';
 import {
   actions,
   audienceBadge,
@@ -65,17 +67,36 @@ export async function mountHome() {
   }
 }
 
-async function roots(tenant: string, q?: string) {
+/** The roots of the tree, or the flat list when searching or when a date is asked for (ADR 0375). */
+async function roots(tenant: string, q?: string, date: ReturnType<typeof dateQuery> = {}) {
+  const dated = Object.keys(date).length > 0;
+
   return fetchAllPages(async (page) =>
     unwrap(
       await client.GET('/tenants/{tenant_id}/locations', {
         params: {
           path: { tenant_id: tenant },
-          query: q ? { q, page, size: 100 } : { root: true, page, size: 100 },
+          query:
+            q || dated
+              ? { ...(q ? { q } : {}), ...date, page, size: 100 }
+              : { root: true, page, size: 100 },
         },
+        cache: dated ? 'no-cache' : undefined,
       }),
     ),
   );
+}
+
+/** One Location in the flat list a date makes: its name, and how it is tied to the date. */
+function datedItem(tenant: string, stub: Stub & { tie?: Tie | null }) {
+  const item = el('li', '', stub.tie === 'other' ? 'map-other place-item' : 'place-item');
+  const row = el('div', '', 'place-row');
+  row.append(icon('kind-location'), link(stub.name, locationHref(tenant, stub.id, stub.slug)));
+  const others = stub.kinds.filter((kind) => kind !== 'location');
+  if (others.length) row.append(el('span', others.join(', ').replaceAll('_', ' '), 'chip'));
+  if (stub.tie) row.append(el('span', TIE_WORDS[stub.tie], 'chip'));
+  item.append(row);
+  return item;
 }
 
 async function partsOf(tenant: string, id: string) {
@@ -196,18 +217,29 @@ export async function mountLocations() {
     search.input.type = 'search';
     const list = el('ul', '', 'place-tree');
     const status = statusLine();
+    const note = el('p', '', 'status-text');
+    note.setAttribute('role', 'status');
+    const lens = await dateLens(tenant, () => void show(), 'Locations');
     let sequence = 0;
     async function show() {
       const mine = ++sequence;
       const query = search.input.value.trim();
       try {
         say(status, 'Opening…');
-        const found = await roots(tenant as string, query || undefined);
+        const dated = lens?.chosen() === true;
+        const found = await roots(tenant as string, query || undefined, dated ? lens?.query() : {});
         if (mine !== sequence) return;
         say(status, '');
+        note.textContent = dated
+          ? [LIST_NOTE, lens?.leavesOut() ? leftWords(found.length, 'Location') : '']
+              .join(' ')
+              .trim()
+          : '';
         list.replaceChildren(
           ...(found.length
-            ? found.map((stub) => treeItem(tenant as string, stub))
+            ? found.map((stub) =>
+                dated ? datedItem(tenant as string, stub) : treeItem(tenant as string, stub),
+              )
             : [
                 el('li', query ? 'No Location has that name.' : 'No Locations yet.', 'status-text'),
               ]),
@@ -218,7 +250,9 @@ export async function mountLocations() {
     }
     search.input.addEventListener('input', () => void show());
     const section = el('section', '', 'stack');
-    section.append(sectionHead('Where things are'), search.label, status, list);
+    section.append(sectionHead('Where things are'), search.label);
+    if (lens) section.append(lens.element);
+    section.append(status, note, list);
     view.append(section);
     if (manage) {
       const add = el('section', '', 'stack');

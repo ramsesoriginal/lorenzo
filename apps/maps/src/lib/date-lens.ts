@@ -1,13 +1,17 @@
-// The date lens over the Maps list (ADR 0373): the shared period picker, one choice and read only,
-// beside a way to leave out the Maps tied only to other dates. It opens empty, has no "today" and is
-// not on the page at all when the library has no calendar.
+// The date lens over the Maps list and the Locations list (ADR 0373, 0375): the shared period
+// picker, one choice and read only, beside a way to leave out what is tied only to other dates. It
+// opens empty, has no "today" and is not on the page at all when the library has no calendar.
 import { createPeriodPicker, loadCalendars } from '@lorenzo/period-picker';
 import '@lorenzo/period-picker/period-picker.css';
 import { client } from './api';
 import { type DateChoice, dateQuery } from './date-words';
 import { el, field } from './dom';
 
-export async function dateLens(tenant: string, changed: () => void) {
+export async function dateLens(
+  tenant: string,
+  changed: () => void,
+  what: 'Maps' | 'Locations' = 'Maps',
+) {
   let calendars: { id: string }[] = [];
   try {
     calendars = await loadCalendars(client, tenant);
@@ -38,7 +42,7 @@ export async function dateLens(tenant: string, changed: () => void) {
       changed();
     },
   });
-  const leave = field('Leave out Maps tied only to other dates', '', 'checkbox');
+  const leave = field(`Leave out ${what} tied only to other dates`, '', 'checkbox');
   const clear = el('button', 'Clear the date', 'btn btn-secondary');
   clear.type = 'button';
   leave.label.hidden = clear.hidden = true;
