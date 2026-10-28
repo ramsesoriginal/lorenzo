@@ -19,7 +19,7 @@ Watch `apps/maps/**`, `packages/api-client/**`, `packages/app-shell/**`, `packag
 Create a public Single Page Application client named Lorenzo Maps in the existing Authgear project. Register these exact callback addresses, including their trailing slash (Cloudflare Pages redirects a bare `/auth/redirect` to the slash form):
 
 - `https://lorenzo-maps.pages.dev/auth/redirect/`
-- `http://127.0.0.1:4327/auth/redirect/`
+- `http://127.0.0.1:4328/auth/redirect/`
 
 Allow the respective origins as post-logout redirect addresses. Supply the Pages build's `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIENT_ID`; optionally override `PUBLIC_API_BASE_URL` and `PUBLIC_BRANDING_CSS_URL` (see `apps/maps/.env.example`). These are public configuration, not client secrets, and no client secret belongs in a static build. Check the provider's current client limits in its console before creating another application.
 
