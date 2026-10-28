@@ -9,7 +9,7 @@ Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329, 0341–
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Joins, Carriers and
+saved prose revisions. Carriers and
 subsequent slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
 
 Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
@@ -56,7 +56,10 @@ an unsafe boundary is refused without moving the cursor's choice.
 Text blocks, pictures and children keep their identities and wording. The former Chapter keeps
 its notes and history, with a link to its section in the destination when that section is still
 available to the reader. Matching sharing and current versions are required. Old unsent text
-can be copied from a read-only recovery view. Other join shapes remain later W5 work.
+can be copied from a read-only recovery view. **Join into parent** ([ADR 0374](../../docs/adr/0374-join-chapter-into-parent.md)) removes a
+Chapter heading from the outline and puts its text, pictures and children in its place,
+preserving the reading order. The parent may be a Chapter or Edition; the old Chapter keeps
+the same guarded link, notes and history as a sibling join.
 
 ## Run and verify
 

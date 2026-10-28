@@ -263,6 +263,18 @@ export async function compositionScreen(
           compositionScreen(host, tenant, id, false),
         ),
       );
+    if (item.kind === 'chapter' && (current.kind === 'chapter' || current.kind === 'edition'))
+      li.append(
+        joinControls(
+          tenant,
+          id,
+          current.version,
+          item,
+          current,
+          () => compositionScreen(host, tenant, id, false),
+          'parent',
+        ),
+      );
     list.append(li);
   }
   const name = node('input');

@@ -829,3 +829,94 @@ test('join adjacent Chapters and follow the preserved source to its stable secti
     await context.close();
   }
 });
+
+test('join a Chapter into its parent without moving the surrounding prose', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('One continuous account');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await expect(text).toBeVisible();
+    const parent = new URL(page.url()).searchParams.get('entry');
+    if (!parent) throw new Error('The Edition address is missing.');
+    await text.fill('Before the encounter.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${parent}&view=outline`);
+    await page.getByLabel('New chapter title').fill('Encounter');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await page.getByRole('link', { name: 'Encounter', exact: true }).click();
+    await expect(text).toBeVisible();
+    const source = new URL(page.url()).searchParams.get('entry');
+    await text.fill('Inside the encounter.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const readParent = () =>
+      ok(
+        api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+          params: { path: { tenant_id: tenant.id, id: parent } },
+        }),
+      );
+    const original = await readParent();
+    const entity = await ok(
+      api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+        params: { path: { tenant_id: tenant.id, entity_id: parent } },
+      }),
+    );
+    const manuscript = entity.information.find((info) => info.type === 'manuscript');
+    if (!manuscript) throw new Error('The parent manuscript is missing.');
+    const infoResponse = await api.GET('/tenants/{tenant_id}/information/{information_id}', {
+      params: { path: { tenant_id: tenant.id, information_id: manuscript.id } },
+    });
+    await ok(Promise.resolve(infoResponse));
+    const after = await ok(
+      api.POST('/tenants/{tenant_id}/information/{information_id}/texts', {
+        params: {
+          path: { tenant_id: tenant.id, information_id: manuscript.id },
+          header: { 'if-match': infoResponse.response.headers.get('etag') ?? '' },
+        },
+        body: { content: 'After the encounter.', locale: 'en-US' },
+      }),
+    );
+    const current = await readParent();
+    await ok(
+      api.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+        params: {
+          path: { tenant_id: tenant.id, id: parent },
+          header: { 'if-match': current.version },
+        },
+        body: { elements: [...original.elements.map((e) => e.id), after.id] },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${parent}&view=outline`);
+    await page.getByText('Join into parent', { exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Join chapters', exact: true })).toBeVisible();
+    await page.screenshot({
+      path: test.info().outputPath('parent-join-desktop.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({
+      path: test.info().outputPath('parent-join-phone.png'),
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Join chapters', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Encounter', exact: true })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${source}`);
+    await expect(text).toHaveCount(0);
+    await page
+      .getByRole('link', { name: 'Open joined section in One continuous account', exact: true })
+      .click();
+    await expect(page.locator('article')).toContainText(
+      /Before the encounter\.[\s\S]*Inside the encounter\.[\s\S]*After the encounter\./,
+    );
+    await expect(page.locator(new URL(page.url()).hash)).toContainText('Inside the encounter.');
+    await page.getByRole('link', { name: 'Write', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Text 2', exact: true }).fill('Revised encounter.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+  } finally {
+    await context.close();
+  }
+});

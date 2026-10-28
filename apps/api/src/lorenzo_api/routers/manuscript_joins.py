@@ -1,10 +1,10 @@
-"""Atomic sibling Chapter joins with guarded source identities (ADR 0348)."""
+"""Atomic Chapter joins with guarded source identities (ADRs 0348, 0374)."""
 
 import hashlib
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Response
 from pydantic import BaseModel
@@ -25,6 +25,7 @@ from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     CampaignGm,
     Chapter,
+    Edition,
     EntityAudience,
     EntityKnowledge,
     Information,
@@ -48,6 +49,7 @@ router = APIRouter(
 
 
 class JoinChapters(BaseModel):
+    mode: Literal["previous", "parent"] = "previous"
     destination_id: uuid.UUID
     parent_id: uuid.UUID
     destination_version: str
@@ -140,15 +142,22 @@ async def join(
     if_match: Annotated[str | None, Header()] = None,
 ) -> JoinAcknowledgement:
     await author(session, tenant_id, user)
-    if len({id, body.destination_id, body.parent_id}) != 3:
-        raise ManuscriptMoveConflictError(detail="Choose two different adjacent Chapters.")
+    into_parent = body.mode == "parent"
+    if (into_parent and (id == body.parent_id or body.destination_id != body.parent_id)) or (
+        not into_parent and len({id, body.destination_id, body.parent_id}) != 3
+    ):
+        raise ManuscriptMoveConflictError(detail="Choose a Chapter and its join destination.")
     rows = {
         key: await entry(session, tenant_id, key, user, lock=True)
         for key in sorted({id, body.destination_id, body.parent_id})
     }
     fingerprint = hashlib.sha256(
         json.dumps(
-            {"source": str(id), "version": if_match, "body": body.model_dump(mode="json")},
+            {
+                "source": str(id),
+                "version": if_match,
+                "body": body.model_dump(mode="json", exclude_defaults=True),
+            },
             sort_keys=True,
         ).encode()
     ).hexdigest()
@@ -172,6 +181,10 @@ async def join(
             operation_id=operation_id, source_id=id, destination_id=body.destination_id
         )
     for key in (id, body.destination_id):
+        if into_parent and key == body.destination_id:
+            if not await session.get(Chapter, key) and not await session.get(Edition, key):
+                raise ManuscriptMoveConflictError(detail="Join into a parent Chapter or Edition.")
+            continue
         if not await session.get(Chapter, key):
             raise ManuscriptMoveConflictError(detail="Join two adjacent Chapters.")
         placement = await session.get(ManuscriptPlacement, key)
@@ -196,6 +209,8 @@ async def join(
             else body.parent_version,
             outline.version,
         )
+        if into_parent and key == body.parent_id:
+            require_version(body.parent_version, outline.version)
         outlines[key] = [el.id for el in outline.elements]
         links[key] = await children(session, tenant_id, key)
         if set(outlines[key]) != {p.id for p in payloads} | {p.child_entity_id for p in links[key]}:
@@ -204,7 +219,7 @@ async def join(
             )
     parent_order = outlines[body.parent_id]
     at = parent_order.index(id)
-    if at == 0 or parent_order[at - 1] != body.destination_id:
+    if not into_parent and (at == 0 or parent_order[at - 1] != body.destination_id):
         raise ManuscriptMoveConflictError(
             detail="Join a Chapter with the Chapter immediately before it."
         )
@@ -259,6 +274,12 @@ async def join(
                     knower_player_id=grant.knower_player_id,
                 )
             )
+    combined = (
+        parent_order[:at] + source_ids + parent_order[at + 1 :]
+        if into_parent
+        else destination_ids + source_ids
+    )
+    parent_after = combined if into_parent else [el for el in parent_order if el != id]
     # Checkpoint old content before reassignment and avoid unique order collisions.
     for payloads in (source_payloads, destination_payloads):
         floor = min((p.order for p in payloads), default=0) - len(payloads) - 1
@@ -266,24 +287,28 @@ async def join(
             payload.order = floor + n
     await session.flush()
     if destination_info:
-        for n, payload in enumerate([*destination_payloads, *source_payloads]):
+        by_id = {p.id: p for p in [*destination_payloads, *source_payloads]}
+        for n, payload in enumerate(by_id[key] for key in combined if key in by_id):
             payload.information_id = destination_info.id
             payload.order = n
             payload.updated_at = datetime.now(UTC)
         destination_info.updated_at = datetime.now(UTC)
     if source_info:
         source_info.updated_at = datetime.now(UTC)
-    combined = destination_ids + source_ids
-    parent_after = [el for el in parent_order if el != id]
     await session.execute(
         delete(ManuscriptPlacement).where(
             ManuscriptPlacement.tenant_id == tenant_id,
             ManuscriptPlacement.parent_entity_id.in_(rows),
         )
     )
-    place(
-        session, tenant_id, body.parent_id, parent_after, {p.id for p in bundles[body.parent_id][1]}
-    )
+    if not into_parent:
+        place(
+            session,
+            tenant_id,
+            body.parent_id,
+            parent_after,
+            {p.id for p in bundles[body.parent_id][1]},
+        )
     place(
         session,
         tenant_id,

@@ -1,6 +1,8 @@
 """Joins keep one editable manuscript and independently authorize source links."""
 
 import asyncio
+import hashlib
+import json
 import uuid
 
 import pytest
@@ -174,6 +176,15 @@ async def test_join_preserves_identity_and_guards_old_source(
                 await cleanup([collision_tenant], [])
         response = await raw_client.post(url, headers=headers, json=body)
         assert response.status_code == 200, response.text
+        # Default-mode retries made before ADR 0374 keep the original fingerprint.
+        old_hash = hashlib.sha256(
+            json.dumps(
+                {"source": second, "version": headers["If-Match"], "body": body},
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        async with admin_session_factory() as session:
+            assert (await session.get(ManuscriptJoin, operation)).request_hash == old_hash
         assert [e["id"] for e in (await read(parent))["elements"]] == [earlier, first]
         assert [e["id"] for e in (await read(first))["elements"]] == [
             first_payload,

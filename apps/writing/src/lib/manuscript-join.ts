@@ -7,10 +7,11 @@ export function joinControls(
   source: { id: string; name?: string | null },
   destination: { id: string; name?: string | null },
   done: () => Promise<void>,
+  mode: 'previous' | 'parent' = 'previous',
 ) {
   const details = document.createElement('details');
   const summary = document.createElement('summary');
-  summary.textContent = 'Join with previous';
+  summary.textContent = mode === 'parent' ? 'Join into parent' : 'Join with previous';
   details.append(summary);
   let loaded = false;
   details.addEventListener('toggle', () => {
@@ -27,7 +28,7 @@ export function joinControls(
           }),
         );
       const [from, to] = await Promise.all([read(source.id), read(destination.id)]);
-      status.textContent = `Join “${from.name}” into “${to.name}”? Its writing will follow the earlier Chapter. Its name and notes will remain at the old address, with a link to the joined section.`;
+      status.textContent = `Join “${from.name}” into “${to.name}”? ${mode === 'parent' ? 'Its contents will take its place in this outline, without its Chapter heading.' : 'Its writing will follow the earlier Chapter.'} Its name and notes will remain at the old address, with a link to the joined section.`;
       const confirm = document.createElement('button');
       confirm.type = 'button';
       confirm.className = 'btn btn-secondary';
@@ -43,6 +44,7 @@ export function joinControls(
                 header: { 'if-match': from.version },
               },
               body: {
+                mode,
                 destination_id: destination.id,
                 parent_id: parent,
                 destination_version: to.version,

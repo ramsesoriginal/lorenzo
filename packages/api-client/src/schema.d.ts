@@ -10585,6 +10585,12 @@ export interface components {
         /** JoinChapters */
         JoinChapters: {
             /**
+             * Mode
+             * @default previous
+             * @enum {string}
+             */
+            mode: "previous" | "parent";
+            /**
              * Destination Id
              * Format: uuid
              */
