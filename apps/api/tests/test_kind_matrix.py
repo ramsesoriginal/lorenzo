@@ -229,6 +229,7 @@ async def _make(
             json={"parent_ids": [str(p) for p in parents]},
         )
         assert linked.status_code == 200, linked.text
+        return uuid.UUID(entity_id)
     if "location" in kinds:
         rest = tuple(k for k in kinds if k != "location")
         if rest:
