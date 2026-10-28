@@ -106,7 +106,16 @@ async def get_payload_content(
         digest = hashlib.sha256(
             payload.picture.file_type.encode() + b"\0" + payload.picture.data
         ).hexdigest()
-        headers = {"ETag": f'"{digest}"', "Cache-Control": "private, no-cache"}
+        headers = {
+            "ETag": f'"{digest}"',
+            "Cache-Control": "private, no-cache",
+            "X-Content-Type-Options": "nosniff",
+        }
+        if payload.picture.file_type == "image/svg+xml":
+            # An SVG is only ever drawn as an image (ADR 0360); opened as a page it runs and shows
+            # nothing.
+            headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+            headers["Content-Disposition"] = _content_disposition("attachment", "picture.svg")
         # Always authorize above, even when a browser already holds a matching picture.
         if matches_if_none_match(if_none_match, digest):
             return Response(status_code=304, headers=headers)

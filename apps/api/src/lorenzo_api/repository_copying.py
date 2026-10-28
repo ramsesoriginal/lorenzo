@@ -15,8 +15,16 @@ import re
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Literal
 
+from lorenzo_map import (
+    MapDocumentError,
+    keep_theme_hint,
+    validate_calibration,
+    validate_opacity,
+    validate_placement,
+)
 from sqlalchemy import delete, exists, func, insert, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError
@@ -35,6 +43,7 @@ from lorenzo_api.exceptions import (
     RepositoryCopyNeedsGrantsError,
     RepositoryNotFoundError,
 )
+from lorenzo_api.frames import AXES
 from lorenzo_api.models import (
     Calendar,
     CalendarObservance,
@@ -48,6 +57,8 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     Containment,
     Entity,
+    EntityFrame,
+    EntityLocation,
     EntityPrototype,
     EntitySlug,
     EntityStat,
@@ -61,6 +72,8 @@ from lorenzo_api.models import (
     Information,
     Knowledge,
     LivedBefore,
+    LocationPart,
+    MapPlacement,
     Ownership,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
@@ -84,6 +97,7 @@ from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import (
     Content,
     Links,
+    assert_acyclic,
     attachments_of,
     entity_snapshot,
     index_entities,
@@ -93,6 +107,7 @@ from lorenzo_api.repository_content import (
     stat_group_snapshot,
 )
 from lorenzo_api.repository_upstream import is_public, load_upstream, upstream_copies
+from lorenzo_api.svg_lint import SvgRefused, check_svg
 
 CollisionKind = Literal["stat_group", "stat_definition", "slug"]
 Action = Literal["rename", "merge", "skip"]
@@ -667,6 +682,22 @@ class _Planner:
                 self.rows["clock"].append(
                     {"entity_id": new, "tenant_id": tenant_id, "ticking": c.clocks[e]}
                 )
+            if "location" in kinds:
+                self.rows["location"].append({"entity_id": new, "tenant_id": tenant_id})
+            if "map" in kinds:
+                subject = c.maps[e]["subject"]
+                self.rows["map"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "system": c.maps[e]["system"],
+                        "theme_hint": keep_theme_hint(c.maps[e]["theme"]),
+                        "view": c.maps[e]["view"],
+                        "subject_entity_id": None
+                        if subject is None
+                        else self._local(c, "entity", subject),
+                    }
+                )
             if "calendar" in kinds:
                 self.rows["calendar"].append(
                     {"entity_id": new, "tenant_id": tenant_id, "definition": c.calendars[e]}
@@ -879,6 +910,12 @@ class _Planner:
             local_info = local_information.get(payload.information_id)
             if local_info is None:
                 continue
+            if payload.kind == "picture" and payload.fields["file_type"] == "image/svg+xml":
+                try:
+                    check_svg(payload.fields["data"])
+                except SvgRefused:
+                    drop("payload_picture", source_payload_id, "its SVG is not valid here")
+                    continue
             new = uuid.uuid4()
             local_payloads[source_payload_id] = new
             self.rows["payload"].append(
@@ -906,6 +943,53 @@ class _Planner:
                             "target": target_text,
                         }
                     )
+        # The pictures under a Map: a layer goes with its Information (ADR 0361), keeping the
+        # fingerprint it was reviewed against, since the bytes are the same.
+        for drawn_on, layers in c.map_layers.items():
+            if not copies("entity", drawn_on):
+                continue
+            for position, layer in enumerate(layers):
+                local_info = local_information.get(uuid.UUID(layer["information"]))
+                if local_info is None:
+                    drop("map_layer", drawn_on, "its picture's Information was not copied")
+                    continue
+                try:
+                    calibration = validate_calibration(layer["calibration"])
+                    opacity = validate_opacity(layer["opacity"])
+                except MapDocumentError:
+                    drop("map_layer", drawn_on, "its calibration is not valid here")
+                    continue
+                self.rows["map_layer"].append(
+                    {
+                        "tenant_id": tenant_id,
+                        "map_entity_id": self.local["entity"][drawn_on],
+                        "position": position,
+                        "information_id": local_info,
+                        "calibration": calibration,
+                        "opacity": opacity,
+                        "reviewed_sha256": None
+                        if layer["reviewed"] is None
+                        else bytes.fromhex(layer["reviewed"]),
+                    }
+                )
+        # A connection joins two entries: written once every entry has its place (ADR 0363).
+        for e, joined in c.connections.items():
+            if not copies("entity", e):
+                continue
+            end_a = self._local(c, "entity", joined["end_a"])
+            end_b = self._local(c, "entity", joined["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                drop("connection", e, "an end of it was not copied")
+                continue
+            self.rows["connection"].append(
+                {
+                    "entity_id": self.local["entity"][e],
+                    "tenant_id": tenant_id,
+                    "end_a": end_a,
+                    "end_b": end_b,
+                    "one_way": True if joined["one_way"] else None,
+                }
+            )
         for child, placement in c.manuscript_placements.items():
             parent = placement["parent"]
             if copies("entity", child) or copies("entity", parent):
@@ -1026,6 +1110,112 @@ class _Planner:
                                 source_column: self.local["entity"][source],
                                 "clock_entity_id": local_clock,
                                 **value,
+                            }
+                        )
+        assert_acyclic(c.location_parts)
+        for child, part in c.location_parts.items():
+            if copies("entity", child):
+                local_parent = self._local(c, "entity", part["parent"])
+                if local_parent is None:
+                    drop("location_part", child, "its parent Location was not copied")
+                else:
+                    self.rows["location_part"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "child_entity_id": self.local["entity"][child],
+                            "parent_entity_id": local_parent,
+                            "level_ordinal": None
+                            if part["ordinal"] is None
+                            else Decimal(part["ordinal"]),
+                        }
+                    )
+        for (drawn_on, entry), record in c.map_placements.items():
+            if not copies("entity", drawn_on):
+                continue
+            local_entry = self._local(c, "entity", entry)
+            if local_entry is None:
+                drop("map_placement", drawn_on, "its entry was not copied")
+                continue
+            try:
+                checked = validate_placement(
+                    record["geometry"],
+                    record["role"],
+                    record["style"],
+                    record["z"],
+                    c.maps[drawn_on]["system"],
+                )
+            except MapDocumentError:
+                drop("map_placement", drawn_on, "its geometry is not valid here")
+                continue
+            self.rows["map_placement"].append(
+                {
+                    "tenant_id": tenant_id,
+                    "map_entity_id": self.local["entity"][drawn_on],
+                    "entry_entity_id": local_entry,
+                    "geometry": checked.geometry,
+                    "role": checked.role,
+                    "style": checked.style,
+                    "z": checked.z,
+                    "bytes": checked.bytes,
+                    "minx": checked.bbox[0],
+                    "miny": checked.bbox[1],
+                    "maxx": checked.bbox[2],
+                    "maxy": checked.bbox[3],
+                }
+            )
+        for entry, at in c.entity_locations.items():
+            if copies("entity", entry):
+                local_at = self._local(c, "entity", at)
+                if entry in c.containment:
+                    drop("entity_location", entry, "it is in a container, which places it")
+                elif local_at is None:
+                    drop("entity_location", entry, "its Location was not copied")
+                else:
+                    self.rows["entity_location"].append(
+                        {
+                            "tenant_id": tenant_id,
+                            "entity_id": self.local["entity"][entry],
+                            "location_entity_id": local_at,
+                        }
+                    )
+        for entry, framed_axes in c.frames.items():
+            if copies("entity", entry):
+                for frame_axis in framed_axes:
+                    if frame_axis not in AXES:
+                        drop("frame", entry, f"this version does not know the axis {frame_axis}")
+                    else:
+                        self.rows["frame"].append(
+                            {
+                                "tenant_id": tenant_id,
+                                "entity_id": self.local["entity"][entry],
+                                "axis": frame_axis,
+                            }
+                        )
+        for entry, memberships in c.entity_frames.items():
+            if copies("entity", entry):
+                for member_axis, target_frame in memberships.items():
+                    local_frame = self._local(c, "entity", target_frame)
+                    if member_axis not in AXES:
+                        drop(
+                            "entity_frame",
+                            entry,
+                            f"this version does not know the axis {member_axis}",
+                        )
+                    elif member_axis not in c.frames.get(target_frame, []):
+                        drop(
+                            "entity_frame",
+                            entry,
+                            "its frame is not a frame on that axis",
+                        )
+                    elif local_frame is None:
+                        drop("entity_frame", entry, "its frame was not copied")
+                    else:
+                        self.rows["entity_frame"].append(
+                            {
+                                "tenant_id": tenant_id,
+                                "entity_id": self.local["entity"][entry],
+                                "axis": member_axis,
+                                "frame_entity_id": local_frame,
                             }
                         )
         for field_name, table, target_column in [
@@ -1929,6 +2119,48 @@ async def forget_copy(
                 & ClockRelationship.reference_clock_entity_id.not_in(entities),
                 ClockRelationship.reference_clock_entity_id.in_(entities)
                 & ClockRelationship.clock_entity_id.not_in(entities),
+            ),
+        )
+        also["map_placement"] = await _count(
+            session,
+            MapPlacement,
+            MapPlacement.tenant_id == t,
+            or_(
+                MapPlacement.map_entity_id.in_(entities)
+                & MapPlacement.entry_entity_id.not_in(entities),
+                MapPlacement.entry_entity_id.in_(entities)
+                & MapPlacement.map_entity_id.not_in(entities),
+            ),
+        )
+        also["entity_frame"] = await _count(
+            session,
+            EntityFrame,
+            EntityFrame.tenant_id == t,
+            or_(
+                EntityFrame.entity_id.in_(entities) & EntityFrame.frame_entity_id.not_in(entities),
+                EntityFrame.frame_entity_id.in_(entities) & EntityFrame.entity_id.not_in(entities),
+            ),
+        )
+        also["entity_location"] = await _count(
+            session,
+            EntityLocation,
+            EntityLocation.tenant_id == t,
+            or_(
+                EntityLocation.entity_id.in_(entities)
+                & EntityLocation.location_entity_id.not_in(entities),
+                EntityLocation.location_entity_id.in_(entities)
+                & EntityLocation.entity_id.not_in(entities),
+            ),
+        )
+        also["location_part"] = await _count(
+            session,
+            LocationPart,
+            LocationPart.tenant_id == t,
+            or_(
+                LocationPart.child_entity_id.in_(entities)
+                & LocationPart.parent_entity_id.not_in(entities),
+                LocationPart.parent_entity_id.in_(entities)
+                & LocationPart.child_entity_id.not_in(entities),
             ),
         )
         also["lived_before"] = await _count(

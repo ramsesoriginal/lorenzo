@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     writing_url: str = "https://lorenzo-writing.pages.dev"
     sessions_url: str = "https://lorenzo-sessions.pages.dev"
     calendars_url: str = "https://lorenzo-calendars.pages.dev"
+    maps_url: str = "https://lorenzo-maps.pages.dev"
     # Optional per-link overrides in APP_LINK_TEMPLATES: space-separated `name=template`
     # pairs (like CORS_ALLOWED_ORIGINS, no commas and no JSON, for the deploy action's sake),
     # e.g. "item=https://i.example.com/i/{tenant}/{id}". NoDecode, as cors_allowed_origins.
@@ -90,6 +91,7 @@ class Settings(BaseSettings):
         "calendars_url",
         "sessions_url",
         "writing_url",
+        "maps_url",
         mode="before",
     )
     @classmethod
@@ -133,6 +135,9 @@ class Settings(BaseSettings):
     # comes from the registry of app links (ADR 0273, `account_hub_url` above).
     device_rate_limit_per_minute: int = 60
     device_lookup_rate_limit_per_minute: int = 20
+    # The distance read (ADR 0367) searches the connections: requests per minute per signed-in
+    # user, per instance, as a backstop to the statement timeout. 0 disables it.
+    distance_rate_limit_per_minute: int = 60
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod

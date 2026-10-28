@@ -39,6 +39,12 @@ _DEFAULTS: dict[str, tuple[str, str]] = {
     "calendar_entry_by_slug": ("calendars", "/entry/?tenant={tenant}&slug={slug}"),
     "being": ("beings", "/being/?tenant={tenant}&id={id}"),
     "being_by_slug": ("beings", "/being/?tenant={tenant}&slug={slug}"),
+    # Lorenzo Maps: a Location, by id or by slug.
+    "location": ("maps", "/location/?tenant={tenant}&id={id}"),
+    "location_by_slug": ("maps", "/location/?tenant={tenant}&slug={slug}"),
+    # Lorenzo Maps: a Map, by id or by slug.
+    "map": ("maps", "/map/?tenant={tenant}&id={id}"),
+    "map_by_slug": ("maps", "/map/?tenant={tenant}&slug={slug}"),
 }
 
 
@@ -56,6 +62,7 @@ def apps(settings: Settings) -> dict[str, str]:
         "calendars": _clean(settings.calendars_url),
         "sessions": _clean(settings.sessions_url),
         "writing": _clean(settings.writing_url),
+        "maps": _clean(settings.maps_url),
     }
 
 

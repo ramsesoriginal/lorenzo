@@ -23,7 +23,7 @@ The deployed container is the same `apps/api/Dockerfile` image whether you build
 
 ### The pipeline: commit to live revision
 
-Triggered by `.github/workflows/deploy-api.yml`, on any push to `main` touching `apps/api/**` or `packages/calendar-engine/**` (the API image bundles the calendar engine), or manually via `workflow_dispatch`:
+Triggered by `.github/workflows/deploy-api.yml`, on any push to `main` touching `apps/api/**`, `packages/calendar-engine/**` or `packages/map-engine/**` (the API image bundles both engines), or manually via `workflow_dispatch`:
 
 1. **verify** — the same lint + test job as `ci.yml`, against its own ephemeral Postgres service container. A broken push can't reach deploy.
 2. **auth** — `google-github-actions/auth@v3` exchanges the workflow's OIDC token for short-lived GCP credentials, scoped to exactly this repo (enforced by the Workload Identity Provider's `attribute-condition`).

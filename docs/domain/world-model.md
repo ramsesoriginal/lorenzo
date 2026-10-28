@@ -26,6 +26,108 @@ How far this needs to be modeled — a shared "true" timeline versus many indepe
 
 Clocks that run at different rates, branching or looping timelines, and the state of the world as of a date are not built. The non-containment address axes are likewise proposed in [RFC 0026](../rfcs/0026-world-model-axes-and-address.md).
 
+## Locations
+
+A Location is an entry of its own kind, from a whole universe down to one floor of a building, in any
+setting. Locations form their own tree: each is a part of at most one other, a level may be skipped,
+and siblings can be stacked in an order. That tree is not physical containment: a bag still holds what
+it carries, and a Location that is also a bag has its contents and its interior as two separate things.
+Who can see a Location is the entry's own audience. A reader sees every visible Location under the
+nearest Location above it that they can see, so a hidden place between them leaves no trace. A Location
+may be any other kind as well.
+
+An entry of any kind can be *at* a Location. Something in a container is where the container is, so
+it takes a place only at the top of what holds it, and putting something into a container clears
+its own place while taking it out gives it the container's. A player can ask where something is, as
+one of their characters would say it: with you, stashed (here or near, with the name of where when
+it is not the character's own place), elsewhere, or unknown, using only what that player can see
+([ADR 0333](../adr/0333-placement-an-entry-is-at-a-location.md),
+[ADR 0334](../adr/0334-whereabouts-the-players-read.md)). Those who write Locations also get the whole address of an entry (what holds it, its owner,
+where it is and every Location above that, and what a Location is itself within) and a list of
+probable mistakes in the library's places, such as a place the players cannot see
+([ADR 0335](../adr/0335-the-gms-address-and-the-location-lint.md)).
+
+A Map is an entry too, of the `map` kind, and may be any other kind as well. It says what its
+positions mean (a flat plane in the Map's own units, or an outline with no measure) and holds
+*placements*: where one entry is drawn on it, as a point, a circle, a line, a curve or a simple area
+(one that never crosses itself, with holes), with a role such as water, relief, route, territory or
+presence, a line style and a drawing order. A placement is a drawing, never where the entry is: an
+entry can be drawn on many Maps, or none, and where it *is* stays what its place says. A Map may name
+the Location it shows. A reader sees a Map only if they may see the Map entry, and a placement only if
+they may see the entry it draws, so a hidden entry leaves no mark, gap or count on a page. Those who
+write Locations draw and redraw; everyone reads what they may see
+([ADR 0336](../adr/0336-maps-the-kind-its-system-and-its-placements.md),
+[ADR 0337](../adr/0337-geometry-roles-and-the-validator.md), [ADR 0338](../adr/0338-reading-and-writing-maps.md)).
+A repository carries its Maps and their placements through copy and update like any other entry.
+A Map can be drawn by those who write Locations: a pin, a circle, a line or an area for an entry, or
+for a new Location made on the spot; its role, line and drawing order changed, its points moved by
+dragging or typed as numbers, and the places inside a Location placed as pins in one action that
+writes explicit rows (nothing on the server expands a Location into its children). A drawing can be
+undone and done again while the page is open. A Map may name a theme: how it looks is the viewer's
+choice, then the Map's, then the default, and a legend shows what each role on the Map looks like
+([ADR 0351](../adr/0351-writing-placements-in-bulk.md), [ADR 0352](../adr/0352-the-look-of-a-map.md),
+[ADR 0353](../adr/0353-authoring-a-map-in-lorenzo-maps.md)).
+A Map may be a grid instead of a free plane: squares, rectangles or hexes (flat-topped or
+pointed-top, always chosen), each cell given a size on the sheet and optionally what it is in the world
+(six miles a hex), and optionally divided for the eye. A cell is named by a column and a row, and the
+convention for hexes and for a point on a shared edge is written once
+([ADR 0354](../adr/0354-grid-systems-square-rectangular-and-hex.md)). Any Map, a plane or an outline
+included, can also have a grid drawn over it that measures nothing. Places stay where they are drawn,
+in drawing units, and may lie anywhere on the sheet; the editor can snap to the grid and can draw a
+region as a set of whole cells ([ADR 0355](../adr/0355-the-cell-functions-and-drawing-a-grid.md),
+[ADR 0356](../adr/0356-authoring-on-a-grid.md)). Turning a Map into a hex Map, out of one, or turning its
+hexes, once places are drawn, is refused, since it would move all of them.
+A Map may also be a sphere, a world whose places are given by longitude and latitude. It has
+no edges to wrap round: what crosses the antimeridian is two parts, and a line between two places is the
+straight line between them in longitude and latitude, never a great circle. How it is drawn (flat, as
+Mercator, or as a globe facing a chosen point) is only a look; the globe can be turned by a reader, and its far
+side draws nothing. A sphere holds points, lines and areas, no circles or curves; it can be given a radius in
+the author's own unit, and a Map with places cannot become a sphere or stop being one
+([ADR 0357](../adr/0357-the-sphere-system.md), [ADR 0358](../adr/0358-projections-and-drawing-a-sphere.md),
+[ADR 0359](../adr/0359-authoring-on-a-sphere.md)).
+A Map may also be drawn over pictures, up to eight, kept under it in an order. A picture is a picture of
+the Map's own notes, so it is seen by whoever may see that note, and nobody else is told it is there. It lies
+on the sheet either fitted whole or by saying where two points of the picture are on the sheet. Places
+are always stored in the sheet's own units, so replacing a picture never moves one; but a replaced
+picture is flagged for a writer to look at against the places, and to mark reviewed. A sphere is
+drawn without pictures. SVG pictures are accepted when they hold nothing that could run or fetch
+([ADR 0360](../adr/0360-pictures-a-stored-fingerprint-svg-and-when-to-leave-postgres.md),
+[ADR 0361](../adr/0361-map-layers.md), [ADR 0362](../adr/0362-drawing-and-setting-up-pictures-in-lorenzo-maps.md)).
+A connection joins two entries (a road, a portal, stairs, a mirror) and is an entry itself: it is named, it has a
+kind of its own as a prototype, it can carry a length as an ordinary stat, and it can be drawn on a Map as a road. It goes
+both ways or one way, and a stair shaft joining twelve floors is a Location with a connection to each floor, written
+in one request. A reader sees a connection only when they can see it and both its ends; a hidden end leaves no trace.
+A Map says where a place leads from the connections at the entries drawn on it, and on which other Maps the far end
+is drawn, without ever saying where anything is
+([ADR 0363](../adr/0363-connections-the-kind-and-its-two-ends.md),
+[ADR 0364](../adr/0364-links-derived-from-connections.md), [ADR 0365](../adr/0365-connections-in-lorenzo-maps.md)).
+How far one place is from another is asked in two ways. The straight line is measured on a Map, in the
+unit its author gave it (a scale on a plane, what a cell is on a grid, a radius on a sphere), counting a grid's
+diagonals the way its author chose; it is never converted, and a Map with no size says so instead of answering
+zero. A route is the shortest way over the connections the reader can see, measured in a number stat such as miles,
+where a connection with no length makes the answer "at least" and no route at all makes it unknown; a reader is
+never told of a road they cannot see
+([ADR 0366](../adr/0366-straight-line-distance-on-a-map.md), [ADR 0367](../adr/0367-the-distance-read.md),
+[ADR 0368](../adr/0368-distance-in-lorenzo-maps.md)).
+A world can also say which plane, sphere, timeline or universe something belongs to. An entry becomes a *frame* on one
+of those four axes (a plane such as the Ethereal, a timeline, a universe), and other entries are put *on* it, one frame
+per axis; a frame can itself be on a bigger frame of the same axis, which is how a multiverse is written. What an entry
+is on is read from the nearest row along where it sits: itself, what holds it, its owner, its place and the Locations
+above that, never through its prototype. Only those who write Locations can set or read any of this, the GM's address
+shows it, and nothing a player reads changes
+([ADR 0369](../adr/0369-frames-and-axes.md), [ADR 0370](../adr/0370-frame-resolution-and-the-gms-reads.md)).
+A map may optionally be tied to a calendar period, and a library with no calendar never has to. The Maps list can be
+looked at through a date: each Map is *tied to* it (it is tied to that day, to its month or festival, or to its year),
+*not tied to a date*, or *tied to other dates*, in that order, and the last can be left out. Nothing is guessed, there is
+no "today" and no nearest or latest Map, a date a reader cannot see counts as no date, and it never says anything
+*existed at* a date
+([ADR 0371](../adr/0371-the-periods-a-date-is-tied-through.md), [ADR 0372](../adr/0372-the-date-lens-on-the-maps-list.md),
+[ADR 0373](../adr/0373-the-date-lens-in-lorenzo-maps.md)). The Locations list takes the same lens, by the same rule,
+so a Location and a Map tied to the same dates read alike; a Location's date is its own and is never passed to what is
+part of it, and while a date is chosen the page lists Locations by name instead of as a tree
+([ADR 0376](../adr/0376-the-date-lens-on-the-locations-list.md),
+[ADR 0377](../adr/0377-the-date-lens-on-locations-in-lorenzo-maps.md)).
+
 ## Sessions, Scenes and personal lived order
 
 A Scene is a reusable entry that brings together Facts, Events, participating beings and an

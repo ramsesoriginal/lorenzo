@@ -100,6 +100,22 @@
     "apps/writing": {
       "release-type": "node",
       "component": "writing"
+    },
+    "apps/maps": {
+      "release-type": "node",
+      "component": "maps"
+    },
+    "packages/map-engine": {
+      "release-type": "python",
+      "package-name": "lorenzo-map"
+    },
+    "packages/map-renderer": {
+      "release-type": "node",
+      "component": "map-renderer"
+    },
+    "packages/entry-preview": {
+      "release-type": "node",
+      "component": "entry-preview"
     }
   }
 }

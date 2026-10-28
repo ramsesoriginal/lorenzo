@@ -37,11 +37,14 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
+    Connection,
     Containment,
     Edition,
     Entity,
     EntityAudience,
+    EntityFrame,
     EntityKnowledge,
+    EntityLocation,
     EntityPrototype,
     EntitySlug,
     EntityStat,
@@ -53,13 +56,19 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Frame,
     GroupMember,
     Information,
     Item,
     ItemInstance,
     Knowledge,
     LivedBefore,
+    Location,
+    LocationPart,
     ManuscriptPlacement,
+    Map,
+    MapLayer,
+    MapPlacement,
     Ownership,
     Payload,
     PayloadDescription,
@@ -89,6 +98,9 @@ KINDS = (
     "fact",
     "calendar",
     "clock",
+    "location",
+    "map",
+    "connection",
     "calendar_period",
     "event",
     "observance",
@@ -214,6 +226,21 @@ class Content:
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     clocks: dict[uuid.UUID, bool] = field(default_factory=dict)
+    # child -> {parent, ordinal}: the part-of tree (ADR 0330). The ordinal is a string.
+    location_parts: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # entry -> the Location it is at (ADR 0333).
+    entity_locations: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    # entry -> the axes it is a frame on, and entry -> {axis: the frame it is on} (ADR 0369).
+    frames: dict[uuid.UUID, list[str]] = field(default_factory=dict)
+    entity_frames: dict[uuid.UUID, dict[str, uuid.UUID]] = field(default_factory=dict)
+    # map -> {system, subject}, and (map, entry) -> {geometry, role, style, z} (ADR 0336).
+    maps: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    map_placements: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
+    # connection -> {end_a, end_b, one_way}: the entries it joins, and one way or not (ADR 0363).
+    connections: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # map -> its layers in order, each {information, calibration, opacity, reviewed}: `information`
+    # an id as text, `reviewed` a hex fingerprint or none (ADR 0361).
+    map_layers: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
     clock_readings: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
     clock_relationships: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
         default_factory=dict
@@ -286,8 +313,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     c = Content(tenant_id=tenant_id)
     t = tenant_id
 
-    async def rows(*columns: Any, where: Any) -> Any:
-        return (await session.execute(select(*columns).where(where))).all()
+    async def rows(*columns: Any, where: Any, order_by: tuple[Any, ...] = ()) -> Any:
+        return (await session.execute(select(*columns).where(where).order_by(*order_by))).all()
 
     for entity_id, name in await rows(Entity.id, Entity.name, where=Entity.tenant_id == t):
         c.entities[entity_id] = name
@@ -378,6 +405,9 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("fact", Fact),
         ("calendar", Calendar),
         ("clock", Clock),
+        ("location", Location),
+        ("map", Map),
+        ("connection", Connection),
         ("calendar_period", CalendarPeriod),
         ("event", StoryEvent),
         ("observance", CalendarObservance),
@@ -692,6 +722,84 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         await rows(Calendar.entity_id, Calendar.definition, where=Calendar.tenant_id == t)
     )
     c.clocks = dict(await rows(Clock.entity_id, Clock.ticking, where=Clock.tenant_id == t))
+    c.maps = {
+        entity: {"system": system, "subject": subject, "theme": theme, "view": view}
+        for entity, system, subject, theme, view in await rows(
+            Map.entity_id,
+            Map.system,
+            Map.subject_entity_id,
+            Map.theme_hint,
+            Map.view,
+            where=Map.tenant_id == t,
+        )
+    }
+    c.map_placements = {
+        (drawn_on, entry): {"geometry": geometry, "role": role, "style": style, "z": z}
+        for drawn_on, entry, geometry, role, style, z in await rows(
+            MapPlacement.map_entity_id,
+            MapPlacement.entry_entity_id,
+            MapPlacement.geometry,
+            MapPlacement.role,
+            MapPlacement.style,
+            MapPlacement.z,
+            where=MapPlacement.tenant_id == t,
+        )
+    }
+    c.connections = {
+        entity: {"end_a": end_a, "end_b": end_b, "one_way": one_way}
+        for entity, end_a, end_b, one_way in await rows(
+            Connection.entity_id,
+            Connection.end_a,
+            Connection.end_b,
+            Connection.one_way,
+            where=Connection.tenant_id == t,
+        )
+    }
+    for drawn_on, _position, info, calibration, opacity, reviewed in await rows(
+        MapLayer.map_entity_id,
+        MapLayer.position,
+        MapLayer.information_id,
+        MapLayer.calibration,
+        MapLayer.opacity,
+        MapLayer.reviewed_sha256,
+        where=MapLayer.tenant_id == t,
+        order_by=(MapLayer.map_entity_id, MapLayer.position),
+    ):
+        c.map_layers.setdefault(drawn_on, []).append(
+            {
+                "information": str(info),
+                "calibration": calibration,
+                "opacity": opacity,
+                "reviewed": None if reviewed is None else bytes(reviewed).hex(),
+            }
+        )
+    c.entity_locations = dict(
+        await rows(
+            EntityLocation.entity_id,
+            EntityLocation.location_entity_id,
+            where=EntityLocation.tenant_id == t,
+        )
+    )
+    for entry, axis in await rows(Frame.entity_id, Frame.axis, where=Frame.tenant_id == t):
+        c.frames.setdefault(entry, []).append(axis)
+    for axes in c.frames.values():
+        axes.sort()
+    for entry, axis, frame in await rows(
+        EntityFrame.entity_id,
+        EntityFrame.axis,
+        EntityFrame.frame_entity_id,
+        where=EntityFrame.tenant_id == t,
+    ):
+        c.entity_frames.setdefault(entry, {})[axis] = frame
+    c.location_parts = {
+        child: {"parent": parent, "ordinal": None if ordinal is None else str(ordinal)}
+        for child, parent, ordinal in await rows(
+            LocationPart.child_entity_id,
+            LocationPart.parent_entity_id,
+            LocationPart.level_ordinal,
+            where=LocationPart.tenant_id == t,
+        )
+    }
     clock_sources: list[tuple[type[EventClockReading] | type[CalendarReckoning], str, Any]] = [
         (EventClockReading, "clock_readings", EventClockReading.event_entity_id),
         (CalendarReckoning, "calendar_reckonings", CalendarReckoning.calendar_entity_id),
@@ -958,6 +1066,62 @@ def entity_snapshot(
         **clock_fields,
         **({"clock_ticking": content.clocks[entity_id]} if entity_id in content.clocks else {}),
         **(
+            {
+                "map_system": content.maps[entity_id]["system"],
+                "map_theme": content.maps[entity_id]["theme"],
+                "map_view": content.maps[entity_id]["view"],
+                "map_subject": None
+                if content.maps[entity_id]["subject"] is None
+                else name("entity", content.maps[entity_id]["subject"]),
+                "placements": {
+                    name("entity", entry): record
+                    for (drawn_on, entry), record in sorted(
+                        content.map_placements.items(), key=lambda item: str(item[0])
+                    )
+                    if drawn_on == entity_id
+                },
+            }
+            if entity_id in content.maps
+            else {}
+        ),
+        **(
+            {
+                "connection": {
+                    "end_a": name("entity", content.connections[entity_id]["end_a"]),
+                    "end_b": name("entity", content.connections[entity_id]["end_b"]),
+                    "one_way": bool(content.connections[entity_id]["one_way"]),
+                }
+            }
+            if entity_id in content.connections
+            else {}
+        ),
+        **(
+            {"place": {"location": name("entity", content.entity_locations[entity_id])}}
+            if entity_id in content.entity_locations
+            else {}
+        ),
+        **({"frame_axes": list(content.frames[entity_id])} if entity_id in content.frames else {}),
+        **(
+            {
+                "frames": {
+                    axis: name("entity", frame)
+                    for axis, frame in sorted(content.entity_frames[entity_id].items())
+                }
+            }
+            if entity_id in content.entity_frames
+            else {}
+        ),
+        **(
+            {
+                "part_of": {
+                    "parent": name("entity", content.location_parts[entity_id]["parent"]),
+                    "ordinal": content.location_parts[entity_id]["ordinal"],
+                }
+            }
+            if entity_id in content.location_parts
+            else {}
+        ),
+        **(
             {"calendar_definition": content.calendars[entity_id]}
             if entity_id in content.calendars
             else {}
@@ -982,6 +1146,21 @@ def entity_snapshot(
             for d, f in index.formulas.get(entity_id, {}).items()
         },
     }
+
+
+def assert_acyclic(parts: dict[uuid.UUID, dict[str, Any]]) -> None:
+    """The part-of tree holds no cycle. The route guards it on write; a tree that arrives
+    another way is refused where it would be copied or published (ADR 0330)."""
+    from lorenzo_api.exceptions import LocationTreeError
+
+    for start in parts:
+        seen = {start}
+        node = parts[start]["parent"]
+        while node in parts:
+            if node in seen:
+                raise LocationTreeError()
+            seen.add(node)
+            node = parts[node]["parent"]
 
 
 def stat_group_snapshot(content: Content, group_id: uuid.UUID) -> dict[str, Any]:

@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Locations — Lorenzo Maps" status="Opening Locations…">
+  <div id="maps-locations" class="stack"></div>
+  <script>
+    import { mountLocations } from '../../lib/views';
+    document.addEventListener('astro:page-load', () => void mountLocations());
+  </script>
+</Base>

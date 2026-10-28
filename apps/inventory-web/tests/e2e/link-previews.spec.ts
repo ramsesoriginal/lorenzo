@@ -35,7 +35,7 @@ test('hovering a link shows the entry, and moving away puts the card away', asyn
   await expect(card(page)).toContainText('Item');
   await expect(card(page)).toContainText('weight 2');
   await expect(card(page)).toContainText('A small pouch worn at the hip');
-  await expect(link(page)).toHaveAttribute('aria-describedby', 'link-preview');
+  await expect(link(page)).toHaveAttribute('aria-describedby', 'entry-preview');
 
   await page.getByRole('heading', { level: 1 }).hover();
   await expect(card(page)).toBeHidden();

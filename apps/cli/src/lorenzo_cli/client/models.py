@@ -86,6 +86,19 @@ class AppsOut(BaseModel):
     calendars: AppOut
     sessions: AppOut | None = None
     writing: AppOut | None = None
+    maps: AppOut | None = None
+
+
+class AtIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    location_entity_id: UUID = Field(..., title="Location Entity Id")
+
+
+class AtOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    location_entity_id: UUID = Field(..., title="Location Entity Id")
 
 
 class AttachmentActionName(StrEnum):
@@ -130,6 +143,9 @@ class Kind1(StrEnum):
     fact = "fact"
     calendar = "calendar"
     clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -149,6 +165,17 @@ class BacklinkOut(BaseModel):
     information_id: UUID = Field(..., title="Information Id")
     title: str = Field(..., title="Title")
     type: str = Field(..., title="Type")
+
+
+class BatchPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entry_id: UUID = Field(..., title="Entry Id")
+    geometry: dict[str, Any] = Field(..., title="Geometry")
+    role: str | None = Field(None, title="Role")
+    style: dict[str, Any] | None = Field(None, title="Style")
+    z: int | None = Field(0, title="Z")
 
 
 class BeingSummaryOut(BaseModel):
@@ -580,6 +607,54 @@ class Source(StrEnum):
     unset = "unset"
 
 
+class ConnectionCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    end_a: UUID = Field(..., title="End A")
+    end_b: UUID = Field(..., title="End B")
+    one_way: bool | None = Field(False, title="One Way")
+    prototypes: list[UUID] | None = Field(None, max_length=20, title="Prototypes")
+    is_public: bool | None = Field(False, title="Is Public")
+
+
+class Kind7(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+    fact = "fact"
+    calendar = "calendar"
+    clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
+    calendar_period = "calendar_period"
+    event = "event"
+    observance = "observance"
+    book = "book"
+    edition = "edition"
+    chapter = "chapter"
+    scene_telling = "scene_telling"
+    scene = "scene"
+    scene_appearance = "scene_appearance"
+    session = "session"
+
+
+class ConnectionPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    end_a: UUID = Field(..., title="End A")
+    end_b: UUID = Field(..., title="End B")
+    one_way: bool | None = Field(False, title="One Way")
+
+
 class ContentsExplanationOut(BaseModel):
     source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
     source_name: str = Field(..., title="Source Name")
@@ -605,7 +680,7 @@ class ContributionCountsOut(BaseModel):
     attachments: int = Field(..., title="Attachments")
 
 
-class Kind7(StrEnum):
+class Kind8(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -617,14 +692,14 @@ class Mode(StrEnum):
 
 
 class ContributionOut(BaseModel):
-    kind: Kind7 = Field(..., title="Kind")
+    kind: Kind8 = Field(..., title="Kind")
     local_id: UUID | None = Field(..., title="Local Id")
     source_id: UUID = Field(..., title="Source Id")
     name: str = Field(..., title="Name")
     mode: Mode | None = Field(..., title="Mode")
 
 
-class Kind8(StrEnum):
+class Kind9(StrEnum):
     equipped = "equipped"
     not_carried = "not_carried"
     container = "container"
@@ -736,6 +811,18 @@ class DiscoverReleaseOut(BaseModel):
     released_at: AwareDatetime = Field(..., title="Released At")
 
 
+class Mode1(StrEnum):
+    route = "route"
+    straight = "straight"
+
+
+class State3(StrEnum):
+    known = "known"
+    partial = "partial"
+    unknown = "unknown"
+    limit_reached = "limit_reached"
+
+
 class DocumentWarning(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -754,7 +841,7 @@ class DuplicateGroupRequest(BaseModel):
     name: str | None = Field(None, title="Name")
 
 
-class Kind9(StrEnum):
+class Kind10(StrEnum):
     payload = "payload"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -762,7 +849,7 @@ class Kind9(StrEnum):
 
 class Element(BaseModel):
     id: UUID = Field(..., title="Id")
-    kind: Kind9 = Field(..., title="Kind")
+    kind: Kind10 = Field(..., title="Kind")
     name: str | None = Field(None, title="Name")
 
 
@@ -778,7 +865,7 @@ class EntityChangeOut(BaseModel):
     occurred_at: AwareDatetime = Field(..., title="Occurred At")
 
 
-class Kind10(StrEnum):
+class Kind11(StrEnum):
     item = "item"
     being = "being"
     fact = "fact"
@@ -797,13 +884,13 @@ class EntityCreate(BaseModel):
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
         None, title="Slug"
     )
-    kinds: list[Kind10] | None = Field([], title="Kinds")
+    kinds: list[Kind11] | None = Field([], title="Kinds")
     parents: list[UUID] | None = Field([], title="Parents")
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
     visibility: Visibility | None = Field(None, title="Visibility")
 
 
-class Kind11(StrEnum):
+class Kind12(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -811,6 +898,9 @@ class Kind11(StrEnum):
     fact = "fact"
     calendar = "calendar"
     clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -831,13 +921,14 @@ class EntityExportStatOut(BaseModel):
 
 class EntityKindPut(BaseModel):
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+    system: dict[str, Any] | None = Field(None, title="System")
 
 
 class EntityListOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     quantity: int | None = Field(None, title="Quantity")
-    kinds: list[Kind11] = Field(..., title="Kinds")
+    kinds: list[Kind12] = Field(..., title="Kinds")
     parent_ids: list[UUID] = Field(..., title="Parent Ids")
 
 
@@ -866,16 +957,46 @@ class EntryCollaborationAccess(BaseModel):
     editable_information_ids: list[UUID] = Field(..., title="Editable Information Ids")
 
 
-class Kind15(StrEnum):
+class Kind16(StrEnum):
     entity = "entity"
     player = "player"
 
 
 class EntryKnowerOut(BaseModel):
-    kind: Kind15 = Field(..., title="Kind")
+    kind: Kind16 = Field(..., title="Kind")
     knower_entity_id: UUID | None = Field(None, title="Knower Entity Id")
     player_id: UUID | None = Field(None, title="Player Id")
     name: str | None = Field(..., title="Name")
+
+
+class Kind17(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+    fact = "fact"
+    calendar = "calendar"
+    clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
+    calendar_period = "calendar_period"
+    event = "event"
+    observance = "observance"
+    book = "book"
+    edition = "edition"
+    chapter = "chapter"
+    scene_telling = "scene_telling"
+    scene = "scene"
+    scene_appearance = "scene_appearance"
+    session = "session"
+
+
+class EntryStub(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind17] = Field(..., title="Kinds")
 
 
 class EventAccess(BaseModel):
@@ -941,7 +1062,7 @@ class FactUpdate(BaseModel):
     name: constr(min_length=1) = Field(..., title="Name")
 
 
-class State3(StrEnum):
+class State4(StrEnum):
     clean = "clean"
     conflict = "conflict"
     not_applicable = "not_applicable"
@@ -950,7 +1071,7 @@ class State3(StrEnum):
 class FieldChangeOut(BaseModel):
     field: str = Field(..., title="Field")
     label: str | None = Field(..., title="Label")
-    state: State3 = Field(..., title="State")
+    state: State4 = Field(..., title="State")
     base: Any = Field(..., title="Base")
     upstream: Any = Field(..., title="Upstream")
     local: Any = Field(..., title="Local")
@@ -961,6 +1082,34 @@ class FieldChangeOut(BaseModel):
 class Visibility1(StrEnum):
     private = "private"
     public = "public"
+
+
+class FrameAxisOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    axis: str = Field(..., title="Axis")
+
+
+class FrameIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    frame_entity_id: UUID = Field(..., title="Frame Entity Id")
+
+
+class FrameMembershipOut(BaseModel):
+    entity_id: UUID = Field(..., title="Entity Id")
+    axis: str = Field(..., title="Axis")
+    frame_entity_id: UUID = Field(..., title="Frame Entity Id")
+
+
+class FrameOut(BaseModel):
+    entry: EntryStub
+    axes: list[str] = Field(..., title="Axes")
+
+
+class FrameRowOut(BaseModel):
+    axis: str = Field(..., title="Axis")
+    frame: EntryStub
 
 
 class GiveContentsRequest(BaseModel):
@@ -1091,8 +1240,13 @@ class KindCountsOut(BaseModel):
     removed: int = Field(..., title="Removed")
 
 
+class Kind18(StrEnum):
+    entity = "entity"
+    player = "player"
+
+
 class KnowerOut(BaseModel):
-    kind: Kind15 = Field(..., title="Kind")
+    kind: Kind18 = Field(..., title="Kind")
     knower_entity_id: UUID | None = Field(None, title="Knower Entity Id")
     player_id: UUID | None = Field(None, title="Player Id")
     name: str | None = Field(..., title="Name")
@@ -1108,6 +1262,35 @@ class KnowledgeEntryOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class LayerIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    information_id: UUID = Field(..., title="Information Id")
+    calibration: dict[str, Any] | None = Field(None, title="Calibration")
+    opacity: float | None = Field(None, title="Opacity")
+    reviewed: bool | None = Field(False, title="Reviewed")
+
+
+class LayerOut(BaseModel):
+    position: int = Field(..., title="Position")
+    information_id: UUID = Field(..., title="Information Id")
+    title: str = Field(..., title="Title")
+    payload_id: UUID | None = Field(None, title="Payload Id")
+    content_type: str | None = Field(None, title="Content Type")
+    sha256: str | None = Field(None, title="Sha256")
+    opacity: float | None = Field(None, title="Opacity")
+    calibration: dict[str, Any] | None = Field(None, title="Calibration")
+    needs_review: bool | None = Field(False, title="Needs Review")
+
+
+class LayersPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    layers: list[LayerIn] = Field(..., max_length=8, title="Layers")
+
+
 class LearningOut(BaseModel):
     event_entity_id: UUID = Field(..., title="Event Entity Id")
     event_name: str = Field(..., title="Event Name")
@@ -1117,6 +1300,13 @@ class LearningOut(BaseModel):
     information_title: str | None = Field(..., title="Information Title")
     information_entity_id: UUID = Field(..., title="Information Entity Id")
     information_entity_name: str = Field(..., title="Information Entity Name")
+
+
+class LegOut(BaseModel):
+    connection: EntryStub
+    start: EntryStub
+    end: EntryStub
+    length: float | None = Field(None, title="Length")
 
 
 class LicenceIn(BaseModel):
@@ -1132,7 +1322,21 @@ class LicenceOut(BaseModel):
     url: str | None = Field(..., title="Url")
 
 
-class Kind17(StrEnum):
+class Direction(StrEnum):
+    both = "both"
+    out = "out"
+    in_ = "in"
+
+
+class LinkOut(BaseModel):
+    connection: EntryStub
+    here: EntryStub
+    other: EntryStub
+    direction: Direction = Field(..., title="Direction")
+    other_maps: list[EntryStub] = Field(..., title="Other Maps")
+
+
+class Kind19(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -1140,6 +1344,9 @@ class Kind17(StrEnum):
     fact = "fact"
     calendar = "calendar"
     clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -1155,6 +1362,29 @@ class Kind17(StrEnum):
 class LinkPreviewStatOut(BaseModel):
     name: str = Field(..., title="Name")
     value: int | str | float = Field(..., title="Value")
+
+
+class LinksOut(BaseModel):
+    items: list[LinkOut] = Field(..., title="Items")
+    truncated: bool | None = Field(False, title="Truncated")
+
+
+class LintEntry(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+
+
+class Finding(StrEnum):
+    dormant_place = "dormant_place"
+    place_hidden = "place_hidden"
+    part_hidden = "part_hidden"
+    part_loop = "part_loop"
+
+
+class LintFindingOut(BaseModel):
+    finding: Finding = Field(..., title="Finding")
+    message: str = Field(..., title="Message")
+    entries: list[LintEntry] = Field(..., title="Entries")
 
 
 class LivedAssertion(BaseModel):
@@ -1176,6 +1406,56 @@ class LivedOrderWrite(BaseModel):
 class LivedParticipation(BaseModel):
     event_id: UUID = Field(..., title="Event Id")
     name: str = Field(..., title="Name")
+
+
+class LocationCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        regex_engine="python-re",
+    )
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    is_public: bool | None = Field(False, title="Is Public")
+    parent_id: UUID | None = Field(None, title="Parent Id")
+    level_ordinal: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Level Ordinal"
+    )
+
+
+class Tie(StrEnum):
+    tied = "tied"
+    untied = "untied"
+    other = "other"
+
+
+class LocationListItem(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind19] = Field(..., title="Kinds")
+    level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Level Ordinal"
+    )
+    tie: Tie | None = Field(None, title="Tie")
+
+
+class LocationStub(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind19] = Field(..., title="Kinds")
+    level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Level Ordinal"
+    )
 
 
 class MadePrivateOut(BaseModel):
@@ -1232,6 +1512,47 @@ class ManuscriptSummary(BaseModel):
     name: str = Field(..., title="Name")
 
 
+class MapCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    system: dict[str, Any] = Field(..., title="System")
+    subject_entity_id: UUID | None = Field(None, title="Subject Entity Id")
+    theme_hint: str | None = Field(None, title="Theme Hint")
+    view: dict[str, Any] | None = Field(None, title="View")
+    is_public: bool | None = Field(False, title="Is Public")
+
+
+class MapListItem(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind19] = Field(..., title="Kinds")
+    tie: Tie | None = Field(None, title="Tie")
+
+
+class MapPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    system: dict[str, Any] = Field(..., title="System")
+    subject_entity_id: UUID | None = Field(None, title="Subject Entity Id")
+    theme_hint: str | None = Field(None, title="Theme Hint")
+    view: dict[str, Any] | None = Field(None, title="View")
+
+
+class MapStub(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind19] = Field(..., title="Kinds")
+
+
 class MeCapabilitiesOut(BaseModel):
     create_tenant: bool = Field(..., title="Create Tenant")
 
@@ -1242,6 +1563,11 @@ class MePlayerOut(BaseModel):
     campaign_id: UUID = Field(..., title="Campaign Id")
     characters: list[CharacterSummaryOut] = Field(..., title="Characters")
     self_service_effective: bool = Field(..., title="Self Service Effective")
+
+
+class MemberOut(BaseModel):
+    entry: EntryStub
+    axis: str = Field(..., title="Axis")
 
 
 class MemberProfileOut(BaseModel):
@@ -1550,6 +1876,14 @@ class PageEventSummary(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageFrameOut(BaseModel):
+    items: list[FrameOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageKnowledgeEntryOut(BaseModel):
     items: list[KnowledgeEntryOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1560,6 +1894,30 @@ class PageKnowledgeEntryOut(BaseModel):
 
 class PageLearningOut(BaseModel):
     items: list[LearningOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageLintFindingOut(BaseModel):
+    items: list[LintFindingOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageLocationListItem(BaseModel):
+    items: list[LocationListItem] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageLocationStub(BaseModel):
+    items: list[LocationStub] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -1582,6 +1940,22 @@ class PageManuscriptSummary(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageMapListItem(BaseModel):
+    items: list[MapListItem] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageMemberOut(BaseModel):
+    items: list[MemberOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageNotificationOut(BaseModel):
     items: list[NotificationOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -1596,6 +1970,17 @@ class PageOccurrenceOut(BaseModel):
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
     pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PartOfIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        regex_engine="python-re",
+    )
+    parent_entity_id: UUID = Field(..., title="Parent Entity Id")
+    level_ordinal: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Level Ordinal"
+    )
 
 
 class ParticipantGroupCreate(BaseModel):
@@ -1758,6 +2143,51 @@ class PictureRefOut(BaseModel):
     from_entity: EntitySummary | None
 
 
+class PlaceOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+
+
+class PlacementBatchIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    put: list[BatchPut] | None = Field(None, title="Put")
+    remove: list[UUID] | None = Field(None, title="Remove")
+
+
+class PlacementBatchOut(BaseModel):
+    put: int = Field(..., title="Put")
+    removed: int = Field(..., title="Removed")
+
+
+class PlacementIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    geometry: dict[str, Any] = Field(..., title="Geometry")
+    role: str | None = Field(None, title="Role")
+    style: dict[str, Any] | None = Field(None, title="Style")
+    z: int | None = Field(0, title="Z")
+
+
+class PlacementOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind19] = Field(..., title="Kinds")
+    geometry: dict[str, Any] = Field(..., title="Geometry")
+    role: str | None = Field(None, title="Role")
+    style: dict[str, Any] | None = Field(None, title="Style")
+    z: int = Field(..., title="Z")
+
+
+class PlacementsPage(BaseModel):
+    items: list[PlacementOut] = Field(..., title="Items")
+    next_cursor: str | None = Field(None, title="Next Cursor")
+
+
 class Status9(StrEnum):
     planned = "planned"
     played = "played"
@@ -1871,7 +2301,7 @@ class PreviewDescriptionOut(BaseModel):
     content: str = Field(..., title="Content")
 
 
-class Kind18(StrEnum):
+class Kind27(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -1906,13 +2336,13 @@ class PreviewStatOut(BaseModel):
     value: Any = Field(..., title="Value")
 
 
-class Mode1(StrEnum):
+class Mode2(StrEnum):
     keep = "keep"
     purge = "purge"
 
 
 class PreviousCopyOut(BaseModel):
-    mode: Mode1 = Field(..., title="Mode")
+    mode: Mode2 = Field(..., title="Mode")
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
@@ -2014,7 +2444,7 @@ class RecurrenceRule(BaseModel):
     when: Periodic | None = Field({"every": 1, "offset": 0}, validate_default=True)
 
 
-class Kind19(StrEnum):
+class Kind28(StrEnum):
     facts = "facts"
     events = "events"
     beings = "beings"
@@ -2023,7 +2453,7 @@ class Kind19(StrEnum):
 class ReferenceOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kind: Kind19 = Field(..., title="Kind")
+    kind: Kind28 = Field(..., title="Kind")
     is_shared: bool = Field(..., title="Is Shared")
 
 
@@ -2031,7 +2461,7 @@ class ReferenceShare(BaseModel):
     is_shared: bool | None = Field(False, title="Is Shared")
 
 
-class Kind20(StrEnum):
+class Kind29(StrEnum):
     order = "order"
     causes = "causes"
 
@@ -2046,14 +2476,14 @@ class RelationshipOut(BaseModel):
     to_event_id: UUID = Field(..., title="To Event Id")
     from_name: str = Field(..., title="From Name")
     to_name: str = Field(..., title="To Name")
-    kind: Kind20 = Field(..., title="Kind")
+    kind: Kind29 = Field(..., title="Kind")
     is_shared: bool | None = Field(False, title="Is Shared")
     evidence: Evidence | None = Field("assertion", title="Evidence")
     being_entity_id: UUID | None = Field(None, title="Being Entity Id")
     being_name: str | None = Field(None, title="Being Name")
 
 
-class Direction(StrEnum):
+class Direction1(StrEnum):
     incoming = "incoming"
     outgoing = "outgoing"
 
@@ -2062,8 +2492,8 @@ class RelationshipSharingWrite(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    kind: Kind20 = Field(..., title="Kind")
-    direction: Direction | None = Field("outgoing", title="Direction")
+    kind: Kind29 = Field(..., title="Kind")
+    direction: Direction1 | None = Field("outgoing", title="Direction")
     is_shared: bool = Field(..., title="Is Shared")
 
 
@@ -2071,8 +2501,8 @@ class RelationshipWrite(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    kind: Kind20 = Field(..., title="Kind")
-    direction: Direction | None = Field("outgoing", title="Direction")
+    kind: Kind29 = Field(..., title="Kind")
+    direction: Direction1 | None = Field("outgoing", title="Direction")
 
 
 class ReleaseCountsOut(BaseModel):
@@ -2127,7 +2557,7 @@ class RepositoryDependencyOut(BaseModel):
     public: bool = Field(..., title="Public")
 
 
-class Kind23(StrEnum):
+class Kind32(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -2142,7 +2572,7 @@ class Kind23(StrEnum):
 class RepositoryEntityOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind23] = Field(..., title="Kinds")
+    kinds: list[Kind32] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
@@ -2181,7 +2611,7 @@ class RepositorySummaryOut(BaseModel):
     published_at: AwareDatetime | None = Field(..., title="Published At")
 
 
-class Kind24(StrEnum):
+class Kind33(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -2194,13 +2624,13 @@ class Action1(StrEnum):
 
 
 class ResolutionIn(BaseModel):
-    kind: Kind24 = Field(..., title="Kind")
+    kind: Kind33 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
-class Kind25(StrEnum):
+class Kind34(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -2208,6 +2638,9 @@ class Kind25(StrEnum):
     fact = "fact"
     calendar = "calendar"
     clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -2224,10 +2657,10 @@ class ResolvedSlugOut(BaseModel):
     slug: str = Field(..., title="Slug")
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind25] = Field(..., title="Kinds")
+    kinds: list[Kind34] = Field(..., title="Kinds")
 
 
-class Kind26(StrEnum):
+class Kind35(StrEnum):
     text = "text"
     picture = "picture"
     entry = "entry"
@@ -2235,7 +2668,7 @@ class Kind26(StrEnum):
 
 class ReviewElement(BaseModel):
     id: UUID = Field(..., title="Id")
-    kind: Kind26 = Field(..., title="Kind")
+    kind: Kind35 = Field(..., title="Kind")
     content: str | None = Field(None, title="Content")
     url: str | None = Field(None, title="Url")
 
@@ -2268,18 +2701,18 @@ class RoundMode(StrEnum):
     truncate = "truncate"
 
 
-class Kind27(StrEnum):
+class Kind36(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
 
 
-class State4(StrEnum):
+class State5(StrEnum):
     released = "released"
     edited = "edited"
 
 
-class Kind28(StrEnum):
+class Kind37(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -2287,14 +2720,14 @@ class Kind28(StrEnum):
 
 
 class RowNameOut(BaseModel):
-    kind: Kind28 = Field(..., title="Kind")
+    kind: Kind37 = Field(..., title="Kind")
     row_id: UUID = Field(..., title="Row Id")
     parent_id: UUID | None = Field(..., title="Parent Id")
     name: str = Field(..., title="Name")
     parent_name: str | None = Field(..., title="Parent Name")
 
 
-class Kind29(StrEnum):
+class Kind38(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -2328,7 +2761,7 @@ class SceneUpdate(BaseModel):
     is_public: bool | None = Field(None, title="Is Public")
 
 
-class Kind30(StrEnum):
+class Kind39(StrEnum):
     month = "month"
     festival = "festival"
 
@@ -2340,7 +2773,7 @@ class Segment(BaseModel):
     key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
     name: constr(min_length=1, max_length=200) = Field(..., title="Name")
     days: conint(ge=1, le=1000) = Field(..., title="Days")
-    kind: Kind30 | None = Field("month", title="Kind")
+    kind: Kind39 | None = Field("month", title="Kind")
     in_week: bool | None = Field(True, title="In Week")
     when: Periodic | None = None
 
@@ -2351,7 +2784,7 @@ class SegmentPreview(BaseModel):
     )
     key: str = Field(..., title="Key")
     name: str = Field(..., title="Name")
-    kind: Kind30 = Field(..., title="Kind")
+    kind: Kind39 = Field(..., title="Kind")
     month_ordinal: int | None = Field(..., title="Month Ordinal")
     days: list[DayPreview] = Field(..., title="Days")
 
@@ -2477,6 +2910,21 @@ class SplitText(BaseModel):
     offset: conint(ge=1) = Field(..., title="Offset")
 
 
+class Direction3(StrEnum):
+    both = "both"
+    to_hub = "to_hub"
+    from_hub = "from_hub"
+
+
+class Spoke(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    end: UUID = Field(..., title="End")
+    direction: Direction3 | None = Field("both", title="Direction")
+    name: constr(min_length=1, max_length=200) | None = Field(None, title="Name")
+
+
 class StatDefinitionOrder(BaseModel):
     stat_definition_ids: list[UUID] = Field(..., title="Stat Definition Ids")
 
@@ -2536,6 +2984,22 @@ class StatValueType(StrEnum):
     float = "float"
     bool = "bool"
     enum = "enum"
+
+
+class Via(StrEnum):
+    contained_in = "contained_in"
+    with_ = "with"
+    at = "at"
+    part_of = "part_of"
+    frame = "frame"
+
+
+class StepOut(BaseModel):
+    via: Via = Field(..., title="Via")
+    entity_id: UUID = Field(..., title="Entity Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    axis: str | None = Field(None, title="Axis")
 
 
 class SubscriberOut(BaseModel):
@@ -2661,7 +3125,7 @@ class UnprovenKindOut(BaseModel):
     kinds: list[str] = Field(..., title="Kinds")
 
 
-class Kind32(StrEnum):
+class Kind41(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -2718,7 +3182,19 @@ class Week(BaseModel):
     weekday: conint(ge=0, le=99) | None = Field(0, title="Weekday")
 
 
-class Kind33(StrEnum):
+class State7(StrEnum):
+    with_you = "with_you"
+    stashed = "stashed"
+    elsewhere = "elsewhere"
+    unknown = "unknown"
+
+
+class WhereaboutsOut(BaseModel):
+    state: State7 = Field(..., title="State")
+    place: PlaceOut | None = None
+
+
+class Kind42(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
@@ -2730,7 +3206,7 @@ class Kind33(StrEnum):
 class WritingEntry(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kind: Kind33 = Field(..., title="Kind")
+    kind: Kind42 = Field(..., title="Kind")
     book_id: UUID | None = Field(None, title="Book Id")
     parent_id: UUID | None = Field(None, title="Parent Id")
     scene_id: UUID | None = Field(None, title="Scene Id")
@@ -2755,6 +3231,11 @@ class Problem(BaseModel):
     type: str = Field(..., title="Problem type")
     status: int = Field(..., title="Status code")
     detail: str | None = Field(None, title="Problem detail")
+
+
+class AddressOut(BaseModel):
+    segments: list[StepOut] = Field(..., title="Segments")
+    interior: list[StepOut] | None = Field(None, title="Interior")
 
 
 class Annotation(BaseModel):
@@ -3002,6 +3483,19 @@ class ComputedStatPreviewOut(BaseModel):
     inputs: list[PreviewInputOut] = Field(..., title="Inputs")
 
 
+class ConnectionOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind7] = Field(..., title="Kinds")
+    end_a: EntryStub
+    end_b: EntryStub
+    one_way: bool = Field(..., title="One Way")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    can_manage: bool = Field(..., title="Can Manage")
+    is_public: bool | None = Field(None, title="Is Public")
+
+
 class ContentsResultItem(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     title: str = Field(..., title="Title")
@@ -3060,12 +3554,29 @@ class DiscoverPageOut(BaseModel):
     pages: int = Field(..., title="Pages")
 
 
+class DistanceOut(BaseModel):
+    mode: Mode1 = Field(..., title="Mode")
+    state: State3 = Field(..., title="State")
+    value: float | None = Field(None, title="Value")
+    at_least: float | None = Field(None, title="At Least")
+    unit: str | None = Field(None, title="Unit")
+    unmeasured_legs: int | None = Field(None, title="Unmeasured Legs")
+    route: list[LegOut] | None = Field([], title="Route", validate_default=True)
+    map: EntryStub | None = None
+    reason: str | None = Field(None, title="Reason")
+
+
 class EntityStatValueOut(BaseModel):
     name: str = Field(..., title="Name")
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
     computed: bool | None = Field(False, title="Computed")
+
+
+class EntryFramesOut(BaseModel):
+    frame_axes: list[str] = Field(..., title="Frame Axes")
+    frames: list[FrameRowOut] = Field(..., title="Frames")
 
 
 class EventComparison(BaseModel):
@@ -3103,6 +3614,16 @@ class HTTPValidationError(BaseModel):
     type: str = Field(..., title="Problem type")
     status: int = Field(..., title="Status code")
     errors: list[ValidationError]
+
+
+class HubCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    hub: UUID = Field(..., title="Hub")
+    spokes: list[Spoke] = Field(..., max_length=50, min_length=1, title="Spokes")
+    prototypes: list[UUID] | None = Field(None, max_length=20, title="Prototypes")
+    is_public: bool | None = Field(False, title="Is Public")
 
 
 class Payloads(
@@ -3263,7 +3784,7 @@ class LinkPreviewOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(..., title="Slug")
-    kinds: list[Kind17] = Field(..., title="Kinds")
+    kinds: list[Kind19] = Field(..., title="Kinds")
     template: str = Field(..., title="Template")
     picture_url: str | None = Field(..., title="Picture Url")
     stats: list[LinkPreviewStatOut] = Field(..., title="Stats")
@@ -3278,6 +3799,23 @@ class LivedOrderOut(BaseModel):
     assertions: list[RelationshipOut] = Field(..., title="Assertions")
 
 
+class LocationOut(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind19] = Field(..., title="Kinds")
+    level_ordinal: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Level Ordinal"
+    )
+    within: LocationStub | None = None
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    can_manage: bool = Field(..., title="Can Manage")
+    is_public: bool | None = Field(None, title="Is Public")
+
+
 class ManagedTenantOut(BaseModel):
     tenant_id: UUID = Field(..., title="Tenant Id")
     name: str = Field(..., title="Name")
@@ -3285,6 +3823,22 @@ class ManagedTenantOut(BaseModel):
     role: Role | None = Field(..., title="Role")
     kind: TenantKind
     campaigns: list[ManagedCampaignOut] = Field(..., title="Campaigns")
+
+
+class MapOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind19] = Field(..., title="Kinds")
+    system: dict[str, Any] = Field(..., title="System")
+    theme_hint: str | None = Field(None, title="Theme Hint")
+    view: dict[str, Any] | None = Field(None, title="View")
+    layers: list[LayerOut] | None = Field(None, title="Layers")
+    warnings: list[str] | None = Field(None, title="Warnings")
+    subject: MapStub | None = None
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    can_manage: bool = Field(..., title="Can Manage")
+    is_public: bool | None = Field(None, title="Is Public")
 
 
 class MeOut(BaseModel):
@@ -3345,6 +3899,14 @@ class PageAnnotatedUnionMembershipRosterEntryOutPlayerRosterEntryOutGmRosterEntr
     BaseModel
 ):
     items: list[Items] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageConnectionOut(BaseModel):
+    items: list[ConnectionOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -3582,21 +4144,21 @@ class Review(BaseModel):
 
 
 class RowChangeOut(BaseModel):
-    kind: Kind27 = Field(..., title="Kind")
+    kind: Kind36 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
     fields: list[FieldChangeOut] = Field(..., title="Fields")
-    state: State4 | None = Field(..., title="State")
+    state: State5 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
 class RowRefOut(BaseModel):
-    kind: Kind29 = Field(..., title="Kind")
+    kind: Kind38 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
-    state: State4 | None = Field(..., title="State")
+    state: State5 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
@@ -3677,7 +4239,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind32 = Field(..., title="Kind")
+    kind: Kind41 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action2 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")
@@ -3847,7 +4409,7 @@ class EntityDetailOut(BaseModel):
     stats: list[EntityStatValueOut] = Field(..., title="Stats")
     stat_groups: list[EntitySummary] = Field(..., title="Stat Groups")
     information: list[InformationOut] = Field(..., title="Information")
-    kinds: list[Kind11] = Field(..., title="Kinds")
+    kinds: list[Kind12] = Field(..., title="Kinds")
     prototypes: list[EntitySummary] = Field(..., title="Prototypes")
     instances: list[EntitySummary] = Field(..., title="Instances")
     parent: EntitySummary | None
@@ -3859,7 +4421,7 @@ class EntityExportOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(..., title="Slug")
-    kinds: list[Kind11] = Field(..., title="Kinds")
+    kinds: list[Kind12] = Field(..., title="Kinds")
     parent_ids: list[UUID] = Field(..., title="Parent Ids")
     stat_group_ids: list[UUID] = Field(..., title="Stat Group Ids")
     stats: list[EntityExportStatOut] = Field(..., title="Stats")
@@ -3883,7 +4445,7 @@ class EntityStatWriteOut(BaseModel):
     stats: list[EntityStatValueOut] = Field(..., title="Stats")
     stat_groups: list[EntitySummary] = Field(..., title="Stat Groups")
     information: list[InformationOut] = Field(..., title="Information")
-    kinds: list[Kind11] = Field(..., title="Kinds")
+    kinds: list[Kind12] = Field(..., title="Kinds")
     prototypes: list[EntitySummary] = Field(..., title="Prototypes")
     instances: list[EntitySummary] = Field(..., title="Instances")
     parent: EntitySummary | None
@@ -3934,7 +4496,7 @@ class PageStatDefinitionOut(BaseModel):
 class PreviewEntityOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind18] = Field(..., title="Kinds")
+    kinds: list[Kind27] = Field(..., title="Kinds")
     parents: list[PreviewParentOut] = Field(..., title="Parents")
     featured: bool = Field(..., title="Featured")
     text_visible: bool = Field(..., title="Text Visible")
@@ -4009,7 +4571,7 @@ class UpdatesOut(BaseModel):
 
 
 class ControlledColumnOut(BaseModel):
-    kind: Kind8 = Field(..., title="Kind")
+    kind: Kind9 = Field(..., title="Kind")
     container: EntitySummary | None
     container_kind: ContainerKind | None = Field(..., title="Container Kind")
     path: list[EntitySummary] = Field(..., title="Path")

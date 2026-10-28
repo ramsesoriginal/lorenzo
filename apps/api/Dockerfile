@@ -10,6 +10,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 COPY apps/api/pyproject.toml apps/api/uv.lock ./
 COPY packages/calendar-engine /app/packages/calendar-engine
+COPY packages/map-engine /app/packages/map-engine
 RUN uv sync --locked --no-install-project --no-dev
 
 COPY apps/api/src ./src

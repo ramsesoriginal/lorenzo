@@ -26,12 +26,15 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
+    Connection,
     Containment,
     ContentReference,
     Edition,
     Entity,
     EntityAudience,
+    EntityFrame,
     EntityKnowledge,
+    EntityLocation,
     EntityPrototype,
     EntitySlug,
     EntityStat,
@@ -43,13 +46,19 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Frame,
     GroupMember,
     Information,
     Item,
     ItemInstance,
     Knowledge,
     LivedBefore,
+    Location,
+    LocationPart,
     ManuscriptPlacement,
+    Map,
+    MapLayer,
+    MapPlacement,
     Ownership,
     Payload,
     PayloadDescription,
@@ -102,12 +111,16 @@ async def seed_every_content_table(
     scene = entity("Fixture Scene")
     calendar = entity("Fixture calendar")
     clock = entity("Fixture clock")
+    place = entity("Fixture place")
+    room = entity("Fixture room")
     reference_clock = entity("Fixture reference clock")
     period = entity("Fixture year")
     event = entity("Fixture event")
     later_event = entity("Later fixture Event")
     observance = entity("Fixture observance")
     fact = entity("The blade belongs to Elminster")
+    chart = entity("Fixture map")
+    road = entity("Fixture road")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     await session.flush()
@@ -115,6 +128,22 @@ async def seed_every_content_table(
     session.add_all(
         [
             Clock(entity_id=clock.id, tenant_id=tenant_id),
+            Location(entity_id=place.id, tenant_id=tenant_id),
+            Location(entity_id=room.id, tenant_id=tenant_id),
+            Connection(
+                entity_id=road.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=True
+            ),
+            Map(
+                entity_id=chart.id,
+                tenant_id=tenant_id,
+                system={
+                    "format": "lorenzo.map-system/1",
+                    "kind": "plane",
+                    "extent": [0, 0, 10, 10],
+                },
+                theme_hint="plain",
+                view={"grid": {"kind": "square", "cell": {"size": 2}}},
+            ),
             Clock(entity_id=reference_clock.id, tenant_id=tenant_id),
             EntityAudience(entity_id=reference_clock.id, tenant_id=tenant_id, is_public=False),
             EntityAudience(entity_id=clock.id, tenant_id=tenant_id, is_public=False),
@@ -162,11 +191,39 @@ async def seed_every_content_table(
             EntityAudience(entity_id=event.id, tenant_id=tenant_id, is_public=False),
             EntityAudience(entity_id=later_event.id, tenant_id=tenant_id, is_public=False),
             EntityAudience(entity_id=period.id, tenant_id=tenant_id, is_public=False),
+            Frame(entity_id=place.id, axis="plane", tenant_id=tenant_id),
         ]
     )
     await session.flush()
     session.add_all(
         [
+            EntityLocation(entity_id=calendar.id, location_entity_id=place.id, tenant_id=tenant_id),
+            EntityFrame(
+                entity_id=room.id, axis="plane", frame_entity_id=place.id, tenant_id=tenant_id
+            ),
+            MapPlacement(
+                map_entity_id=chart.id,
+                entry_entity_id=place.id,
+                tenant_id=tenant_id,
+                geometry={
+                    "format": "lorenzo.geometry/1",
+                    "parts": [{"shape": "point", "at": [1, 2]}],
+                },
+                role="site",
+                style=None,
+                z=0,
+                bytes=70,
+                minx=1,
+                miny=2,
+                maxx=1,
+                maxy=2,
+            ),
+            LocationPart(
+                child_entity_id=room.id,
+                parent_entity_id=place.id,
+                tenant_id=tenant_id,
+                level_ordinal=Decimal("1.5"),
+            ),
             EventClockReading(
                 event_entity_id=event.id,
                 clock_entity_id=clock.id,
@@ -362,6 +419,39 @@ async def seed_every_content_table(
                 target="elminster",
             ),
             Knowledge(tenant_id=tenant_id, knower_entity_id=elminster.id, information_id=info.id),
+        ]
+    )
+    # A picture under the Map (ADR 0361): its own Information, a picture payload and a layer.
+    backdrop = Information(
+        tenant_id=tenant_id, entity_id=chart.id, title="Backdrop", type="picture", is_public=True
+    )
+    session.add(backdrop)
+    await session.flush()
+    backdrop_payload = Payload(tenant_id=tenant_id, information_id=backdrop.id, order=0)
+    session.add(backdrop_payload)
+    await session.flush()
+    session.add_all(
+        [
+            PayloadPicture(
+                payload_id=backdrop_payload.id,
+                tenant_id=tenant_id,
+                data=b"\x89PNG",
+                file_type="image/png",
+            ),
+            MapLayer(
+                map_entity_id=chart.id,
+                position=0,
+                information_id=backdrop.id,
+                tenant_id=tenant_id,
+                calibration={
+                    "anchors": [
+                        {"image": [0, 0], "at": [0, 0]},
+                        {"image": [1, 1], "at": [10, 10]},
+                    ]
+                },
+                opacity=0.5,
+                reviewed_sha256=hashlib.sha256(b"\x89PNG").digest(),
+            ),
         ]
     )
     session.add(

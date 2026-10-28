@@ -14,7 +14,7 @@ Every deployable app lives under `apps/`, one directory per app, named by purpos
 | Command line | Talks to the API - bulk import and scripting. | [`apps/cli`](../../apps/cli) - the `lorenzo` tool, a Python CLI ([ADR 0137](../adr/0137-lorenzo-cli-app-python-client-and-auth.md)); it creates and seeds a repository tenant and imports MPMB standard items into it ([RFC 0025](../rfcs/0025-lorenzo-cli-mpmb-item-importer.md)), publishes a repository and offers it to tenants, and makes any authenticated request for a script ([ADR 0153](../adr/0153-lorenzo-version.md) to [0168](../adr/0168-lorenzo-unseed.md)) |
 | Converter(s) | Standalone tools that turn another source into a Lorenzo file, never talking to the API. | [`packages/converters`](../../packages/converters) (`lorenzo-convert`) — spreadsheets into a LorenzoLedger and donjon calendar exports into a calendar document ([ADR 0246](../adr/0246-lorenzo-converters-the-spreadsheet-converter.md), [ADR 0311](../adr/0311-calendar-documents-import-and-app.md)); outside this repository, [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) ([PyPI](https://pypi.org/project/lorenzo-beyond/)), a public D&D Beyond character's inventory as a LorenzoLedger ([ADR 0226](../adr/0226-lorenzoledger.md)) |
 | Mobile app(s) | Native clients of the REST API. | [`apps/inventory-mobile`](../../apps/inventory-mobile) — Lorenzo Inventory: Kotlin/Compose Android app, read-only character inventories, encrypted offline snapshots and durable note creation; device-code/PAT sign-in and local APK installation ([ADR 0291](../adr/0291-inventory-mobile-native-android-app.md)); [`apps/inventory-ios`](../../apps/inventory-ios) — the SwiftUI iOS 17+ counterpart with encrypted offline data and ordered text and picture notes, built unsigned in CI and signed locally with AltStore Classic ([ADR 0307](../adr/0307-inventory-ios-and-altstore-testing.md)) |
-| Shared packages | Generic libraries extracted from the apps, each independently versioned. | [`api-client`](../../packages/api-client) (the typed API client), [`brand`](../../packages/brand), [`lorenzoscript`](../../packages/lorenzoscript) and [`lorenzoscript-editor`](../../packages/lorenzoscript-editor), [`information-editor`](../../packages/information-editor) (information bundle controls shared by Beings, inventory-web and Bench), [`stat-values`](../../packages/stat-values), [`inventory-names`](../../packages/inventory-names), [`converters`](../../packages/converters), and [`calendar-engine`](../../packages/calendar-engine) (pure Python calendar calculation, used by the API; [ADR 0308](../adr/0308-authored-calendars-and-calculation.md)) |
+| Shared packages | Generic libraries extracted from the apps, each independently versioned. | [`api-client`](../../packages/api-client) (the typed API client), [`brand`](../../packages/brand), [`lorenzoscript`](../../packages/lorenzoscript) and [`lorenzoscript-editor`](../../packages/lorenzoscript-editor), [`information-editor`](../../packages/information-editor) (information bundle controls shared by Beings, inventory-web and Bench), [`stat-values`](../../packages/stat-values), [`inventory-names`](../../packages/inventory-names), [`converters`](../../packages/converters), and [`calendar-engine`](../../packages/calendar-engine) (pure Python calendar calculation, used by the API; [ADR 0308](../adr/0308-authored-calendars-and-calculation.md)), [`map-engine`](../../packages/map-engine) (the validator of Map systems and geometry, used by the API; [ADR 0337](../adr/0337-geometry-roles-and-the-validator.md)) [`map-renderer`](../../packages/map-renderer) (the SVG drawing of a Map, [ADR 0339](../adr/0339-the-map-renderer.md)) and [`entry-preview`](../../packages/entry-preview) (the card an entry opens when pointed at, [ADR 0349](../adr/0349-the-entry-preview-package.md)) |
 
 Everything other than the backend API is a *view* onto it — narrower, audience-specific slices of the same data, not a separate source of truth. See the [system context diagram](diagrams/system-context.md).
 
@@ -29,7 +29,7 @@ The entity design itself is recorded in [RFC 0001](../rfcs/0001-core-domain-data
 - **Multi-tenancy**: [ADR 0002](../adr/0002-multi-tenancy-shared-schema-rls.md) — shared schema + PostgreSQL row-level security. The app's own connection is a restricted, non-superuser role RLS actually applies to ([ADR 0021](../adr/0021-restricted-app-role-for-rls-enforcement.md)), locally, in CI, and in production — the live Neon role rotation is done and confirmed (not just deployed: the restricted role's privilege flags and `FORCE ROW LEVEL SECURITY` were checked directly against production Postgres).
 - **Observability**: health/readiness/metrics and structured (`structlog`) JSON logs exist in `apps/api` from its first commit, as intended, now correlated with `trace_id`/`span_id` from the active OpenTelemetry span, plus OpenTelemetry tracing itself (console exporter — no collector in this project's infra yet). See [docs/architecture/observability.md](observability.md) for what each signal actually covers and what isn't wired up yet.
 - **Auth**: [ADR 0009](../adr/0009-identity-provider-authgear.md)/[ADR 0023](../adr/0023-authgear-token-verification.md)/[ADR 0027](../adr/0027-authgear-cloud-not-self-hosted.md) — Authgear Cloud as the identity provider, with real OIDC bearer-token verification built and required on every tenant-scoped route.
-- **Deployment**: [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) — Google Cloud Run + Neon, continuously deployed on every push to `main` that touches `apps/api/` or `packages/calendar-engine/`, which the API image bundles (`.github/workflows/deploy-api.yml`). Confirmed working end to end (2026-09-09): a real login through production Authgear Cloud, a real token, verified against the live deployed Cloud Run service, correctly auto-provisioned a real `app_user` row via `GET /me`. `apps/loot-bot` shares the same Cloud Run/GCP project, but first needed its transport rewritten off the Discord Gateway onto Discord's HTTP Interactions Endpoint to fit Cloud Run's scale-to-zero model at all ([ADR 0053](../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md), `.github/workflows/deploy-loot-bot.yml`) — its pipeline is wired up, with one-time GCP setup described in [docs/operations/deployment-setup.md](../operations/deployment-setup.md). See [docs/architecture/deployment.md](deployment.md) for the components and how they connect.
+- **Deployment**: [ADR 0011](../adr/0011-deploy-target-cloud-run-neon.md) — Google Cloud Run + Neon, continuously deployed on every push to `main` that touches `apps/api/`, `packages/calendar-engine/` or `packages/map-engine/`, which the API image bundles (`.github/workflows/deploy-api.yml`). Confirmed working end to end (2026-09-09): a real login through production Authgear Cloud, a real token, verified against the live deployed Cloud Run service, correctly auto-provisioned a real `app_user` row via `GET /me`. `apps/loot-bot` shares the same Cloud Run/GCP project, but first needed its transport rewritten off the Discord Gateway onto Discord's HTTP Interactions Endpoint to fit Cloud Run's scale-to-zero model at all ([ADR 0053](../adr/0053-loot-bot-http-interactions-and-cloud-run-deploy.md), `.github/workflows/deploy-loot-bot.yml`) — its pipeline is wired up, with one-time GCP setup described in [docs/operations/deployment-setup.md](../operations/deployment-setup.md). See [docs/architecture/deployment.md](deployment.md) for the components and how they connect.
 
 ## Roadmap
 
@@ -306,6 +306,125 @@ assertions participate in repository copy and release. Played Scene/Event order 
 preparation. Explicit lived-before support joins the guarded Event graph with participation
 provenance and independent sharing; raw SQL and concurrent writers share its cycle protection.
 Clocks, repeated personal participation and historical state remain outside this slice.
+
+Locations (RFC 0048, ADR 0330 to 0332, 2026-10-23):
+
+A Location is an entry kind. Its `location` marker and `location_part` tree (single parent, levels
+may be skipped, an optional ordinal for siblings) are separate from `containment`, so nothing about
+where Locations sit widens a GM's reach. A reader sees each visible Location under its nearest
+visible ancestor, and a hidden level leaves no trace. A Location may be any other kind too. Lorenzo
+Maps lists, nests and edits Locations. An `entity_location` row says an entry is at a Location; a
+place is read only at the top of an entry's containment chain, and a flush hook clears it when
+something goes into a container and sets it to the container's place when it comes out. A player's
+`whereabouts` read says where something is for one character from rows the reader can see (ADR
+0333, 0334). The GM's `address` read and a `lint/locations` list of probable mistakes add no table
+(ADR 0335). Maps, connections, distance and optional dates are later slices of the RFC.
+
+Maps (RFC 0048 slice 4, ADR 0336 to 0340, 2026-10-23):
+
+A Map is an entry kind: a `map` marker with a versioned `system` document (a plane with an extent and
+an optional scale, or an outline) and an optional `subject_entity_id`, a Location it depicts that
+nothing reads to find where anything is. `map_placement` rows, keyed by (map, entry), hold validated
+`geometry` (points, circles, polylines, cubic curves and simple polygons with holes), a closed `role`,
+a `style` and a drawing order `z`, with the derived byte size and bounding box. The one validator is
+[`packages/map-engine`](../../packages/map-engine), run by every route and by repository copy and
+update; the API's routes (`/maps`, `/maps/{id}`, `/maps/{id}/placements`) read placements as keyset
+pages after the visibility join, with a body-hash `ETag`. Neither table feeds GM reach. The Maps app
+draws a Map with [`packages/map-renderer`](../../packages/map-renderer): a pure layout to a Scene, a
+reconciling SVG painter and hit testing, with the default theme in one place.
+
+Authoring (RFC 0048 slice 6, ADR 0351 to 0353, 2026-10-27): `POST .../maps/{id}/placements/batch` writes
+at most 100 placements and removals as one transaction through the single write's validator and
+visibility, with one touch and one activity entry. `map.theme_hint` keeps a theme name (`default` or
+`plain`, held to the renderer's list by a golden file; an unknown name is kept and read as the default),
+returned by the header, replaced with the system and the subject under `If-Match`, and carried by
+repository copy and update (release format 21). The renderer gains the `plain` theme, `legend()`,
+`setTheme` and an editor interface that knows nothing of editing: a `Tool` that receives the pointer in
+drawing units while set and an `Overlay` of lines, discs and handles drawn above the marks. Lorenzo
+Maps builds the tools, the panel, undo and redo and the settings on it.
+
+Grids (RFC 0048 slice 7, ADR 0354 to 0356, 2026-10-27): `lorenzo.map-system/1` gains `square`, `rect`
+and `hex` (a `cell`, an optional `measure` of what a cell is in the world, an optional `sub` division,
+and for hexes a required `orientation`), and `map.view` (release format 22) holds a visual grid for any
+system that has none. The cell functions (`cell_at`, `cell_centre`, `cell_polygon`, `in_grid`,
+`cell_count`) are pure, exist in `packages/map-engine` and `packages/map-renderer`, and are held to one
+golden file; the hex convention is odd-r (pointy) and odd-q (flat) with cell (0, 0) at the sheet's near
+corner, nearest centre wins and a tie goes to the lower row then the lower column. `PUT /maps/{id}`
+refuses (409) a change into or out of hex, or of a hex Map's orientation, once placements exist, and
+answers other changes with `warnings`. The renderer draws the grid under the placements with a level of
+detail; Maps adds a Grid switch, the cell under the pointer, Snap to the grid and a Cells tool.
+
+Spheres (RFC 0048 slice 8, ADR 0357 to 0359, 2026-10-28): `lorenzo.map-system/1` gains `sphere`, whose
+extent is always `[-180, -90, 180, 90]` and whose positions are `[longitude, latitude]`, with an optional
+`radius`. Geometry on a sphere is points, polylines and polygons only, every coordinate in range
+(`validate_placement` takes the Map's own system), a segment is straight in longitude and latitude and
+nothing wraps. `map.view` may hold a `projection` (`equirectangular`, `mercator` or `orthographic` with a
+`centre`), release format 23; `PUT /maps/{id}` refuses (409) a change into or out of a sphere under
+placements. The renderer's `project` and `unproject` turn a position into the projected sheet and back
+(the pointer reaches tools as longitude and latitude), samples bend a segment, a globe is cut at its limb and its
+far side draws nothing, and lines of longitude and latitude are the sphere's grid. Maps adds the sphere
+in Make a Map and Settings, the pointer in words, a reader's own projection and Turn buttons, and Pin,
+Line and Area on it.
+
+Pictures and layers (RFC 0048 slice 9, ADR 0360 to 0362, 2026-10-28): `payload_picture.sha256` is a
+generated stored column, so every picture carries its fingerprint. `image/svg+xml` is accepted for a
+picture payload and a main picture (not a profile picture) when `svg_lint.check_svg` accepts it: a fixed
+list of drawing elements, no document type, script, event handler, external link or `url()` that is not a
+fragment, at most 64 levels and 50,000 elements; the content route serves every picture with
+`X-Content-Type-Options: nosniff` and an SVG also with `default-src 'none'; sandbox` and as an attachment.
+`map_layer` (migration `c03620000001`, at most 8 per Map, a content table copied after `information`) points
+at an Information of the Map and shows its first picture; `lorenzo_map.validate_calibration` allows `null`
+(fit the sheet) or two or three anchors. `GET /maps/{id}` returns the visible layers with `needs_review`
+(the picture's hash is not the one the layer was reviewed for) and `PUT /maps/{id}/layers` replaces them
+under `If-Match`. Release format 24 carries `map_layers`; updates from a repository do not. The renderer
+draws a layer as an `image` primitive from a `data:` URL the host made, with the matrix of its calibration
+computed purely; Maps adds the Pictures section of Settings and the Pictures switch.
+
+Connections (RFC 0048 slice 10, ADR 0363 to 0365, 2026-10-28): `connection` (migration `c03630000001`) is an entry
+kind with `end_a`, `end_b` (both `ON DELETE CASCADE`, so deleting an end leaves a plain entry) and `one_way`
+(null both ways, true from A to B); it combines with no other kind and is made with `POST /connections` (or a
+hub of up to 50 spokes in one transaction at `POST /connections/hub`). A connection is read only by someone
+who sees the entry and both ends, in SQL, so a hidden end leaves no trace; connections are in the GMs' reach as
+authored content and no reach code reads an end. `GET /maps/{id}/links` derives, at read time and from the ends
+alone, what the places drawn on a Map lead to with the direction and the other Maps the far end is on. Release
+format 25 carries `connections`; a copy writes one only with both ends and an update applies its ends as one unit.
+Maps adds a Connections section to the Location page and a Leads to list to a placed entry's side panel.
+
+Distance (RFC 0048 slice 11, ADR 0366 to 0368, 2026-10-28): `lorenzo_map.straight_distance` is a pure function of a
+validated system and two positions (a plane's scale, a grid's `measure` counted by the new `metric` key on square and
+rectangular systems, hex steps as cube distance, a sphere's haversine times its radius), always in the author's unit;
+`golden/distance.json` holds the vectors. `GET /distance` answers `known`, `partial`, `unknown` or `limit_reached`:
+the straight line on one Map, or a bounded Dijkstra in the application (`routing.py`) over the connections the
+reader sees, read in batches with the visibility predicate in SQL and measured in a number stat (the effective
+value, so inherited lengths count and formulas do not), where a fully measured route beats a shorter one with an
+unmeasured leg and ties go to the lower connection id. It stores nothing; it is capped at 2,000 places, 10,000
+connections and 64 legs, and limited per user per instance (`DISTANCE_RATE_LIMIT_PER_MINUTE`, 60). Release format 26
+carries the `metric` key. Maps adds a Distance section to the Map page and "Diagonals count as" to a grid's setup.
+
+Frames and axes (RFC 0048 slice 12, ADR 0369 and 0370, 2026-10-28; API only): `frame(entity_id, axis)` is a designation
+on any entry, not a kind, and `entity_frame(entity_id, axis, frame_entity_id)` puts an entry on at most one frame per
+axis, the axis matched by a composite key (migration `c03690000001`). The axes are a closed list in code (`plane`,
+`sphere`, `timeline`, `universe`) behind a format check in the database, so a later axis is a code change; a frame
+may be on a frame of the same axis, which is how a multiverse is written, with a loop and a chain over eight
+refused on write and ended quietly on read. Writes are for those who write Locations. Resolution is per axis and
+the nearest explicit row wins along the address's own chain (the entry, its containers, its owner, its place and
+the Locations above it, and for a Location those above it), never through prototypes; the GM's `/address` gains
+`frame` steps with an `axis`, and `/entities/{id}/frames`, `/frames` and `/entities/{id}/frame-members` read the rows.
+No player read changes and no reach code names a frame. Release format 27 carries `frames` and `entity_frames`.
+
+The date lens on Maps (RFC 0048 slice 13, ADR 0371 to 0373, 2026-10-28): no table, no column, no write.
+`lorenzo_calendar.containing_periods` is the one pure rule (a day is in its month or festival and its year, a month in
+its year). `GET /maps` takes `tied_calendar`, `tied_year`, `tied_segment`, `tied_day` and `exclude_other`; with a date
+each row carries a `tie` of `tied`, `untied` or `other` (two `EXISTS` tests over `entry_calendar_period` in the same
+statement, counting only associations whose period and calendar the reader sees), ordered tied, untied, other, and
+without the parameters the response is byte for byte what it was. Maps shows the shared period picker, read only and
+empty by default, over the list, only when the library has a calendar.
+
+The date lens on Locations (RFC 0048 slice 14, ADR 0376 and 0377, 2026-10-28; the last slice): `GET /locations` takes
+the same `tied_*` and `exclude_other` parameters and answers the same `tie`, from one validating function
+(`date_lens.py`, which the Maps list now uses too) so the two lists cannot drift. The flat list only: a date with
+`root=true` is a 422, the parts read takes none, and a date is never inherited through part-of. The Locations page
+shows the same control and words, and lists by name while a date is chosen, bringing the tree back on clearing.
 
 ### What's next
 

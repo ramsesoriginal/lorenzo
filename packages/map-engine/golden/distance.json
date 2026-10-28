@@ -1,0 +1,173 @@
+{
+ "about": "Straight-line distance between two positions on a Map (ADR 0366), in the author's own unit; the Python tests hold the engine to it. A value is good to 1e-6.",
+ "cases": [
+  {
+   "name": "a plane with a scale: a 3-4-5 triangle at half a mile a unit",
+   "system": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1000, 800], "scale": {"per_unit": 0.5, "unit": "miles"}},
+   "a": [0, 0], "b": [300, 400],
+   "answer": {"state": "known", "value": 250, "unit": "miles"}
+  },
+  {
+   "name": "a plane without a scale",
+   "system": {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1000, 800]},
+   "a": [0, 0], "b": [300, 400],
+   "answer": {"state": "unknown", "reason": "the Map has no scale"}
+  },
+  {
+   "name": "a square grid counts a diagonal euclidean when it says nothing",
+   "system": {"format": "lorenzo.map-system/1", "kind": "square", "extent": [0, 0, 1000, 800], "cell": {"size": 50}, "measure": {"per_cell": 5, "unit": "feet"}},
+   "a": [25, 25], "b": [175, 125],
+   "answer": {"state": "known", "value": 18.027756, "unit": "feet"}
+  },
+  {
+   "name": "a square grid, chebyshev: 3 columns and 2 rows apart is 3 cells",
+   "system": {"format": "lorenzo.map-system/1", "kind": "square", "extent": [0, 0, 1000, 800], "cell": {"size": 50}, "measure": {"per_cell": 5, "unit": "feet"}, "metric": "chebyshev"},
+   "a": [25, 25], "b": [175, 125],
+   "answer": {"state": "known", "value": 15, "unit": "feet"}
+  },
+  {
+   "name": "a square grid, manhattan: 3 and 2 is 5 cells",
+   "system": {"format": "lorenzo.map-system/1", "kind": "square", "extent": [0, 0, 1000, 800], "cell": {"size": 50}, "measure": {"per_cell": 5, "unit": "feet"}, "metric": "manhattan"},
+   "a": [25, 25], "b": [175, 125],
+   "answer": {"state": "known", "value": 25, "unit": "feet"}
+  },
+  {
+   "name": "a square grid, alternating: 3 and 2 is 3 plus one double diagonal",
+   "system": {"format": "lorenzo.map-system/1", "kind": "square", "extent": [0, 0, 1000, 800], "cell": {"size": 50}, "measure": {"per_cell": 5, "unit": "feet"}, "metric": "alternating"},
+   "a": [25, 25], "b": [175, 125],
+   "answer": {"state": "known", "value": 20, "unit": "feet"}
+  },
+  {
+   "name": "a square grid, euclidean said out loud",
+   "system": {"format": "lorenzo.map-system/1", "kind": "square", "extent": [0, 0, 1000, 800], "cell": {"size": 50}, "measure": {"per_cell": 5, "unit": "feet"}, "metric": "euclidean"},
+   "a": [25, 25], "b": [175, 125],
+   "answer": {"state": "known", "value": 18.027756, "unit": "feet"}
+  },
+  {
+   "name": "two points in one cell are no distance apart, and that is a known zero",
+   "system": {"format": "lorenzo.map-system/1", "kind": "square", "extent": [0, 0, 1000, 800], "cell": {"size": 50}, "measure": {"per_cell": 5, "unit": "feet"}},
+   "a": [10, 10], "b": [40, 40],
+   "answer": {"state": "known", "value": 0, "unit": "feet"}
+  },
+  {
+   "name": "a point on a shared edge belongs to the cell on its higher side",
+   "system": {"format": "lorenzo.map-system/1", "kind": "square", "extent": [0, 0, 1000, 800], "cell": {"size": 50}, "measure": {"per_cell": 5, "unit": "feet"}, "metric": "chebyshev"},
+   "a": [49.99, 10], "b": [50, 10],
+   "answer": {"state": "known", "value": 5, "unit": "feet"}
+  },
+  {
+   "name": "a rectangular grid counts cells, not sheet units, chebyshev",
+   "system": {"format": "lorenzo.map-system/1", "kind": "rect", "extent": [0, 0, 1000, 800], "cell": {"width": 40, "height": 20}, "measure": {"per_cell": 10, "unit": "m"}, "metric": "chebyshev"},
+   "a": [20, 10], "b": [100, 70],
+   "answer": {"state": "known", "value": 30, "unit": "m"}
+  },
+  {
+   "name": "a rectangular grid, manhattan",
+   "system": {"format": "lorenzo.map-system/1", "kind": "rect", "extent": [0, 0, 1000, 800], "cell": {"width": 40, "height": 20}, "measure": {"per_cell": 10, "unit": "m"}, "metric": "manhattan"},
+   "a": [20, 10], "b": [100, 70],
+   "answer": {"state": "known", "value": 50, "unit": "m"}
+  },
+  {
+   "name": "a rectangular grid, alternating",
+   "system": {"format": "lorenzo.map-system/1", "kind": "rect", "extent": [0, 0, 1000, 800], "cell": {"width": 40, "height": 20}, "measure": {"per_cell": 10, "unit": "m"}, "metric": "alternating"},
+   "a": [20, 10], "b": [100, 70],
+   "answer": {"state": "known", "value": 40, "unit": "m"}
+  },
+  {
+   "name": "a rectangular grid, euclidean",
+   "system": {"format": "lorenzo.map-system/1", "kind": "rect", "extent": [0, 0, 1000, 800], "cell": {"width": 40, "height": 20}, "measure": {"per_cell": 10, "unit": "m"}},
+   "a": [20, 10], "b": [100, 70],
+   "answer": {"state": "known", "value": 36.055513, "unit": "m"}
+  },
+  {
+   "name": "a square grid without a measure",
+   "system": {"format": "lorenzo.map-system/1", "kind": "square", "extent": [0, 0, 1000, 800], "cell": {"size": 50}},
+   "a": [25, 25], "b": [175, 125],
+   "answer": {"state": "unknown", "reason": "its cells have no size in the world"}
+  },
+  {
+   "name": "pointy hexes: a neighbour in the same row is one step",
+   "system": {"format": "lorenzo.map-system/1", "kind": "hex", "orientation": "pointy", "extent": [0, 0, 400, 400], "cell": {"size": 20}, "measure": {"per_cell": 6, "unit": "leagues"}},
+   "a": [10, 11.547005], "b": [30, 11.547005],
+   "answer": {"state": "known", "value": 6, "unit": "leagues"}
+  },
+  {
+   "name": "pointy hexes: the odd row is shifted to the right, so (0,1) touches (0,0)",
+   "system": {"format": "lorenzo.map-system/1", "kind": "hex", "orientation": "pointy", "extent": [0, 0, 400, 400], "cell": {"size": 20}, "measure": {"per_cell": 6, "unit": "leagues"}},
+   "a": [10, 11.547005], "b": [20, 28.867513],
+   "answer": {"state": "known", "value": 6, "unit": "leagues"}
+  },
+  {
+   "name": "pointy hexes: two rows down is two steps",
+   "system": {"format": "lorenzo.map-system/1", "kind": "hex", "orientation": "pointy", "extent": [0, 0, 400, 400], "cell": {"size": 20}, "measure": {"per_cell": 6, "unit": "leagues"}},
+   "a": [10, 11.547005], "b": [10, 46.188022],
+   "answer": {"state": "known", "value": 12, "unit": "leagues"}
+  },
+  {
+   "name": "pointy hexes: cell (3,2) is four steps from (0,0)",
+   "system": {"format": "lorenzo.map-system/1", "kind": "hex", "orientation": "pointy", "extent": [0, 0, 400, 400], "cell": {"size": 20}, "measure": {"per_cell": 6, "unit": "leagues"}},
+   "a": [10, 11.547005], "b": [70, 46.188022],
+   "answer": {"state": "known", "value": 24, "unit": "leagues"}
+  },
+  {
+   "name": "flat hexes: the odd column is shifted down, so (1,0) touches (0,0)",
+   "system": {"format": "lorenzo.map-system/1", "kind": "hex", "orientation": "flat", "extent": [0, 0, 400, 400], "cell": {"size": 20}, "measure": {"per_cell": 6, "unit": "leagues"}},
+   "a": [11.547005, 10], "b": [28.867513, 20],
+   "answer": {"state": "known", "value": 6, "unit": "leagues"}
+  },
+  {
+   "name": "flat hexes: two columns along is two steps",
+   "system": {"format": "lorenzo.map-system/1", "kind": "hex", "orientation": "flat", "extent": [0, 0, 400, 400], "cell": {"size": 20}, "measure": {"per_cell": 6, "unit": "leagues"}},
+   "a": [11.547005, 10], "b": [46.188022, 10],
+   "answer": {"state": "known", "value": 12, "unit": "leagues"}
+  },
+  {
+   "name": "a hex grid without a measure",
+   "system": {"format": "lorenzo.map-system/1", "kind": "hex", "orientation": "flat", "extent": [0, 0, 400, 400], "cell": {"size": 20}},
+   "a": [11.547005, 10], "b": [46.188022, 10],
+   "answer": {"state": "unknown", "reason": "its cells have no size in the world"}
+  },
+  {
+   "name": "a sphere: a quarter turn along the equator",
+   "system": {"format": "lorenzo.map-system/1", "kind": "sphere", "extent": [-180, -90, 180, 90], "radius": {"value": 6371, "unit": "km"}},
+   "a": [0, 0], "b": [90, 0],
+   "answer": {"state": "known", "value": 10007.543398, "unit": "km"}
+  },
+  {
+   "name": "a sphere: from the equator to the pole",
+   "system": {"format": "lorenzo.map-system/1", "kind": "sphere", "extent": [-180, -90, 180, 90], "radius": {"value": 6371, "unit": "km"}},
+   "a": [40, 0], "b": [40, 90],
+   "answer": {"state": "known", "value": 10007.543398, "unit": "km"}
+  },
+  {
+   "name": "a sphere: half way round",
+   "system": {"format": "lorenzo.map-system/1", "kind": "sphere", "extent": [-180, -90, 180, 90], "radius": {"value": 6371, "unit": "km"}},
+   "a": [-90, 0], "b": [90, 0],
+   "answer": {"state": "known", "value": 20015.086796, "unit": "km"}
+  },
+  {
+   "name": "a sphere: the same point",
+   "system": {"format": "lorenzo.map-system/1", "kind": "sphere", "extent": [-180, -90, 180, 90], "radius": {"value": 6371, "unit": "km"}},
+   "a": [12.5, 33], "b": [12.5, 33],
+   "answer": {"state": "known", "value": 0, "unit": "km"}
+  },
+  {
+   "name": "a sphere without a radius",
+   "system": {"format": "lorenzo.map-system/1", "kind": "sphere", "extent": [-180, -90, 180, 90]},
+   "a": [0, 0], "b": [90, 0],
+   "answer": {"state": "unknown", "reason": "the world has no radius"}
+  },
+  {
+   "name": "an outline measures nothing",
+   "system": {"format": "lorenzo.map-system/1", "kind": "outline", "extent": [0, 0, 1000, 800]},
+   "a": [0, 0], "b": [300, 400],
+   "answer": {"state": "unknown", "reason": "an outline measures nothing"}
+  },
+  {
+   "name": "a kind this version does not know measures nothing",
+   "system": {"format": "lorenzo.map-system/1", "kind": "torus", "extent": [0, 0, 1000, 800]},
+   "a": [0, 0], "b": [300, 400],
+   "answer": {"state": "unknown", "reason": "an outline measures nothing"}
+  }
+ ]
+}
