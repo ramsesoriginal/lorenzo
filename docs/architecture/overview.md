@@ -429,3 +429,45 @@ shows the same control and words, and lists by name while a date is chosen, brin
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.
+
+Lorenzo Writing foundations (RFC 0047, ADR 0328–0329, 2026-10-23):
+
+The Writing Astro app opens standalone Scene manuscripts as ordered LorenzoScript and picture
+bundles. Conditional autosave, independent per-account browser drafts and saved server revisions
+protect ongoing work. Revision reads require current edit access; history stays out of repository
+copies and releases. Books, Editions, Chapters and subsequent composition slices remain pending.
+
+Book composition (RFC 0047 W2, ADR 0341, 2026-10-23):
+
+Writing adds Books with independent Editions and nested or unassigned Chapters. Chapter
+placements interleave with stable manuscript payload identities; the graph is separate from
+containment and prototypes. Authors can arrange an outline, read it continuously and copy an
+Edition independently. Repository copy and release format 16 preserve and remap this structure.
+
+Lorenzo Writing W3 (RFC 0047, ADR 0342) adds Scene tellings with shared or independent
+manuscripts, explicit viewpoints, scoped writing biographies and existing Scene world references.
+Composition and repository releases preserve and remap these references; no narrative relation
+implies Event participation or knowledge.
+
+Lorenzo Writing W4 (RFC 0047, ADR 0343) adds named reviewer grants to selected Editions,
+with a dedicated manuscript/picture projection and fixed-audience review notes. Grants do not
+create membership or widen generic entity APIs. Notes and grants are operational, not published
+repository content; reads and note writes recheck current grants and composition.
+
+Lorenzo Writing W5a (RFC 0047, ADR 0344) adds atomic moves of Chapters and Scene tellings
+between Edition/Chapter outlines, including nesting, promotion and unassignment. Conditional
+versions protect both outlines; identities and manuscript payloads remain stable. Moves reject
+cycles and additional reviewer exposure. Operational receipts make retries safe after later moves
+and retain before/after structural checkpoints; extraction, splitting and joining remain later W5 work.
+
+Lorenzo Writing W5b (RFC 0047, ADR 0345) extracts consecutive complete outline elements into
+a nested Chapter atomically. Existing text/picture payloads and child entries retain their
+identities and order; the Chapter and its manuscript preserve the source audiences. Saved
+manuscript revisions and private structural receipts protect recovery and retries. Partial-text
+splits and joins with guarded redirects remain subsequent W5 work.
+
+Lorenzo Writing W5c (RFC 0047, ADR 0346) splits saved text at conservative paragraph boundaries
+into adjacent stable payloads. The source concatenates exactly; locale, audiences and notes
+remain unchanged. Saved revisions and operational retry receipts protect the operation. Boundary
+fixtures are checked against the canonical LorenzoScript parser. Compound blocks and cross-part
+footnote dependencies are refused; general syntax-aware splits and guarded joins remain later work.
