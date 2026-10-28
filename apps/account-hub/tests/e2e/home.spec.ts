@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 // A deliberately minimal first slice: proves the page renders and the
 // Authgear-aware script runs, without requiring a real Authgear session
-// (that needs the manual client registration ADR 0071 calls out). Login/
-// notification/tenant flows get their own e2e tests in later slices.
+// (that needs the manual client registration ADR 0071 calls out). Other
+// flows have their own specs in this folder.
 test('home page loads and reaches a settled auth state', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Lorenzo/);

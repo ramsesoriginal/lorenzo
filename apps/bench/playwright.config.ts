@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// Browser tests of the built static page; no API is involved yet (ADR 0210).
+// Browser tests of the built static page on sample data and a sign-in the tests answer, with no API
+// (ADR 0210); the suite against the real API is playwright.api.config.ts.
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,

@@ -6,7 +6,7 @@ run = "pnpm install --frozen-lockfile"
 hide = true
 
 [tasks.dev]
-description = "Nothing to run - the apps that use this package (sessions, calendars) have the dev servers"
+description = "Nothing to run - the apps that use this package have the dev servers"
 run = "echo 'packages/period-picker has no dev server - run the tests, or an app that uses it.'"
 
 [tasks.lint]

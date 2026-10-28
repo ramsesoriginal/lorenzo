@@ -8,7 +8,7 @@ run = "pnpm install --frozen-lockfile"
 hide = true
 
 [tasks.dev]
-description = "Nothing to run - the editor package's demo page (RFC 0027 stage 4) will preview this"
+description = "Nothing to run - packages/lorenzoscript-editor's demo page previews this"
 run = "echo 'packages/lorenzoscript has no dev server - run the tests, or see SPEC.md.'"
 
 [tasks.lint]
