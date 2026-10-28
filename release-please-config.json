@@ -97,6 +97,10 @@
       "release-type": "node",
       "component": "sessions"
     },
+    "apps/writing": {
+      "release-type": "node",
+      "component": "writing"
+    },
     "apps/maps": {
       "release-type": "node",
       "component": "maps"

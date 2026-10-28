@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     inventory_web_url: str = "https://lorenzo-inventory-web.pages.dev"
     beings_url: str = "https://lorenzo-beings.pages.dev"
     bench_url: str = "https://lorenzo-bench.pages.dev"
+    writing_url: str = "https://lorenzo-writing.pages.dev"
     sessions_url: str = "https://lorenzo-sessions.pages.dev"
     calendars_url: str = "https://lorenzo-calendars.pages.dev"
     maps_url: str = "https://lorenzo-maps.pages.dev"
@@ -89,6 +90,7 @@ class Settings(BaseSettings):
         "bench_url",
         "calendars_url",
         "sessions_url",
+        "writing_url",
         "maps_url",
         mode="before",
     )

@@ -106,6 +106,7 @@ updates:
       - "/apps/beings"
       - "/apps/calendars"
       - "/apps/sessions"
+      - "/apps/writing"
       - "/apps/maps"
       - "/apps/bench"
       - "/apps/inventory-web"
