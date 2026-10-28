@@ -2,14 +2,16 @@
 
 What Lorenzo actually *is*, in plain language — not the technical design (see [docs/architecture](../architecture)), but the world it's meant to model and the problem it's meant to solve.
 
-- [World model](world-model.md) — the layered, simultaneous ways of saying "where" something is, and why time doesn't behave simply either.
+- [World model](world-model.md) — the layered, simultaneous ways of saying "where" something is (places, maps, frames), and why time doesn't behave simply either.
 - [Repositories](repositories.md) — reusable settings, and how campaigns/games/books draw on them.
 - [Entities, knowledge, and visibility](entities-knowledge-and-visibility.md) — items, beings, text, and who's allowed to know/see what.
+- [Kinds](kinds.md) — what an entry is: the kinds there are and which app works on each.
+- [Writing](writing.md) — manuscripts, books, editions, chapters, scene tellings and reviewers.
 - [Client views](client-views.md) — why the same underlying data looks completely different depending on which app you're using.
 
 ## The words
 
-These pages use the model's own words, such as entity. The product says **entry** for an entity and **kind** for what it is (item, being, and later others), and it has one word for each of the other ideas people meet: library, repository, copy, update, inherits from, notes. They are defined in [identity §14.3](../brand/identity.md#143-terminology), which is the reference for anything a person reads in the product.
+These pages use the model's own words, such as entity. The product says **entry** for an entity and **kind** for what it is (item, being, location, map, event, fact, calendar and others, see [kinds](kinds.md)), and it has one word for each of the other ideas people meet: library, repository, copy, update, inherits from, notes. They are defined in [identity §14.3](../brand/identity.md#143-terminology), which is the reference for anything a person reads in the product.
 
 ## The pitch
 

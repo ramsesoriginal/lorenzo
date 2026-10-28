@@ -1,6 +1,6 @@
 # 0045 - Lorenzo Inventory on iOS
 
-Status: accepted, decided with the maintainer on 2026-10-17; decision in [ADR 0307](../adr/0307-inventory-ios-and-altstore-testing.md).
+Status: accepted, decided with the maintainer on 2026-10-17, and built; decision in [ADR 0307](../adr/0307-inventory-ios-and-altstore-testing.md). Installing the unsigned IPA through AltStore on a physical device is checked by hand, not in CI.
 
 ## Intent
 

@@ -6,7 +6,7 @@ There's no tier of "important" things that get full treatment while everything e
 
 **Beings can be items, and items can act like beings** — the model doesn't force a hard split between "creature" and "object." A sword can be sentient. A summoned creature can be tracked like inventory. Treating these as one overlapping concept rather than two exclusive categories is deliberate.
 
-In the product an entity is an **entry**, and what it is (an item, a being, later a place or a clock) is its **kind**: a sentient sword is one entry of two kinds, not two things. See [identity §14.3](../brand/identity.md#143-terminology).
+In the product an entity is an **entry**, and what it is (an item, a being, a place, a clock and others, see [kinds](kinds.md)) is its **kind**: a sentient sword is one entry of two kinds, not two things. See [identity §14.3](../brand/identity.md#143-terminology).
 
 ## State is game-system-specific
 
@@ -60,3 +60,9 @@ participants. The preview makes clear that the group's member list is readable b
 participants. The group is a snapshot, not a live alias for the Event's participants, and creating
 it does not open the Event or its notes. Removing Character tracking preserves group membership;
 deleting the Being removes it.
+
+## Writing and Sessions
+
+Prose in a [manuscript](writing.md) is read through its own entry's audience, like any text. An Edition's reviewers read that Edition and write notes only they and the Authors can read; reviewing gives no access to anything else.
+
+People see the Sessions they GM or play in. A player can keep a note visible to its author and the Session's GMs, or share it with the Session's participants. A reusable Scene's notes stay separate from notes on one appearance of it, so another group using the same Scene never receives them. GMs prepare an outline and explicitly record what was played ([ADR 0317](../adr/0317-sessions-scenes-and-collaborative-planning.md)).
