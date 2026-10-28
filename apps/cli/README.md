@@ -1,8 +1,8 @@
 # apps/cli
 
-The `lorenzo` command-line tool. Its first feature is the MPMB standard-item importer of [RFC 0025](../../docs/rfcs/0025-lorenzo-cli-mpmb-item-importer.md); the stack is recorded in [ADR 0137](../../docs/adr/0137-lorenzo-cli-app-python-client-and-auth.md).
+The `lorenzo` command-line tool: creates and seeds repositories, imports MPMB standard items, authors a library's stat vocabulary, reads items and beings, imports inventories and calendars, publishes and copies repositories, and makes any authenticated request for a script. The stack is recorded in [ADR 0137](../../docs/adr/0137-lorenzo-cli-app-python-client-and-auth.md); the importer began as [RFC 0025](../../docs/rfcs/0025-lorenzo-cli-mpmb-item-importer.md).
 
-Python 3.14, run and tested on Linux (WSL included). Native Windows is not a supported target.
+Python 3.14, installed for you by `uv`. Linux and macOS (WSL included) are supported; native Windows isn't.
 
 ## Install it
 
@@ -22,10 +22,8 @@ That installs the `lorenzo` command from this repository's `main` branch, into i
 Three things have to be true before the first command does anything useful. The first two are about you and the Lorenzo you talk to, not about this tool.
 
 1. **You have an account on the official Lorenzo.** It is the default: with nothing named, the CLI talks to it and signs in at its Authgear project, and `lorenzo login` is the whole setup ([ADR 0164](../../docs/adr/0164-the-official-instance-is-the-clis-default.md)). Your own Lorenzo (a local `apps/api`, a staging one, a fork) is a matter of naming it, see [Another Lorenzo](#another-lorenzo).
-2. **To create a tenant, you need the `tenant-creator` role**, which the Authgear project's maintainer grants in its Portal. Nothing else in this tool needs it, and the API says so (`403`) if you lack it. (`whoami` can't tell you beforehand: the API doesn't report roles yet.)
+2. **To create a tenant, you need the `tenant-creator` role**, which the Authgear project's maintainer grants in its Portal. Nothing else in this tool needs it, and the API says so (`403`) if you lack it. (`whoami --json` tells you beforehand: `capabilities.create_tenant`, [ADR 0175](../../docs/adr/0175-me-says-what-you-may-create.md).)
 3. **To import MPMB items, you have the sheet's data.** It is GPL-3.0 and not shipped; clone it (see [Reading MPMB files](#reading-mpmb-files)).
-
-Python 3.14 is installed for you by `uv`. Linux and macOS (WSL included) are supported; native Windows isn't.
 
 ### The first run
 
@@ -43,16 +41,16 @@ lorenzo tenant list     # the tenants you belong to
 Name **all three** once, and `login` remembers them:
 
 ```bash
-lorenzo login --api-url http://localhost:8000 --issuer https://example.authgear.cloud --client-id abc123
+lorenzo --api-url http://localhost:8000 login --issuer https://example.authgear.cloud --client-id abc123
 ```
 
-The official values are a *set*. If any of the three is named as something other than the official one, none of the others is filled in from the default: an official issuer is never assumed for somebody else's API, and the other way round, so a token can't be sent to one party under another's name. `--api-url http://localhost:8000` alone means "that API, and no issuer": `login` then asks for the other two, and `LORENZO_TOKEN` (which needs no issuer) just works. Naming the official values themselves changes nothing. A habit worth having in a development shell: `export LORENZO_API_URL=http://localhost:8000`, so a forgotten flag can never reach the official one.
+The official values are a *set*. If any of the three is named as something other than the official one, none of the others is filled in from the default: an official issuer is never assumed for somebody else's API, and the other way round, so a token can't be sent to one party under another's name. `lorenzo --api-url http://localhost:8000 login` alone means "that API, and no issuer": `login` then asks for the other two, and `LORENZO_TOKEN` (which needs no issuer) just works. Naming the official values themselves changes nothing. A habit worth having in a development shell: `export LORENZO_API_URL=http://localhost:8000`, so a forgotten flag can never reach the official one.
 
 To go back, `lorenzo login` with the official values (or without a file at all): when what a login used is the official set, it forgets the remembered file and says so, rather than keeping a copy that would outlive them.
 
 ### Where the settings come from
 
-Each of the three, for each command, in this order: **a flag** (`--api-url`, and `--issuer` and `--client-id` on `login`), then **the environment** (`LORENZO_API_URL`, `LORENZO_AUTHGEAR_ISSUER`, `LORENZO_AUTHGEAR_CLIENT_ID`), then **the file** `login` wrote: `$XDG_CONFIG_HOME/lorenzo/config.toml` (`~/.config/lorenzo/config.toml`), up to three plain lines with nothing secret in them. Anything named there wins over the official default. Only `login` writes the file, and only what you named, never the official defaults. `lorenzo logout` forgets your tokens and keeps the file; delete the file to forget the addresses too ([ADR 0157](../../docs/adr/0157-lorenzo-remembers-the-api-url-issuer-and-client-id.md)).
+Each of the three, for each command, in this order: **a flag** (`--api-url` before the command name, as in `lorenzo --api-url URL whoami`, and `--issuer` and `--client-id` on `login`), then **the environment** (`LORENZO_API_URL`, `LORENZO_AUTHGEAR_ISSUER`, `LORENZO_AUTHGEAR_CLIENT_ID`), then **the file** `login` wrote: `$XDG_CONFIG_HOME/lorenzo/config.toml` (`~/.config/lorenzo/config.toml`), up to three plain lines with nothing secret in them. Anything named there wins over the official default. Only `login` writes the file, and only what you named, never the official defaults. `lorenzo logout` forgets your tokens and keeps the file; delete the file to forget the addresses too ([ADR 0157](../../docs/adr/0157-lorenzo-remembers-the-api-url-issuer-and-client-id.md)).
 
 The token is looked for in this order: `--token-stdin` (the first line of stdin), `LORENZO_TOKEN`, then the stored login (`credentials.json` beside the settings, readable only by you, renewed on its own). `--tenant` can come from `LORENZO_TENANT`. Unattended use, a script holding its own credentials, isn't supported: the CLI is run by a person with their own token.
 
@@ -85,11 +83,11 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo --version` | Says which version is installed. Needs no login |
 | `lorenzo whoami [--json]` | Asks the API who the token you'd use belongs to, and says where the token came from: the check that a login works |
 | `lorenzo tenant list [--kind repository\|play] [--json]` | The tenants you belong to, with each one's kind and your role |
-| `lorenzo tenant create <name> [--slug S] [--kind KIND]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. Doesn't seed: run `lorenzo seed` next |
+| `lorenzo tenant create <name> [--slug S] [--description D] [--kind KIND] [--json]` | Creates a tenant and makes you its owner (a `repository`, which is what an import needs, unless `--kind play`; the kind can't be changed later). Needs the tenant-creator role. Doesn't seed: run `lorenzo seed` next |
 | `lorenzo tenant show <tenant>` | Reads one tenant (its `kind`, whether it is published) - the first call through the generated client |
 | `lorenzo tenant delete <tenant> [--yes] [--json]` | Deletes a tenant and everything in it. **It can't be undone.** Needs the tenant-creator role and being one of the tenant's owners; asks you to type the slug (`--yes` skips that, `--json` needs it). A repository other tenants still hold a grant on is refused, with how to go on ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)) |
 | `lorenzo login --token` | Connects with a personal access token ([ADR 0269](../../docs/adr/0269-personal-access-tokens-hub-and-cli.md)): prints a code and the address of the account hub's *Connect a device* page, waits until you approve it there (naming the token and, if you like, an expiry), and stores it like any login. `whoami` then names it; `logout` forgets it here, and it works until you revoke it under your profile in the hub |
-| `lorenzo login [--api-url U] [--issuer I] [--client-id C]` / `--no-browser` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
+| `lorenzo [--api-url U] login [--issuer I] [--client-id C] [--no-browser]` / `lorenzo logout` | Stores or forgets a login, and remembers what you named for it (the official Lorenzo is the default, so a plain `lorenzo login` is enough, see [Before you start](#before-you-start)) |
 | `lorenzo inspect [--base FILE...] [FILE...]` | Shows what the JavaScript host reads from MPMB files (files, per-list counts and which file each entry came from, stubbed sheet names), without touching a tenant. Needs no login. Name files, `--base` files, or both: `--base` alone shows what the sheet ships |
 | `lorenzo seed --tenant <tenant>` / `--list` | Creates the item taxonomy, stat groups and definitions, and the weight recipe an import needs, in a repository tenant. Safe to run again; `--dry-run` first. The seed has four layers, `core`, `equipment`, `dnd5e` and `dnd5e-equipment`, chosen with `--layer` ([ADR 0181](../../docs/adr/0181-the-seeds-four-layers-and-a-system-root.md)). A tenant that holds one layer and not another needs `--layer` ([ADR 0166](../../docs/adr/0166-a-bare-seed-refuses-to-add-a-layer-to-a-tenant-that-holds-another.md)). `--list` prints what the seed makes, per layer, and needs no login or tenant ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
 | `lorenzo unseed --tenant <tenant> --layer <layer>` | Takes a layer of the seed out again: its attachments, then categories, stat definitions and stat groups. Asks first; `--dry-run` shows what it would remove. See [Taking a layer out](#taking-a-layer-out) |
@@ -102,9 +100,13 @@ Or pipe a token in with `--token-stdin`. A token from the stored login is used l
 | `lorenzo inventory import FILE --tenant <tenant> [--owner CHARACTER] [--add\|--replace] [--backup FILE] [--dry-run] [--yes] [--preprocess TABLE]` | Makes the things a [ledger](../../docs/guides/inventory-file-format.md) ([ADR 0226](../../docs/adr/0226-lorenzoledger.md)) lists, for a character ([ADR 0193](../../docs/adr/0193-lorenzo-inventory-import-and-export.md)). Each line is matched to an item by id, slug, exact title or a known other spelling; what matches nothing becomes an *Unsorted item* with the player's own name and notes, for the GM to sort. Nothing is made if a line can't be made as written. A character who already has things needs `--add`, which also moves what the file names by id. `--dry-run` says what would be made. Coming from D&D Beyond? [`lorenzo-beyond`](https://github.com/ramsesoriginal/lorenzo-beyond) writes the file. A GM or administrator can name any being they may list, by exact name ([ADR 0232](../../docs/adr/0232-inventory-import-any-being-replace-and-progress.md)). `--replace` starts a being's inventory over: what it owns and you can see is deleted (deepest first), then the file's things are made. Run it as the campaign's GM or an organizer, since a library owner who is neither sees none of a player's things. Whatever is tied up with someone else's is left alone, and the plan names it: a thing of the being's in another's container, a container holding another's thing, and the containers around those. The whole file is checked before the first delete, and `--backup FILE` first writes what is there as a ledger. `--dry-run` prints what would be made as a tree, and a progress bar shows the writing The table of other spellings is edited in `packages/inventory-names` and copied here with `mise run sync-names` ([ADR 0242](../../docs/adr/0242-inventory-names-the-spelling-table-shared.md)) |
 | `lorenzo inventory export --tenant <tenant> [--owner CHARACTER] [--json] [-o FILE]` | Writes a character's inventory as a file: what they own, where it is, and what was noted, with each item's id so `import --add` reads it back as moves |
 | `lorenzo repo publish\|unpublish\|grant\|revoke\|subscribers --tenant <repository>` | The repository's own side: publish it as a release (`--label`, `--notes`, `--breaking`; again, to make the next one, [ADR 0207](../../docs/adr/0207-the-release-ledger.md); a release that removes or changes what libraries hold is refused until `--acknowledge-breaking`, [ADR 0208](../../docs/adr/0208-the-release-digest-and-the-breaking-change-detector.md)), withdraw it, give a tenant access, take it back, list who has it. Owners only |
-| `lorenzo repo list\|copy-plan\|copy\|updates --tenant <tenant>` | A tenant's side: which repositories it holds, what copying one would do, copying it, and taking what it changed since. See [Publishing a repository](#publishing-a-repository) |
+| `lorenzo repo list|copy-plan|copy|updates --tenant <tenant>`|copy-plan\|copy\|updates --tenant <tenant>` | A tenant's side: which repositories it holds, what copying one would do, copying it, and taking what it changed since. `copy --again keep|purge` copies a repository again that the tenant already copied. See [Publishing a repository](#publishing-a-repository) |
 | `lorenzo repo contents --tenant <repository>` | What a repository holds: published or a draft and who it is granted to, what it is built on, how many stat groups, stat definitions and items, how much of each seed layer it has, and what is beyond the seed ([ADR 0169](../../docs/adr/0169-seed-list-and-repo-contents.md)) |
-| `lorenzo repo offer <tenant> --tenant <repository>` | Grant it, then copy it into that tenant; a copy already there is a success, so it is safe to run again |
+| `lorenzo repo offer <tenant> --tenant <repository>` | Grant it, then copy it into that tenant; a copy already there is a success, so it is safe to run again; `--apply-updates` also takes the updates that need no decision |
+| `lorenzo stat-group list\|create\|edit`, `lorenzo stat-definition list\|create\|edit` | A library's stat vocabulary: its groups and definitions, with display fields and hints ([ADR 0295](../../docs/adr/0295-cli-vocabulary-sheet-settings-and-reads.md)). See [Authoring the stat vocabulary and reading entries](#authoring-the-stat-vocabulary-and-reading-entries) |
+| `lorenzo tenant sheet-settings <tenant> [--being-stat-group G] [--weapon-stat-group G] [--ability-information-type T] [--clear-...] [--json]` | Reads a library's sheet settings, or changes only the ones named; each `--clear-...` unsets one |
+| `lorenzo item show <item>`, `lorenzo item-instance show <instance>`, `lorenzo being show <being>` `--tenant <tenant> [--json]` | Reads an item, an instance or a being by id, link name or exact name: resolved stats, inheritance, containment and notes, and for a being its equipped weapons and abilities |
+| `lorenzo calendar import FILE --tenant <tenant> [--choices F] [--review-notes] [--accept-warnings] [--dry-run] [--plan-out F] [--apply-plan F] [--timeout S] [--yes] [--json]`, `lorenzo calendar export <source-key> --tenant <tenant> [-O FILE]` | Imports an authored calendar document and exports the current managed source. See [Calendar files](#calendar-files) |
 | `lorenzo api <METHOD> <path> [-d JSON] [-q K=V] [--paginate]` | One authenticated request to the API, for scripts. See [Scripting](#scripting) |
 
 ## Importing MPMB items
@@ -220,7 +222,7 @@ What is meant to be published is split in four ([ADR 0162](../../docs/adr/0162-t
 
 | Layer | Holds | Built on |
 | --- | --- | --- |
-| `core` | What can be said of a thing in any system: the stat groups `physical`, `sourcebook` and `tags`, ten neutral stats (weights, `bundle_amount`, `is_container`, `is_consumable`, `is_magical`, `is_silvered`, `is_adamantine`, `sourcebook`), the category `physical-object` and the weight recipes | nothing |
+| `core` | What can be said of a thing in any system: the stat groups `physical`, `sourcebook` and `tags`, ten neutral stats (weights, `bundle_amount`, `is_container`, `is_consumable`, `is_magical`, `is_silvered`, `is_adamantine`, `sourcebook`), the categories `physical-object` and `unsorted` (the placeholder for a player's own item) and the weight recipes | nothing |
 | `equipment` | The forms (weapon, armor, tool, the kinds of gear) and the materials: 32 categories with bare slugs | `core` |
 | `dnd5e` | D&D 5e's rules: its stat groups (`economic`, `damaging`, `destroyable`), 30 stat definitions (a price, an armour class, a range, the damage dice, the weapon properties) and 30 categories under one system root, `dnd5e-system` ("D&D 5e"), which is how a category says it belongs to the system. The Economic object carries a `price` of 0. Slugs start `dnd5e-` | `core` |
 | `dnd5e-equipment` | The bridge's own part: six attachments of D&D's Economic object to the equipment's forms (`weapon`, `armor`, `tool`, `container`, `consumable`, `gear`), so everything D&D prices has a price | `equipment`, `dnd5e` |
@@ -262,7 +264,7 @@ lorenzo apply --tenant dnd5e-common-eq --part system $BASE --yes
 lorenzo repo publish --tenant dnd5e-common-eq
 ```
 
-`repo offer` grants a repository to a tenant and copies it in, and for a bridge it does the same for what the bridge is built on (core is copied once, however many offers ask for it). `lorenzo repo contents --tenant dnd5e-common-eq` says what it holds and what it is built on, per layer. The commands need the `tenant-creator` role and the sheet's data (see [Before you start](#before-you-start)); homebrew goes in as more files after `$BASE` in **both** `apply` lines, so the item is written in two halves. **Starting over:** `lorenzo tenant delete` takes a tenant and everything in it ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)), from the top down: a repository that other tenants still hold a grant on is refused, so the table goes first, then the bridge, then the equipment and the rules, then core (`lorenzo tenant delete my-table --yes`, and so on). The slugs are free afterwards. That is also how a `core` or `dnd5e` from an earlier seed (version 1 had two layers, with both halves of an item together) is replaced. Nothing has been published or granted yet, so there is nothing to migrate.
+`repo offer` grants a repository to a tenant and copies it in, and for a bridge it does the same for what the bridge is built on (core is copied once, however many offers ask for it). `lorenzo repo contents --tenant dnd5e-common-eq` says what it holds and what it is built on, per layer. The commands need the `tenant-creator` role and the sheet's data (see [Before you start](#before-you-start)); homebrew goes in as more files after `$BASE` in **both** `apply` lines, so the item is written in two halves. **Starting over:** `lorenzo tenant delete` takes a tenant and everything in it ([ADR 0184](../../docs/adr/0184-deleting-a-tenant.md)), from the top down: a repository that other tenants still hold a grant on is refused, so the table goes first, then the bridge, then the equipment and the rules, then core (`lorenzo tenant delete my-table --yes`, and so on). The slugs are free afterwards. That is also how a `core` or `dnd5e` from an earlier seed (version 1 had two layers, with both halves of an item together) is replaced.
 
 #### A table takes them
 
@@ -308,7 +310,7 @@ A table that takes the bridge first gets the prototypes and lets each attachment
 ## Scripting
 
 - **Exit codes.** On `plan`, `seed --dry-run`, `repo copy-plan`, `repo updates` and `repo offer --dry-run`: 0 is fine, 2 is something to do or to decide, and 1 is refused or unresolved. Each command's `--help` says what 0 and 2 mean for it.
-- **`--json`** (on `plan`, `apply`, `seed`, `tenant`, `whoami`, `pack give` and every `repo` command) prints exactly one JSON document on stdout; whatever is for a person goes to stderr. It never asks a question, so a command that writes needs `--yes` with it.
+- **`--json`** (on every command that prints a result) prints exactly one JSON document on stdout; whatever is for a person goes to stderr. It never asks a question, so a command that writes needs `--yes` with it.
 - **`lorenzo api`** is for everything else, with the login you already have, so no token is pasted into a shell:
 
 ```bash
@@ -414,7 +416,7 @@ lorenzo tenant sheet-settings my-library --weapon-stat-group Weapons --ability-i
 lorenzo tenant sheet-settings my-library --clear-weapon-stat-group --clear-ability-information-type
 ```
 
-The being stat group is an optional tenant selection ([ADR 0296](../../docs/adr/0296-being-stat-group.md)); `--clear-being-stat-group` unsets it, and omitted options preserve it. The API accepts and validates a campaign on the sheet read but does not override this setting yet. No frontend display behavior changes in this slice.
+The being stat group is an optional tenant selection ([ADR 0296](../../docs/adr/0296-being-stat-group.md)); `--clear-being-stat-group` unsets it, and omitted options preserve it. The API accepts and validates a campaign on the sheet read but does not override this setting. Beings uses the setting to choose the stats its sheet shows ([ADR 0297](../../docs/adr/0297-beings-stat-selection.md)).
 
 Read an item, an instance or a being by id, link name or exact name/title:
 
