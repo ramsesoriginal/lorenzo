@@ -395,3 +395,9 @@
   overflow-wrap: normal;
   white-space: nowrap;
 }
+
+/* A Map tied only to other dates comes last and is drawn quieter (ADR 0373): a calmer colour, never
+   a lower opacity, so its contrast is still read as it is. */
+.map-other a {
+  color: var(--text-secondary);
+}

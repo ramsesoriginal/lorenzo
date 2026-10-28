@@ -42,7 +42,10 @@ entry's side panel says where it leads and on which other Maps the far end is
 from another, by the straight line on the Map in its author's own unit and, when a number stat is chosen, by the
 connections, and a square or rectangular grid says how it counts a diagonal
 ([ADR 0366](../../docs/adr/0366-straight-line-distance-on-a-map.md) to
-[ADR 0368](../../docs/adr/0368-distance-in-lorenzo-maps.md)). *Look* and
+[ADR 0368](../../docs/adr/0368-distance-in-lorenzo-maps.md)). When the library has a calendar the Maps list can
+be looked at through a date, chosen with the shared period picker, saying which Maps are tied to it, not tied to a
+date or tied to other dates ([ADR 0371](../../docs/adr/0371-the-periods-a-date-is-tied-through.md) to
+[ADR 0373](../../docs/adr/0373-the-date-lens-in-lorenzo-maps.md)). *Look* and
 a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md)). The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.

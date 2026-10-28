@@ -26,6 +26,7 @@
     "@lorenzo/brand": "workspace:*",
     "@lorenzo/entry-preview": "workspace:*",
     "@lorenzo/map-renderer": "workspace:*",
+    "@lorenzo/period-picker": "workspace:*",
     "@lorenzo/read-cache": "workspace:*",
     "astro": "^7.3.5"
   },

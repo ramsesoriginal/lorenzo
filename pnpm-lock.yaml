@@ -534,6 +534,9 @@ importers:
       '@lorenzo/map-renderer':
         specifier: workspace:*
         version: link:../../packages/map-renderer
+      '@lorenzo/period-picker':
+        specifier: workspace:*
+        version: link:../../packages/period-picker
       '@lorenzo/read-cache':
         specifier: workspace:*
         version: link:../../packages/read-cache

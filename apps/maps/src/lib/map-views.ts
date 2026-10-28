@@ -24,6 +24,8 @@ import { client, unwrap } from './api';
 import { cellOfPoint, cellWords } from './cells-edit';
 import { BRANDING_CSS_URL } from './config';
 import { wayWords } from './connection-words';
+import { dateLens } from './date-lens';
+import { leftWords, TIE_WORDS } from './date-words';
 import { distanceSection } from './distance-section';
 import {
   audienceBadge,
@@ -157,6 +159,9 @@ export async function mountMaps() {
     search.input.type = 'search';
     const list = el('ul', '', 'list');
     const status = statusLine();
+    const left = el('p', '', 'status-text');
+    left.setAttribute('role', 'status');
+    const lens = await dateLens(scope, () => void show());
     let sequence = 0;
     async function show() {
       const mine = ++sequence;
@@ -166,21 +171,24 @@ export async function mountMaps() {
           await client.GET('/tenants/{tenant_id}/maps', {
             params: {
               path: { tenant_id: scope },
-              query: { ...(query ? { q: query } : {}), size: 100 },
+              query: { ...(query ? { q: query } : {}), ...(lens ? lens.query() : {}), size: 100 },
             },
             cache: 'no-cache',
           }),
         );
         if (mine !== sequence) return;
         status.textContent = '';
+        left.textContent = lens?.leavesOut() ? leftWords(page.total) : '';
         list.replaceChildren(
           ...(page.items.length
             ? page.items.map((stub) => {
-                const row = el('li');
+                const row = el('li', '', stub.tie === 'other' ? 'map-other' : '');
                 row.append(
                   icon('kind-location'),
                   link(stub.name, mapHref(scope, stub.id, stub.slug)),
                 );
+                if (stub.tie)
+                  row.append(document.createTextNode(' '), el('span', TIE_WORDS[stub.tie], 'chip'));
                 return row;
               })
             : [el('li', query ? 'No Map has that name.' : 'No Maps yet.', 'status-text')]),
@@ -194,7 +202,9 @@ export async function mountMaps() {
     }
     search.input.addEventListener('input', () => void show());
     const section = el('section', '', 'stack');
-    section.append(sectionHead('Maps of the library'), search.label, status, list);
+    section.append(sectionHead('Maps of the library'), search.label);
+    if (lens) section.append(lens.element);
+    section.append(status, left, list);
     view.append(section);
     if (manage) {
       const add = el('section', '', 'stack');
