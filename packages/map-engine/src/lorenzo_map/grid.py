@@ -128,6 +128,15 @@ def _offset_to_axial(grid: dict[str, Any], col: int, row: int) -> Cell:
     return col, row - (col - (col & 1)) // 2
 
 
+def hex_steps(grid: dict[str, Any], a: Cell, b: Cell) -> int:
+    """The steps between two hex cells: the cube distance of their axial addresses, so a
+    neighbour is 1 and the same cell 0."""
+    qa, ra = _offset_to_axial(grid, *a)
+    qb, rb = _offset_to_axial(grid, *b)
+    dq, dr = qa - qb, ra - rb
+    return max(abs(dq), abs(dr), abs(dq + dr))
+
+
 def cell_centre(grid: dict[str, Any], extent: list[float], cell: Cell) -> Point:
     """The centre of a cell. `grid` has its `kind` (a system's own, or a view grid's)."""
     x0, y0 = float(extent[0]), float(extent[1])

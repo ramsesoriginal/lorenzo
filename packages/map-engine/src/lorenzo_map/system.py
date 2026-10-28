@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from lorenzo_map.distance import METRIC_KINDS, validate_metric
 from lorenzo_map.errors import MapDocumentError
 from lorenzo_map.grid import GRID_KINDS, require_room, validate_grid
 from lorenzo_map.limits import MAX_COORDINATE
@@ -26,6 +27,8 @@ def validate_system(document: Any) -> dict[str, Any]:
         raise MapDocumentError("this kind of system cannot be written yet")
     if kind in GRID_KINDS:
         allowed = {"format", "kind", "extent", "cell", "measure", "sub", "orientation"}
+        if kind in METRIC_KINDS:
+            allowed.add("metric")
     elif kind == SPHERE_KIND:
         allowed = {"format", "kind", "extent", "radius"}
     else:
@@ -48,8 +51,14 @@ def validate_system(document: Any) -> dict[str, Any]:
         "extent": [canonical(x0), canonical(y0), canonical(x1), canonical(y1)],
     }
     if kind in GRID_KINDS:
-        grid = validate_grid(document, kind=str(kind), measured=True)
+        grid = validate_grid(
+            {key: value for key, value in document.items() if key != "metric"},
+            kind=str(kind),
+            measured=True,
+        )
         result.update(grid)
+        if "metric" in document:
+            result["metric"] = validate_metric(document["metric"])
         require_room(
             {"kind": kind, **grid}, [canonical(x0), canonical(y0), canonical(x1), canonical(y1)]
         )

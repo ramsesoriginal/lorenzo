@@ -1,6 +1,7 @@
 """The one validator of Lorenzo map systems and geometry (ADR 0336, ADR 0337). Pure, no database."""
 
 from lorenzo_map.calibration import validate_calibration, validate_opacity
+from lorenzo_map.distance import METRICS, straight_distance
 from lorenzo_map.errors import MapDocumentError
 from lorenzo_map.geometry import GEOMETRY_FORMAT, Validated, validate_geometry
 from lorenzo_map.grid import (
@@ -50,6 +51,8 @@ __all__ = [
     "cell_count",
     "cell_polygon",
     "in_grid",
+    "METRICS",
+    "straight_distance",
     "validate_view",
     "GEOMETRY_FORMAT",
     "MAX_BATCH_OPERATIONS",
