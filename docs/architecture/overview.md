@@ -338,14 +338,14 @@ at most 100 placements and removals as one transaction through the single write'
 visibility, with one touch and one activity entry. `map.theme_hint` keeps a theme name (`default` or
 `plain`, held to the renderer's list by a golden file; an unknown name is kept and read as the default),
 returned by the header, replaced with the system and the subject under `If-Match`, and carried by
-repository copy and update (release format 19). The renderer gains the `plain` theme, `legend()`,
+repository copy and update (release format 21). The renderer gains the `plain` theme, `legend()`,
 `setTheme` and an editor interface that knows nothing of editing: a `Tool` that receives the pointer in
 drawing units while set and an `Overlay` of lines, discs and handles drawn above the marks. Lorenzo
 Maps builds the tools, the panel, undo and redo and the settings on it.
 
 Grids (RFC 0048 slice 7, ADR 0354 to 0356, 2026-10-27): `lorenzo.map-system/1` gains `square`, `rect`
 and `hex` (a `cell`, an optional `measure` of what a cell is in the world, an optional `sub` division,
-and for hexes a required `orientation`), and `map.view` (release format 20) holds a visual grid for any
+and for hexes a required `orientation`), and `map.view` (release format 22) holds a visual grid for any
 system that has none. The cell functions (`cell_at`, `cell_centre`, `cell_polygon`, `in_grid`,
 `cell_count`) are pure, exist in `packages/map-engine` and `packages/map-renderer`, and are held to one
 golden file; the hex convention is odd-r (pointy) and odd-q (flat) with cell (0, 0) at the sheet's near
@@ -359,7 +359,7 @@ extent is always `[-180, -90, 180, 90]` and whose positions are `[longitude, lat
 `radius`. Geometry on a sphere is points, polylines and polygons only, every coordinate in range
 (`validate_placement` takes the Map's own system), a segment is straight in longitude and latitude and
 nothing wraps. `map.view` may hold a `projection` (`equirectangular`, `mercator` or `orthographic` with a
-`centre`), release format 21; `PUT /maps/{id}` refuses (409) a change into or out of a sphere under
+`centre`), release format 23; `PUT /maps/{id}` refuses (409) a change into or out of a sphere under
 placements. The renderer's `project` and `unproject` turn a position into the projected sheet and back
 (the pointer reaches tools as longitude and latitude), samples bend a segment, a globe is cut at its limb and its
 far side draws nothing, and lines of longitude and latitude are the sphere's grid. Maps adds the sphere
@@ -376,7 +376,7 @@ fragment, at most 64 levels and 50,000 elements; the content route serves every 
 at an Information of the Map and shows its first picture; `lorenzo_map.validate_calibration` allows `null`
 (fit the sheet) or two or three anchors. `GET /maps/{id}` returns the visible layers with `needs_review`
 (the picture's hash is not the one the layer was reviewed for) and `PUT /maps/{id}/layers` replaces them
-under `If-Match`. Release format 22 carries `map_layers`; updates from a repository do not. The renderer
+under `If-Match`. Release format 24 carries `map_layers`; updates from a repository do not. The renderer
 draws a layer as an `image` primitive from a `data:` URL the host made, with the matrix of its calibration
 computed purely; Maps adds the Pictures section of Settings and the Pictures switch.
 
@@ -387,7 +387,7 @@ hub of up to 50 spokes in one transaction at `POST /connections/hub`). A connect
 who sees the entry and both ends, in SQL, so a hidden end leaves no trace; connections are in the GMs' reach as
 authored content and no reach code reads an end. `GET /maps/{id}/links` derives, at read time and from the ends
 alone, what the places drawn on a Map lead to with the direction and the other Maps the far end is on. Release
-format 23 carries `connections`; a copy writes one only with both ends and an update applies its ends as one unit.
+format 25 carries `connections`; a copy writes one only with both ends and an update applies its ends as one unit.
 Maps adds a Connections section to the Location page and a Leads to list to a placed entry's side panel.
 
 Distance (RFC 0048 slice 11, ADR 0366 to 0368, 2026-10-28): `lorenzo_map.straight_distance` is a pure function of a
@@ -398,7 +398,7 @@ the straight line on one Map, or a bounded Dijkstra in the application (`routing
 reader sees, read in batches with the visibility predicate in SQL and measured in a number stat (the effective
 value, so inherited lengths count and formulas do not), where a fully measured route beats a shorter one with an
 unmeasured leg and ties go to the lower connection id. It stores nothing; it is capped at 2,000 places, 10,000
-connections and 64 legs, and limited per user per instance (`DISTANCE_RATE_LIMIT_PER_MINUTE`, 60). Release format 24
+connections and 64 legs, and limited per user per instance (`DISTANCE_RATE_LIMIT_PER_MINUTE`, 60). Release format 26
 carries the `metric` key. Maps adds a Distance section to the Map page and "Diagonals count as" to a grid's setup.
 
 Frames and axes (RFC 0048 slice 12, ADR 0369 and 0370, 2026-10-28; API only): `frame(entity_id, axis)` is a designation
@@ -410,7 +410,7 @@ refused on write and ended quietly on read. Writes are for those who write Locat
 the nearest explicit row wins along the address's own chain (the entry, its containers, its owner, its place and
 the Locations above it, and for a Location those above it), never through prototypes; the GM's `/address` gains
 `frame` steps with an `axis`, and `/entities/{id}/frames`, `/frames` and `/entities/{id}/frame-members` read the rows.
-No player read changes and no reach code names a frame. Release format 25 carries `frames` and `entity_frames`.
+No player read changes and no reach code names a frame. Release format 27 carries `frames` and `entity_frames`.
 
 The date lens on Maps (RFC 0048 slice 13, ADR 0371 to 0373, 2026-10-28): no table, no column, no write.
 `lorenzo_calendar.containing_periods` is the one pure rule (a day is in its month or festival and its year, a month in
