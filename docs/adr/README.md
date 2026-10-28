@@ -351,6 +351,8 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0346 - Safe paragraph splits](0346-safe-paragraph-splits.md) — RFC 0047 W5c.
 - [0347 - Syntax-aware manuscript splits](0347-syntax-aware-manuscript-splits.md) — RFC 0047 W5d.
 - [0348 - Chapter joins and guarded redirects](0348-chapter-joins-and-guarded-redirects.md) — RFC 0047 W5e.
+
+- [0374 - Join a Chapter into its parent](0374-join-chapter-into-parent.md) — RFC 0047 W5f.
 - [0349 - The entry preview as a package](0349-the-entry-preview-package.md) — `packages/entry-preview`: the open/close timing, the per-page card cache, the card's words, its drawing and listeners and its stylesheet extracted from inventory-web, given what is app-specific (triggers, how an element names an entry, how a card and a picture load); Bench keeps its own card
 - [0350 - Location and Map previews, and the card in Lorenzo Maps](0350-location-and-map-previews.md) — two templates in the preview registry (no stats, inherited description and picture), the words "Location" and "Map", and the card on a mark and a places-list row in `/map/` instead of a bare name; no change to what the route reveals
 - [0351 - Writing placements in bulk](0351-writing-placements-in-bulk.md) — one atomic `POST .../placements/batch` of at most 100 puts and removes through the single write's validator and visibility, one touch and one activity entry; "place the children" is an editor action over it, never a server expansion
