@@ -6,3 +6,5 @@ longitude and latitude, its geometry rule and its projection (ADR 0357), and a l
 The straight-line distance between two positions on a Map is a pure function here too (ADR 0366), in the
 author's own unit and never converted, with a `metric` on square and rectangular systems and a golden file the
 tests hold it to.
+
+Run `mise run //packages/map-engine:test` and `:lint`.
