@@ -3292,7 +3292,8 @@ export interface paths {
         /**
          * List Maps
          * @description The Maps the reader may see, by name then id. A hidden Map is absent from every row and
-         *     page.
+         *     page. Asked through a date (ADR 0372), each row says whether it is `tied` to it, tied to
+         *     `other` dates or `untied`, and they come in that order (tied, untied, other).
          */
         get: operations["list_maps"];
         put?: never;
@@ -10697,6 +10698,26 @@ export interface components {
              */
             is_public: boolean;
         };
+        /**
+         * MapListItem
+         * @description A row of the Maps list. `tie` is there only when the list was asked through a date
+         *     (ADR 0372): `tied` to it, `other` (tied to other dates) or `untied`.
+         */
+        MapListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "scene" | "scene_appearance" | "session")[];
+            /** Tie */
+            tie?: ("tied" | "untied" | "other") | null;
+        };
         /** MapOut */
         MapOut: {
             /**
@@ -11557,10 +11578,10 @@ export interface components {
             /** Pages */
             pages: number;
         };
-        /** Page[MapStub] */
-        Page_MapStub_: {
+        /** Page[MapListItem] */
+        Page_MapListItem_: {
             /** Items */
-            items: components["schemas"]["MapStub"][];
+            items: components["schemas"]["MapListItem"][];
             /** Total */
             total: number;
             /** Page */
@@ -27397,6 +27418,16 @@ export interface operations {
             query?: {
                 /** @description Case-insensitive substring match against the Map's name. */
                 q?: string | null;
+                /** @description Look at the Maps through a date in this Calendar. */
+                tied_calendar?: string | null;
+                /** @description The signed year of the date. */
+                tied_year?: number | null;
+                /** @description The month or festival key of the date. */
+                tied_segment?: string | null;
+                /** @description The day, with its month or festival. */
+                tied_day?: number | null;
+                /** @description Leave out the Maps tied only to other dates (with a date). */
+                exclude_other?: boolean;
                 page?: number;
                 size?: number;
             };
@@ -27414,7 +27445,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_MapStub_"];
+                    "application/json": components["schemas"]["Page_MapListItem_"];
                 };
             };
             /** @description Validation Error */

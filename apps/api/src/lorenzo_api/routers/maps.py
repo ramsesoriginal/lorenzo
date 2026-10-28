@@ -10,7 +10,7 @@ import math
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Response
 from fastapi_pagination import Page
@@ -50,9 +50,11 @@ from lorenzo_api.exceptions import (
     MapSystemConflictError,
 )
 from lorenzo_api.information_visibility import InformationVisibility
+from lorenzo_api.map_dates import coordinate_of, date_lens
 from lorenzo_api.map_systems import refusal, warnings
 from lorenzo_api.maps import require_placement_room, touch_map
 from lorenzo_api.models import (
+    Calendar,
     Entity,
     EntityAudience,
     EntitySlug,
@@ -75,6 +77,7 @@ router = APIRouter(
 
 _NOT_FOUND = "No such Map in this library"
 _NO_LOCATION = "No such Location in this library"
+_NO_CALENDAR = "No such Calendar in this library"
 _NO_ENTRY = "No such entry in this library"
 
 MAX_PAGE_ROWS = 200
@@ -89,6 +92,13 @@ class MapStub(BaseModel):
     name: str
     slug: str | None = None
     kinds: list[EntityKind]
+
+
+class MapListItem(MapStub):
+    """A row of the Maps list. `tie` is there only when the list was asked through a date
+    (ADR 0372): `tied` to it, `other` (tied to other dates) or `untied`."""
+
+    tie: Literal["tied", "untied", "other"] | None = None
 
 
 class MapCreate(BaseModel):
@@ -342,7 +352,7 @@ async def _out(
     )
 
 
-@router.get("/maps")
+@router.get("/maps", response_model_exclude_unset=True)
 async def list_maps(
     tenant_id: uuid.UUID,
     params: ParamsDep,
@@ -351,24 +361,62 @@ async def list_maps(
     q: Annotated[
         str | None, Query(description="Case-insensitive substring match against the Map's name.")
     ] = None,
-) -> Page[MapStub]:
+    tied_calendar: Annotated[
+        uuid.UUID | None, Query(description="Look at the Maps through a date in this Calendar.")
+    ] = None,
+    tied_year: Annotated[int | None, Query(description="The signed year of the date.")] = None,
+    tied_segment: Annotated[
+        str | None, Query(description="The month or festival key of the date.")
+    ] = None,
+    tied_day: Annotated[int | None, Query(description="The day, with its month or festival.")] = (
+        None
+    ),
+    exclude_other: Annotated[
+        bool, Query(description="Leave out the Maps tied only to other dates (with a date).")
+    ] = False,
+) -> Page[MapListItem]:
     """The Maps the reader may see, by name then id. A hidden Map is absent from every row and
-    page."""
+    page. Asked through a date (ADR 0372), each row says whether it is `tied` to it, tied to
+    `other` dates or `untied`, and they come in that order (tied, untied, other)."""
     vis = await standing(session, user, tenant_id)
+    lens = None
+    if tied_calendar is None:
+        if any(v is not None for v in (tied_year, tied_segment, tied_day)) or exclude_other:
+            raise InvalidMapError(detail="A date needs its Calendar")
+    else:
+        coordinate = coordinate_of(tied_year, tied_segment, tied_day)
+        try:
+            await require_visible_entry(
+                session, tenant_id=tenant_id, entity_id=tied_calendar, user_id=user.id
+            )
+        except EntityNotFoundError:
+            raise EntityNotFoundError(detail=_NO_CALENDAR) from None
+        if await session.get(Calendar, tied_calendar) is None:
+            raise EntityNotFoundError(detail=_NO_CALENDAR)
+        lens = date_lens(vis, tenant_id=tenant_id, calendar_id=tied_calendar, coordinate=coordinate)
+    columns = [Entity.id, Entity.name, EntitySlug.slug]
     stmt: Select[Any] = (
-        select(Entity.id, Entity.name, EntitySlug.slug)
+        select(*columns, *([lens.label.label("tie")] if lens else []))
         .join(Map, Map.entity_id == Entity.id)
         .outerjoin(EntitySlug, EntitySlug.entity_id == Entity.id)
         .where(Entity.tenant_id == tenant_id, visible_entry_clause(vis, Entity.id))
-        .order_by(Entity.name, Entity.id)
+        .order_by(*([lens.order] if lens else []), Entity.name, Entity.id)
     )
     if q is not None:
         stmt = stmt.where(Entity.name.icontains(q, autoescape=True))
+    if lens is not None and exclude_other:
+        stmt = stmt.where(~lens.other_only)
 
-    async def rows(found: Sequence[Any]) -> list[MapStub]:
-        return await _stubs(session, [(r[0], r[1], r[2]) for r in found])
+    async def rows(found: Sequence[Any]) -> list[MapListItem]:
+        stubs = await _stubs(session, [(r[0], r[1], r[2]) for r in found])
+        return [
+            MapListItem(id=s.id, name=s.name, slug=s.slug, kinds=s.kinds)
+            if lens is None
+            else MapListItem(id=s.id, name=s.name, slug=s.slug, kinds=s.kinds, tie=r[3])
+            for s, r in zip(stubs, found, strict=True)
+        ]
 
-    page: Page[MapStub] = await apaginate(session, stmt, params, transformer=rows)
+    page: Page[MapListItem] = await apaginate(session, stmt, params, transformer=rows)
     return page
 
 
