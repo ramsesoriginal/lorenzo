@@ -1,9 +1,8 @@
 """RFC 0002's campaign access rule, as a plain, directly-testable helper -
-see ADR 0026. Deliberately not a FastAPI dependency yet: there is no
-campaign-scoped route to protect. Lives outside dependencies.py on purpose
-- this is a domain-access-rule predicate with no HTTP-specific concerns,
-meant to be wrapped by a thin get_campaign_context dependency later rather
-than have its logic duplicated there.
+see ADR 0026. Wrapped by the get_campaign_context dependency in
+dependencies.py. Lives outside dependencies.py on purpose - this is a
+domain-access-rule predicate with no HTTP-specific concerns, kept here rather
+than duplicated there.
 """
 
 import uuid

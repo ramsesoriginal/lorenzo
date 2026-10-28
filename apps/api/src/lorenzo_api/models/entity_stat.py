@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 
 class EntityStat(Base):
     """An entity's direct (non-inherited) value for one stat_definition - see
-    ADR 0014 and RFC 0001. No resolution/inheritance walk yet - that needs
-    entity_prototype, which doesn't exist.
+    ADR 0014 and RFC 0001. Inherited values are resolved by the
+    effective-stat views (ADR 0039), not here.
     """
 
     __tablename__ = "entity_stat"

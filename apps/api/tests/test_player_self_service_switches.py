@@ -1,6 +1,6 @@
 """The two player self-service switches (RFC 0034, ADR 0185): stored,
-set by whoever manages the campaign, logged, and shown. Nothing reads them
-yet, so there is no enforcement to test here.
+set by whoever manages the campaign, logged, and shown. Enforcement is
+tested in test_player_self_service_enforcement.py.
 """
 
 import uuid

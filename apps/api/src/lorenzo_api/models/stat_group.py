@@ -26,8 +26,8 @@ class StatGroup(Base):
     id: Mapped[UuidPk]
     tenant_id: Mapped[TenantFk]
     name: Mapped[str]
-    # Inheritance tie-break (RFC 0001) - unused until entity_prototype exists
-    # and something actually resolves effective stats through it.
+    # Inheritance tie-break (RFC 0001, ADR 0037): the effective-stat views prefer the
+    # highest priority among inherited values at the same distance.
     priority: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     # Display-only (ADR 0103): lets a client show the group's fields even
     # when empty. Nothing checks a mandatory group is filled in.
