@@ -23,6 +23,6 @@ Allow the respective origins as post-logout redirect addresses. Supply the Pages
 
 ## API and verification
 
-Add the production origin to the API's existing space-separated `CORS_ALLOWED_ORIGINS` list and deploy the API through its normal workflow. The app registry already has the planned `https://lorenzo-calendars.pages.dev` address; set the API/GitHub `CALENDARS_URL` variable for a different origin. Deployment passes an unset value through to the API's default. Preview origins need their own explicit CORS and callback authorization.
+Add the production origin to the API's existing space-separated `CORS_ALLOWED_ORIGINS` list and deploy the API through its normal workflow. The app registry already has the `https://lorenzo-calendars.pages.dev` address; set the API/GitHub `CALENDARS_URL` variable for a different origin. Deployment passes an unset value through to the API's default. Preview origins need their own explicit CORS and callback authorization.
 
 Open the app, log in and choose a library. Create and preview a calendar, save it, and open a year. Import a reviewed native file through the CLI and confirm dates, moons and authored notes. Merely opening a year must not create saved date entries. Check an ordinary participant separately: public entry identity must not expose restricted Information. A missing Authgear setup produces a readable unavailable-sign-in message.
