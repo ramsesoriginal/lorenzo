@@ -410,7 +410,7 @@ refused on write and ended quietly on read. Writes are for those who write Locat
 the nearest explicit row wins along the address's own chain (the entry, its containers, its owner, its place and
 the Locations above it, and for a Location those above it), never through prototypes; the GM's `/address` gains
 `frame` steps with an `axis`, and `/entities/{id}/frames`, `/frames` and `/entities/{id}/frame-members` read the rows.
-No player read changes and no reach code names a frame. Release format 25 carries `frames` and `entity_frames`.
+No player read changes and no reach code names a frame. Release format 27 carries `frames` and `entity_frames`.
 
 ### What's next
 
