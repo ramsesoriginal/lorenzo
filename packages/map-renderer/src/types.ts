@@ -62,6 +62,8 @@ export type MapModel = {
   placements: readonly Placement[];
   /** The Map's view grid: a visual grid over a system that has none (ADR 0354). */
   overlay?: GridSpec | null;
+  /** The pictures the Map is drawn over, bottom first (ADR 0362); a sphere draws none. */
+  layers?: readonly Layer[];
 };
 
 /** The closed list of roles (ADR 0337). It grows only by ADR. */
@@ -137,6 +139,8 @@ export type Groups = {
   showPlaces: boolean;
   /** The grid and its sub-grid (ADR 0355). */
   grid: boolean;
+  /** The pictures under the Map (ADR 0362). */
+  layers: boolean;
 };
 
 export type GroupName = 'places' | 'people' | 'roads';
@@ -154,10 +158,12 @@ export const DEFAULT_GROUPS: Groups = {
   names: true,
   showPlaces: true,
   grid: true,
+  layers: true,
 };
 
 import type { Overlay } from './edit';
 import type { GridSpec } from './grid';
+import type { Layer } from './layers';
 import type { Projection } from './sphere';
 
 export type View = {

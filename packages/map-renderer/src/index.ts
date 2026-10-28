@@ -6,6 +6,8 @@ export { cellAt, cellCentre, cellCount, cellPolygon, inGrid, isGridKind } from '
 export type { GridState } from './gridDraw';
 export { gridOf, gridPrims, MAX_DRAWN_CELLS, MIN_CELL_PX, MIN_SUB_PX } from './gridDraw';
 export { hitTest } from './hit';
+export type { Anchor, Calibration, Layer, Matrix } from './layers';
+export { isDataImage, layerMatrix } from './layers';
 export { layout } from './layout';
 export type { LegendItem } from './legend';
 export { legend, SWATCH } from './legend';
@@ -20,7 +22,17 @@ export { iconHref, paintSvg, sceneToSvg, sceneTree } from './paint';
 export { project, unproject } from './project';
 export type { Arc } from './relief';
 export { reliefArcs } from './relief';
-export type { CirclePrim, Hit, IconPrim, PathPrim, Prim, RectPrim, Scene, TextPrim } from './scene';
+export type {
+  CirclePrim,
+  Hit,
+  IconPrim,
+  ImagePrim,
+  PathPrim,
+  Prim,
+  RectPrim,
+  Scene,
+  TextPrim,
+} from './scene';
 export type { Projection, ProjectionKind } from './sphere';
 export {
   GLOBE_RADIUS,

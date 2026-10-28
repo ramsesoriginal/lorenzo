@@ -135,6 +135,15 @@ its hidden vertices on the limb. The globe's disc is `m-limb` and the lines of l
 `m-grid`, under the Grid switch. A tool receives its pointer already as longitude and latitude and is not
 given a press off the globe.
 
+## Pictures
+
+`MapModel.layers` is a list of `{id, href, size, opacity, calibration}` the host made: `href` a `data:` image
+URL (nothing else is drawn), `size` the natural size in pixels (ADR 0362). `layerMatrix(extent, layer)` is the pure
+matrix from the picture's pixels to the sheet: fitted whole and centred for no calibration, a turn, one scale and a
+move for two anchors, an affine map for three. Each layer is an `image` primitive of class `m-layer` above the
+sheet and below the grid and every placement, never a target, written by `paintSvg` with its address set only when
+its `key` changes. `Groups.layers` hides them, and a sphere draws none.
+
 ## Tests
 
 `pnpm run test` (vitest): Scene determinism, rejection of non-finite numbers, each shape and role,

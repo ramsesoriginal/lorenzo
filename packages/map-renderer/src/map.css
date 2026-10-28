@@ -331,6 +331,11 @@
   opacity: 0.8;
 }
 
+/* A picture under the Map (ADR 0362): never a mark and never a target. */
+.m-layer {
+  pointer-events: none;
+}
+
 /* The globe's disc (ADR 0358): the sphere seen from outside, under the lines and the places. */
 .m-limb {
   fill: var(--surface-default);

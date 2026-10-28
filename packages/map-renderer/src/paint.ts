@@ -25,6 +25,11 @@ export type TreeNode = {
   /** For a leaf that holds text (`text`, `title`, `desc`): set with `textContent` only. */
   text?: string;
   children: TreeNode[];
+  /**
+   * Attributes written only when the node is made or its `data-key` changes: a picture's data URL
+   * is megabytes, and comparing it on every frame of a pan would cost more than drawing.
+   */
+  once?: [string, string][];
 };
 
 function node(tag: string, attrs: [string, string][], children: TreeNode[] = []): TreeNode {
@@ -86,6 +91,25 @@ function primNode(prim: Prim, iconBase: string): TreeNode {
       if (prim.anchor) attrs.push(['text-anchor', prim.anchor]);
 
       return leaf('text', attrs, prim.text);
+    }
+    case 'image': {
+      const attrs: [string, string][] = [
+        ['class', prim.cls],
+        ['data-key', prim.key],
+        ['width', String(prim.width)],
+        ['height', String(prim.height)],
+        ['transform', `matrix(${prim.matrix.join(' ')})`],
+      ];
+
+      if (prim.opacity !== undefined) attrs.push(['opacity', String(prim.opacity)]);
+
+      return {
+        ...node('image', attrs),
+        once: [
+          ['href', prim.href],
+          ['preserveAspectRatio', 'none'],
+        ],
+      };
     }
     case 'icon':
       return node('use', [
@@ -166,7 +190,11 @@ function escapeAttr(text: string): string {
 }
 
 function serialise(n: TreeNode, root: boolean): string {
-  const attrs = [...(root ? ([['xmlns', SVG_NS]] as [string, string][]) : []), ...n.attrs]
+  const attrs = [
+    ...(root ? ([['xmlns', SVG_NS]] as [string, string][]) : []),
+    ...n.attrs,
+    ...(n.once ?? []),
+  ]
     .map(([k, v]) => ` ${k}="${escapeAttr(v)}"`)
     .join('');
 
@@ -187,6 +215,8 @@ function create(doc: Document, n: TreeNode): Element {
 
   for (const [k, v] of n.attrs) el.setAttribute(k, v);
 
+  for (const [k, v] of n.once ?? []) el.setAttribute(k, v);
+
   if (n.text !== undefined) {
     el.textContent = n.text;
   } else {
@@ -198,11 +228,19 @@ function create(doc: Document, n: TreeNode): Element {
 
 function sync(doc: Document, el: Element, n: TreeNode, root: boolean): void {
   const wanted = new Set<string>();
+  const key = n.attrs.find(([k]) => k === 'data-key')?.[1];
+  const keyChanged = n.once !== undefined && el.getAttribute('data-key') !== key;
 
   for (const [k, v] of n.attrs) {
     wanted.add(k);
 
     if (el.getAttribute(k) !== v) el.setAttribute(k, v);
+  }
+
+  for (const [k, v] of n.once ?? []) {
+    wanted.add(k);
+
+    if (keyChanged) el.setAttribute(k, v);
   }
 
   // The root keeps attributes the caller set itself (a tabindex, a data-cursor).

@@ -73,6 +73,7 @@ describe('hitTest', () => {
           names: true,
           showPlaces: false,
           grid: true,
+          layers: true,
         },
       }),
     );

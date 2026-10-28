@@ -1,6 +1,7 @@
 import { overlayPrims } from './edit';
 import { bboxOf, finitePoint, flattenCubic, growBBox, num } from './geom';
 import { gridPrims } from './gridDraw';
+import { layerPrims } from './layers';
 import { project, toScreen, transformOf } from './project';
 import type { Hit, Prim, Scene } from './scene';
 import { isSphere } from './sphere';
@@ -307,6 +308,8 @@ export function layout(model: MapModel, view: View, theme: Theme = defaultTheme)
   ];
 
   prims.push(...limbPrims(model, t));
+
+  if (view.groups.layers) prims.push(...layerPrims(model, t));
 
   if (view.groups.grid) prims.push(...gridPrims(model, t).prims);
 

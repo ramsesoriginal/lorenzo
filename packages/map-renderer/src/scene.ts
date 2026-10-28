@@ -36,7 +36,22 @@ export type TextPrim = Base & {
 /** An icon of the brand's atlas (`icon-<icon>`), drawn at `x`, `y` (top left) `size` square. */
 export type IconPrim = Base & { kind: 'icon'; icon: string; x: number; y: number; size: number };
 
-export type Prim = RectPrim | PathPrim | CirclePrim | TextPrim | IconPrim;
+/**
+ * A picture of a Map (ADR 0362): `href` is a `data:` image URL, `width` and `height` its natural
+ * size, `matrix` carries its pixels to the screen, and `key` says which picture it is so a painter
+ * need not compare the URL on every frame.
+ */
+export type ImagePrim = Base & {
+  kind: 'image';
+  href: string;
+  key: string;
+  width: number;
+  height: number;
+  matrix: readonly [number, number, number, number, number, number];
+  opacity?: number;
+};
+
+export type Prim = RectPrim | PathPrim | CirclePrim | TextPrim | IconPrim | ImagePrim;
 
 /** Plain, JSON-serialisable data in the screen pixels of the viewport. */
 export type Scene = {
