@@ -6,6 +6,7 @@ import {
   type Groups,
   gridOf,
   isSphere,
+  type Layer,
   type MapModel,
   type MapViewController,
   onGlobe,
@@ -40,6 +41,8 @@ import {
   sectionHead,
   statusLine,
 } from './dom';
+import { loadLayers } from './layer-pictures';
+import { picturesSection } from './layers-settings';
 import { chosenTheme, LOOKS, type Look, readLook, writeLook } from './look';
 import { type Header, type Row, readPlacements, VISIBLE_LIMIT } from './map-api';
 import { createEditor, type Editor } from './map-edit';
@@ -67,7 +70,12 @@ export const mapHref = (tenant: string, id: string, slug?: string | null) =>
 const words = (text: string) => text.replaceAll('_', ' ').replaceAll('-', ' ');
 
 /** The Map as the renderer draws it; a sphere takes the projection it is to be seen through. */
-function modelOf(header: Header, rows: Row[], projection?: Projection): MapModel {
+function modelOf(
+  header: Header,
+  rows: Row[],
+  projection?: Projection,
+  layers: readonly Layer[] = [],
+): MapModel {
   const placements: Placement[] = rows.map((row) => ({
     entry: { id: row.id, name: row.name, slug: row.slug ?? null, kinds: row.kinds },
     geometry: row.geometry as unknown as Geometry,
@@ -81,6 +89,7 @@ function modelOf(header: Header, rows: Row[], projection?: Projection): MapModel
     system: isSphere(system) && seen ? { ...system, projection: seen } : system,
     placements,
     overlay: ((header.view as { grid?: GridSpec } | null)?.grid ?? null) as GridSpec | null,
+    ...(layers.length > 0 ? { layers } : {}),
   };
 }
 
@@ -271,7 +280,9 @@ export async function mountMap() {
       let projection: Projection | undefined = onSphere
         ? (readProjectionChoice(mapId) ?? projectionFrom(header.view))
         : undefined;
-      const build = (next: Row[] = rows): MapModel => modelOf(header, next, projection);
+      // The pictures under the Map, loaded after the first drawing (ADR 0362).
+      let pictures: Layer[] = [];
+      const build = (next: Row[] = rows): MapModel => modelOf(header, next, projection, pictures);
       // Where a place is, in words: the cell on a grid Map and the position on a sphere.
       const pinCell = (row: Row): string | null => whereWords(row, build());
       let controller: MapViewController | undefined;
@@ -318,6 +329,8 @@ export async function mountMap() {
         });
       // A sphere's grid is its lines of longitude and latitude (ADR 0358).
       if (gridSpec || onSphere) toggles.push(['grid', 'Grid']);
+      const picturesHere = !onSphere && (header.layers ?? []).some((layer) => layer.payload_id);
+      if (picturesHere) toggles.push(['layers', 'Pictures']);
       for (const [key, label] of toggles) {
         const box = field(label, '', 'checkbox');
         box.input.checked = true;
@@ -498,7 +511,19 @@ export async function mountMap() {
       const left = el('div', '', 'stack');
       const side = el('div', '', 'stack');
       side.append(panel);
-      left.append(stage, tip);
+      // Pictures load after the drawing, and say so when some could not be shown (ADR 0362).
+      const pictureNote = el('p', '', 'status-text');
+      pictureNote.setAttribute('role', 'status');
+      left.append(stage, tip, pictureNote);
+      if (writer && (header.layers ?? []).some((layer) => layer.needs_review)) {
+        side.append(
+          el(
+            'p',
+            'A picture under this Map was replaced after it was set up. Look at it against the places, then mark it reviewed in Settings.',
+            'status-text',
+          ),
+        );
+      }
       layoutRow.append(left, side);
       drawing.append(layoutRow, legend.root);
       view.append(drawing);
@@ -514,6 +539,12 @@ export async function mountMap() {
       if (writer) {
         const settings = el('section', '', 'stack');
         settings.append(sectionHead('Settings'), settingsSection(tenant, header, version, render));
+        if (!onSphere) {
+          settings.append(
+            sectionHead('Pictures'),
+            picturesSection({ tenant, header, version, again: render }),
+          );
+        }
         view.append(settings);
       }
       host.replaceChildren(view);
@@ -538,6 +569,18 @@ export async function mountMap() {
       });
       zoom.textContent = zoomLabel(controller.getView().zoom);
       updateGridNote();
+      if (picturesHere) {
+        pictureNote.textContent = 'Loading the pictures…';
+        void loadLayers(tenant, header.layers ?? []).then(({ layers, failed }) => {
+          if (!stage.isConnected) return;
+          pictures = layers;
+          controller?.setModel(build());
+          pictureNote.textContent =
+            failed > 0
+              ? `${failed} ${failed === 1 ? 'picture' : 'pictures'} could not be shown.`
+              : '';
+        });
+      }
       if (gridSpec) {
         const sheet = (header.system as { extent: number[] }).extent as unknown as [
           number,

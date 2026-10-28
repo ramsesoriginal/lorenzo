@@ -366,6 +366,20 @@ far side draws nothing, and lines of longitude and latitude are the sphere's gri
 in Make a Map and Settings, the pointer in words, a reader's own projection and Turn buttons, and Pin,
 Line and Area on it.
 
+Pictures and layers (RFC 0048 slice 9, ADR 0360 to 0362, 2026-10-28): `payload_picture.sha256` is a
+generated stored column, so every picture carries its fingerprint. `image/svg+xml` is accepted for a
+picture payload and a main picture (not a profile picture) when `svg_lint.check_svg` accepts it: a fixed
+list of drawing elements, no document type, script, event handler, external link or `url()` that is not a
+fragment, at most 64 levels and 50,000 elements; the content route serves every picture with
+`X-Content-Type-Options: nosniff` and an SVG also with `default-src 'none'; sandbox` and as an attachment.
+`map_layer` (migration `c03620000001`, at most 8 per Map, a content table copied after `information`) points
+at an Information of the Map and shows its first picture; `lorenzo_map.validate_calibration` allows `null`
+(fit the sheet) or two or three anchors. `GET /maps/{id}` returns the visible layers with `needs_review`
+(the picture's hash is not the one the layer was reviewed for) and `PUT /maps/{id}/layers` replaces them
+under `If-Match`. Release format 22 carries `map_layers`; updates from a repository do not. The renderer
+draws a layer as an `image` primitive from a `data:` URL the host made, with the matrix of its calibration
+computed purely; Maps adds the Pictures section of Settings and the Pictures switch.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.

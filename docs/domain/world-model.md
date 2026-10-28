@@ -85,7 +85,15 @@ side draws nothing. A sphere holds points, lines and areas, no circles or curves
 the author's own unit, and a Map with places cannot become a sphere or stop being one
 ([ADR 0357](../adr/0357-the-sphere-system.md), [ADR 0358](../adr/0358-projections-and-drawing-a-sphere.md),
 [ADR 0359](../adr/0359-authoring-on-a-sphere.md)).
-Pictures, connections, distances and optionally tying a map to a calendar period
+A Map may also be drawn over pictures, up to eight, kept under it in an order. A picture is a picture of
+the Map's own notes, so it is seen by whoever may see that note, and nobody else is told it is there. It lies
+on the sheet either fitted whole or by saying where two points of the picture are on the sheet. Places
+are always stored in the sheet's own units, so replacing a picture never moves one; but a replaced
+picture is flagged for a writer to look at against the places, and to mark reviewed. A sphere is
+drawn without pictures. SVG pictures are accepted when they hold nothing that could run or fetch
+([ADR 0360](../adr/0360-pictures-a-stored-fingerprint-svg-and-when-to-leave-postgres.md),
+[ADR 0361](../adr/0361-map-layers.md), [ADR 0362](../adr/0362-drawing-and-setting-up-pictures-in-lorenzo-maps.md)).
+Connections, distances and optionally tying a map to a calendar period
 are proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and come in
 later slices.
 

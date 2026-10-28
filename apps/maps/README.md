@@ -30,7 +30,11 @@ pointer in words, *Snap to the grid* and a *Cells* tool for regions of whole cel
 longitude and latitude and drawn flat, as Mercator or as a globe; a reader may choose how it is drawn
 for themselves and turn a globe, the pointer says where it is in words, and a writer draws pins, lines
 and areas on it ([ADR 0357](../../docs/adr/0357-the-sphere-system.md) to
-[ADR 0359](../../docs/adr/0359-authoring-on-a-sphere.md)). *Look* and
+[ADR 0359](../../docs/adr/0359-authoring-on-a-sphere.md)). A Map may have pictures under it, which a
+writer adds, places by fitting the sheet or by two points, orders, replaces and removes in the Pictures section
+of Settings, and which a reader may hide with the Pictures switch
+([ADR 0360](../../docs/adr/0360-pictures-a-stored-fingerprint-svg-and-when-to-leave-postgres.md) to
+[ADR 0362](../../docs/adr/0362-drawing-and-setting-up-pictures-in-lorenzo-maps.md)). *Look* and
 a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md)). The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.
