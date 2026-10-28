@@ -1,6 +1,6 @@
 # Lorenzo Beings: sheet design brief
 
-A design pass on the being page of [`apps/beings`](../../../apps/beings) ([ADR 0270](../../adr/0270-beings-app.md) to [0272](../../adr/0272-beings-editing-stats-and-handing-over.md)). The app is functionally complete; its page is a single column of separate sections and editing is a stack of separate forms. This is a design for something a person can play, read and write at, for any game system.
+A design pass on the being page of [`apps/beings`](../../../apps/beings) ([ADR 0270](../../adr/0270-beings-app.md) to [0272](../../adr/0272-beings-editing-stats-and-handing-over.md)). This is a design for something a person can play, read and write at, for any game system. The brief was written when the page was a single column of separate sections and editing a stack of separate forms; the sheet it describes is now built, see [As built](#as-built).
 
 The prototype is plain HTML, CSS and JS in [`prototype/`](prototype/index.html). **It is a reference for layout and behaviour, not code to ship.** It runs on made-up data and changes only an in-memory copy. It asks for **no API change**.
 
@@ -72,7 +72,7 @@ The grammar of [identity §18](../../brand/identity.md#18-information-visualizat
 
 - **Pairs** such as hit points over a maximum are two stats today and two tiles. A template could say one stat is the other's maximum and draw them as one. The prototype does not pretend.
 - **Dots, tracks and clocks** for small whole numbers (Blades in the Dark actions, stress) are a visual template, as are weapon tables for a particular game. They belong to entity templates, which are later work.
-- **Which stats are vitals.** The prototype marks a few stats as pinned (`pin: true` in the sample data) for the sticky bar, and falls back to the first three numbers of the first group. A template should choose them; there is no such field in the API today.
+- **Which stats are vitals.** The prototype marks a few stats as pinned (`pin: true` in the sample data) for the sticky bar, and falls back to the first three numbers of the first group. A template should choose them. Built since as a flag on the stat definition, see [As built](#as-built).
 
 ## Notes and who can read them
 
@@ -124,6 +124,9 @@ Rendered at 1280 px (phones at 390 px) with Playwright. If a screen and the prot
 | [11 Dark theme](screens/11-dark-play.png)                                                          | The same through `[data-theme="dark"]`                               |
 | [12 Where a number comes from](screens/12-why-popover.png)                                         | Armour class, in parts                                               |
 | [13 Sticky bar](screens/13-sticky-play.png)                                                        | Three numbers and the section links, kept in view                    |
+| [14 Play after damage](screens/14-play-after-damage.png) | Play mode after a change, with undo offered |
+| [15 Phone, sticky mode](screens/15-phone-sticky-mode.png) | The sticky bar with the mode switch on a phone |
+| [16 Phone, adjuster](screens/16-phone-adjuster.png) | The number adjuster on a phone |
 
 ## What the prototype fakes
 
