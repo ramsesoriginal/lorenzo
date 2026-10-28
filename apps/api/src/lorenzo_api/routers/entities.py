@@ -78,6 +78,7 @@ from lorenzo_api.models import (
     CalendarPeriod,
     Character,
     Clock,
+    Connection,
     Containment,
     ContentReference,
     Entity,
@@ -91,6 +92,8 @@ from lorenzo_api.models import (
     InformationType,
     Item,
     ItemInstance,
+    Location,
+    Map,
     Ownership,
     Payload,
     Player,
@@ -161,6 +164,9 @@ _KINDS: tuple[
             | Fact
             | Calendar
             | Clock
+            | Location
+            | Map
+            | Connection
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
@@ -192,6 +198,9 @@ _KINDS: tuple[
     ("scene", Scene),
     ("scene_appearance", SceneAppearance),
     ("session", StorySession),
+    ("location", Location),
+    ("map", Map),
+    ("connection", Connection),
 )
 
 
@@ -443,6 +452,9 @@ async def add_entity_kind(
     in_public_catalog = body.in_public_catalog if body is not None else None
     if in_public_catalog is not None and kind != "item":
         raise InvalidKindRequestError(detail=f"in_public_catalog is a column of item, not {kind}")
+    system = body.system if body is not None else None
+    if system is not None and kind != "map":
+        raise InvalidKindRequestError(detail=f"system is a column of map, not {kind}")
     result = await add_kind(
         session,
         tenant_id=tenant_id,
@@ -450,6 +462,7 @@ async def add_entity_kind(
         kind=kind,
         user_id=user.id,
         in_public_catalog=in_public_catalog,
+        system=system,
     )
     if result != "unchanged":
         await record_activity(
@@ -614,6 +627,9 @@ async def get_entity_detail_or_404(
             joinedload(Entity.fact),
             joinedload(Entity.calendar),
             joinedload(Entity.clock),
+            joinedload(Entity.location),
+            joinedload(Entity.map),
+            joinedload(Entity.connection),
             joinedload(Entity.calendar_period),
             joinedload(Entity.calendar_observance),
             joinedload(Entity.story_event),
@@ -1742,6 +1758,9 @@ async def editable_fact_audience(
                 Fact,
                 Calendar,
                 Clock,
+                Location,
+                Map,
+                Connection,
                 CalendarPeriod,
                 StoryEvent,
                 CalendarObservance,
@@ -1763,6 +1782,12 @@ async def editable_fact_audience(
         .with_for_update()
         .execution_options(populate_existing=True)
     )
+    if audience is None and await session.get(Location, entity_id) is not None:
+        # A Location made from an existing entry has no outer audience row: that entry
+        # was visible as it was, and the first edit says so explicitly (ADR 0330).
+        audience = EntityAudience(entity_id=entity_id, tenant_id=tenant_id, is_public=True)
+        session.add(audience)
+        await session.flush()
     assert audience is not None
     return audience
 

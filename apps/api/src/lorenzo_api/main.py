@@ -16,6 +16,7 @@ from lorenzo_api.forwarded_scheme import ForwardedSchemeMiddleware
 from lorenzo_api.logging import configure_logging
 from lorenzo_api.observability.health import router as health_router
 from lorenzo_api.observability.tracing import configure_tracing
+from lorenzo_api.placement import install as install_placement
 from lorenzo_api.release_fanout import start_sweeping, stop_sweeping
 from lorenzo_api.repository_quotas import install as install_repository_quotas
 from lorenzo_api.routers.activity_log import router as activity_log_router
@@ -34,13 +35,16 @@ from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.clock_relationships import router as clock_relationships_router
 from lorenzo_api.routers.clocks import router as clocks_router
 from lorenzo_api.routers.computed_stats import router as computed_stats_router
+from lorenzo_api.routers.connections import router as connections_router
 from lorenzo_api.routers.discover import router as discover_router
+from lorenzo_api.routers.distance import router as distance_router
 from lorenzo_api.routers.entities import router as entities_router
 from lorenzo_api.routers.entity_export import router as entity_export_router
 from lorenzo_api.routers.entity_stats import router as entity_stats_router
 from lorenzo_api.routers.event_learning import router as event_learning_router
 from lorenzo_api.routers.event_order import router as event_order_router
 from lorenzo_api.routers.events import router as events_router
+from lorenzo_api.routers.frames import router as frames_router
 from lorenzo_api.routers.groups import router as groups_router
 from lorenzo_api.routers.information import router as information_router
 from lorenzo_api.routers.invites import router as invites_router
@@ -48,10 +52,12 @@ from lorenzo_api.routers.item_instances import router as item_instances_router
 from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.knowledge import router as knowledge_router
 from lorenzo_api.routers.link_previews import router as link_previews_router
+from lorenzo_api.routers.locations import router as locations_router
 from lorenzo_api.routers.manuscript_extraction import router as manuscript_extraction_router
 from lorenzo_api.routers.manuscript_joins import router as manuscript_joins_router
 from lorenzo_api.routers.manuscript_moves import router as manuscript_moves_router
 from lorenzo_api.routers.manuscript_splits import router as manuscript_splits_router
+from lorenzo_api.routers.maps import router as maps_router
 from lorenzo_api.routers.payloads import router as payloads_router
 from lorenzo_api.routers.personal_tokens import router as personal_tokens_router
 from lorenzo_api.routers.pictures import router as pictures_router
@@ -75,6 +81,7 @@ from lorenzo_api.routers.writing import router as writing_router
 from lorenzo_api.routers.writing_reviews import router as writing_reviews_router
 
 install_repository_quotas()
+install_placement()
 
 
 @asynccontextmanager
@@ -168,6 +175,11 @@ def create_app() -> FastAPI:
     app.include_router(beings_router)
     app.include_router(calendars_router)
     app.include_router(clocks_router)
+    app.include_router(locations_router)
+    app.include_router(maps_router)
+    app.include_router(connections_router)
+    app.include_router(distance_router)
+    app.include_router(frames_router)
     app.include_router(clock_relationships_router)
     app.include_router(calendar_references_router)
     app.include_router(calendar_periods_router)

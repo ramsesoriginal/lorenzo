@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.calendar_period import CalendarPeriod, StoryEvent
     from lorenzo_api.models.campaign import Campaign
     from lorenzo_api.models.clock import Clock
+    from lorenzo_api.models.connection import Connection
     from lorenzo_api.models.containment import Containment
     from lorenzo_api.models.entity_prototype import EntityPrototype
     from lorenzo_api.models.entity_slug import EntitySlug
@@ -25,7 +26,9 @@ if TYPE_CHECKING:
     from lorenzo_api.models.item import Item
     from lorenzo_api.models.item_instance import ItemInstance
     from lorenzo_api.models.knowledge import Knowledge
+    from lorenzo_api.models.location import Location
     from lorenzo_api.models.manuscript import Book, Chapter, Edition, SceneTelling
+    from lorenzo_api.models.map import Map
     from lorenzo_api.models.ownership import Ownership
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
@@ -58,6 +61,16 @@ class Entity(Base):
     )
     chapter: Mapped[Chapter | None] = relationship(
         "Chapter", foreign_keys="Chapter.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+    location: Mapped[Location | None] = relationship(
+        "Location", foreign_keys="Location.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+    map: Mapped[Map | None] = relationship(
+        "Map", foreign_keys="Map.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+
+    connection: Mapped[Connection | None] = relationship(
+        "Connection", foreign_keys="Connection.entity_id", viewonly=True, lazy="raise_on_sql"
     )
 
     clock: Mapped[Clock | None] = relationship(

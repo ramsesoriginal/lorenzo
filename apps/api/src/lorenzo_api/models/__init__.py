@@ -90,6 +90,15 @@ __all__ = [
     "ManuscriptRevision",
     "Clock",
     "ClockRelationship",
+    "Connection",
+    "EntityFrame",
+    "Frame",
+    "Location",
+    "LocationPart",
+    "EntityLocation",
+    "Map",
+    "MapLayer",
+    "MapPlacement",
     "CalendarReckoning",
     "EventClockReading",
     "SceneFact",
@@ -197,7 +206,10 @@ __all__ = [
 ]
 
 from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
+from lorenzo_api.models.connection import Connection
+from lorenzo_api.models.frame import EntityFrame, Frame
 from lorenzo_api.models.lived_order import LivedBefore
+from lorenzo_api.models.location import EntityLocation, Location, LocationPart
 from lorenzo_api.models.manuscript import Book as Book
 from lorenzo_api.models.manuscript import Chapter as Chapter
 from lorenzo_api.models.manuscript import Edition as Edition
@@ -207,6 +219,7 @@ from lorenzo_api.models.manuscript_join import ManuscriptRedirect as ManuscriptR
 from lorenzo_api.models.manuscript_move import ManuscriptExtraction, ManuscriptMove
 from lorenzo_api.models.manuscript_revision import ManuscriptRevision
 from lorenzo_api.models.manuscript_split import ManuscriptSplit
+from lorenzo_api.models.map import Map, MapLayer, MapPlacement
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (
     SceneBeing,

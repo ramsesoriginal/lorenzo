@@ -99,10 +99,18 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 18
+    assert rd.FORMAT == 28
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
+        "location_parts": {},
+        "entity_locations": {},
+        "frames": {},
+        "entity_frames": {},
+        "maps": {},
+        "map_placements": [],
+        "map_layers": {},
+        "connections": {},
         "clocks": {},
         "clock_readings": [],
         "clock_relationships": [],
@@ -212,4 +220,133 @@ def test_join_redirects_round_trip_and_old_releases_have_none() -> None:
     document, files = rd.encode(content)
     assert rd.decode(document, files).manuscript_redirects == content.manuscript_redirects
     old = {k: v for k, v in document.items() if k != "manuscript_redirects"}
-    assert rd.decode(old, files, format=17).manuscript_redirects == {}
+    assert rd.decode(old, files, format=27).manuscript_redirects == {}
+
+
+def test_version_twenty_maps_have_no_theme_name() -> None:
+    """A Map written before a theme name existed reads with none (ADR 0352)."""
+    identity = uuid.UUID(int=77)
+    system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
+    document, files = rd.encode(full_content())
+    old = {**document, "maps": {str(identity): {"system": system, "subject": None}}}
+
+    content = rd.READERS[20](old, files)
+
+    assert content.maps[identity] == {
+        "system": system,
+        "subject": None,
+        "theme": None,
+        "view": None,
+    }
+
+
+def test_version_twentyone_maps_have_no_view() -> None:
+    """A Map written before it could draw a grid of its own reads with no view (ADR 0354)."""
+    identity = uuid.UUID(int=78)
+    system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
+    document, files = rd.encode(full_content())
+    old = {
+        **document,
+        "maps": {str(identity): {"system": system, "subject": None, "theme": "plain"}},
+    }
+
+    content = rd.READERS[21](old, files)
+
+    assert content.maps[identity] == {
+        "system": system,
+        "subject": None,
+        "theme": "plain",
+        "view": None,
+    }
+
+
+def test_version_twentytwo_maps_are_read_as_they_are_written() -> None:
+    """Format 23 only widens what a system and a view may hold (ADR 0357)."""
+    identity = uuid.UUID(int=79)
+    system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
+    record = {
+        "system": system,
+        "subject": None,
+        "theme": None,
+        "view": {"grid": {"kind": "square", "cell": {"size": 2}}},
+    }
+    document, files = rd.encode(full_content())
+
+    content = rd.READERS[22]({**document, "maps": {str(identity): record}}, files)
+
+    assert content.maps[identity] == record
+
+
+def test_version_twenty_three_maps_have_no_layers() -> None:
+    """A Map written before it could have pictures under it reads with none (ADR 0361)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "map_layers"}
+
+    assert rd.READERS[23](old, files).map_layers == {}
+
+
+def test_layers_survive_a_round_trip() -> None:
+    identity = uuid.UUID(int=80)
+    layers = [
+        {
+            "information": str(uuid.UUID(int=81)),
+            "calibration": {"anchors": [{"image": [0, 0], "at": [0, 0]}]},
+            "opacity": 0.5,
+            "reviewed": "ab" * 32,
+        }
+    ]
+    content = full_content()
+    content.map_layers = {identity: layers}
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).map_layers == {identity: layers}
+
+
+def test_version_twenty_four_has_no_connections() -> None:
+    """A repository written before connections reads with none (ADR 0363)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "connections"}
+
+    assert rd.READERS[24](old, files).connections == {}
+
+
+def test_connections_survive_a_round_trip() -> None:
+    identity, first, second = uuid.UUID(int=90), uuid.UUID(int=91), uuid.UUID(int=92)
+    content = full_content()
+    content.connections = {
+        identity: {"end_a": first, "end_b": second, "one_way": True},
+        uuid.UUID(int=93): {"end_a": second, "end_b": first, "one_way": None},
+    }
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).connections == content.connections
+
+
+def test_version_twenty_five_reads_as_twenty_six() -> None:
+    """Format 26 only widens what a square or rectangular Map system may hold (ADR 0366)."""
+    document, files = rd.encode(full_content())
+
+    assert differences(rd.READERS[25](document, files), rd.READERS[26](document, files)) == []
+
+
+def test_version_twenty_six_has_no_frames() -> None:
+    """A repository written before frames reads with none (ADR 0369)."""
+    document, files = rd.encode(full_content())
+    old = {k: v for k, v in document.items() if k not in ("frames", "entity_frames")}
+    content = rd.READERS[26](old, files)
+
+    assert content.frames == {} and content.entity_frames == {}
+
+
+def test_frames_survive_a_round_trip() -> None:
+    sky, ether, elf = uuid.UUID(int=95), uuid.UUID(int=96), uuid.UUID(int=97)
+    content = full_content()
+    content.frames = {sky: ["plane", "universe"], ether: ["plane"]}
+    content.entity_frames = {ether: {"plane": sky}, elf: {"plane": ether, "universe": sky}}
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(document, files)
+    assert back.frames == content.frames and back.entity_frames == content.entity_frames
