@@ -181,28 +181,28 @@ The word **Workshop** is not used for any of them; it stays free for a tool that
 
 The current official asset set is:
 
-| Asset                                      | Role                                   | Recommended use                                     |
-| ------------------------------------------ | -------------------------------------- | --------------------------------------------------- |
-| `brand_mark.svg`                           | colored unshaded brand mark            | general standalone brand mark                       |
-| `brand_mark_shaded.svg`                    | colored shaded brand mark              | expressive digital mark, hero moments, loaders      |
-| `brand_mark_monochrome.svg`                | monochrome unshaded mark               | maximum flexibility, tiny UI, print, engraving      |
-| `brand_mark_shaded_monochrome.svg`         | monochrome shaded mark                 | richer single-color digital use                     |
-| `wordmark_full.svg`                        | full signature composition             | formal centered brand presentation                  |
-| `wordmark_light_bg.svg`                    | wordmark for light backgrounds         | marketing, docs, light UI surfaces                  |
-| `wordmark_dark_bg.svg`                     | reversed wordmark for dark backgrounds | dark UI and dark marketing surfaces                 |
-| `wordmark_monochrome.svg`                  | single-color wordmark                  | print, one-color production, flexible use           |
-| `lorenzo_horizontal_lockup_light_bg.svg`   | gold shaded mark + Ink wordmark        | default horizontal logo on light surfaces           |
-| `lorenzo_horizontal_lockup_dark_bg.svg`    | gold shaded mark + Paper wordmark      | default horizontal logo on dark surfaces            |
-| `lorenzo_horizontal_lockup_monochrome.svg` | monochrome horizontal lockup           | single-color or production-constrained use          |
-| `mascot_emblem.png`                        | illustrated mascot badge               | community, stickers, merch, editorial brand moments |
-| `mascot_emblem_web.png`                    | web-optimized mascot emblem derivative | README hero art and other size-constrained embeds   |
-| `mascot.png`                               | Lorenzo mascot illustration            | onboarding, product illustration, social, editorial |
-| `social_banner.png`                        | full illustrated social banner master  | source art for social/OG preview images             |
-| `social_banner_github.png`                 | GitHub social preview derivative       | Settings → Social preview (1280×640, under 1MB)     |
-| `catileo.png`, `catileo_emblem.png`                  | illustrated Catileo, Lorenzo's cat, and badge | second mascot, see the [Catileo character bible](catileo-character-bible.md) |
-| `mascot_getting_started.png`, `mascot_getting_started_web.png` | mascot illustration for getting started, and its web derivative | the account hub's new-user screen and other first-run moments |
-| `favicon/`                                 | `favicon.svg`, `favicon.ico`, `apple-touch-icon.png` | browser tab and home-screen icons          |
-| `showcase/`                                | static HTML preview of the assets     | looking at the set together                         |
+| Asset                                                          | Role                                                            | Recommended use                                                              |
+| -------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `brand_mark.svg`                                               | colored unshaded brand mark                                     | general standalone brand mark                                                |
+| `brand_mark_shaded.svg`                                        | colored shaded brand mark                                       | expressive digital mark, hero moments, loaders                               |
+| `brand_mark_monochrome.svg`                                    | monochrome unshaded mark                                        | maximum flexibility, tiny UI, print, engraving                               |
+| `brand_mark_shaded_monochrome.svg`                             | monochrome shaded mark                                          | richer single-color digital use                                              |
+| `wordmark_full.svg`                                            | full signature composition                                      | formal centered brand presentation                                           |
+| `wordmark_light_bg.svg`                                        | wordmark for light backgrounds                                  | marketing, docs, light UI surfaces                                           |
+| `wordmark_dark_bg.svg`                                         | reversed wordmark for dark backgrounds                          | dark UI and dark marketing surfaces                                          |
+| `wordmark_monochrome.svg`                                      | single-color wordmark                                           | print, one-color production, flexible use                                    |
+| `lorenzo_horizontal_lockup_light_bg.svg`                       | gold shaded mark + Ink wordmark                                 | default horizontal logo on light surfaces                                    |
+| `lorenzo_horizontal_lockup_dark_bg.svg`                        | gold shaded mark + Paper wordmark                               | default horizontal logo on dark surfaces                                     |
+| `lorenzo_horizontal_lockup_monochrome.svg`                     | monochrome horizontal lockup                                    | single-color or production-constrained use                                   |
+| `mascot_emblem.png`                                            | illustrated mascot badge                                        | community, stickers, merch, editorial brand moments                          |
+| `mascot_emblem_web.png`                                        | web-optimized mascot emblem derivative                          | README hero art and other size-constrained embeds                            |
+| `mascot.png`                                                   | Lorenzo mascot illustration                                     | onboarding, product illustration, social, editorial                          |
+| `social_banner.png`                                            | full illustrated social banner master                           | source art for social/OG preview images                                      |
+| `social_banner_github.png`                                     | GitHub social preview derivative                                | Settings → Social preview (1280×640, under 1MB)                              |
+| `catileo.png`, `catileo_emblem.png`                            | illustrated Catileo, Lorenzo's cat, and badge                   | second mascot, see the [Catileo character bible](catileo-character-bible.md) |
+| `mascot_getting_started.png`, `mascot_getting_started_web.png` | mascot illustration for getting started, and its web derivative | the account hub's new-user screen and other first-run moments                |
+| `favicon/`                                                     | `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`            | browser tab and home-screen icons                                            |
+| `showcase/`                                                    | static HTML preview of the assets                               | looking at the set together                                                  |
 
 Treat SVG files as the preferred production masters for marks and lockups. Keep the mascot artwork as high-resolution raster artwork unless a deliberate simplified vector redraw is commissioned. Do not auto-trace the mascot illustration into a large, noisy SVG.
 
