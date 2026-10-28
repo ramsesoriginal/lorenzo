@@ -1,6 +1,6 @@
 # ER diagram: domain model
 
-A snapshot of the 89 stored API tables, checked against [`models/`](../../../apps/api/src/lorenzo_api/models) on 2026-10-22. The diagrams are grouped to keep the entry/component core, stat vocabulary, information, calendars, Events and Facts, Sessions and Scenes, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
+A snapshot of the stored API tables, checked against [`models/`](../../../apps/api/src/lorenzo_api/models) on 2026-10-28. The diagrams are grouped to keep the entry/component core, stat vocabulary, information, calendars, Events and Facts, Sessions and Scenes, Writing, Locations and Maps, Clocks, accounts and repository machinery readable. A table referenced from another group appears there by name only; its columns are defined in its own group.
 
 Columns show primary and foreign keys and nullable values. Routine `created_at`/`updated_at` and `created_by`/`updated_by` columns and their attribution edges are omitted; timestamps and attribution differ by table, so consult the model and [ADR 0029](../../adr/0029-attribution-created-by-updated-by.md) for their exact shape. Views (`v_item`, `v_item_instance`, `v_character`, `v_effective_stat`) are reads over these tables, not stored tables.
 
@@ -289,8 +289,6 @@ erDiagram
     CAMPAIGN ||..o{ PLAYER : "campaign_id"
     APP_USER ||..o{ PLAYER : "user_id"
     REPOSITORY_RELEASE |o..o{ TENANT : "current_release_id"
-    REPOSITORY_RELEASE ||..o{ TENANT : "id"
-    STAT_GROUP ||..o{ TENANT : "id"
     STAT_GROUP |o..o{ TENANT : "being_stat_group_id"
     STAT_GROUP |o..o{ TENANT : "weapon_stat_group_id"
     APP_USER |o..o{ TENANT : "delisted_by"
@@ -428,7 +426,7 @@ erDiagram
         string file_type
     }
     TENANT {
-        uuid id PK,FK
+        uuid id PK
         string name
         string slug
         string description
@@ -834,6 +832,238 @@ erDiagram
     }
 ```
 
+## Writing
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ BOOK : "entity_id"
+    ENTITY ||..o{ EDITION : "entity_id"
+    BOOK ||..o{ EDITION : "book_entity_id"
+    ENTITY ||..o{ CHAPTER : "entity_id"
+    ENTITY ||..o{ MANUSCRIPT_PLACEMENT : "parent_entity_id"
+    ENTITY ||..o{ MANUSCRIPT_PLACEMENT : "child_entity_id"
+    PAYLOAD |o..o{ MANUSCRIPT_PLACEMENT : "before_payload_id"
+    ENTITY ||..o{ SCENE_TELLING : "entity_id"
+    SCENE ||..o{ SCENE_TELLING : "scene_entity_id"
+    BEING |o..o{ SCENE_TELLING : "viewpoint_entity_id"
+    BEING ||..o{ WRITING_BIOGRAPHY : "entity_id"
+    INFORMATION ||..o{ MANUSCRIPT_REVISION : "information_id"
+    ENTITY ||..o{ MANUSCRIPT_MOVE : "entry_id"
+    ENTITY ||..o{ MANUSCRIPT_EXTRACTION : "source_id"
+    ENTITY ||..o{ MANUSCRIPT_EXTRACTION : "chapter_id"
+    ENTITY ||..o{ MANUSCRIPT_SPLIT : "entry_id"
+    PAYLOAD ||..o{ MANUSCRIPT_SPLIT : "first_payload_id"
+    PAYLOAD ||..o{ MANUSCRIPT_SPLIT : "second_payload_id"
+    EDITION ||..o{ WRITING_REVIEW_GRANT : "edition_id"
+    APP_USER ||..o{ WRITING_REVIEW_GRANT : "user_id"
+    EDITION ||..o{ WRITING_REVIEW_NOTE : "edition_id"
+    ENTITY ||..o{ WRITING_REVIEW_NOTE : "entry_id"
+    BOOK {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+    }
+    CHAPTER {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+    }
+    EDITION {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid book_entity_id FK
+    }
+    MANUSCRIPT_EXTRACTION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid source_id FK
+        uuid chapter_id FK
+        string request_hash
+        json checkpoint
+    }
+    MANUSCRIPT_MOVE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid entry_id FK
+        string request_hash
+        json acknowledgement
+        json checkpoint
+    }
+    MANUSCRIPT_PLACEMENT {
+        uuid child_entity_id PK,FK
+        uuid tenant_id FK
+        uuid parent_entity_id FK
+        uuid before_payload_id FK "nullable"
+        int position
+    }
+    MANUSCRIPT_REVISION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid information_id FK
+        int transaction_id
+        json snapshot
+    }
+    MANUSCRIPT_SPLIT {
+        uuid id PK
+        uuid tenant_id FK
+        uuid entry_id FK
+        uuid first_payload_id FK
+        uuid second_payload_id FK
+        string request_hash
+    }
+    SCENE_TELLING {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid scene_entity_id FK
+        uuid viewpoint_entity_id FK "nullable"
+        boolean uses_scene_manuscript
+    }
+    WRITING_BIOGRAPHY {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+    }
+    WRITING_REVIEW_GRANT {
+        uuid edition_id PK,FK
+        uuid user_id PK,FK
+        uuid tenant_id FK
+    }
+    WRITING_REVIEW_NOTE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid edition_id FK
+        uuid entry_id FK
+        string content
+        int version
+    }
+```
+
+## Locations, Maps, connections and frames
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ LOCATION : "entity_id"
+    LOCATION ||..o{ LOCATION_PART : "child_entity_id"
+    LOCATION ||..o{ LOCATION_PART : "parent_entity_id"
+    ENTITY ||..o{ ENTITY_LOCATION : "entity_id"
+    LOCATION ||..o{ ENTITY_LOCATION : "location_entity_id"
+    ENTITY ||..o{ MAP : "entity_id"
+    LOCATION |o..o{ MAP : "subject_entity_id"
+    MAP ||..o{ MAP_PLACEMENT : "map_entity_id"
+    ENTITY ||..o{ MAP_PLACEMENT : "entry_entity_id"
+    MAP ||..o{ MAP_LAYER : "map_entity_id"
+    INFORMATION ||..o{ MAP_LAYER : "information_id"
+    ENTITY ||..o{ CONNECTION : "entity_id"
+    ENTITY ||..o{ CONNECTION : "end_a"
+    ENTITY ||..o{ CONNECTION : "end_b"
+    ENTITY ||..o{ FRAME : "entity_id"
+    ENTITY ||..o{ ENTITY_FRAME : "entity_id"
+    FRAME ||..o{ ENTITY_FRAME : "frame_entity_id, axis"
+    CONNECTION {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        uuid end_a FK
+        uuid end_b FK
+        boolean one_way "nullable"
+    }
+    ENTITY_FRAME {
+        uuid entity_id PK,FK
+        string axis PK,FK
+        uuid frame_entity_id FK
+        uuid tenant_id FK
+    }
+    ENTITY_LOCATION {
+        uuid entity_id PK,FK
+        uuid location_entity_id FK
+        uuid tenant_id FK
+    }
+    FRAME {
+        uuid entity_id PK,FK
+        string axis PK
+        uuid tenant_id FK
+    }
+    LOCATION {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+    }
+    LOCATION_PART {
+        uuid child_entity_id PK,FK
+        uuid parent_entity_id FK
+        uuid tenant_id FK
+        float level_ordinal "nullable"
+    }
+    MAP {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        json system
+        uuid subject_entity_id FK "nullable"
+        string theme_hint "nullable"
+        json view "nullable"
+    }
+    MAP_LAYER {
+        uuid map_entity_id PK,FK
+        int position PK
+        uuid information_id FK
+        uuid tenant_id PK,FK
+        json calibration "nullable"
+        float opacity "nullable"
+        bytes reviewed_sha256 "nullable"
+    }
+    MAP_PLACEMENT {
+        uuid map_entity_id PK,FK
+        uuid entry_entity_id PK,FK
+        uuid tenant_id FK
+        json geometry
+        string role "nullable"
+        json style "nullable"
+        int z
+        int bytes
+        float minx
+        float miny
+        float maxx
+        float maxy
+    }
+```
+
+## Clocks
+
+```mermaid
+erDiagram
+    ENTITY ||..o{ CLOCK : "entity_id"
+    STORY_EVENT ||..o{ EVENT_CLOCK_READING : "event_entity_id"
+    CLOCK ||..o{ EVENT_CLOCK_READING : "clock_entity_id"
+    CALENDAR ||..o{ CALENDAR_RECKONING : "calendar_entity_id"
+    CLOCK ||..o{ CALENDAR_RECKONING : "clock_entity_id"
+    CLOCK ||..o{ CLOCK_RELATIONSHIP : "clock_entity_id"
+    CLOCK ||..o{ CLOCK_RELATIONSHIP : "reference_clock_entity_id"
+    CALENDAR_RECKONING {
+        uuid calendar_entity_id PK,FK
+        uuid clock_entity_id PK,FK
+        uuid tenant_id FK
+        boolean ticking
+        json data
+        boolean is_shared
+    }
+    CLOCK {
+        uuid entity_id PK,FK
+        uuid tenant_id FK
+        boolean ticking
+    }
+    CLOCK_RELATIONSHIP {
+        uuid clock_entity_id PK,FK
+        uuid reference_clock_entity_id PK,FK
+        uuid tenant_id FK
+        boolean ticking
+        json data
+        boolean is_shared
+    }
+    EVENT_CLOCK_READING {
+        uuid event_entity_id PK,FK
+        uuid clock_entity_id PK,FK
+        uuid tenant_id FK
+        boolean ticking
+        json data
+        boolean is_shared
+    }
+```
+
 ## Rules the lines do not show
 
 - **Tenant isolation:** tenant data has `tenant_id` and `FORCE ROW LEVEL SECURITY`, read through a restricted app role (ADR 0002, 0021). Tenant-to-tenant foreign keys include `tenant_id` (ADR 0117). `repository_subscription` is the deliberate cross-tenant grant table, with policies on both ends.
@@ -844,5 +1074,8 @@ erDiagram
 - **Calendars:** a calendar's `definition` is a validated document (ADR 0308). A `calendar_period` row exists only once something is authored against it; browsing a year creates none, and `entry_calendar_period` is the date association of an entry (ADR 0309). An observance stores a rule, never its occurrences (ADR 0310). `calendar_import` is local provenance and retry receipts for a CLI import, not content (ADR 0311).
 - **Events and Facts:** `event_relationship` stores explicit `order` and `causes` assertions between Events with a per-assertion `is_shared`; the order a reader sees is derived from them (ADR 0312, 0315). `event_participant` records who took part and nothing more: `event_learning` is a separate, optional record of what a participant learned (ADR 0313, 0314), and `lived_before` is a being's own lived order, anchored to two of its participations (ADR 0319). `entity_audience` and `entity_knowledge` hold the explicit outer audience of an entry such as an Event or Fact (ADR 0305, 0316). `event_group_creation` is a retry receipt for creating a group from an Event's participants.
 - **Sessions and Scenes:** a Session belongs to one campaign; its GMs, players and the characters players bring are explicit rows. A Scene is reusable and carries its own references (`scene_fact`, `scene_event`, `scene_being`); a `scene_appearance` places one in a Session, with its own preparation `position`, optional played position and sharing flag (ADR 0317, 0318). References and presentations record no learning, participation or lived order. Repository copies and releases carry the reusable rows (calendars, periods, observances, Events, Facts, Scenes and their references, lived-before assertions); the operational rows (`story_session`, `session_*`, `scene_appearance`, `event_presentation`, `calendar_import`, `event_group_creation`, `release_fanout`) are local and never copied (`copyable_tables.py`).
+- **Writing:** `book`, `edition`, `chapter` and `scene_telling` are entry kinds; `manuscript_placement` orders chapters and tellings under a parent in a graph of its own, separate from containment and prototypes, with `before_payload_id` interleaving a placement among the parent's text and picture payloads (ADR 0327, 0341, 0342). `manuscript_revision`, `manuscript_move`, `manuscript_extraction` and `manuscript_split` are private recovery history and retry receipts, never repository content. Review grants and notes are operational: a grant names one user for one Edition and creates no membership (ADR 0328, 0343 to 0347).
+- **Locations, Maps, connections and frames:** `location_part` is a single-parent tree of its own and `entity_location` says an entry is at a Location now; neither is containment and neither feeds a GM's reach (ADR 0330, 0333). A `map_placement` is where an entry is drawn, never where it is; `map_layer` points at an Information of the Map and shows its first picture, at most eight per Map (ADR 0336, 0361). A `connection` is an entry with two ends and no other kind; deleting an end removes the marker and leaves the entry (ADR 0363). `frame` is a designation on an entry, not a kind, and `entity_frame` puts an entry on at most one frame per axis; the axis is part of the key and the axes are a closed list in code (ADR 0369).
+- **Clocks:** a Clock is an entry that is ticking or timeless, and readings, reckonings and relationships may reference only ticking ones (the `ticking` column is part of their keys). A relationship is stored once per unordered pair (`clock_entity_id` sorts before `reference_clock_entity_id`). Rows start private (`is_shared`), derived readings are never stored, and none of these tables says anything about Event order (ADR 0320, 0321).
 - **Credentials:** personal tokens and device authorizations belong to a user, not a tenant; only hashes of credentials are stored (ADR 0268).
 - **Activity:** logs and change-feed records keep identifiers of deleted objects without foreign keys to those objects. A notification can later be marked read; its `read_at` changes even though its authored message stays fixed (ADR 0058, 0099).
