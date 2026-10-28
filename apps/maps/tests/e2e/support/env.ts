@@ -2,11 +2,11 @@
 // can run beside inventory-web's. Read by the Playwright config, the fake
 // Authgear, the API launcher, and the tests. 127.0.0.1 rather than localhost, so no server
 // ends up on ::1 alone.
-export const AUTHGEAR_URL = 'http://127.0.0.1:4414';
-export const API_URL = 'http://127.0.0.1:8779';
+export const AUTHGEAR_URL = 'http://127.0.0.1:4415';
+export const API_URL = 'http://127.0.0.1:8780';
 /** Where the inventory board would be; the tests only follow the link's address. */
 export const INVENTORY_URL = 'https://inventory.example.test';
-export const SITE_URL = 'http://127.0.0.1:4345';
+export const SITE_URL = 'http://127.0.0.1:4346';
 
 /** The OAuth client the site presents; the fake Authgear accepts any. */
 export const CLIENT_ID = 'lorenzo-maps-e2e';

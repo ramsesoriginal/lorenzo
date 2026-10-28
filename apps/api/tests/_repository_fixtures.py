@@ -11,10 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lorenzo_api import release_document
 from lorenzo_api.models import (
     Being,
+    Book,
     Calendar,
     CalendarObservance,
     CalendarPeriod,
     CalendarReckoning,
+    Chapter,
     Character,
     Clock,
     ClockRelationship,
@@ -26,6 +28,7 @@ from lorenzo_api.models import (
     ComputedStatSumTerm,
     Containment,
     ContentReference,
+    Edition,
     Entity,
     EntityAudience,
     EntityKnowledge,
@@ -49,6 +52,7 @@ from lorenzo_api.models import (
     LivedBefore,
     Location,
     LocationPart,
+    ManuscriptPlacement,
     Map,
     MapPlacement,
     Ownership,
@@ -67,11 +71,13 @@ from lorenzo_api.models import (
     RepositoryReleasedRow,
     RepositoryShowcase,
     Scene,
+    SceneTelling,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
     StatValueType,
     StoryEvent,
+    WritingBiography,
 )
 from lorenzo_api.models.story_context import SceneBeing, SceneEvent, SceneFact
 from lorenzo_api.repository_content import Content
@@ -456,6 +462,40 @@ async def seed_every_content_table(
         )
     )
     session.add_all(context_rows)
+    await session.flush()
+    telling = entity("Telling")
+    await session.flush()
+    session.add_all(
+        [
+            SceneTelling(
+                entity_id=telling.id,
+                tenant_id=tenant_id,
+                scene_entity_id=scene.id,
+                viewpoint_entity_id=elminster.id,
+            ),
+            WritingBiography(entity_id=elminster.id, tenant_id=tenant_id),
+        ]
+    )
+    book, edition, chapter = entity("Book"), entity("Edition"), entity("Chapter")
+    await session.flush()
+    session.add_all(
+        [
+            Book(entity_id=book.id, tenant_id=tenant_id),
+            Chapter(entity_id=chapter.id, tenant_id=tenant_id),
+        ]
+    )
+    await session.flush()
+    session.add(Edition(entity_id=edition.id, book_entity_id=book.id, tenant_id=tenant_id))
+    await session.flush()
+    session.add(
+        ManuscriptPlacement(
+            child_entity_id=chapter.id,
+            parent_entity_id=edition.id,
+            before_payload_id=None,
+            position=0,
+            tenant_id=tenant_id,
+        )
+    )
     await session.flush()
     if not with_copy_records:
         await session.flush()
