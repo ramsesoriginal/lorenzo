@@ -398,7 +398,7 @@ the straight line on one Map, or a bounded Dijkstra in the application (`routing
 reader sees, read in batches with the visibility predicate in SQL and measured in a number stat (the effective
 value, so inherited lengths count and formulas do not), where a fully measured route beats a shorter one with an
 unmeasured leg and ties go to the lower connection id. It stores nothing; it is capped at 2,000 places, 10,000
-connections and 64 legs, and limited per user per instance (`DISTANCE_RATE_LIMIT_PER_MINUTE`, 60). Release format 24
+connections and 64 legs, and limited per user per instance (`DISTANCE_RATE_LIMIT_PER_MINUTE`, 60). Release format 26
 carries the `metric` key. Maps adds a Distance section to the Map page and "Diagonals count as" to a grid's setup.
 
 ### What's next
