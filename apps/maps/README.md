@@ -38,9 +38,9 @@ in its name (a person's initials), as `label-content-name-mismatch` requires.
 ## Development
 
 Set `PUBLIC_API_BASE_URL`, `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIENT_ID` from `.env.example`.
-Use Node and pnpm from the repository. `mise run //apps/maps:dev` serves port 4327. The app owns
+Use Node and pnpm from the repository. `mise run //apps/maps:dev` serves port 4328. The app owns
 `lint`, `test`, `build` and `test-e2e` tasks; the browser tests run against the real API on a disposable
-database, with launcher ports of their own (Authgear 4414, API 8779, site 4345). Reads are held in memory
+database, with launcher ports of their own (Authgear 4415, API 8780, site 4346). Reads are held in memory
 for a few seconds under the viewer's scope (`@lorenzo/read-cache`); nothing private is kept in browser
 storage. Only the appearance preference is remembered.
 
