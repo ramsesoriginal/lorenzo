@@ -4,7 +4,7 @@
 
 ## Pages
 
-Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-sessions`, production branch `main`. Set the root to `apps/sessions`, output to `dist`, and the `NODE_VERSION` environment variable to the Node major in the root `mise.toml` (currently 26). Build with:
+Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-sessions`, production branch `main`. Set the root to `apps/sessions`, output to `dist`, and the `NODE_VERSION` environment variable to the Node major in the root `mise.toml`. Build with:
 
 ```bash
 npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build
@@ -12,7 +12,7 @@ npm install --global corepack@latest && corepack enable && pnpm install --frozen
 
 `pnpm run build` builds `@lorenzo/brand`, copies its files into `public/branding/` (`scripts/copy-branding.mjs`) and then runs `astro build`.
 
-Watch `apps/sessions/**`, `packages/api-client/**`, `packages/brand/**`, `apps/brand/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/information-editor/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/sessions/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/period-picker/**`, `packages/read-cache/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ## Authgear and public configuration
 

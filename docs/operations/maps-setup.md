@@ -4,7 +4,7 @@
 
 ## Pages
 
-Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-maps`, production branch `main`. Set the root to `apps/maps`, output to `dist`, and the `NODE_VERSION` environment variable to the Node major in the root `mise.toml` (currently 26). Build with:
+Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-maps`, production branch `main`. Set the root to `apps/maps`, output to `dist`, and the `NODE_VERSION` environment variable to the Node major in the root `mise.toml`. Build with:
 
 ```bash
 npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build
@@ -12,7 +12,7 @@ npm install --global corepack@latest && corepack enable && pnpm install --frozen
 
 `pnpm run build` builds `@lorenzo/brand`, copies its files into `public/branding/` (`scripts/copy-branding.mjs`) and then runs `astro build`.
 
-Watch `apps/maps/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/read-cache/**`, `packages/brand/**`, `apps/brand/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/maps/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/entry-preview/**`, `packages/map-renderer/**`, `packages/period-picker/**`, `packages/read-cache/**` and `pnpm-lock.yaml`.
 
 ## Authgear and public configuration
 

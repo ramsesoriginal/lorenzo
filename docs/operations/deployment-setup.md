@@ -119,6 +119,17 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 3. **Get a real access token for that account**: from `apps/api/`, `AUTHGEAR_DEV_CLIENT_ID=<client id> AUTHGEAR_DEV_CLIENT_SECRET=<client secret> mise run dev-token -- --issuer <production issuer>`, using the OIDC client registered in step 2 of the section above (needs `http://127.0.0.1:8765/callback` as an Authorized Redirect URI on that client). Opens a browser, logs in, prints the token.
 4. **Call `POST /tenants`** with that token — either the deployed API's own Swagger UI at `<base url>/docs` (Authorize, then try out `POST /tenants`), or `curl -X POST <base url>/tenants -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d '{"name": "..."}'`. The response's `id` is the tenant's UUID.
 
+## Build watch paths
+
+Every Cloudflare Pages project below limits its rebuilds with **Build watch paths** (Settings → Builds & deployments), so a push that touches nothing the site is built from does not rebuild it. A project watches, written from the repository root:
+
+- the app's own directory, `apps/<app>/**`;
+- `apps/brand/**`, the brand source: `packages/brand` is copied from it at build time, so a brand change shows up only there;
+- `packages/<name>/**` for every workspace package in the app's `package.json` dependencies, `packages/brand` and `packages/api-client` included, and for each workspace package those depend on in turn (`lorenzoscript` through `lorenzoscript-editor`, for example);
+- `pnpm-lock.yaml`, and `tools/brand/**` for an app whose `astro.config.mjs` imports it.
+
+Write directories with a double star: a single `*` does not match across `/`, so it would only catch files directly in the directory and silently never rebuild for anything under `src/`, which is what actually changes (confirmed against a real deploy that stopped rebuilding entirely). Each app's section gives its list as it stands; a new dependency in `package.json` adds a path to it.
+
 ## Cloudflare Pages (apps/account-hub)
 
 `apps/account-hub` deploys as a plain static build (`astro build` → `dist/`) — no container, no database, per [ADR 0004](../adr/0004-static-astro-frontend.md). **Via Cloudflare's own Git integration, not a GitHub Actions deploy step** — see [ADR 0071's addendum](../adr/0071-account-hub-stack-auth-deploy.md#addendum-2026-09-19-cloudflare-pages-git-integration-not-wrangler-action-token-upload): Cloudflare's current Pages onboarding leads with Connect to Git rather than surfacing an account ID for a token-based upload flow, so this app has no `deploy-account-hub.yml` — Cloudflare builds and deploys directly from pushes to `main`, and `ci.yml`'s own auto-discovered matrix already covers `mise run lint`/`test` for it on every PR.
@@ -130,9 +141,9 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
    - **Root directory**: `apps/account-hub`
    - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build` (the same `install`→`build` task chain `mise.toml` already defines, invoked directly since a plain static build has no reason to install `mise` itself)
    - **Build output directory**: `dist`
-   - **Node version**: set the environment variable `NODE_VERSION` to the major in `mise.toml` (26); Pages otherwise builds with its own default. Node 25+ no longer ships corepack, which is why the build command installs it first.
+   - **Node version**: set the environment variable `NODE_VERSION` to the major in the root `mise.toml`; Pages otherwise builds with its own default. Node 25+ no longer ships corepack, which is why the build command installs it first.
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. These are scoped to this one Pages project alone, so `apps/inventory-web`'s own Pages project (below) can use the exact same variable names for its own, different values with no collision.
-6. **Build watch paths** (Settings → Builds & deployments, if offered under that name in your dashboard) — set to `apps/account-hub/**`, `packages/api-client/**`, and `packages/brand/**` (ADR 0136; changes to bundled packages must also rebuild the site; double star, not single — a single `*` doesn't match across `/`, so it would only catch changes to files directly in `apps/account-hub/` and silently never rebuild for anything under `src/`, which is everything that actually matters; confirmed against a real deploy that stopped rebuilding entirely) so pushes touching unrelated apps in this monorepo don't trigger a rebuild.
+6. **Build watch paths** (ADR 0136: changes to bundled packages must also rebuild the site), as in [Build watch paths](#build-watch-paths): `apps/account-hub/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ### `apps/account-hub`'s own Authgear application (ADR 0071)
 
@@ -146,11 +157,11 @@ Free-tier constraints worth knowing going in: no custom domain (issuer/JWKS live
 
 ## Cloudflare Pages (apps/bench)
 
-`apps/bench` deploys as a plain static build, as the other two static apps, by Cloudflare's own Git integration ([ADR 0210](../adr/0210-bench-app-stack-and-workbench-shell.md), [ADR 0211](../adr/0211-bench-sign-in-and-the-repository-picker.md)). Project name `lorenzo-bench` (`https://lorenzo-bench.pages.dev`), production branch `main`.
+`apps/bench` deploys as a plain static build, as `apps/account-hub` above, by Cloudflare's own Git integration ([ADR 0210](../adr/0210-bench-app-stack-and-workbench-shell.md), [ADR 0211](../adr/0211-bench-sign-in-and-the-repository-picker.md)). Project name `lorenzo-bench` (`https://lorenzo-bench.pages.dev`), production branch `main`.
 
-- **Root directory** `apps/bench`; **build command** `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`; **output** `dist`; `NODE_VERSION` the major in `mise.toml` (26).
+- **Root directory** `apps/bench`; **build command** `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`; **output** `dist`; `NODE_VERSION` the major in the root `mise.toml`.
 - **Environment variables** (Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` from the application below. `PUBLIC_API_BASE_URL` is optional (it defaults to the deployed API).
-- **Build watch paths**: `apps/bench/**`, `packages/brand/**`, `packages/api-client/**`; add the LorenzoScript packages when Bench uses them.
+- **Build watch paths** ([the rule](#build-watch-paths)): `apps/bench/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**` and `pnpm-lock.yaml`.
 - **CORS**: add `https://lorenzo-bench.pages.dev` to the API's `CORS_ALLOWED_ORIGINS` and redeploy the API (see the Cloud Run section's note on that variable). Without it sign-in works but every API call fails with "Failed to fetch".
 
 ### `apps/bench`'s own Authgear application
@@ -172,9 +183,9 @@ A **Single Page Application** (public, PKCE), distinct from every other app's cl
    - **Root directory**: `apps/inventory-web`
    - **Build command**: `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`
    - **Build output directory**: `dist`
-   - **Node version**: set the environment variable `NODE_VERSION` to the major in `mise.toml` (26), same as `apps/account-hub`; Pages otherwise builds with its own default.
+   - **Node version**: set the environment variable `NODE_VERSION` to the major in the root `mise.toml`, same as `apps/account-hub`; Pages otherwise builds with its own default.
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. Scoped to this Pages project alone, so reusing the exact same variable names as `apps/account-hub`'s project doesn't collide.
-6. **Build watch paths** (Settings → Builds & deployments) — set to `apps/inventory-web/**` plus every workspace package it builds in: `packages/api-client/**`, `packages/brand/**`, `packages/lorenzoscript/**`, and `packages/lorenzoscript-editor/**` (double star, not single — see `apps/account-hub`'s own note above). Pushes touching unrelated apps in this monorepo don't trigger a rebuild; a change to one of those packages does, since the site bundles them ([ADR 0122](../adr/0122-api-client-package.md)).
+6. **Build watch paths** ([the rule](#build-watch-paths)): `apps/inventory-web/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/entry-preview/**`, `packages/information-editor/**`, `packages/inventory-names/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/stat-values/**` and `pnpm-lock.yaml`. A change to one of those packages rebuilds the site, since it bundles them ([ADR 0122](../adr/0122-api-client-package.md)).
 
 ### `apps/inventory-web`'s own Authgear application
 
@@ -210,22 +221,22 @@ A **Single Page Application** (public, PKCE), distinct from every other app's cl
 
 `whoami` is the check that all of this agrees. What a first real login still settles, because Authgear's documentation doesn't say: whether this client is given a refresh token for `offline_access`, and for how long. Without one the CLI still works, and asks for a new `login` once the access token expires.
 
-## Cloudflare Pages (apps/beings, apps/calendars, apps/sessions)
+## Cloudflare Pages (apps/beings, apps/calendars, apps/sessions, apps/maps, apps/writing)
 
-These three static apps deploy the same way as the ones above, through Cloudflare's own Git integration with no deploy workflow, and each has its own setup document: [Lorenzo Beings](beings-setup.md), [Lorenzo Calendars](calendars-setup.md) and [Lorenzo Sessions](sessions-setup.md). Each needs its own Pages project, its own Authgear Single Page Application client, and its production origin added to `CORS_ALLOWED_ORIGINS`.
+These five static apps deploy the same way as the ones above, through Cloudflare's own Git integration with no deploy workflow, and each has its own setup document: [Lorenzo Beings](beings-setup.md), [Lorenzo Calendars](calendars-setup.md), [Lorenzo Sessions](sessions-setup.md), [Lorenzo Maps](maps-setup.md) and [Lorenzo Writing](writing-setup.md). Each needs its own Pages project, its own Authgear Single Page Application client, and its production origin added to `CORS_ALLOWED_ORIGINS`.
 
 ## Cloudflare Pages (apps/brand)
 
 `apps/brand` is a plain static site with **no build step at all** — no framework, no `package.json`, nothing to `pnpm install` — see [ADR 0098](../adr/0098-branding-css-app-and-package.md). Same Git-integration mechanism as `apps/account-hub`/`apps/inventory-web` above, but simpler: no Authgear application, no environment variables.
 
-1. Sign up at [cloudflare.com](https://cloudflare.com) (free tier) if you haven't already, or reuse the same account as the other two Pages projects above.
+1. Sign up at [cloudflare.com](https://cloudflare.com) (free tier) if you haven't already, or reuse the same account as the other Pages projects above.
 2. **Workers & Pages → Create → Pages → Connect to Git**, authorize Cloudflare's GitHub App for the `ramsesoriginal/lorenzo` repo if it isn't already, then select it.
 3. **Project name**: `lorenzo-brand`. **Production branch**: `main`.
-4. **Build settings** — unlike the other two Pages projects, there's genuinely nothing to build:
+4. **Build settings** — unlike the other Pages projects, there's genuinely nothing to build:
    - **Root directory**: `apps/brand`
    - **Build command**: *(leave empty)*
    - **Build output directory**: `/` (the root directory itself — `tokens.css` and `preview/` are served as-is)
-5. **Build watch paths** (Settings → Builds & deployments) — set to `apps/brand/**` (double star — see `apps/account-hub`'s own note above) so pushes touching unrelated apps don't trigger a rebuild.
+5. **Build watch paths** (Settings → Builds & deployments) — set to `apps/brand/**` only: this project has no package dependencies (see [Build watch paths](#build-watch-paths)).
 6. Once deployed, `https://lorenzo-brand.pages.dev/tokens.css` is a real, hotlinkable URL — see ADR 0098 for how a deployment opts into pointing `PUBLIC_BRANDING_CSS_URL` at it instead of each app's own bundled copy (not wired up yet; tracked in [issue #178](https://github.com/ramsesoriginal/lorenzo/issues/178)).
 
 ## GitHub setup
