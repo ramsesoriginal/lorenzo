@@ -55,4 +55,4 @@ editable through ordinary audience controls.
 A file permits at most 1,000 annotations and 2 MB of UTF-8 JSON, including source metadata.
 Unknown formats, unknown fields, duplicate keys/identities, invalid dates and unresolved
 recurrence/grouping combinations are refused. Calendar definitions retain their separate
-versioned schema, stable segment keys and bounds from ADR 0308.
+versioned schema, stable segment keys and bounds from ADR 0308: at most 128 months and festivals, 32 moons and 10,000 days in a year, and at least one month or festival that occurs every year.
