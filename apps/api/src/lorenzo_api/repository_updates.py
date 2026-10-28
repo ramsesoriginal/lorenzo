@@ -15,6 +15,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from sqlalchemy import delete, func, insert, select, update
@@ -41,13 +42,19 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
+    Containment,
     Entity,
+    EntityFrame,
+    EntityLocation,
     EntityPrototype,
     EntitySlug,
     EntityStat,
     EntityStatGroup,
     Item,
     ItemInstance,
+    Location,
+    Map,
+    MapPlacement,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -107,14 +114,21 @@ State = Literal["clean", "conflict", "not_applicable"]
 _HINTS = ("max_hint", "min_hint", "resolved_hint")
 _DISPLAY = ("unit", "adjustable_in_play", "pin", "signed")
 _SETS = {"prototypes", "stat_groups", "enum_values", "kinds"}
-_KEYED = {"stats", "formulas"}
+_KEYED = {"stats", "formulas", "placements"}
+# What a keyed field is keyed by: a stat, except the placements of a Map (an entry).
+_KEY_KIND = {"stats": "stat_definition", "formulas": "stat_definition", "placements": "entity"}
 # Shown when they change, never applied: converting every value is a
 # person's job.
 _NOT_APPLICABLE = {"value_type"}
 
 # The markers an update may add or remove: an inventory item and a character are made in the
 # library, not by an update.
-_MARKER_MODELS: dict[str, Any] = {"item": Item, "being": Being, "fact": Fact}
+_MARKER_MODELS: dict[str, Any] = {
+    "item": Item,
+    "being": Being,
+    "fact": Fact,
+    "location": Location,
+}
 
 _LINK_MODELS: dict[str, Any] = {
     "entity": (RepositoryCopyLinkEntity, RepositoryCopyLinkEntity.entity_id),
@@ -381,7 +395,7 @@ def mentioned(change: FieldChange) -> list[tuple[str, str]]:
         found += [("stat_group", value) for value in values if isinstance(value, str)]
     elif change.field.partition(":")[0] in _KEYED:
         prefix, _, definition = change.field.partition(":")
-        found.append(("stat_definition", definition))
+        found.append((_KEY_KIND[prefix], definition))
         if prefix == "formulas":
             found += [("stat_definition", ref) for v in values for ref in _formula_inputs(v)]
     return found
@@ -672,7 +686,7 @@ class _Applier:
 
     def skip(self, row: RowChange, name: str, reason: str) -> None:
         prefix, _, stat = name.partition(":")
-        label = self.names.name("stat_definition", stat) if prefix in _KEYED else None
+        label = self.names.name(_KEY_KIND[prefix], stat) if prefix in _KEYED else None
         self.result.not_applied.append(
             NotApplied(row.kind, row.source_id, name, reason, row.name, label)
         )
@@ -825,6 +839,217 @@ class _Applier:
             )
             s.add_all(replacements)
             await s.flush()
+            return True
+        if name == "map_system":
+            from lorenzo_map import MapDocumentError, validate_system
+
+            map_row = await s.get(Map, e)
+            if map_row is None or map_row.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            try:
+                map_row.system = validate_system(change.upstream)
+            except MapDocumentError as error:
+                self.skip(row, name, error.reason)
+                return False
+            return True
+        if name == "map_theme":
+            from lorenzo_map import keep_theme_hint
+
+            map_row = await s.get(Map, e)
+            if map_row is None or map_row.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            map_row.theme_hint = keep_theme_hint(change.upstream)
+            return True
+        if name == "map_view":
+            map_row = await s.get(Map, e)
+            if map_row is None or map_row.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            map_row.view = change.upstream
+            return True
+        if name == "map_subject":
+            map_row = await s.get(Map, e)
+            if map_row is None or map_row.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            if change.upstream is None:
+                map_row.subject_entity_id = None
+                return True
+            depicted = self.resolve("entity", change.upstream)
+            if depicted is None or await s.get(Location, depicted) is None:
+                self.skip(row, name, "Copy the Location it shows first")
+                return False
+            map_row.subject_entity_id = depicted
+            return True
+        if name.startswith("placements:"):
+            from lorenzo_map import MapDocumentError, validate_placement
+
+            placed_on = await s.get(Map, e)
+            if placed_on is None:
+                self.skip(row, name, "The local entry is no longer a Map")
+                return False
+            drawn = self.resolve("entity", name.partition(":")[2])
+            if drawn is None or await s.get(Entity, drawn) is None:
+                self.skip(row, name, "Copy the entry it draws first")
+                return False
+            placed = await s.get(MapPlacement, (e, drawn))
+            if not change.upstream:
+                if placed is not None:
+                    await s.delete(placed)
+                return True
+            upstream_placement = change.upstream
+            try:
+                checked = validate_placement(
+                    upstream_placement["geometry"],
+                    upstream_placement["role"],
+                    upstream_placement["style"],
+                    upstream_placement["z"],
+                    placed_on.system,
+                )
+            except MapDocumentError as error:
+                self.skip(row, name, error.reason)
+                return False
+            placement_columns: dict[str, Any] = {
+                "geometry": checked.geometry,
+                "role": checked.role,
+                "style": checked.style,
+                "z": checked.z,
+                "bytes": checked.bytes,
+                "minx": checked.bbox[0],
+                "miny": checked.bbox[1],
+                "maxx": checked.bbox[2],
+                "maxy": checked.bbox[3],
+            }
+            if placed is None:
+                s.add(
+                    MapPlacement(
+                        map_entity_id=e, entry_entity_id=drawn, tenant_id=t, **placement_columns
+                    )
+                )
+            else:
+                for field_name, field_value in placement_columns.items():
+                    setattr(placed, field_name, field_value)
+            await s.flush()
+            return True
+        if name == "connection":
+            from lorenzo_api.models import Connection
+
+            joined = await s.get(Connection, e)
+            if joined is None or joined.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a connection")
+                return False
+            end_a = self.resolve("entity", change.upstream["end_a"])
+            end_b = self.resolve("entity", change.upstream["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                self.skip(row, name, "Copy the entries it joins first")
+                return False
+            joined.end_a = end_a
+            joined.end_b = end_b
+            joined.one_way = True if change.upstream["one_way"] else None
+            await s.flush()
+            return True
+        if name == "place":
+            if await s.get(Entity, e) is None:
+                self.skip(row, name, "The local entry is gone")
+                return False
+            existing = await s.get(EntityLocation, e)
+            if not change.upstream:
+                if existing is not None:
+                    await s.delete(existing)
+                return True
+            target = self.resolve("entity", change.upstream["location"])
+            if target is None or await s.get(Location, target) is None:
+                self.skip(row, name, "Copy the Location it is at first")
+                return False
+            if await s.get(Containment, e) is not None:
+                self.skip(row, name, "It is in a container here, which places it")
+                return False
+            if existing is None:
+                s.add(EntityLocation(entity_id=e, location_entity_id=target, tenant_id=t))
+            else:
+                existing.location_entity_id = target
+            await s.flush()
+            return True
+        if name == "frame_axes":
+            from lorenzo_api.frames import AXES
+            from lorenzo_api.models import Frame
+
+            if await s.get(Entity, e) is None:
+                self.skip(row, name, "The local entry is gone")
+                return False
+            wanted_axes = {axis for axis in (change.upstream or []) if axis in AXES}
+            have = set(
+                await s.scalars(
+                    select(Frame.axis).where(Frame.tenant_id == t, Frame.entity_id == e)
+                )
+            )
+            for axis in have - wanted_axes:
+                await s.execute(
+                    delete(Frame).where(
+                        Frame.tenant_id == t, Frame.entity_id == e, Frame.axis == axis
+                    )
+                )
+            for axis in sorted(wanted_axes - have):
+                s.add(Frame(entity_id=e, axis=axis, tenant_id=t))
+            await s.flush()
+            return True
+        if name == "frames":
+            from lorenzo_api.exceptions import InvalidFrameError
+            from lorenzo_api.frames import AXES, check_membership, lock_frames
+            from lorenzo_api.models import Frame
+
+            if await s.get(Entity, e) is None:
+                self.skip(row, name, "The local entry is gone")
+                return False
+            wanted_frames: dict[str, uuid.UUID] = {}
+            for axis, frame_name in (change.upstream or {}).items():
+                target = self.resolve("entity", frame_name)
+                if axis not in AXES or target is None or await s.get(Frame, (target, axis)) is None:
+                    self.skip(row, name, "Copy the frame it is on first")
+                    return False
+                wanted_frames[axis] = target
+            await lock_frames(s, t)
+            try:
+                for axis, target in wanted_frames.items():
+                    await check_membership(s, tenant_id=t, entity_id=e, axis=axis, frame_id=target)
+            except InvalidFrameError:
+                self.skip(row, name, "That would make the frames here loop")
+                return False
+            await s.execute(
+                delete(EntityFrame).where(EntityFrame.tenant_id == t, EntityFrame.entity_id == e)
+            )
+            for axis, target in wanted_frames.items():
+                s.add(EntityFrame(entity_id=e, axis=axis, frame_entity_id=target, tenant_id=t))
+            await s.flush()
+            return True
+        if name == "part_of":
+            from lorenzo_api.exceptions import LocationTreeError
+            from lorenzo_api.locations import clear_part_of, set_part_of
+
+            if await s.get(Location, e) is None:
+                self.skip(row, name, "The local entry is no longer a Location")
+                return False
+            if not change.upstream:
+                await clear_part_of(s, tenant_id=t, child=e)
+                return True
+            parent = self.resolve("entity", change.upstream["parent"])
+            if parent is None or await s.get(Location, parent) is None:
+                self.skip(row, name, "Copy the Location it is part of first")
+                return False
+            ordinal = change.upstream["ordinal"]
+            try:
+                await set_part_of(
+                    s,
+                    tenant_id=t,
+                    child=e,
+                    parent=parent,
+                    ordinal=None if ordinal is None else Decimal(ordinal),
+                )
+            except LocationTreeError:
+                self.skip(row, name, "That would make the Locations here loop")
+                return False
             return True
         if name == "clock_ticking":
             from lorenzo_api.models import (

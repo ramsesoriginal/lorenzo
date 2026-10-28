@@ -66,6 +66,7 @@ from lorenzo_api.models import (
     CalendarPeriod,
     CampaignGm,
     CharacterPlayer,
+    Connection,
     EntityAudience,
     EventParticipant,
     Fact,
@@ -73,6 +74,8 @@ from lorenzo_api.models import (
     Information,
     Item,
     Knowledge,
+    Location,
+    Map,
     MembershipRole,
     Player,
     StoryEvent,
@@ -471,6 +474,9 @@ async def resolve_information_visibility(
                         union_all(
                             select(Item.entity_id).where(Item.tenant_id == tenant_id),
                             select(Fact.entity_id).where(Fact.tenant_id == tenant_id),
+                            select(Location.entity_id).where(Location.tenant_id == tenant_id),
+                            select(Map.entity_id).where(Map.tenant_id == tenant_id),
+                            select(Connection.entity_id).where(Connection.tenant_id == tenant_id),
                             select(Calendar.entity_id).where(Calendar.tenant_id == tenant_id),
                             select(CalendarObservance.entity_id).where(
                                 CalendarObservance.tenant_id == tenant_id
@@ -514,8 +520,18 @@ async def resolve_information_visibility(
     if event_manager:
         from lorenzo_api.models import Clock
 
+        # Clocks and Locations are authored world content in the library GMs' reach, as Facts
+        # and Events are (ADR 0330). What a Location is part of, and what is at it, never
+        # widens this set.
         gm_reachable_ids |= event_fact_ids | frozenset(
-            await session.scalars(select(Clock.entity_id).where(Clock.tenant_id == tenant_id))
+            await session.scalars(
+                union_all(
+                    select(Clock.entity_id).where(Clock.tenant_id == tenant_id),
+                    select(Location.entity_id).where(Location.tenant_id == tenant_id),
+                    select(Map.entity_id).where(Map.tenant_id == tenant_id),
+                    select(Connection.entity_id).where(Connection.tenant_id == tenant_id),
+                )
+            )
         )
     participant_event_ids = (
         frozenset(

@@ -15,6 +15,7 @@ def test_defaults_are_the_official_pages_addresses() -> None:
         "calendars": {"url": "https://lorenzo-calendars.pages.dev"},
         "sessions": {"url": "https://lorenzo-sessions.pages.dev"},
         "writing": {"url": "https://lorenzo-writing.pages.dev"},
+        "maps": {"url": "https://lorenzo-maps.pages.dev"},
     }
     links = doc["links"]
     assert links["notifications"] == "https://lorenzo-account-hub.pages.dev/notifications/"
@@ -90,6 +91,7 @@ async def test_endpoint_is_public_and_cacheable(client: AsyncClient) -> None:
         "calendars",
         "sessions",
         "writing",
+        "maps",
     }
     assert "{tenant}" in body["links"]["item"]
 

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import Request
 from pydantic import BaseModel, Field, model_validator
@@ -46,6 +46,9 @@ EntityKind = Literal[
     "fact",
     "calendar",
     "clock",
+    "location",
+    "map",
+    "connection",
     "calendar_period",
     "event",
     "observance",
@@ -99,9 +102,11 @@ class EntityCreate(BaseModel):
 
 class EntityKindPut(BaseModel):
     """PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} - the kind's own columns. Only
-    `item` has one, `in_public_catalog`; the body may be left out."""
+    `item` has one, `in_public_catalog`, and `map` its `system` (ADR 0336, required for a Map); the
+    body may be left out for the others."""
 
     in_public_catalog: bool | None = None
+    system: dict[str, Any] | None = None
 
 
 class EntityParentsRequest(BaseModel):
@@ -338,6 +343,12 @@ def _kinds_out(entity: Entity) -> list[EntityKind]:
         kinds.append("being")
         if entity.being.character is not None:
             kinds.append("character")
+    if entity.__dict__.get("location") is not None:
+        kinds.append("location")
+    if entity.__dict__.get("map") is not None:
+        kinds.append("map")
+    if entity.__dict__.get("connection") is not None:
+        kinds.append("connection")
     return kinds
 
 

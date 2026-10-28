@@ -1,0 +1,345 @@
+/*
+ * The classes a Map Scene refers to (ADR 0339), in the brand's tokens only: light and dark follow
+ * the tokens, nothing here is a colour. The numbers (a pin's border, a label's size) are those of
+ * the Bench design's map prototype (docs/design/bench/prototype/Main.dc.html). Stroke widths and
+ * dashes arrive as attributes on the marks, so only colour, caps and the states live here.
+ */
+
+.m-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.m-svg[data-cursor="grabbing"] {
+  cursor: grabbing;
+}
+
+.m-svg[data-cursor="pointer"] {
+  cursor: pointer;
+}
+
+.m-svg[data-cursor="crosshair"] {
+  cursor: crosshair;
+}
+
+.m-svg:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* The sheet. */
+.m-land {
+  fill: var(--surface-muted);
+}
+
+/* Water: a river is a bordered band, a lake the same colours filled. */
+.m-river-b {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.m-river {
+  fill: none;
+  stroke: var(--action-surface);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.m-water {
+  fill: var(--action-surface);
+  stroke: var(--border-strong);
+  stroke-linejoin: round;
+}
+
+/* Relief: short dotted arcs. */
+.m-hill {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-linecap: round;
+}
+
+/* Areas: a dashed outline; built-up and territory warm, vegetation green, the rest unfilled. */
+.m-region {
+  fill: none;
+  stroke: var(--border-strong);
+}
+
+.m-region.m-town {
+  fill: var(--surface-warm);
+  fill-opacity: 0.7;
+}
+
+.m-region.m-neutral {
+  fill: none;
+}
+
+.m-region.m-wood {
+  fill: var(--success-surface);
+  fill-opacity: 0.8;
+}
+
+/* Lines: a thin strong line; a route is dotted and calm. */
+.m-line {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.m-road-l {
+  fill: none;
+  stroke: var(--text-secondary);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A placement's own `style`: dotted needs round caps; double is an edge and a gap over it. */
+.m-round {
+  stroke-linecap: round;
+}
+
+.m-nostroke {
+  stroke: none;
+}
+
+.m-edge {
+  fill: none;
+  stroke: var(--border-strong);
+}
+
+.m-gap {
+  fill: none;
+  stroke: var(--surface-muted);
+}
+
+/* A hit-only placement draws nothing; with "show places" on it has a hairline outline. */
+.m-hit {
+  fill: transparent;
+  stroke: none;
+}
+
+.m-outline {
+  fill: none;
+  stroke: var(--border-strong);
+}
+
+/* A pin: a disc with the atlas icon of its kind, and its name beside it. */
+.m-pinbg {
+  fill: var(--surface-default);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.m-ico {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--text-primary);
+  pointer-events: none;
+}
+
+.m-lbl {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  fill: var(--text-primary);
+  stroke: var(--surface-muted);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  pointer-events: none;
+}
+
+/* A person: a disc with initials. */
+.m-ppl {
+  fill: var(--action-surface);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.m-ppl-t {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 600;
+  fill: var(--text-primary);
+  pointer-events: none;
+}
+
+.m-mark {
+  cursor: pointer;
+}
+
+/* Hover and selection: the action colour and a solid line, never another shape or icon. */
+.m-hover.m-pinbg,
+.m-hover.m-ppl,
+.m-hover.m-region,
+.m-hover.m-water,
+.m-hover.m-river-b,
+.m-hover.m-hill,
+.m-hover.m-line,
+.m-hover.m-road-l,
+.m-hover.m-edge,
+.m-hover.m-outline {
+  stroke: var(--action);
+}
+
+.m-on.m-pinbg,
+.m-on.m-ppl {
+  stroke: var(--action);
+  stroke-width: 3;
+}
+
+.m-on.m-region,
+.m-on.m-water,
+.m-on.m-river-b,
+.m-on.m-hill,
+.m-on.m-line,
+.m-on.m-road-l,
+.m-on.m-edge,
+.m-on.m-outline {
+  stroke: var(--action);
+}
+
+.m-on.m-region,
+.m-on.m-water,
+.m-on.m-line,
+.m-on.m-road-l {
+  stroke-dasharray: none;
+}
+
+.m-on.m-road-l {
+  stroke-width: 4;
+}
+
+.m-on.m-nostroke {
+  stroke: none;
+}
+
+.m-on.m-gap {
+  stroke: var(--surface-muted);
+}
+
+/* Keyboard focus on a mark: a ring and the focus colour on its strokes. */
+.m-mark:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.m-mark:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.m-mark:focus-visible .m-pinbg,
+.m-mark:focus-visible .m-ppl,
+.m-mark:focus-visible .m-region,
+.m-mark:focus-visible .m-water,
+.m-mark:focus-visible .m-river-b,
+.m-mark:focus-visible .m-hill,
+.m-mark:focus-visible .m-line,
+.m-mark:focus-visible .m-road-l,
+.m-mark:focus-visible .m-edge,
+.m-mark:focus-visible .m-outline {
+  stroke: var(--focus-ring);
+}
+
+/* The plain theme (ADR 0352): the same classes as the default, restyled: a white sheet, no fills,
+   solid dots and rings. */
+.m-svg[data-theme="plain"] .m-land {
+  fill: var(--surface-default);
+}
+
+.m-svg[data-theme="plain"] .m-region.m-town,
+.m-svg[data-theme="plain"] .m-region.m-wood {
+  fill: none;
+}
+
+.m-svg[data-theme="plain"] .m-line,
+.m-svg[data-theme="plain"] .m-region,
+.m-svg[data-theme="plain"] .m-edge {
+  stroke: var(--text-primary);
+}
+
+.m-svg[data-theme="plain"] .m-gap {
+  stroke: var(--surface-default);
+}
+
+.m-svg[data-theme="plain"] .m-pinbg {
+  fill: var(--text-primary);
+  stroke: var(--text-primary);
+}
+
+.m-svg[data-theme="plain"] .m-ppl {
+  fill: var(--surface-default);
+  stroke: var(--text-primary);
+}
+
+.m-svg[data-theme="plain"] .m-lbl {
+  stroke: var(--surface-default);
+}
+
+/* What an editor draws over the marks (ADR 0353): never a mark, never a target. */
+.m-ov {
+  pointer-events: none;
+}
+
+.m-ov-line {
+  fill: none;
+  stroke: var(--action);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.m-ov-preview {
+  stroke-dasharray: 4 4;
+  stroke-width: 1.5;
+}
+
+.m-ov-handle {
+  fill: var(--surface-default);
+  stroke: var(--action);
+  stroke-width: 2;
+}
+
+.m-ov-active {
+  fill: var(--action);
+}
+
+/* The grid and its sub-grid (ADR 0355): under every placement, never a target. */
+.m-grid,
+.m-grid-sub {
+  fill: none;
+  pointer-events: none;
+  stroke-linejoin: round;
+}
+
+.m-grid {
+  stroke: var(--border-strong);
+  opacity: 0.5;
+}
+
+.m-grid-sub {
+  stroke: var(--border-subtle);
+  stroke-dasharray: 2 3;
+  opacity: 0.8;
+}
+
+/* A picture under the Map (ADR 0362): never a mark and never a target. */
+.m-layer {
+  pointer-events: none;
+}
+
+/* The globe's disc (ADR 0358): the sphere seen from outside, under the lines and the places. */
+.m-limb {
+  fill: var(--surface-default);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  pointer-events: none;
+}

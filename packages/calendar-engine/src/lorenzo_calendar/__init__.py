@@ -24,6 +24,21 @@ class CalendarDate(Value):
     day: Positive
 
 
+class PeriodCoordinate(Value):
+    """The coordinates of a stored period (ADR 0309): a year, a month or festival of it, a day of
+    that. A day has its month or festival."""
+
+    year: Year
+    segment: Key | None = None
+    day: Positive | None = None
+
+    @model_validator(mode="after")
+    def day_has_its_segment(self) -> Self:
+        if self.day is not None and self.segment is None:
+            raise ValueError("A day needs its month or festival")
+        return self
+
+
 class Periodic(Value):
     every: Annotated[int, Field(strict=True, ge=1, le=1000)]
     offset: Year = 0
@@ -252,3 +267,15 @@ def occurrence(
     except ValueError:
         return None
     return date
+
+
+def containing_periods(coordinate: PeriodCoordinate) -> tuple[PeriodCoordinate, ...]:
+    """The periods that contain a period, narrowest first and itself included (ADR 0371): a day is
+    in its month or festival and its year, a month or festival in its year. The period hierarchy
+    and nothing else: no numbers between, no neighbour, and no calendar rule is consulted."""
+    found = [coordinate]
+    if coordinate.day is not None:
+        found.append(PeriodCoordinate(year=coordinate.year, segment=coordinate.segment))
+    if coordinate.segment is not None:
+        found.append(PeriodCoordinate(year=coordinate.year))
+    return tuple(found)

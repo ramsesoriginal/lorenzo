@@ -1,0 +1,36 @@
+---
+import AppPage from '@lorenzo/app-shell/AppPage.astro';
+import { ClientRouter } from 'astro:transitions';
+import { BRANDING_CSS_URL } from '../lib/config';
+import appStyles from '../styles/app.css?url';
+
+interface Props {
+  title?: string;
+  // What the welcome says while the page works out who is signed in.
+  status?: string;
+}
+
+const { title = 'Lorenzo Maps', status = 'Opening your libraries…' } = Astro.props;
+---
+
+<AppPage
+  title={title}
+  product="Maps"
+  brandingUrl={BRANDING_CSS_URL}
+  themeKey="lorenzo:maps:theme"
+  nav={[
+    { label: 'Libraries', href: '/' },
+    { label: 'Locations', href: '/locations/', needsLibrary: true },
+    { label: 'Maps', href: '/maps/', needsLibrary: true },
+  ]}
+  path="apps/maps"
+  welcome={{
+    title: 'Maps',
+    text: 'Find the places of your world, from a whole universe down to one room, and keep them in order.',
+    status,
+  }}
+>
+  <ClientRouter slot="head" />
+  <link slot="head" rel="stylesheet" href={appStyles} />
+  <slot />
+</AppPage>

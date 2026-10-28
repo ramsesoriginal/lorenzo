@@ -155,6 +155,15 @@ node = "apps/inventory-ios"
 [nodes."packages/calendar-engine"]
 batch = "cli"
 
+[nodes."packages/map-engine"]
+batch = "cli"
+
+[nodes."packages/map-renderer"]
+batch = "packages"
+
+[nodes."packages/entry-preview"]
+batch = "packages"
+
 [nodes."apps/calendars"]
 batch = "web-2"
 
@@ -174,4 +183,11 @@ batch = "web-2"
 
 [suites.writing-e2e]
 node = "apps/writing"
+depends_on = ["apps/api"]
+
+[nodes."apps/maps"]
+batch = "web-2"
+
+[suites.maps-e2e]
+node = "apps/maps"
 depends_on = ["apps/api"]

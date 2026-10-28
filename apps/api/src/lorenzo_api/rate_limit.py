@@ -130,6 +130,28 @@ async def enforce_invite_rate_limit(request: Request) -> None:
         )
 
 
+_user_limiters: dict[str, TokenBucketLimiter] = {}
+
+
+def reset_user_rate_limiters() -> None:
+    """For tests: forget every bucket and re-read the settings."""
+    _user_limiters.clear()
+
+
+def enforce_user_rate_limit(name: str, *, per_minute: int, user_key: str) -> None:
+    """The backstop for a signed-in read that costs more than most (ADR 0367): `name` is the read,
+    `per_minute` its limit (0 disables it), `user_key` who is asking; per instance, like the rest.
+    """
+    if per_minute <= 0:
+        return
+    limiter = _user_limiters.get(name)
+    if limiter is None or limiter.capacity != per_minute:
+        limiter = _user_limiters[name] = TokenBucketLimiter(per_minute)
+    retry_after = limiter.check(user_key)
+    if retry_after is not None:
+        raise _reject_rate_limited(user_key, retry_after, f"{name}_rate_limited")
+
+
 _device_limiter: TokenBucketLimiter | None = None
 _device_lookup_limiter: TokenBucketLimiter | None = None
 
