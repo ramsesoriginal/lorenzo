@@ -66,6 +66,7 @@ from lorenzo_api.models import (
     Location,
     LocationPart,
     ManuscriptPlacement,
+    ManuscriptRedirect,
     Map,
     MapLayer,
     MapPlacement,
@@ -222,6 +223,7 @@ class Content:
     tellings: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     writing_biographies: set[uuid.UUID] = field(default_factory=set)
     editions: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    manuscript_redirects: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     manuscript_placements: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
@@ -376,6 +378,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     c.editions = dict(
         await rows(Edition.entity_id, Edition.book_entity_id, where=Edition.tenant_id == t)
     )
+    c.manuscript_redirects = {
+        source: {"destination": destination, "payload": payload, "child": child}
+        for source, destination, payload, child in await rows(
+            ManuscriptRedirect.source_id,
+            ManuscriptRedirect.destination_id,
+            ManuscriptRedirect.payload_id,
+            ManuscriptRedirect.child_id,
+            where=ManuscriptRedirect.tenant_id == t,
+        )
+    }
     c.manuscript_placements = {
         child: {"parent": parent, "before": before, "position": position}
         for child, parent, before, position in await rows(

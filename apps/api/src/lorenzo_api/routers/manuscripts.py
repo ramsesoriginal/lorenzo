@@ -37,7 +37,7 @@ async def authorize_history(
 ) -> None:
     information = await get_information_or_404(session, information_id, tenant_id)
     await authorize_information_edit(
-        session, tenant_id=tenant_id, user=user, information=information
+        session, tenant_id=tenant_id, user=user, information=information, history_read=True
     )
 
 

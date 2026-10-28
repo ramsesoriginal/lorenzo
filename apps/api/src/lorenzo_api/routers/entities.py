@@ -1245,6 +1245,9 @@ async def require_singleton_type_free(
     own type.
     """
     if type_ == "manuscript":
+        from lorenzo_api.manuscript_redirects import require_unjoined
+
+        await require_unjoined(session, entity_id)
         telling = await session.get(SceneTelling, entity_id)
         if telling and telling.uses_scene_manuscript:
             raise InformationAlreadyExistsError(
@@ -1670,7 +1673,12 @@ async def information_out_or_404(
 
 
 async def authorize_information_edit(
-    session: SessionDep, *, tenant_id: uuid.UUID, user: CurrentUser, information: Information
+    session: SessionDep,
+    *,
+    tenant_id: uuid.UUID,
+    user: CurrentUser,
+    information: Information,
+    history_read: bool = False,
 ) -> None:
     """ADR 0101's gate for changing an *existing* Information row (PATCH,
     DELETE, its payloads, its knowers). Two parts, in this order:
@@ -1730,6 +1738,10 @@ async def authorize_information_edit(
     await authorize_entity_write(
         session, tenant_id=tenant_id, user=user, entity_id=information.entity_id
     )
+    if information.type == "manuscript" and not history_read:
+        from lorenzo_api.manuscript_redirects import require_unjoined
+
+        await require_unjoined(session, information.entity_id)
 
 
 async def editable_fact_audience(

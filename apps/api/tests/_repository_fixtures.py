@@ -56,6 +56,7 @@ from lorenzo_api.models import (
     Location,
     LocationPart,
     ManuscriptPlacement,
+    ManuscriptRedirect,
     Map,
     MapLayer,
     MapPlacement,
@@ -541,6 +542,15 @@ async def seed_every_content_table(
             before_payload_id=None,
             position=0,
             tenant_id=tenant_id,
+        )
+    )
+    await session.flush()
+    joined = entity("Joined Chapter")
+    await session.flush()
+    session.add(Chapter(entity_id=joined.id, tenant_id=tenant_id))
+    session.add(
+        ManuscriptRedirect(
+            source_id=joined.id, tenant_id=tenant_id, destination_id=edition.id, child_id=chapter.id
         )
     )
     await session.flush()

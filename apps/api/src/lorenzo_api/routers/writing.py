@@ -32,6 +32,7 @@ from lorenzo_api.exceptions import (
     PreconditionFailedError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.manuscript_redirects import require_unjoined
 from lorenzo_api.models import (
     Being,
     Book,
@@ -40,6 +41,7 @@ from lorenzo_api.models import (
     Entity,
     Information,
     ManuscriptPlacement,
+    ManuscriptRedirect,
     Payload,
     PayloadDescription,
     PayloadDocument,
@@ -84,6 +86,12 @@ class ManuscriptSummary(BaseModel):
     name: str
 
 
+class JoinedDestination(BaseModel):
+    id: uuid.UUID
+    name: str
+    element_id: uuid.UUID
+
+
 class WritingEntry(BaseModel):
     id: uuid.UUID
     name: str
@@ -94,6 +102,8 @@ class WritingEntry(BaseModel):
     viewpoint_id: uuid.UUID | None = None
     manuscript_source_id: uuid.UUID | None = None
     uses_scene_manuscript: bool = False
+    joined: bool = False
+    joined_destination: JoinedDestination | None = None
     editions: list[ManuscriptSummary] = []
     elements: list[Element] = []
     version: str
@@ -133,6 +143,8 @@ async def entry(
 async def manuscript_payloads(
     session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, *, lock: bool = False
 ) -> tuple[Information | None, list[Payload]]:
+    if lock:
+        await require_unjoined(session, id)
     stmt = (
         select(Information)
         .where(
@@ -268,7 +280,34 @@ async def result(
     response.headers["ETag"] = version
     response.headers["Cache-Control"] = "private, no-store"
     placement = await session.get(ManuscriptPlacement, id)
+    redirect = await session.get(ManuscriptRedirect, id)
+    destination = None
+    if (
+        redirect
+        and redirect.destination_id in visible
+        and not await session.get(ManuscriptRedirect, redirect.destination_id)
+    ):
+        target_info, target_payloads = await manuscript_payloads(
+            session, tenant_id, redirect.destination_id
+        )
+        anchor = None
+        if (
+            target_info
+            and vis.can_see(target_info)
+            and redirect.payload_id in {p.id for p in target_payloads}
+        ):
+            anchor = redirect.payload_id
+        if redirect.child_id in visible:
+            child_link = await session.get(ManuscriptPlacement, redirect.child_id)
+            if child_link and child_link.parent_entity_id == redirect.destination_id:
+                anchor = redirect.child_id
+        if anchor:
+            target = await session.get(Entity, redirect.destination_id)
+            assert target is not None
+            destination = JoinedDestination(id=target.id, name=target.name, element_id=anchor)
     return WritingEntry(
+        joined=redirect is not None,
+        joined_destination=destination,
         scene_id=telling.scene_entity_id
         if telling and telling.scene_entity_id in visible
         else None,
@@ -381,6 +420,7 @@ async def arrange(
     wanted = set(ids) - own
     for child_id in wanted:
         await entry(session, tenant_id, child_id, user)
+        await require_unjoined(session, child_id)
         if not await session.get(Chapter, child_id) and not await session.get(
             SceneTelling, child_id
         ):

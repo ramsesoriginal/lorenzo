@@ -1,6 +1,7 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
 import { extractionControls } from './manuscript-extraction';
+import { joinControls } from './manuscript-join';
 import { moveControls } from './manuscript-move';
 import { splitControls } from './manuscript-split';
 import { reviewAddress } from './review';
@@ -67,6 +68,39 @@ export async function compositionScreen(
     status.textContent = error instanceof Error ? error.message : 'This could not be completed.';
   };
   host.replaceChildren(heading, nav, status);
+  if (current.joined) {
+    nav.replaceChildren(link('All drafts', `/?${new URLSearchParams({ tenant })}`));
+    status.textContent = 'This Chapter was joined. Its notes remain here.';
+    const target = current.joined_destination;
+    if (target)
+      host.append(
+        link(
+          `Open joined section in ${target.name}`,
+          `${writingAddress(tenant, target.id, 'read')}#element-${target.element_id}`,
+        ),
+      );
+    else host.append(node('p', 'The joined section is not available here.'));
+    const source = await entityOf(tenant, id);
+    for (const info of source.information.filter((item) => item.type !== 'manuscript')) {
+      const section = node('section');
+      section.append(node('h2', info.title));
+      for (const payload of info.payloads) {
+        if (payload.kind === 'description') {
+          const text = node('div');
+          text.className = 'ls-content';
+          text.innerHTML = render(parse(payload.content), { externalImages: false });
+          section.append(text);
+        } else if (payload.kind === 'picture') {
+          const picture = node('img');
+          picture.alt = 'Note illustration';
+          picture.src = await loadFile(payload);
+          section.append(picture);
+        }
+      }
+      host.append(section);
+    }
+    return;
+  }
   if (current.kind === 'chapter' || current.kind === 'scene_telling') {
     host.append(
       moveControls(tenant, id, current.name, undefined, () =>
@@ -93,7 +127,11 @@ export async function compositionScreen(
         try {
           const outline = await outlineOf(tenant, task.id);
           const entry = await entityOf(tenant, outline.manuscript_source_id ?? task.id);
-          if (task.id !== id) article.append(node('h2', outline.name));
+          if (task.id !== id) {
+            const heading = node('h2', outline.name);
+            heading.id = `element-${task.id}`;
+            article.append(heading);
+          }
           const payloads = new Map(
             entry.information
               .filter((i) => i.type === 'manuscript')
@@ -113,15 +151,19 @@ export async function compositionScreen(
         }
       } else if (task.payload.kind === 'description') {
         const part = node('section');
+        part.id = `element-${task.payload.id}`;
         part.innerHTML = render(parse(task.payload.content), { externalImages: false });
         article.append(part);
       } else if (task.payload.kind === 'picture') {
         const img = node('img');
+        img.id = `element-${task.payload.id}`;
         img.alt = 'Manuscript illustration';
         img.src = await loadFile(task.payload);
         article.append(img);
       }
     }
+    if (location.hash.startsWith('#element-'))
+      document.getElementById(location.hash.slice(1))?.scrollIntoView();
     return;
   }
   const list = node('ol');
@@ -214,6 +256,13 @@ export async function compositionScreen(
       );
     if (p?.kind === 'description')
       li.append(splitControls(tenant, id, p.id, () => compositionScreen(host, tenant, id, false)));
+    const previous = current.elements[index - 1];
+    if (item.kind === 'chapter' && previous?.kind === 'chapter')
+      li.append(
+        joinControls(tenant, id, current.version, item, previous, () =>
+          compositionScreen(host, tenant, id, false),
+        ),
+      );
     list.append(li);
   }
   const name = node('input');

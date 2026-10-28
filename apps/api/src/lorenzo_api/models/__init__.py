@@ -80,6 +80,8 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "ManuscriptJoin",
+    "ManuscriptRedirect",
     "ManuscriptMove",
     "ManuscriptSplit",
     "ManuscriptExtraction",
@@ -212,6 +214,8 @@ from lorenzo_api.models.manuscript import Book as Book
 from lorenzo_api.models.manuscript import Chapter as Chapter
 from lorenzo_api.models.manuscript import Edition as Edition
 from lorenzo_api.models.manuscript import ManuscriptPlacement as ManuscriptPlacement
+from lorenzo_api.models.manuscript_join import ManuscriptJoin as ManuscriptJoin
+from lorenzo_api.models.manuscript_join import ManuscriptRedirect as ManuscriptRedirect
 from lorenzo_api.models.manuscript_move import ManuscriptExtraction, ManuscriptMove
 from lorenzo_api.models.manuscript_revision import ManuscriptRevision
 from lorenzo_api.models.manuscript_split import ManuscriptSplit

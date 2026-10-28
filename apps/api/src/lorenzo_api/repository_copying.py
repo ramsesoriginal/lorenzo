@@ -943,6 +943,30 @@ class _Planner:
                             "target": target_text,
                         }
                     )
+        for source, redirect in c.manuscript_redirects.items():
+            if not copies("entity", source):
+                continue
+            destination, payload, child = (redirect[k] for k in ("destination", "payload", "child"))
+            local_destination = self._local(c, "entity", destination) if destination else None
+            local_child = self._local(c, "entity", child) if child else None
+            local_payload = local_payloads.get(payload)
+            if (
+                (destination and local_destination is None)
+                or (child and local_child is None)
+                or (payload and local_payload is None)
+            ):
+                raise InvalidRepositoryUpdateError(
+                    detail="Copy a joined Chapter together with its destination and section."
+                )
+            self.rows["manuscript_redirect"].append(
+                {
+                    "tenant_id": tenant_id,
+                    "source_id": self._local(c, "entity", source),
+                    "destination_id": local_destination,
+                    "payload_id": local_payload,
+                    "child_id": local_child,
+                }
+            )
         # The pictures under a Map: a layer goes with its Information (ADR 0361), keeping the
         # fingerprint it was reviewed against, since the bytes are the same.
         for drawn_on, layers in c.map_layers.items():

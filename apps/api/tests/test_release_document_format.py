@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 27
+    assert rd.FORMAT == 28
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -118,6 +118,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "scenes": {},
         "editions": {},
         "manuscript_placements": {},
+        "manuscript_redirects": {},
         "tellings": {},
         "writing_biographies": [],
         "scene_facts": [],
@@ -205,6 +206,21 @@ def test_event_assertions_round_trip_and_old_releases_have_none():
     assert rd.decode(document, files).event_relationships == content.event_relationships
     old = {k: v for k, v in document.items() if k != "event_relationships"}
     assert rd.decode(old, files, format=5).event_relationships == []
+
+
+def test_join_redirects_round_trip_and_old_releases_have_none() -> None:
+    content = full_content()
+    content.manuscript_redirects = {
+        uuid.UUID(int=10): {
+            "destination": uuid.UUID(int=11),
+            "payload": uuid.UUID(int=50),
+            "child": None,
+        }
+    }
+    document, files = rd.encode(content)
+    assert rd.decode(document, files).manuscript_redirects == content.manuscript_redirects
+    old = {k: v for k, v in document.items() if k != "manuscript_redirects"}
+    assert rd.decode(old, files, format=27).manuscript_redirects == {}
 
 
 def test_version_twenty_maps_have_no_theme_name() -> None:
