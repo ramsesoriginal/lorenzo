@@ -376,7 +376,7 @@ fragment, at most 64 levels and 50,000 elements; the content route serves every 
 at an Information of the Map and shows its first picture; `lorenzo_map.validate_calibration` allows `null`
 (fit the sheet) or two or three anchors. `GET /maps/{id}` returns the visible layers with `needs_review`
 (the picture's hash is not the one the layer was reviewed for) and `PUT /maps/{id}/layers` replaces them
-under `If-Match`. Release format 22 carries `map_layers`; updates from a repository do not. The renderer
+under `If-Match`. Release format 24 carries `map_layers`; updates from a repository do not. The renderer
 draws a layer as an `image` primitive from a `data:` URL the host made, with the matrix of its calibration
 computed purely; Maps adds the Pictures section of Settings and the Pictures switch.
 
