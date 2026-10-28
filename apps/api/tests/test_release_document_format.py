@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 19
+    assert rd.FORMAT == 21
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -112,6 +112,10 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "clock_relationships": [],
         "calendar_reckonings": [],
         "scenes": {},
+        "editions": {},
+        "manuscript_placements": {},
+        "tellings": {},
+        "writing_biographies": [],
         "scene_facts": [],
         "lived_before": [],
         "scene_events": [],
@@ -199,13 +203,13 @@ def test_event_assertions_round_trip_and_old_releases_have_none():
     assert rd.decode(old, files, format=5).event_relationships == []
 
 
-def test_version_eighteen_maps_have_no_theme_name() -> None:
+def test_version_twenty_maps_have_no_theme_name() -> None:
     """A Map written before a theme name existed reads with none (ADR 0352)."""
     identity = uuid.UUID(int=77)
     system = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 1, 1]}
     document, files = rd.encode(full_content())
     old = {**document, "maps": {str(identity): {"system": system, "subject": None}}}
 
-    content = rd.READERS[18](old, files)
+    content = rd.READERS[20](old, files)
 
     assert content.maps[identity] == {"system": system, "subject": None, "theme": None}

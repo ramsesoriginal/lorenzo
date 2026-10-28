@@ -1454,6 +1454,15 @@ class EventOrderPreconditionRequiredError(StatusProblem):
     title = "Read the Event relationships before changing them"
 
 
+class ManuscriptMoveConflictError(ConflictProblem):
+    title = "This manuscript move cannot be applied"
+
+
+class ManuscriptMovePreconditionRequiredError(StatusProblem):
+    status = 428
+    title = "Read the entry and both outlines before moving it"
+
+
 class InvalidMapError(UnprocessableProblem):
     """A map document or placement the validator refuses, or a limit of ADR 0337: the detail
     says which (ADR 0338)."""

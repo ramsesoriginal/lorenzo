@@ -12,6 +12,7 @@ class AppsOut(BaseModel):
     bench: AppOut
     calendars: AppOut
     sessions: AppOut | None = None
+    writing: AppOut | None = None
     maps: AppOut | None = None
 
 

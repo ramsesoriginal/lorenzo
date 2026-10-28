@@ -49,6 +49,13 @@ from lorenzo_api.models import (
     Map,
     StoryEvent,
 )
+from lorenzo_api.models.manuscript import (
+    Book,
+    Chapter,
+    Edition,
+    ManuscriptPlacement,
+    SceneTelling,
+)
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 # The kinds a route may add or remove.
@@ -71,6 +78,10 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("calendar_period",),
         ("event",),
         ("observance",),
+        ("book",),
+        ("edition",),
+        ("chapter",),
+        ("scene_telling",),
         ("scene",),
         ("being",),
         ("being", "item"),
@@ -240,6 +251,9 @@ async def add_kind(
     `item`; it may take `being`."""
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
+    # A Location may be any kind (ADR 0331) except the manuscript kinds, which stand alone.
+    if existing_kinds & {"book", "edition", "chapter", "scene_telling"}:
+        raise InvalidKindRequestError(detail="Manuscript kinds do not combine with other kinds.")
     if kind not in ("location", "map") and existing_kinds & {
         "scene",
         "scene_appearance",
@@ -436,6 +450,10 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
         kind
         for kind, model in (
             ("item", Item),
+            ("book", Book),
+            ("edition", Edition),
+            ("chapter", Chapter),
+            ("scene_telling", SceneTelling),
             ("scene", Scene),
             ("scene_appearance", SceneAppearance),
             ("session", StorySession),
@@ -472,6 +490,25 @@ async def require_deletable(
     from lorenzo_api.story_context import require_no_context_references
 
     await require_no_context_references(session, tenant_id, entity_id)
+    if await session.scalar(
+        select(SceneTelling.entity_id)
+        .where(
+            (SceneTelling.scene_entity_id == entity_id)
+            | (SceneTelling.viewpoint_entity_id == entity_id)
+        )
+        .limit(1)
+    ):
+        raise EntityKindInUseError(detail="Remove this entry's Scene telling references first.")
+    if await session.scalar(
+        select(Edition.entity_id).where(Edition.book_entity_id == entity_id).limit(1)
+    ) or await session.scalar(
+        select(ManuscriptPlacement.child_entity_id)
+        .where(ManuscriptPlacement.parent_entity_id == entity_id)
+        .limit(1)
+    ):
+        raise EntityKindInUseError(
+            detail="Remove this manuscript's Editions or Chapters before deleting it."
+        )
     if kinds & {"session", "scene_appearance"}:
         raise EntityKindInUseError(
             detail="Remove this Session or Scene appearance through its preparation page"
