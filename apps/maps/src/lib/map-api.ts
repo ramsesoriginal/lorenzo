@@ -92,6 +92,23 @@ export async function batchPlacements(tenant: string, map: string, writes: Batch
   );
 }
 
+export type LinkRow = Schema<'LinkOut'>;
+
+/** What the places drawn on a Map lead to (ADR 0364); none when it cannot be read. */
+export async function readLinks(tenant: string, map: string): Promise<LinkRow[]> {
+  try {
+    const body = await unwrap(
+      await client.GET('/tenants/{tenant_id}/maps/{map_id}/links', {
+        params: { path: { tenant_id: tenant, map_id: map } },
+        cache: 'no-cache',
+      }),
+    );
+    return body.items;
+  } catch {
+    return [];
+  }
+}
+
 /** Entries the person may see, found by name. */
 export async function findEntries(tenant: string, query: string): Promise<EntryChoice[]> {
   const page = await unwrap(

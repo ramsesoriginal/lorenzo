@@ -380,6 +380,16 @@ under `If-Match`. Release format 22 carries `map_layers`; updates from a reposit
 draws a layer as an `image` primitive from a `data:` URL the host made, with the matrix of its calibration
 computed purely; Maps adds the Pictures section of Settings and the Pictures switch.
 
+Connections (RFC 0048 slice 10, ADR 0363 to 0365, 2026-10-28): `connection` (migration `c03630000001`) is an entry
+kind with `end_a`, `end_b` (both `ON DELETE CASCADE`, so deleting an end leaves a plain entry) and `one_way`
+(null both ways, true from A to B); it combines with no other kind and is made with `POST /connections` (or a
+hub of up to 50 spokes in one transaction at `POST /connections/hub`). A connection is read only by someone
+who sees the entry and both ends, in SQL, so a hidden end leaves no trace; connections are in the GMs' reach as
+authored content and no reach code reads an end. `GET /maps/{id}/links` derives, at read time and from the ends
+alone, what the places drawn on a Map lead to with the direction and the other Maps the far end is on. Release
+format 23 carries `connections`; a copy writes one only with both ends and an update applies its ends as one unit.
+Maps adds a Connections section to the Location page and a Leads to list to a placed entry's side panel.
+
 ### What's next
 
 What is in flight lives in GitHub's own tracker, not in this file: see open [Issues](https://github.com/ramsesoriginal/lorenzo/issues) and [Milestones](https://github.com/ramsesoriginal/lorenzo/milestones) (`gh issue list --state open`). Per [ADR 0070](../adr/0070-planning-milestones-issues-and-a-deferred-roadmap.md), that live state belongs there, not in hand-maintained prose; the chronicle above is only what has landed.

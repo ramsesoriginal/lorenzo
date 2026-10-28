@@ -93,7 +93,15 @@ picture is flagged for a writer to look at against the places, and to mark revie
 drawn without pictures. SVG pictures are accepted when they hold nothing that could run or fetch
 ([ADR 0360](../adr/0360-pictures-a-stored-fingerprint-svg-and-when-to-leave-postgres.md),
 [ADR 0361](../adr/0361-map-layers.md), [ADR 0362](../adr/0362-drawing-and-setting-up-pictures-in-lorenzo-maps.md)).
-Connections, distances and optionally tying a map to a calendar period
+A connection joins two entries (a road, a portal, stairs, a mirror) and is an entry itself: it is named, it has a
+kind of its own as a prototype, it can carry a length as an ordinary stat, and it can be drawn on a Map as a road. It goes
+both ways or one way, and a stair shaft joining twelve floors is a Location with a connection to each floor, written
+in one request. A reader sees a connection only when they can see it and both its ends; a hidden end leaves no trace.
+A Map says where a place leads from the connections at the entries drawn on it, and on which other Maps the far end
+is drawn, without ever saying where anything is
+([ADR 0363](../adr/0363-connections-the-kind-and-its-two-ends.md),
+[ADR 0364](../adr/0364-links-derived-from-connections.md), [ADR 0365](../adr/0365-connections-in-lorenzo-maps.md)).
+Distances and optionally tying a map to a calendar period
 are proposed in [RFC 0048](../rfcs/0048-locations-maps-connections-and-optional-dates.md) and come in
 later slices.
 

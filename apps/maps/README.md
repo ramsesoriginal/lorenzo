@@ -34,7 +34,11 @@ and areas on it ([ADR 0357](../../docs/adr/0357-the-sphere-system.md) to
 writer adds, places by fitting the sheet or by two points, orders, replaces and removes in the Pictures section
 of Settings, and which a reader may hide with the Pictures switch
 ([ADR 0360](../../docs/adr/0360-pictures-a-stored-fingerprint-svg-and-when-to-leave-postgres.md) to
-[ADR 0362](../../docs/adr/0362-drawing-and-setting-up-pictures-in-lorenzo-maps.md)). *Look* and
+[ADR 0362](../../docs/adr/0362-drawing-and-setting-up-pictures-in-lorenzo-maps.md)). A Location page lists
+the connections it is an end of and lets a writer join it to another place or remove a connection, and a placed
+entry's side panel says where it leads and on which other Maps the far end is
+([ADR 0363](../../docs/adr/0363-connections-the-kind-and-its-two-ends.md) to
+[ADR 0365](../../docs/adr/0365-connections-in-lorenzo-maps.md)). *Look* and
 a *Legend* are for everyone ([ADR 0352](../../docs/adr/0352-the-look-of-a-map.md)). The drawing is a named group of buttons, because axe reports focusable marks
 inside `role="img"` (`nested-interactive`), and a mark whose drawn text is not its name carries that text
 in its name (a person's initials), as `label-content-name-mismatch` requires.

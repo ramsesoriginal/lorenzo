@@ -1,4 +1,5 @@
 import { client, fetchAllPages, type Schema, unwrap } from './api';
+import { connectionsSection } from './connections-section';
 import {
   actions,
   audienceBadge,
@@ -294,6 +295,14 @@ export async function mountLocation() {
       );
       inside.append(sectionHead('Inside', { count: parts.length }), list);
       view.append(inside);
+      view.append(
+        await connectionsSection({
+          tenant,
+          place,
+          writer: place.can_manage === true,
+          again: render,
+        }),
+      );
       if (place.can_manage) view.append(manageSections(tenant, place, version, render));
       host.replaceChildren(view);
     } catch (error) {

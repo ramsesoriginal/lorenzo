@@ -23,6 +23,7 @@ import {
 import { client, unwrap } from './api';
 import { cellOfPoint, cellWords } from './cells-edit';
 import { BRANDING_CSS_URL } from './config';
+import { wayWords } from './connection-words';
 import {
   audienceBadge,
   backLink,
@@ -31,6 +32,7 @@ import {
   empty,
   errorNotice,
   field,
+  groupTitle,
   icon,
   link,
   loading,
@@ -44,7 +46,14 @@ import {
 import { loadLayers } from './layer-pictures';
 import { picturesSection } from './layers-settings';
 import { chosenTheme, LOOKS, type Look, readLook, writeLook } from './look';
-import { type Header, type Row, readPlacements, VISIBLE_LIMIT } from './map-api';
+import {
+  type Header,
+  type LinkRow,
+  type Row,
+  readLinks,
+  readPlacements,
+  VISIBLE_LIMIT,
+} from './map-api';
 import { createEditor, type Editor } from './map-edit';
 import { createLegend } from './map-legend';
 import { makeMapForm, settingsSection } from './map-settings';
@@ -203,7 +212,13 @@ export async function mountMaps() {
 }
 
 /** What the selection panel says of one placement. */
-async function describe(tenant: string, row: Row, panel: HTMLElement, where: string | null = null) {
+async function describe(
+  tenant: string,
+  row: Row,
+  panel: HTMLElement,
+  where: string | null = null,
+  ways: readonly LinkRow[] = [],
+) {
   panel.replaceChildren();
   const isLocation = row.kinds.includes('location');
   const title = el('h3', '', 'group-title');
@@ -213,6 +228,24 @@ async function describe(tenant: string, row: Row, panel: HTMLElement, where: str
   if (others.length) panel.append(el('p', others.join(', '), 'status-text'));
   if (row.role) panel.append(el('p', words(row.role), 'chip'));
   if (where) panel.append(el('p', where, 'status-text'));
+  if (ways.length > 0) {
+    // Where it leads, derived from the connections' ends (ADR 0364); never a claim about where anything is.
+    panel.append(groupTitle('h4', 'Leads to'));
+    const leads = el('ul', '', 'list map-ways');
+    for (const way of ways) {
+      const item = el('li', `${way.connection.name} ${wayWords(way.direction, way.other.name)}`);
+      if (way.other_maps.length > 0) {
+        item.append(document.createTextNode(' (also on '));
+        way.other_maps.forEach((other, index) => {
+          if (index > 0) item.append(document.createTextNode(', '));
+          item.append(link(other.name, mapHref(tenant, other.id, other.slug)));
+        });
+        item.append(document.createTextNode(')'));
+      }
+      leads.append(item);
+    }
+    panel.append(leads);
+  }
   if (!isLocation) return;
   try {
     const place = await unwrap(
@@ -267,11 +300,13 @@ export async function mountMap() {
         );
         return;
       }
-      const [name, manage, found] = await Promise.all([
+      const [name, manage, found, links] = await Promise.all([
         libraryName(tenant),
         canManage(tenant),
         readPlacements(tenant, id),
+        readLinks(tenant, id),
       ]);
+      const waysOf = (entry: string) => links.filter((row) => row.here.id === entry);
       const mapId = id;
       let rows: Row[] = found.rows;
       // How a sphere is seen: what this reader chose for themselves, else what the Map is saved
@@ -469,7 +504,7 @@ export async function mountMap() {
         for (const [key, button] of buttons)
           button.setAttribute('aria-pressed', String(key === entryId));
         const row = entryId ? rows.find((r) => r.id === entryId) : undefined;
-        if (row) void describe(tenant, row, panel, pinCell(row));
+        if (row) void describe(tenant, row, panel, pinCell(row), waysOf(row.id));
         else noSelection();
         centre.hidden = !row;
         if (row) centre.textContent = `Centre on ${row.name}`;
@@ -637,7 +672,7 @@ export async function mountMap() {
         if (selected && !rows.some((r) => r.id === selected)) select(null);
         else if (selected) {
           const row = rows.find((r) => r.id === selected);
-          if (row) void describe(tenant, row, panel, pinCell(row));
+          if (row) void describe(tenant, row, panel, pinCell(row), waysOf(row.id));
         }
       };
 
