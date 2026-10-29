@@ -744,3 +744,75 @@ GET /tenants/{tenant_id}/maps/{map_id}/placements added the new `connection` enu
 PUT /tenants/{tenant_id}/maps/{map_id}/placements/{entry_id} added the new `connection` enum value to the `kinds/items/` response property for the response status `200`
 GET /tenants/{tenant_id}/entities/{entity_id}/address added the new `frame` enum value to the `interior/anyOf[subschema #1]/items/via` response property for the response status `200`
 GET /tenants/{tenant_id}/entities/{entity_id}/address added the new `frame` enum value to the `interior/anyOf[subschema #1]/items/via` response property for the response status `200` (shared schema: `StepOut`, also at `segments/items/via`)
+
+# ADR 0379: Carrier and coverage response enum additions; generated clients are updated.
+GET /tenants/{tenant_id}/connections added the new `carrier` enum value to the `items/items/end_a/kinds/items/` response property for the response status `200` (shared schema: `EntryStub`, also at `items/items/end_b/kinds/items/`)
+GET /tenants/{tenant_id}/connections added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/connections added the new `carrier` enum value to the `end_a/kinds/items/` response property for the response status `201` (shared schema: `EntryStub`, also at `end_b/kinds/items/`)
+POST /tenants/{tenant_id}/connections added the new `carrier` enum value to the `kinds/items/` response property for the response status `201`
+POST /tenants/{tenant_id}/connections/hub added the new `carrier` enum value to the `items/end_a/kinds/items/` response property for the response status `201` (shared schema: `EntryStub`, also at `items/end_b/kinds/items/`)
+POST /tenants/{tenant_id}/connections/hub added the new `carrier` enum value to the `items/kinds/items/` response property for the response status `201`
+GET /tenants/{tenant_id}/connections/{connection_id} added the new `carrier` enum value to the `end_a/kinds/items/` response property for the response status `200` (shared schema: `EntryStub`, also at `end_b/kinds/items/`)
+GET /tenants/{tenant_id}/connections/{connection_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/connections/{connection_id} added the new `carrier` enum value to the `end_a/kinds/items/` response property for the response status `200` (shared schema: `EntryStub`, also at `end_b/kinds/items/`)
+PUT /tenants/{tenant_id}/connections/{connection_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/distance added the new `carrier` enum value to the `map/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200` (shared schema: `EntryStub`, also at `route/items/connection/kinds/items/`, `route/items/end/kinds/items/` and 1 more)
+GET /tenants/{tenant_id}/entities added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/entities added the new `carrier` enum value to the `kinds/items/` response property for the response status `201`
+GET /tenants/{tenant_id}/entities/by-slug/{slug} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/export added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/resolve added the new `carrier` enum value to the `items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/backlinks added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/facts added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/frame-members added the new `carrier` enum value to the `items/items/entry/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/frames added the new `carrier` enum value to the `frames/items/frame/kinds/items/` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/kinds/{kind} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/parents added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/preview added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+DELETE /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PATCH /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/tags/{stat_definition_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/frames added the new `carrier` enum value to the `items/items/entry/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/locations added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/locations added the new `carrier` enum value to the `kinds/items/` response property for the response status `201`
+POST /tenants/{tenant_id}/locations added the new `carrier` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `201`
+GET /tenants/{tenant_id}/locations/{location_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id} added the new `carrier` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/locations/{location_id}/part-of added the new `carrier` enum value to the `within/anyOf[subschema #1: LocationStub]/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/locations/{location_id}/parts added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/maps added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/maps added the new `carrier` enum value to the `kinds/items/` response property for the response status `201`
+POST /tenants/{tenant_id}/maps added the new `carrier` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `201`
+GET /tenants/{tenant_id}/maps/{map_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id} added the new `carrier` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id} added the new `carrier` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/layers added the new `carrier` enum value to the `subject/anyOf[subschema #1: MapStub]/kinds/items/` response property for the response status `200`
+GET /tenants/{tenant_id}/maps/{map_id}/links added the new `carrier` enum value to the `items/items/connection/kinds/items/` response property for the response status `200` (shared schema: `EntryStub`, also at `items/items/here/kinds/items/`, `items/items/other/kinds/items/` and 1 more)
+GET /tenants/{tenant_id}/maps/{map_id}/placements added the new `carrier` enum value to the `items/items/kinds/items/` response property for the response status `200`
+PUT /tenants/{tenant_id}/maps/{map_id}/placements/{entry_id} added the new `carrier` enum value to the `kinds/items/` response property for the response status `200`
+POST /tenants/{tenant_id}/writing/biographies added the new `carrier` enum value to the `kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/biographies added the new `coverage` enum value to the `elements/items/kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/books added the new `carrier` enum value to the `kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/books added the new `coverage` enum value to the `elements/items/kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/chapters added the new `carrier` enum value to the `kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/chapters added the new `coverage` enum value to the `elements/items/kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/editions added the new `carrier` enum value to the `kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/editions added the new `coverage` enum value to the `elements/items/kind` response property for the response status `201`
+GET /tenants/{tenant_id}/writing/entries/{id} added the new `carrier` enum value to the `kind` response property for the response status `200`
+GET /tenants/{tenant_id}/writing/entries/{id} added the new `coverage` enum value to the `elements/items/kind` response property for the response status `200`
+PUT /tenants/{tenant_id}/writing/entries/{id}/composition added the new `carrier` enum value to the `kind` response property for the response status `200`
+PUT /tenants/{tenant_id}/writing/entries/{id}/composition added the new `coverage` enum value to the `elements/items/kind` response property for the response status `200`
+POST /tenants/{tenant_id}/writing/tellings added the new `carrier` enum value to the `kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/tellings added the new `coverage` enum value to the `elements/items/kind` response property for the response status `201`
+POST /tenants/{tenant_id}/writing/tellings/{id}/independent added the new `carrier` enum value to the `kind` response property for the response status `200`
+POST /tenants/{tenant_id}/writing/tellings/{id}/independent added the new `coverage` enum value to the `elements/items/kind` response property for the response status `200`
+PUT /tenants/{tenant_id}/writing/tellings/{id}/viewpoint added the new `carrier` enum value to the `kind` response property for the response status `200`
+PUT /tenants/{tenant_id}/writing/tellings/{id}/viewpoint added the new `coverage` enum value to the `elements/items/kind` response property for the response status `200`
