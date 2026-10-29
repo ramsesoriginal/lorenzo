@@ -34,6 +34,7 @@ from lorenzo_api.models import (
     CalendarObservance,
     CalendarPeriod,
     Campaign,
+    Carrier,
     Character,
     Clock,
     Connection,
@@ -80,6 +81,7 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("event",),
         ("observance",),
         ("book",),
+        ("carrier",),
         ("edition",),
         ("chapter",),
         ("scene_telling",),
@@ -259,7 +261,7 @@ async def add_kind(
     entity_id = entity.id
     existing_kinds = await kinds_of_entry(session, entity_id)
     # A Location may be any kind (ADR 0331) except the manuscript kinds, which stand alone.
-    if existing_kinds & {"book", "edition", "chapter", "scene_telling"}:
+    if existing_kinds & {"book", "edition", "chapter", "scene_telling", "carrier"}:
         raise InvalidKindRequestError(detail="Manuscript kinds do not combine with other kinds.")
     if kind == "connection":
         raise InvalidKindRequestError(
@@ -466,6 +468,7 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
         for kind, model in (
             ("item", Item),
             ("book", Book),
+            ("carrier", Carrier),
             ("edition", Edition),
             ("chapter", Chapter),
             ("scene_telling", SceneTelling),

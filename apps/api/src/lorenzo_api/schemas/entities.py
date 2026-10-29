@@ -53,6 +53,7 @@ EntityKind = Literal[
     "event",
     "observance",
     "book",
+    "carrier",
     "edition",
     "chapter",
     "scene_telling",
@@ -311,6 +312,8 @@ def _kinds_out(entity: Entity) -> list[EntityKind]:
     kinds: list[EntityKind] = []
     if entity.__dict__.get("clock") is not None:
         kinds.append("clock")
+    if entity.__dict__.get("carrier") is not None:
+        kinds.append("carrier")
     if entity.__dict__.get("book") is not None:
         kinds.append("book")
     if entity.__dict__.get("edition") is not None:

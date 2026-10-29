@@ -206,6 +206,8 @@ __all__ = [
     "VItemInstance",
 ]
 
+from lorenzo_api.models.carrier import Carrier as Carrier
+from lorenzo_api.models.carrier import CarrierCoverage as CarrierCoverage
 from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
 from lorenzo_api.models.connection import Connection
 from lorenzo_api.models.frame import EntityFrame, Frame

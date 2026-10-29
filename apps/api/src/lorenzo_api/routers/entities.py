@@ -76,6 +76,7 @@ from lorenzo_api.models import (
     Calendar,
     CalendarObservance,
     CalendarPeriod,
+    Carrier,
     Character,
     Clock,
     Connection,
@@ -170,6 +171,7 @@ _KINDS: tuple[
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
+            | Carrier
             | Book
             | SceneTelling
             | Chapter
@@ -192,6 +194,7 @@ _KINDS: tuple[
     ("event", StoryEvent),
     ("observance", CalendarObservance),
     ("book", Book),
+    ("carrier", Carrier),
     ("edition", Edition),
     ("chapter", Chapter),
     ("scene_telling", SceneTelling),
@@ -618,6 +621,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.slug),
             # What the entry is (ADR 0217).
             joinedload(Entity.book),
+            joinedload(Entity.carrier),
             joinedload(Entity.edition),
             joinedload(Entity.chapter),
             joinedload(Entity.scene_telling),
@@ -1766,6 +1770,7 @@ async def editable_fact_audience(
                 CalendarObservance,
                 Scene,
                 Book,
+                Carrier,
                 Chapter,
                 SceneTelling,
                 WritingBiography,

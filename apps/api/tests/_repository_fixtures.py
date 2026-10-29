@@ -16,6 +16,8 @@ from lorenzo_api.models import (
     CalendarObservance,
     CalendarPeriod,
     CalendarReckoning,
+    Carrier,
+    CarrierCoverage,
     Chapter,
     Character,
     Clock,
@@ -551,6 +553,21 @@ async def seed_every_content_table(
     session.add(
         ManuscriptRedirect(
             source_id=joined.id, tenant_id=tenant_id, destination_id=edition.id, child_id=chapter.id
+        )
+    )
+    await session.flush()
+    carrier = entity("Carrier")
+    await session.flush()
+    session.add(Carrier(entity_id=carrier.id, tenant_id=tenant_id))
+    await session.flush()
+    session.add(
+        CarrierCoverage(
+            tenant_id=tenant_id,
+            carrier_id=carrier.id,
+            target_entity_id=edition.id,
+            target_payload_id=None,
+            before_payload_id=None,
+            position=0,
         )
     )
     await session.flush()

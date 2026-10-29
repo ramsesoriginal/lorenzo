@@ -153,6 +153,7 @@ export async function start() {
       ['scene', 'Scene draft'],
       ['book', 'Book'],
       ['chapter', 'Chapter draft'],
+      ['carrier', 'Carrier'],
       ['biography', 'Character biography'],
     ]) {
       const option = element('option', label);
@@ -170,9 +171,11 @@ export async function start() {
             const route =
               kind.value === 'book'
                 ? '/tenants/{tenant_id}/writing/books'
-                : kind.value === 'biography'
-                  ? '/tenants/{tenant_id}/writing/biographies'
-                  : '/tenants/{tenant_id}/writing/chapters';
+                : kind.value === 'carrier'
+                  ? '/tenants/{tenant_id}/writing/carriers'
+                  : kind.value === 'biography'
+                    ? '/tenants/{tenant_id}/writing/biographies'
+                    : '/tenants/{tenant_id}/writing/chapters';
             const made = await unwrap(
               await client.POST(route, {
                 params: { path: { tenant_id: tenant } },
@@ -215,7 +218,11 @@ export async function start() {
         await client.GET('/tenants/{tenant_id}/entities', {
           params: {
             path: { tenant_id: tenant },
-            query: { page, size: 100, kind: ['scene', 'book', 'chapter', 'scene_telling'] },
+            query: {
+              page,
+              size: 100,
+              kind: ['scene', 'book', 'chapter', 'scene_telling', 'carrier'],
+            },
           },
         }),
       ),
@@ -278,7 +285,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     }
     return;
   }
-  const structured = ['book', 'edition', 'chapter'].includes(writingEntry.kind);
+  const structured = ['book', 'edition', 'chapter', 'carrier'].includes(writingEntry.kind);
   if (writingEntry.uses_scene_manuscript) {
     await compositionScreen(host, tenant, entry, true);
     const explanation = element('p', "This telling uses the Scene's shared manuscript.");

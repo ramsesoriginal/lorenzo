@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 28
+    assert rd.FORMAT == 29
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -119,6 +119,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "editions": {},
         "manuscript_placements": {},
         "manuscript_redirects": {},
+        "carrier_coverage": {},
         "tellings": {},
         "writing_biographies": [],
         "scene_facts": [],
@@ -350,3 +351,20 @@ def test_frames_survive_a_round_trip() -> None:
 
     back = rd.decode(document, files)
     assert back.frames == content.frames and back.entity_frames == content.entity_frames
+
+
+def test_carrier_coverage_round_trip_and_old_releases_have_none() -> None:
+    content = full_content()
+    content.carrier_coverage = {
+        uuid.UUID(int=100): {
+            "carrier": uuid.UUID(int=10),
+            "entry": None,
+            "payload": uuid.UUID(int=50),
+            "before": None,
+            "position": 0,
+        }
+    }
+    document, files = rd.encode(content)
+    assert rd.decode(document, files).carrier_coverage == content.carrier_coverage
+    old = {k: v for k, v in document.items() if k != "carrier_coverage"}
+    assert rd.decode(old, files, format=28).carrier_coverage == {}
