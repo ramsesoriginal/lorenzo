@@ -1794,6 +1794,36 @@ class NotificationOut(BaseModel):
     created_at: AwareDatetime = Field(..., title="Created At")
 
 
+class Style(StrEnum):
+    decimal = "decimal"
+    roman = "roman"
+    roman_lower = "roman_lower"
+    alphabetic = "alphabetic"
+    alphabetic_lower = "alphabetic_lower"
+
+
+class NumberingLevel(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    style: Style | None = Field("decimal", title="Style")
+    start: conint(ge=1, le=999999) | None = Field(1, title="Start")
+    restart_per_parent: bool | None = Field(True, title="Restart Per Parent")
+    include_parents: bool | None = Field(True, title="Include Parents")
+
+
+class NumberingSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: bool | None = Field(False, title="Enabled")
+    levels: list[NumberingLevel] | None = Field(None, max_length=100, min_length=1, title="Levels")
+    unnumbered: bool | None = Field(False, title="Unnumbered")
+    override: conint(ge=1, le=999999) | None = Field(None, title="Override")
+    restart: bool | None = Field(False, title="Restart")
+    end: bool | None = Field(False, title="End")
+
+
 class OccurrenceOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
@@ -2729,6 +2759,7 @@ class ReviewElement(BaseModel):
 
 
 class ReviewEntry(BaseModel):
+    number: str | None = Field(None, title="Number")
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     elements: list[ReviewElement] = Field(..., title="Elements")
@@ -3460,6 +3491,13 @@ class CalendarOut(BaseModel):
     name: str = Field(..., title="Name")
     definition: CalendarDefinitionOutput
     updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class ChapterNumberingOut(BaseModel):
+    settings: NumberingSettings
+    version: str = Field(..., title="Version")
+    root_id: UUID = Field(..., title="Root Id")
+    labels: dict[str, str] = Field(..., title="Labels")
 
 
 class CharacterOut(BaseModel):

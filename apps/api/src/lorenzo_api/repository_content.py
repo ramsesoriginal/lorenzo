@@ -67,6 +67,7 @@ from lorenzo_api.models import (
     LivedBefore,
     Location,
     LocationPart,
+    ManuscriptNumbering,
     ManuscriptPlacement,
     ManuscriptRedirect,
     Map,
@@ -224,6 +225,7 @@ class Content:
     scenes: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
     tellings: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     writing_biographies: set[uuid.UUID] = field(default_factory=set)
+    manuscript_numbering: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     carrier_coverage: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     editions: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
     manuscript_redirects: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
@@ -401,6 +403,12 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=ManuscriptPlacement.tenant_id == t,
         )
     }
+    c.manuscript_numbering = dict(
+        (row.entity_id, row.settings)
+        for row in await session.scalars(
+            select(ManuscriptNumbering).where(ManuscriptNumbering.tenant_id == tenant_id)
+        )
+    )
     c.carrier_coverage = {
         row_id: {
             "carrier": carrier,

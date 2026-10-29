@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 29
+    assert rd.FORMAT == 30
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -120,6 +120,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "manuscript_placements": {},
         "manuscript_redirects": {},
         "carrier_coverage": {},
+        "manuscript_numbering": {},
         "tellings": {},
         "writing_biographies": [],
         "scene_facts": [],
@@ -368,3 +369,12 @@ def test_carrier_coverage_round_trip_and_old_releases_have_none() -> None:
     assert rd.decode(document, files).carrier_coverage == content.carrier_coverage
     old = {k: v for k, v in document.items() if k != "carrier_coverage"}
     assert rd.decode(old, files, format=28).carrier_coverage == {}
+
+
+def test_numbering_format_and_previous_reader() -> None:
+    content = Content(tenant_id=uuid.uuid4())
+    content.manuscript_numbering[uuid.uuid4()] = {"enabled": True, "levels": [{"style": "roman"}]}
+    document, files = rd.encode(content)
+    assert rd.decode(document, files).manuscript_numbering == content.manuscript_numbering
+    old = {k: v for k, v in document.items() if k != "manuscript_numbering"}
+    assert rd.decode(old, files, format=29).manuscript_numbering == {}

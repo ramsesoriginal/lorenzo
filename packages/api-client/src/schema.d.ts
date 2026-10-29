@@ -3012,6 +3012,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/writing/entries/{id}/numbering": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Numbering */
+        get: operations["get_numbering"];
+        /** Put Numbering */
+        put: operations["put_numbering"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/writing/entries/{id}/moves/{operation_id}": {
         parameters: {
             query?: never;
@@ -8091,6 +8109,21 @@ export interface components {
             /** Parent Ids */
             parent_ids: string[];
         };
+        /** ChapterNumberingOut */
+        ChapterNumberingOut: {
+            settings: components["schemas"]["NumberingSettings"];
+            /** Version */
+            version: string;
+            /**
+             * Root Id
+             * Format: uuid
+             */
+            root_id: string;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+        };
         /**
          * CharacterCreate
          * @description POST /tenants/{id}/characters - ADR 0036/RFC 0007. owner_player_id is
@@ -11939,6 +11972,57 @@ export interface components {
              */
             created_at: string;
         };
+        /** NumberingLevel */
+        NumberingLevel: {
+            /**
+             * Style
+             * @default decimal
+             * @enum {string}
+             */
+            style: "decimal" | "roman" | "roman_lower" | "alphabetic" | "alphabetic_lower";
+            /**
+             * Start
+             * @default 1
+             */
+            start: number;
+            /**
+             * Restart Per Parent
+             * @default true
+             */
+            restart_per_parent: boolean;
+            /**
+             * Include Parents
+             * @default true
+             */
+            include_parents: boolean;
+        };
+        /** NumberingSettings */
+        NumberingSettings: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Levels */
+            levels?: components["schemas"]["NumberingLevel"][];
+            /**
+             * Unnumbered
+             * @default false
+             */
+            unnumbered: boolean;
+            /** Override */
+            override?: number | null;
+            /**
+             * Restart
+             * @default false
+             */
+            restart: boolean;
+            /**
+             * End
+             * @default false
+             */
+            end: boolean;
+        };
         /** ObservanceCreate */
         ObservanceCreate: {
             /** Id */
@@ -14325,6 +14409,8 @@ export interface components {
         };
         /** ReviewEntry */
         ReviewEntry: {
+            /** Number */
+            number?: string | null;
             /**
              * Id
              * Format: uuid
@@ -27112,6 +27198,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WritingEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_numbering: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterNumberingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_numbering: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NumberingSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChapterNumberingOut"];
                 };
             };
             /** @description Validation Error */

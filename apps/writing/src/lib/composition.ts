@@ -5,6 +5,7 @@ import { extractionControls } from './manuscript-extraction';
 import { joinControls } from './manuscript-join';
 import { moveControls } from './manuscript-move';
 import { splitControls } from './manuscript-split';
+import { numberedTitle, numberingControls, numberingOf } from './numbering';
 import { reviewAddress } from './review';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
@@ -51,7 +52,11 @@ export async function compositionScreen(
     location.replace(writingAddress(tenant, actual, reading ? 'read' : 'outline'));
     return;
   }
-  const heading = node('h1', current.name);
+  const numbering =
+    ['edition', 'chapter'].includes(current.kind) && !current.joined
+      ? await numberingOf(tenant, id)
+      : null;
+  const heading = node('h1', numberedTitle(current.name, numbering?.labels[id]));
   const nav = node('nav');
   nav.setAttribute('aria-label', 'Manuscript views');
   nav.className = 'row';
@@ -102,6 +107,12 @@ export async function compositionScreen(
     }
     return;
   }
+  if (!reading && numbering)
+    host.append(
+      numberingControls(tenant, id, current.kind === 'chapter', numbering, () =>
+        compositionScreen(host, tenant, id, false),
+      ),
+    );
   if (current.kind === 'chapter' || current.kind === 'scene_telling') {
     host.append(
       moveControls(tenant, id, current.name, undefined, () =>
@@ -133,7 +144,12 @@ export async function compositionScreen(
           const outline = await outlineOf(tenant, task.id);
           const entry = await entityOf(tenant, outline.manuscript_source_id ?? task.id);
           if (task.id !== id) {
-            const heading = node('h2', outline.name);
+            const numbers =
+              numbering ??
+              (['edition', 'chapter'].includes(outline.kind) && !outline.joined
+                ? await numberingOf(tenant, task.id)
+                : null);
+            const heading = node('h2', numberedTitle(outline.name, numbers?.labels[task.id]));
             heading.id = `element-${task.id}`;
             article.append(heading);
           }
@@ -246,7 +262,7 @@ export async function compositionScreen(
     const p = payloads.get(item.id);
     const label =
       item.kind !== 'payload'
-        ? (item.name ?? 'Chapter')
+        ? numberedTitle(item.name ?? 'Chapter', numbering?.labels[item.id])
         : p?.kind === 'description'
           ? p.content.slice(0, 80) || 'Empty text'
           : 'Picture';

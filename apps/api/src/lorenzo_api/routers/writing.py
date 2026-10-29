@@ -41,6 +41,7 @@ from lorenzo_api.models import (
     Edition,
     Entity,
     Information,
+    ManuscriptNumbering,
     ManuscriptPlacement,
     ManuscriptRedirect,
     Payload,
@@ -585,6 +586,13 @@ async def duplicate_edition(
             if source_telling
             else Chapter(entity_id=target, tenant_id=tenant_id)
         )
+        numbering = await session.get(ManuscriptNumbering, source_id)
+        if numbering:
+            session.add(
+                ManuscriptNumbering(
+                    entity_id=target, tenant_id=tenant_id, settings=numbering.settings.copy()
+                )
+            )
         source_telling = await session.get(SceneTelling, source_id)
         if not source_telling or not source_telling.uses_scene_manuscript:
             payload_map.update(await copy_manuscript(session, tenant_id, source_id, target, user))

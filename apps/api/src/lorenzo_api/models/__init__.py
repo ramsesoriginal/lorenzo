@@ -246,3 +246,4 @@ from lorenzo_api.models.writing_review import WritingReviewGrant, WritingReviewN
 
 from .manuscript import SceneTelling as SceneTelling
 from .manuscript import WritingBiography as WritingBiography
+from .manuscript_numbering import ManuscriptNumbering as ManuscriptNumbering

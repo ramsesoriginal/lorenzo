@@ -180,6 +180,7 @@ class ReviewElement(BaseModel):
 
 
 class ReviewEntry(BaseModel):
+    number: str | None = None
     id: uuid.UUID
     name: str
     elements: list[ReviewElement]
@@ -260,6 +261,9 @@ async def read_review(
             )
         )
     )
+    from lorenzo_api.chapter_numbering import projection
+
+    numbers = await projection(session, tenant_id, edition_id, reachable, placements)
     output = []
     for item in entries:
         elements: list[ReviewElement] = []
@@ -286,7 +290,9 @@ async def read_review(
             for link in links
             if link.before_payload_id is None
         )
-        output.append(ReviewEntry(id=item.id, name=item.name, elements=elements))
+        output.append(
+            ReviewEntry(id=item.id, name=item.name, number=numbers.get(item.id), elements=elements)
+        )
     note_query = select(WritingReviewNote).where(
         WritingReviewNote.tenant_id == tenant_id, WritingReviewNote.edition_id == edition_id
     )
