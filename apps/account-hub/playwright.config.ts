@@ -1,8 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
-// Not part of CI's default gate yet (mise.toml's test-e2e task is hidden) —
-// see ADR 0071. `webServer` starts the real dev server so tests exercise
-// actual rendered pages, not a mock.
+// For running these specs on the dev server, see ADR 0071 (mise.toml's test-e2e task is
+// hidden). CI runs them through playwright.real-api.config.ts (`test:real-api:ci`). `webServer`
+// starts the real dev server so tests exercise actual rendered pages, not a mock.
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,

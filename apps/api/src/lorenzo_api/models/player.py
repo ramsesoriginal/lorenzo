@@ -51,17 +51,15 @@ class Player(Base):
     tenant_id: Mapped[TenantFk]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
-    # ADR 0029/0036: always the managing GM/tenant admin who added this
-    # player - self-service joining doesn't exist yet (RFC 0007's own Open
-    # questions), so there's no other actor this could ever be.
-    # updated_by never diverges from created_by in practice (no PATCH
-    # /players exists), kept anyway for consistency with created_at/
-    # updated_at's own identical never-actually-updated precedent.
+    # ADR 0029/0036: the managing GM/tenant admin who added this player, or
+    # the user themselves when they joined by redeeming an invite link (ADR 0092).
+    # updated_by is set by PATCH /players/{id} (the self_service override, the
+    # only writable field) to the managing user who changed it.
     created_by: Mapped[CreatedBy]
     updated_by: Mapped[UpdatedBy]
     # The per-player override of campaign.player_self_service (RFC 0034, ADR
-    # 0185): None follows the campaign, True allows, False forbids. Nothing
-    # reads it yet.
+    # 0185): None follows the campaign, True allows, False forbids.
+    # campaign_access reads it (ADR 0186).
     self_service: Mapped[bool | None] = mapped_column(default=None)
 
     # foreign_keys explicit: player gained created_by/updated_by (ADR 0036),

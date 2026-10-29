@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "The typed client for apps/api that loot-bot and inventory-web share: the generated schema, a client factory, and one error type. See ADR 0122.",
+  "description": "The typed client for apps/api that the apps share: the generated schema, a client factory, and one error type. See ADR 0122.",
   "exports": {
     ".": "./src/index.ts"
   },

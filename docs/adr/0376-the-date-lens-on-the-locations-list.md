@@ -4,6 +4,9 @@ Status: accepted with the maintainer on 2026-10-28; RFC 0048 slice 14, the last 
 [ADR 0372](0372-the-date-lens-on-the-maps-list.md) on the Locations list, by the same rule and the same code.
 No table, no column and no write.
 
+History: numbered 0374 until 2026-10-28; renumbered to 0376 because the Writing work on another branch
+claimed 0374 first (PR #932).
+
 ## Decision
 
 `GET /tenants/{t}/locations` takes the same optional date as `GET /maps`: `tied_calendar`, `tied_year`,

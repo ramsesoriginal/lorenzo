@@ -62,13 +62,9 @@ __all__ = [
 ]
 
 # Authgear's own claim name for a user's assigned roles - see ADR
-# 0033/RFC 0012. Flagged there for empirical verification against a real
-# Authgear Cloud project (not fully certain from Authgear's docs alone,
-# which don't list `roles` among the JWT access token's documented default
-# claims - plausibly because it only appears once a user actually has a
-# role assigned); this codebase has no live Authgear project to verify
-# against yet, so this is implemented per Authgear's roles/groups guide and
-# left for that empirical confirmation before relying on it in production.
+# 0033/RFC 0012. Authgear's docs don't list `roles` among the JWT access token's
+# default claims (it appears once a user has a role assigned); confirmed against
+# a real Authgear Cloud project (ADR 0033's addendum).
 _AUTHGEAR_ROLES_CLAIM = "https://authgear.com/claims/user/roles"
 
 # verify_token's stand-in "claims" for a personal access token (ADR 0268).

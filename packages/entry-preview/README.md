@@ -19,7 +19,7 @@ const preview = installEntryPreview({
   targetOf: (el) => ({ tenant, id: el.getAttribute('data-entry') ?? '' }),
   loadCard,
   loadPicture: (url) => fileAsObjectUrl(url), // optional
-  touch: 'off', // or 'two-taps': the first tap shows the card, the second follows
+  touch: 'off', // or 'two-taps' (the default): the first tap shows the card, the second follows
 });
 
 preview.destroy();

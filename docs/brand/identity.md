@@ -2,7 +2,7 @@
 
 version: 1.0
 status: living specification
-updated: 2026-10-07
+updated: 2026-10-28
 scope: master brand, product family, digital applications, developer tools, community surfaces
 
 ---
@@ -137,15 +137,22 @@ If the glyph is not supported by an environment, use **Lorenzo** without a repla
 
 Lorenzo is the master brand. Future tools should remain visibly part of the same family.
 
-Preferred pattern:
+Preferred pattern, with the names the apps show today:
 
-- Lorenzo CLI
-- Lorenzo Bot
-- Lorenzo Sync
-- Lorenzo API
-- Lorenzo Mobile
-- Lorenzo Bench
-- Lorenzo for Discord
+| Name | What it is |
+| --- | --- |
+| Lorenzo CLI | the command line |
+| Lorenzo Bot | the Discord bot (also "Lorenzo for Discord") |
+| Lorenzo API | the API |
+| Lorenzo Inventory | inventories: the web app and the Android and iOS apps |
+| Lorenzo Beings | characters and other beings |
+| Lorenzo Calendars | calendars, Events and clocks |
+| Lorenzo Sessions | Sessions and Scenes |
+| Lorenzo Maps | Locations and Maps |
+| Lorenzo Writing | manuscripts |
+| Lorenzo Bench | editing a repository's entries |
+
+The account hub is the one app with no descriptor: it is the account itself, and its pages read "Lorenzo - Account". Further tools follow the same pattern.
 
 Use descriptive product names rather than inventing a separate brand for every utility.
 
@@ -162,7 +169,7 @@ The descriptor is secondary and should never be redrawn into the custom wordmark
 Some parts of a product have a name of their own because people need a short way to say where to look ("check in Studio"). These are names of places, not products: they take no descriptor, no mark and no separate identity, and the navigation link to each still says what it does.
 
 - **Shelf** and **Studio** are areas of the account hub: what a library has copied from repositories, and managing repositories. See [§14.3](#143-terminology).
-- **Bench** is the app for writing a repository's content, named **Lorenzo Bench** by the pattern above.
+- **Bench** is the app for editing a repository's entries, named **Lorenzo Bench** by the pattern above.
 
 The word **Workshop** is not used for any of them; it stays free for a tool that may come later.
 
@@ -174,24 +181,28 @@ The word **Workshop** is not used for any of them; it stays free for a tool that
 
 The current official asset set is:
 
-| Asset                                      | Role                                   | Recommended use                                     |
-| ------------------------------------------ | -------------------------------------- | --------------------------------------------------- |
-| `brand_mark.svg`                           | colored unshaded brand mark            | general standalone brand mark                       |
-| `brand_mark_shaded.svg`                    | colored shaded brand mark              | expressive digital mark, hero moments, loaders      |
-| `brand_mark_monochrome.svg`                | monochrome unshaded mark               | maximum flexibility, tiny UI, print, engraving      |
-| `brand_mark_shaded_monochrome.svg`         | monochrome shaded mark                 | richer single-color digital use                     |
-| `wordmark_full.svg`                        | full signature composition             | formal centered brand presentation                  |
-| `wordmark_light_bg.svg`                    | wordmark for light backgrounds         | marketing, docs, light UI surfaces                  |
-| `wordmark_dark_bg.svg`                     | reversed wordmark for dark backgrounds | dark UI and dark marketing surfaces                 |
-| `wordmark_monochrome.svg`                  | single-color wordmark                  | print, one-color production, flexible use           |
-| `lorenzo_horizontal_lockup_light_bg.svg`   | gold shaded mark + Ink wordmark        | default horizontal logo on light surfaces           |
-| `lorenzo_horizontal_lockup_dark_bg.svg`    | gold shaded mark + Paper wordmark      | default horizontal logo on dark surfaces            |
-| `lorenzo_horizontal_lockup_monochrome.svg` | monochrome horizontal lockup           | single-color or production-constrained use          |
-| `mascot_emblem.png`                        | illustrated mascot badge               | community, stickers, merch, editorial brand moments |
-| `mascot_emblem_web.png`                    | web-optimized mascot emblem derivative | README hero art and other size-constrained embeds   |
-| `mascot.png`                               | Lorenzo mascot illustration            | onboarding, product illustration, social, editorial |
-| `social_banner.png`                        | full illustrated social banner master  | source art for social/OG preview images             |
-| `social_banner_github.png`                 | GitHub social preview derivative       | Settings → Social preview (1280×640, under 1MB)     |
+| Asset                                                          | Role                                                            | Recommended use                                                              |
+| -------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `brand_mark.svg`                                               | colored unshaded brand mark                                     | general standalone brand mark                                                |
+| `brand_mark_shaded.svg`                                        | colored shaded brand mark                                       | expressive digital mark, hero moments, loaders                               |
+| `brand_mark_monochrome.svg`                                    | monochrome unshaded mark                                        | maximum flexibility, tiny UI, print, engraving                               |
+| `brand_mark_shaded_monochrome.svg`                             | monochrome shaded mark                                          | richer single-color digital use                                              |
+| `wordmark_full.svg`                                            | full signature composition                                      | formal centered brand presentation                                           |
+| `wordmark_light_bg.svg`                                        | wordmark for light backgrounds                                  | marketing, docs, light UI surfaces                                           |
+| `wordmark_dark_bg.svg`                                         | reversed wordmark for dark backgrounds                          | dark UI and dark marketing surfaces                                          |
+| `wordmark_monochrome.svg`                                      | single-color wordmark                                           | print, one-color production, flexible use                                    |
+| `lorenzo_horizontal_lockup_light_bg.svg`                       | gold shaded mark + Ink wordmark                                 | default horizontal logo on light surfaces                                    |
+| `lorenzo_horizontal_lockup_dark_bg.svg`                        | gold shaded mark + Paper wordmark                               | default horizontal logo on dark surfaces                                     |
+| `lorenzo_horizontal_lockup_monochrome.svg`                     | monochrome horizontal lockup                                    | single-color or production-constrained use                                   |
+| `mascot_emblem.png`                                            | illustrated mascot badge                                        | community, stickers, merch, editorial brand moments                          |
+| `mascot_emblem_web.png`                                        | web-optimized mascot emblem derivative                          | README hero art and other size-constrained embeds                            |
+| `mascot.png`                                                   | Lorenzo mascot illustration                                     | onboarding, product illustration, social, editorial                          |
+| `social_banner.png`                                            | full illustrated social banner master                           | source art for social/OG preview images                                      |
+| `social_banner_github.png`                                     | GitHub social preview derivative                                | Settings → Social preview (1280×640, under 1MB)                              |
+| `catileo.png`, `catileo_emblem.png`                            | illustrated Catileo, Lorenzo's cat, and badge                   | second mascot, see the [Catileo character bible](catileo-character-bible.md) |
+| `mascot_getting_started.png`, `mascot_getting_started_web.png` | mascot illustration for getting started, and its web derivative | the account hub's new-user screen and other first-run moments                |
+| `favicon/`                                                     | `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`            | browser tab and home-screen icons                                            |
+| `showcase/`                                                    | static HTML preview of the assets                               | looking at the set together                                                  |
 
 Treat SVG files as the preferred production masters for marks and lockups. Keep the mascot artwork as high-resolution raster artwork unless a deliberate simplified vector redraw is commissioned. Do not auto-trace the mascot illustration into a large, noisy SVG.
 
@@ -539,7 +550,7 @@ Never communicate state through color alone. Pair color with labels, icons, shap
 
 ### 6.6 Semantic color roles and tokens
 
-§6.1–6.5 define the *palette* — seven colors and how they should feel. With `apps/api` now standing behind multiple real apps (`apps/inventory-web`, `apps/account-hub`, more to come), that's no longer enough on its own: every app needs to reach for the same name for "the border on a normal card" or "the background of a destructive button" instead of each one improvising its own reading of Ink-at-some-opacity. This section is that shared vocabulary — a semantic layer that sits on top of the palette and is what product code actually consumes.
+§6.1–6.5 define the *palette* — seven colors and how they should feel. With `apps/api` now standing behind every app, that's no longer enough on its own: every app needs to reach for the same name for "the border on a normal card" or "the background of a destructive button" instead of each one improvising its own reading of Ink-at-some-opacity. This section is that shared vocabulary — a semantic layer that sits on top of the palette and is what product code actually consumes.
 
 #### Primitives, utility colors, and semantic roles
 
@@ -572,14 +583,14 @@ Domain visibility — private, GM-only, visible to a selected group, or public (
 
 Every non-public tier shares one neutral treatment — `--visibility-restricted-surface/-text/-border` — regardless of which tier it is; only an icon and a label say which one:
 
-| Icon (placeholder — real SVG icons come later) | Tier                     |
-| ---------------------------------------------- | ------------------------ |
-| 🔒                                             | Private                  |
-| ◉                                              | GM only                  |
-| 👥                                             | Selected characters      |
-| *(none)*                                       | Public — no badge at all |
+| Icon (name in the atlas) | Tier |
+| --- | --- |
+| `icon-private` | GM only, and anything private to one person |
+| `icon-kind-beings` | Some characters |
+| `icon-kind-being` | Player note |
+| *(none)* | Everyone — no badge at all |
 
-Public is the unmarked default and needs no badge; only a restriction needs to say so.
+Everyone is the unmarked default and needs no badge; only a restriction needs to say so.
 
 #### Buttons are their own layer
 
@@ -1360,9 +1371,8 @@ never "library". The `tenant` rows above read "library" only for a tenant that
 is one.
 
 The rest of this section names the other things people meet in the product, one
-word per idea. Some of them belong to features that are not built yet (the
-Author role, releases, public repositories, Discover, Bench, working offline):
-their names are fixed here so that each arrives with one word. The designs live
+word per idea. Working offline is not built yet: its
+words are fixed here so that it arrives with one word. The designs live
 in the RFCs for repository tooling (RFC 0036 to RFC 0041) and in ADR 0194, which
 records this vocabulary and the sweep that brings the existing screens, bot
 messages, command line and API messages into line with it.
@@ -1392,15 +1402,15 @@ them into the words above.
 | Term | Means | Not |
 | --- | --- | --- |
 | **Entry** | Any one thing in a library or repository, when its kind does not matter (search results, links). Otherwise use the specific noun. | Entity |
-| **Kind** | What an entry is: item, being, and later place, clock and others. An entry can be several kinds at once: a sentient sword is an item and a being. | Role, type, facet |
+| **Kind** | What an entry is: item, being, location, map, fact, event, calendar, clock and others. An entry can be several kinds at once: a sentient sword is an item and a being. | Role, type, facet |
 | **Item** | A kind: an object | |
 | **Catalog item** | Describes a sort of object ("Longsword") | Base item, prototype, template |
 | **Inventory item** | One specific item that exists in play ("Mira's longsword") | Instance, item instance |
 | **Catalog** | A library's list of catalog items | |
 | **Being** | A kind: anything that acts, such as a person, a creature or a sentient sword | |
 | **Character** | A being tracked as an individual, and the thing a player plays | |
-| **NPC** | A character no player plays. Prose only, not a type of its own. | |
-| **Group** | A named set of characters that can own things | Party |
+| **NPC** | A being no player plays. Prose only, not a type of its own. | |
+| **Group** | A named set of beings that can own things | Party |
 | **Stat**, **stat group** | A named value such as weight, and a bundle of them | Stat definition |
 | **Tag** | A yes/no stat shown as a label | |
 | **Formula** | A stat worked out from other stats | Computed stat |
@@ -1471,6 +1481,28 @@ for repositories only, so the two relations never share a phrase.
 An attachment (a parent that a repository adds to something a library copied) has
 no noun in the product; the screen says what it does in a sentence. Seed, layer
 and bridge are command-line words.
+
+#### Places, time and stories
+
+| Term | Means | Not |
+| --- | --- | --- |
+| **Location** | A place, from a whole world down to one room. It is inside at most one other Location ("Add a Location inside"). | |
+| **Map** | A drawing of places on a sheet: a plane, a grid of squares or hexes, a globe or an outline | |
+| **Connection** | A road, portal or stair joining two places, one way or both ways ("One way only") | |
+| **Distance** | "Straight line" on a Map, or a route over the connections, in the author's own unit. Unknown is never shown as zero. | |
+| **Tied to a date** | A Map or Location linked to a calendar day, month or year: "Tied to this date", "Not tied to a date", "Tied to other dates" | Existed at |
+| **Fact** | A true statement about the world, with its own audience ("Canonical fact") | Information |
+| **Event** | Something that happened. Order is only what is said: "Happened before", "Happened after", "Causes". | |
+| **Calendar** | A world's own months and festivals, with weeks and moons | |
+| **Clock** | Keeps time on its own, ticking or timeless. It has readings ("Clock readings") and can be converted to another clock. | |
+| **Session** | One sitting of a campaign, with a real-world date ("Real-world date") | |
+| **Scene** | A reusable piece of a story that Sessions use ("Reusable Scenes") | |
+| **Book**, **Edition**, **Chapter** | A work; one shape of a Book ("New edition"); a part of an Edition or of another Chapter ("Add chapter") | |
+| **Telling** | One use of a Scene in a Book, shared or made independent ("Make independent") | |
+| **Manuscript** | The prose and pictures of an entry, apart from its description and notes | |
+| **Reviewer** | Someone given read access to one Edition, who writes review notes only they and the Authors see | |
+
+These words come from what the apps already say. A word for something not yet shown, such as a frame or an axis, is added here before it goes onto a screen.
 
 #### Working offline
 
@@ -1560,7 +1592,7 @@ An icon inside an already-labelled control is decorative and hidden from assisti
 
 ```html
 <button type="button">
-  <svg class="icon" aria-hidden="true"><use href="/assets/icons/ui.svg#icon-save"></use></svg>
+  <svg class="icon" aria-hidden="true"><use href="{BRANDING_CSS_URL}/icons.svg#icon-save"></use></svg>
   Save
 </button>
 ```
@@ -1569,7 +1601,7 @@ An icon-only control names the control, not the artwork inside it:
 
 ```html
 <button type="button" aria-label="Copy">
-  <svg class="icon" aria-hidden="true"><use href="/assets/icons/ui.svg#icon-copy"></use></svg>
+  <svg class="icon" aria-hidden="true"><use href="{BRANDING_CSS_URL}/icons.svg#icon-copy"></use></svg>
 </button>
 ```
 
@@ -1710,29 +1742,27 @@ Maintain one semantic mapping from Lorenzo concepts to source icons. The same ic
 
 ### 17.6 Runtime
 
-Keep upstream SVG originals unchanged. Generate a local, same-origin SVG sprite from an explicit manifest containing only the icons actually used:
+Keep upstream SVG originals unchanged. The sprite is one file, `apps/brand/icons.svg`, served with the shared brand CSS. `apps/brand/icons.manifest.yaml` is kept by hand beside it and names the upstream source of every symbol; it is documentation, not a build input, so adding an icon means editing both files. A trimmed sprite holding only the icons an app uses remains a goal. An excerpt of the manifest:
 
 ```yaml
-copy: copy
-delete: trash
-private: lock
-warning: alert-triangle
-location: map-pin
+icon-copy: copy
+icon-delete: trash
+icon-private: lock
 ```
 
-Application markup uses the stable, Lorenzo-owned IDs from that manifest, not the upstream names directly:
+Application markup uses the stable, Lorenzo-owned IDs from that manifest, not the upstream names directly. `{BRANDING_CSS_URL}` is the address the brand CSS is served from:
 
 ```html
 <svg class="icon" aria-hidden="true">
-  <use href="/assets/icons/ui.svg#icon-copy"></use>
+  <use href="{BRANDING_CSS_URL}/icons.svg#icon-copy"></use>
 </svg>
 ```
 
-Do not expose library names or versions in application markup. Fingerprint the generated sprite asset in production. See §15.6 for how icon-only and decorative icons get labelled.
+Do not expose library names or versions in application markup. See §15.6 for how icon-only and decorative icons get labelled.
 
 ### 17.7 Third-party brand marks
 
-External brand marks (a payment provider's logo, a platform's logo) are not UI icons — store and govern them separately from `ui.svg`. Prefer official assets where a brand's own guidelines require them; Simple Icons may be used where appropriate, but its artwork does not grant blanket trademark permission. Do not recolor, modify, or combine a third-party brand mark unless that brand's own guidelines permit it.
+External brand marks (a payment provider's logo, a platform's logo) are not UI icons — store and govern them separately from `icons.svg`. Prefer official assets where a brand's own guidelines require them; Simple Icons may be used where appropriate, but its artwork does not grant blanket trademark permission. Do not recolor, modify, or combine a third-party brand mark unless that brand's own guidelines permit it.
 
 ### 17.8 State and status
 

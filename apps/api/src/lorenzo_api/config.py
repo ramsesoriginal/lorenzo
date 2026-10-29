@@ -209,9 +209,9 @@ class Settings(BaseSettings):
     repository_max_picture_bytes: int = 20_000_000
     repository_picture_max_bytes: int = 10_000_000
 
-    # Whether a repository can be made public (RFC 0038 section 1, ADR 0290). Off until the gates
-    # that come before a public repository are in (D3 to D6) and the deployment says so: the flip
-    # routes exist and answer `public-repositories-not-available` while it is off.
+    # Whether a repository can be made public (RFC 0038 section 1, ADR 0290).
+    # Off unless the deployment sets it (docs/operations/public-launch.md): the flip routes
+    # exist and answer `public-repositories-not-available` while it is off.
     public_repositories_enabled: bool = False
 
     # Where a report about a public repository goes (RFC 0038 section 6, ADR 0299): an email

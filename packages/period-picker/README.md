@@ -1,6 +1,6 @@
 # @lorenzo/period-picker
 
-One control for choosing a calendar period: a day, a month or festival, a year, or several of them ([ADR 0323](../../docs/adr/0323-the-calendar-period-picker.md)). Sessions uses it for a Session's start, a Scene's period and the game time a Session covers; it replaces four flat lists of every period in a library. It ships its source and a stylesheet, and uses the brand's classes for everything else.
+One control for choosing a calendar period: a day, a month or festival, a year, or several of them ([ADR 0323](../../docs/adr/0323-the-calendar-period-picker.md)). Sessions uses it for a Session's start, a Scene's period and the game time a Session covers (it replaces four flat lists of every period in a library), and Maps for its date lens. It ships its source and a stylesheet, and uses the brand's classes for everything else.
 
 ## Using it
 

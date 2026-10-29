@@ -1,6 +1,6 @@
 # 0046 - Sessions, Scenes, play order and lived order
 
-Status: accepted for the four delivery slices agreed with the maintainer on 2026-10-21.
+Status: accepted for the four delivery slices agreed with the maintainer on 2026-10-21, and built.
 Decisions: ADR 0317 (planning and collaboration), ADR 0318 (play records), ADR 0319 (lived order).
 This narrows RFC 0028; it does not accept either original temporal candidate as a whole.
 

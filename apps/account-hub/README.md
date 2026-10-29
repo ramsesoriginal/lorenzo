@@ -22,11 +22,30 @@ repo root:
 | `mise run test-real-api` | Browser tests against the real API and a fake Authgear; needs local Postgres and Chromium, see below |
 | `mise run build` | Build the static site to `dist/` |
 
+## Pages
+
+| Page | What it is |
+| --- | --- |
+| `/` | Home: where to start |
+| `/profile` | Your profile, personal access tokens, account deletion |
+| `/notifications` | Your notifications |
+| `/tenants` | Your libraries and their campaigns, People and invite links |
+| `/campaigns` | Where you play and where you run |
+| `/beings` | Each library's beings, linking to Lorenzo Beings |
+| `/setup` | Start a table in one form |
+| `/join` | Accept an invite link |
+| `/repositories`, `/studio`, `/discover` | Shelf, Studio and Discover, below |
+| `/device` | Approve a device code |
+
+## Environment
+
+[`.env.example`](.env.example) lists the `PUBLIC_*` variables the build reads: the Authgear endpoint and client id, and optional overrides for the API, shared branding and Lorenzo Beings addresses.
+
 ## Deploy
 
-Cloudflare Pages, via its own Git integration (no GitHub Actions step) — see
+Deployed at <https://lorenzo-account-hub.pages.dev/> on Cloudflare Pages, via its own Git integration (no GitHub Actions step); see
 [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md#cloudflare-pages-appsaccount-hub)
-for the one-time setup.
+for the setup procedure.
 
 ## API client and errors
 
@@ -79,7 +98,7 @@ who holds no library membership sees them too. It reads `GET /me` and
 
 A repository is its own noun, distinct from a library. **Shelf** (`/repositories`) shows what a library can copy, with a repository page, built-on outline, copy wizard and row-by-row update inbox (ADR 0196, 0201, 0203). **Studio** (`/studio`) manages repositories: create, People and role/library-access invite links, libraries using it, dependencies, activity, publishing and releases (ADR 0202 to 0213, 0220). Its test-library action lets an Owner view a copy as a subscriber (ADR 0261).
 
-The API stores a repository's profile and cover (ADR 0213); the full Studio profile editor remains RFC 0036 T5. Studio composes a release and offers guarded public/private switches with blocker and revocation warnings (ADR 0209, 0213, 0290). Showcase entries and the preview choice control what people can look inside (ADR 0293). These controls do not bypass the API's public-repository feature switch: public repositories are disabled by default pending the remaining launch gates in RFC 0038.
+The API stores a repository's profile and cover (ADR 0213); the full Studio profile editor remains RFC 0036 T5. Studio composes a release and offers guarded public/private switches with blocker and revocation warnings (ADR 0209, 0213, 0290). Showcase entries and the preview choice control what people can look inside (ADR 0293). These controls do not bypass the API's public-repository feature switch: public repositories are built and off by default, switched on with `PUBLIC_REPOSITORIES_ENABLED` (see [docs/operations/public-launch.md](../../docs/operations/public-launch.md)).
 
 **Discover** (`/discover`) lists public repositories for signed-in users with search, tags, system and language filters, and a storefront showing the current release. “Look inside” reads the release's permitted preview, not the repository's live authored rows (ADR 0292, 0293).
 
@@ -93,8 +112,7 @@ Libraries and repositories have People with Owner, Organizer and Author roles (A
 
 Run `mise run //apps/account-hub:test-real-api` with the local Postgres from
 `infra/docker-compose.yml` and a Playwright Chromium installation (or
-`E2E_BROWSER_CHANNEL=msedge` to use an installed Edge). The suite builds the
-site, starts the real API and a fake Authgear, and recreates only
-`lorenzo_account_hub_e2e`. It reuses inventory-web's ADR 0114 test launchers;
-run the two apps' browser suites separately because they use the same ports.
-The existing `test-e2e` task remains the logged-out page smoke suite.
+`E2E_BROWSER_CHANNEL=msedge` to use an installed Edge). It recreates only
+`lorenzo_account_hub_e2e`; run it and inventory-web's browser suite separately,
+since they use the same ports. CI runs the smoke suite and every real-API spec
+through `test:real-api:ci`. See [tests/real-api/README.md](tests/real-api/README.md).

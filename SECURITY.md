@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Lorenzo is pre-1.0. `apps/api` has infrastructure plus the full domain model, a read-only REST API, and Authgear-backed auth; nothing else under `apps/` exists. Only the latest commit on `main` is supported. Once apps reach 1.0, this section will track supported versions per app.
+Only the latest commit on `main` is supported. Apps and packages are versioned separately, not together: their current versions are in [`.release-please-manifest.json`](.release-please-manifest.json), the apps are listed in [apps/README.md](apps/README.md), and [docs/operations/releasing.md](docs/operations/releasing.md) says how a release is made.
 
 ## Reporting a vulnerability
 

@@ -27,8 +27,10 @@ C4Deployment
   }
 
   Deployment_Node(neon, "Neon", "Managed Postgres"){
-    ContainerDb(neondb, "Postgres", "pooled connection", "Autoscale-to-zero after 5 min idle")
+    ContainerDb(neondb, "Postgres", "pooled connection", "Autoscale-to-zero")
   }
+
+  System_Ext(authgear, "Authgear Cloud", "Identity provider - JWKS and userinfo endpoints")
 
   Rel(localapi, localdb, "SQL", "asyncpg")
   Rel(deployjob, image, "docker push")
@@ -36,6 +38,7 @@ C4Deployment
   Rel(deployjob, api, "deploys new revision")
   Rel(deployjob, neondb, "alembic upgrade head", "before deploy")
   Rel(api, neondb, "SQL", "asyncpg, TLS")
+  Rel(api, authgear, "Fetches signing keys and userinfo", "AUTHGEAR_JWKS_URL, AUTHGEAR_USERINFO_URL")
 ```
 
 ## apps/loot-bot
@@ -68,6 +71,8 @@ C4Deployment
   }
 
   System_Ext(discord, "Discord", "Interactions Endpoint webhook")
+  System_Ext(authgear, "Authgear Cloud", "Identity provider - account linking")
+  System_Ext(lapi, "lorenzo-api service", "Cloud Run, see the apps/api diagram above")
 
   Rel(discord, bot, "POST /interactions", "Ed25519-signed webhook")
   Rel(deployjob, image, "docker push")
@@ -75,11 +80,13 @@ C4Deployment
   Rel(deployjob, bot, "deploys new revision")
   Rel(deployjob, neondb, "tsx src/migrate.ts", "before deploy")
   Rel(bot, neondb, "SQL", "pg, TLS")
+  Rel(bot, lapi, "HTTPS/JSON", "LORENZO_API_BASE_URL")
+  Rel(bot, authgear, "Authorization code exchange", "AUTHGEAR_ISSUER")
 ```
 
 ## Static apps on Cloudflare Pages
 
-`apps/account-hub`, `apps/inventory-web`, `apps/beings`, `apps/bench`, `apps/calendars`, `apps/sessions` and `apps/brand` deploy the same way: a static build served by Cloudflare Pages, wired to Cloudflare's own Git integration (no GitHub Actions job, no container, no database), rebuilt on a push to `main` that touches the app or a watched package. They call the API on Cloud Run from the browser (the API's `CORS_ALLOWED_ORIGINS` has to list each origin) and sign in through Authgear with a public client of their own. Which of them are hosted today differs, as the labels below say.
+`apps/account-hub`, `apps/inventory-web`, `apps/beings`, `apps/bench`, `apps/calendars`, `apps/sessions`, `apps/writing`, `apps/maps` and `apps/brand` deploy the same way: a static build served by Cloudflare Pages, wired to Cloudflare's own Git integration (no GitHub Actions job, no container, no database), rebuilt on a push to `main` that touches the app or a watched package. They call the API on Cloud Run from the browser (the API's `CORS_ALLOWED_ORIGINS` has to list each origin) and sign in through Authgear with a public client of their own.
 
 ```mermaid
 C4Deployment
@@ -93,9 +100,11 @@ C4Deployment
     Container(hub, "lorenzo-account-hub", "astro build, dist", "apps/account-hub")
     Container(inv, "lorenzo-inventory-web", "astro build, dist", "apps/inventory-web")
     Container(bench, "lorenzo-bench", "astro build, dist", "apps/bench")
-    Container(cal, "lorenzo-calendars", "astro build, dist", "apps/calendars - setup record names it as the production app")
-    Container(ses, "lorenzo-sessions", "astro build, dist", "apps/sessions - runbook only, planned address")
-    Container(beings, "lorenzo-beings", "astro build, dist", "apps/beings - placeholder until its setup is done")
+    Container(cal, "lorenzo-calendars", "astro build, dist", "apps/calendars")
+    Container(ses, "lorenzo-sessions", "astro build, dist", "apps/sessions")
+    Container(beings, "lorenzo-beings", "astro build, dist", "apps/beings")
+    Container(writing, "lorenzo-writing", "astro build, dist", "apps/writing")
+    Container(maps, "lorenzo-maps", "astro build, dist", "apps/maps")
     Container(brand, "lorenzo-brand", "no build, static files", "apps/brand - tokens.css and the preview")
   }
 
@@ -105,10 +114,12 @@ C4Deployment
   Rel(repo, cal, "Cloudflare builds and publishes")
   Rel(repo, ses, "Cloudflare builds and publishes")
   Rel(repo, beings, "Cloudflare builds and publishes")
+  Rel(repo, writing, "Cloudflare builds and publishes")
+  Rel(repo, maps, "Cloudflare builds and publishes")
   Rel(repo, brand, "Cloudflare builds and publishes")
 ```
 
-The apps' addresses, and the links between them, are served by the API's registry, `GET /app-links` ([ADR 0273](../../adr/0273-app-links-registry.md)); an address the registry does not set falls back to the official `https://lorenzo-<app>.pages.dev`. Setup, one app each: [deployment-setup.md](../../operations/deployment-setup.md) (account-hub, inventory-web, bench, brand), [beings-setup.md](../../operations/beings-setup.md) (the Authgear client and Pages project do not exist yet), [calendars-setup.md](../../operations/calendars-setup.md) and [sessions-setup.md](../../operations/sessions-setup.md) (the Pages project and Authgear client are created from the runbook; Sessions is not deployed by merging its pull request). See [docs/architecture/deployment.md](../deployment.md#static-apps-on-cloudflare-pages) for the prose version.
+The apps' addresses, and the links between them, are served by the API's registry, `GET /app-links` ([ADR 0273](../../adr/0273-app-links-registry.md)); an address the registry does not set (one variable per app, eight in all, see [deployment.md](../deployment.md#static-apps-on-cloudflare-pages)) falls back to the official `https://lorenzo-<app>.pages.dev`. Setup, one app each: [deployment-setup.md](../../operations/deployment-setup.md) (account-hub, inventory-web, bench, brand), [beings-setup.md](../../operations/beings-setup.md), [calendars-setup.md](../../operations/calendars-setup.md), [sessions-setup.md](../../operations/sessions-setup.md), [writing-setup.md](../../operations/writing-setup.md) and [maps-setup.md](../../operations/maps-setup.md). See [docs/architecture/deployment.md](../deployment.md#static-apps-on-cloudflare-pages) for the prose version.
 
 ## Native apps
 

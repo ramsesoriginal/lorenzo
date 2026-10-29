@@ -18,7 +18,7 @@ from lorenzo_api.models import RepositoryProfile
 
 async def set_visibility(repositories: Iterable[uuid.UUID], visibility: str) -> None:
     """The repositories' visibility, written straight in the database: the API refuses `public`
-    until the rest of RFC 0038 is built."""
+    unless public repositories are enabled, and the engines are tested without the flip route."""
     async with admin_session_factory() as session:
         await session.execute(
             update(RepositoryProfile)

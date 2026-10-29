@@ -40,7 +40,7 @@ class Settings:
         if not self.api_url:
             raise ConfigError(
                 "Say which API to talk to: set LORENZO_API_URL or pass --api-url, or run "
-                "`lorenzo login --api-url ...` once to remember it." + self._why_no_default()
+                "`lorenzo --api-url ... login` once to remember it." + self._why_no_default()
             )
         return self.api_url
 
