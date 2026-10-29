@@ -382,3 +382,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0377 - The date lens on Locations in Lorenzo Maps](0377-the-date-lens-on-locations-in-lorenzo-maps.md) — the same control and words on the Locations page; the tree gives way to a flat list while a date is chosen and returns on clearing
 
 - [0378 - Extract writing into a Scene](0378-extract-writing-into-a-scene.md) — RFC 0047 W5g.
+
+- [0379 - Carriers and ordered coverage](0379-carriers-and-ordered-coverage.md) — RFC 0047 W6a.
