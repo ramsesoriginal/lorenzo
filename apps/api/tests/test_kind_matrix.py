@@ -51,6 +51,7 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("event",): None,
     ("observance",): None,
     ("book",): None,
+    ("carrier",): None,
     ("edition",): None,
     ("chapter",): None,
     ("scene_telling",): None,
@@ -88,6 +89,7 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("connection",): None,
 }
 _ORDER = [
+    "carrier",
     "book",
     "edition",
     "chapter",
@@ -181,10 +183,12 @@ async def _make(
 ) -> uuid.UUID:
     """An entry of those kinds in a repository: through the route where one exists, and straight
     in the database for an inventory item and a character, which no route makes this way."""
-    if kinds in (("book",), ("edition",), ("chapter",)):
-        if kinds == ("chapter",):
+    if kinds in (("book",), ("edition",), ("chapter",), ("carrier",)):
+        if kinds in (("chapter",), ("carrier",)):
+            route = "carriers" if kinds == ("carrier",) else "chapters"
             response = await scene_author.post(
-                f"/tenants/{repository}/writing/chapters", json={"name": name}
+                f"/tenants/{repository}/writing/{route}",
+                json={"name": name},
             )
             assert response.status_code == 201, response.text
             entity_id = response.json()["id"]

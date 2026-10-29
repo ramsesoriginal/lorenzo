@@ -1,5 +1,6 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
+import { carrierOutline } from './carriers';
 import { extractionControls } from './manuscript-extraction';
 import { joinControls } from './manuscript-join';
 import { moveControls } from './manuscript-move';
@@ -108,13 +109,17 @@ export async function compositionScreen(
       ),
     );
   }
+  if (!reading && current.kind === 'carrier') {
+    await carrierOutline(host, tenant, current, () => compositionScreen(host, tenant, id, false));
+    return;
+  }
   if (reading || !['edition', 'chapter'].includes(current.kind)) {
     const article = node('article');
     article.className = 'ls-content';
     host.append(article);
     // Iterative, depth-first assembly; every entry and bundle is authorized by the API.
     const tasks: (
-      | { kind: 'entry'; id: string }
+      | { kind: 'entry'; id: string; payloadId?: string }
       | {
           kind: 'payload';
           payload: Awaited<ReturnType<typeof entityOf>>['information'][number]['payloads'][number];
@@ -132,14 +137,38 @@ export async function compositionScreen(
             heading.id = `element-${task.id}`;
             article.append(heading);
           }
+          if (outline.joined) {
+            if (outline.joined_destination) {
+              const target = outline.joined_destination;
+              article.append(
+                link(
+                  `Open joined section in ${target.name}`,
+                  `${writingAddress(tenant, target.id, 'read')}#element-${target.element_id}`,
+                ),
+              );
+            }
+            continue;
+          }
           const payloads = new Map(
             entry.information
               .filter((i) => i.type === 'manuscript')
               .flatMap((i) => i.payloads)
               .map((p) => [p.id, p]),
           );
+          if (task.payloadId) {
+            const payload = payloads.get(task.payloadId);
+            if (payload) tasks.push({ kind: 'payload', payload });
+            continue;
+          }
           for (const item of [...outline.elements].reverse()) {
-            if (item.kind !== 'payload') tasks.push({ kind: 'entry', id: item.id });
+            if (item.kind === 'coverage') {
+              if (item.target_id)
+                tasks.push({
+                  kind: 'entry',
+                  id: item.target_id,
+                  payloadId: item.payload_id ?? undefined,
+                });
+            } else if (item.kind !== 'payload') tasks.push({ kind: 'entry', id: item.id });
             else {
               const payload = payloads.get(item.id);
               if (payload) tasks.push({ kind: 'payload', payload });

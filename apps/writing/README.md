@@ -67,6 +67,12 @@ place. It preserves payload identities, wording, pictures and sharing; notes sta
 Selections containing Chapters or tellings are refused. Use the Scene elsewhere to share edits,
 or **Make independent** on a telling to write a separate version.
 
+**Carriers** ([ADR 0379](../../docs/adr/0379-carriers-and-ordered-coverage.md)) can stand alone
+with their own writing. In Outline, **Carrier form** selects ordinary prototype parents, and
+**Covered writing** includes whole Editions, Chapters, Scenes or tellings, or a single text/picture
+block. References can cross Books and interleave with direct prose. Source edits remain visible;
+removing coverage leaves the source intact. Coverage grants no access and is not physical containment.
+
 ## Run and verify
 
 - `mise run //apps/writing:dev` — port 4327.

@@ -49,6 +49,7 @@ from lorenzo_api.models import (
     CalendarObservance,
     CalendarPeriod,
     CalendarReckoning,
+    CarrierCoverage,
     ClockRelationship,
     ComputedStat,
     ComputedStatComparison,
@@ -75,6 +76,7 @@ from lorenzo_api.models import (
     LocationPart,
     MapPlacement,
     Ownership,
+    Payload,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -656,7 +658,7 @@ class _Planner:
                         "uses_scene_manuscript": telling["shared"],
                     }
                 )
-            for kind in ("book", "chapter"):
+            for kind in ("book", "chapter", "carrier"):
                 if kind in kinds:
                     self.rows[kind].append({"entity_id": new, "tenant_id": tenant_id})
             if "edition" in kinds:
@@ -1012,6 +1014,31 @@ class _Planner:
                     "end_a": end_a,
                     "end_b": end_b,
                     "one_way": True if joined["one_way"] else None,
+                }
+            )
+        for covered in c.carrier_coverage.values():
+            if not copies("entity", covered["carrier"]):
+                continue
+            target_entry = self._local(c, "entity", covered["entry"]) if covered["entry"] else None
+            target_payload = local_payloads.get(covered["payload"])
+            anchor = local_payloads.get(covered["before"])
+            if (
+                (covered["entry"] and target_entry is None)
+                or (covered["payload"] and target_payload is None)
+                or (covered["before"] and anchor is None)
+            ):
+                raise InvalidRepositoryUpdateError(
+                    detail="Copy the Carrier together with its covered writing and direct prose."
+                )
+            self.rows["carrier_coverage"].append(
+                {
+                    "id": uuid.uuid4(),
+                    "tenant_id": tenant_id,
+                    "carrier_id": self.local["entity"][covered["carrier"]],
+                    "target_entity_id": target_entry,
+                    "target_payload_id": target_payload,
+                    "before_payload_id": anchor,
+                    "position": covered["position"],
                 }
             )
         for child, placement in c.manuscript_placements.items():
@@ -1828,6 +1855,25 @@ async def forget_copy(
             raise EntityKindInUseError(
                 detail="Local tellings still reference this repository copy."
             )
+        if await session.scalar(
+            select(CarrierCoverage.id)
+            .where(
+                CarrierCoverage.tenant_id == t,
+                CarrierCoverage.carrier_id.not_in(entities),
+                or_(
+                    CarrierCoverage.target_entity_id.in_(entities),
+                    CarrierCoverage.target_payload_id.in_(
+                        select(Payload.id)
+                        .join(Information, Information.id == Payload.information_id)
+                        .where(Information.entity_id.in_(entities))
+                    ),
+                ),
+            )
+            .limit(1)
+        ):
+            raise EntityKindInUseError(
+                detail="Local Carrier coverage still references this repository copy."
+            )
         local_period = await session.scalar(
             select(
                 exists().where(
@@ -2202,6 +2248,12 @@ async def forget_copy(
             ManuscriptPlacement,
             ManuscriptPlacement.tenant_id == t,
             ManuscriptPlacement.child_entity_id.in_(entities),
+        )
+        also["carrier_coverage"] = await _count(
+            session,
+            CarrierCoverage,
+            CarrierCoverage.tenant_id == t,
+            CarrierCoverage.carrier_id.in_(entities),
         )
         # The counts above are hand-written; the registry says which tables they are for.
         assert set(also) == PURGE_COUNTED, set(also) ^ PURGE_COUNTED

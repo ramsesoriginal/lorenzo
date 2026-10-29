@@ -982,3 +982,75 @@ test('extract a reusable Scene and make its second telling independent', async (
     await context.close();
   }
 });
+
+test('a Carrier inherits several forms and reads selected writing alongside its own prose', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.fill('The river remembers.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const scene = new URL(page.url()).searchParams.get('entry');
+    for (const name of ['Vellum', 'Coptic', 'Collected codex']) {
+      await page.goto(`/?tenant=${tenant.id}`);
+      await page.getByLabel('Start with').selectOption('carrier');
+      await page.getByLabel('New draft title').fill(name);
+      await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+      await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    }
+    await manuscript.fill('A note on this binding.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const carrier = new URL(page.url()).searchParams.get('entry');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const name of ['Vellum', 'Coptic']) {
+      await page.getByText('Carrier form', { exact: true }).click();
+      await page.getByText('Carrier prototypes', { exact: true }).click();
+      await page.getByLabel('Carrier prototypes', { exact: true }).fill(name);
+      await page.getByRole('button', { name: 'Find carrier prototypes', exact: true }).click();
+      await page.getByRole('button', { name, exact: true }).click();
+      await expect(
+        page.getByRole('button', { name: `Remove ${name}`, exact: true, includeHidden: true }),
+      ).toHaveCount(1);
+    }
+    await page.getByText('Covered writing', { exact: true }).click();
+    await page.getByLabel('Covered writing', { exact: true }).fill('Across the water');
+    await page.getByRole('button', { name: 'Find covered writing', exact: true }).click();
+    await page.getByRole('button', { name: 'Across the water', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Include block: The river remembers.', exact: true })
+      .click();
+    await expect(
+      page.getByRole('link', { name: 'Across the water · selected block', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Up', exact: true }).last().click();
+    await expect(page.locator('main')).toHaveText(
+      /Across the water · selected block[\s\S]*A note on this binding/,
+    );
+    await page.getByText('Carrier form', { exact: true }).click();
+    await page.screenshot({ path: test.info().outputPath('carrier-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath('carrier-phone.png'), fullPage: true });
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toHaveText(
+      /The river remembers.*A note on this binding/s,
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${scene}`);
+    await manuscript.fill('The river changed.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${carrier}&view=read`);
+    await expect(page.locator('article')).toContainText('The river changed.');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByRole('button', { name: 'Remove coverage', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Remove coverage', exact: true })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${scene}`);
+    await expect(manuscript).toHaveValue('The river changed.');
+  } finally {
+    await context.close();
+  }
+});

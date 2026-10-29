@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.calendar_observance import CalendarObservance
     from lorenzo_api.models.calendar_period import CalendarPeriod, StoryEvent
     from lorenzo_api.models.campaign import Campaign
+    from lorenzo_api.models.carrier import Carrier
     from lorenzo_api.models.clock import Clock
     from lorenzo_api.models.connection import Connection
     from lorenzo_api.models.containment import Containment
@@ -50,6 +51,9 @@ class Entity(Base):
     # authgear_roles precedent.
     __allow_unmapped__ = True
 
+    carrier: Mapped[Carrier | None] = relationship(
+        "Carrier", foreign_keys="Carrier.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
     book: Mapped[Book | None] = relationship(
         "Book", foreign_keys="Book.entity_id", viewonly=True, lazy="raise_on_sql"
     )

@@ -36,6 +36,7 @@ from lorenzo_api.manuscript_redirects import require_unjoined
 from lorenzo_api.models import (
     Being,
     Book,
+    Carrier,
     Chapter,
     Edition,
     Entity,
@@ -76,8 +77,10 @@ class NewEdition(NewManuscript):
 
 class Element(BaseModel):
     id: uuid.UUID
-    kind: Literal["payload", "chapter", "scene_telling"]
+    kind: Literal["payload", "chapter", "scene_telling", "coverage"]
     name: str | None = None
+    target_id: uuid.UUID | None = None
+    payload_id: uuid.UUID | None = None
 
 
 class ManuscriptSummary(BaseModel):
@@ -95,7 +98,7 @@ class JoinedDestination(BaseModel):
 class WritingEntry(BaseModel):
     id: uuid.UUID
     name: str
-    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography"]
+    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography", "carrier"]
     book_id: uuid.UUID | None = None
     parent_id: uuid.UUID | None = None
     scene_id: uuid.UUID | None = None
@@ -188,8 +191,10 @@ async def result(
     session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, user: CurrentUser, response: Response
 ) -> WritingEntry:
     row = await entry(session, tenant_id, id, user)
-    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography"]
-    if await session.get(Book, id):
+    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography", "carrier"]
+    if await session.get(Carrier, id):
+        kind = "carrier"
+    elif await session.get(Book, id):
         kind = "book"
     elif await session.get(Edition, id):
         kind = "edition"
@@ -264,6 +269,11 @@ async def result(
             child = await session.get(Entity, el.id)
             assert child is not None
             el.name = child.name
+    if kind == "carrier":
+        from lorenzo_api.routers.carriers import covered_elements
+
+        elements = await covered_elements(session, tenant_id, id, user, elements)
+        version = 'W/"' + hashlib.sha256((version + repr(elements)).encode()).hexdigest() + '"'
     edition = await session.get(Edition, id)
     book_id = id if kind == "book" else edition.book_entity_id if edition else None
     editions = []

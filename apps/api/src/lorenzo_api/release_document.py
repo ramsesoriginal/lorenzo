@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 28
+FORMAT = 29
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -460,6 +460,18 @@ _CONTENT = _dataclass(
                 name="Content.manuscript_redirects",
             )
         ),
+        "carrier_coverage": _id_map(
+            _record(
+                {
+                    "carrier": _ID,
+                    "entry": _optional(_ID),
+                    "payload": _optional(_ID),
+                    "before": _optional(_ID),
+                    "position": _PLAIN,
+                },
+                name="Content.carrier_coverage",
+            )
+        ),
         "manuscript_placements": _id_map(
             _record(
                 {"parent": _ID, "before": _optional(_ID), "position": _PLAIN},
@@ -614,6 +626,10 @@ def _read_v27(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v28(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v29({**document, "carrier_coverage": {}}, files)
+
+
+def _read_v29(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -649,6 +665,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     26: _read_v26,
     27: _read_v27,
     28: _read_v28,
+    29: _read_v29,
 }
 
 

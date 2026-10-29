@@ -150,6 +150,7 @@ class Kind1(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -418,6 +419,10 @@ class CampaignUpdate(BaseModel):
     gm_title_plural: str | None = Field(None, title="Gm Title Plural")
 
 
+class CarrierParents(BaseModel):
+    parent_ids: list[UUID] = Field(..., title="Parent Ids")
+
+
 class CharacterCreate(BaseModel):
     name: str = Field(..., title="Name")
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
@@ -638,6 +643,7 @@ class Kind7(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -715,6 +721,16 @@ class ContainerKind(StrEnum):
 class Again(StrEnum):
     keep = "keep"
     purge = "purge"
+
+
+class CoverageElement(BaseModel):
+    id: UUID = Field(..., title="Id")
+    target_entity_id: UUID | None = Field(None, title="Target Entity Id")
+    target_payload_id: UUID | None = Field(None, title="Target Payload Id")
+
+
+class CoverageOrder(BaseModel):
+    elements: list[CoverageElement] = Field(..., max_length=10000, title="Elements")
 
 
 class CreditIn(BaseModel):
@@ -845,12 +861,15 @@ class Kind10(StrEnum):
     payload = "payload"
     chapter = "chapter"
     scene_telling = "scene_telling"
+    coverage = "coverage"
 
 
 class Element(BaseModel):
     id: UUID = Field(..., title="Id")
     kind: Kind10 = Field(..., title="Kind")
     name: str | None = Field(None, title="Name")
+    target_id: UUID | None = Field(None, title="Target Id")
+    payload_id: UUID | None = Field(None, title="Payload Id")
 
 
 class EntityChangeOut(BaseModel):
@@ -905,6 +924,7 @@ class Kind12(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -984,6 +1004,7 @@ class Kind17(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -1383,6 +1404,7 @@ class Kind19(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -2677,6 +2699,7 @@ class Kind34(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -3240,6 +3263,7 @@ class Kind42(StrEnum):
     scene = "scene"
     scene_telling = "scene_telling"
     biography = "biography"
+    carrier = "carrier"
 
 
 class WritingEntry(BaseModel):
