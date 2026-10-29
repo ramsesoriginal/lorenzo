@@ -29,7 +29,7 @@ flowchart TD
     D --> CF["Static apps: Cloudflare Pages'<br/>own Git integration builds them<br/>(outside GitHub Actions)"]
 
     G --> G1["release-please: open/update release PR"]
-    G1 --> G2["sync-lockfile: regenerate uv.lock for<br/>apps/api and apps/cli on the release PR"]
+    G1 --> G2["sync-lockfile: regenerate uv.lock for the five<br/>Python projects on the release PR"]
 
     F --> F1["verify: lint + test again"]
     F1 --> F2["auth: OIDC via Workload Identity Federation"]
