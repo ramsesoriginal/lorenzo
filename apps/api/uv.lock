@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = "==3.14.*"
 
 [[package]]
@@ -651,7 +651,7 @@ wheels = [
 
 [[package]]
 name = "lorenzo-api"
-version = "0.7.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -716,7 +716,7 @@ dev = [
 
 [[package]]
 name = "lorenzo-calendar"
-version = "0.0.0"
+version = "0.1.0"
 source = { directory = "../../packages/calendar-engine" }
 dependencies = [
     { name = "pydantic" },
@@ -734,7 +734,7 @@ dev = [
 
 [[package]]
 name = "lorenzo-map"
-version = "0.0.0"
+version = "0.1.0"
 source = { directory = "../../packages/map-engine" }
 
 [package.metadata]
