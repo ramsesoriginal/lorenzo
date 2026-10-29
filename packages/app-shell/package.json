@@ -2,7 +2,7 @@
   "name": "@lorenzo/app-shell",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "The head, header, footer and page frame of the apps that share it (Calendars, Sessions, Writing and Maps), over the shared brand (ADR 0322).",
   "exports": {
     ".": "./src/index.ts",
