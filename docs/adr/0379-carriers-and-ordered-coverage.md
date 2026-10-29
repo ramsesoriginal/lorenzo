@@ -44,6 +44,15 @@ coverage and prototype controls using existing classes. Authors find writing by 
 whole writing or a specific text/picture block, and reorder it with their direct prose. Read
 assembles only accessible writing. No new editor, CSS framework, counting or export features.
 
+## API compatibility
+
+Entity kinds now include `carrier`, and Writing responses include the `carrier` entry kind
+and `coverage` element kind. These additions intentionally widen response enums, including
+shared entry stubs in Location, Map, Connection and frame responses. Clients that exhaustively
+match these enums must accept the new values; generated clients ship with the implementation.
+Record the exact OpenAPI findings in `apps/api/openapi-breaking-accepted.txt` and publish the
+change with a BREAKING CHANGE commit footer. Other compatibility findings remain errors.
+
 ## Validation
 
 Test standalone writing, multiple parents and cycle rejection, cross-Book ordering, repeated
