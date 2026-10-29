@@ -384,3 +384,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0378 - Extract writing into a Scene](0378-extract-writing-into-a-scene.md) — RFC 0047 W5g.
 
 - [0379 - Carriers and ordered coverage](0379-carriers-and-ordered-coverage.md) — RFC 0047 W6a.
+- [0380 - Chapter numbering](0380-chapter-numbering.md) — RFC 0047 W7a.
