@@ -176,25 +176,27 @@ export async function compositionScreen(
       .map((p) => [p.id, p]),
   );
   if (current.elements.length) {
-    host.append(
-      extractionControls(
-        tenant,
-        id,
-        current.version,
-        current.elements.map((item) => {
-          const payload = payloads.get(item.id);
-          return {
-            id: item.id,
-            label:
-              item.name ??
-              (payload?.kind === 'description'
-                ? payload.content.slice(0, 80) || 'Empty text'
-                : 'Picture'),
-          };
-        }),
-        () => compositionScreen(host, tenant, id, false),
-      ),
-    );
+    for (const kind of ['Chapter', 'Scene'] as const)
+      host.append(
+        extractionControls(
+          tenant,
+          id,
+          current.version,
+          current.elements.map((item) => {
+            const payload = payloads.get(item.id);
+            return {
+              id: item.id,
+              label:
+                item.name ??
+                (payload?.kind === 'description'
+                  ? payload.content.slice(0, 80) || 'Empty text'
+                  : 'Picture'),
+            };
+          }),
+          () => compositionScreen(host, tenant, id, false),
+          kind,
+        ),
+      );
   }
   const saveOrder = async (ids: string[]) => {
     try {

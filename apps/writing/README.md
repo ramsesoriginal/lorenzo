@@ -61,6 +61,12 @@ Chapter heading from the outline and puts its text, pictures and children in its
 preserving the reading order. The parent may be a Chapter or Edition; the old Chapter keeps
 the same guarded link, notes and history as a sibling join.
 
+**Extract a Scene** ([ADR 0378](../../docs/adr/0378-extract-writing-into-a-scene.md)) moves
+consecutive text blocks and pictures into a reusable Scene, leaving a shared telling in their
+place. It preserves payload identities, wording, pictures and sharing; notes stay at the source.
+Selections containing Chapters or tellings are refused. Use the Scene elsewhere to share edits,
+or **Make independent** on a telling to write a separate version.
+
 ## Run and verify
 
 - `mise run //apps/writing:dev` — port 4327.

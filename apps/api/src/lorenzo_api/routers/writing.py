@@ -514,7 +514,7 @@ async def copy_manuscript(
                     values = {
                         c.name: getattr(content, c.name)
                         for c in model.__table__.columns
-                        if c.name not in {"payload_id", "tenant_id"}
+                        if c.name not in {"payload_id", "tenant_id"} and c.computed is None
                     }
                     session.add(model(payload_id=new_id, tenant_id=tenant_id, **values))
     return payload_map

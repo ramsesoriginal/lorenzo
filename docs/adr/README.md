@@ -380,3 +380,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0373 - The date lens in Lorenzo Maps](0373-the-date-lens-in-lorenzo-maps.md) — a read-only period picker over the Maps list, empty by default, absent without a calendar, with the words "tied to this date" and faded "tied to other dates"
 - [0376 - The date lens on the Locations list](0376-the-date-lens-on-the-locations-list.md) — the lens of ADR 0372 on `GET /locations` by the same rule and code, flat list only (a date with `root` is a 422), no date inherited through part-of, no dating form
 - [0377 - The date lens on Locations in Lorenzo Maps](0377-the-date-lens-on-locations-in-lorenzo-maps.md) — the same control and words on the Locations page; the tree gives way to a flat list while a date is chosen and returns on clearing
+
+- [0378 - Extract writing into a Scene](0378-extract-writing-into-a-scene.md) — RFC 0047 W5g.

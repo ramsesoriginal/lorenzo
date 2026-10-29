@@ -920,3 +920,65 @@ test('join a Chapter into its parent without moving the surrounding prose', asyn
     await context.close();
   }
 });
+
+test('extract a reusable Scene and make its second telling independent', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('Shared crossings');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const prose = 'The river **remembers**.';
+    await manuscript.fill(prose);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'idea.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    });
+    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const edition = new URL(page.url()).searchParams.get('entry');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByText('Extract a Scene', { exact: true }).click();
+    await page.getByLabel('Extracted scene title', { exact: true }).fill('At the crossing');
+    await page.screenshot({
+      path: test.info().outputPath('scene-extraction-desktop.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: test.info().outputPath('scene-extraction-phone.png'),
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Extract Scene', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'At the crossing', exact: true })).toHaveCount(1);
+    await page.getByText('Use a Scene', { exact: true }).click();
+    await page.getByLabel('Find a Scene', { exact: true }).fill('At the crossing');
+    await page.getByRole('button', { name: 'Find Scenes', exact: true }).click();
+    await page.getByRole('button', { name: 'At the crossing', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'At the crossing', exact: true })).toHaveCount(2);
+    await page.getByRole('link', { name: 'At the crossing', exact: true }).last().click();
+    await expect(page.locator('article')).toContainText('The river remembers.');
+    await page.getByRole('button', { name: 'Make independent', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(manuscript).toHaveValue(prose);
+    await manuscript.fill('The ferryman remembers.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=read`);
+    await expect(page.locator('article')).toHaveText(
+      /The river remembers.*The ferryman remembers/s,
+    );
+  } finally {
+    await context.close();
+  }
+});

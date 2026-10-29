@@ -1045,6 +1045,13 @@ class ExtractChapter(BaseModel):
     elements: list[UUID] = Field(..., min_length=1, title="Elements")
 
 
+class ExtractScene(BaseModel):
+    scene_id: UUID = Field(..., title="Scene Id")
+    telling_id: UUID = Field(..., title="Telling Id")
+    name: constr(min_length=1, max_length=300) = Field(..., title="Name")
+    elements: list[UUID] = Field(..., min_length=1, title="Elements")
+
+
 class ExtractionAcknowledgement(BaseModel):
     operation_id: UUID = Field(..., title="Operation Id")
     source_id: UUID = Field(..., title="Source Id")
@@ -2766,6 +2773,13 @@ class SceneCreate(BaseModel):
     )
     period_entity_id: UUID | None = Field(None, title="Period Entity Id")
     is_public: bool | None = Field(False, title="Is Public")
+
+
+class SceneExtractionAcknowledgement(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    source_id: UUID = Field(..., title="Source Id")
+    scene_id: UUID = Field(..., title="Scene Id")
+    telling_id: UUID = Field(..., title="Telling Id")
 
 
 class SceneOut(BaseModel):
