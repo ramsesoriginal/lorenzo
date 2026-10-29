@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Response
 from pydantic import BaseModel
-from sqlalchemy import delete, select, union, update
+from sqlalchemy import delete, select, update
 
 from lorenzo_api.client_ids import existing_in_tenant, insert_with_client_id
 from lorenzo_api.dependencies import (
@@ -21,9 +21,8 @@ from lorenzo_api.exceptions import (
     ClientIdUnavailableError,
     ManuscriptMoveConflictError,
 )
-from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.manuscript_access import require_no_new_readers
 from lorenzo_api.models import (
-    CampaignGm,
     Chapter,
     Edition,
     EntityAudience,
@@ -33,8 +32,6 @@ from lorenzo_api.models import (
     ManuscriptJoin,
     ManuscriptPlacement,
     ManuscriptRedirect,
-    Membership,
-    Player,
 )
 from lorenzo_api.routers.entities import authorize_information_edit
 from lorenzo_api.routers.manuscript_extraction import place
@@ -92,42 +89,6 @@ def same_inner(left: Information, right: Information) -> bool:
         )
 
     return audience(left) == audience(right)
-
-
-async def require_no_new_readers(
-    session: SessionDep,
-    tenant: uuid.UUID,
-    source: uuid.UUID,
-    destination: uuid.UUID,
-    source_info: Information | None,
-    destination_info: Information | None,
-) -> None:
-    # Equal authored audiences need not mean equal access: GMs can have contextual
-    # reach to one Chapter. Use the existing resolver for every current participant.
-    people = await session.scalars(
-        union(
-            select(Membership.user_id).where(Membership.tenant_id == tenant),
-            select(Player.user_id).where(Player.tenant_id == tenant),
-            select(CampaignGm.user_id).where(CampaignGm.tenant_id == tenant),
-        )
-    )
-    for person in people:
-        vis = await resolve_information_visibility(session, tenant_id=tenant, user_id=person)
-        wider = vis.can_see_entry(destination) and not vis.can_see_entry(source)
-        if source_info and not vis.can_see(source_info):
-            if destination_info:
-                wider |= vis.can_see(destination_info)
-            else:
-                # A newly created bundle keeps source grants/flags/authorship. Only
-                # the new entry's contextual bypass can add access to those fields.
-                wider |= vis.can_see_entry(destination) and (
-                    destination in vis.gm_reachable_entity_ids
-                    or destination in vis.author_entry_ids
-                )
-        if wider:
-            raise ManuscriptMoveConflictError(
-                detail="This join would add readers through campaign access. Review sharing first."
-            )
 
 
 @router.post("/entries/{id}/joins/{operation_id}")

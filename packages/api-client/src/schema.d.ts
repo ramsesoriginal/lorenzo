@@ -3048,6 +3048,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/writing/entries/{id}/scene-extractions/{operation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Extract Scene */
+        post: operations["extract_scene"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/writing/reviews/{edition_id}/reviewers": {
         parameters: {
             query?: never;
@@ -9689,6 +9706,23 @@ export interface components {
             /** Elements */
             elements: string[];
         };
+        /** ExtractScene */
+        ExtractScene: {
+            /**
+             * Scene Id
+             * Format: uuid
+             */
+            scene_id: string;
+            /**
+             * Telling Id
+             * Format: uuid
+             */
+            telling_id: string;
+            /** Name */
+            name: string;
+            /** Elements */
+            elements: string[];
+        };
         /** ExtractionAcknowledgement */
         ExtractionAcknowledgement: {
             /**
@@ -14352,6 +14386,29 @@ export interface components {
              * @default false
              */
             is_public: boolean;
+        };
+        /** SceneExtractionAcknowledgement */
+        SceneExtractionAcknowledgement: {
+            /**
+             * Operation Id
+             * Format: uuid
+             */
+            operation_id: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /**
+             * Scene Id
+             * Format: uuid
+             */
+            scene_id: string;
+            /**
+             * Telling Id
+             * Format: uuid
+             */
+            telling_id: string;
         };
         /** SceneOut */
         SceneOut: {
@@ -27258,6 +27315,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExtractionAcknowledgement"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    extract_scene: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+                operation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtractScene"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SceneExtractionAcknowledgement"];
                 };
             };
             /** @description Validation Error */

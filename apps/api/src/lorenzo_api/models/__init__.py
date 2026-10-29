@@ -85,6 +85,7 @@ __all__ = [
     "ManuscriptMove",
     "ManuscriptSplit",
     "ManuscriptExtraction",
+    "ManuscriptSceneExtraction",
     "WritingReviewGrant",
     "WritingReviewNote",
     "ManuscriptRevision",
@@ -217,6 +218,9 @@ from lorenzo_api.models.manuscript import ManuscriptPlacement as ManuscriptPlace
 from lorenzo_api.models.manuscript_join import ManuscriptJoin as ManuscriptJoin
 from lorenzo_api.models.manuscript_join import ManuscriptRedirect as ManuscriptRedirect
 from lorenzo_api.models.manuscript_move import ManuscriptExtraction, ManuscriptMove
+from lorenzo_api.models.manuscript_move import (
+    ManuscriptSceneExtraction as ManuscriptSceneExtraction,
+)
 from lorenzo_api.models.manuscript_revision import ManuscriptRevision
 from lorenzo_api.models.manuscript_split import ManuscriptSplit
 from lorenzo_api.models.map import Map, MapLayer, MapPlacement
