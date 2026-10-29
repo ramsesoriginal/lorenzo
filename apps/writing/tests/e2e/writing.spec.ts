@@ -1054,3 +1054,85 @@ test('a Carrier inherits several forms and reads selected writing alongside its 
     await context.close();
   }
 });
+
+test('Chapter numbering follows the outline without changing titles', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    const book = await ok(
+      api.POST('/tenants/{tenant_id}/writing/books', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'Numbered journeys' },
+      }),
+    );
+    const edition = book.editions[0].id;
+    const chapters = [];
+    for (const name of ['Departure', 'Arrival', 'The ferry'])
+      chapters.push(
+        await ok(
+          api.POST('/tenants/{tenant_id}/writing/chapters', {
+            params: { path: { tenant_id: tenant.id } },
+            body: { name },
+          }),
+        ),
+      );
+    const [first, second, nested] = chapters;
+    const arrange = async (id: string, elements: string[]) => {
+      const current = await ok(
+        api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+          params: { path: { tenant_id: tenant.id, id } },
+        }),
+      );
+      await ok(
+        api.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+          params: { path: { tenant_id: tenant.id, id }, header: { 'if-match': current.version } },
+          body: { elements },
+        }),
+      );
+    };
+    await arrange(edition, [first.id, second.id]);
+    await arrange(first.id, [nested.id]);
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByText('Numbering', { exact: true }).click();
+    await page.getByLabel('Number Chapters', { exact: true }).check();
+    await page.getByRole('combobox', { name: 'Number style', exact: true }).selectOption('roman');
+    await page.getByRole('button', { name: 'Add level', exact: true }).click();
+    const levelTwo = page.getByRole('group', { name: 'Level 2', exact: true });
+    await levelTwo.getByLabel('Number style').selectOption('alphabetic_lower');
+    await page.getByRole('button', { name: 'Save numbering', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'I Departure', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'II Arrival', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Up: Arrival', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'I Arrival', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'II.a The ferry', exact: true })).toBeVisible();
+    await page.goto(`/?tenant=${tenant.id}&entry=${first.id}&view=outline`);
+    await page.getByText('Numbering', { exact: true }).click();
+    await page.getByLabel('Use this number (optional)', { exact: true }).fill('5');
+    await page.getByRole('button', { name: 'Save numbering', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'V Departure', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'V.a The ferry', exact: true })).toBeVisible();
+    await page.getByText('Numbering', { exact: true }).click();
+    await page.screenshot({
+      path: test.info().outputPath('numbering-desktop.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('button', { name: 'Save numbering', exact: true })).toBeVisible();
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath('numbering-phone.png'), fullPage: true });
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'V Departure', exact: true })).toBeVisible();
+    const unchanged = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: first.id } },
+      }),
+    );
+    expect(unchanged.name).toBe('Departure');
+  } finally {
+    await context.close();
+  }
+});

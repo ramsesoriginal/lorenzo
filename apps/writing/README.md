@@ -9,8 +9,7 @@ Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329, 0341–
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Carriers and
-subsequent slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
+saved prose revisions. Subsequent slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
 
 Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
 Make independent copies its current prose and pictures before editing. Viewpoints and world
@@ -72,6 +71,13 @@ with their own writing. In Outline, **Carrier form** selects ordinary prototype 
 **Covered writing** includes whole Editions, Chapters, Scenes or tellings, or a single text/picture
 block. References can cross Books and interleave with direct prose. Source edits remain visible;
 removing coverage leaves the source intact. Coverage grants no access and is not physical containment.
+
+**Chapter numbering** ([ADR 0380](../../docs/adr/0380-chapter-numbering.md)) is optional and
+separate from titles. Open Numbering in an Edition's outline (or an unassigned Chapter tree)
+to choose each level's format, start and parent restart behavior. Chapter controls can override
+a number, leave a Chapter unnumbered, restart or end a sequence. Outlines, continuous reading
+and Book reviews show the resulting labels. Moving Chapters recalculates them; copies retain
+the settings. Hidden Chapters do not leave numbering gaps. Contents and word counts are later.
 
 ## Run and verify
 
