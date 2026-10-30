@@ -677,6 +677,32 @@ class Status7(StrEnum):
     kept = "kept"
 
 
+class ContentsRow(BaseModel):
+    id: UUID = Field(..., title="Id")
+    label: str = Field(..., title="Label")
+    depth: int = Field(..., title="Depth")
+
+
+class Role(StrEnum):
+    chapter = "chapter"
+    contents = "contents"
+    index = "index"
+    glossary = "glossary"
+
+
+class ContentsSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: bool | None = Field(False, title="Enabled")
+    depth: conint(ge=1, le=100) | None = Field(3, title="Depth")
+    template: constr(min_length=1, max_length=120) | None = Field(
+        "{number} {title}", title="Template"
+    )
+    included: bool | None = Field(True, title="Included")
+    role: Role | None = Field("chapter", title="Role")
+
+
 class ContributionCountsOut(BaseModel):
     entities: int = Field(..., title="Entities")
     stat_groups_copied: int = Field(..., title="Stat Groups Copied")
@@ -1544,10 +1570,20 @@ class ManagedCampaignOut(BaseModel):
     gm_title_plural: str = Field(..., title="Gm Title Plural")
 
 
-class Role(StrEnum):
+class Role1(StrEnum):
     owner = "owner"
     orga = "orga"
     author = "author"
+
+
+class ManuscriptContentsOut(BaseModel):
+    settings: ContentsSettings
+    version: str = Field(..., title="Version")
+    root_id: UUID = Field(..., title="Root Id")
+    rows: list[ContentsRow] = Field(..., title="Rows")
+    displayed: bool = Field(..., title="Displayed")
+    root_enabled: bool = Field(..., title="Root Enabled")
+    contents_chapters: list[UUID] = Field(..., title="Contents Chapters")
 
 
 class ManuscriptRevisionOut(BaseModel):
@@ -1640,7 +1676,7 @@ class MemberProfileOut(BaseModel):
 
 class MembershipCreate(BaseModel):
     user_id: UUID = Field(..., title="User Id")
-    role: Role = Field(..., title="Role")
+    role: Role1 = Field(..., title="Role")
 
 
 class MembershipOut(BaseModel):
@@ -1660,7 +1696,7 @@ class MembershipRosterEntryOut(BaseModel):
 
 
 class MembershipUpdate(BaseModel):
-    role: Role = Field(..., title="Role")
+    role: Role1 = Field(..., title="Role")
 
 
 class MergeItemInstanceRequest(BaseModel):
@@ -2759,6 +2795,7 @@ class ReviewElement(BaseModel):
 
 
 class ReviewEntry(BaseModel):
+    contents: list[ContentsRow] | None = Field(None, title="Contents")
     number: str | None = Field(None, title="Number")
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -3181,7 +3218,7 @@ class TenantOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
 
 
-class Role3(StrEnum):
+class Role4(StrEnum):
     owner = "owner"
     orga = "orga"
     author = "author"
@@ -3192,7 +3229,7 @@ class TenantSummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     slug: str = Field(..., title="Slug")
     name: str = Field(..., title="Name")
-    role: Role3 = Field(..., title="Role")
+    role: Role4 = Field(..., title="Role")
     kind: TenantKind
 
 
@@ -3923,7 +3960,7 @@ class ManagedTenantOut(BaseModel):
     tenant_id: UUID = Field(..., title="Tenant Id")
     name: str = Field(..., title="Name")
     slug: str = Field(..., title="Slug")
-    role: Role | None = Field(..., title="Role")
+    role: Role1 | None = Field(..., title="Role")
     kind: TenantKind
     campaigns: list[ManagedCampaignOut] = Field(..., title="Campaigns")
 

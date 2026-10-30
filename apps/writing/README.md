@@ -77,7 +77,15 @@ separate from titles. Open Numbering in an Edition's outline (or an unassigned C
 to choose each level's format, start and parent restart behavior. Chapter controls can override
 a number, leave a Chapter unnumbered, restart or end a sequence. Outlines, continuous reading
 and Book reviews show the resulting labels. Moving Chapters recalculates them; copies retain
-the settings. Hidden Chapters do not leave numbering gaps. Contents and word counts are later.
+the settings. Hidden Chapters do not leave numbering gaps. Word counts are later.
+
+**Structural contents and special Chapters** ([ADR 0381](../../docs/adr/0381-structural-contents-and-special-chapters.md))
+use the closed Contents control in Outline. An Edition or standalone Chapter tree chooses its
+list, depth and a text template with `{title}` and optional `{number}`. Each Chapter can be
+included or excluded independently; included descendants remain listed. Contents Chapters place
+the generated list before their authored prose. Index and Glossary Chapters stay authored
+LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
+combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
 
 ## Run and verify
 

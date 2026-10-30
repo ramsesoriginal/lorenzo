@@ -3012,6 +3012,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/writing/entries/{id}/contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Contents */
+        get: operations["get_contents"];
+        /** Put Contents */
+        put: operations["put_contents"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/writing/entries/{id}/numbering": {
         parameters: {
             query?: never;
@@ -8760,6 +8778,47 @@ export interface components {
             owner?: components["schemas"]["EntitySummary"] | null;
             problem?: components["schemas"]["ProblemOut"] | null;
         };
+        /** ContentsRow */
+        ContentsRow: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Depth */
+            depth: number;
+        };
+        /** ContentsSettings */
+        ContentsSettings: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Depth
+             * @default 3
+             */
+            depth: number;
+            /**
+             * Template
+             * @default {number} {title}
+             */
+            template: string;
+            /**
+             * Included
+             * @default true
+             */
+            included: boolean;
+            /**
+             * Role
+             * @default chapter
+             * @enum {string}
+             */
+            role: "chapter" | "contents" | "index" | "glossary";
+        };
         /**
          * ContributionCountsOut
          * @description What a copy contributed that's still here (ADR 0119).
@@ -11344,6 +11403,25 @@ export interface components {
             kind: components["schemas"]["TenantKind"];
             /** Campaigns */
             campaigns: components["schemas"]["ManagedCampaignOut"][];
+        };
+        /** ManuscriptContentsOut */
+        ManuscriptContentsOut: {
+            settings: components["schemas"]["ContentsSettings"];
+            /** Version */
+            version: string;
+            /**
+             * Root Id
+             * Format: uuid
+             */
+            root_id: string;
+            /** Rows */
+            rows: components["schemas"]["ContentsRow"][];
+            /** Displayed */
+            displayed: boolean;
+            /** Root Enabled */
+            root_enabled: boolean;
+            /** Contents Chapters */
+            contents_chapters: string[];
         };
         /** ManuscriptRevisionOut */
         ManuscriptRevisionOut: {
@@ -14409,6 +14487,8 @@ export interface components {
         };
         /** ReviewEntry */
         ReviewEntry: {
+            /** Contents */
+            contents?: components["schemas"]["ContentsRow"][] | null;
             /** Number */
             number?: string | null;
             /**
@@ -27198,6 +27278,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WritingEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_contents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptContentsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_contents: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentsSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptContentsOut"];
                 };
             };
             /** @description Validation Error */

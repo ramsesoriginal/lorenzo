@@ -135,6 +135,16 @@ async def projection(
         )
     )
     settings = {r.entity_id: NumberingSettings.model_validate(r.settings) for r in rows}
+    ordered = await composition_order(session, tenant_id, allowed, placements)
+    return calculate(root, chapters, ordered, settings)
+
+
+async def composition_order(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    allowed: set[uuid.UUID],
+    placements: list[ManuscriptPlacement],
+) -> dict[uuid.UUID, list[uuid.UUID]]:
     payloads = await session.execute(
         select(Payload.id, Payload.order)
         .join(Information, Information.id == Payload.information_id)
@@ -163,4 +173,4 @@ async def projection(
         ]
         for parent, children in links.items()
     }
-    return calculate(root, chapters, ordered, settings)
+    return ordered

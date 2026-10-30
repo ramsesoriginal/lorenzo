@@ -1,6 +1,7 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { createEditor, type Editor } from '@lorenzo/lorenzoscript-editor';
 import { client, loadFile, unwrap } from './api';
+import { contentsNavigation } from './contents';
 import { numberedTitle } from './numbering';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
@@ -106,8 +107,19 @@ export async function reviewScreen(
         if (part.kind === 'entry') {
           const entry = byId.get(part.id);
           if (!entry) continue;
-          if (entry.id !== edition)
-            article.append(node('h2', numberedTitle(entry.name, entry.number)));
+          if (entry.id !== edition) {
+            const title = node('h2', numberedTitle(entry.name, entry.number));
+            title.id = `review-entry-${entry.id}`;
+            article.append(title);
+          }
+          if (entry.contents)
+            article.append(
+              contentsNavigation(
+                entry.contents,
+                (id) => `#review-entry-${id}`,
+                entry.id === edition,
+              ),
+            );
           for (const el of [...entry.elements].reverse()) pending.push(el);
         } else if (part.kind === 'text') {
           const section = node('section');
