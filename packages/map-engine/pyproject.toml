@@ -1,6 +1,6 @@
 [project]
 name = "lorenzo-map"
-version = "0.0.0"
+version = "0.1.0"
 description = "The one validator of Lorenzo map systems and geometry (ADR 0336, 0337)"
 readme = "README.md"
 requires-python = ">=3.12"

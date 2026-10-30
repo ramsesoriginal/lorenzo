@@ -2,7 +2,7 @@
   "name": "@lorenzo/read-cache",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A bounded, viewer-scoped cache of API reads kept in front of fetch, and a bounded prefetch queue (ADR 0325).",
   "exports": {
     ".": "./src/index.ts"
