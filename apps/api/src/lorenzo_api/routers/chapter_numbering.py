@@ -39,9 +39,9 @@ class ChapterNumberingOut(BaseModel):
     labels: dict[uuid.UUID, str]
 
 
-async def read_numbering(
-    session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, user: CurrentUser, response: Response
-) -> ChapterNumberingOut:
+async def numbering_context(
+    session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, user: CurrentUser
+) -> tuple[uuid.UUID, set[uuid.UUID], list[ManuscriptPlacement]]:
     await entry(session, tenant_id, id, user)
     if not await session.get(Chapter, id) and not await session.get(Edition, id):
         raise InvalidKindRequestError(detail="Choose an Edition or Chapter for numbering.")
@@ -64,6 +64,13 @@ async def read_numbering(
     while root in parents and parents[root] in visible and parents[root] not in seen:
         root = parents[root]
         seen.add(root)
+    return root, visible, links
+
+
+async def read_numbering(
+    session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, user: CurrentUser, response: Response
+) -> ChapterNumberingOut:
+    root, visible, links = await numbering_context(session, tenant_id, id, user)
     row = await session.get(ManuscriptNumbering, id)
     settings = NumberingSettings.model_validate(row.settings) if row else NumberingSettings()
     version = settings_version(settings)

@@ -41,6 +41,7 @@ from lorenzo_api.models import (
     Edition,
     Entity,
     Information,
+    ManuscriptContents,
     ManuscriptNumbering,
     ManuscriptPlacement,
     ManuscriptRedirect,
@@ -586,6 +587,13 @@ async def duplicate_edition(
             if source_telling
             else Chapter(entity_id=target, tenant_id=tenant_id)
         )
+        presentation = await session.get(ManuscriptContents, source_id)
+        if presentation:
+            session.add(
+                ManuscriptContents(
+                    entity_id=target, tenant_id=tenant_id, settings=presentation.settings.copy()
+                )
+            )
         numbering = await session.get(ManuscriptNumbering, source_id)
         if numbering:
             session.add(

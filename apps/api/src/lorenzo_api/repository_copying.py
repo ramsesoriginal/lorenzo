@@ -1016,6 +1016,15 @@ class _Planner:
                     "one_way": True if joined["one_way"] else None,
                 }
             )
+        for source_id, settings in c.manuscript_contents.items():
+            if copies("entity", source_id):
+                self.rows["manuscript_contents"].append(
+                    {
+                        "entity_id": self.local["entity"][source_id],
+                        "tenant_id": tenant_id,
+                        "settings": settings,
+                    }
+                )
         for source_id, settings in c.manuscript_numbering.items():
             if copies("entity", source_id):
                 self.rows["manuscript_numbering"].append(

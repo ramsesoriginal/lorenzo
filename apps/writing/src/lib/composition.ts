@@ -1,6 +1,7 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
 import { carrierOutline } from './carriers';
+import { type Contents, contentsControls, contentsNavigation, contentsOf } from './contents';
 import { extractionControls } from './manuscript-extraction';
 import { joinControls } from './manuscript-join';
 import { moveControls } from './manuscript-move';
@@ -56,6 +57,7 @@ export async function compositionScreen(
     ['edition', 'chapter'].includes(current.kind) && !current.joined
       ? await numberingOf(tenant, id)
       : null;
+  const presentation = numbering ? await contentsOf(tenant, id) : null;
   const heading = node('h1', numberedTitle(current.name, numbering?.labels[id]));
   const nav = node('nav');
   nav.setAttribute('aria-label', 'Manuscript views');
@@ -107,6 +109,12 @@ export async function compositionScreen(
     }
     return;
   }
+  if (!reading && presentation)
+    host.append(
+      contentsControls(tenant, id, current.kind === 'chapter', presentation, () =>
+        compositionScreen(host, tenant, id, false),
+      ),
+    );
   if (!reading && numbering)
     host.append(
       numberingControls(tenant, id, current.kind === 'chapter', numbering, () =>
@@ -130,12 +138,12 @@ export async function compositionScreen(
     host.append(article);
     // Iterative, depth-first assembly; every entry and bundle is authorized by the API.
     const tasks: (
-      | { kind: 'entry'; id: string; payloadId?: string }
+      | { kind: 'entry'; id: string; payloadId?: string; contents?: Contents | null }
       | {
           kind: 'payload';
           payload: Awaited<ReturnType<typeof entityOf>>['information'][number]['payloads'][number];
         }
-    )[] = [{ kind: 'entry', id }];
+    )[] = [{ kind: 'entry', id, contents: presentation }];
     while (tasks.length) {
       const task = tasks.pop();
       if (!task) continue;
@@ -176,6 +184,23 @@ export async function compositionScreen(
             if (payload) tasks.push({ kind: 'payload', payload });
             continue;
           }
+          const contents =
+            task.contents ??
+            (['edition', 'chapter'].includes(outline.kind)
+              ? await contentsOf(tenant, task.id)
+              : null);
+          if (
+            contents &&
+            ((task.id === contents.root_id && contents.root_enabled) ||
+              contents.contents_chapters.includes(task.id))
+          )
+            article.append(
+              contentsNavigation(
+                contents.rows.filter((row) => row.id !== task.id),
+                (target) => `${writingAddress(tenant, contents.root_id, 'read')}#element-${target}`,
+                task.id === contents.root_id,
+              ),
+            );
           for (const item of [...outline.elements].reverse()) {
             if (item.kind === 'coverage') {
               if (item.target_id)
@@ -184,7 +209,8 @@ export async function compositionScreen(
                   id: item.target_id,
                   payloadId: item.payload_id ?? undefined,
                 });
-            } else if (item.kind !== 'payload') tasks.push({ kind: 'entry', id: item.id });
+            } else if (item.kind !== 'payload')
+              tasks.push({ kind: 'entry', id: item.id, contents });
             else {
               const payload = payloads.get(item.id);
               if (payload) tasks.push({ kind: 'payload', payload });

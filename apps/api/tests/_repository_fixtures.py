@@ -57,6 +57,7 @@ from lorenzo_api.models import (
     LivedBefore,
     Location,
     LocationPart,
+    ManuscriptContents,
     ManuscriptNumbering,
     ManuscriptPlacement,
     ManuscriptRedirect,
@@ -537,6 +538,9 @@ async def seed_every_content_table(
     )
     await session.flush()
     session.add(Edition(entity_id=edition.id, book_entity_id=book.id, tenant_id=tenant_id))
+    session.add(
+        ManuscriptContents(entity_id=edition.id, tenant_id=tenant_id, settings={"enabled": True})
+    )
     session.add(
         ManuscriptNumbering(entity_id=edition.id, tenant_id=tenant_id, settings={"enabled": True})
     )

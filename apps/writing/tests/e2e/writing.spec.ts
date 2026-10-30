@@ -1136,3 +1136,124 @@ test('Chapter numbering follows the outline without changing titles', async ({ b
     await context.close();
   }
 });
+
+test('structural contents link Chapters while special Chapters keep authored text', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    const book = await ok(
+      api.POST('/tenants/{tenant_id}/writing/books', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'River manuscript' },
+      }),
+    );
+    const edition = book.editions[0].id;
+    const chapters = [];
+    for (const name of ['Guide', 'Crossing', 'Ferry', 'Glossary'])
+      chapters.push(
+        await ok(
+          api.POST('/tenants/{tenant_id}/writing/chapters', {
+            params: { path: { tenant_id: tenant.id } },
+            body: { name },
+          }),
+        ),
+      );
+    const [guide, chapter, nested, glossary] = chapters;
+    const arrange = async (id: string, elements: string[]) => {
+      const current = await ok(
+        api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+          params: { path: { tenant_id: tenant.id, id } },
+        }),
+      );
+      await ok(
+        api.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+          params: { path: { tenant_id: tenant.id, id }, header: { 'if-match': current.version } },
+          body: { elements },
+        }),
+      );
+    };
+    await arrange(edition, [guide.id, chapter.id, glossary.id]);
+    await arrange(chapter.id, [nested.id]);
+    await ok(
+      api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+        params: { path: { tenant_id: tenant.id, entity_id: glossary.id } },
+        body: {
+          title: 'Manuscript',
+          type: 'manuscript',
+          content: '**Ferry**: a boat crossing the river.',
+          is_public: false,
+          locale: 'en',
+        },
+      }),
+    );
+    const outline = async (id: string) => {
+      await page.goto(`/?tenant=${tenant.id}&entry=${id}&view=outline`);
+      await page
+        .locator('summary')
+        .filter({ hasText: /^Contents$/ })
+        .click();
+    };
+    await outline(edition);
+    await page.getByLabel('Show contents before the manuscript').check();
+    await page.getByLabel('Contents label template').fill('{title}');
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    let navigation = page.getByRole('navigation', { name: 'Contents', exact: true });
+    await expect(navigation.getByRole('link')).toHaveText([
+      'Guide',
+      'Crossing',
+      'Ferry',
+      'Glossary',
+    ]);
+    await navigation.getByRole('link', { name: 'Ferry', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`#element-${nested.id}$`));
+    await expect(page.locator(`#element-${nested.id}`)).toBeInViewport();
+    await outline(chapter.id);
+    await page.getByLabel('Include in contents', { exact: true }).uncheck();
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await outline(guide.id);
+    await page
+      .getByRole('combobox', { name: 'Chapter type', exact: true })
+      .selectOption('contents');
+    await page.getByLabel('Include in contents', { exact: true }).uncheck();
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await outline(glossary.id);
+    await page
+      .getByRole('combobox', { name: 'Chapter type', exact: true })
+      .selectOption('glossary');
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await outline(edition);
+    await page.getByLabel('Show contents before the manuscript').uncheck();
+    await page.getByLabel('Chapter levels to include').fill('1');
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    navigation = page.getByRole('navigation', { name: 'Contents', exact: true });
+    await expect(navigation.getByRole('link')).toHaveText(['Glossary']);
+    await expect(page.locator('article')).toContainText('Ferry: a boat crossing the river.');
+    await outline(edition);
+    await page.getByLabel('Chapter levels to include').fill('3');
+    await page.getByLabel('Contents label template').fill('<b>{title}</b>');
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(navigation.getByRole('link')).toHaveText(['<b>Ferry</b>', '<b>Glossary</b>']);
+    await expect(navigation.locator('b')).toHaveCount(0);
+    await expect(page.locator('article')).toContainText('Ferry: a boat crossing the river.');
+    await page.screenshot({ path: test.info().outputPath('contents-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath('contents-phone.png'), fullPage: true });
+    await page.goto(`/?tenant=${tenant.id}&review=${edition}`);
+    const reviewContents = page.getByRole('navigation', { name: 'Contents', exact: true });
+    await expect(reviewContents.getByRole('link')).toHaveText(['<b>Ferry</b>', '<b>Glossary</b>']);
+    await reviewContents.getByRole('link', { name: '<b>Glossary</b>', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`#review-entry-${glossary.id}$`));
+    await expect(page.locator(`#review-entry-${glossary.id}`)).toBeInViewport();
+  } finally {
+    await context.close();
+  }
+});
