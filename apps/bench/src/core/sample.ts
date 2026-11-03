@@ -239,7 +239,11 @@ export class SampleTransport implements Transport {
 
   async listStatDefinitions(): Promise<StatDef[]> {
     this.need();
-    return this.defs.map((d) => ({ ...d, enumValues: [...d.enumValues] }));
+    return this.defs.map((d) => ({
+      ...d,
+      enumValues: [...d.enumValues],
+      enumIds: d.enumValues.map((_, i) => `${d.id}:${i}`),
+    }));
   }
   async getEntry(id: string) {
     this.need();
@@ -662,5 +666,27 @@ export class SampleTransport implements Transport {
     this.need();
     const at = this.defs.findIndex((d) => d.id === statId);
     if (at >= 0) this.defs.splice(at, 1);
+  }
+  async renameStat(statId: string, name: string): Promise<StatDef> {
+    this.need();
+    const def = this.defs.find((d) => d.id === statId);
+    if (!def) throw new RefusedError('That stat is not there.');
+    if (name !== def.name && this.defs.some((d) => d.name.toLowerCase() === name.toLowerCase()))
+      throw new RefusedError(`There is a stat called ${name} already.`);
+    def.name = name;
+    return { ...def, enumValues: [...def.enumValues] };
+  }
+  async renameEnumValue(statId: string, valueId: string, value: string): Promise<StatDef> {
+    this.need();
+    const def = this.defs.find((d) => d.id === statId);
+    const at = def ? Number(valueId.split(':')[1]) : -1;
+    const old = def?.enumValues[at];
+    if (!def || old === undefined) throw new RefusedError('That value is not there.');
+    if (value !== old && def.enumValues.includes(value))
+      throw new RefusedError(`${value} is already allowed for ${def.name}.`);
+    def.enumValues[at] = value;
+    for (const row of this.rows.values())
+      if (row.stats.get(statId) === old) row.stats.set(statId, value);
+    return { ...def, enumValues: [...def.enumValues] };
   }
 }

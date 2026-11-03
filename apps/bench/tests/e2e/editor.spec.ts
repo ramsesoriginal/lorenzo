@@ -1537,6 +1537,40 @@ test.describe('formulas and the stat vocabulary', () => {
     await pane.getByRole('button', { name: 'Delete Rarity' }).click();
     await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toHaveCount(0);
   });
+
+  test('a stat and one of its values are renamed in place', async ({ page }) => {
+    await palette(page, 'Open Vocabulary');
+    const pane = page.locator('.pane-vocabulary');
+    await pane.getByLabel('Name of the new stat').fill('Rarity');
+    await pane.getByLabel('Kind of value').selectOption('enum');
+    await pane.getByLabel('Values', { exact: true }).fill('common, rare');
+    await pane.getByRole('button', { name: 'Make the stat' }).click();
+    const row = pane.locator('.vocab-stat', { hasText: 'Rarity' });
+    await expect(row).toContainText('common · rare');
+
+    await pane.getByRole('button', { name: 'Rename Rarity' }).click();
+    const input = pane.getByLabel('New name of Rarity');
+    await expect(input).toBeFocused();
+    await input.press('Escape');
+    await expect(pane.getByLabel('New name of Rarity')).toHaveCount(0);
+    await pane.getByRole('button', { name: 'Rename Rarity' }).click();
+    await pane.getByLabel('New name of Rarity').fill('Scarcity');
+    await pane.getByLabel('New name of Rarity').press('Enter');
+    await expect(pane.locator('.vocab-stat', { hasText: 'Scarcity' })).toContainText(
+      'common · rare',
+    );
+    await expect(pane.locator('.formula-note')).toHaveText('Renamed Rarity to Scarcity.');
+
+    await pane.getByRole('button', { name: 'Rename the value rare' }).click();
+    await pane.getByLabel('New name of rare').fill('common');
+    await pane.getByLabel('New name of rare').press('Enter');
+    await expect(pane.locator('.formula-note')).toContainText('common is already allowed');
+    await pane.getByLabel('New name of rare').fill('scarce');
+    await pane.getByLabel('New name of rare').press('Enter');
+    await expect(pane.locator('.vocab-stat', { hasText: 'Scarcity' })).toContainText(
+      'common · scarce',
+    );
+  });
 });
 
 test.describe('the status bar and the conflict review', () => {
