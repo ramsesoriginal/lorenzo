@@ -668,6 +668,7 @@ export const COVER_CANCEL = 'Cancel';
 export const COVER_REMOVE = 'Remove the cover';
 export const COVER_STAGED =
   'This is how it will look. Upload it to use it as the cover, or cancel.';
+export const COVER_UNREADABLE = 'That file could not be read as a picture.';
 export const COVER_UPLOADING = 'Uploading…';
 export const COVER_UPLOADED = 'The cover was updated.';
 export const COVER_REMOVING = 'Removing…';

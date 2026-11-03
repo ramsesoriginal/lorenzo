@@ -506,7 +506,18 @@ test('a repository with no cover says what Discover shows, takes one after a loo
     buffer: BLUE,
   });
   await expect(cover(page).locator('[data-cover-staged]')).toBeVisible();
-  await expect(cover(page).locator('[data-cover-staged-picture]')).toHaveAttribute('src', /^blob:/);
+  // The preview is drawn from the file itself: the canvas has pixels in it.
+  await expect
+    .poll(() =>
+      cover(page)
+        .locator('canvas[data-cover-staged-picture]')
+        .evaluate((canvas: HTMLCanvasElement) => {
+          const data = canvas.getContext('2d')?.getImageData(0, 0, 1, 1).data;
+
+          return data ? data[3] : 0;
+        }),
+    )
+    .toBeGreaterThan(0);
   await expect(cover(page)).toContainText(
     'This is how it will look. Upload it to use it as the cover, or cancel.',
   );

@@ -237,7 +237,14 @@ import ReleaseComposer from './ReleaseComposer.astro';
             </div>
           </div>
           <div class="stack-tight" data-cover-staged hidden>
-            <img class="discover-cover" alt="The picture you chose" data-cover-staged-picture />
+            <canvas
+              class="discover-cover"
+              width="600"
+              height="200"
+              role="img"
+              aria-label="The picture you chose"
+              data-cover-staged-picture
+            ></canvas>
             <p class="caption" role="status" data-cover-staged-text></p>
             <div class="row">
               <button type="button" class="btn btn-primary" data-cover-upload></button>

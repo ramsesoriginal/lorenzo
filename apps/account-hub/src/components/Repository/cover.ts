@@ -21,6 +21,7 @@ import {
   COVER_REMOVING,
   COVER_REPLACE,
   COVER_STAGED,
+  COVER_UNREADABLE,
   COVER_UPLOAD,
   COVER_UPLOADED,
   COVER_UPLOADING,
@@ -55,7 +56,7 @@ export function createCoverControls(
   const none = required<HTMLElement>(card, '[data-cover-none]');
   const initial = required<HTMLElement>(card, '[data-cover-initial]');
   const staged = required<HTMLElement>(card, '[data-cover-staged]');
-  const stagedPicture = required<HTMLImageElement>(card, '[data-cover-staged-picture]');
+  const stagedPicture = required<HTMLCanvasElement>(card, '[data-cover-staged-picture]');
   const upload = required<HTMLButtonElement>(card, '[data-cover-upload]');
   const cancel = required<HTMLButtonElement>(card, '[data-cover-cancel]');
   const help = required<HTMLElement>(card, '[data-cover-help]');
@@ -79,7 +80,6 @@ export function createCoverControls(
   let hasCover = false;
   let shownUrl: string | null = null;
   let chosen: File | null = null;
-  let stagedUrl: string | null = null;
   // Whatever was asked last paints.
   let turn = 0;
 
@@ -90,13 +90,42 @@ export function createCoverControls(
   }
 
   function unstage(): void {
-    if (stagedUrl) URL.revokeObjectURL(stagedUrl);
-
-    stagedUrl = null;
     chosen = null;
     file.value = '';
     staged.hidden = true;
-    stagedPicture.removeAttribute('src');
+    stagedPicture.getContext('2d')?.clearRect(0, 0, stagedPicture.width, stagedPicture.height);
+  }
+
+  // The chosen file is drawn, cropped to the cover's shape as Discover shows it, rather than
+  // handed to an image element by address.
+  async function drawStaged(picked: File): Promise<boolean> {
+    try {
+      const bitmap = await createImageBitmap(picked);
+      const context = stagedPicture.getContext('2d');
+
+      if (!context) return false;
+
+      const scale = Math.max(
+        stagedPicture.width / bitmap.width,
+        stagedPicture.height / bitmap.height,
+      );
+      const width = bitmap.width * scale;
+      const height = bitmap.height * scale;
+
+      context.clearRect(0, 0, stagedPicture.width, stagedPicture.height);
+      context.drawImage(
+        bitmap,
+        (stagedPicture.width - width) / 2,
+        (stagedPicture.height - height) / 2,
+        width,
+        height,
+      );
+      bitmap.close();
+
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function paintState(): void {
@@ -162,20 +191,21 @@ export function createCoverControls(
 
     unstage();
     chosen = picked;
-    const local = URL.createObjectURL(picked);
-
-    // Only a blob: address made here is ever shown; anything else is dropped.
-    if (!local.startsWith('blob:')) {
-      URL.revokeObjectURL(local);
-      file.value = '';
-
-      return;
-    }
-
-    stagedUrl = local;
-    stagedPicture.src = local;
-    staged.hidden = false;
     say(status, '');
+
+    void drawStaged(picked).then((drawn) => {
+      // A newer choice, or Cancel, has already replaced this one.
+      if (chosen !== picked) return;
+
+      if (!drawn) {
+        unstage();
+        say(status, COVER_UNREADABLE, true);
+
+        return;
+      }
+
+      staged.hidden = false;
+    });
   });
 
   cancel.addEventListener('click', () => {
