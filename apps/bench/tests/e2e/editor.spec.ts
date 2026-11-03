@@ -8,6 +8,7 @@ type SampleWindow = {
     offline: boolean;
     writes: { id: string; field: string; value: unknown }[];
     renameElsewhere(id: string, name: string): void;
+    libraries: Map<string, number>;
     editTextElsewhere(id: string, which: string, text: string): void;
     setStatElsewhere(id: string, statId: string, value: unknown): void;
   };
