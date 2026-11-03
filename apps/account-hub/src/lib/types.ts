@@ -68,6 +68,7 @@ export type MakePublicRequest = Schema<'MakePublicRequest'>;
 export type MadePrivateOut = Schema<'MadePrivateOut'>;
 export type RepositoryProfileOut = Schema<'RepositoryProfileOut'>;
 export type MemberProfileOut = Schema<'MemberProfileOut'>;
+export type RepositoryProfileUpdate = Schema<'RepositoryProfileUpdate'>;
 export type DelistedOut = Schema<'DelistedOut'>;
 export type DeprecatedOut = Schema<'DeprecatedOut'>;
 export type DeprecatedNoticeOut = Schema<'DeprecatedNoticeOut'>;

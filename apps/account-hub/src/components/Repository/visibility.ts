@@ -41,13 +41,12 @@ import {
   privateAcknowledgement,
   privateBlockers,
   publicBlockers,
-  SUMMARY_HELP,
-  summaryCount,
   TERMS_LINE,
   VISIBILITY_HEADING,
   visibilityCard,
 } from '../../lib/visibility';
 import { createComposer } from './composer';
+import { bindSummaryField } from './summaryField';
 
 const required = requiredIn('Repository');
 
@@ -64,8 +63,13 @@ type Mode = 'public' | 'private';
 export function createVisibilityControls(
   root: HTMLElement,
   onDone: () => void,
-  // Told what the repository is once the check was read, for what depends on it (a public one is not unpublished).
-  onKnown: (visibility: FlipCheckOut['visibility']) => void,
+  // Told what the repository is once the check was read, for what depends on it (a public one is not
+  // unpublished, and the readiness list is drawn from the same read, ADR 0385).
+  onKnown: (
+    visibility: FlipCheckOut['visibility'],
+    check: FlipCheckOut,
+    repository: TenantSummaryOut,
+  ) => void,
 ): VisibilityControls {
   const card = required<HTMLElement>(root, '[data-visibility]');
   const state = required<HTMLElement>(card, '[data-visibility-state]');
@@ -84,8 +88,12 @@ export function createVisibilityControls(
   const warningList = required<HTMLElement>(dialog, '[data-vis-warning-list]');
   const lines = required<HTMLElement>(dialog, '[data-vis-lines]');
   const publicFields = required<HTMLElement>(dialog, '[data-vis-public]');
-  const summary = required<HTMLTextAreaElement>(dialog, '[data-vis-summary]');
-  const summaryCountLine = required<HTMLElement>(dialog, '[data-vis-summary-count]');
+  // The same field, bound by the same helper, as the Profile tab's (ADR 0385).
+  const summary = bindSummaryField({
+    input: required<HTMLTextAreaElement>(dialog, '[data-vis-summary]'),
+    help: required<HTMLElement>(dialog, '[data-vis-summary-help]'),
+    count: required<HTMLElement>(dialog, '[data-vis-summary-count]'),
+  });
   const previewFieldset = required<HTMLElement>(dialog, '[data-vis-preview]');
   const terms = required<HTMLInputElement>(dialog, '[data-vis-terms]');
   const ackRow = required<HTMLElement>(dialog, '[data-vis-ack-row]');
@@ -97,7 +105,6 @@ export function createVisibilityControls(
   const composer = createComposer(dialog);
 
   required<HTMLElement>(card, '[data-visibility-heading]').textContent = VISIBILITY_HEADING;
-  required<HTMLElement>(dialog, '[data-vis-summary-help]').textContent = SUMMARY_HELP;
   required<HTMLElement>(dialog, '[data-vis-preview-legend]').textContent = PREVIEW_LEGEND;
   required<HTMLElement>(dialog, '[data-vis-terms-text]').textContent = TERMS_LINE;
 
@@ -159,7 +166,7 @@ export function createVisibilityControls(
   function currentForm(): MakePublicForm {
     return {
       ...composer.form(),
-      summary: summary.value,
+      summary: summary.value(),
       preview: chosenPreview(),
       terms: terms.checked,
     };
@@ -233,8 +240,7 @@ export function createVisibilityControls(
       terms.checked = false;
 
       if (profile && preview) {
-        summary.value = profile.summary;
-        summaryCountLine.textContent = summaryCount(summary.value);
+        summary.set(profile.summary);
         for (const choice of PREVIEW_CHOICES) {
           const radio = radios[choice.value];
 
@@ -273,9 +279,6 @@ export function createVisibilityControls(
     if (check) void open(check.visibility === 'public' ? 'private' : 'public');
   });
   cancel.addEventListener('click', () => dialog.close());
-  summary.addEventListener('input', () => {
-    summaryCountLine.textContent = summaryCount(summary.value);
-  });
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -354,7 +357,7 @@ export function createVisibilityControls(
     if (shown !== repository) return;
 
     check = read;
-    onKnown(read.visibility);
+    onKnown(read.visibility, read, repository);
 
     const content = visibilityCard(read, repository.role);
 

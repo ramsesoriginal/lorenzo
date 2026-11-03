@@ -21,8 +21,9 @@ import {
 } from '../../lib/discover';
 import { listPublicRepositories } from '../../lib/discoverApi';
 import { sayError } from '../../lib/statusLine';
-import { cloneRoot, requiredIn } from '../../lib/template';
+import { requiredIn } from '../../lib/template';
 import type { DiscoverFacetsOut } from '../../lib/types';
+import { paintCard } from './card';
 import { showCover } from './cover';
 
 const required = requiredIn('Discover list');
@@ -159,32 +160,7 @@ export function createList(
 
       results.replaceChildren(
         ...page.items.map((item) => {
-          const lines = cardLines(item);
-          const card = cloneRoot(root, '[data-card-template]');
-          const name = required<HTMLAnchorElement>(card, '[data-name]');
-
-          name.textContent = lines.name;
-          name.href = storefrontHref(item.id);
-          required<HTMLElement>(card, '[data-summary]').textContent = lines.summary;
-
-          const tags = required<HTMLElement>(card, '[data-tags]');
-
-          tags.replaceChildren(
-            ...lines.tags.map((text) => {
-              const tagItem = cloneRoot(root, '[data-tag-template]');
-
-              required<HTMLElement>(tagItem, '[data-text]').textContent = text;
-
-              return tagItem;
-            }),
-          );
-          tags.hidden = lines.tags.length === 0;
-          required<HTMLElement>(card, '[data-meta]').textContent = lines.meta.join(' · ');
-
-          const publishedBy = required<HTMLElement>(card, '[data-published-by]');
-
-          publishedBy.textContent = lines.publishedBy ?? '';
-          publishedBy.hidden = lines.publishedBy === null;
+          const card = paintCard(root, cardLines(item), storefrontHref(item.id));
 
           showCover(
             required<HTMLImageElement>(card, '[data-picture]'),

@@ -1,0 +1,27 @@
+---
+// A repository as Discover's list draws it (ADR 0292), as two <template>s: the card and one of its
+// tags. Filled by paintCard (card.ts), in the list on /discover and in Studio's preview of the
+// profile (ADR 0385), so the preview is the card and not a copy of it.
+---
+
+<template data-card-template>
+  <li class="row discover-card">
+    <img class="repository-picture" alt="" width="64" height="64" data-picture hidden />
+    <span class="avatar-placeholder repository-initial" aria-hidden="true" data-initial></span>
+    <div class="grow stack-tight discover-card-body">
+      <h3>
+        <a class="shelf-link" href="/discover/" data-link data-name></a>
+      </h3>
+      <p data-summary></p>
+      <ul class="discover-tags" aria-label="Tags" data-tags></ul>
+      <p class="campaign-meta" data-meta></p>
+      <p class="campaign-meta" data-published-by hidden></p>
+    </div>
+  </li>
+</template>
+
+<template data-tag-template>
+  <li>
+    <span class="pill" data-text></span>
+  </li>
+</template>
