@@ -23,34 +23,43 @@ export async function getFacets(): Promise<DiscoverFacetsOut> {
 }
 
 // A page of the public repositories. A listing too deep is refused (`discover-too-deep`), and is
-// thrown for the page to say.
+// thrown for the page to say. It is always asked for, and never answered from what was held: a
+// repository its Owner retires (ADR 0383), or an operator delists, leaves it at once, and a held
+// answer would go on offering it to copy.
 export async function listPublicRepositories(query: DiscoverQuery): Promise<DiscoverPageOut> {
   const params = listQuery(query);
 
-  return cached(`discover:${JSON.stringify(params)}`, async () =>
-    unwrap(await client.GET('/discover/repositories', { params: { query: params } })),
+  return cached(
+    `discover:${JSON.stringify(params)}`,
+    async () => unwrap(await client.GET('/discover/repositories', { params: { query: params } })),
+    { force: true },
   );
 }
 
-// A repository's page, or null for one that is not listed: private, not released yet, or not
-// there. That is a state to show, not a failure.
+// A repository's page, or null for one that is not listed: private, not released yet, retired by its
+// Owner (ADR 0383), delisted or not there. That is a state to show, not a failure. Always asked for,
+// never answered from what was held, for the reason the listing is not.
 export async function getStorefront(repositoryId: string): Promise<StorefrontOut | null> {
-  return cached(`storefront:${repositoryId}`, async () => {
-    try {
-      // `return await`, so that a refusal is caught here and not after it has left.
-      return await unwrap(
-        await client.GET('/discover/repositories/{repository_id}', {
-          params: { path: { repository_id: repositoryId } },
-        }),
-      );
-    } catch (cause) {
-      if (cause instanceof LorenzoApiError && (cause.status === 404 || cause.status === 422)) {
-        return null;
-      }
+  return cached(
+    `storefront:${repositoryId}`,
+    async () => {
+      try {
+        // `return await`, so that a refusal is caught here and not after it has left.
+        return await unwrap(
+          await client.GET('/discover/repositories/{repository_id}', {
+            params: { path: { repository_id: repositoryId } },
+          }),
+        );
+      } catch (cause) {
+        if (cause instanceof LorenzoApiError && (cause.status === 404 || cause.status === 422)) {
+          return null;
+        }
 
-      throw cause;
-    }
-  });
+        throw cause;
+      }
+    },
+    { force: true },
+  );
 }
 
 // What a public repository has released, newest first, with the notes of each.

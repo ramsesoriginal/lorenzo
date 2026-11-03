@@ -11,6 +11,7 @@ import type {
   CopyOut,
   CopyPlanOut,
   CopyRequest,
+  DeprecatedOut,
   FlipCheckOut,
   MadePrivateOut,
   MakePublicRequest,
@@ -27,6 +28,7 @@ import type {
   SubscriberOut,
   SubscribersSummaryOut,
   SubscriptionOut,
+  UndeprecatedOut,
   UpdatesOut,
 } from './types';
 
@@ -366,6 +368,31 @@ export async function makePrivate(
         path: { tenant_id: repositoryId },
         query: { acknowledge_revokes: acknowledgeRevokes },
       },
+    }),
+  );
+}
+
+// Retires it (ADR 0383): the libraries that copied it keep their copy and its updates, nobody can copy
+// it any more, it leaves Discover, and the libraries that hold it are told. The message is optional and
+// the libraries read it. Retiring a retired repository changes the message only. An Owner's.
+export async function retireRepository(
+  repositoryId: string,
+  body: { message?: string },
+): Promise<DeprecatedOut> {
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/deprecation', {
+      params: { path: { tenant_id: repositoryId } },
+      body,
+    }),
+  );
+}
+
+// Brings a retired repository back: it can be copied again, and the libraries that hold it are told.
+// An Owner's.
+export async function bringRepositoryBack(repositoryId: string): Promise<UndeprecatedOut> {
+  return unwrap(
+    await client.DELETE('/tenants/{tenant_id}/deprecation', {
+      params: { path: { tenant_id: repositoryId } },
     }),
   );
 }

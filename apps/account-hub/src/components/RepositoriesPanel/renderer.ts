@@ -21,6 +21,7 @@ import {
   listRepositoryEntries,
   listRepositoryStatGroups,
 } from '../../lib/repositories';
+import { retiredHere } from '../../lib/retiring';
 import {
   attachmentsSentence,
   broughtSentence,
@@ -158,6 +159,10 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     name: required<HTMLElement>(detailView, '[data-name]'),
     state: required<HTMLElement>(detailView, '[data-state]'),
     explanation: required<HTMLElement>(detailView, '[data-explanation]'),
+    retired: required<HTMLElement>(detailView, '[data-retired]'),
+    retiredPill: required<HTMLElement>(detailView, '[data-retired-pill]'),
+    retiredSentence: required<HTMLElement>(detailView, '[data-retired-sentence]'),
+    retiredMessage: required<HTMLElement>(detailView, '[data-retired-message]'),
     description: required<HTMLElement>(detailView, '[data-description]'),
     insideSection: required<HTMLElement>(detailView, '[data-inside-section]'),
     inside: required<HTMLElement>(detailView, '[data-inside]'),
@@ -233,6 +238,17 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
           repository.description,
         );
         stateElement(required<HTMLElement>(card, '[data-state]'), shelfState(subscription));
+
+        // Retired by its Owner (ADR 0383): said on the card, with the Owner's words.
+        const retired = retiredHere(subscription.deprecated, subscription.copied_at !== null);
+        const retiredBox = required<HTMLElement>(card, '[data-retired]');
+
+        retiredBox.hidden = retired === null;
+
+        if (retired) {
+          required<HTMLElement>(card, '[data-retired-pill]').textContent = retired.pill;
+          required<HTMLElement>(card, '[data-retired-message]').textContent = retired.message ?? '';
+        }
 
         return card;
       }),
@@ -398,16 +414,29 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     showPicture(detail.picture, detail.initial, repository);
     detail.name.textContent = repository.name;
     stateElement(detail.state, state);
+    // Retired by its Owner (ADR 0383): the library keeps what it copied and its updates, cannot copy
+    // it again, and reads the Owner's words. A library that never copied it is told only that.
+    const retired = retiredHere(subscription.deprecated, subscription.copied_at !== null);
+
+    detail.retired.hidden = retired === null;
     detail.explanation.textContent = SHELF_STATE_EXPLANATION[state];
+    detail.explanation.hidden = retired !== null && state === 'not-copied';
+
+    if (retired) {
+      detail.retiredPill.textContent = retired.pill;
+      detail.retiredSentence.textContent = retired.sentence;
+      detail.retiredMessage.textContent = retired.message ?? '';
+      detail.retiredMessage.hidden = retired.message === null;
+    }
 
     // Updates: for a copy of what is still offered and published.
     detail.updatesActions.hidden = state !== 'copied' && state !== 'update-announced';
     detail.updatesLink.href = updatesHref(library.slug, repository.id);
 
     // Copying: a first copy of what is offered and not yet copied, another of what is copied.
-    detail.actions.hidden = state !== 'not-copied';
+    detail.actions.hidden = state !== 'not-copied' || retired !== null;
     detail.copyLink.href = shelfHref(library.slug, repository.id, 'new');
-    detail.more.hidden = subscription.copied_at === null;
+    detail.more.hidden = subscription.copied_at === null || retired !== null;
     detail.more.open = false;
     detail.copyAgainLink.href = shelfHref(library.slug, repository.id, 'again');
     showLorenzoScript(detail.description, repository.description);
@@ -474,8 +503,12 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     detail.brought.hidden = !subscription.contributed;
     detail.historySection.hidden = detail.history.children.length === 0;
 
+    // A retired repository has no plan to count (nothing can be copied), but its holders read it as
+    // they did: its entries and stat groups, and what its Owner opened for a look.
+    const browsable = Boolean(step) || (retired !== null && canLookInside);
+
     // What the Owner opened for a look, for a repository that can be looked inside.
-    if (step) {
+    if (browsable) {
       const looking = { libraryId: library.id, repositoryId: repository.id };
 
       void lookInside
@@ -491,8 +524,8 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     }
 
     // Entries and stat groups are read when their section is opened.
-    detail.entriesSection.hidden = !step;
-    detail.statGroupsSection.hidden = !step;
+    detail.entriesSection.hidden = !browsable;
+    detail.statGroupsSection.hidden = !browsable;
     detail.entriesError.hidden = true;
     detail.statGroupsError.hidden = true;
     detail.entriesEmpty.hidden = true;

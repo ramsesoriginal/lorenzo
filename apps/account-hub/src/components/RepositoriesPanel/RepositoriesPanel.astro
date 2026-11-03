@@ -50,6 +50,15 @@ import Preview from '../Preview/Preview.astro';
 
     <p data-explanation></p>
 
+    <!-- Retired by its Owner (ADR 0383): what the library keeps, and what the Owner said. -->
+    <div class="stack-tight" role="status" data-retired hidden>
+      <p class="row">
+        <span class="pill pill-warning" data-retired-pill></span>
+        <strong data-retired-sentence></strong>
+      </p>
+      <p data-retired-message hidden></p>
+    </div>
+
     <p data-updates-actions hidden>
       <a class="btn btn-primary" href="/repositories/" data-link data-updates-link>
         Check for updates
@@ -505,6 +514,10 @@ import Preview from '../Preview/Preview.astro';
       <div class="grow stack-tight">
         <a class="shelf-link" href="/repositories/" data-link></a>
         <span class="campaign-meta" data-description></span>
+        <span class="row" data-retired hidden>
+          <span class="pill pill-warning" data-retired-pill></span>
+          <span class="campaign-meta" data-retired-message></span>
+        </span>
       </div>
       <span data-state></span>
     </li>

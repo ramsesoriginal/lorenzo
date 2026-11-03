@@ -294,6 +294,9 @@ export type CopySubject = {
   name: string;
   // Whether the library can copy it from where it stands: offered to it (or public) and published.
   offered: boolean;
+  // Set when its Owner retired it (ADR 0383): it cannot be copied again by any library, one that
+  // holds a copy included. Absent otherwise.
+  retired?: true;
   copied: boolean;
   // A public repository the library has no invitation to: said so where a stack falls short.
   public: boolean;
@@ -308,10 +311,14 @@ export function subjectOfSubscription(
   return {
     id: subscription.repository.id,
     name: subscription.repository.name,
-    offered: subscription.granted_at !== null && subscription.repository.published_at !== null,
+    offered:
+      subscription.granted_at !== null &&
+      subscription.repository.published_at !== null &&
+      !subscription.deprecated,
     copied: subscription.copied_at !== null,
     public: false,
     backHref: shelfHref(library.slug, subscription.repository.id),
+    ...(subscription.deprecated ? { retired: true as const } : {}),
   };
 }
 
