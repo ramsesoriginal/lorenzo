@@ -3,6 +3,7 @@ import { createEditor, type Editor } from '@lorenzo/lorenzoscript-editor';
 import { client, loadFile, unwrap } from './api';
 import { contentsNavigation } from './contents';
 import { numberedTitle } from './numbering';
+import { readingCount } from './word-count';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -94,6 +95,7 @@ export async function reviewScreen(
       if (!byId.has(draft.entry))
         draft = { id: crypto.randomUUID(), entry: edition, content: '', version: undefined };
       host.append(node('h1', data.book_name), node('p', 'Review — manuscript and private notes'));
+      const passages: HTMLElement[] = [];
       const article = node('article');
       article.className = 'ls-content';
       host.append(article);
@@ -125,6 +127,7 @@ export async function reviewScreen(
           const section = node('section');
           section.innerHTML = render(parse(part.content ?? ''), { externalImages: false });
           article.append(section);
+          passages.push(section);
         } else if (part.url) {
           const image = node('img');
           image.alt = 'Manuscript illustration';
@@ -138,6 +141,7 @@ export async function reviewScreen(
           image.src = url;
         }
       }
+      article.before(readingCount(article, passages));
       const status = node('p');
       status.setAttribute('role', 'status');
       status.setAttribute('aria-label', 'Review status');

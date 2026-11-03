@@ -8,6 +8,7 @@ import { moveControls } from './manuscript-move';
 import { splitControls } from './manuscript-split';
 import { numberedTitle, numberingControls, numberingOf } from './numbering';
 import { reviewAddress } from './review';
+import { readingCount } from './word-count';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -133,6 +134,7 @@ export async function compositionScreen(
     return;
   }
   if (reading || !['edition', 'chapter'].includes(current.kind)) {
+    const passages: HTMLElement[] = [];
     const article = node('article');
     article.className = 'ls-content';
     host.append(article);
@@ -225,6 +227,7 @@ export async function compositionScreen(
         part.id = `element-${task.payload.id}`;
         part.innerHTML = render(parse(task.payload.content), { externalImages: false });
         article.append(part);
+        passages.push(part);
       } else if (task.payload.kind === 'picture') {
         const img = node('img');
         img.id = `element-${task.payload.id}`;
@@ -233,6 +236,7 @@ export async function compositionScreen(
         article.append(img);
       }
     }
+    article.before(readingCount(article, passages));
     if (location.hash.startsWith('#element-'))
       document.getElementById(location.hash.slice(1))?.scrollIntoView();
     return;

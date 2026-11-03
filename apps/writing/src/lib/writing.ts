@@ -25,6 +25,7 @@ import {
   writeDraft,
 } from './drafts';
 import { reviewAddress, reviewScreen } from './review';
+import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
 
 const message = (error: unknown) =>
@@ -539,7 +540,21 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
       actions.append(link);
     }
 
-  host.replaceChildren(back, heading, actions, status, warning, conflicts, area, details, history);
+  const count = draftCount(() =>
+    editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
+  );
+  host.replaceChildren(
+    back,
+    heading,
+    actions,
+    status,
+    warning,
+    conflicts,
+    area,
+    count.element,
+    details,
+    history,
+  );
 
   let editor: ReturnType<typeof renderBundleEditor>;
 
@@ -609,6 +624,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     });
 
     area.replaceChildren(editor.element);
+    count.refresh();
     observed = fingerprint(editor.read());
   }
 
@@ -618,6 +634,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     const next = fingerprint(editor.read());
     if (next === observed) return;
     observed = next;
+    count.refresh();
     dirty = true;
 
     void persist();

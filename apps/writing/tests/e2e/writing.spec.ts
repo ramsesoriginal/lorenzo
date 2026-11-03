@@ -549,6 +549,10 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await expect(reviewPage.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveCount(
       0,
     );
+    await reviewPage.getByText('Word count', { exact: true }).click();
+    await expect(
+      reviewPage.getByText('Assembled manuscript · 6 words', { exact: true }),
+    ).toBeVisible();
     await reviewPage
       .getByLabel('Review note', { exact: true })
       .fill('Could the bridge appear earlier?');
@@ -584,6 +588,7 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await expect(reviewPage.locator('article')).toHaveCount(0, { timeout: 40000 });
     await expect(reviewPage.getByRole('alert')).toBeVisible();
     await expect(reviewPage.getByLabel('Review note', { exact: true })).toHaveCount(0);
+    await expect(reviewPage.getByText('Word count', { exact: true })).toHaveCount(0);
     await reviewPage.reload();
     await expect(reviewPage.getByRole('alert')).toBeVisible();
     await expect(reviewPage.locator('article')).toHaveCount(0);
@@ -1253,6 +1258,95 @@ test('structural contents link Chapters while special Chapters keep authored tex
     await reviewContents.getByRole('link', { name: '<b>Glossary</b>', exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#review-entry-${glossary.id}$`));
     await expect(page.locator(`#review-entry-${glossary.id}`)).toBeInViewport();
+  } finally {
+    await context.close();
+  }
+});
+
+test('word counts measure direct prose, repeated Carrier passages and highlighted text', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry');
+    if (!scene) throw new Error('Scene did not open');
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await page.getByText('Word count', { exact: true }).click();
+    await expect(page.getByText('Current draft · 0 words', { exact: true })).toBeVisible();
+    const source =
+      '# Étoile\n\nThe [water**fall**](https://example.test/extra/words) sings.[^n] 猫[^n]\n\n{{TOC}}\n\n`omit these words` $x$\n\n[^n]: One small note.';
+    await manuscript.fill(source);
+    await expect(page.getByText('Current draft · 8 words', { exact: true })).toBeVisible();
+    await expect(manuscript).toBeFocused();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const entry = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: scene } },
+      }),
+    );
+    const payload = entry.elements.find((item) => item.kind === 'payload');
+    if (!payload) throw new Error('Scene prose was not saved');
+    const carrier = await ok(
+      api.POST('/tenants/{tenant_id}/writing/carriers', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'Long title outside the word count' },
+      }),
+    );
+    await ok(
+      api.PUT('/tenants/{tenant_id}/writing/carriers/{id}/coverage', {
+        params: {
+          path: { tenant_id: tenant.id, id: carrier.id },
+          header: { 'if-match': carrier.version },
+        },
+        body: {
+          elements: [
+            { id: randomUUID(), target_entity_id: scene },
+            { id: randomUUID(), target_payload_id: payload.id },
+          ],
+        },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${carrier.id}&view=read`);
+    await page.getByText('Word count', { exact: true }).click();
+    await expect(page.getByText('Assembled manuscript · 16 words', { exact: true })).toBeVisible();
+    await page.getByText('Choose passages', { exact: true }).click();
+    const choices = page.getByRole('checkbox', { name: /^Passage / });
+    await expect(choices).toHaveCount(2);
+    await choices.first().check();
+    await expect(page.getByText('Chosen passages · 8 words', { exact: true })).toBeVisible();
+    await choices.last().check();
+    await expect(page.getByText('Chosen passages · 16 words', { exact: true })).toBeVisible();
+    await page
+      .getByRole('link', { name: 'waterfall', exact: true })
+      .first()
+      .evaluate((link) => {
+        const range = document.createRange();
+        range.selectNodeContents(link);
+        const selection = document.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      });
+    await expect(page.getByText('Highlighted passage · 1 word', { exact: true })).toBeVisible();
+    await page.locator('article').evaluate((article) => {
+      const blocks = article.querySelectorAll(':scope > section');
+      const start = blocks[0].querySelector('.ls-footnotes p')?.firstChild;
+      const end = blocks[1].querySelector('h1')?.firstChild;
+      if (!start || !end) throw new Error('Missing rendered footnote or heading');
+      const range = document.createRange();
+      range.setStart(start, (start.textContent ?? '').indexOf('note') + 1);
+      range.setEnd(end, 3);
+      const selection = document.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
+    await expect(page.getByText('Highlighted passage · 2 words', { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    // The count UI introduces no new accessibility violations.
+    expect((await new AxeBuilder({ page }).include('details').analyze()).violations).toEqual([]);
   } finally {
     await context.close();
   }

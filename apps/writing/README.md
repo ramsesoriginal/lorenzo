@@ -78,7 +78,7 @@ separate from titles. Open Numbering in an Edition's outline (or an unassigned C
 to choose each level's format, start and parent restart behavior. Chapter controls can override
 a number, leave a Chapter unnumbered, restart or end a sequence. Outlines, continuous reading
 and Book reviews show the resulting labels. Moving Chapters recalculates them; copies retain
-the settings. Hidden Chapters do not leave numbering gaps. Word counts are later.
+the settings. Hidden Chapters do not leave numbering gaps.
 
 **Structural contents and special Chapters** ([ADR 0381](../../docs/adr/0381-structural-contents-and-special-chapters.md))
 use the closed Contents control in Outline. An Edition or standalone Chapter tree chooses its
@@ -87,6 +87,12 @@ included or excluded independently; included descendants remain listed. Contents
 the generated list before their authored prose. Index and Glossary Chapters stay authored
 LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
 combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
+
+**Word count** ([ADR 0382](../../docs/adr/0382-manuscript-word-counts.md)) measures the current
+direct prose in Write, including unsaved edits. In Read or a Book review, open Word count to
+measure the assembled manuscript, highlight a displayed passage or choose text blocks. Repeated
+Carrier references count on every appearance. Referenced footnote prose counts once per block.
+Generated navigation, code, math, notes and structural titles contribute no words.
 
 ## Run and verify
 
