@@ -27,9 +27,9 @@ description = "Run the unit test suite (Vitest)"
 depends = ["install"]
 run = "pnpm run test"
 
-# Not part of `check`/CI's default gate yet — needs a running apps/api and a
-# real (or fake) Authgear session to be meaningful; see ADR 0071. Run
-# locally once the Foundation slice's dev environment is set up.
+# Needs a running apps/api and a real (or fake) Authgear session to be meaningful; see ADR
+# 0071. Not part of `check`: CI runs these specs inside the account-hub-real-api job
+# (`test:real-api:ci`), which starts the API and a fake Authgear.
 [tasks.test-e2e]
 description = "Run the e2e test suite (Playwright) — see ADR 0071"
 depends = ["install"]

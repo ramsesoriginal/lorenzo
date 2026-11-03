@@ -1,7 +1,8 @@
 """ADR 0213 through the real HTTP API: what a repository says about itself. An Owner
 edits the profile and its cover, every member reads it, a library the repository is
-granted to (and published to) reads it through the gated read, and `public` is
-refused until the gates that come before it are built.
+granted to (and published to) reads it through the gated read, and visibility
+changes through its own route and `public` is refused while the deployment has public
+repositories off.
 """
 
 import uuid

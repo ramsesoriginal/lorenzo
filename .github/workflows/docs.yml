@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: DavidAnson/markdownlint-cli2-action@v24
+      - uses: DavidAnson/markdownlint-cli2-action@v25
         with:
           # CHANGELOG.md is bot-written (release-please) and its template
           # produces double blank lines between sections - not something a
@@ -34,4 +34,7 @@ jobs:
           # localhost in a CI runner. CHANGELOG.md's own compare-link points
           # at a tag (e.g. api-v0.2.0) that only starts existing once
           # release-please's PR merges - always a 404 while the PR is open.
-          args: --no-progress --exclude 'localhost' --exclude-path 'CHANGELOG\.md$' '**/*.md'
+          # deepwiki.com (the README's "Ask DeepWiki" badge) answers every
+          # non-browser client with HTTP 429, a bot challenge, so the link
+          # cannot be checked from a runner.
+          args: --no-progress --exclude 'localhost' --exclude 'deepwiki\.com' --exclude-path 'CHANGELOG\.md$' '**/*.md'

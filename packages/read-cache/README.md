@@ -1,6 +1,6 @@
 # @lorenzo/read-cache
 
-A cache of what an app reads from the API, kept in front of `fetch`, and a bounded prefetch queue ([ADR 0325](../../docs/adr/0325-one-read-cache-and-what-it-may-hold.md)). Calendars and Sessions use it. It is bounded session memory, never an offline grant and never authorization: the API still decides every read and write, and a held answer is only ever served to the viewer it was read for.
+A cache of what an app reads from the API, kept in front of `fetch`, and a bounded prefetch queue ([ADR 0325](../../docs/adr/0325-one-read-cache-and-what-it-may-hold.md)). Calendars, Sessions and Maps use it. It is bounded session memory, never an offline grant and never authorization: the API still decides every read and write, and a held answer is only ever served to the viewer it was read for.
 
 ## Using it
 
