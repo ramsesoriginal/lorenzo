@@ -396,6 +396,36 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
         };
       }),
 
+    countLibraries: (kind, id) =>
+      guarded(async () => {
+        const read =
+          kind === 'entry'
+            ? await client.GET('/tenants/{tenant_id}/entities/{entity_id}/libraries', {
+                params: { path: { ...path, entity_id: id } },
+              })
+            : kind === 'stat'
+              ? await client.GET(
+                  '/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/libraries',
+                  {
+                    params: { path: { ...path, stat_definition_id: id } },
+                  },
+                )
+              : await client.GET('/tenants/{tenant_id}/stat-groups/{stat_group_id}/libraries', {
+                  params: { path: { ...path, stat_group_id: id } },
+                });
+        return (await unwrap(read)).count;
+      }),
+
+    deleteEntry: (entryId, version) =>
+      guarded(async () => {
+        await unwrap(
+          await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}', {
+            params: { path: { ...path, entity_id: entryId }, header: ifMatch(version) },
+          }),
+        );
+        kinds.delete(entryId);
+      }),
+
     deleteStat: (statId) =>
       guarded(async () => {
         await unwrap(

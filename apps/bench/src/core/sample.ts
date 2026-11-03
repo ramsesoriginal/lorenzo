@@ -61,7 +61,8 @@ export type SampleWrite =
   | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string }
   | { id: string; field: `stat:${string}`; value: StatScalar | null }
   | { id: string; field: 'note.order'; value: string[] }
-  | { id: string; field: 'note.public'; value: boolean };
+  | { id: string; field: 'note.public'; value: boolean }
+  | { id: string; field: 'delete'; value: true };
 
 const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
 
@@ -657,6 +658,22 @@ export class SampleTransport implements Transport {
     };
     this.defs.push(made);
     return made;
+  }
+  /** How many libraries have copied each entry, for tests of the delete warning. */
+  libraries = new Map<string, number>();
+  async countLibraries(_kind: 'entry' | 'stat' | 'stat-group', id: string): Promise<number> {
+    this.need();
+    return this.libraries.get(id) ?? 0;
+  }
+  async deleteEntry(id: string, etag: string | null): Promise<void> {
+    this.need();
+    this.guard(id, etag);
+    this.rows.delete(id);
+    for (const other of this.rows.values()) {
+      other.parents = other.parents.filter((p) => p !== id);
+      if (other.heldBy === id) other.heldBy = undefined;
+    }
+    this.writes.push({ id, field: 'delete', value: true });
   }
   async deleteStat(statId: string): Promise<void> {
     this.need();

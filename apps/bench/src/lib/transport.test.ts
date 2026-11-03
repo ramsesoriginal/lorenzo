@@ -34,7 +34,7 @@ function setup(answer: (r: Request, calls: Call[]) => Response | Promise<Respons
         ifMatch: request.headers.get('if-match'),
         body,
       });
-      if (request.url.includes('/stat-definitions')) {
+      if (request.method === 'GET' && request.url.includes('/stat-definitions?')) {
         return json({ items: definitions, total: 2, page: 1, size: 100, pages: 1 });
       }
       return answer(request, calls);
@@ -548,6 +548,42 @@ describe('apiTransport', () => {
       });
       await transport.setStat(E, FLOAT, 1.25, '"v"');
       expect(body).toBe('{"value":1.25,"acquire_group":true}');
+    });
+  });
+
+  describe('deleting, and the libraries that copied it', () => {
+    const base = `/tenants/${T}`;
+
+    it('counts the libraries of an entry, a stat and a stat group, each from its own route', async () => {
+      const { transport, calls } = setup(() => json({ count: 3 }));
+      expect(await transport.countLibraries('entry', E)).toBe(3);
+      expect(await transport.countLibraries('stat', S_INT)).toBe(3);
+      expect(await transport.countLibraries('stat-group', P)).toBe(3);
+      expect(calls.map((c) => c.url)).toEqual([
+        `${base}/entities/${E}/libraries`,
+        `${base}/stat-definitions/${S_INT}/libraries`,
+        `${base}/stat-groups/${P}/libraries`,
+      ]);
+    });
+
+    it('deletes an entry with its If-Match', async () => {
+      const { transport, calls } = setup(() => new Response(null, { status: 204 }));
+      await transport.deleteEntry(E, '"v1"');
+      expect(calls[0]).toMatchObject({
+        method: 'DELETE',
+        url: `${base}/entities/${E}`,
+        ifMatch: '"v1"',
+      });
+    });
+
+    it('an entry that cannot be deleted is a refusal with the API words', async () => {
+      const { transport } = setup(() =>
+        json(
+          { title: 'Cannot delete', detail: 'Another entry inherits from it.' },
+          { status: 409 },
+        ),
+      );
+      await expect(transport.deleteEntry(E, null)).rejects.toBeInstanceOf(RefusedError);
     });
   });
 

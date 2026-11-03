@@ -111,7 +111,16 @@ export function renderEntry(
   undo.addEventListener('click', () => bench.undo(id));
   undo.disabled = !bench.canUndo(id);
   meta.append(el('span', 'grow'), chip, undo);
+  if (bench.onServer(id)) {
+    const del = el('button', 'btn quiet', 'Delete…');
+    del.type = 'button';
+    del.addEventListener('click', () => void bench.askDelete(id));
+    del.setAttribute('aria-label', `Delete ${item.name}`);
+    del.disabled = bench.deletion.has(id);
+    meta.append(del);
+  }
   c.append(meta, el('p', 'kind sr-only', kindsText(item.kinds)));
+  if (bench.deletion.has(id)) c.append(deleteAsk(bench, id, item.name));
 
   for (const cmd of bench.commandsFor(id)) {
     if (cmd.state === 'conflict') c.append(conflictRow(bench, cmd));
@@ -166,6 +175,35 @@ export function renderEntry(
   extra.append(newNote(bench, id));
   c.append(extra);
   return c;
+}
+
+/** What deleting an entry says, in words: how many libraries have copied it, then the two ways out. */
+export function librariesLine(libraries: number | 'unknown' | null): string {
+  if (libraries === null) return 'Counting the libraries that have copied this…';
+  if (libraries === 'unknown') return 'Could not tell how many libraries have copied this.';
+  if (libraries === 0) return 'No library has copied this.';
+  return libraries === 1
+    ? '1 library has copied this. It will see it as removed upstream.'
+    : `${libraries} libraries have copied this. They will see it as removed upstream.`;
+}
+
+function deleteAsk(bench: Bench, id: string, name: string): HTMLElement {
+  const asked = bench.deletion.get(id);
+  const box = el('div', 'delete-ask');
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', `Delete ${name}`);
+  box.append(
+    el('p', 'delete-what', `Delete ${name} from this repository? It cannot be undone.`),
+    el('p', 'delete-libraries muted', librariesLine(asked?.libraries ?? null)),
+  );
+  if (asked?.refused) box.append(el('p', 'bad delete-refused', asked.refused));
+  const row = el('div', 'delete-actions');
+  row.append(
+    button('Delete it', () => void bench.deleteEntry(id), 'btn danger'),
+    button('Keep it', () => bench.keepEntry(id), 'btn quiet'),
+  );
+  box.append(row);
+  return box;
 }
 
 /** What a note says of who reads it, and where it is Everyone's, the one click that takes it back. */

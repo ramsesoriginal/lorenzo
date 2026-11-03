@@ -3,6 +3,7 @@
 
 import type { Bench } from '../core/bench';
 import type { StatGroup, StatType } from '../core/transport';
+import { librariesLine } from './entryPane';
 import { icon } from './icons';
 
 export interface VocabularyUi {
@@ -65,7 +66,10 @@ export function renderVocabulary(bench: Bench, ui: VocabularyUi, redraw: () => v
     del.addEventListener('click', async () => {
       if (ui.confirming !== d.id) {
         ui.confirming = d.id;
-        ui.note = `Delete ${d.name} from the repository? Every entry loses its value. Press again to delete.`;
+        const held = await bench.transport
+          .countLibraries('stat', d.id)
+          .catch(() => 'unknown' as const);
+        ui.note = `Delete ${d.name} from the repository? Every entry loses its value. ${librariesLine(held)} Press again to delete.`;
         return redraw();
       }
       try {

@@ -1418,3 +1418,58 @@ def test_a_refusal_to_apply_a_breaking_row_names_it_and_says_how_to_confirm() ->
     text = str(in_words(refused))
     assert "Speed" in text and "int to text" in text
     assert '"confirm": true' in text
+
+
+# --- libraries -----------------------------------------------------------------------
+
+
+def test_libraries_says_how_many_copied_an_entry_and_what_it_means(tmp_path: Path) -> None:
+    entry = uuid.uuid4()
+    world = World(library_counts={str(entry): 3})
+    result = run(tmp_path, world, "libraries", "-t", "sunken-vale", "--entry", str(entry))
+
+    assert result.exit_code == 0, result.output
+    assert "3 libraries have copied this. They will see it as removed upstream." in said(result)
+    assert world.writes() == []
+
+
+def test_libraries_says_it_in_the_singular_and_for_none(tmp_path: Path) -> None:
+    stat, group = uuid.uuid4(), uuid.uuid4()
+    world = World(library_counts={str(stat): 1})
+
+    one = run(tmp_path, world, "libraries", "-t", "sunken-vale", "--stat", str(stat))
+    none = run(tmp_path, world, "libraries", "-t", "sunken-vale", "--stat-group", str(group))
+
+    assert "1 library has copied this. It will see it as removed upstream." in said(one)
+    assert "No library has copied this." in said(none)
+
+
+def test_libraries_has_a_json_form(tmp_path: Path) -> None:
+    entry = uuid.uuid4()
+    world = World(library_counts={str(entry): 2})
+    result = run(tmp_path, world, "libraries", "-t", "sunken-vale", "--entry", str(entry), "--json")
+
+    assert json.loads(result.output) == {"kind": "entry", "id": str(entry), "count": 2}
+
+
+def test_libraries_wants_exactly_one_thing_and_a_repository(tmp_path: Path) -> None:
+    entry = uuid.uuid4()
+    neither = run(tmp_path, World(), "libraries", "-t", "sunken-vale")
+    both = run(
+        tmp_path,
+        World(),
+        "libraries",
+        "-t",
+        "sunken-vale",
+        "--entry",
+        str(entry),
+        "--stat",
+        str(entry),
+    )
+    play = run(
+        tmp_path, World(repo_kind="play"), "libraries", "-t", "sunken-vale", "--entry", str(entry)
+    )
+
+    assert neither.exit_code == 2 and both.exit_code == 2
+    assert "exactly one" in said(neither)
+    assert play.exit_code == 1

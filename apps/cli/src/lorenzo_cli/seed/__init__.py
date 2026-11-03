@@ -11,6 +11,7 @@ from lorenzo_cli.seed.unseed import (
     UnseedResult,
     UnseedState,
     apply_unseed,
+    libraries_holding,
     make_unseed_plan,
     read_unseed_state,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "UnseedState",
     "apply_plan",
     "apply_unseed",
+    "libraries_holding",
     "holdings",
     "load_builtin",
     "make_plan",
