@@ -9,8 +9,8 @@ Descriptions and notes stay separate. See [RFC 0047](../../docs/rfcs/0047-lorenz
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Joining Chapters is built ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md), below); Carriers and
-the other later slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
+saved prose revisions. Joining Chapters is built ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md), below); subsequent
+slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
 
 Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
 Make independent copies its current prose and pictures before editing. Viewpoints and world
