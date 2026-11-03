@@ -103,7 +103,9 @@ export type Blocker = {
 };
 
 // A repository this one is built on, and what it needs before this one can be public.
-export function publicBlockers(check: FlipCheckOut): Blocker[] {
+export function publicBlockers(
+  check: Pick<FlipCheckOut, 'built_on_not_public' | 'built_on_behind'>,
+): Blocker[] {
   const blockers: Blocker[] = [];
 
   for (const upstream of check.built_on_not_public) {

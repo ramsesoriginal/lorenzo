@@ -3,8 +3,9 @@
 // rest of the hub's (lib/cache.ts); a copy is a write, which empties it (lib/api.ts).
 
 import { fetchAllPages, LorenzoApiError, MAX_PAGE_SIZE } from '@lorenzo/api-client';
-import { client, unwrap } from './api';
+import { client, pictureUpload, unwrap } from './api';
 import { cached } from './cache';
+import { fetchPictureUrl } from './pictureFetch';
 import type {
   ApplyUpdatesOut,
   ApplyUpdatesRequest,
@@ -23,6 +24,7 @@ import type {
   ReleaseUpdate,
   RepositoryEntityOut,
   RepositoryProfileOut,
+  RepositoryProfileUpdate,
   RepositoryStatGroupOut,
   ShowcaseOut,
   SubscriberOut,
@@ -456,4 +458,44 @@ export async function searchOwnEntries(
   );
 
   return page.items.map((entry) => ({ id: entry.id, name: entry.name }));
+}
+
+// Changes what the profile says, as one request of what changed (ADR 0213): a field left out is
+// unchanged, and a refused request keeps none of its fields. An Owner's. The answer is the profile as
+// the API keeps it, normalised.
+export async function updateRepositoryProfile(
+  repositoryId: string,
+  body: RepositoryProfileUpdate,
+): Promise<MemberProfileOut> {
+  return unwrap(
+    await client.PATCH('/tenants/{tenant_id}/profile', {
+      params: { path: { tenant_id: repositoryId } },
+      body,
+    }),
+  );
+}
+
+// The cover of a repository the caller works on, as a `blob:` address (ADR 0300): the route wants the
+// token, which an <img> cannot send. Not kept: a cover just changed must be read again.
+export async function ownCoverUrl(repositoryId: string): Promise<string> {
+  return fetchPictureUrl(`/tenants/${repositoryId}/profile/cover`);
+}
+
+// Sets or replaces the cover (ADR 0213): the types and the size of every profile picture. An Owner's.
+export async function uploadRepositoryCover(repositoryId: string, file: File): Promise<void> {
+  await unwrap(
+    await client.PUT('/tenants/{tenant_id}/profile/cover', {
+      params: { path: { tenant_id: repositoryId } },
+      ...pictureUpload(file),
+    }),
+  );
+}
+
+// Removes the cover; removing what is not there is not an error. An Owner's.
+export async function deleteRepositoryCover(repositoryId: string): Promise<void> {
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/profile/cover', {
+      params: { path: { tenant_id: repositoryId } },
+    }),
+  );
 }

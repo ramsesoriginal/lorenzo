@@ -298,3 +298,22 @@
 .gm-title-fields > .field {
   flex: 1 1 11rem;
 }
+
+/* A tag or a language chosen, on a repository's Profile tab (ADR 0385): the brand's chip, which is a
+   button here, so that it is as big to press as any (identity.md 8.5): the brand's rule for a phone
+   gives every button its minimum height. */
+.profile-chip {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.profile-chip:hover {
+  background: var(--border-subtle);
+}
+
+/* A credit is a card of three fields under one another, and what moves or removes it. */
+[data-credit] {
+  min-width: 0;
+}

@@ -6,6 +6,7 @@
 import { distinctPeople } from '../../lib/deleting';
 import { displayNameFor, isTenantAdmin } from '../../lib/format';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
+import type { ReadinessTarget } from '../../lib/readiness';
 import { sayError } from '../../lib/statusLine';
 import {
   canChangePeople,
@@ -31,7 +32,9 @@ import { renderTenantDelete } from '../TenantDelete/renderer';
 import { renderTenantEdit } from '../TenantEdit/renderer';
 import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 import { createDelistedNotice } from './delisted';
+import { createProfileEditor } from './profile';
 import { createPublishControls } from './publish';
+import { createReadiness } from './readiness';
 import { createRetiredControls } from './retired';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
 import { createShowcaseControls } from './showcase';
@@ -54,7 +57,13 @@ export type RepositoryHooks = {
 export type RenderedRepository = {
   show(repository: TenantSummaryOut): Promise<void>;
   hide(): void;
+  // False where the person was asked whether to leave what they typed in the profile unsaved, and said
+  // no: the page does not go elsewhere (ADR 0385).
+  mayLeave(): boolean;
 };
+
+// The tabs, in the order of the markup.
+const TAB = { overview: 0, profile: 1, builtOn: 5 } as const;
 
 // `root` is the <Repository /> article.
 export function renderRepository(
@@ -95,14 +104,29 @@ export function renderRepository(
     userId,
     hooks.onChanged,
   );
-  const tabs = bindTabs(required<HTMLElement>(root, '[data-tabs]'));
+  // Leaving the profile with something typed and not saved asks first.
+  const tabs = bindTabs(required<HTMLElement>(root, '[data-tabs]'), {
+    canLeave: (from) => from !== TAB.profile || profile.mayLeave(),
+  });
+  let openRepository: TenantSummaryOut | null = null;
   // An invitation made or stopped changes only what the Libraries using it tab shows.
   // A publish or an unpublish changes what the page shows, so it is read again.
   const publishControls = createPublishControls(root, hooks.onChanged);
   // Private or public is a change of the same kind: the page reads the repository again after it.
-  const visibility = createVisibilityControls(root, hooks.onChanged, (visibility) =>
-    publishControls.markPublic(visibility === 'public'),
-  );
+  const visibility = createVisibilityControls(root, hooks.onChanged, (kind, check, repository) => {
+    publishControls.markPublic(kind === 'public');
+    void readiness.paint(repository, check);
+  });
+  // What is still missing before it can be public, each a link to where it is fixed (ADR 0385).
+  const readiness = createReadiness(root, jump);
+  // The profile and the cover: when either was saved, the switch and the list beside it read again.
+  const refreshSwitch = () => {
+    if (openRepository) void visibility.paint(openRepository);
+  };
+  const profile = createProfileEditor(root, {
+    onSaved: refreshSwitch,
+    onCoverChanged: refreshSwitch,
+  });
   // What people can look at, and the entries featured: the Owner's, beside the switch.
   const showcase = createShowcaseControls(root);
   const viewAs = createViewAs(root, hooks.mayCreate);
@@ -132,7 +156,21 @@ export function renderRepository(
     );
   }
 
-  function empty(): void {
+  // Opens where a link of the readiness list points: the tab, and the field.
+  function jump(target: ReadinessTarget): void {
+    if (target.kind === 'built-on') {
+      tabs.select(TAB.builtOn);
+
+      return;
+    }
+
+    if (target.kind === 'page') return;
+
+    if (tabs.select(TAB.profile)) profile.focus(target.kind);
+  }
+
+  // `keepDraft`: the same repository drawn again keeps what was typed in its profile and not saved.
+  function empty(keepDraft: boolean): void {
     pictureSlot.replaceChildren();
     pictureSlot.hidden = true;
     membershipsSlot.replaceChildren();
@@ -149,6 +187,8 @@ export function renderRepository(
     live.hidden = true;
     publishControls.clear();
     visibility.clear();
+    readiness.clear();
+    profile.clear(keepDraft);
     delisted.clear();
     retired.clear();
     showcase.clear();
@@ -232,7 +272,8 @@ export function renderRepository(
       slug.textContent = repository.slug;
       role.textContent = roleLabel(repository.role);
       error.hidden = true;
-      empty();
+      empty(repository.id === lastId);
+      openRepository = repository;
       edit.show(repository);
       leave.show(repository);
 
@@ -290,16 +331,17 @@ export function renderRepository(
         );
 
         // The tabs about its place among others each read their own and say their own failure.
-        const current = () => turn === latest;
+        const isCurrent = () => turn === latest;
 
         await Promise.all([
-          releases.load(repository, current, roster?.items ?? null),
+          profile.load(repository, isCurrent),
+          releases.load(repository, isCurrent, roster?.items ?? null),
           // Who copied it and the activity are the people who run it's to read; an Author's tabs are
           // the ones the API serves them.
-          isTenantAdmin(repository) ? using.load(repository, current, null) : undefined,
-          builtOn.load(repository, current, null),
+          isTenantAdmin(repository) ? using.load(repository, isCurrent, null) : undefined,
+          builtOn.load(repository, isCurrent, null),
           isTenantAdmin(repository)
-            ? activity.load(repository, current, roster?.items ?? null)
+            ? activity.load(repository, isCurrent, roster?.items ?? null)
             : undefined,
         ]);
       } catch (cause) {
@@ -318,5 +360,7 @@ export function renderRepository(
       latest++;
       root.hidden = true;
     },
+
+    mayLeave: () => profile.mayLeave(),
   };
 }
