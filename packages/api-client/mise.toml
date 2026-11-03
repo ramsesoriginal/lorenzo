@@ -8,7 +8,7 @@ run = "pnpm install --frozen-lockfile"
 hide = true
 
 [tasks.dev]
-description = "Nothing to run - loot-bot and inventory-web use this package"
+description = "Nothing to run - the apps that use this package have the dev servers"
 run = "echo 'packages/api-client has no dev server - run the tests, or an app that uses it.'"
 
 [tasks.lint]

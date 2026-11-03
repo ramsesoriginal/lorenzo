@@ -26,12 +26,15 @@ For styling, the renderer's own classes all start with `ls-`:
 
 - `ls-entity`: resolved entity links and images
 - `ls-cal`: calendar dates
+- `ls-stat`: a resolved stat
 - `ls-task`: task-list items
 - `ls-toc`: the `{{TOC}}` nav
 - `ls-footnotes`, `ls-fnref`, `ls-backref`: footnotes
 - `ls-math`: TeX shown as code because it's outside the supported subset
 
 Author ids are rendered as `ls-<id>`. Author classes (`{.class}`, `{{.class …}}`) are rendered as written.
+
+`statNames` is exported next to `references`: the stats a text names with `{weight}`, for a caller to fetch before rendering. The resolver has four hooks: `entity`, `image`, `calendar` (a calendar expression, as text or a link) and `stat` (a stat of the entry the text belongs to, as text to show); a `{weight}` without one renders as written.
 
 `slugify` is exported too: it's the rule `[[Name]]` and heading ids use, for anything that needs to suggest a slug from a name.
 

@@ -4,6 +4,8 @@ Status: accepted with the maintainer on 2026-10-28; RFC 0048 slice 14. Extends
 [ADR 0373](0373-the-date-lens-in-lorenzo-maps.md) to the Locations page for the list of
 [ADR 0376](0376-the-date-lens-on-the-locations-list.md). Desktop only.
 
+History: numbered 0375 until 2026-10-28; renumbered to 0377 together with ADR 0376, which it extends.
+
 ## Decision
 
 **The Locations page can be looked at through a date,** by the same control as the Maps page: the shared

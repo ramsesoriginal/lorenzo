@@ -1168,9 +1168,9 @@ class BindingNotLiftableError(UnprocessableProblem):
 
 
 class PublicRepositoriesNotAvailableError(UnprocessableProblem):
-    """Setting a repository's visibility to `public` - ADR 0213, RFC 0038 section 1. Refused until
-    the gates that come before it (the read, copying, delisting, quotas) are built, so that nothing
-    can be made public before they exist."""
+    """Setting a repository's visibility to `public` - ADR 0213, RFC 0038 section 1. Refused while
+    PUBLIC_REPOSITORIES_ENABLED is off (ADR 0290), so that nothing can be made public before the
+    deployment accepts public repositories."""
 
     title = "Public repositories are not available yet"
 

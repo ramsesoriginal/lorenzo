@@ -58,6 +58,7 @@ the converter's normal installation source. Development uses its local uv path s
 
 ## Developing
 
-`mise run //packages/converters:test` and `:lint`. The ledgers the tests expect are in
-`tests/golden/*.ledger` (not `.md`, which the Markdown linter would read as prose); `apps/cli` has a test that parses every one with the importer's own parser.
+`mise run //packages/converters:test` and `:lint`; `mise run //packages/converters:dev -- sheet --help` runs the command. The ledgers the tests expect are in
+`tests/golden/*.ledger` (not `.md`, which the Markdown linter would read as prose); `apps/cli` has a test that parses every one
+with the importer's own parser.
 Fixtures are made-up inventories, never a real player's.

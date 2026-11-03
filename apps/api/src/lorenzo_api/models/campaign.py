@@ -48,7 +48,7 @@ class Campaign(Base):
     name: Mapped[str]
     game_system: Mapped[str]
     # Unlike Tenant, no server default for slug/description (ADR 0030) - a
-    # real create-campaign flow (RFC 0006, not built yet) always supplies
+    # create-campaign route (RFC 0006) always supplies
     # both explicitly, and unlike tenant.slug's global uniqueness, a shared
     # literal default here could collide within one tenant (some existing
     # tests create more than one campaign per tenant), so a random
@@ -59,7 +59,8 @@ class Campaign(Base):
     secret: Mapped[bool] = mapped_column(default=False)
     # Whether this campaign's players may make their own item instances
     # from the public catalog (RFC 0034, ADR 0185); a player's own
-    # `self_service` overrides it. Nothing reads it yet.
+    # `self_service` overrides it; campaign_access reads both to decide who may
+    # make their own item instances (ADR 0186).
     player_self_service: Mapped[bool] = mapped_column(server_default=true(), default=True)
     # What this table calls its game master (ADR 0294): both null for the default, "GM" and "GMs",
     # both set otherwise. The API fills the default in on every read.
@@ -73,7 +74,7 @@ class Campaign(Base):
     # explicitly, but directly follows from "dedicated" and costs nothing
     # to enforce. ON DELETE RESTRICT (not CASCADE, the one deliberate
     # exception in this table): deleting the campaign must explicitly clean
-    # up its entity first (RFC 0006, not built yet) - a FK's ondelete only
+    # up its entity first (DELETE /campaigns/{id} does, RFC 0006) - a FK's ondelete only
     # governs the referencing row when the *referenced* row disappears, so
     # this only actually fires if someone deletes the Entity directly,
     # out of band.

@@ -169,9 +169,8 @@ async def create_player(
     user: CurrentUser,
 ) -> PlayerSummaryOut:
     """can_manage_campaign gates adding - a GM building their own roster,
-    or a tenant admin, not a self-service join (RFC 0007's own Open
-    questions: no invite-link/visibility mechanism exists yet that would
-    make self-service joining safe).
+    or a tenant admin. A self-service join is redeeming an invite link (ADR 0092,
+    POST /invites/{token}/redeem), not this route.
     """
     if not await can_manage_campaign(
         session, user_id=user.id, campaign_id=campaign_id, tenant_id=tenant_id

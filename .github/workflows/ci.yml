@@ -69,11 +69,11 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.discover.outputs.test_matrix) }}
     steps:
-      # Only nodes marked `postgres = true` in .github/ci-graph.toml touch Postgres (apps/api's tests,
-      # apps/cli's end-to-end stack, apps/loot-bot's own schema); a service container on every leg
-      # cost the others 15-25 s each (ADR 0148). It starts in the background, first of all, so its
-      # image pull and boot overlap the checkout and the toolchain (ADR 0148, addendum of 2026-10-08);
-      # the step before the tests waits for it.
+      # Only nodes marked `postgres = true` in .github/ci-graph.toml touch Postgres (apps/api's tests
+      # and apps/loot-bot's own schema; the CLI's end-to-end stack has its own job); a service
+      # container on every leg cost the others 15-25 s each (ADR 0148). It starts in the
+      # background, first of all, so its image pull and boot overlap the checkout and the toolchain
+      # (ADR 0148, addendum of 2026-10-08); the step before the tests waits for it.
       - name: Start Postgres
         if: matrix.postgres
         run: |
@@ -243,9 +243,9 @@ jobs:
   # A generated client's committed schema can silently fall behind apps/api's routes/schemas (the same
   # class of gap release.yml's sync-lockfile job catches for uv.lock), so every node with a
   # `check-schema` task is checked whenever it, or the node it is generated from, is affected (ADR
-  # 0148; `generated_from` in .github/ci-graph.toml). Today that is packages/api-client (ADR 0122)
-  # and apps/cli's generated models and operations table (ADR 0137). A push to main checks them all,
-  # so a drift that slips in some other way still shows up red.
+  # 0148; `generated_from` in .github/ci-graph.toml). Today that is packages/api-client (ADR
+  # 0122), apps/cli (ADR 0137), apps/inventory-mobile and apps/inventory-ios. A push to main
+  # checks them all, so a drift that slips in some other way still shows up red.
   client-drift:
     name: client-drift (${{ matrix.app }})
     needs: discover
@@ -684,8 +684,7 @@ jobs:
   # apps/account-hub's browser tests against the real API (ADR 0136, ADR 0196): the same stack as the
   # job above, started by inventory-web's launchers. The `account-hub-real-api` suite in
   # .github/ci-graph.toml: it runs when the hub, the API or inventory-web is affected. It runs the
-  # logged-out smoke tests and the specs that are current with the pages; the ones that went stale
-  # when the pages were reworked are left out until they are repaired (see tests/real-api/README.md).
+  # logged-out smoke tests and every spec in tests/real-api (see tests/real-api/README.md).
   account-hub-real-api:
     name: account-hub real-api ${{ matrix.shard }}
     needs: discover
