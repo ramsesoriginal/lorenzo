@@ -4,13 +4,13 @@
 
 ## Pages
 
-Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-calendars`, production branch `main`. Set the root to `apps/calendars`, output to `dist`, and Node major to the root `mise.toml` (currently 26). Build with:
+Create a Pages project connected to `ramsesoriginal/lorenzo`, named `lorenzo-calendars`, production branch `main`. Set the root to `apps/calendars`, output to `dist`, and the `NODE_VERSION` environment variable to the Node major in the root `mise.toml`. Build with:
 
 ```bash
 npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build
 ```
 
-Watch `apps/calendars/**`, `packages/api-client/**`, `packages/brand/**`, `apps/brand/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/information-editor/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+Build watch paths follow [the rule in the deployment setup](deployment-setup.md#build-watch-paths). For this app: `apps/calendars/**`, `apps/brand/**`, `packages/api-client/**`, `packages/app-shell/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/read-cache/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ## Authgear and public configuration
 
@@ -23,6 +23,6 @@ Allow the respective origins as post-logout redirect addresses. Supply the Pages
 
 ## API and verification
 
-Add the production origin to the API's existing space-separated `CORS_ALLOWED_ORIGINS` list and deploy the API through its normal workflow. The app registry already has the planned `https://lorenzo-calendars.pages.dev` address; set the API/GitHub `CALENDARS_URL` variable for a different origin. Deployment passes an unset value through to the API's default. Preview origins need their own explicit CORS and callback authorization.
+Add the production origin to the API's existing space-separated `CORS_ALLOWED_ORIGINS` list and deploy the API through its normal workflow. The app registry already has the `https://lorenzo-calendars.pages.dev` address; set the API/GitHub `CALENDARS_URL` variable for a different origin. Deployment passes an unset value through to the API's default. Preview origins need their own explicit CORS and callback authorization.
 
 Open the app, log in and choose a library. Create and preview a calendar, save it, and open a year. Import a reviewed native file through the CLI and confirm dates, moons and authored notes. Merely opening a year must not create saved date entries. Check an ordinary participant separately: public entry identity must not expose restricted Information. A missing Authgear setup produces a readable unavailable-sign-in message.

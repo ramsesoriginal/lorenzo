@@ -59,7 +59,7 @@ How to choose them:
 
 ### Owned by bots
 
-`dependencies`, `github_actions`, `python:uv`, `docker`, `javascript` (Dependabot) and `autorelease: pending` / `autorelease: tagged` (release-please) are created and applied by the bots. Don't rename or delete them; renaming makes the bot recreate the original. Do add the scope label (`app:loot-bot` for a loot-bot bump) and the assignee when you touch one.
+`dependencies`, `github_actions`, `python:uv`, `docker`, `javascript`, `java` (Dependabot) and `autorelease: pending` / `autorelease: tagged` (release-please) are created and applied by the bots. Don't rename or delete them; renaming makes the bot recreate the original. Do add the scope label (`app:loot-bot` for a loot-bot bump) and the assignee when you touch one.
 
 ## Assignee
 

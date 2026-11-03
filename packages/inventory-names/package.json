@@ -2,7 +2,7 @@
   "name": "@lorenzo/inventory-names",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "The table of other spellings the inventory importer tries (ADR 0193), as data with shared test vectors, and its TypeScript reader. See ADR 0242.",
   "exports": {
     ".": "./src/index.ts"

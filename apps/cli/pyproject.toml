@@ -1,6 +1,6 @@
 [project]
 name = "lorenzo-cli"
-version = "0.0.0"
+version = "0.1.0"
 description = "Lorenzo command-line tool: bulk import into a tenant's catalog (RFC 0025)"
 readme = "README.md"
 requires-python = ">=3.14,<3.15"

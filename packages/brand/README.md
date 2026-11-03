@@ -7,8 +7,8 @@ self-hosted Tabler icon sprite) — `pnpm add`-able by other apps in this
 workspace, for bundling at their own build time. See
 [ADR 0098](../../docs/adr/0098-branding-css-app-and-package.md).
 
-Every file in this directory (`tokens.css`, `fonts.css`, `fonts/`,
-`normalize.css`, `base.css`, `layout.css`, `components.css`, `icons.svg`,
+Every brand file in this directory (`tokens.css`, `fonts.css`, `fonts/`,
+`normalize.css`, `base.css`, `layout.css`, `components.css`, `motion.css`, `icons.svg`,
 `icons.manifest.yaml`) is **generated, not hand-edited** — copies of the
 matching files in `apps/brand`, produced by `mise run //packages/brand:build`.
 All `.gitignore`d, so a clean checkout has none of them; run `build` before

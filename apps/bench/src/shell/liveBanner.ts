@@ -2,8 +2,8 @@
 // libraries which copied it see the edits. Hiding it lasts until the page is loaded again, since
 // it is a notice about what editing does, not a setting.
 //
-// "Edited since release X" for a public repository waits for the release ledger (RFC 0037); until
-// then a published repository is the only case there is.
+// "Edited since release X" for a public repository needs the release ledger (RFC 0037), which Bench
+// does not read yet, so only a published repository shows the banner.
 
 export class LiveBanner {
   private published = false;

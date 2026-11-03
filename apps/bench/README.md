@@ -14,16 +14,18 @@ The editor also has stats and tags, formulas and the stat vocabulary, main and i
 
 ## Run and check
 
-Copy `.env.example` to `.env` to try sign-in locally.
+Copy `.env.example` to `.env` to try sign-in locally. `astro dev` serves Astro's default port 4321, the same as inventory-web, so run only one of the two at a time or give one a different `--port` and register that address with Authgear.
 
 ```bash
 mise run //apps/bench:dev        # dev server
 mise run //apps/bench:lint       # Biome, Astro and Prettier checks
 mise run //apps/bench:test       # unit tests of workspace, commands and editor logic
-mise run //apps/bench:test-e2e   # Playwright; E2E_CHROMIUM selects an installed browser
+mise run //apps/bench:test-e2e   # Playwright; E2E_BROWSER_CHANNEL or E2E_CHROMIUM selects an installed browser
 mise run //apps/bench:test-e2e-api # real API, needs Postgres
 mise run //apps/bench:build      # static site in dist/
 ```
+
+The sample and sign-in suite (`test-e2e`) builds the site and serves it on ports 4331 and 4332. The real-API suite (`test-e2e-api`) uses the launchers and ports of the Beings suite (fake Authgear 4410, API 8775, site 4341) with the database `lorenzo_bench_e2e`, so run it and Beings' suite separately; `E2E_REUSE_SERVERS=1` reuses servers already running.
 
 Keyboard: on a focused tab, Alt+Left/Right reorders, Alt+Shift+arrows splits it to that side, Alt+F floats it, Ctrl+Alt+arrows move it into the group beside, Alt+D docks it back; the palette lists them ([ADR 0257](../../docs/adr/0257-bench-keyboard-moves-for-tabs.md)).
 
@@ -46,3 +48,7 @@ unsent-changes warning, but are not durable offline drafts.
 The real-API browser suite exercises Fact creation, separate audiences, About, targeted picture
 uploads, lost-response retry, paste/drop, ordering, removal and reload. It reuses the Beings test
 auth/API launchers with a separate database; the original sample browser suite stays independent.
+
+## Deploy
+
+Deployed at <https://lorenzo-bench.pages.dev/> on Cloudflare Pages, via its own Git integration; see [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md#cloudflare-pages-appsbench) for the setup procedure.

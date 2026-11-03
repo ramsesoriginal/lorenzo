@@ -253,11 +253,8 @@ class GmRosterEntryOut(BaseModel):
     RFC 0004's own shape also carries `created_by` (matching
     `campaign_gm`'s eventual lighter, create-only attribution shape - no
     `updated_by`, since a grant is never "updated," only made or revoked).
-    Deliberately not included yet: per ADR 0029's phased table,
-    `campaign_gm.created_by` itself doesn't land until campaign CRUD (ADR
-    0034/RFC 0006) actually writes to this table - exposing a column that
-    doesn't exist would be building ahead of that slice, not this one.
-    Add it here as a small, natural follow-up once ADR 0034 lands.
+    Not exposed here: `campaign_gm.created_by` exists since campaign CRUD (ADR
+    0029/0034, RFC 0006), but this roster entry does not carry it.
     """
 
     kind: Literal["gm"] = "gm"
