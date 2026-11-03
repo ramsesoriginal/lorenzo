@@ -1,6 +1,9 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { createEditor, type Editor } from '@lorenzo/lorenzoscript-editor';
 import { client, loadFile, unwrap } from './api';
+import { contentsNavigation } from './contents';
+import { numberedTitle } from './numbering';
+import { readingCount } from './word-count';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -92,6 +95,7 @@ export async function reviewScreen(
       if (!byId.has(draft.entry))
         draft = { id: crypto.randomUUID(), entry: edition, content: '', version: undefined };
       host.append(node('h1', data.book_name), node('p', 'Review — manuscript and private notes'));
+      const passages: HTMLElement[] = [];
       const article = node('article');
       article.className = 'ls-content';
       host.append(article);
@@ -105,12 +109,25 @@ export async function reviewScreen(
         if (part.kind === 'entry') {
           const entry = byId.get(part.id);
           if (!entry) continue;
-          if (entry.id !== edition) article.append(node('h2', entry.name));
+          if (entry.id !== edition) {
+            const title = node('h2', numberedTitle(entry.name, entry.number));
+            title.id = `review-entry-${entry.id}`;
+            article.append(title);
+          }
+          if (entry.contents)
+            article.append(
+              contentsNavigation(
+                entry.contents,
+                (id) => `#review-entry-${id}`,
+                entry.id === edition,
+              ),
+            );
           for (const el of [...entry.elements].reverse()) pending.push(el);
         } else if (part.kind === 'text') {
           const section = node('section');
           section.innerHTML = render(parse(part.content ?? ''), { externalImages: false });
           article.append(section);
+          passages.push(section);
         } else if (part.url) {
           const image = node('img');
           image.alt = 'Manuscript illustration';
@@ -124,6 +141,7 @@ export async function reviewScreen(
           image.src = url;
         }
       }
+      article.before(readingCount(article, passages));
       const status = node('p');
       status.setAttribute('role', 'status');
       status.setAttribute('aria-label', 'Review status');

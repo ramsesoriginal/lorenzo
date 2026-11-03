@@ -9,8 +9,8 @@ Descriptions and notes stay separate. See [RFC 0047](../../docs/rfcs/0047-lorenz
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Joins ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md)) are decided but not built; Carriers and
-the other later slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
+saved prose revisions. Joining Chapters is built ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md), below); subsequent
+slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
 
 Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
 Make independent copies its current prose and pictures before editing. Viewpoints and world
@@ -50,8 +50,49 @@ accepts boundaries between complete lists, quotations, tables, code, display mat
 blocks, as well as distinct headings. It keeps footnote dependencies and potentially colliding
 heading anchors together. Texts with contents directives, abbreviations or local fragment links
 still stay whole. Place the cursor after a blank line at the start of the next section;
-an unsafe boundary is refused without moving the cursor's choice. Joins and guarded redirects
-are decided ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md)) but not built.
+an unsafe boundary is refused without moving the cursor's choice.
+
+**Join with previous** combines adjacent sibling Chapters ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md)).
+Text blocks, pictures and children keep their identities and wording. The former Chapter keeps
+its notes and history, with a link to its section in the destination when that section is still
+available to the reader. Matching sharing and current versions are required. Old unsent text
+can be copied from a read-only recovery view. **Join into parent** ([ADR 0374](../../docs/adr/0374-join-chapter-into-parent.md)) removes a
+Chapter heading from the outline and puts its text, pictures and children in its place,
+preserving the reading order. The parent may be a Chapter or Edition; the old Chapter keeps
+the same guarded link, notes and history as a sibling join.
+
+**Extract a Scene** ([ADR 0378](../../docs/adr/0378-extract-writing-into-a-scene.md)) moves
+consecutive text blocks and pictures into a reusable Scene, leaving a shared telling in their
+place. It preserves payload identities, wording, pictures and sharing; notes stay at the source.
+Selections containing Chapters or tellings are refused. Use the Scene elsewhere to share edits,
+or **Make independent** on a telling to write a separate version.
+
+**Carriers** ([ADR 0379](../../docs/adr/0379-carriers-and-ordered-coverage.md)) can stand alone
+with their own writing. In Outline, **Carrier form** selects ordinary prototype parents, and
+**Covered writing** includes whole Editions, Chapters, Scenes or tellings, or a single text/picture
+block. References can cross Books and interleave with direct prose. Source edits remain visible;
+removing coverage leaves the source intact. Coverage grants no access and is not physical containment.
+
+**Chapter numbering** ([ADR 0380](../../docs/adr/0380-chapter-numbering.md)) is optional and
+separate from titles. Open Numbering in an Edition's outline (or an unassigned Chapter tree)
+to choose each level's format, start and parent restart behavior. Chapter controls can override
+a number, leave a Chapter unnumbered, restart or end a sequence. Outlines, continuous reading
+and Book reviews show the resulting labels. Moving Chapters recalculates them; copies retain
+the settings. Hidden Chapters do not leave numbering gaps.
+
+**Structural contents and special Chapters** ([ADR 0381](../../docs/adr/0381-structural-contents-and-special-chapters.md))
+use the closed Contents control in Outline. An Edition or standalone Chapter tree chooses its
+list, depth and a text template with `{title}` and optional `{number}`. Each Chapter can be
+included or excluded independently; included descendants remain listed. Contents Chapters place
+the generated list before their authored prose. Index and Glossary Chapters stay authored
+LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
+combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
+
+**Word count** ([ADR 0382](../../docs/adr/0382-manuscript-word-counts.md)) measures the current
+direct prose in Write, including unsaved edits. In Read or a Book review, open Word count to
+measure the assembled manuscript, highlight a displayed passage or choose text blocks. Repeated
+Carrier references count on every appearance. Referenced footnote prose counts once per block.
+Generated navigation, code, math, notes and structural titles contribute no words.
 
 ## Run and verify
 

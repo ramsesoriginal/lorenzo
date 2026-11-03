@@ -150,6 +150,7 @@ class Kind1(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -418,6 +419,10 @@ class CampaignUpdate(BaseModel):
     gm_title_plural: str | None = Field(None, title="Gm Title Plural")
 
 
+class CarrierParents(BaseModel):
+    parent_ids: list[UUID] = Field(..., title="Parent Ids")
+
+
 class CharacterCreate(BaseModel):
     name: str = Field(..., title="Name")
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
@@ -638,6 +643,7 @@ class Kind7(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -669,6 +675,32 @@ class ContentsFormulaBody(BaseModel):
 class Status7(StrEnum):
     ok = "ok"
     kept = "kept"
+
+
+class ContentsRow(BaseModel):
+    id: UUID = Field(..., title="Id")
+    label: str = Field(..., title="Label")
+    depth: int = Field(..., title="Depth")
+
+
+class Role(StrEnum):
+    chapter = "chapter"
+    contents = "contents"
+    index = "index"
+    glossary = "glossary"
+
+
+class ContentsSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: bool | None = Field(False, title="Enabled")
+    depth: conint(ge=1, le=100) | None = Field(3, title="Depth")
+    template: constr(min_length=1, max_length=120) | None = Field(
+        "{number} {title}", title="Template"
+    )
+    included: bool | None = Field(True, title="Included")
+    role: Role | None = Field("chapter", title="Role")
 
 
 class ContributionCountsOut(BaseModel):
@@ -715,6 +747,16 @@ class ContainerKind(StrEnum):
 class Again(StrEnum):
     keep = "keep"
     purge = "purge"
+
+
+class CoverageElement(BaseModel):
+    id: UUID = Field(..., title="Id")
+    target_entity_id: UUID | None = Field(None, title="Target Entity Id")
+    target_payload_id: UUID | None = Field(None, title="Target Payload Id")
+
+
+class CoverageOrder(BaseModel):
+    elements: list[CoverageElement] = Field(..., max_length=10000, title="Elements")
 
 
 class CreditIn(BaseModel):
@@ -845,12 +887,15 @@ class Kind10(StrEnum):
     payload = "payload"
     chapter = "chapter"
     scene_telling = "scene_telling"
+    coverage = "coverage"
 
 
 class Element(BaseModel):
     id: UUID = Field(..., title="Id")
     kind: Kind10 = Field(..., title="Kind")
     name: str | None = Field(None, title="Name")
+    target_id: UUID | None = Field(None, title="Target Id")
+    payload_id: UUID | None = Field(None, title="Payload Id")
 
 
 class EntityChangeOut(BaseModel):
@@ -905,6 +950,7 @@ class Kind12(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -984,6 +1030,7 @@ class Kind17(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -1041,6 +1088,13 @@ class EventSummary(BaseModel):
 
 class ExtractChapter(BaseModel):
     chapter_id: UUID = Field(..., title="Chapter Id")
+    name: constr(min_length=1, max_length=300) = Field(..., title="Name")
+    elements: list[UUID] = Field(..., min_length=1, title="Elements")
+
+
+class ExtractScene(BaseModel):
+    scene_id: UUID = Field(..., title="Scene Id")
+    telling_id: UUID = Field(..., title="Telling Id")
     name: constr(min_length=1, max_length=300) = Field(..., title="Name")
     elements: list[UUID] = Field(..., min_length=1, title="Elements")
 
@@ -1230,6 +1284,31 @@ class ItemUpdate(BaseModel):
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
 
 
+class JoinAcknowledgement(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    source_id: UUID = Field(..., title="Source Id")
+    destination_id: UUID = Field(..., title="Destination Id")
+
+
+class Mode2(StrEnum):
+    previous = "previous"
+    parent = "parent"
+
+
+class JoinChapters(BaseModel):
+    mode: Mode2 | None = Field("previous", title="Mode")
+    destination_id: UUID = Field(..., title="Destination Id")
+    parent_id: UUID = Field(..., title="Parent Id")
+    destination_version: str = Field(..., title="Destination Version")
+    parent_version: str = Field(..., title="Parent Version")
+
+
+class JoinedDestination(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    element_id: UUID = Field(..., title="Element Id")
+
+
 class JsonValue(RootModel[Any]):
     root: Any
 
@@ -1351,6 +1430,7 @@ class Kind19(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -1490,10 +1570,20 @@ class ManagedCampaignOut(BaseModel):
     gm_title_plural: str = Field(..., title="Gm Title Plural")
 
 
-class Role(StrEnum):
+class Role1(StrEnum):
     owner = "owner"
     orga = "orga"
     author = "author"
+
+
+class ManuscriptContentsOut(BaseModel):
+    settings: ContentsSettings
+    version: str = Field(..., title="Version")
+    root_id: UUID = Field(..., title="Root Id")
+    rows: list[ContentsRow] = Field(..., title="Rows")
+    displayed: bool = Field(..., title="Displayed")
+    root_enabled: bool = Field(..., title="Root Enabled")
+    contents_chapters: list[UUID] = Field(..., title="Contents Chapters")
 
 
 class ManuscriptRevisionOut(BaseModel):
@@ -1586,7 +1676,7 @@ class MemberProfileOut(BaseModel):
 
 class MembershipCreate(BaseModel):
     user_id: UUID = Field(..., title="User Id")
-    role: Role = Field(..., title="Role")
+    role: Role1 = Field(..., title="Role")
 
 
 class MembershipOut(BaseModel):
@@ -1606,7 +1696,7 @@ class MembershipRosterEntryOut(BaseModel):
 
 
 class MembershipUpdate(BaseModel):
-    role: Role = Field(..., title="Role")
+    role: Role1 = Field(..., title="Role")
 
 
 class MergeItemInstanceRequest(BaseModel):
@@ -1738,6 +1828,36 @@ class NotificationOut(BaseModel):
     body: str = Field(..., title="Body")
     read_at: AwareDatetime | None = Field(..., title="Read At")
     created_at: AwareDatetime = Field(..., title="Created At")
+
+
+class Style(StrEnum):
+    decimal = "decimal"
+    roman = "roman"
+    roman_lower = "roman_lower"
+    alphabetic = "alphabetic"
+    alphabetic_lower = "alphabetic_lower"
+
+
+class NumberingLevel(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    style: Style | None = Field("decimal", title="Style")
+    start: conint(ge=1, le=999999) | None = Field(1, title="Start")
+    restart_per_parent: bool | None = Field(True, title="Restart Per Parent")
+    include_parents: bool | None = Field(True, title="Include Parents")
+
+
+class NumberingSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: bool | None = Field(False, title="Enabled")
+    levels: list[NumberingLevel] | None = Field(None, max_length=100, min_length=1, title="Levels")
+    unnumbered: bool | None = Field(False, title="Unnumbered")
+    override: conint(ge=1, le=999999) | None = Field(None, title="Override")
+    restart: bool | None = Field(False, title="Restart")
+    end: bool | None = Field(False, title="End")
 
 
 class OccurrenceOut(BaseModel):
@@ -2336,13 +2456,13 @@ class PreviewStatOut(BaseModel):
     value: Any = Field(..., title="Value")
 
 
-class Mode2(StrEnum):
+class Mode3(StrEnum):
     keep = "keep"
     purge = "purge"
 
 
 class PreviousCopyOut(BaseModel):
-    mode: Mode2 = Field(..., title="Mode")
+    mode: Mode3 = Field(..., title="Mode")
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
@@ -2645,6 +2765,7 @@ class Kind34(StrEnum):
     event = "event"
     observance = "observance"
     book = "book"
+    carrier = "carrier"
     edition = "edition"
     chapter = "chapter"
     scene_telling = "scene_telling"
@@ -2674,6 +2795,8 @@ class ReviewElement(BaseModel):
 
 
 class ReviewEntry(BaseModel):
+    contents: list[ContentsRow] | None = Field(None, title="Contents")
+    number: str | None = Field(None, title="Number")
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     elements: list[ReviewElement] = Field(..., title="Elements")
@@ -2741,6 +2864,13 @@ class SceneCreate(BaseModel):
     )
     period_entity_id: UUID | None = Field(None, title="Period Entity Id")
     is_public: bool | None = Field(False, title="Is Public")
+
+
+class SceneExtractionAcknowledgement(BaseModel):
+    operation_id: UUID = Field(..., title="Operation Id")
+    source_id: UUID = Field(..., title="Source Id")
+    scene_id: UUID = Field(..., title="Scene Id")
+    telling_id: UUID = Field(..., title="Telling Id")
 
 
 class SceneOut(BaseModel):
@@ -3088,7 +3218,7 @@ class TenantOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
 
 
-class Role3(StrEnum):
+class Role4(StrEnum):
     owner = "owner"
     orga = "orga"
     author = "author"
@@ -3099,7 +3229,7 @@ class TenantSummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     slug: str = Field(..., title="Slug")
     name: str = Field(..., title="Name")
-    role: Role3 = Field(..., title="Role")
+    role: Role4 = Field(..., title="Role")
     kind: TenantKind
 
 
@@ -3201,6 +3331,7 @@ class Kind42(StrEnum):
     scene = "scene"
     scene_telling = "scene_telling"
     biography = "biography"
+    carrier = "carrier"
 
 
 class WritingEntry(BaseModel):
@@ -3213,6 +3344,8 @@ class WritingEntry(BaseModel):
     viewpoint_id: UUID | None = Field(None, title="Viewpoint Id")
     manuscript_source_id: UUID | None = Field(None, title="Manuscript Source Id")
     uses_scene_manuscript: bool | None = Field(False, title="Uses Scene Manuscript")
+    joined: bool | None = Field(False, title="Joined")
+    joined_destination: JoinedDestination | None = None
     editions: list[ManuscriptSummary] | None = Field([], title="Editions", validate_default=True)
     elements: list[Element] | None = Field([], title="Elements", validate_default=True)
     version: str = Field(..., title="Version")
@@ -3395,6 +3528,13 @@ class CalendarOut(BaseModel):
     name: str = Field(..., title="Name")
     definition: CalendarDefinitionOutput
     updated_at: AwareDatetime = Field(..., title="Updated At")
+
+
+class ChapterNumberingOut(BaseModel):
+    settings: NumberingSettings
+    version: str = Field(..., title="Version")
+    root_id: UUID = Field(..., title="Root Id")
+    labels: dict[str, str] = Field(..., title="Labels")
 
 
 class CharacterOut(BaseModel):
@@ -3820,7 +3960,7 @@ class ManagedTenantOut(BaseModel):
     tenant_id: UUID = Field(..., title="Tenant Id")
     name: str = Field(..., title="Name")
     slug: str = Field(..., title="Slug")
-    role: Role | None = Field(..., title="Role")
+    role: Role1 | None = Field(..., title="Role")
     kind: TenantKind
     campaigns: list[ManagedCampaignOut] = Field(..., title="Campaigns")
 

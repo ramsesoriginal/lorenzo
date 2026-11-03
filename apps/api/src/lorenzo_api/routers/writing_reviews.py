@@ -22,6 +22,7 @@ from lorenzo_api.exceptions import (
     InformationManagementForbiddenError,
     PreconditionFailedError,
 )
+from lorenzo_api.manuscript_contents import ContentsRow, contents_tree, visible_contents
 from lorenzo_api.models import (
     Edition,
     Entity,
@@ -180,6 +181,8 @@ class ReviewElement(BaseModel):
 
 
 class ReviewEntry(BaseModel):
+    contents: list[ContentsRow] | None = None
+    number: str | None = None
     id: uuid.UUID
     name: str
     elements: list[ReviewElement]
@@ -260,6 +263,12 @@ async def read_review(
             )
         )
     )
+    from lorenzo_api.chapter_numbering import projection
+
+    numbers = await projection(session, tenant_id, edition_id, reachable, placements)
+    presentation, contents = await contents_tree(
+        session, tenant_id, edition_id, reachable, placements
+    )
     output = []
     for item in entries:
         elements: list[ReviewElement] = []
@@ -286,7 +295,15 @@ async def read_review(
             for link in links
             if link.before_payload_id is None
         )
-        output.append(ReviewEntry(id=item.id, name=item.name, elements=elements))
+        output.append(
+            ReviewEntry(
+                id=item.id,
+                name=item.name,
+                number=numbers.get(item.id),
+                contents=visible_contents(edition_id, item.id, presentation, contents),
+                elements=elements,
+            )
+        )
     note_query = select(WritingReviewNote).where(
         WritingReviewNote.tenant_id == tenant_id, WritingReviewNote.edition_id == edition_id
     )

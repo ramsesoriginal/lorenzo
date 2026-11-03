@@ -1,9 +1,14 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
 import { client, LorenzoApiError, loadFile, unwrap } from './api';
+import { carrierOutline } from './carriers';
+import { type Contents, contentsControls, contentsNavigation, contentsOf } from './contents';
 import { extractionControls } from './manuscript-extraction';
+import { joinControls } from './manuscript-join';
 import { moveControls } from './manuscript-move';
 import { splitControls } from './manuscript-split';
+import { numberedTitle, numberingControls, numberingOf } from './numbering';
 import { reviewAddress } from './review';
+import { readingCount } from './word-count';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -49,7 +54,12 @@ export async function compositionScreen(
     location.replace(writingAddress(tenant, actual, reading ? 'read' : 'outline'));
     return;
   }
-  const heading = node('h1', current.name);
+  const numbering =
+    ['edition', 'chapter'].includes(current.kind) && !current.joined
+      ? await numberingOf(tenant, id)
+      : null;
+  const presentation = numbering ? await contentsOf(tenant, id) : null;
+  const heading = node('h1', numberedTitle(current.name, numbering?.labels[id]));
   const nav = node('nav');
   nav.setAttribute('aria-label', 'Manuscript views');
   nav.className = 'row';
@@ -67,6 +77,51 @@ export async function compositionScreen(
     status.textContent = error instanceof Error ? error.message : 'This could not be completed.';
   };
   host.replaceChildren(heading, nav, status);
+  if (current.joined) {
+    nav.replaceChildren(link('All drafts', `/?${new URLSearchParams({ tenant })}`));
+    status.textContent = 'This Chapter was joined. Its notes remain here.';
+    const target = current.joined_destination;
+    if (target)
+      host.append(
+        link(
+          `Open joined section in ${target.name}`,
+          `${writingAddress(tenant, target.id, 'read')}#element-${target.element_id}`,
+        ),
+      );
+    else host.append(node('p', 'The joined section is not available here.'));
+    const source = await entityOf(tenant, id);
+    for (const info of source.information.filter((item) => item.type !== 'manuscript')) {
+      const section = node('section');
+      section.append(node('h2', info.title));
+      for (const payload of info.payloads) {
+        if (payload.kind === 'description') {
+          const text = node('div');
+          text.className = 'ls-content';
+          text.innerHTML = render(parse(payload.content), { externalImages: false });
+          section.append(text);
+        } else if (payload.kind === 'picture') {
+          const picture = node('img');
+          picture.alt = 'Note illustration';
+          picture.src = await loadFile(payload);
+          section.append(picture);
+        }
+      }
+      host.append(section);
+    }
+    return;
+  }
+  if (!reading && presentation)
+    host.append(
+      contentsControls(tenant, id, current.kind === 'chapter', presentation, () =>
+        compositionScreen(host, tenant, id, false),
+      ),
+    );
+  if (!reading && numbering)
+    host.append(
+      numberingControls(tenant, id, current.kind === 'chapter', numbering, () =>
+        compositionScreen(host, tenant, id, false),
+      ),
+    );
   if (current.kind === 'chapter' || current.kind === 'scene_telling') {
     host.append(
       moveControls(tenant, id, current.name, undefined, () =>
@@ -74,18 +129,23 @@ export async function compositionScreen(
       ),
     );
   }
+  if (!reading && current.kind === 'carrier') {
+    await carrierOutline(host, tenant, current, () => compositionScreen(host, tenant, id, false));
+    return;
+  }
   if (reading || !['edition', 'chapter'].includes(current.kind)) {
+    const passages: HTMLElement[] = [];
     const article = node('article');
     article.className = 'ls-content';
     host.append(article);
     // Iterative, depth-first assembly; every entry and bundle is authorized by the API.
     const tasks: (
-      | { kind: 'entry'; id: string }
+      | { kind: 'entry'; id: string; payloadId?: string; contents?: Contents | null }
       | {
           kind: 'payload';
           payload: Awaited<ReturnType<typeof entityOf>>['information'][number]['payloads'][number];
         }
-    )[] = [{ kind: 'entry', id }];
+    )[] = [{ kind: 'entry', id, contents: presentation }];
     while (tasks.length) {
       const task = tasks.pop();
       if (!task) continue;
@@ -93,15 +153,66 @@ export async function compositionScreen(
         try {
           const outline = await outlineOf(tenant, task.id);
           const entry = await entityOf(tenant, outline.manuscript_source_id ?? task.id);
-          if (task.id !== id) article.append(node('h2', outline.name));
+          if (task.id !== id) {
+            const numbers =
+              numbering ??
+              (['edition', 'chapter'].includes(outline.kind) && !outline.joined
+                ? await numberingOf(tenant, task.id)
+                : null);
+            const heading = node('h2', numberedTitle(outline.name, numbers?.labels[task.id]));
+            heading.id = `element-${task.id}`;
+            article.append(heading);
+          }
+          if (outline.joined) {
+            if (outline.joined_destination) {
+              const target = outline.joined_destination;
+              article.append(
+                link(
+                  `Open joined section in ${target.name}`,
+                  `${writingAddress(tenant, target.id, 'read')}#element-${target.element_id}`,
+                ),
+              );
+            }
+            continue;
+          }
           const payloads = new Map(
             entry.information
               .filter((i) => i.type === 'manuscript')
               .flatMap((i) => i.payloads)
               .map((p) => [p.id, p]),
           );
+          if (task.payloadId) {
+            const payload = payloads.get(task.payloadId);
+            if (payload) tasks.push({ kind: 'payload', payload });
+            continue;
+          }
+          const contents =
+            task.contents ??
+            (['edition', 'chapter'].includes(outline.kind)
+              ? await contentsOf(tenant, task.id)
+              : null);
+          if (
+            contents &&
+            ((task.id === contents.root_id && contents.root_enabled) ||
+              contents.contents_chapters.includes(task.id))
+          )
+            article.append(
+              contentsNavigation(
+                contents.rows.filter((row) => row.id !== task.id),
+                (target) => `${writingAddress(tenant, contents.root_id, 'read')}#element-${target}`,
+                task.id === contents.root_id,
+              ),
+            );
           for (const item of [...outline.elements].reverse()) {
-            if (item.kind !== 'payload') tasks.push({ kind: 'entry', id: item.id });
+            if (item.kind === 'coverage') {
+              if (item.target_id)
+                tasks.push({
+                  kind: 'entry',
+                  id: item.target_id,
+                  payloadId: item.payload_id ?? undefined,
+                });
+            } else if (item.kind !== 'payload')
+              tasks.push({ kind: 'entry', id: item.id, contents });
             else {
               const payload = payloads.get(item.id);
               if (payload) tasks.push({ kind: 'payload', payload });
@@ -113,15 +224,21 @@ export async function compositionScreen(
         }
       } else if (task.payload.kind === 'description') {
         const part = node('section');
+        part.id = `element-${task.payload.id}`;
         part.innerHTML = render(parse(task.payload.content), { externalImages: false });
         article.append(part);
+        passages.push(part);
       } else if (task.payload.kind === 'picture') {
         const img = node('img');
+        img.id = `element-${task.payload.id}`;
         img.alt = 'Manuscript illustration';
         img.src = await loadFile(task.payload);
         article.append(img);
       }
     }
+    article.before(readingCount(article, passages));
+    if (location.hash.startsWith('#element-'))
+      document.getElementById(location.hash.slice(1))?.scrollIntoView();
     return;
   }
   const list = node('ol');
@@ -134,25 +251,27 @@ export async function compositionScreen(
       .map((p) => [p.id, p]),
   );
   if (current.elements.length) {
-    host.append(
-      extractionControls(
-        tenant,
-        id,
-        current.version,
-        current.elements.map((item) => {
-          const payload = payloads.get(item.id);
-          return {
-            id: item.id,
-            label:
-              item.name ??
-              (payload?.kind === 'description'
-                ? payload.content.slice(0, 80) || 'Empty text'
-                : 'Picture'),
-          };
-        }),
-        () => compositionScreen(host, tenant, id, false),
-      ),
-    );
+    for (const kind of ['Chapter', 'Scene'] as const)
+      host.append(
+        extractionControls(
+          tenant,
+          id,
+          current.version,
+          current.elements.map((item) => {
+            const payload = payloads.get(item.id);
+            return {
+              id: item.id,
+              label:
+                item.name ??
+                (payload?.kind === 'description'
+                  ? payload.content.slice(0, 80) || 'Empty text'
+                  : 'Picture'),
+            };
+          }),
+          () => compositionScreen(host, tenant, id, false),
+          kind,
+        ),
+      );
   }
   const saveOrder = async (ids: string[]) => {
     try {
@@ -173,7 +292,7 @@ export async function compositionScreen(
     const p = payloads.get(item.id);
     const label =
       item.kind !== 'payload'
-        ? (item.name ?? 'Chapter')
+        ? numberedTitle(item.name ?? 'Chapter', numbering?.labels[item.id])
         : p?.kind === 'description'
           ? p.content.slice(0, 80) || 'Empty text'
           : 'Picture';
@@ -214,6 +333,25 @@ export async function compositionScreen(
       );
     if (p?.kind === 'description')
       li.append(splitControls(tenant, id, p.id, () => compositionScreen(host, tenant, id, false)));
+    const previous = current.elements[index - 1];
+    if (item.kind === 'chapter' && previous?.kind === 'chapter')
+      li.append(
+        joinControls(tenant, id, current.version, item, previous, () =>
+          compositionScreen(host, tenant, id, false),
+        ),
+      );
+    if (item.kind === 'chapter' && (current.kind === 'chapter' || current.kind === 'edition'))
+      li.append(
+        joinControls(
+          tenant,
+          id,
+          current.version,
+          item,
+          current,
+          () => compositionScreen(host, tenant, id, false),
+          'parent',
+        ),
+      );
     list.append(li);
   }
   const name = node('input');

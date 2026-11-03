@@ -39,7 +39,7 @@ makes the old link unavailable. A later join of the destination retargets incomi
 atomically while preserving their anchors, so redirects are flat and cannot loop.
 
 Redirects are copied and released with remapped references; require their complete destination
-content when copying a live link. Release format 18 adds them while readers for older releases
+content when copying a live link. Release format 28 adds them while readers for older releases
 supply an empty set. Both content and receipt tables force RLS and use same-tenant foreign keys.
 
 The outline offers Join with previous only for adjacent Chapters, with an explicit confirmation.
@@ -56,3 +56,11 @@ joins, stale/concurrent/replayed requests, cross-tenant collisions and rollback.
 repository copy/release round trips and historical formats. Exercise join, source-link navigation,
 read-only source and continued destination editing through the real API/browser with phone
 accessibility checks.
+
+## Integration history
+
+On 2026-10-28, main already carried Locations/Maps release formats 18 through 27 before
+this implementation merged. The unmerged Writing format 18 became format 28, preserving
+main's historical readers and supplying empty redirects through format 27. There is no
+claim of compatibility with the unpublished branch-only format 18. A no-op Alembic merge
+revision joins the Writing and Frames migration heads without rewriting either history.

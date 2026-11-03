@@ -549,6 +549,10 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await expect(reviewPage.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveCount(
       0,
     );
+    await reviewPage.getByText('Word count', { exact: true }).click();
+    await expect(
+      reviewPage.getByText('Assembled manuscript · 6 words', { exact: true }),
+    ).toBeVisible();
     await reviewPage
       .getByLabel('Review note', { exact: true })
       .fill('Could the bridge appear earlier?');
@@ -584,6 +588,7 @@ test('an invited reviewer reads one Edition, writes private notes and loses acce
     await expect(reviewPage.locator('article')).toHaveCount(0, { timeout: 40000 });
     await expect(reviewPage.getByRole('alert')).toBeVisible();
     await expect(reviewPage.getByLabel('Review note', { exact: true })).toHaveCount(0);
+    await expect(reviewPage.getByText('Word count', { exact: true })).toHaveCount(0);
     await reviewPage.reload();
     await expect(reviewPage.getByRole('alert')).toBeVisible();
     await expect(reviewPage.locator('article')).toHaveCount(0);
@@ -753,6 +758,595 @@ test('split saved prose safely and extract its second part into a Chapter', asyn
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
     await page.getByRole('link', { name: 'A new beginning', exact: true }).click();
     await expect(manuscript).toHaveValue(second);
+  } finally {
+    await context.close();
+  }
+});
+
+test('join adjacent Chapters and follow the preserved source to its stable section', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('Joined journeys');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await expect(text).toBeVisible();
+    const edition = new URL(page.url()).searchParams.get('entry');
+    const ids: string[] = [];
+    for (const [name, prose] of [
+      ['Dawn', 'The first **account**.'],
+      ['Dusk', 'The second account[^a].\n\n[^a]: A local note.'],
+    ]) {
+      await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+      await page.getByLabel('New chapter title').fill(name);
+      await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+      await page.getByRole('link', { name, exact: true }).click();
+      await expect(text).toBeVisible();
+      const entryId = new URL(page.url()).searchParams.get('entry');
+      if (!entryId) throw new Error('The Chapter address is missing.');
+      ids.push(entryId);
+      await text.fill(prose);
+      await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    }
+    await ok(
+      api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+        params: { path: { tenant_id: tenant.id, entity_id: ids[1] } },
+        body: {
+          type: 'note',
+          title: 'Research',
+          content: 'Keep this source note.',
+          is_public: false,
+          locale: 'en',
+        },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByText('Join with previous', { exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Join chapters', exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('join-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({ path: test.info().outputPath('join-phone.png'), fullPage: true });
+    await page.getByRole('button', { name: 'Join chapters', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Dusk', exact: true })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${ids[1]}`);
+    await expect(text).toHaveCount(0);
+    await expect(page.getByText('Keep this source note.', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Open joined section in Dawn', exact: true }).click();
+    await expect(page.locator('article')).toContainText('The first account.');
+    await expect(page.locator('article')).toContainText('The second account');
+    await expect(page.locator('article')).toContainText('A local note.');
+    const anchor = new URL(page.url()).hash;
+    await expect(page.locator(anchor)).toContainText('The second account');
+    await page.getByRole('link', { name: 'Write', exact: true }).click();
+    await expect(text.first()).toHaveValue('The first **account**.');
+    const secondText = page.getByRole('textbox', { name: 'Text 2', exact: true });
+    await secondText.fill('A revised second account.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${ids[1]}`);
+    await page.getByRole('link', { name: 'Open joined section in Dawn', exact: true }).click();
+    await expect(page.locator('article')).toContainText('A revised second account.');
+  } finally {
+    await context.close();
+  }
+});
+
+test('join a Chapter into its parent without moving the surrounding prose', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('One continuous account');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const text = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await expect(text).toBeVisible();
+    const parent = new URL(page.url()).searchParams.get('entry');
+    if (!parent) throw new Error('The Edition address is missing.');
+    await text.fill('Before the encounter.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${parent}&view=outline`);
+    await page.getByLabel('New chapter title').fill('Encounter');
+    await page.getByRole('button', { name: 'Add chapter', exact: true }).click();
+    await page.getByRole('link', { name: 'Encounter', exact: true }).click();
+    await expect(text).toBeVisible();
+    const source = new URL(page.url()).searchParams.get('entry');
+    await text.fill('Inside the encounter.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const readParent = () =>
+      ok(
+        api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+          params: { path: { tenant_id: tenant.id, id: parent } },
+        }),
+      );
+    const original = await readParent();
+    const entity = await ok(
+      api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+        params: { path: { tenant_id: tenant.id, entity_id: parent } },
+      }),
+    );
+    const manuscript = entity.information.find((info) => info.type === 'manuscript');
+    if (!manuscript) throw new Error('The parent manuscript is missing.');
+    const infoResponse = await api.GET('/tenants/{tenant_id}/information/{information_id}', {
+      params: { path: { tenant_id: tenant.id, information_id: manuscript.id } },
+    });
+    await ok(Promise.resolve(infoResponse));
+    const after = await ok(
+      api.POST('/tenants/{tenant_id}/information/{information_id}/texts', {
+        params: {
+          path: { tenant_id: tenant.id, information_id: manuscript.id },
+          header: { 'if-match': infoResponse.response.headers.get('etag') ?? '' },
+        },
+        body: { content: 'After the encounter.', locale: 'en-US' },
+      }),
+    );
+    const current = await readParent();
+    await ok(
+      api.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+        params: {
+          path: { tenant_id: tenant.id, id: parent },
+          header: { 'if-match': current.version },
+        },
+        body: { elements: [...original.elements.map((e) => e.id), after.id] },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${parent}&view=outline`);
+    await page.getByText('Join into parent', { exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Join chapters', exact: true })).toBeVisible();
+    await page.screenshot({
+      path: test.info().outputPath('parent-join-desktop.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await page.screenshot({
+      path: test.info().outputPath('parent-join-phone.png'),
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Join chapters', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Encounter', exact: true })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${source}`);
+    await expect(text).toHaveCount(0);
+    await page
+      .getByRole('link', { name: 'Open joined section in One continuous account', exact: true })
+      .click();
+    await expect(page.locator('article')).toContainText(
+      /Before the encounter\.[\s\S]*Inside the encounter\.[\s\S]*After the encounter\./,
+    );
+    await expect(page.locator(new URL(page.url()).hash)).toContainText('Inside the encounter.');
+    await page.getByRole('link', { name: 'Write', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Text 2', exact: true }).fill('Revised encounter.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+  } finally {
+    await context.close();
+  }
+});
+
+test('extract a reusable Scene and make its second telling independent', async ({ browser }) => {
+  test.setTimeout(120000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    await page.goto(`/?tenant=${tenant.id}`);
+    await page.getByLabel('Start with').selectOption('book');
+    await page.getByLabel('New draft title').fill('Shared crossings');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const prose = 'The river **remembers**.';
+    await manuscript.fill(prose);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'idea.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    });
+    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const edition = new URL(page.url()).searchParams.get('entry');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByText('Extract a Scene', { exact: true }).click();
+    await page.getByLabel('Extracted scene title', { exact: true }).fill('At the crossing');
+    await page.screenshot({
+      path: test.info().outputPath('scene-extraction-desktop.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: test.info().outputPath('scene-extraction-phone.png'),
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Extract Scene', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'At the crossing', exact: true })).toHaveCount(1);
+    await page.getByText('Use a Scene', { exact: true }).click();
+    await page.getByLabel('Find a Scene', { exact: true }).fill('At the crossing');
+    await page.getByRole('button', { name: 'Find Scenes', exact: true }).click();
+    await page.getByRole('button', { name: 'At the crossing', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'At the crossing', exact: true })).toHaveCount(2);
+    await page.getByRole('link', { name: 'At the crossing', exact: true }).last().click();
+    await expect(page.locator('article')).toContainText('The river remembers.');
+    await page.getByRole('button', { name: 'Make independent', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Remove picture' })).toBeVisible();
+    await expect(manuscript).toHaveValue(prose);
+    await manuscript.fill('The ferryman remembers.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=read`);
+    await expect(page.locator('article')).toHaveText(
+      /The river remembers.*The ferryman remembers/s,
+    );
+  } finally {
+    await context.close();
+  }
+});
+
+test('a Carrier inherits several forms and reads selected writing alongside its own prose', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant } = await world(browser);
+  try {
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.fill('The river remembers.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const scene = new URL(page.url()).searchParams.get('entry');
+    for (const name of ['Vellum', 'Coptic', 'Collected codex']) {
+      await page.goto(`/?tenant=${tenant.id}`);
+      await page.getByLabel('Start with').selectOption('carrier');
+      await page.getByLabel('New draft title').fill(name);
+      await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+      await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+    }
+    await manuscript.fill('A note on this binding.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const carrier = new URL(page.url()).searchParams.get('entry');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    for (const name of ['Vellum', 'Coptic']) {
+      await page.getByText('Carrier form', { exact: true }).click();
+      await page.getByText('Carrier prototypes', { exact: true }).click();
+      await page.getByLabel('Carrier prototypes', { exact: true }).fill(name);
+      await page.getByRole('button', { name: 'Find carrier prototypes', exact: true }).click();
+      await page.getByRole('button', { name, exact: true }).click();
+      await expect(
+        page.getByRole('button', { name: `Remove ${name}`, exact: true, includeHidden: true }),
+      ).toHaveCount(1);
+    }
+    await page.getByText('Covered writing', { exact: true }).click();
+    await page.getByLabel('Covered writing', { exact: true }).fill('Across the water');
+    await page.getByRole('button', { name: 'Find covered writing', exact: true }).click();
+    await page.getByRole('button', { name: 'Across the water', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Include block: The river remembers.', exact: true })
+      .click();
+    await expect(
+      page.getByRole('link', { name: 'Across the water · selected block', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Up', exact: true }).last().click();
+    await expect(page.locator('main')).toHaveText(
+      /Across the water · selected block[\s\S]*A note on this binding/,
+    );
+    await page.getByText('Carrier form', { exact: true }).click();
+    await page.screenshot({ path: test.info().outputPath('carrier-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath('carrier-phone.png'), fullPage: true });
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.locator('article')).toHaveText(
+      /The river remembers.*A note on this binding/s,
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${scene}`);
+    await manuscript.fill('The river changed.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.goto(`/?tenant=${tenant.id}&entry=${carrier}&view=read`);
+    await expect(page.locator('article')).toContainText('The river changed.');
+    await page.getByRole('link', { name: 'Outline', exact: true }).click();
+    await page.getByRole('button', { name: 'Remove coverage', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Remove coverage', exact: true })).toHaveCount(0);
+    await page.goto(`/?tenant=${tenant.id}&entry=${scene}`);
+    await expect(manuscript).toHaveValue('The river changed.');
+  } finally {
+    await context.close();
+  }
+});
+
+test('Chapter numbering follows the outline without changing titles', async ({ browser }) => {
+  test.setTimeout(150000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    const book = await ok(
+      api.POST('/tenants/{tenant_id}/writing/books', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'Numbered journeys' },
+      }),
+    );
+    const edition = book.editions[0].id;
+    const chapters = [];
+    for (const name of ['Departure', 'Arrival', 'The ferry'])
+      chapters.push(
+        await ok(
+          api.POST('/tenants/{tenant_id}/writing/chapters', {
+            params: { path: { tenant_id: tenant.id } },
+            body: { name },
+          }),
+        ),
+      );
+    const [first, second, nested] = chapters;
+    const arrange = async (id: string, elements: string[]) => {
+      const current = await ok(
+        api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+          params: { path: { tenant_id: tenant.id, id } },
+        }),
+      );
+      await ok(
+        api.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+          params: { path: { tenant_id: tenant.id, id }, header: { 'if-match': current.version } },
+          body: { elements },
+        }),
+      );
+    };
+    await arrange(edition, [first.id, second.id]);
+    await arrange(first.id, [nested.id]);
+    await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
+    await page.getByText('Numbering', { exact: true }).click();
+    await page.getByLabel('Number Chapters', { exact: true }).check();
+    await page.getByRole('combobox', { name: 'Number style', exact: true }).selectOption('roman');
+    await page.getByRole('button', { name: 'Add level', exact: true }).click();
+    const levelTwo = page.getByRole('group', { name: 'Level 2', exact: true });
+    await levelTwo.getByLabel('Number style').selectOption('alphabetic_lower');
+    await page.getByRole('button', { name: 'Save numbering', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'I Departure', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'II Arrival', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Up: Arrival', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'I Arrival', exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'II.a The ferry', exact: true })).toBeVisible();
+    await page.goto(`/?tenant=${tenant.id}&entry=${first.id}&view=outline`);
+    await page.getByText('Numbering', { exact: true }).click();
+    await page.getByLabel('Use this number (optional)', { exact: true }).fill('5');
+    await page.getByRole('button', { name: 'Save numbering', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'V Departure', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'V.a The ferry', exact: true })).toBeVisible();
+    await page.getByText('Numbering', { exact: true }).click();
+    await page.screenshot({
+      path: test.info().outputPath('numbering-desktop.png'),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('button', { name: 'Save numbering', exact: true })).toBeVisible();
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath('numbering-phone.png'), fullPage: true });
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'V Departure', exact: true })).toBeVisible();
+    const unchanged = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: first.id } },
+      }),
+    );
+    expect(unchanged.name).toBe('Departure');
+  } finally {
+    await context.close();
+  }
+});
+
+test('structural contents link Chapters while special Chapters keep authored text', async ({
+  browser,
+}) => {
+  test.setTimeout(150000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    const book = await ok(
+      api.POST('/tenants/{tenant_id}/writing/books', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'River manuscript' },
+      }),
+    );
+    const edition = book.editions[0].id;
+    const chapters = [];
+    for (const name of ['Guide', 'Crossing', 'Ferry', 'Glossary'])
+      chapters.push(
+        await ok(
+          api.POST('/tenants/{tenant_id}/writing/chapters', {
+            params: { path: { tenant_id: tenant.id } },
+            body: { name },
+          }),
+        ),
+      );
+    const [guide, chapter, nested, glossary] = chapters;
+    const arrange = async (id: string, elements: string[]) => {
+      const current = await ok(
+        api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+          params: { path: { tenant_id: tenant.id, id } },
+        }),
+      );
+      await ok(
+        api.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+          params: { path: { tenant_id: tenant.id, id }, header: { 'if-match': current.version } },
+          body: { elements },
+        }),
+      );
+    };
+    await arrange(edition, [guide.id, chapter.id, glossary.id]);
+    await arrange(chapter.id, [nested.id]);
+    await ok(
+      api.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+        params: { path: { tenant_id: tenant.id, entity_id: glossary.id } },
+        body: {
+          title: 'Manuscript',
+          type: 'manuscript',
+          content: '**Ferry**: a boat crossing the river.',
+          is_public: false,
+          locale: 'en',
+        },
+      }),
+    );
+    const outline = async (id: string) => {
+      await page.goto(`/?tenant=${tenant.id}&entry=${id}&view=outline`);
+      await page
+        .locator('summary')
+        .filter({ hasText: /^Contents$/ })
+        .click();
+    };
+    await outline(edition);
+    await page.getByLabel('Show contents before the manuscript').check();
+    await page.getByLabel('Contents label template').fill('{title}');
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    let navigation = page.getByRole('navigation', { name: 'Contents', exact: true });
+    await expect(navigation.getByRole('link')).toHaveText([
+      'Guide',
+      'Crossing',
+      'Ferry',
+      'Glossary',
+    ]);
+    await navigation.getByRole('link', { name: 'Ferry', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`#element-${nested.id}$`));
+    await expect(page.locator(`#element-${nested.id}`)).toBeInViewport();
+    await outline(chapter.id);
+    await page.getByLabel('Include in contents', { exact: true }).uncheck();
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await outline(guide.id);
+    await page
+      .getByRole('combobox', { name: 'Chapter type', exact: true })
+      .selectOption('contents');
+    await page.getByLabel('Include in contents', { exact: true }).uncheck();
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await outline(glossary.id);
+    await page
+      .getByRole('combobox', { name: 'Chapter type', exact: true })
+      .selectOption('glossary');
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await outline(edition);
+    await page.getByLabel('Show contents before the manuscript').uncheck();
+    await page.getByLabel('Chapter levels to include').fill('1');
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    navigation = page.getByRole('navigation', { name: 'Contents', exact: true });
+    await expect(navigation.getByRole('link')).toHaveText(['Glossary']);
+    await expect(page.locator('article')).toContainText('Ferry: a boat crossing the river.');
+    await outline(edition);
+    await page.getByLabel('Chapter levels to include').fill('3');
+    await page.getByLabel('Contents label template').fill('<b>{title}</b>');
+    await page.getByRole('button', { name: 'Save contents settings', exact: true }).click();
+    await page.getByRole('link', { name: 'Read', exact: true }).click();
+    await expect(navigation.getByRole('link')).toHaveText(['<b>Ferry</b>', '<b>Glossary</b>']);
+    await expect(navigation.locator('b')).toHaveCount(0);
+    await expect(page.locator('article')).toContainText('Ferry: a boat crossing the river.');
+    await page.screenshot({ path: test.info().outputPath('contents-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: test.info().outputPath('contents-phone.png'), fullPage: true });
+    await page.goto(`/?tenant=${tenant.id}&review=${edition}`);
+    const reviewContents = page.getByRole('navigation', { name: 'Contents', exact: true });
+    await expect(reviewContents.getByRole('link')).toHaveText(['<b>Ferry</b>', '<b>Glossary</b>']);
+    await reviewContents.getByRole('link', { name: '<b>Glossary</b>', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`#review-entry-${glossary.id}$`));
+    await expect(page.locator(`#review-entry-${glossary.id}`)).toBeInViewport();
+  } finally {
+    await context.close();
+  }
+});
+
+test('word counts measure direct prose, repeated Carrier passages and highlighted text', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant, api } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry');
+    if (!scene) throw new Error('Scene did not open');
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await page.getByText('Word count', { exact: true }).click();
+    await expect(page.getByText('Current draft · 0 words', { exact: true })).toBeVisible();
+    const source =
+      '# Étoile\n\nThe [water**fall**](https://example.test/extra/words) sings.[^n] 猫[^n]\n\n{{TOC}}\n\n`omit these words` $x$\n\n[^n]: One small note.';
+    await manuscript.fill(source);
+    await expect(page.getByText('Current draft · 8 words', { exact: true })).toBeVisible();
+    await expect(manuscript).toBeFocused();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const entry = await ok(
+      api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+        params: { path: { tenant_id: tenant.id, id: scene } },
+      }),
+    );
+    const payload = entry.elements.find((item) => item.kind === 'payload');
+    if (!payload) throw new Error('Scene prose was not saved');
+    const carrier = await ok(
+      api.POST('/tenants/{tenant_id}/writing/carriers', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { name: 'Long title outside the word count' },
+      }),
+    );
+    await ok(
+      api.PUT('/tenants/{tenant_id}/writing/carriers/{id}/coverage', {
+        params: {
+          path: { tenant_id: tenant.id, id: carrier.id },
+          header: { 'if-match': carrier.version },
+        },
+        body: {
+          elements: [
+            { id: randomUUID(), target_entity_id: scene },
+            { id: randomUUID(), target_payload_id: payload.id },
+          ],
+        },
+      }),
+    );
+    await page.goto(`/?tenant=${tenant.id}&entry=${carrier.id}&view=read`);
+    await page.getByText('Word count', { exact: true }).click();
+    await expect(page.getByText('Assembled manuscript · 16 words', { exact: true })).toBeVisible();
+    await page.getByText('Choose passages', { exact: true }).click();
+    const choices = page.getByRole('checkbox', { name: /^Passage / });
+    await expect(choices).toHaveCount(2);
+    await choices.first().check();
+    await expect(page.getByText('Chosen passages · 8 words', { exact: true })).toBeVisible();
+    await choices.last().check();
+    await expect(page.getByText('Chosen passages · 16 words', { exact: true })).toBeVisible();
+    await page
+      .getByRole('link', { name: 'waterfall', exact: true })
+      .first()
+      .evaluate((link) => {
+        const range = document.createRange();
+        range.selectNodeContents(link);
+        const selection = document.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      });
+    await expect(page.getByText('Highlighted passage · 1 word', { exact: true })).toBeVisible();
+    await page.locator('article').evaluate((article) => {
+      const blocks = article.querySelectorAll(':scope > section');
+      const start = blocks[0].querySelector('.ls-footnotes p')?.firstChild;
+      const end = blocks[1].querySelector('h1')?.firstChild;
+      if (!start || !end) throw new Error('Missing rendered footnote or heading');
+      const range = document.createRange();
+      range.setStart(start, (start.textContent ?? '').indexOf('note') + 1);
+      range.setEnd(end, 3);
+      const selection = document.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    });
+    await expect(page.getByText('Highlighted passage · 2 words', { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    // The count UI introduces no new accessibility violations.
+    expect((await new AxeBuilder({ page }).include('details').analyze()).violations).toEqual([]);
   } finally {
     await context.close();
   }

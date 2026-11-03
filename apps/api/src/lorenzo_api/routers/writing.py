@@ -32,14 +32,19 @@ from lorenzo_api.exceptions import (
     PreconditionFailedError,
 )
 from lorenzo_api.information_visibility import resolve_information_visibility
+from lorenzo_api.manuscript_redirects import require_unjoined
 from lorenzo_api.models import (
     Being,
     Book,
+    Carrier,
     Chapter,
     Edition,
     Entity,
     Information,
+    ManuscriptContents,
+    ManuscriptNumbering,
     ManuscriptPlacement,
+    ManuscriptRedirect,
     Payload,
     PayloadDescription,
     PayloadDocument,
@@ -74,8 +79,10 @@ class NewEdition(NewManuscript):
 
 class Element(BaseModel):
     id: uuid.UUID
-    kind: Literal["payload", "chapter", "scene_telling"]
+    kind: Literal["payload", "chapter", "scene_telling", "coverage"]
     name: str | None = None
+    target_id: uuid.UUID | None = None
+    payload_id: uuid.UUID | None = None
 
 
 class ManuscriptSummary(BaseModel):
@@ -84,16 +91,24 @@ class ManuscriptSummary(BaseModel):
     name: str
 
 
+class JoinedDestination(BaseModel):
+    id: uuid.UUID
+    name: str
+    element_id: uuid.UUID
+
+
 class WritingEntry(BaseModel):
     id: uuid.UUID
     name: str
-    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography"]
+    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography", "carrier"]
     book_id: uuid.UUID | None = None
     parent_id: uuid.UUID | None = None
     scene_id: uuid.UUID | None = None
     viewpoint_id: uuid.UUID | None = None
     manuscript_source_id: uuid.UUID | None = None
     uses_scene_manuscript: bool = False
+    joined: bool = False
+    joined_destination: JoinedDestination | None = None
     editions: list[ManuscriptSummary] = []
     elements: list[Element] = []
     version: str
@@ -133,6 +148,8 @@ async def entry(
 async def manuscript_payloads(
     session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, *, lock: bool = False
 ) -> tuple[Information | None, list[Payload]]:
+    if lock:
+        await require_unjoined(session, id)
     stmt = (
         select(Information)
         .where(
@@ -176,8 +193,10 @@ async def result(
     session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, user: CurrentUser, response: Response
 ) -> WritingEntry:
     row = await entry(session, tenant_id, id, user)
-    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography"]
-    if await session.get(Book, id):
+    kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography", "carrier"]
+    if await session.get(Carrier, id):
+        kind = "carrier"
+    elif await session.get(Book, id):
         kind = "book"
     elif await session.get(Edition, id):
         kind = "edition"
@@ -252,6 +271,11 @@ async def result(
             child = await session.get(Entity, el.id)
             assert child is not None
             el.name = child.name
+    if kind == "carrier":
+        from lorenzo_api.routers.carriers import covered_elements
+
+        elements = await covered_elements(session, tenant_id, id, user, elements)
+        version = 'W/"' + hashlib.sha256((version + repr(elements)).encode()).hexdigest() + '"'
     edition = await session.get(Edition, id)
     book_id = id if kind == "book" else edition.book_entity_id if edition else None
     editions = []
@@ -268,7 +292,34 @@ async def result(
     response.headers["ETag"] = version
     response.headers["Cache-Control"] = "private, no-store"
     placement = await session.get(ManuscriptPlacement, id)
+    redirect = await session.get(ManuscriptRedirect, id)
+    destination = None
+    if (
+        redirect
+        and redirect.destination_id in visible
+        and not await session.get(ManuscriptRedirect, redirect.destination_id)
+    ):
+        target_info, target_payloads = await manuscript_payloads(
+            session, tenant_id, redirect.destination_id
+        )
+        anchor = None
+        if (
+            target_info
+            and vis.can_see(target_info)
+            and redirect.payload_id in {p.id for p in target_payloads}
+        ):
+            anchor = redirect.payload_id
+        if redirect.child_id in visible:
+            child_link = await session.get(ManuscriptPlacement, redirect.child_id)
+            if child_link and child_link.parent_entity_id == redirect.destination_id:
+                anchor = redirect.child_id
+        if anchor:
+            target = await session.get(Entity, redirect.destination_id)
+            assert target is not None
+            destination = JoinedDestination(id=target.id, name=target.name, element_id=anchor)
     return WritingEntry(
+        joined=redirect is not None,
+        joined_destination=destination,
         scene_id=telling.scene_entity_id
         if telling and telling.scene_entity_id in visible
         else None,
@@ -381,6 +432,7 @@ async def arrange(
     wanted = set(ids) - own
     for child_id in wanted:
         await entry(session, tenant_id, child_id, user)
+        await require_unjoined(session, child_id)
         if not await session.get(Chapter, child_id) and not await session.get(
             SceneTelling, child_id
         ):
@@ -474,7 +526,7 @@ async def copy_manuscript(
                     values = {
                         c.name: getattr(content, c.name)
                         for c in model.__table__.columns
-                        if c.name not in {"payload_id", "tenant_id"}
+                        if c.name not in {"payload_id", "tenant_id"} and c.computed is None
                     }
                     session.add(model(payload_id=new_id, tenant_id=tenant_id, **values))
     return payload_map
@@ -535,6 +587,20 @@ async def duplicate_edition(
             if source_telling
             else Chapter(entity_id=target, tenant_id=tenant_id)
         )
+        presentation = await session.get(ManuscriptContents, source_id)
+        if presentation:
+            session.add(
+                ManuscriptContents(
+                    entity_id=target, tenant_id=tenant_id, settings=presentation.settings.copy()
+                )
+            )
+        numbering = await session.get(ManuscriptNumbering, source_id)
+        if numbering:
+            session.add(
+                ManuscriptNumbering(
+                    entity_id=target, tenant_id=tenant_id, settings=numbering.settings.copy()
+                )
+            )
         source_telling = await session.get(SceneTelling, source_id)
         if not source_telling or not source_telling.uses_scene_manuscript:
             payload_map.update(await copy_manuscript(session, tenant_id, source_id, target, user))

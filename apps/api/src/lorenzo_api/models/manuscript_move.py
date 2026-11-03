@@ -44,3 +44,24 @@ class ManuscriptExtraction(Base):
     created_at: Mapped[CreatedAt]
     request_hash: Mapped[str]
     checkpoint: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
+class ManuscriptSceneExtraction(Base):
+    """Private retry receipt for Scene extraction (ADR 0378)."""
+
+    __tablename__ = "manuscript_scene_extraction"
+    __table_args__ = tuple(
+        same_tenant_fk(
+            f"manuscript_scene_extraction_{name}_fkey", [f"{name}_id"], "entity", ondelete="CASCADE"
+        )
+        for name in ("source", "scene", "telling")
+    )
+    id: Mapped[UuidPk]
+    tenant_id: Mapped[TenantFk]
+    source_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    scene_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    telling_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    actor_id: Mapped[CreatedBy]
+    created_at: Mapped[CreatedAt]
+    request_hash: Mapped[str]
+    checkpoint: Mapped[dict[str, Any]] = mapped_column(JSONB)

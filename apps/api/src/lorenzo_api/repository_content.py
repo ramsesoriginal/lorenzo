@@ -27,6 +27,8 @@ from lorenzo_api.models import (
     CalendarObservance,
     CalendarPeriod,
     CalendarReckoning,
+    Carrier,
+    CarrierCoverage,
     Chapter,
     Character,
     Clock,
@@ -65,7 +67,10 @@ from lorenzo_api.models import (
     LivedBefore,
     Location,
     LocationPart,
+    ManuscriptContents,
+    ManuscriptNumbering,
     ManuscriptPlacement,
+    ManuscriptRedirect,
     Map,
     MapLayer,
     MapPlacement,
@@ -221,7 +226,11 @@ class Content:
     scenes: dict[uuid.UUID, uuid.UUID | None] = field(default_factory=dict)
     tellings: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     writing_biographies: set[uuid.UUID] = field(default_factory=set)
+    manuscript_contents: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    manuscript_numbering: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    carrier_coverage: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     editions: dict[uuid.UUID, uuid.UUID] = field(default_factory=dict)
+    manuscript_redirects: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     manuscript_placements: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     observances: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     calendars: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
@@ -376,6 +385,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     c.editions = dict(
         await rows(Edition.entity_id, Edition.book_entity_id, where=Edition.tenant_id == t)
     )
+    c.manuscript_redirects = {
+        source: {"destination": destination, "payload": payload, "child": child}
+        for source, destination, payload, child in await rows(
+            ManuscriptRedirect.source_id,
+            ManuscriptRedirect.destination_id,
+            ManuscriptRedirect.payload_id,
+            ManuscriptRedirect.child_id,
+            where=ManuscriptRedirect.tenant_id == t,
+        )
+    }
     c.manuscript_placements = {
         child: {"parent": parent, "before": before, "position": position}
         for child, parent, before, position in await rows(
@@ -384,6 +403,36 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             ManuscriptPlacement.before_payload_id,
             ManuscriptPlacement.position,
             where=ManuscriptPlacement.tenant_id == t,
+        )
+    }
+    c.manuscript_contents = {
+        row.entity_id: row.settings
+        for row in await session.scalars(
+            select(ManuscriptContents).where(ManuscriptContents.tenant_id == tenant_id)
+        )
+    }
+    c.manuscript_numbering = dict(
+        (row.entity_id, row.settings)
+        for row in await session.scalars(
+            select(ManuscriptNumbering).where(ManuscriptNumbering.tenant_id == tenant_id)
+        )
+    )
+    c.carrier_coverage = {
+        row_id: {
+            "carrier": carrier,
+            "entry": entry,
+            "payload": payload,
+            "before": before,
+            "position": position,
+        }
+        for row_id, carrier, entry, payload, before, position in await rows(
+            CarrierCoverage.id,
+            CarrierCoverage.carrier_id,
+            CarrierCoverage.target_entity_id,
+            CarrierCoverage.target_payload_id,
+            CarrierCoverage.before_payload_id,
+            CarrierCoverage.position,
+            where=CarrierCoverage.tenant_id == t,
         )
     }
     c.scenes = dict(await rows(Scene.entity_id, Scene.period_entity_id, where=Scene.tenant_id == t))
@@ -396,6 +445,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         c.in_public_catalog[entity_id] = public
     for kind, model in (
         ("book", Book),
+        ("carrier", Carrier),
         ("edition", Edition),
         ("chapter", Chapter),
         ("scene_telling", SceneTelling),

@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 27
+    assert rd.FORMAT == 31
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -118,6 +118,10 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "scenes": {},
         "editions": {},
         "manuscript_placements": {},
+        "manuscript_redirects": {},
+        "carrier_coverage": {},
+        "manuscript_numbering": {},
+        "manuscript_contents": {},
         "tellings": {},
         "writing_biographies": [],
         "scene_facts": [],
@@ -205,6 +209,21 @@ def test_event_assertions_round_trip_and_old_releases_have_none():
     assert rd.decode(document, files).event_relationships == content.event_relationships
     old = {k: v for k, v in document.items() if k != "event_relationships"}
     assert rd.decode(old, files, format=5).event_relationships == []
+
+
+def test_join_redirects_round_trip_and_old_releases_have_none() -> None:
+    content = full_content()
+    content.manuscript_redirects = {
+        uuid.UUID(int=10): {
+            "destination": uuid.UUID(int=11),
+            "payload": uuid.UUID(int=50),
+            "child": None,
+        }
+    }
+    document, files = rd.encode(content)
+    assert rd.decode(document, files).manuscript_redirects == content.manuscript_redirects
+    old = {k: v for k, v in document.items() if k != "manuscript_redirects"}
+    assert rd.decode(old, files, format=27).manuscript_redirects == {}
 
 
 def test_version_twenty_maps_have_no_theme_name() -> None:
@@ -334,3 +353,38 @@ def test_frames_survive_a_round_trip() -> None:
 
     back = rd.decode(document, files)
     assert back.frames == content.frames and back.entity_frames == content.entity_frames
+
+
+def test_carrier_coverage_round_trip_and_old_releases_have_none() -> None:
+    content = full_content()
+    content.carrier_coverage = {
+        uuid.UUID(int=100): {
+            "carrier": uuid.UUID(int=10),
+            "entry": None,
+            "payload": uuid.UUID(int=50),
+            "before": None,
+            "position": 0,
+        }
+    }
+    document, files = rd.encode(content)
+    assert rd.decode(document, files).carrier_coverage == content.carrier_coverage
+    old = {k: v for k, v in document.items() if k != "carrier_coverage"}
+    assert rd.decode(old, files, format=28).carrier_coverage == {}
+
+
+def test_numbering_format_and_previous_reader() -> None:
+    content = Content(tenant_id=uuid.uuid4())
+    content.manuscript_numbering[uuid.uuid4()] = {"enabled": True, "levels": [{"style": "roman"}]}
+    document, files = rd.encode(content)
+    assert rd.decode(document, files).manuscript_numbering == content.manuscript_numbering
+    old = {k: v for k, v in document.items() if k != "manuscript_numbering"}
+    assert rd.decode(old, files, format=29).manuscript_numbering == {}
+
+
+def test_contents_format_and_previous_reader() -> None:
+    content = Content(tenant_id=uuid.uuid4())
+    content.manuscript_contents[uuid.uuid4()] = {"enabled": True, "depth": 2}
+    document, files = rd.encode(content)
+    assert rd.decode(document, files).manuscript_contents == content.manuscript_contents
+    old = {key: value for key, value in document.items() if key != "manuscript_contents"}
+    assert rd.decode(old, files, format=30).manuscript_contents == {}
