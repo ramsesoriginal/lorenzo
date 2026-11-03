@@ -43,6 +43,19 @@ All of these are views over the same entries, not separate data.
 
 The server (revisions, versions, derived values), the clock, the pictures, the map tiles, and everything about offline: no IndexedDB, no service worker, no real conflicts. It invents the shapes the API slices of [RFC 0041](../../rfcs/0041-entity-kinds-and-author-freedom.md) are meant to provide.
 
+## As built
+
+The shell, entry editing, stats, formulas, pictures, the pack editor, the compare grid and the conflict review are built in `apps/bench`; see [What is built](../../../apps/bench/README.md#what-is-built). "Saved on this device" and "Waiting to sync" are drawn, but changes are held in memory: persistent offline editing is slices B4 and B5 of RFC 0039 and is not built. The views of the world are not Bench views:
+
+| Prototype view | Where it is now |
+| --- | --- |
+| Map | [Lorenzo Maps](../../../apps/maps/README.md) |
+| Calendar | [Lorenzo Calendars](../../../apps/calendars/README.md) |
+| Manuscript | [Lorenzo Writing](../../../apps/writing/README.md) |
+| Relations, Timeline, Sheets from templates | not built |
+
+Bench integration of these views is deferred ([RFC 0048](../../rfcs/0048-locations-maps-connections-and-optional-dates.md)).
+
 ## Regenerating the screens
 
 The canvas runs in any browser given the design runtime (`support.js`, not kept here). The screens were rendered at 1440x900 with Playwright. They are illustrations; if the prototype and a screen disagree, the prototype wins, and if either disagrees with a decided RFC, the RFC wins.

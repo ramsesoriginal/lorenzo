@@ -34,9 +34,10 @@ jobs:
   # the local project's own version too, so every bump leaves it stale
   # (confirmed twice now: the 0.2.0 release and the 0.3.0 one). uv lock
   # --check (apps/api/mise.toml's lint task) correctly catches this in CI
-  # but can't fix it. Hardcoded to apps/api and apps/cli, one step
-  # each, not matrixed/generalized over the manifest's packages - same reasoning as
-  # ci.yml's openapi-diff job: a future package might not even use uv.
+  # but can't fix it. Hardcoded to the uv projects below, not generalized over the
+  # manifest's packages - same reasoning as ci.yml's openapi-diff job: a future
+  # package might not even use uv. apps/api and apps/cli have a step each; the three
+  # Python packages share the last one.
   sync-lockfile:
     needs: release-please
     if: needs.release-please.outputs.pr != ''
@@ -93,4 +94,23 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add uv.lock
           git commit -m "chore(cli): sync uv.lock with release-please's version bump"
+          git push origin "HEAD:refs/heads/$PR_BRANCH"
+      - name: Regenerate the Python packages' uv.lock if the version bump left it stale
+        # The same for the three Python packages with a uv.lock of their own (apps/api, apps/cli and
+        # converters depend on them by path). One commit per package, one push at the end; an
+        # unchanged lockfile commits nothing.
+        env:
+          PR_BRANCH: ${{ fromJson(needs.release-please.outputs.pr).headBranchName }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for dir in packages/calendar-engine packages/converters packages/map-engine; do
+            (cd "$dir" && mise exec -- uv lock)
+            if git diff --quiet -- "$dir/uv.lock"; then
+              echo "$dir/uv.lock already in sync"
+              continue
+            fi
+            git add "$dir/uv.lock"
+            git commit -m "chore($(basename "$dir")): sync uv.lock with release-please's version bump"
+          done
           git push origin "HEAD:refs/heads/$PR_BRANCH"

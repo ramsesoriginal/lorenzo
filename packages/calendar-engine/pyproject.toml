@@ -1,6 +1,6 @@
 [project]
 name = "lorenzo-calendar"
-version = "0.0.0"
+version = "0.1.0"
 description = "Pure authored calendar calculation for Lorenzo (ADR 0308)"
 readme = "README.md"
 requires-python = ">=3.12"
