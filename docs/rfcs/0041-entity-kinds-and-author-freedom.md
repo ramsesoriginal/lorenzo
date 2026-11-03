@@ -145,6 +145,15 @@ Each on a throwaway branch, its findings written back here, as the umbrella rule
 - **A maintained counter is the worst of the three.** The copying library would have to write a row of the repository's own counter table, which `tenant_isolation` refuses (`new row violates row-level security policy`); allowing it needs the policy of A or the function of B, plus a trigger and a table the registry must carry, to compute what A reads directly.
 - **Decision:** A. K9 builds it (ADR 0386).
 
+**Spike 3, findings (2026-11-03).** Built on a throwaway branch: a library shaped like the repositories of RFC 0037's scale spike (a tree about five levels deep, 15% of the entries with a second parent, four stats stored on most entries and twenty-two more on a third of them, a linear formula on one entry in four), at 3,000, 5,000 and 20,000 entries (up to 187,000 stored values and 5,000 formulas), as the restricted app role with row-level security on and JIT off, after `ANALYZE`. The candidate is the read as the route would run it: the page's ids first (name order, `limit`/`offset`), then every effective row of those entries in one query with their formulas, formulas evaluated in Python, the requested columns picked out.
+
+- **One query a page is fast enough.** A page of 100 entries by 30 columns, formulas included, takes 41 ms at 3,000 entries, 46 ms at 5,000 and 58 ms at 20,000, in 11 statements, and a page near the end of the library (offset at 90%) 51 to 65 ms. A page of 50 by 4 is 31 to 39 ms. The columns hardly matter: every effective row of the page is loaded whatever is asked for, since a formula needs the rows it reads, and the requested ones are picked out afterwards.
+- **It is an order of magnitude under what a grid does today.** The same 100 entries loaded one entry at a time (the per-entry read of `GET /entities/{id}`, without its information and payloads) take 510 to 690 ms in the same process, and Bench's `loadAll` pays that for every entry, plus the whole detail and the HTTP of each.
+- **The page's ids must come first.** Sorting by name and limiting before the walk is what keeps a page cheap at 20,000 entries (ADR 0285's note on lists); the walk then runs for the 100 entries of the page and nothing else.
+- **Statistics matter.** Straight after a bulk load, without `ANALYZE`, the first pages at 20,000 entries took 1.2 to 3.6 s and then 60 ms once the planner had statistics. A library that has just been loaded in bulk (an import) is slow until autovacuum has analysed it; the route needs no change for that.
+- **Not measured:** contents formulas (they need the containment subtree and are loaded for the page by `attach_contents`, one load for all of them, as the sheet read does), the visibility filter and the response's serialization, and the `count(*)` the page envelope runs (about 24 ms at 20,000 entries, ADR 0285).
+- **Decision:** one query per page, formulas evaluated on the server, no `POST` form. K7 builds it (ADR 0387).
+
 ## Slices
 
 | Id | What | Depends on | Touches |
