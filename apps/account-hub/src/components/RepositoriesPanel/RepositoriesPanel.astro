@@ -2,6 +2,7 @@
 // Everything on /repositories (ADR 0196): Shelf, the repositories a library has been invited to or
 // has copied. A list, and one repository's page, both for the library chosen at the top. Rendered
 // by renderRepositoriesPanel.
+import '@lorenzo/repo-ui/repo-ui.css';
 import { BRANDING_CSS_URL } from '../../lib/config';
 import Preview from '../Preview/Preview.astro';
 ---
@@ -410,25 +411,6 @@ import Preview from '../Preview/Preview.astro';
         </div>
         <p class="status-text" role="status" data-status hidden></p>
       </li>
-    </template>
-
-    <template data-field-template>
-      <div class="stack-tight update-field">
-        <strong data-label></strong>
-        <dl class="key-values" data-values></dl>
-        <p class="caption" data-note hidden></p>
-        <fieldset data-conflict hidden>
-          <legend>This is changed in your library too</legend>
-          <label class="field-row">
-            <input type="radio" value="keep" data-keep />
-            Keep yours
-          </label>
-          <label class="field-row">
-            <input type="radio" value="take" data-take />
-            Take the update, and replace yours
-          </label>
-        </fieldset>
-      </div>
     </template>
 
     <template data-added-template>
