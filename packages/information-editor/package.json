@@ -2,7 +2,7 @@
   "name": "@lorenzo/information-editor",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Small information audience and payload controls shared by Lorenzo editors (RFC 0044).",
   "exports": {
     ".": "./src/index.ts"

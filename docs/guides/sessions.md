@@ -8,7 +8,7 @@ The first page lists every session you are assigned to, as a GM or as a player, 
 
 ## Create a session
 
-A GM of a campaign sees **Prepare a session** under the list. Give it a **Session title**, choose the **Campaign**, and optionally set a **Real-world date** and a **Link name** (the short name used in addresses and links). **Create session** opens the new session.
+A GM of a campaign sees **Prepare a Session** under the list. Give it a **Session title**, choose the **Campaign**, and optionally set a **Real-world date** and a **Link name** (the short name used in addresses and links). **Create Session** opens the new session.
 
 A session belongs to exactly one campaign. The GM who creates it is its first assigned GM, and its player roster starts empty.
 
@@ -31,11 +31,11 @@ Under **Session details**, a GM can set the **Real-world date** and the **In-wor
 
 ## Scenes and Scene appearances
 
-A **Scene** is a reusable entry that belongs to no particular session. It can carry notes, an optional calendar period, and references (see below). **Browse reusable scenes** lists them and **Create a reusable scene** adds one; a Scene's own page has **Scene details** for its title, link name, **Visible in this library** and **Scene period**.
+A **Scene** is a reusable entry that belongs to no particular session. It can carry notes, an optional calendar period, and references (see below). **Browse reusable Scenes** lists them and **Create a reusable Scene** adds one; a Scene's own page has **Scene details** for its title, link name, **Visible in this library** and **Scene period**.
 
-A **Scene appearance** is a Scene used inside a Session. Under **Add a scene**, a GM picks an existing Scene or creates one, and adds it to the session outline. The same Scene can appear in several sessions, and more than once in one.
+A **Scene appearance** is a Scene used inside a Session. Under **Add a Scene**, a GM picks an existing Scene or creates one, and adds it to the session outline. The same Scene can appear in several sessions, and more than once in one.
 
-The outline under **Scenes** is ordered. **Move up** and **Move down** reorder it. Each appearance is either **GM preparation** or shared with the session's participants, and **Share with session participants** or **Make preparation private** switches it. **Remove scene appearance** removes that appearance and the notes written on it, after confirmation; the reusable Scene stays.
+The outline under **Scenes** is ordered. **Move up** and **Move down** reorder it. Each appearance is either **GM preparation** or shared with the session's participants, and **Share with Session participants** or **Make preparation private** switches it. **Remove Scene appearance** removes that appearance and the notes written on it, after confirmation; the reusable Scene stays.
 
 A Scene and its appearance have separate audiences. Sharing an appearance with a session does not open a Scene that is restricted, and notes on an appearance belong to this group's session only. Notes on the Scene itself belong to every session that uses it.
 
@@ -52,13 +52,13 @@ On a Scene's own page the two audiences read **Me and entry managers** and **Eve
 
 ## Facts, Events and beings
 
-Sessions can refer to the entries they involve. A session shows **Direct session references** (Facts and Events), and a Scene shows **Scene references and participants** (Facts, Events and beings). A GM adds one with **Reference to add**, then **Add reference**.
+Sessions can refer to the entries they involve. A session shows **Session references** (Facts and Events), and a Scene shows **Scene references and participants** (Facts, Events and beings). A GM adds one with **Reference to add**, then **Add reference**.
 
-Every reference starts as a **Private relationship**. **Share relationship** and **Make relationship private** change that, and **Remove reference** deletes it. A reader sees a reference only if they can see both ends of it, so sharing a reference never opens the Fact, Event or being it points to. A reference does not make a being a participant in an Event, and it does not record that anyone learned anything.
+Every reference starts private. **Share relationship** and **Make relationship private** change that, and **Remove reference** deletes it. A reader sees a reference only if they can see both ends of it, so sharing a reference never opens the Fact, Event or being it points to. A reference does not make a being a participant in an Event, and it does not record that anyone learned anything.
 
 ## Recorded play
 
-**Recorded play** keeps what actually happened at the table apart from the preparation. Each scene appearance is **Planned**, **Played** or **Skipped**. A GM opens **Review and record played scenes**, sets the statuses and the played order (**Earlier in played order**, **Later in played order**), and saves with **Save played scenes**.
+**Recorded play** keeps what actually happened at the table apart from the preparation. Each scene appearance is **Planned**, **Played** or **Skipped**. A GM opens **Review and record played Scenes**, sets the statuses and the played order (**Earlier in played order**, **Later in played order**), and saves with **Save played Scenes**.
 
 **Propose played order from preparation** fills in a draft: every scene not already skipped becomes played, in outline order. It is only a proposal; nothing is saved until the GM reviews it and saves. Preparation changes made afterwards do not alter the saved record, and play that was never recorded stays unrecorded.
 
@@ -66,7 +66,7 @@ Under each appearance, **Record Event presentation** notes that an Event was pre
 
 ## Campaign session order
 
-**Campaign session order** lists the campaign's sessions in an order that people chose, followed by the **Unplaced sessions** available to you. A GM can open **Edit order of sessions I manage**, then use **Move session earlier**, **Move session later**, **Leave session unplaced** and **Place session at end**, and finish with **Save session order**.
+**Campaign Session order** lists the campaign's sessions in an order that people chose, followed by the **Unplaced Sessions** available to you. A GM can open **Edit order of Sessions I manage**, then use **Move Session earlier**, **Move Session later**, **Leave Session unplaced** and **Place Session at end**, and finish with **Save Session order**.
 
 A GM reorders only the sessions they manage. The positions of other sessions stay as they are, and the list does not show positions among sessions you cannot see. Neither the date a session was created nor its real-world date sets the order.
 

@@ -25,7 +25,7 @@ mise run //apps/beings:test       # Vitest
 mise run //apps/beings:test-e2e   # Playwright against the real API; needs Postgres and uv
 ```
 
-Copy `.env.example` to `.env` and fill in the Authgear endpoint and client id (see [docs/operations/beings-setup.md](../../docs/operations/beings-setup.md); it needs an Authgear client of its own, with `http://127.0.0.1:4323/auth/redirect/` as a redirect address). `PUBLIC_API_BASE_URL` defaults to the deployed API. Where inventory-web lives comes from the API's app-links registry ([ADR 0273](../../docs/adr/0273-app-links-registry.md)); `PUBLIC_INVENTORY_WEB_BASE_URL` is only the fallback.
+Copy `.env.example` to `.env` and fill in the Authgear endpoint and client id (see [docs/operations/beings-setup.md](../../docs/operations/beings-setup.md); it needs an Authgear client of its own, with `http://127.0.0.1:4323/auth/redirect/` as a redirect address). `PUBLIC_API_BASE_URL` defaults to the deployed API. `PUBLIC_BRANDING_CSS_URL` is optional (default: its own `/branding/`). Where inventory-web lives comes from the API's app-links registry ([ADR 0273](../../docs/adr/0273-app-links-registry.md)); `PUBLIC_INVENTORY_WEB_BASE_URL` is only the fallback.
 
 The end-to-end tests start a fake Authgear (4410), the real API on a fresh database (8775, database `lorenzo_beings_e2e`, `E2E_DATABASE` overrides it; the name must end in `_e2e`) and the built site (4341), so they can run beside inventory-web's. Playwright's `E2E_REUSE_SERVERS=1` reuses servers already running.
 
@@ -33,12 +33,17 @@ The end-to-end tests start a fake Authgear (4410), the real API on a fresh datab
 
 `src/pages/` has the pages; `src/components/<Name>/` is a `<Name>.astro` of markup and `data-*` hooks with a `renderer.ts` that finds them; `src/lib/` is the API reads and writes and the pure rules, each with a `.test.ts` where it has logic. The stat logic is `packages/stat-values`, shared with inventory-web.
 
+## Who can read this
+
 Editable descriptions and notes include **Who can read this**, with explicit character and group
-recipients and the existing Player grants. Audience changes are atomic and versioned (ADR 0304);
-a stale form asks the editor to review the current audience before saving again.
+recipients and the existing Player grants. Audience changes are atomic and versioned
+([ADR 0304](../../docs/adr/0304-atomic-information-audiences.md)); a stale form asks the editor to
+review the current audience before saving again.
+
+## Several texts and pictures in one note
 
 Descriptions and notes may hold several LorenzoScript texts and pictures, kept in one ordered
-bundle with one audience (ADR 0306). **Add picture** and **Add text** extend the existing editor;
+bundle with one audience ([ADR 0306](../../docs/adr/0306-information-bundles-and-their-editors.md)). **Add picture** and **Add text** extend the existing editor;
 move/remove controls keep each part in order. A failed save keeps the draft and stable attachment
 IDs for retry. Read mode includes every part; protected pictures use authenticated requests.
 
@@ -47,10 +52,17 @@ IDs for retry. Read mode includes every part; protected pictures use authenticat
 An entry lists the Facts explicitly about it when the reader can see their existence/name.
 The Fact page renders its visible information bundles and About subjects. LorenzoScript links
 resolve to that page. The Fact's outer audience and each information audience are independent;
-hidden Facts produce the same unavailable view as missing entries (ADR 0305, RFC 0044).
+hidden Facts produce the same unavailable view as missing entries
+([ADR 0305](../../docs/adr/0305-facts-and-entry-audiences.md), [RFC 0044](../../docs/rfcs/0044-facts-audiences-and-information-bundles.md)).
+
+## Events a being takes part in
 
 Full-visibility library Owners/Organizers see participating Event titles below Inventory,
-in story order, with links to Calendars and explicit linearized labels (ADR 0313).
+in story order, with links to Calendars and explicit linearized labels ([ADR 0313](../../docs/adr/0313-event-participation-browsing-and-calendar-addresses.md)).
 The section checks current Event-order access before querying. Other readers and admins
 with a visibility opt-out get no Event participation/order section. These associations
 record participation, never learning or a being's lived sequence.
+
+## Deploy
+
+Deployed at <https://lorenzo-beings.pages.dev/> on Cloudflare Pages; the procedure is recorded in [docs/operations/beings-setup.md](../../docs/operations/beings-setup.md).

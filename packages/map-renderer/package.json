@@ -2,7 +2,7 @@
   "name": "@lorenzo/map-renderer",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Hand-written SVG drawing of a Lorenzo Map: layout to a Scene, painting, hit testing and themes (ADR 0339).",
   "exports": {
     ".": "./src/index.ts",

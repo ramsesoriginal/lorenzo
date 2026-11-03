@@ -2,7 +2,7 @@
   "name": "@lorenzo/entry-preview",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "The card an entry opens when it is hovered, focused or tapped: timing, cache, drawing and stylesheet (ADR 0349).",
   "exports": {
     ".": "./src/index.ts",

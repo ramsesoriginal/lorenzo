@@ -15,7 +15,7 @@ Tokens themselves are 256 random bits, so guessing one is infeasible whatever th
 
 ## 1. The edge rule (do this before going live)
 
-Pick whichever fits how the API is actually reached. **I have not been able to run either of these against a real account**, so treat the exact flags and field names as a starting point to check against the current vendor documentation, and verify the result with the test at the end.
+Pick whichever fits how the API is actually reached. **Neither has been run against a live account**, so treat the exact flags and field names as a starting point to check against the current vendor documentation, and verify the result with the test at the end.
 
 ### Cloudflare (a Cloudflare-proxied hostname in front of the API)
 

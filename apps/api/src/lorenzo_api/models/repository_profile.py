@@ -20,8 +20,9 @@ class RepositoryProfile(Base):
     the gated read (ADR 0118), so it carries `repository_read` beside `tenant_isolation`.
 
     `visibility` is `private` or `public` and `preview` is `off`, `showcase` or `public`
-    (RFC 0038 §5); the API refuses `public` for the first until the gates that come before
-    it are built, the database does not. `credits` is a list of `{name, role, url}`.
+    (RFC 0038 §5); the profile route refuses `public` for the first (it has its own route, ADR
+    0289) and that route refuses it while PUBLIC_REPOSITORIES_ENABLED is off (ADR 0290), the
+    database does not. `credits` is a list of `{name, role, url}`.
     `cover_picture_id` is a row of the same blob table the other profile pictures use
     (ADR 0056), deleted with the cover.
     """
