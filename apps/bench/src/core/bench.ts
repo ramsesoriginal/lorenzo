@@ -22,6 +22,7 @@ import { LinkResolver, type StatTexts } from './links';
 import { Pictures } from './pictures';
 import {
   type Backlink,
+  canDuplicate,
   canEditStat,
   type EditableKind,
   type EntryFieldTarget,
@@ -774,6 +775,77 @@ export class Bench {
     this.emit();
     queueMicrotask(() => void this.run());
     return noteId;
+  }
+
+  /**
+   * Makes a copy of an entry as commands (ADR 0388, RFC 0041 section 4): its kinds and direct
+   * parents, its own stat values, its description and its notes (made GM only). It shows at once
+   * and is sent in order. Its formulas follow once it is on the server (`copyFormulas`). Not its
+   * link name (made from the new name), pictures, containment, ownership or knowledge. Returns the
+   * id of the copy, or null when the entry cannot be duplicated.
+   */
+  duplicate(id: string): string | null {
+    const source = this.view(id);
+    if (!source || !canDuplicate(source.kinds)) return null;
+    const copy = this.create({
+      name: this.copyName(source.name),
+      kinds: source.kinds,
+      parents: source.parentIds,
+    });
+    for (const stat of source.stats)
+      if (stat.own && !stat.computed && stat.value !== null)
+        this.setStat(copy, stat.statId, stat.value);
+    if (source.description?.text.trim()) this.setDescription(copy, source.description.text);
+    for (const note of source.notes) this.addNote(copy, note.text);
+    if (source.notes.length)
+      this.notices.set(
+        copy,
+        'Its notes are GM only. Make one visible to everyone where it should be read.',
+      );
+    return copy;
+  }
+
+  /** A quiet line under an entry's name that says what a step could not do for it (K4). */
+  notices = new Map<string, string>();
+  dismissNotice(id: string): void {
+    this.notices.delete(id);
+    this.emit();
+  }
+
+  /** "Copy of Name", or "Copy of Name (2)" and on: the first that no entry has. */
+  private copyName(name: string): string {
+    const taken = new Set(this.listing().map((e) => e.name));
+    const base = `Copy of ${name}`;
+    if (!taken.has(base)) return base;
+    for (let n = 2; ; n++) if (!taken.has(`${base} (${n})`)) return `${base} (${n})`;
+  }
+
+  /**
+   * Gives the copy the formulas the entry holds itself, once the copy is on the server: a formula
+   * is its own write, online and direct (ADR 0253). Returns how many were copied, or null when the
+   * copy is not on the server (no connection), so the caller can say so.
+   */
+  async copyFormulas(id: string, copy: string): Promise<number | null> {
+    await this.run();
+    if (!this.onServer(copy)) {
+      this.notices.set(
+        copy,
+        'Made without its formulas: there was no connection. Give it them in Formulas.',
+      );
+      this.emit();
+      return null;
+    }
+    await this.formulas.load([id]);
+    let copied = 0;
+    for (const held of this.formulas.held(id) ?? []) {
+      try {
+        await this.formulas.save(copy, held.statId, held.formula, null);
+        copied++;
+      } catch {
+        // Left for the person to give by hand: the Formulas pane says which stats have none.
+      }
+    }
+    return copied;
   }
 
   /**

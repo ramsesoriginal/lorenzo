@@ -116,7 +116,17 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
       notes: docs('note'),
       stats: entry.stats.flatMap((st) => {
         const def = defs.find((d) => d.name === st.name);
-        return def ? [{ statId: def.id, name: st.name, value: st.value, own: st.own }] : [];
+        return def
+          ? [
+              {
+                statId: def.id,
+                name: st.name,
+                value: st.value,
+                own: st.own,
+                computed: st.computed,
+              },
+            ]
+          : [];
       }),
       etag,
     };

@@ -7,7 +7,13 @@ import { informationBody } from './informationBody';
 import { slugify } from '@lorenzo/lorenzoscript';
 import type { Bench, EntryStatus } from '../core/bench';
 import type { Command } from '../core/commands';
-import { canRename, canSetParents, type EditableKind, slugProblem } from '../core/transport';
+import {
+  canDuplicate,
+  canRename,
+  canSetParents,
+  type EditableKind,
+  slugProblem,
+} from '../core/transport';
 
 import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
@@ -48,11 +54,18 @@ export function statusText(bench: Bench, id: string): string {
   return STATUS_TEXT[bench.status(id)](bench.commandsFor(id).length);
 }
 
+/** What the shell does for the entry pane that the pane cannot do itself. */
+export interface EntryActions {
+  /** Opens the New form with this entry as the parent of what is made. */
+  newUnder(id: string): void;
+}
+
 export function renderEntry(
   bench: Bench,
   id: string | null,
   go: (id: string) => void,
   controls?: EntryControls,
+  actions?: EntryActions,
 ): HTMLElement {
   const c = el('div', 'pane pane-entry');
   if (bench.loadError && !bench.entries.length) {
@@ -111,7 +124,37 @@ export function renderEntry(
   undo.addEventListener('click', () => bench.undo(id));
   undo.disabled = !bench.canUndo(id);
   meta.append(el('span', 'grow'), chip, undo);
+  if (actions) {
+    const under = el('button', 'btn quiet', 'New under this');
+    under.type = 'button';
+    under.title = `Make a new entry that inherits from ${item.name}`;
+    under.addEventListener('click', () => actions.newUnder(id));
+    meta.append(under);
+  }
+  const duplicate = el('button', 'btn quiet', 'Duplicate');
+  duplicate.type = 'button';
+  duplicate.disabled = !canDuplicate(item.kinds);
+  duplicate.title = duplicate.disabled
+    ? 'An inventory item or a character is made by its own route.'
+    : `Make a copy of ${item.name}: its kinds, parents, own stats, description and notes`;
+  duplicate.addEventListener('click', () => {
+    const copy = bench.duplicate(id);
+    if (!copy) return;
+    go(copy);
+    void bench.copyFormulas(id, copy);
+  });
+  meta.append(duplicate);
   c.append(meta, el('p', 'kind sr-only', kindsText(item.kinds)));
+
+  const notice = bench.notices.get(id);
+  if (notice) {
+    const line = el('p', 'entry-notice muted', notice);
+    line.append(
+      document.createTextNode(' '),
+      button('Dismiss', () => bench.dismissNotice(id), 'btn quiet'),
+    );
+    c.append(line);
+  }
 
   for (const cmd of bench.commandsFor(id)) {
     if (cmd.state === 'conflict') c.append(conflictRow(bench, cmd));

@@ -100,6 +100,8 @@ export interface StatValue {
   /** The effective value; null for an own value just cleared, whose inherited one is not known here. */
   value: StatScalar | null;
   own: boolean;
+  /** A formula decided it: it is not a value of its own to copy or to clear (K4). */
+  computed?: boolean;
 }
 
 /** Whether a stat of this type can be written from Bench: every type can. */
@@ -162,6 +164,13 @@ export interface NewEntry {
 /** Only an item has a name that can be changed so far. */
 export const canRename = (kinds: readonly string[]): boolean =>
   kinds.includes('item') || kinds.includes('fact');
+
+/**
+ * An entry can be duplicated when it is made of kinds `POST /entities` makes: an item, a being, a
+ * fact, or none. An inventory item and a character are made by their own routes (ADR 0217).
+ */
+export const canDuplicate = (kinds: readonly string[]): boolean =>
+  kinds.every((k) => (EDITABLE_KINDS as readonly string[]).includes(k));
 
 /** An inventory item's one parent changes through its own route, not here. */
 export const canSetParents = (kinds: readonly string[]): boolean =>

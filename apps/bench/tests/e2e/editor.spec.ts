@@ -1484,6 +1484,72 @@ test.describe('link names', () => {
   });
 });
 
+test.describe('new from parent and duplicate (K4)', () => {
+  test('New under this opens the New form with the entry as the parent', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'New under this' }).click();
+    const form = page.locator('.new-entry');
+    await expect(form.getByLabel('Parent of the new entry')).toHaveValue('wolf');
+    await expect(form.getByLabel('Name of the new entry')).toBeFocused();
+    await form.getByLabel('Name of the new entry').fill('Pup');
+    await form.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(name(page)).toHaveValue('Pup');
+    expect(await writes(page)).toContainEqual({
+      id: expect.any(String),
+      field: 'create',
+      value: 'Pup',
+    });
+    await expect(page.getByRole('button', { name: 'Wolf', exact: true }).first()).toBeVisible();
+  });
+
+  test('the palette offers New entry under and Duplicate for the open entry', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'New entry under Wolf');
+    await expect(page.locator('.new-entry').getByLabel('Parent of the new entry')).toHaveValue(
+      'wolf',
+    );
+    await palette(page, 'Duplicate Wolf');
+    await expect(name(page)).toHaveValue('Copy of Wolf');
+  });
+
+  test('Duplicate copies parents, own stats, description and notes, and says the notes are GM only', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="monster"]').click();
+    await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+    await expect(name(page)).toHaveValue('Copy of Monster');
+    await page
+      .getByRole('tab', { name: 'Properties' })
+      .click()
+      .catch(() => undefined);
+    expect(await writes(page)).toContainEqual({
+      id: expect.any(String),
+      field: 'stat:armor',
+      value: 10,
+    });
+
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+    await expect(name(page)).toHaveValue('Copy of Wolf');
+    await expect(page.locator('.pane-entry')).toContainText('Hunts in');
+    await expect(page.locator('.note-row')).toHaveCount(2);
+    await expect(page.locator('.entry-notice')).toContainText('Its notes are GM only.');
+    await page.locator('.entry-notice').getByRole('button', { name: 'Dismiss' }).click();
+    await expect(page.locator('.entry-notice')).toHaveCount(0);
+    // Beast is still its parent.
+    await expect(page.locator('.breadcrumb')).toContainText('Beast');
+  });
+
+  test('a second copy is named so that it differs', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+    await expect(name(page)).toHaveValue('Copy of Wolf');
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+    await expect(name(page)).toHaveValue('Copy of Wolf (2)');
+  });
+});
+
 test.describe('formulas and the stat vocabulary', () => {
   const formula = (page: Page) => page.locator('.pane-formula');
 
