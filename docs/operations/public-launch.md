@@ -1,6 +1,6 @@
 # Going public: what to set, and in what order
 
-Public repositories ([RFC 0038](../rfcs/0038-public-repositories-and-discovery.md)) are built and **off**. This is the list for switching them on in a deployment. The build is done (the gates D1 to D6: [ADR 0290](../adr/0290-the-flips-as-routes-and-the-visibility-switch.md), [0292](../adr/0292-discover-the-listing-and-the-storefront.md), [0293](../adr/0293-the-preview.md), [0298](../adr/0298-quotas-on-a-repository.md), [0299](../adr/0299-what-a-public-repository-says-about-its-publisher-and-hides-about-its-libraries.md), [0300](../adr/0300-authentication-on-a-private-repositorys-picture.md), [0301](../adr/0301-release-fan-out-and-cooldown.md), [0303](../adr/0303-operator-delist.md)); what is left is configuration and the edge rule, which are the operator's.
+Public repositories ([RFC 0038](../rfcs/0038-public-repositories-and-discovery.md)) are built and **off**. This is the list for switching them on in a deployment. The build is done (the gates D1 to D6: [ADR 0290](../adr/0290-the-flips-as-routes-and-the-visibility-switch.md), [0292](../adr/0292-discover-the-listing-and-the-storefront.md), [0293](../adr/0293-the-preview.md), [0298](../adr/0298-quotas-on-a-repository.md), [0299](../adr/0299-what-a-public-repository-says-about-its-publisher-and-hides-about-its-libraries.md), [0300](../adr/0300-authentication-on-a-private-repositorys-picture.md), [0301](../adr/0301-release-fan-out-and-cooldown.md), [0303](../adr/0303-operator-delist.md)) and the Owner's deprecate ([0383](../adr/0383-deprecating-a-repository.md)); what is left is configuration and the edge rule, which are the operator's.
 
 ## 1. The edge rate-limit rule (before the switch)
 
@@ -42,7 +42,18 @@ lorenzo api DELETE /admin/repositories/<repository-id>/delist   # lists it again
 
 Suspending an account (`PUT /admin/users/<id>/suspend`) delists every repository it owns; un-suspending does not list them again. This is the lever, not a takedown process: who may ask for it and how a complaint is judged are not designed ([RFC 0038 §8](../rfcs/0038-public-repositories-and-discovery.md#8-operations)).
 
-## 6. What to know
+## 6. Retiring a repository
+
+An Owner retires a repository, public or not, without cutting off the libraries that use it: they keep their copy and its updates, nobody can copy it any more, it leaves Discover, and the libraries that hold it are told ([ADR 0383](../adr/0383-deprecating-a-repository.md)). The account hub says "retired"; the API says deprecated. Studio has a card for it on the repository's Overview. From the command line:
+
+```bash
+lorenzo api PUT /tenants/<repository-id>/deprecation --data '{"message": "Use Bestiary 2 instead"}'   # the message is optional, 500 characters at most
+lorenzo api DELETE /tenants/<repository-id>/deprecation   # brings it back
+```
+
+Only an Owner may; calling `PUT` again replaces the message and tells nobody again. A retired repository cannot be made public until it is brought back. The operator's delist ([section 5](#5-dealing-with-an-abusive-repository)) wins where both hold.
+
+## 7. What to know
 
 - **Announcements can be late, not lost.** A release writes one row and the notices are written after the response, by a sweep at start-up and at most once a minute on a signed-in request. There is no scheduled job in production, so with no traffic a stranded batch waits for the next request or restart. An hourly authenticated call from Cloud Scheduler ([ADR 0095](../adr/0095-loot-bot-notification-dms.md)'s pattern) would close that gap; it would also keep the Neon database awake, so it is optional.
 - **The cooldown's 300 seconds** rests on a measured cost per statement, not on the real Cloud Run to Neon round trip; if releases of large repositories feel slow to announce, time one `SELECT 1` from the service and revisit it.

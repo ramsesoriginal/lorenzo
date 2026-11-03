@@ -253,7 +253,7 @@ D6's parts are independent and may each land as their own change. The spikes com
 - **The wording of the terms line and the report address.** The maintainer's.
 - **Whether a public repository's dependents block it going private,** or only warn. The proposal is to refuse, since the stack would otherwise be broken for new copies.
 - **Whether the preview shows inherited stat values** or only values set on the entry itself. Inherited ones need the stat resolution applied to the release; the proposal is to show them if that costs nothing extra in D4.
-- **Whether a deprecated repository names a successor.** A message is decided; a link to a replacement is a small addition.
+- **Whether a deprecated repository names a successor.** A message is decided; a link to a replacement is a small addition. Built without it ([ADR 0383](../adr/0383-deprecating-a-repository.md)): the message can say it.
 - **Whether the in-process limiter also covers Discover.** It is keyed by client address for the invite routes; Discover is authenticated, so a per-user key is possible.
 
 ## Not in scope

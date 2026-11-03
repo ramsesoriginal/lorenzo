@@ -435,6 +435,8 @@ erDiagram
         datetime delisted_at "nullable"
         uuid delisted_by FK "nullable"
         string delist_reason "nullable"
+        datetime deprecated_at "nullable"
+        string deprecated_message "nullable"
         uuid current_release_id FK "nullable"
         boolean npcs_shared_with_gms
         int export_revision
