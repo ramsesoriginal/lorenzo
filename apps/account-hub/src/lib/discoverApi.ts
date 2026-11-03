@@ -24,7 +24,7 @@ export async function getFacets(): Promise<DiscoverFacetsOut> {
 
 // A page of the public repositories. A listing too deep is refused (`discover-too-deep`), and is
 // thrown for the page to say. It is always asked for, and never answered from what was held: a
-// repository its Owner retires (ADR 0383), or an operator delists, leaves it at once, and a held
+// repository its Owner retires (ADR 0384), or an operator delists, leaves it at once, and a held
 // answer would go on offering it to copy.
 export async function listPublicRepositories(query: DiscoverQuery): Promise<DiscoverPageOut> {
   const params = listQuery(query);
@@ -37,7 +37,7 @@ export async function listPublicRepositories(query: DiscoverQuery): Promise<Disc
 }
 
 // A repository's page, or null for one that is not listed: private, not released yet, retired by its
-// Owner (ADR 0383), delisted or not there. That is a state to show, not a failure. Always asked for,
+// Owner (ADR 0384), delisted or not there. That is a state to show, not a failure. Always asked for,
 // never answered from what was held, for the reason the listing is not.
 export async function getStorefront(repositoryId: string): Promise<StorefrontOut | null> {
   return cached(

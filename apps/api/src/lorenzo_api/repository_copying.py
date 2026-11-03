@@ -164,7 +164,7 @@ class Step:
     already_copied: bool
     # Readable without a grant, because the repository is public (ADR 0287).
     public: bool = False
-    # Retired by its Owner (ADR 0383): a library that holds it keeps it and its updates, and cannot
+    # Retired by its Owner (ADR 0384): a library that holds it keeps it and its updates, and cannot
     # copy it again, nor take it in as a dependency it has not copied.
     deprecated: bool = False
     deprecated_message: str | None = None
@@ -1447,7 +1447,7 @@ async def plan_copy(
     steps = await manifest(session, tenant_id=tenant_id, repository_id=repository_id)
     # A retired repository blocks every new copy, a dependency the library has not copied yet
     # included. Only a step the library can read gets here with its words: for any other the
-    # manifest has answered `404`, or the plan says it is missing (ADR 0383).
+    # manifest has answered `404`, or the plan says it is missing (ADR 0384).
     top = steps[-1]
     if top.deprecated and top.readable:
         raise copy_refusal(top.name, top.deprecated_message)

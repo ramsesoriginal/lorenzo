@@ -363,7 +363,7 @@ class SubscriptionOut(BaseModel):
     # (ADR 0207): their labels are what "you are on 1.2, 1.4 is out" says.
     synced_release: ReleaseRefOut | None
     current_release: ReleaseRefOut | None
-    # Set while the repository's Owner has it retired (ADR 0383): the library keeps what it copied
+    # Set while the repository's Owner has it retired (ADR 0384): the library keeps what it copied
     # and its updates, and can no longer copy it. The Owner's message, or `null` when there is none.
     deprecated: DeprecatedNoticeOut | None = None
 

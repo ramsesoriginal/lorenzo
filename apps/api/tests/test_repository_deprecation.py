@@ -1,4 +1,4 @@
-"""ADR 0383: an Owner retires (deprecates) a repository (RFC 0038 section 7).
+"""ADR 0384: an Owner retires (deprecates) a repository (RFC 0038 section 7).
 
 A retired repository keeps its updates for the libraries that hold it, blocks every new copy, leaves
 Discover and its storefront, and stops being open to visitors and to libraries with no grant; its

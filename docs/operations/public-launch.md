@@ -1,6 +1,6 @@
 # Going public: what to set, and in what order
 
-Public repositories ([RFC 0038](../rfcs/0038-public-repositories-and-discovery.md)) are built and **off**. This is the list for switching them on in a deployment. The build is done (the gates D1 to D6: [ADR 0290](../adr/0290-the-flips-as-routes-and-the-visibility-switch.md), [0292](../adr/0292-discover-the-listing-and-the-storefront.md), [0293](../adr/0293-the-preview.md), [0298](../adr/0298-quotas-on-a-repository.md), [0299](../adr/0299-what-a-public-repository-says-about-its-publisher-and-hides-about-its-libraries.md), [0300](../adr/0300-authentication-on-a-private-repositorys-picture.md), [0301](../adr/0301-release-fan-out-and-cooldown.md), [0303](../adr/0303-operator-delist.md)) and the Owner's deprecate ([0383](../adr/0383-deprecating-a-repository.md)); what is left is configuration and the edge rule, which are the operator's.
+Public repositories ([RFC 0038](../rfcs/0038-public-repositories-and-discovery.md)) are built and **off**. This is the list for switching them on in a deployment. The build is done (the gates D1 to D6: [ADR 0290](../adr/0290-the-flips-as-routes-and-the-visibility-switch.md), [0292](../adr/0292-discover-the-listing-and-the-storefront.md), [0293](../adr/0293-the-preview.md), [0298](../adr/0298-quotas-on-a-repository.md), [0299](../adr/0299-what-a-public-repository-says-about-its-publisher-and-hides-about-its-libraries.md), [0300](../adr/0300-authentication-on-a-private-repositorys-picture.md), [0301](../adr/0301-release-fan-out-and-cooldown.md), [0303](../adr/0303-operator-delist.md)) and the Owner's deprecate ([0384](../adr/0384-deprecating-a-repository.md)); what is left is configuration and the edge rule, which are the operator's.
 
 ## 1. The edge rate-limit rule (before the switch)
 
@@ -44,7 +44,7 @@ Suspending an account (`PUT /admin/users/<id>/suspend`) delists every repository
 
 ## 6. Retiring a repository
 
-An Owner retires a repository, public or not, without cutting off the libraries that use it: they keep their copy and its updates, nobody can copy it any more, it leaves Discover, and the libraries that hold it are told ([ADR 0383](../adr/0383-deprecating-a-repository.md)). The account hub says "retired"; the API says deprecated. Studio has a card for it on the repository's Overview. From the command line:
+An Owner retires a repository, public or not, without cutting off the libraries that use it: they keep their copy and its updates, nobody can copy it any more, it leaves Discover, and the libraries that hold it are told ([ADR 0384](../adr/0384-deprecating-a-repository.md)). The account hub says "retired"; the API says deprecated. Studio has a card for it on the repository's Overview. From the command line:
 
 ```bash
 lorenzo api PUT /tenants/<repository-id>/deprecation --data '{"message": "Use Bestiary 2 instead"}'   # the message is optional, 500 characters at most

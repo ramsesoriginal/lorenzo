@@ -1,4 +1,4 @@
-"""Retiring a repository and bringing it back - ADR 0383, RFC 0038 section 7.
+"""Retiring a repository and bringing it back - ADR 0384, RFC 0038 section 7.
 
 The Owner's two routes under `/tenants/{tenant_id}`, over the rules of `repository_deprecation.py`:
 `PUT /deprecation` retires the repository, with an optional message the libraries that hold it

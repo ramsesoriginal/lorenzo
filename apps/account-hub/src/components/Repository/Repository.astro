@@ -75,7 +75,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <p data-delisted-reason></p>
           <p data-delisted-effect></p>
         </div>
-        <!-- Retired by its Owner (ADR 0383): every member reads it. -->
+        <!-- Retired by its Owner (ADR 0384): every member reads it. -->
         <div class="card card-body stack-tight" role="status" data-retired hidden>
           <p class="row">
             <span class="pill pill-warning" data-retired-pill></span>
@@ -153,7 +153,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <p class="caption" data-featured-release-note></p>
           <p class="status-text" role="status" data-featured-status hidden></p>
         </div>
-        <!-- Retire it, or bring it back (ADR 0383): an Owner's, for any repository. -->
+        <!-- Retire it, or bring it back (ADR 0384): an Owner's, for any repository. -->
         <div class="stack-tight" data-retire hidden>
           <h3 data-retire-heading></h3>
           <p data-retire-explanation></p>
@@ -362,7 +362,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
     </form>
   </dialog>
 
-  <!-- What retiring it will do, said before it does it (ADR 0383). -->
+  <!-- What retiring it will do, said before it does it (ADR 0384). -->
   <dialog aria-labelledby="retire-dialog-title" data-retire-dialog>
     <form method="dialog" class="stack" data-retire-form>
       <h3 id="retire-dialog-title" data-retire-title></h3>

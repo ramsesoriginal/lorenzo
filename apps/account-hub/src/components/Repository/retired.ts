@@ -1,4 +1,4 @@
-// Retiring a repository, on its Overview (RFC 0038 §7, ADR 0383): the notice every member reads
+// Retiring a repository, on its Overview (RFC 0038 §7, ADR 0384): the notice every member reads
 // while it is retired, and the Owner's card to retire it, with a dialog that says what it will do
 // before it does it, and to bring it back. The words are lib/retiring.ts's. What is shown is read
 // fresh, since the repository's other Owners can change it at any moment, and shows nothing where it

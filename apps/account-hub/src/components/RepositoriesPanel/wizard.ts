@@ -533,7 +533,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
     async open(library, subject, mode, isCurrent) {
       const { copied, offered } = subject;
 
-      // A retired repository is copied by nobody, one the library holds a copy of included (ADR 0383).
+      // A retired repository is copied by nobody, one the library holds a copy of included (ADR 0384).
       if (subject.retired) return false;
 
       // A first copy is of a repository that is offered, published and not yet copied; another

@@ -1410,7 +1410,7 @@ class RepositoryDelistedError(ConflictProblem):
 class RepositoryDeprecatedError(ConflictProblem):
     """A new copy of a repository its Owner has retired (deprecated), or making a retired
     repository public: it keeps its updates for the libraries that hold it and goes to nobody
-    else - ADR 0383, RFC 0038 section 7. `detail` names the Owner's message when there is one and
+    else - ADR 0384, RFC 0038 section 7. `detail` names the Owner's message when there is one and
     the reader may read it. Bring it back first (`DELETE ./deprecation`)."""
 
     title = "This repository was retired"

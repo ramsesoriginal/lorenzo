@@ -898,7 +898,7 @@ async def list_repositories(
                 ),
                 synced_release=_release_ref(synced.get(repository_id)),
                 current_release=_release_ref(current.get(repository_id)),
-                # What the Owner said when retiring it, to a library that holds it (ADR 0383); a
+                # What the Owner said when retiring it, to a library that holds it (ADR 0384); a
                 # delisted repository reads as unpublished and says nothing more (ADR 0303).
                 deprecated=(
                     deprecated_notice(repository)

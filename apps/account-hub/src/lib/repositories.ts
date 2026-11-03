@@ -372,7 +372,7 @@ export async function makePrivate(
   );
 }
 
-// Retires it (ADR 0383): the libraries that copied it keep their copy and its updates, nobody can copy
+// Retires it (ADR 0384): the libraries that copied it keep their copy and its updates, nobody can copy
 // it any more, it leaves Discover, and the libraries that hold it are told. The message is optional and
 // the libraries read it. Retiring a retired repository changes the message only. An Owner's.
 export async function retireRepository(

@@ -1,4 +1,4 @@
-"""Deprecating a repository - ADR 0383, RFC 0038 section 7.
+"""Deprecating a repository - ADR 0384, RFC 0038 section 7.
 
 An Owner retires a repository without cutting off the libraries that use it: `tenant.deprecated_at`
 (beside `published_at` and `delisted_at`, which the gate and the listing look at) says so, with an

@@ -239,7 +239,7 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
         );
         stateElement(required<HTMLElement>(card, '[data-state]'), shelfState(subscription));
 
-        // Retired by its Owner (ADR 0383): said on the card, with the Owner's words.
+        // Retired by its Owner (ADR 0384): said on the card, with the Owner's words.
         const retired = retiredHere(subscription.deprecated, subscription.copied_at !== null);
         const retiredBox = required<HTMLElement>(card, '[data-retired]');
 
@@ -414,7 +414,7 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     showPicture(detail.picture, detail.initial, repository);
     detail.name.textContent = repository.name;
     stateElement(detail.state, state);
-    // Retired by its Owner (ADR 0383): the library keeps what it copied and its updates, cannot copy
+    // Retired by its Owner (ADR 0384): the library keeps what it copied and its updates, cannot copy
     // it again, and reads the Owner's words. A library that never copied it is told only that.
     const retired = retiredHere(subscription.deprecated, subscription.copied_at !== null);
 

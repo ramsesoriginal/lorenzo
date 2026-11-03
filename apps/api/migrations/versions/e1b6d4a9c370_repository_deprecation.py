@@ -1,4 +1,4 @@
-"""an Owner can deprecate a repository (ADR 0383)
+"""an Owner can deprecate a repository (ADR 0384)
 
 `tenant` gains `deprecated_at` and `deprecated_message`: a repository its Owner retired (RFC 0038
 section 7). A deprecated repository leaves the listing, blocks new copies, and stops being open to

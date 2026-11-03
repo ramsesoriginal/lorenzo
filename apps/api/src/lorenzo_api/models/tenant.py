@@ -106,7 +106,7 @@ class Tenant(Base):
         ForeignKey("app_user.id", ondelete="SET NULL")
     )
     delist_reason: Mapped[str | None]
-    # ADR 0383: a repository its Owner retired (deprecated) - when, and an optional message the
+    # ADR 0384: a repository its Owner retired (deprecated) - when, and an optional message the
     # libraries that hold it read. The message only with the time, and only on a repository. A
     # deprecated repository leaves Discover, blocks new copies and is closed to visitors; the
     # libraries that hold it keep reading it and its updates. Here, beside `delisted_at`, for the

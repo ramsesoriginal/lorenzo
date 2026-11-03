@@ -1,4 +1,4 @@
-// What Studio and Shelf say when an Owner has retired a repository (RFC 0038 §7, ADR 0383), as plain
+// What Studio and Shelf say when an Owner has retired a repository (RFC 0038 §7, ADR 0384), as plain
 // functions over what the API returns. No DOM and nothing but ./types, so they run under Node in the
 // unit tests. The API calls this deprecated; people read "retired" (identity.md §14.3): "Retire this
 // repository", "This repository is retired", "Bring it back". The words are those of §14.3 as well:

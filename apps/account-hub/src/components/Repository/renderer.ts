@@ -108,7 +108,7 @@ export function renderRepository(
   const viewAs = createViewAs(root, hooks.mayCreate);
   // Off Discover by the platform's operators: the notice every member reads (ADR 0303).
   const delisted = createDelistedNotice(root);
-  // Retired by its Owner (ADR 0383): the notice every member reads, and the Owner's card.
+  // Retired by its Owner (ADR 0384): the notice every member reads, and the Owner's card.
   const retired = createRetiredControls(root, hooks.onChanged);
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);

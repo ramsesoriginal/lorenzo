@@ -209,13 +209,13 @@ class RepositoryProfileUpdate(BaseModel):
         return self
 
 
-# The longest message an Owner leaves with a retired repository (ADR 0383).
+# The longest message an Owner leaves with a retired repository (ADR 0384).
 DEPRECATION_MESSAGE_MAX = 500
 
 
 class DeprecatedOut(BaseModel):
     """That the Owner retired (deprecated) a repository, with the message they left (`null` when
-    they left none) and when: read by the repository's own members (ADR 0383). Never who."""
+    they left none) and when: read by the repository's own members (ADR 0384). Never who."""
 
     message: str | None
     at: datetime
@@ -224,7 +224,7 @@ class DeprecatedOut(BaseModel):
 class DeprecatedNoticeOut(BaseModel):
     """What a library that holds a retired repository reads of it: the Owner's message, or
     `null` when there is none. Present means retired; the library keeps its copy and its updates
-    and cannot copy it again (ADR 0383)."""
+    and cannot copy it again (ADR 0384)."""
 
     message: str | None
 
@@ -257,10 +257,10 @@ class RepositoryProfileOut(BaseModel):
 class MemberProfileOut(RepositoryProfileOut):
     """What the repository's own members read of its profile (ADR 0303): the profile, and
     `delisted` while the platform's operators have it off Discover (`null` while it is listed) and
-    `deprecated` while its Owner has retired it (ADR 0383).
+    `deprecated` while its Owner has retired it (ADR 0384).
     A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
     they cannot read a delisted repository."""
 
     delisted: DelistedOut | None = None
-    # Set while the Owner has the repository retired (ADR 0383); `null` otherwise.
+    # Set while the Owner has the repository retired (ADR 0384); `null` otherwise.
     deprecated: DeprecatedOut | None = None

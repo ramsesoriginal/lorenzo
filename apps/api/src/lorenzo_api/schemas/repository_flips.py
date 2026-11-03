@@ -91,7 +91,7 @@ class FlipCheckOut(BaseModel):
     # Set while the platform's operators have the repository off Discover (ADR 0303): it cannot be
     # made public until they list it again. Owner only, like the rest of the check.
     delisted: DelistedOut | None = None
-    # Set while the Owner has the repository retired (ADR 0383): it cannot be made public until it
+    # Set while the Owner has the repository retired (ADR 0384): it cannot be made public until it
     # is brought back. Owner only, like the rest of the check.
     deprecated: DeprecatedOut | None = None
 

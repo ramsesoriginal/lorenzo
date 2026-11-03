@@ -10,7 +10,7 @@ import {
   signedInPage,
 } from './support';
 
-// ADR 0383: an Owner retires a repository. Studio: the Owner's card (a message, a dialog that says how
+// ADR 0384: an Owner retires a repository. Studio: the Owner's card (a message, a dialog that says how
 // many libraries hold it, "Bring it back"), the notice every member reads, and the visibility card
 // that cannot make a retired repository public. Shelf: a library that holds it reads "Retired" and
 // the Owner's words, keeps its updates, and is offered no copy. Discover and the storefront no longer

@@ -1,4 +1,4 @@
-"""ADR 0383: the deprecation in the database, as the restricted app role with RLS in force. The gate
+"""ADR 0384: the deprecation in the database, as the restricted app role with RLS in force. The gate
 (`repository_read_tenant_id()`), the profile's own read, `discover_read` and the insert policy of
 `repository_subscription` close the public branch for a repository its Owner retired, and nothing
 else: a library that holds a grant (invited, or by a copy of a public repository) reads it as it

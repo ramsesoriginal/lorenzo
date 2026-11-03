@@ -52,7 +52,7 @@ class Listed:
 
 def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
     """The repositories that are listed: public, published, with a release, not delisted by the
-    platform's operators (ADR 0303) and not retired by their Owner (ADR 0383)."""
+    platform's operators (ADR 0303) and not retired by their Owner (ADR 0384)."""
     return (
         select(RepositoryProfile, Tenant)
         .join(Tenant, Tenant.id == RepositoryProfile.tenant_id)

@@ -1,4 +1,4 @@
-"""Retiring a repository - ADR 0383, RFC 0038 section 7."""
+"""Retiring a repository - ADR 0384, RFC 0038 section 7."""
 
 from pydantic import BaseModel, ConfigDict, field_validator
 

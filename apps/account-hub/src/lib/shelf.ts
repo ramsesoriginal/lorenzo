@@ -294,7 +294,7 @@ export type CopySubject = {
   name: string;
   // Whether the library can copy it from where it stands: offered to it (or public) and published.
   offered: boolean;
-  // Set when its Owner retired it (ADR 0383): it cannot be copied again by any library, one that
+  // Set when its Owner retired it (ADR 0384): it cannot be copied again by any library, one that
   // holds a copy included. Absent otherwise.
   retired?: true;
   copied: boolean;

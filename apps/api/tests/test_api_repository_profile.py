@@ -39,7 +39,7 @@ _DEFAULTS = {
     "has_cover": False,
     # What the repository's own members read: listed, so nothing to say (ADR 0303).
     "delisted": None,
-    # And not retired by its Owner either (ADR 0383).
+    # And not retired by its Owner either (ADR 0384).
     "deprecated": None,
 }
 
