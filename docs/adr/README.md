@@ -385,3 +385,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0380 - Chapter numbering](0380-chapter-numbering.md) — RFC 0047 W7a.
 - [0381 - Structural contents and special Chapters](0381-structural-contents-and-special-chapters.md) — RFC 0047 W7b.
 - [0382 - Manuscript word counts](0382-manuscript-word-counts.md) — RFC 0047 W7c.
+- [0383 - Personal manuscript-length goals](0383-personal-manuscript-length-goals.md) — RFC 0047 W8a.
