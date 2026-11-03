@@ -15,8 +15,22 @@ This page lists them, and the recipes built on formulas ([ADR 0104](../adr/0104-
 | `containment_capacity` | a container | number | A move may not make `Σ size × quantity` of what's directly inside grow past it. |
 | `max_item_size` | a container | number | Nothing whose `size` is over it goes in. |
 | `binding` | items | `enum`: `on_pickup`, `on_equip`, `on_own`, `none` | Binds the item to its owner, when the owner is a being ([ADR 0129](../adr/0129-binding-and-lifting-it.md)). `on_own`: bound while a being owns it, and once it's carried it can't leave what the owner carries. `on_pickup`: bound while its owner carries it, and can't leave what the owner carries. `on_equip`: bound while its owner has it equipped, and can't leave the owner. A bound item's owner can't change. `none` is "not this one", under a prototype that binds. |
+| `height`, `price`, `rarity`, `hp`, `armor` | items | number | Named fields of the same name on item and item-instance responses next to `weight` ([ADR 0141](../adr/0141-fractional-weights-in-the-named-columns.md)): the resolved value, integer or fractional, or `null` when the item has none. Nothing in the API acts on them. |
 
 Each is read as resolved, so a formula counts, and something without a `weight` or `size` counts as 0. A GM can move anyway ([ADR 0128](../adr/0128-capacity-and-moving-anyway.md)), and lift a binding ([ADR 0129](../adr/0129-binding-and-lifting-it.md)). A weight can be fractional (a `float` stat): the item lists and boards show it as it is stored ([ADR 0141](../adr/0141-fractional-weights-in-the-named-columns.md)).
+
+## Names the entry cards show
+
+The hover card of an entry ([ADR 0264](../adr/0264-link-previews.md)) picks stats by name, ignoring case, in this order, skipping any the entry has no value for. Tags are left out.
+
+| Kind of entry | Stats shown, at most |
+| --- | --- |
+| item | `damage`, `armor`, `weight`, `price`, `rarity` (4) |
+| item instance | `damage`, `armor`, `weight`, `price`, `rarity`, `hp` (4) |
+| character | `hp`, `armor`, `height` (3) |
+| being | `hp`, `armor`, `height`, `rarity` (3) |
+
+Locations, Maps and connections show no numbers. A library that does not define one of these names simply shows a shorter card.
 
 `is_magical` and `is_cursed` used to be read by name too. They aren't anymore: a tenant's own tags by those names are just tags.
 

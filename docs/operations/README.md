@@ -6,7 +6,8 @@
 - [Hosting Lorenzo Beings](beings-setup.md) — the one-time steps to host apps/beings: its Cloudflare Pages project (Git integration, no workflow), its Authgear client, and the API's CORS list
 - [Hosting Lorenzo Calendars](calendars-setup.md) — the one-time steps to host apps/calendars: its Cloudflare Pages project (Git integration, no workflow), its Authgear client, the API's CORS list and `CALENDARS_URL`
 - [Hosting Lorenzo Sessions](sessions-setup.md) — the same for apps/sessions: its Cloudflare Pages project, Authgear client, the API's CORS list and `SESSIONS_URL`
-- [Hosting Lorenzo Writing](writing-setup.md) — its Cloudflare Pages project, Authgear client, API CORS list and `WRITING_URL`; hosting is not configured yet
+- [Hosting Lorenzo Writing](writing-setup.md) — its Cloudflare Pages project, Authgear client, the API's CORS list and `WRITING_URL`
+- [Hosting Lorenzo Maps](maps-setup.md) — the same for apps/maps: its Cloudflare Pages project, Authgear client, the API's CORS list and `MAPS_URL`
 - [Local Authgear setup](local-authgear-setup.md) — manual, one-time setup for a real login round-trip against Authgear Cloud during interactive testing
 - [Releasing](releasing.md) — how the release-please automation works
 - [Exporting your tenant](exporting-your-tenant.md) — how an owner takes their tenant's data out with the existing authenticated reads, and what such an export will not contain

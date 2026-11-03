@@ -2584,9 +2584,8 @@ export interface paths {
         /**
          * Create Player
          * @description can_manage_campaign gates adding - a GM building their own roster,
-         *     or a tenant admin, not a self-service join (RFC 0007's own Open
-         *     questions: no invite-link/visibility mechanism exists yet that would
-         *     make self-service joining safe).
+         *     or a tenant admin. A self-service join is redeeming an invite link (ADR 0092,
+         *     POST /invites/{token}/redeem), not this route.
          */
         post: operations["create_player"];
         delete?: never;
@@ -9908,11 +9907,8 @@ export interface components {
          *     RFC 0004's own shape also carries `created_by` (matching
          *     `campaign_gm`'s eventual lighter, create-only attribution shape - no
          *     `updated_by`, since a grant is never "updated," only made or revoked).
-         *     Deliberately not included yet: per ADR 0029's phased table,
-         *     `campaign_gm.created_by` itself doesn't land until campaign CRUD (ADR
-         *     0034/RFC 0006) actually writes to this table - exposing a column that
-         *     doesn't exist would be building ahead of that slice, not this one.
-         *     Add it here as a small, natural follow-up once ADR 0034 lands.
+         *     Not exposed here: `campaign_gm.created_by` exists since campaign CRUD (ADR
+         *     0029/0034, RFC 0006), but this roster entry does not carry it.
          */
         GmRosterEntryOut: {
             /**

@@ -4,13 +4,13 @@ A quiet writing surface for library and repository Authors. Start with a standal
 an unassigned Chapter or a Book. Books create their first Edition automatically. Write
 LorenzoScript and ordered pictures, nest Chapters in an outline, interleave them with prose,
 and read the composition continuously. Another Edition independently copies the manuscript.
-Descriptions and notes stay separate. See RFC 0047 and ADRs 0327–0329, 0341–0343.
+Descriptions and notes stay separate. See [RFC 0047](../../docs/rfcs/0047-lorenzo-writing.md) and ADRs 0327–0329 and 0341–0347.
 
 The outline offers explicit up/down ordering and placing unassigned Chapters; removing a Chapter
 from an outline keeps its text and subchapters. Edition copying starts private, without copying
 notes or history. All editing retains conditional autosave, per-account browser recovery and
-saved prose revisions. Joins, Carriers and
-subsequent slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
+saved prose revisions. Joins ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md)) are decided but not built; Carriers and
+the other later slices remain in [the accepted proposal](../../docs/rfcs/0047-lorenzo-writing.md).
 
 Scene reuse creates a separate telling each time. A shared telling reads the Scene manuscript;
 Make independent copies its current prose and pictures before editing. Viewpoints and world
@@ -51,7 +51,7 @@ blocks, as well as distinct headings. It keeps footnote dependencies and potenti
 heading anchors together. Texts with contents directives, abbreviations or local fragment links
 still stay whole. Place the cursor after a blank line at the start of the next section;
 an unsafe boundary is refused without moving the cursor's choice. Joins and guarded redirects
-remain subsequent W5 work.
+are decided ([ADR 0348](../../docs/adr/0348-chapter-joins-and-guarded-redirects.md)) but not built.
 
 ## Run and verify
 
@@ -72,4 +72,6 @@ autosave and require an explicit choice. This is not offline browsing or live co
 Server revisions contain prior content, never old sharing grants; deleting Information deletes
 its history. This screen does not offer that destructive action.
 
-Hosting is **not configured or deployed**. Follow [the setup guide](../../docs/operations/writing-setup.md).
+The app is a single page, `/`, driven by `?tenant=` and `?entry=` (plus `/auth/redirect/` for sign-in).
+
+Deployed at <https://lorenzo-writing.pages.dev/> on Cloudflare Pages; [the setup guide](../../docs/operations/writing-setup.md) records the procedure. `.env.example` lists the build variables.
