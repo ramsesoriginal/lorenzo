@@ -381,7 +381,8 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0376 - The date lens on the Locations list](0376-the-date-lens-on-the-locations-list.md) — the lens of ADR 0372 on `GET /locations` by the same rule and code, flat list only (a date with `root` is a 422), no date inherited through part-of, no dating form — renumbered from 0374 on 2026-10-28: the Writing work on another branch claimed 0374 first (PR #932), same precedent as above.
 - [0377 - The date lens on Locations in Lorenzo Maps](0377-the-date-lens-on-locations-in-lorenzo-maps.md) — the same control and words on the Locations page; the tree gives way to a flat list while a date is chosen and returns on clearing — renumbered from 0375 on 2026-10-28, with 0376 above.
 - [0378 - Extract writing into a Scene](0378-extract-writing-into-a-scene.md) — RFC 0047 W5g.
-
 - [0379 - Carriers and ordered coverage](0379-carriers-and-ordered-coverage.md) — RFC 0047 W6a.
 - [0380 - Chapter numbering](0380-chapter-numbering.md) — RFC 0047 W7a.
 - [0381 - Structural contents and special Chapters](0381-structural-contents-and-special-chapters.md) — RFC 0047 W7b.
+- [0382 - Manuscript word counts](0382-manuscript-word-counts.md) — RFC 0047 W7c.
+- [0383 - Personal manuscript-length goals](0383-personal-manuscript-length-goals.md) — RFC 0047 W8a.
