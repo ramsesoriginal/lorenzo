@@ -33,6 +33,7 @@ from lorenzo_api.exceptions import (
     StatGroupNameTakenError,
     StatGroupNotFoundError,
 )
+from lorenzo_api.library_counts import count_libraries, libraries_note
 from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
@@ -46,6 +47,7 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
 )
+from lorenzo_api.schemas.library_counts import LibraryCountOut
 from lorenzo_api.schemas.stats import (
     StatDefinitionCreate,
     StatDefinitionOrder,
@@ -304,6 +306,20 @@ async def reorder_stat_definitions(
     return [StatDefinitionOut.from_definition(definition) for definition in reread]
 
 
+@router.get(
+    "/stat-groups/{stat_group_id}/libraries", dependencies=[Depends(get_tenant_admin_context)]
+)
+async def count_stat_group_libraries(
+    tenant_id: uuid.UUID, stat_group_id: uuid.UUID, session: SessionDep
+) -> LibraryCountOut:
+    """How many libraries hold a copy of this stat group of a repository, never which (ADR 0386).
+    An admin, as the delete is. A read, not a gate."""
+    await _get_stat_group_or_404(tenant_id, stat_group_id, session)
+    return LibraryCountOut(
+        count=await count_libraries(session, tenant_id, "stat_group", stat_group_id)
+    )
+
+
 @router.delete(
     "/stat-groups/{stat_group_id}",
     status_code=204,
@@ -343,7 +359,8 @@ async def delete_stat_group(
         action="stat_group.deleted",
         target_type="stat_group",
         target_id=stat_group_id,
-        detail=f"priority={stat_group.priority}",
+        detail=f"priority={stat_group.priority}"
+        + libraries_note(await count_libraries(session, tenant_id, "stat_group", stat_group_id)),
     )
     await session.delete(stat_group)
     await session.commit()
@@ -539,6 +556,21 @@ def _in_use_parts(*counted: tuple[int | None, str]) -> str:
     return ", ".join(f"{count} {what}" for count, what in counted if count)
 
 
+@router.get(
+    "/stat-definitions/{stat_definition_id}/libraries",
+    dependencies=[Depends(get_tenant_admin_context)],
+)
+async def count_stat_definition_libraries(
+    tenant_id: uuid.UUID, stat_definition_id: uuid.UUID, session: SessionDep
+) -> LibraryCountOut:
+    """How many libraries hold a copy of this stat of a repository, never which (ADR 0386). An
+    admin, as the delete is. A read, not a gate."""
+    await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
+    return LibraryCountOut(
+        count=await count_libraries(session, tenant_id, "stat_definition", stat_definition_id)
+    )
+
+
 @router.delete(
     "/stat-definitions/{stat_definition_id}",
     status_code=204,
@@ -598,6 +630,9 @@ async def delete_stat_definition(
         detail=(
             f"stat_group={stat_definition.stat_group_id}, "
             f"value_type={stat_definition.value_type.value}"
+            + libraries_note(
+                await count_libraries(session, tenant_id, "stat_definition", stat_definition_id)
+            )
         ),
     )
     await session.delete(stat_definition)
