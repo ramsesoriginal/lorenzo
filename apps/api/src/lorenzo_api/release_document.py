@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 27
+FORMAT = 31
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -454,6 +454,26 @@ _CONTENT = _dataclass(
             lambda rows, f: [str(i) for i in sorted(rows)],
             lambda rows, f: {uuid.UUID(i) for i in rows},
         ),
+        "manuscript_redirects": _id_map(
+            _record(
+                {"destination": _optional(_ID), "payload": _optional(_ID), "child": _optional(_ID)},
+                name="Content.manuscript_redirects",
+            )
+        ),
+        "manuscript_contents": _id_map(_PLAIN),
+        "manuscript_numbering": _id_map(_PLAIN),
+        "carrier_coverage": _id_map(
+            _record(
+                {
+                    "carrier": _ID,
+                    "entry": _optional(_ID),
+                    "payload": _optional(_ID),
+                    "before": _optional(_ID),
+                    "position": _PLAIN,
+                },
+                name="Content.carrier_coverage",
+            )
+        ),
         "manuscript_placements": _id_map(
             _record(
                 {"parent": _ID, "before": _optional(_ID), "position": _PLAIN},
@@ -604,6 +624,22 @@ def _read_v26(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v27(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v28({**document, "manuscript_redirects": {}}, files)
+
+
+def _read_v28(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v29({**document, "carrier_coverage": {}}, files)
+
+
+def _read_v29(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v30({**document, "manuscript_numbering": {}}, files)
+
+
+def _read_v30(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v31({**document, "manuscript_contents": {}}, files)
+
+
+def _read_v31(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -638,6 +674,10 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     25: _read_v25,
     26: _read_v26,
     27: _read_v27,
+    28: _read_v28,
+    29: _read_v29,
+    30: _read_v30,
+    31: _read_v31,
 }
 
 

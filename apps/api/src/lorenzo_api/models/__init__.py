@@ -80,9 +80,12 @@ from lorenzo_api.models.v_item import VItem
 from lorenzo_api.models.v_item_instance import VItemInstance
 
 __all__ = [
+    "ManuscriptJoin",
+    "ManuscriptRedirect",
     "ManuscriptMove",
     "ManuscriptSplit",
     "ManuscriptExtraction",
+    "ManuscriptSceneExtraction",
     "WritingReviewGrant",
     "WritingReviewNote",
     "ManuscriptRevision",
@@ -203,6 +206,8 @@ __all__ = [
     "VItemInstance",
 ]
 
+from lorenzo_api.models.carrier import Carrier as Carrier
+from lorenzo_api.models.carrier import CarrierCoverage as CarrierCoverage
 from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
 from lorenzo_api.models.connection import Connection
 from lorenzo_api.models.frame import EntityFrame, Frame
@@ -212,7 +217,12 @@ from lorenzo_api.models.manuscript import Book as Book
 from lorenzo_api.models.manuscript import Chapter as Chapter
 from lorenzo_api.models.manuscript import Edition as Edition
 from lorenzo_api.models.manuscript import ManuscriptPlacement as ManuscriptPlacement
+from lorenzo_api.models.manuscript_join import ManuscriptJoin as ManuscriptJoin
+from lorenzo_api.models.manuscript_join import ManuscriptRedirect as ManuscriptRedirect
 from lorenzo_api.models.manuscript_move import ManuscriptExtraction, ManuscriptMove
+from lorenzo_api.models.manuscript_move import (
+    ManuscriptSceneExtraction as ManuscriptSceneExtraction,
+)
 from lorenzo_api.models.manuscript_revision import ManuscriptRevision
 from lorenzo_api.models.manuscript_split import ManuscriptSplit
 from lorenzo_api.models.map import Map, MapLayer, MapPlacement
@@ -236,3 +246,5 @@ from lorenzo_api.models.writing_review import WritingReviewGrant, WritingReviewN
 
 from .manuscript import SceneTelling as SceneTelling
 from .manuscript import WritingBiography as WritingBiography
+from .manuscript_contents import ManuscriptContents as ManuscriptContents
+from .manuscript_numbering import ManuscriptNumbering as ManuscriptNumbering

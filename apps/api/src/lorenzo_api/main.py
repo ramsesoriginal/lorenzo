@@ -31,6 +31,8 @@ from lorenzo_api.routers.calendar_references import router as calendar_reference
 from lorenzo_api.routers.calendars import router as calendars_router
 from lorenzo_api.routers.campaign_invites import router as campaign_invites_router
 from lorenzo_api.routers.campaigns import router as campaigns_router
+from lorenzo_api.routers.carriers import router as carriers_router
+from lorenzo_api.routers.chapter_numbering import router as chapter_numbering_router
 from lorenzo_api.routers.characters import router as characters_router
 from lorenzo_api.routers.clock_relationships import router as clock_relationships_router
 from lorenzo_api.routers.clocks import router as clocks_router
@@ -53,7 +55,9 @@ from lorenzo_api.routers.items import router as items_router
 from lorenzo_api.routers.knowledge import router as knowledge_router
 from lorenzo_api.routers.link_previews import router as link_previews_router
 from lorenzo_api.routers.locations import router as locations_router
+from lorenzo_api.routers.manuscript_contents import router as manuscript_contents_router
 from lorenzo_api.routers.manuscript_extraction import router as manuscript_extraction_router
+from lorenzo_api.routers.manuscript_joins import router as manuscript_joins_router
 from lorenzo_api.routers.manuscript_moves import router as manuscript_moves_router
 from lorenzo_api.routers.manuscript_splits import router as manuscript_splits_router
 from lorenzo_api.routers.maps import router as maps_router
@@ -168,8 +172,12 @@ def create_app() -> FastAPI:
     app.include_router(players_router)
     app.include_router(characters_router)
     app.include_router(writing_router)
+    app.include_router(carriers_router)
+    app.include_router(manuscript_contents_router)
+    app.include_router(chapter_numbering_router)
     app.include_router(manuscript_moves_router)
     app.include_router(manuscript_splits_router)
+    app.include_router(manuscript_joins_router)
     app.include_router(manuscript_extraction_router)
     app.include_router(writing_reviews_router)
     app.include_router(beings_router)

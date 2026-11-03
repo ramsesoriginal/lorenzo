@@ -16,6 +16,8 @@ from lorenzo_api.models import (
     CalendarObservance,
     CalendarPeriod,
     CalendarReckoning,
+    Carrier,
+    CarrierCoverage,
     Chapter,
     Character,
     Clock,
@@ -55,7 +57,10 @@ from lorenzo_api.models import (
     LivedBefore,
     Location,
     LocationPart,
+    ManuscriptContents,
+    ManuscriptNumbering,
     ManuscriptPlacement,
+    ManuscriptRedirect,
     Map,
     MapLayer,
     MapPlacement,
@@ -533,6 +538,12 @@ async def seed_every_content_table(
     )
     await session.flush()
     session.add(Edition(entity_id=edition.id, book_entity_id=book.id, tenant_id=tenant_id))
+    session.add(
+        ManuscriptContents(entity_id=edition.id, tenant_id=tenant_id, settings={"enabled": True})
+    )
+    session.add(
+        ManuscriptNumbering(entity_id=edition.id, tenant_id=tenant_id, settings={"enabled": True})
+    )
     await session.flush()
     session.add(
         ManuscriptPlacement(
@@ -541,6 +552,30 @@ async def seed_every_content_table(
             before_payload_id=None,
             position=0,
             tenant_id=tenant_id,
+        )
+    )
+    await session.flush()
+    joined = entity("Joined Chapter")
+    await session.flush()
+    session.add(Chapter(entity_id=joined.id, tenant_id=tenant_id))
+    session.add(
+        ManuscriptRedirect(
+            source_id=joined.id, tenant_id=tenant_id, destination_id=edition.id, child_id=chapter.id
+        )
+    )
+    await session.flush()
+    carrier = entity("Carrier")
+    await session.flush()
+    session.add(Carrier(entity_id=carrier.id, tenant_id=tenant_id))
+    await session.flush()
+    session.add(
+        CarrierCoverage(
+            tenant_id=tenant_id,
+            carrier_id=carrier.id,
+            target_entity_id=edition.id,
+            target_payload_id=None,
+            before_payload_id=None,
+            position=0,
         )
     )
     await session.flush()

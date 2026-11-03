@@ -21,7 +21,7 @@ nothing else, so a library with a grant still passes:
   not deprecated.
 
 Revision ID: e1b6d4a9c370
-Revises: c03690000001
+Revises: c03810000001
 Create Date: 2026-11-03 09:00:00.000000
 
 """
@@ -32,7 +32,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "e1b6d4a9c370"
-down_revision: str | None = "c03690000001"
+down_revision: str | None = "c03810000001"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 
