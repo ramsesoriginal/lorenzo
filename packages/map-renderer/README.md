@@ -3,8 +3,7 @@
 Hand-written SVG drawing of a Lorenzo Map ([ADR 0339](../../docs/adr/0339-the-map-renderer.md)).
 No map library, no tiles, no canvas, no network, no runtime dependency: it draws what it is given
 and never fetches, writes or stores anything. It ships TypeScript source, as the other packages
-do, and Lorenzo Maps ([ADR 0340](../../docs/adr/0340-the-map-view-in-lorenzo-maps.md)) is its first
-consumer.
+do, and Lorenzo Maps ([ADR 0340](../../docs/adr/0340-the-map-view-in-lorenzo-maps.md)) is its consumer.
 
 ```ts
 import '@lorenzo/map-renderer/map.css'; // the classes the drawing uses, in brand tokens only
@@ -88,9 +87,9 @@ A theme is a `Theme` (`src/theme.ts`): a `name`, the class of the sheet, `layer(
 and `marks(input)`, which turns one part of a placement into `Mark`s (a `draw` of a line, area or
 disc, a `text`, an `icon`) naming classes and widths. It never sees a stored coordinate or a
 colour: the stylesheet gives the classes tokens. `layout` does the rest (projection, ids, rounding,
-hit data, order, selection), so a second theme touches neither `layout` nor `paintSvg`. Only the
-default exists (`defaultTheme`); choosing a theme is a later slice. Every class a theme writes
-needs a rule in the stylesheet, which `test/css.test.ts` guards for the default theme.
+hit data, order, selection), so a second theme touches neither `layout` nor `paintSvg`. Two
+exist, `default` and `plain` (`themes`, see "Looks and editing"). Every class a theme writes
+needs a rule in the stylesheet, which `test/css.test.ts` guards for both.
 
 ## Interaction
 
@@ -128,8 +127,8 @@ are not drawn (8 for a sub-grid) and at most 6,000 at once; `gridPrims` also say
 
 A system of kind `sphere` stores `[longitude, latitude]`; `System.projection` (`equirectangular`,
 `mercator` or `orthographic` with a `centre`) says how it is seen (ADR 0358). `project(system, point)` and
-`unproject(system, point)` are the one way between stored and drawing positions, and `extentOf` is the
-projected sheet. A segment is straight in longitude and latitude, so the curved projections draw it from
+`unproject(system, point)` are the one way between stored and drawing positions, and the projected sheet is the
+extent of the system. A segment is straight in longitude and latitude, so the curved projections draw it from
 samples; a globe is cut where a line goes behind its limb, a pin behind it is not drawn and an area keeps
 its hidden vertices on the limb. The globe's disc is `m-limb` and the lines of longitude and latitude are
 `m-grid`, under the Grid switch. A tool receives its pointer already as longitude and latitude and is not
@@ -146,7 +145,7 @@ its `key` changes. `Groups.layers` hides them, and a sphere draws none.
 
 ## Tests
 
-`pnpm run test` (vitest): Scene determinism, rejection of non-finite numbers, each shape and role,
+`mise run //packages/map-renderer:test` (vitest; see `test/` for the suites): Scene determinism, rejection of non-finite numbers, each shape and role,
 zoom and centre arithmetic, the groups, the seeded arcs, golden SVG strings, `hitTest`, the view
 reducers, a fake DOM for `paintSvg`, and the stylesheet guard. The drawing in a real browser, light
 and dark, is the app's Playwright golden (ADR 0339).

@@ -2,7 +2,7 @@
 
 Lorenzo's backend REST API. Python, FastAPI, PostgreSQL (async SQLAlchemy + Alembic).
 
-Infrastructure (health/readiness/metrics, DB connectivity) plus the full [RFC 0001](../../docs/rfcs/0001-core-domain-data-model.md)/[RFC 0002](../../docs/rfcs/0002-campaign-player-character-model.md) domain model, tenant-scoped row-level security, and Authgear-backed auth — see [Domain model](#domain-model) and [Auth](#auth) below.
+Infrastructure (health/readiness/metrics, DB connectivity) plus the domain model and the surfaces listed under [Endpoints](#endpoints), tenant-scoped row-level security, and Authgear-backed auth — see [Domain model](#domain-model) and [Auth](#auth) below.
 
 ## Run
 
@@ -26,7 +26,23 @@ The tests run on `TEST_WORKERS` parallel workers, four by default and `TEST_WORK
 
 ## Endpoints
 
-Full read/write REST API, tenant-scoped under `/tenants/{tenant_id}/...` — see [ADR 0020](../../docs/adr/0020-rest-api-tenant-scoping-and-schemas.md) for the scoping/schema conventions. Routers under `src/lorenzo_api/routers/`: `entities`, `items`/`item_instances`, `payloads`/`information`, `stats`/`entity_stats`/`computed_stats`, `campaigns`, `campaign_invites`, `tenant_invites` (an Owner's role and library-access links, [ADR 0220](../../docs/adr/0220-one-invite-table-with-kinds.md)), `players`, `characters`, `groups`, `tenants`, `repositories` (repository publishing, grants, browsing, copying, and updates, [RFC 0024](../../docs/rfcs/0024-repositories.md)), `users`, `activity_log`, `knowledge`, plus repository profiles, releases, public reads, Discover and previews (RFC 0037/0038), bulk entity export (ADR 0262), personal tokens and device authorization (ADR 0268), app links (ADR 0273), `admin` (platform-operator only), `pictures`, and `invites` (the public side of invite links of every kind). `/me` (current user + memberships), `/me/managed` (the tenants and campaigns the caller runs, [ADR 0086](../../docs/adr/0086-managed-scope-aggregate-and-notifications-since-filter.md)), `/me/changes` (what happened to things the caller's characters own or carry, [ADR 0099](../../docs/adr/0099-player-facing-change-feed.md)), `/invites/{token}` (an unauthenticated preview and an authenticated redeem, [ADR 0092](../../docs/adr/0092-campaign-invite-links.md)), and `/healthz`/`/readyz`/`/metrics` sit outside tenant scoping. How an owner exports a tenant through these reads is in [docs/operations/exporting-your-tenant.md](../../docs/operations/exporting-your-tenant.md). This list is deliberately not an exhaustive endpoint table — that duplicates and drifts from the generated source of truth; see [docs/reference/README.md](../../docs/reference/README.md) for the live `/docs` and the static `openapi.json` export, and [docs/adr/README.md](../../docs/adr/README.md) for the ADR-by-ADR history of how each surface landed.
+Full read/write REST API, tenant-scoped under `/tenants/{tenant_id}/...` — see [ADR 0020](../../docs/adr/0020-rest-api-tenant-scoping-and-schemas.md) for the scoping/schema conventions. The live `/docs` is the reference, so there is no endpoint table here (it would drift): see [docs/reference/README.md](../../docs/reference/README.md) for `/docs` and the static export you generate with `mise run //apps/api:openapi-schema`, and [docs/adr/README.md](../../docs/adr/README.md) for the ADR-by-ADR history of how each surface landed. The areas it covers:
+
+| Area | Covers | Decided in |
+| --- | --- | --- |
+| Library core | entries, items and item instances, stats and computed stats, information and payloads, pictures, groups, knowledge, bulk entry export | [RFC 0001](../../docs/rfcs/0001-core-domain-data-model.md), [ADR 0262](../../docs/adr/0262-bulk-entity-export.md) |
+| People | libraries (tenants), memberships, users, players, characters, campaigns, the activity log, invite links of every kind | [RFC 0002](../../docs/rfcs/0002-campaign-player-character-model.md), [ADR 0092](../../docs/adr/0092-campaign-invite-links.md), [ADR 0220](../../docs/adr/0220-one-invite-table-with-kinds.md) |
+| Beings | a being's sheet, the stat vocabulary and sheet settings | [RFC 0043](../../docs/rfcs/0043-the-being-sheet.md) |
+| Repositories | publishing, grants, browsing, copying and updates, releases, public reads, Discover, previews | [RFC 0024](../../docs/rfcs/0024-repositories.md), [RFC 0037](../../docs/rfcs/0037-releases-and-public-snapshots.md), [RFC 0038](../../docs/rfcs/0038-public-repositories-and-discovery.md) |
+| Time | calendars, periods, observances, calendar imports, clocks, Events and their order | [ADR 0308](../../docs/adr/0308-authored-calendars-and-calculation.md) onward |
+| Places | Locations, Maps, connections, distance, frames and axes | [RFC 0048](../../docs/rfcs/0048-locations-maps-connections-and-optional-dates.md) |
+| Writing | Manuscripts, moves, splits, extraction and reviews | [RFC 0047](../../docs/rfcs/0047-lorenzo-writing.md) |
+| Sessions | Sessions, Scenes, play and personal lived order | [RFC 0046](../../docs/rfcs/0046-sessions-scenes-and-lived-order.md) |
+| Account and platform | personal access tokens and device authorization, app links, link previews, `admin` (platform operators only) | [ADR 0268](../../docs/adr/0268-personal-access-tokens-api.md), [ADR 0273](../../docs/adr/0273-app-links-registry.md), [ADR 0264](../../docs/adr/0264-link-previews.md) |
+
+`/me` (current user + memberships), `/me/managed` (the tenants and campaigns the caller runs, [ADR 0086](../../docs/adr/0086-managed-scope-aggregate-and-notifications-since-filter.md)), `/me/changes` (what happened to things the caller's characters own or carry, [ADR 0099](../../docs/adr/0099-player-facing-change-feed.md)), `/me/sessions`, `/invites/{token}` (an unauthenticated preview and an authenticated redeem, [ADR 0092](../../docs/adr/0092-campaign-invite-links.md)), and `/healthz`/`/readyz`/`/metrics` sit outside tenant scoping. How an owner exports a tenant through these reads is in [docs/operations/exporting-your-tenant.md](../../docs/operations/exporting-your-tenant.md).
+
+Settings are defined in [`config.py`](src/lorenzo_api/config.py); the ones set at deploy time are in [`.github/workflows/deploy-api.yml`](../../.github/workflows/deploy-api.yml).
 
 ## Auth
 
@@ -62,7 +78,7 @@ See [docs/architecture/observability.md](../../docs/architecture/observability.m
 
 ## Deployment
 
-Google Cloud Run + Neon, continuously — see [ADR 0011](../../docs/adr/0011-deploy-target-cloud-run-neon.md). `.github/workflows/deploy-api.yml` builds, migrates, and deploys on every push to `main` that touches this directory. Confirmed working end to end (2026-09-09): the full domain model, the RLS-restricted role, and production Authgear Cloud ([ADR 0027](../../docs/adr/0027-authgear-cloud-not-self-hosted.md)) all verified together against the live deployed service — a real login, a real token, a real `GET /me` round-trip — see [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md).
+Google Cloud Run + Neon, continuously — see [ADR 0011](../../docs/adr/0011-deploy-target-cloud-run-neon.md). `.github/workflows/deploy-api.yml` builds, migrates, and deploys on every push to `main` that touches this app or the calendar and map engines it bundles (`packages/calendar-engine`, `packages/map-engine`). Confirmed working end to end (2026-09-09): the full domain model, the RLS-restricted role, and production Authgear Cloud ([ADR 0027](../../docs/adr/0027-authgear-cloud-not-self-hosted.md)) all verified together against the live deployed service — a real login, a real token, a real `GET /me` round-trip — see [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md).
 
 See [docs/architecture/deployment.md](../../docs/architecture/deployment.md) for how the pieces connect, and [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md) for the one-time setup.
 
@@ -70,7 +86,7 @@ See [docs/architecture/deployment.md](../../docs/architecture/deployment.md) for
 
 `PATCH /tenants/{id}` accepts nullable `being_stat_group_id`, alongside `weapon_stat_group_id` and `ability_information_type`. A group must belong to that tenant; omitting a field preserves it and sending null clears it. Tenant administrators configure these settings. Deleting the selected group clears its reference while preserving the tenant.
 
-The tenant detail and `GET /tenants/{id}/beings/{id}/sheet` return `being_stat_group_id`. The sheet's optional `campaign_id` must name a campaign in that tenant that the caller may read; it does not override the tenant setting yet. The setting does not filter stat reads or change frontend display ([ADR 0296](../../docs/adr/0296-being-stat-group.md)).
+The tenant detail and `GET /tenants/{id}/beings/{id}/sheet` return `being_stat_group_id`. The sheet's optional `campaign_id` must name a campaign in that tenant that the caller may read; it does not override the tenant setting. The API stores and returns the setting and does not filter stat reads; Beings uses it to choose the stats its sheet shows ([ADR 0296](../../docs/adr/0296-being-stat-group.md), [ADR 0297](../../docs/adr/0297-beings-stat-selection.md)).
 
 ## Information bundles
 
@@ -108,8 +124,8 @@ Recurring observances are entries with one calendar-bound segment/day rule and o
 periodic years ([ADR 0310](../../docs/adr/0310-recurring-calendar-observances.md)). Occurrence reads calculate
 visible results for a year, optionally filtered to a segment, without creating periods or
 Events. Missing dates skip. Rule edits require the observance entry's ETag; definition edits
-validate its rules too. Copied rule updates are explicit review fields. Release format 5
-preserves rules and keeps formats 1–4 readable.
+validate its rules too. Copied rule updates are explicit review fields. Release documents
+carry the rules; every format change keeps the earlier formats readable ([ADR 0214](../../docs/adr/0214-the-release-document.md); the current number is `FORMAT` in [`release_document.py`](src/lorenzo_api/release_document.py)).
 
 Calendar imports use read-only `POST .../calendar-imports/plan`, followed by atomic
 `POST .../calendar-imports` with its token. The token covers tenant/calendar, file, choices,
@@ -138,5 +154,5 @@ optional paired anchors. `/clocks/{clock_id}/relationships` uses collection ETag
 converts readings or durations, and `/events/{event_id}/clock-readings/{clock_id}/derived`
 reads an Event through permitted relationships without saving inferred evidence. Responses
 separate entered, derived, not-reckoned, conflicting and limit-reached results. Hidden sources
-are filtered before traversal, provenance and work limits. Repository release format 15 carries
-relationships; earlier release readers remain supported.
+are filtered before traversal, provenance and work limits. Repository release documents carry
+relationships; earlier formats remain readable.

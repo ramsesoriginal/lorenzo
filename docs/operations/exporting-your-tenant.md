@@ -6,7 +6,7 @@ Lorenzo is [AGPL-3.0](../adr/0006-agpl-3.0-license.md) and meant to be self-host
 
 ## Before you start
 
-- **A bearer token** for the API, issued by Authgear or a personal access token (ADR 0268; see [local Authgear setup](local-authgear-setup.md); `mise run //apps/api:dev-token` fetches one for a local instance).
+- **A bearer token** for the API, issued by Authgear or a personal access token (ADR 0268; see [local Authgear setup](local-authgear-setup.md); the `dev-token` script in `apps/api` fetches one for a local instance).
 - **Your tenant id** (`GET /me` lists your memberships; `GET /me/managed` lists the tenants you run).
 - **Read [what you will not get](#what-you-will-not-get) first.** Some of those limits can make an export look complete when it is not.
 
@@ -88,7 +88,7 @@ curl --compressed -sfS -H "Authorization: Bearer $TOKEN" \
 
 Continue with `cursor` set to the returned `next_cursor` until it is null. URL-encode the cursor (for example with curl's `--get --data-urlencode`). Every page must have the same `revision`; a `409` means content or visibility changed and the export must restart. The first page supports `If-None-Match`/`304`, and `--compressed` asks for gzip. The numbered-page `walk()` helper above does not apply to this route.
 
-This is entry content, not every table of a library. Export the stat vocabulary, formulas, ownership, containment, campaigns and roster through their separate reads. Repository profiles, grants, copy snapshots and release history likewise need their own routes; neither this export nor the old walk reconstructs the complete repository update machinery. Use a database backup for a complete instance restore.
+This is entry content, not every table of a library. Export the stat vocabulary, formulas, ownership, containment, campaigns and roster through their separate reads, and likewise what the Calendars, Sessions and Maps apps keep beside their entries (periods, scenes, placements and the like). Repository profiles, grants, copy snapshots and release history likewise need their own routes; neither this export nor the old walk reconstructs the complete repository update machinery. Use a database backup for a complete instance restore.
 
 ## Keeping an export honest
 

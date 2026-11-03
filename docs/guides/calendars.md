@@ -11,7 +11,7 @@ A calendar is an entry in a library or repository, with a definition of its own:
 - **Moons**, optionally: a cycle in days and the day of a new moon. The calendar shows eight phases.
 - **Leap months and festivals**: any month or festival can appear only every N years, from a chosen year offset. In the years where it does not appear, the days simply do not exist.
 
-Years are whole numbers and may be zero or negative. A date is a position in this one calendar: a year, a month or festival, and a day. It is not an hour or a moment in time, and each calendar keeps its own reckoning.
+Years are whole numbers and may be zero or negative. A date is a position in this one calendar: a year, a month or festival, and a day. It is not an hour or a moment in time (see [Clocks](#clocks)), and each calendar keeps its own reckoning.
 
 A new calendar starts empty. Preview checks the definition before it is saved, and a change that would invalidate dates or recurring observances already recorded is refused.
 
@@ -40,7 +40,7 @@ Choose a day to see its notes, the Facts and Events dated to it, and the observa
 
 A note belongs to exactly the period it was added to. The year has its own notes (the **Year ...: notes and dated entries** button), each month or festival has its own (**Month or festival notes**), and each day has its own. A note on a month is not shown on its days, and a note on a year is not shown on its months. Broader notes never apply to every day beneath them.
 
-Owners, Organizers and Authors of a library can add a note: choose **Add information to this date** (the button's own wording). The first time something is added, Calendars saves the day, together with its month and year, and no others. Notes are written in the same editor as elsewhere in Lorenzo, with text and pictures, and each note has an audience of its own.
+Owners, Organizers and Authors of a library can add a note: choose **Add a note to this date**. The first time something is added, Calendars saves the day, together with its month and year, and no others. Notes are written in the same editor as elsewhere in Lorenzo, with text and pictures, and each note has an audience of its own.
 
 ## Facts and Events, and their dates
 
@@ -81,6 +81,16 @@ Events can be listed by **Name** or in **Story order**. Story order and the caus
 
 An Event's page also records which beings took part in it, and, for authors and GMs, optionally when a being learned of it (**Learning**). Each is a separate record, and neither follows from a date or a relationship.
 
+## Clocks
+
+A calendar dates the story in days. A **Clock** is a separate, optional entry for a flow of time of its own, such as a place where time runs faster. **Browse clocks** on the calendar list opens the Clocks page, which lists them and, for authors and GMs, creates one (**Create a clock**). A clock is ticking, or declared **timeless**; a library with no clocks works as before.
+
+- **Reckonings.** On a ticking clock, **Clock and calendar reckonings** pairs the start of one date in a calendar with an exact reading of the clock. A clock can have several.
+- **Readings.** On an Event, **Clock readings** records an exact value, a range or a calendar day (through a reckoning). Numbers may be fractions such as `1/3`.
+- **Ratios.** **Clock relationships and conversion** pairs two ticking clocks with a constant ratio and, optionally, two anchor readings. Without anchors only durations convert. **Read this Event on another clock** then shows a derived reading, with the path it came by.
+
+A derived reading is worked out when it is asked for and never saved as an entered one. Its status is **Entered**, **Derived**, **Not reckoned** (nothing to go on), **Conflicting** (recorded readings or relationships disagree; entered readings win) or **Limit reached** (too large to compute; nothing is guessed). Readings, reckonings and relationships start private and are shared on purpose, and a reader sees only those whose ends they can see. None of this creates order, cause or knowledge, and none of it follows from a date.
+
 ## Links in text
 
 In any text written in LorenzoScript, a link name points at an entry: `[[calendar/reckoning]]` for a calendar, `[[event/arrival]]` for an Event, `[[calendar_period/first-day]]` for a dated period. A calendar date can also be written as a computed link:
@@ -100,7 +110,8 @@ Calendars has no import screen. The `lorenzo calendar import` command reads a na
 
 ## What Calendars does not do
 
-- It has no "today". There is no current date, no hours and no clock, and no way to say that one place's time runs faster than another's.
+- It has no "today". There is no current story date, and no calendar or clock is assumed: clocks are optional and explicit.
+- It does not change a clock's rate over time, branch or loop time, or work out a clock's reading from anything but readings and relationships someone entered.
 - It never works out order or cause from dates. Dates, Sessions and Scenes do not create "happened before" or "caused" relationships; only people do, and only by recording them.
 - It does not infer that anyone knew something because of a date.
 - It does not show the state of the world as of a date.

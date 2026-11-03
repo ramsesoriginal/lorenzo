@@ -116,9 +116,32 @@ A GM (anyone holding a `CampaignGm` grant) additionally gets, from `/items`:
   player uses for their own characters
 
 Deliberately not built yet: naming who may read a private piece of
-information (ADR 0109's knowers) beyond a note's own character, showing who
-wrote a note, and uploading pictures —
+information (ADR 0109's knowers) beyond a note's own character, and showing who
+wrote a note outside the Fact page —
 see the tracking issue for what's actually in flight.
+
+## Who can read this
+
+Editable descriptions and notes include **Who can read this**, with explicit character and group
+recipients and the existing Player grants. Audience changes are atomic and versioned
+([ADR 0304](../../docs/adr/0304-atomic-information-audiences.md)); a stale form asks the editor to
+review the current audience before saving again.
+
+## Several texts and pictures in one note
+
+Descriptions and notes may hold several LorenzoScript texts and pictures, kept in one ordered
+bundle with one audience ([ADR 0306](../../docs/adr/0306-information-bundles-and-their-editors.md)).
+**Add picture** (an upload) and **Add text** extend the existing editor; move/remove controls keep
+each part in order. A failed save keeps the draft and stable attachment IDs for retry. Read mode
+includes every part; protected pictures use authenticated requests.
+
+## Facts about an entry
+
+An entry lists the Facts explicitly about it when the reader can see their existence/name.
+The Fact page renders its visible information bundles and About subjects. LorenzoScript links
+resolve to that page. The Fact's outer audience and each information audience are independent;
+hidden Facts produce the same unavailable view as missing entries
+([ADR 0305](../../docs/adr/0305-facts-and-entry-audiences.md), [RFC 0044](../../docs/rfcs/0044-facts-audiences-and-information-bundles.md)).
 
 ## Commands
 
@@ -130,7 +153,7 @@ repo root:
 | `mise run dev` | Start the dev server at `localhost:4321` |
 | `mise run lint` | Biome + `astro check` + Prettier (`.astro`) |
 | `mise run format` | Autoformat |
-| `mise run test` | Run the unit tests (Vitest, `src/lib/`) |
+| `mise run test` | Run the unit tests (Vitest) |
 | `mise run test-e2e` | Run the end-to-end tests (Playwright) |
 | `mise run build` | Build the static site to `dist/` |
 
@@ -171,26 +194,10 @@ Environment variables, all optional:
 
 Servers that are already running are an error rather than reused, since a stale one
 serves an old build. `E2E_REUSE_SERVERS=1` reuses them anyway, which speeds up a second
-run; stop them to pick up a changed build. CI runs these tests in its `e2e` job.
+run; stop them to pick up a changed build. CI runs these tests in its `e2e` job, split over four runners by recorded duration (`scripts/e2e-shard.mjs`, weights in `tests/e2e/shard-weights.json`; [ADR 0148](../../docs/adr/0148-dependency-aware-pr-ci.md)).
 
 ## Deploy
 
-Cloudflare Pages, via its own Git integration (no GitHub Actions step) — see
+Deployed at <https://lorenzo-inventory-web.pages.dev/> on Cloudflare Pages, via its own Git integration (no GitHub Actions step); see
 [docs/operations/deployment-setup.md](../../docs/operations/deployment-setup.md#cloudflare-pages-appsinventory-web)
-for the one-time setup.
-
-Editable descriptions and notes include **Who can read this**, with explicit character and group
-recipients and the existing Player grants. Audience changes are atomic and versioned (ADR 0304);
-a stale form asks the editor to review the current audience before saving again.
-
-Descriptions and notes may hold several LorenzoScript texts and pictures, kept in one ordered
-bundle with one audience (ADR 0306). **Add picture** and **Add text** extend the existing editor;
-move/remove controls keep each part in order. A failed save keeps the draft and stable attachment
-IDs for retry. Read mode includes every part; protected pictures use authenticated requests.
-
-## Facts about an entry
-
-An entry lists the Facts explicitly about it when the reader can see their existence/name.
-The Fact page renders its visible information bundles and About subjects. LorenzoScript links
-resolve to that page. The Fact's outer audience and each information audience are independent;
-hidden Facts produce the same unavailable view as missing entries (ADR 0305, RFC 0044).
+for the setup procedure.
