@@ -25,3 +25,5 @@ Four tables, all tenant-scoped (`tenant_id` + `ENABLE`/`FORCE ROW LEVEL SECURITY
 - Same RLS caveat as ADR 0012: policies are real and tested, but currently unenforced in practice until the app's DB role stops being a superuser.
 
 *Addendum, 2026-10-04: [ADR 0167](0167-the-api-deletes-an-unused-stat-definition-or-stat-group.md) adds `DELETE` for a stat definition and a stat group, refused with a `409` while either is in use. Nothing else here changes: neither can be renamed, retyped or moved.*
+
+*Addendum, 2026-11-03: [ADR 0385](0385-renaming-a-stat-and-an-enum-value.md) makes a stat definition renameable. It still cannot be retyped or moved.*
