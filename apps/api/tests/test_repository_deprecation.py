@@ -819,6 +819,11 @@ def held_back(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+async def _rows(scene: Scene, type: str) -> list[tuple[int, int, bool, str]]:
+    """The repository's announcements of one type, the smaller first."""
+    return sorted(r for r in await fanouts_of(scene.repository) if r[3] == type)
+
+
 async def test_the_announcement_is_a_row_for_the_libraries_as_they_were_and_the_drain_tells_them(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, held_back: None
 ) -> None:
@@ -827,25 +832,52 @@ async def test_the_announcement_is_a_row_for_the_libraries_as_they_were_and_the_
         await scene.retire()
         # Two rows, written with the change and telling nobody yet: the two libraries that copied
         # it by an invitation and by themselves, and the one that holds an invitation only.
-        assert await fanouts_of(scene.repository) == [
-            (2, 0, False, "repository_deprecated"),
-            (1, 0, False, "repository_deprecated"),
-        ] or await fanouts_of(scene.repository) == [
+        assert await _rows(scene, "repository_deprecated") == [
             (1, 0, False, "repository_deprecated"),
             (2, 0, False, "repository_deprecated"),
         ]
         assert await _notices(scene.world.gm, "repository_deprecated") == []
 
         await scene.retire("A new message")  # no new row
-        assert len(await fanouts_of(scene.repository)) == 2
+        assert len(await _rows(scene, "repository_deprecated")) == 2
 
         await drain()
         assert len(await _notices(scene.world.gm, "repository_deprecated")) == 1
         assert len(await _notices(scene.invitee, "repository_deprecated")) == 1
 
         await scene.bring_back()
-        assert (await fanouts_of(scene.repository))[-1] == (3, 0, False, "repository_undeprecated")
+        assert await _rows(scene, "repository_undeprecated") == [
+            (3, 0, False, "repository_undeprecated")
+        ]
         await drain()
         assert len(await _notices(scene.invitee, "repository_undeprecated")) == 1
     finally:
         await scene.done()
+
+
+async def test_a_repository_built_on_a_retired_one_keeps_its_updates_from_it(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    stack = await _stack(raw_client, fake_jwks_server)
+    try:
+        retired = await stack.author.put(f"/tenants/{stack.equipment}/deprecation", json={})
+        assert retired.status_code == 200, retired.text
+
+        # The bridge holds a copy of Common Equipment: it checks and takes its updates as ever, and
+        # its own Owner reads that it is retired in the list of what it is built on.
+        base = f"/tenants/{stack.bridge}/repositories"
+        checked = await stack.author.get(f"{base}/{stack.equipment}/updates")
+        assert checked.status_code == 200, checked.text
+        applied = await stack.author.post(f"{base}/{stack.equipment}/updates", json={"actions": []})
+        assert applied.status_code == 200, applied.text
+        listing = (await stack.author.get(base)).json()
+        [row] = [i for i in listing["items"] if i["repository"]["id"] == str(stack.equipment)]
+        assert row["deprecated"] == {"message": None}
+        # Copying it into the bridge again is refused, with or without `again`.
+        again = await stack.author.post(
+            f"{base}/{stack.equipment}/copy", json={"again": "keep", "dry_run": True}
+        )
+        assert again.status_code == 409
+        assert again.json()["type"] == "repository-deprecated"
+    finally:
+        await cleanup(stack.tenants, stack.actors)
