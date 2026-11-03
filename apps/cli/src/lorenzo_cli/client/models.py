@@ -3728,12 +3728,26 @@ class DistanceOut(BaseModel):
     reason: str | None = Field(None, title="Reason")
 
 
+class EffectiveStatOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    from_entity: EntitySummary | None = None
+    computed: bool = Field(..., title="Computed")
+
+
 class EntityStatValueOut(BaseModel):
     name: str = Field(..., title="Name")
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
     computed: bool | None = Field(False, title="Computed")
+
+
+class EntryEffectiveStatsOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    stats: list[EffectiveStatOut] = Field(..., title="Stats")
 
 
 class EntryFramesOut(BaseModel):
@@ -4070,6 +4084,14 @@ class PageAnnotatedUnionMembershipRosterEntryOutPlayerRosterEntryOutGmRosterEntr
 
 class PageConnectionOut(BaseModel):
     items: list[ConnectionOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageEntryEffectiveStatsOut(BaseModel):
+    items: list[EntryEffectiveStatsOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")

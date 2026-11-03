@@ -85,3 +85,26 @@ async def attach_contents(
     merged = Contents(stats={**root_stats, **contents.stats}, children=contents.children)
     for entity in needing:
         entity.stat_contents = merged
+
+
+async def contents_for_rows(
+    session: AsyncSession, *, tenant_id: uuid.UUID, stats: dict[uuid.UUID, list[VEffectiveStat]]
+) -> Contents | None:
+    """What contents formulas read, for entities whose effective rows are already loaded (each
+    stat's formulas too): one load for all of them, none when no contents formula wins. `None`
+    then, which `evaluate` takes as nothing to read. The roots' own rows are used as they are
+    (ADR 0127's note on a root inside another root's subtree)."""
+    needing = [
+        entity_id
+        for entity_id, rows in stats.items()
+        if any(
+            row.computed_entity_id is not None
+            and row.computed_stat is not None
+            and row.computed_stat.contents is not None
+            for row in rows
+        )
+    ]
+    if not needing:
+        return None
+    loaded = await load_contents(session, tenant_id=tenant_id, root_ids=needing)
+    return Contents(stats={**loaded.stats, **stats}, children=loaded.children)

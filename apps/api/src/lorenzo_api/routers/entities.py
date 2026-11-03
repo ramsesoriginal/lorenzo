@@ -8,7 +8,7 @@ from fastapi_pagination import Page, paginate
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from fastapi_problem.error import ForbiddenProblem
 from pydantic import BaseModel
-from sqlalchemy import delete, exists, func, literal, or_, select, union_all
+from sqlalchemy import Select, delete, exists, func, literal, or_, select, union_all
 from sqlalchemy.orm import joinedload, selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -31,6 +31,7 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.description_payloads import write_description
+from lorenzo_api.effective_stats import effective_stats_of
 from lorenzo_api.entity_access import (
     can_self_manage_entity,
     entity_id_among,
@@ -62,6 +63,7 @@ from lorenzo_api.exceptions import (
     InvalidAudienceRecipientError,
     InvalidKindRequestError,
     InventoryItemParentsError,
+    StatDefinitionNotFoundError,
 )
 from lorenzo_api.information_visibility import (
     InformationReader,
@@ -116,6 +118,7 @@ from lorenzo_api.my_links import (
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
 from lorenzo_api.routers.item_instances import caller_reach
 from lorenzo_api.schemas.common import EntitySummary
+from lorenzo_api.schemas.effective_stats import EntryEffectiveStatsOut
 from lorenzo_api.schemas.entities import (
     BacklinkOut,
     EntityCreate,
@@ -253,45 +256,42 @@ async def kinds_of(
     }
 
 
-@router.get("")
-async def list_entities(
-    tenant_id: uuid.UUID,
-    params: ParamsDep,
-    session: SessionDep,
-    user: CurrentUser,
-    q: Annotated[
-        str | None,
-        Query(description="Case-insensitive substring match against the entry's name."),
-    ] = None,
-    kind: Annotated[
-        list[EntityKind] | None,
-        Query(description="Only entries of these kinds (repeatable): any of them, not all."),
-    ] = None,
-    parent_id: Annotated[
-        uuid.UUID | None,
-        Query(description="Only entries that have this entry as a parent."),
-    ] = None,
-    recursive: Annotated[
-        bool,
-        Query(
-            description=(
-                "With parent_id, also include entries that inherit from it transitively, "
-                "not just directly."
-            )
-        ),
-    ] = False,
-) -> Page[EntityListOut]:
-    """Every entry of the tenant by name, then id, with what each is (`kinds`), narrowed by any
-    of q, kind and parent_id (ADR 0215, RFC 0041 §5). EntityListOut rather than EntityDetailOut,
-    to avoid an N+1-heavy response when listing many entities.
+QFilter = Annotated[
+    str | None,
+    Query(description="Case-insensitive substring match against the entry's name."),
+]
+KindFilter = Annotated[
+    list[EntityKind] | None,
+    Query(description="Only entries of these kinds (repeatable): any of them, not all."),
+]
+ParentFilter = Annotated[
+    uuid.UUID | None,
+    Query(description="Only entries that have this entry as a parent."),
+]
+RecursiveFilter = Annotated[
+    bool,
+    Query(
+        description=(
+            "With parent_id, also include entries that inherit from it transitively, "
+            "not just directly."
+        )
+    ),
+]
 
-    q is a substring of the name, case-insensitive, with `%` and `_` meaning themselves. kind is
-    repeatable and matches an entry that is any of the kinds given. parent_id lists the entries
-    that name this one as a parent, and with recursive every descendant, as `prototype_id` and
-    `recursive` do on GET /items (an unknown id, or one of another tenant, is a 404).
-    """
-    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
-    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+
+async def entries_statement(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    visibility: InformationVisibility,
+    *,
+    q: str | None,
+    kind: list[EntityKind] | None,
+    parent_id: uuid.UUID | None,
+    recursive: bool,
+) -> Select[tuple[Entity]]:
+    """The entries the caller may see, by name then id, narrowed by q, kind and parent_id (ADR
+    0215): the statement `GET /entities` pages, and the bulk effective-stat read (ADR 0387) too,
+    so a grid and a list over the same filters name the same entries. An unknown parent is a 404."""
     stmt = (
         select(Entity)
         .where(Entity.tenant_id == tenant_id, visible_entry_clause(visibility, Entity.id))
@@ -323,6 +323,34 @@ async def list_entities(
                     EntityPrototype.tenant_id == tenant_id,
                 )
             )
+    return stmt
+
+
+@router.get("")
+async def list_entities(
+    tenant_id: uuid.UUID,
+    params: ParamsDep,
+    session: SessionDep,
+    user: CurrentUser,
+    q: QFilter = None,
+    kind: KindFilter = None,
+    parent_id: ParentFilter = None,
+    recursive: RecursiveFilter = False,
+) -> Page[EntityListOut]:
+    """Every entry of the tenant by name, then id, with what each is (`kinds`), narrowed by any
+    of q, kind and parent_id (ADR 0215, RFC 0041 §5). EntityListOut rather than EntityDetailOut,
+    to avoid an N+1-heavy response when listing many entities.
+
+    q is a substring of the name, case-insensitive, with `%` and `_` meaning themselves. kind is
+    repeatable and matches an entry that is any of the kinds given. parent_id lists the entries
+    that name this one as a parent, and with recursive every descendant, as `prototype_id` and
+    `recursive` do on GET /items (an unknown id, or one of another tenant, is a 404).
+    """
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    stmt = await entries_statement(
+        session, tenant_id, visibility, q=q, kind=kind, parent_id=parent_id, recursive=recursive
+    )
 
     async def _rows(entities: Sequence[Entity]) -> list[EntityListOut]:
         ids = [entity.id for entity in entities]
@@ -339,6 +367,58 @@ async def list_entities(
         ]
 
     page: Page[EntityListOut] = await apaginate(session, stmt, params, transformer=_rows)
+    return page
+
+
+@router.get("/effective-stats")
+async def list_effective_stats(
+    tenant_id: uuid.UUID,
+    params: ParamsDep,
+    session: SessionDep,
+    user: CurrentUser,
+    stat_definition_id: Annotated[
+        list[uuid.UUID],
+        Query(
+            min_length=1,
+            max_length=50,
+            description="The stats to read (repeatable, 1 to 50): stat definitions of the library.",
+        ),
+    ],
+    q: QFilter = None,
+    kind: KindFilter = None,
+    parent_id: ParentFilter = None,
+    recursive: RecursiveFilter = False,
+) -> Page[EntryEffectiveStatsOut]:
+    """The effective value of the stats asked for on a page of entries, formulas evaluated, with
+    whether each entry holds it itself and the entry it comes from (ADR 0387, RFC 0041 §7): a
+    compare grid is the list plus these columns in one request a page. The entries and their
+    order are `GET /entities`'s, with the same filters (q, kind, parent_id, recursive). A stat an
+    entry has no value for is left out of its row. A stat definition that is not the library's is
+    a 404."""
+    await require_tenant_participant(session, tenant_id=tenant_id, user=user)
+    wanted = list(dict.fromkeys(stat_definition_id))
+    known = set(
+        await session.scalars(
+            select(StatDefinition.id).where(
+                StatDefinition.tenant_id == tenant_id, StatDefinition.id.in_(wanted)
+            )
+        )
+    )
+    if missing := [w for w in wanted if w not in known]:
+        raise StatDefinitionNotFoundError(
+            detail=f"No stat definition {missing[0]} in tenant {tenant_id}"
+        )
+    visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    stmt = await entries_statement(
+        session, tenant_id, visibility, q=q, kind=kind, parent_id=parent_id, recursive=recursive
+    )
+
+    async def _rows(entities: Sequence[Entity]) -> list[EntryEffectiveStatsOut]:
+        return await effective_stats_of(
+            session, tenant_id=tenant_id, entities=entities, wanted=wanted, visibility=visibility
+        )
+
+    page: Page[EntryEffectiveStatsOut] = await apaginate(session, stmt, params, transformer=_rows)
     return page
 
 
