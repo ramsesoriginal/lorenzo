@@ -106,6 +106,13 @@ class Tenant(Base):
         ForeignKey("app_user.id", ondelete="SET NULL")
     )
     delist_reason: Mapped[str | None]
+    # ADR 0383: a repository its Owner retired (deprecated) - when, and an optional message the
+    # libraries that hold it read. The message only with the time, and only on a repository. A
+    # deprecated repository leaves Discover, blocks new copies and is closed to visitors; the
+    # libraries that hold it keep reading it and its updates. Here, beside `delisted_at`, for the
+    # same reason: the gate and the policies read this row.
+    deprecated_at: Mapped[datetime | None]
+    deprecated_message: Mapped[str | None]
     # ADR 0288: the release a library reads of a repository, set by a publish and by "make release
     # current"; null for a play tenant and for a repository that has made none.
     current_release_id: Mapped[uuid.UUID | None]

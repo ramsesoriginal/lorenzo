@@ -106,6 +106,7 @@ from lorenzo_api.repository_content import (
     stat_definition_snapshot,
     stat_group_snapshot,
 )
+from lorenzo_api.repository_deprecation import copy_refusal
 from lorenzo_api.repository_upstream import is_public, load_upstream, upstream_copies
 from lorenzo_api.svg_lint import SvgRefused, check_svg
 
@@ -163,6 +164,10 @@ class Step:
     already_copied: bool
     # Readable without a grant, because the repository is public (ADR 0287).
     public: bool = False
+    # Retired by its Owner (ADR 0383): a library that holds it keeps it and its updates, and cannot
+    # copy it again, nor take it in as a dependency it has not copied.
+    deprecated: bool = False
+    deprecated_message: str | None = None
     content: Content | None = None
     # The release the repository is read at when it is planned, its current one: what the copy
     # records as taken (ADR 0207, 0286).
@@ -249,6 +254,8 @@ async def _step(
         published=published,
         already_copied=repository_id in copied,
         public=public,
+        deprecated=bool(repository and repository.deprecated_at is not None),
+        deprecated_message=repository.deprecated_message if repository else None,
     )
 
 
@@ -1438,6 +1445,16 @@ async def plan_copy(
     collisions or grants: the plan carries them, for `copy-plan` to show
     and `apply_plan` to refuse."""
     steps = await manifest(session, tenant_id=tenant_id, repository_id=repository_id)
+    # A retired repository blocks every new copy, a dependency the library has not copied yet
+    # included. Only a step the library can read gets here with its words: for any other the
+    # manifest has answered `404`, or the plan says it is missing (ADR 0383).
+    top = steps[-1]
+    if top.deprecated and top.readable:
+        raise copy_refusal(top.name, top.deprecated_message)
+    if not top.already_copied:
+        for step in steps[:-1]:
+            if step.deprecated and step.readable and not step.already_copied:
+                raise copy_refusal(step.name, step.deprecated_message)
     plan = Plan(tenant_id=tenant_id, steps=steps)
     if steps[-1].already_copied or plan.missing:
         return plan

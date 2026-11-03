@@ -82,6 +82,7 @@ from lorenzo_api.repository_copying import (
     forget_copy,
     plan_copy,
 )
+from lorenzo_api.repository_deprecation import deprecated_notice
 from lorenzo_api.repository_digest import BreakingNote, Row, assess
 from lorenzo_api.repository_grants import (
     grant_repository_access,
@@ -897,6 +898,13 @@ async def list_repositories(
                 ),
                 synced_release=_release_ref(synced.get(repository_id)),
                 current_release=_release_ref(current.get(repository_id)),
+                # What the Owner said when retiring it, to a library that holds it (ADR 0383); a
+                # delisted repository reads as unpublished and says nothing more (ADR 0303).
+                deprecated=(
+                    deprecated_notice(repository)
+                    if repository and repository.delisted_at is None
+                    else None
+                ),
             )
         )
     rows.sort(key=lambda r: (r.repository.name, str(r.repository.id)))

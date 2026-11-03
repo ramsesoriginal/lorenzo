@@ -10,6 +10,7 @@ from lorenzo_api.schemas.repositories import BuiltOnBehindOut, PublishRequest
 from lorenzo_api.schemas.repository_profiles import (
     SUMMARY_MAX,
     DelistedOut,
+    DeprecatedOut,
     Preview,
     Visibility,
     _words,
@@ -90,6 +91,9 @@ class FlipCheckOut(BaseModel):
     # Set while the platform's operators have the repository off Discover (ADR 0303): it cannot be
     # made public until they list it again. Owner only, like the rest of the check.
     delisted: DelistedOut | None = None
+    # Set while the Owner has the repository retired (ADR 0383): it cannot be made public until it
+    # is brought back. Owner only, like the rest of the check.
+    deprecated: DeprecatedOut | None = None
 
 
 class MadePrivateOut(BaseModel):

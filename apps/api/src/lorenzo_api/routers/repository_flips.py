@@ -34,6 +34,7 @@ from lorenzo_api.repository_built_on import (
     public_dependents,
 )
 from lorenzo_api.repository_delisting import delisted_out, refuse_if_delisted
+from lorenzo_api.repository_deprecation import deprecated_out, refuse_if_deprecated
 from lorenzo_api.repository_flips import count_public_grants, make_private, make_public
 from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishers import publishers_of
@@ -91,6 +92,7 @@ async def check_flip(
             tenant_id
         ],
         delisted=delisted_out(repository),
+        deprecated=deprecated_out(repository),
     )
 
 
@@ -119,6 +121,7 @@ async def make_repository_public(
             detail="Public repositories are not available yet. This repository stays private."
         )
     refuse_if_delisted(tenant)
+    refuse_if_deprecated(tenant)
     body = body or MakePublicRequest()
     if not body.accept_terms:
         raise TermsNotAcceptedError(
