@@ -46,12 +46,16 @@ All three are the vocabulary tier the route already has (`_vocabulary_gate`: Own
 - **An enum value's rename** still reaches them as an added value and a removed one, since an enum value's identity in a snapshot is its text. The removal is refused where the old value is still in use in the library (now also by a formula), so a library keeps the old value for what holds it. The release digest files it as `enum_value_removed`. Giving enum values an identity in the snapshot would fix it and changes the snapshot format; **it is not done here**, and RFC 0041's open question stays open.
 - **A reorder** does not reach libraries: `sort_order` is not in the snapshot, as before.
 
+### In Bench
+
+The Vocabulary pane (ADR 0253) renames in place: a pencil beside a stat's name, and each value of a stat that is one of a list is a button that renames it. Enter renames, Escape leaves it. The name of a stat is read by id everywhere, so only the vocabulary is read again. A rename of a value rewrites stored text on the server, so the entries Bench holds that show it (their own value or an inherited one) and the formulas it has read are read again, and it is refused while changes are waiting to be sent, since one may name the old value. A refusal is said in the API's words and leaves the line open. The stat form no longer says a stat cannot be renamed.
+
 ## Not in scope
 
 - Retyping a definition, moving it between groups, and deleting one in use.
 - Enum values with an identity in the snapshot and the digest.
 - A stat write bumping the version of an entry ([RFC 0039](../rfcs/0039-bench-authoring-offline-and-extensibility.md) W1). A rename rewrites stored values without moving the `ETag` of the entries that hold them; a client that has them in memory reads them again.
-- The screens of Studio. Bench's vocabulary pane and the command line's notes change in a following PR.
+- The screens of Studio. Bench's vocabulary pane and the command line's notes change in a following PR, described under In Bench.
 
 ## Consequences
 
