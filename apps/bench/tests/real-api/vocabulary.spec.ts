@@ -27,6 +27,9 @@ test('a stat and an enum value are renamed, and what held the value follows', as
         stat_group_id: group.id,
         value_type: 'enum',
         enum_values: ['common', 'rare'],
+        adjustable_in_play: false,
+        pin: false,
+        signed: false,
       },
     }),
   );
