@@ -396,6 +396,29 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
         };
       }),
 
+    readEffectiveStats: (statIds, page) =>
+      guarded(async () => {
+        const body = await unwrap(
+          await client.GET('/tenants/{tenant_id}/entities/effective-stats', {
+            params: {
+              path,
+              query: { stat_definition_id: statIds, page, size: MAX_PAGE_SIZE },
+            },
+          }),
+        );
+        return {
+          pages: body.pages ?? 1,
+          items: body.items.map((row) => ({
+            entryId: row.id,
+            stats: row.stats.map((s) => ({
+              statId: s.stat_definition_id,
+              value: s.value,
+              own: s.own,
+            })),
+          })),
+        };
+      }),
+
     deleteStat: (statId) =>
       guarded(async () => {
         await unwrap(

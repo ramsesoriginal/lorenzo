@@ -93,6 +93,12 @@ export interface StatDef {
   enumValues: string[];
 }
 
+/** A page of `readEffectiveStats`. */
+export interface EffectivePage {
+  items: { entryId: string; stats: { statId: string; value: StatScalar; own: boolean }[] }[];
+  pages: number;
+}
+
 /** One stat on an entry, as the server resolved it. `own` false means it is inherited. */
 export interface StatValue {
   statId: string;
@@ -211,6 +217,11 @@ export interface Transport {
     enumValues: string[];
   }): Promise<StatDef>;
   deleteStat(statId: string): Promise<void>;
+  /**
+   * One page of the effective values of some stats on every entry, in the list's order, in one
+   * request (K7): for each entry the stats it has a value for, and whether it holds each itself.
+   */
+  readEffectiveStats(statIds: string[], page: number): Promise<EffectivePage>;
   /**
    * The entry's main picture as a URL an image can show (a `blob:` one, fetched with the sign-in),
    * or `null` when it has none or it cannot be seen.

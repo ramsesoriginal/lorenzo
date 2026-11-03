@@ -1108,3 +1108,70 @@ describe('who reads a note (RFC 0038 section 5)', () => {
     expect(isPublic(bench, id)).toBe(false);
   });
 });
+
+describe('the grid columns, read in bulk (K7)', () => {
+  const stats: StatDef[] = [
+    { id: 'armor', name: 'Armor', type: 'int', enumValues: [] },
+    { id: 'weight', name: 'Weight', type: 'float', enumValues: [] },
+  ];
+  const many = () => {
+    const rows: SampleEntry[] = [
+      { id: 'root', name: 'Root', kinds: ['item'], parents: [], stats: { armor: 5 } },
+    ];
+    for (let i = 0; i < 230; i++)
+      rows.push({ id: `e${i}`, name: `Entry ${i}`, kinds: ['item'], parents: ['root'] });
+    return rows;
+  };
+  const start = async () => {
+    const server = new SampleTransport(many(), stats);
+    const asked: number[] = [];
+    const read = server.readEffectiveStats.bind(server);
+    server.readEffectiveStats = async (ids, page) => {
+      asked.push(page);
+      return read(ids, page);
+    };
+    let n = 0;
+    const bench = new Bench(server, () => `new${++n}`);
+    await bench.loadEntries();
+    return { server, bench, asked };
+  };
+
+  it('reads every page of entries, and no entry in full', async () => {
+    const { bench, asked } = await start();
+    await bench.loadColumns(['armor']);
+    expect(asked).toEqual([1, 2, 3]);
+    expect(bench.loaded()).toEqual({ read: 231, of: 231 });
+    expect(bench.view('e7')).toBeNull();
+    expect(bench.columnValues('e7').get('armor')).toEqual({ value: 5, own: false });
+    expect(bench.columnValues('root').get('armor')).toEqual({ value: 5, own: true });
+  });
+
+  it('reads once for a set of stats, and again when the set changes', async () => {
+    const { bench, asked } = await start();
+    await bench.loadColumns(['armor']);
+    await bench.loadColumns(['armor']);
+    expect(asked).toHaveLength(3);
+    await bench.loadColumns(['armor', 'weight']);
+    expect(asked).toHaveLength(6);
+  });
+
+  it('is asked again when it could not be read, not remembered as read', async () => {
+    const { bench, server, asked } = await start();
+    server.offline = true;
+    await bench.loadColumns(['armor']);
+    expect(bench.loaded().read).toBe(0);
+    server.offline = false;
+    await bench.loadColumns(['armor']);
+    expect(asked).toEqual([1, 1, 2, 3]); // the first page again, then the rest
+    expect(bench.loaded().read).toBe(231);
+  });
+
+  it('reads an entry in full when it is first changed, and then shows the change', async () => {
+    const { bench } = await start();
+    await bench.loadColumns(['armor']);
+    expect(bench.setStat('e3', 'armor', 9)).toBeNull(); // read first, then written
+    await bench.open('e3');
+    await settle(bench);
+    expect(bench.view('e3')?.stats.find((s) => s.statId === 'armor')?.value).toBe(9);
+  });
+});
