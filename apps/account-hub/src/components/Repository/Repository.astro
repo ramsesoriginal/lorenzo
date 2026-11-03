@@ -75,6 +75,15 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <p data-delisted-reason></p>
           <p data-delisted-effect></p>
         </div>
+        <!-- Retired by its Owner (ADR 0384): every member reads it. -->
+        <div class="card card-body stack-tight" role="status" data-retired hidden>
+          <p class="row">
+            <span class="pill pill-warning" data-retired-pill></span>
+            <strong data-retired-title></strong>
+          </p>
+          <p data-retired-effect></p>
+          <p data-retired-message hidden></p>
+        </div>
         <h3>State</h3>
         <p class="row">
           <span data-state></span>
@@ -143,6 +152,35 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <p data-featured-add-none hidden></p>
           <p class="caption" data-featured-release-note></p>
           <p class="status-text" role="status" data-featured-status hidden></p>
+        </div>
+        <!-- Retire it, or bring it back (ADR 0384): an Owner's, for any repository. -->
+        <div class="stack-tight" data-retire hidden>
+          <h3 data-retire-heading></h3>
+          <p data-retire-explanation></p>
+          <div class="stack-tight" data-retire-form-box>
+            <label class="field">
+              <span class="field-label" data-retire-label></span>
+              <textarea class="text-input" rows="3" maxlength="500" data-retire-message></textarea>
+              <span class="caption" data-retire-help></span>
+              <span class="caption" role="status" data-retire-count></span>
+            </label>
+            <div class="row">
+              <button type="button" class="btn btn-secondary" data-retire-button></button>
+            </div>
+          </div>
+          <div class="stack-tight" data-retire-retired hidden>
+            <p class="row">
+              <span class="pill pill-warning" data-retire-pill></span>
+              <span data-retire-state></span>
+            </p>
+            <p class="caption" data-retire-since></p>
+            <p data-retire-saved hidden></p>
+            <div class="row">
+              <button type="button" class="btn btn-secondary" data-bring-back></button>
+            </div>
+            <p class="caption" data-bring-back-note></p>
+          </div>
+          <p class="status-text" role="status" data-retire-status hidden></p>
         </div>
         <div class="stack-tight" data-subscriber>
           <h3 data-subscriber-heading></h3>
@@ -320,6 +358,22 @@ import ReleaseComposer from './ReleaseComposer.astro';
           Cancel
         </button>
         <button type="submit" class="btn btn-primary" data-vis-confirm></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- What retiring it will do, said before it does it (ADR 0384). -->
+  <dialog aria-labelledby="retire-dialog-title" data-retire-dialog>
+    <form method="dialog" class="stack" data-retire-form>
+      <h3 id="retire-dialog-title" data-retire-title></h3>
+      <ul class="stack-tight" data-retire-lines></ul>
+      <p data-retire-dialog-message hidden></p>
+      <p class="error-text" role="alert" data-retire-error hidden></p>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-retire-cancel autofocus>
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" data-retire-confirm></button>
       </div>
     </form>
   </dialog>

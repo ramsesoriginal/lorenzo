@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator, model_validator
 
 from lorenzo_api.models import StatValueType
+from lorenzo_api.schemas.repository_profiles import DeprecatedNoticeOut
 from lorenzo_api.schemas.tenants import TenantOut
 
 __all__ = [
@@ -362,6 +363,9 @@ class SubscriptionOut(BaseModel):
     # (ADR 0207): their labels are what "you are on 1.2, 1.4 is out" says.
     synced_release: ReleaseRefOut | None
     current_release: ReleaseRefOut | None
+    # Set while the repository's Owner has it retired (ADR 0384): the library keeps what it copied
+    # and its updates, and can no longer copy it. The Owner's message, or `null` when there is none.
+    deprecated: DeprecatedNoticeOut | None = None
 
 
 class ContributionOut(BaseModel):

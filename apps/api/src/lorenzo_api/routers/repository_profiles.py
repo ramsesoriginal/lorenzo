@@ -27,6 +27,7 @@ from lorenzo_api.models import ProfilePicture, RepositoryProfile, Tenant
 from lorenzo_api.profile_pictures import read_and_validate_upload
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_delisting import delisted_out
+from lorenzo_api.repository_deprecation import deprecated_out
 from lorenzo_api.repository_profiles import (
     delete_repository_cover,
     member_profile_out,
@@ -68,7 +69,9 @@ async def get_profile(
     `showcase` and nothing else said, until its Owner says more."""
     repository = await _require_repository(session, tenant_id)
     return member_profile_out(
-        await profile_of(session, tenant_id), delisted=delisted_out(repository)
+        await profile_of(session, tenant_id),
+        delisted=delisted_out(repository),
+        deprecated=deprecated_out(repository),
     )
 
 
@@ -116,7 +119,9 @@ async def update_profile(
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     await session.refresh(profile)
-    return member_profile_out(profile, delisted=delisted_out(repository))
+    return member_profile_out(
+        profile, delisted=delisted_out(repository), deprecated=deprecated_out(repository)
+    )
 
 
 @router.get("/profile/cover")

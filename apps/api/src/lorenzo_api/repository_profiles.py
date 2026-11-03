@@ -11,6 +11,7 @@ from lorenzo_api.models import ProfilePicture, RepositoryProfile
 from lorenzo_api.schemas.repository_profiles import (
     CreditOut,
     DelistedOut,
+    DeprecatedOut,
     LicenceOut,
     MemberProfileOut,
     RepositoryProfileOut,
@@ -73,11 +74,16 @@ def profile_out(
 
 
 def member_profile_out(
-    profile: RepositoryProfile, *, delisted: DelistedOut | None
+    profile: RepositoryProfile,
+    *,
+    delisted: DelistedOut | None,
+    deprecated: DeprecatedOut | None = None,
 ) -> MemberProfileOut:
     """What the repository's own members read: the profile, and what they are told of it being off
-    Discover (ADR 0303), which no other reader is."""
-    return MemberProfileOut(**profile_out(profile).model_dump(), delisted=delisted)
+    Discover (ADR 0303) and of its Owner having retired it (ADR 0384), which no other reader is."""
+    return MemberProfileOut(
+        **profile_out(profile).model_dump(), delisted=delisted, deprecated=deprecated
+    )
 
 
 async def set_repository_cover(

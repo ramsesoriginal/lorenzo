@@ -67,6 +67,7 @@ from lorenzo_api.routers.pictures import router as pictures_router
 from lorenzo_api.routers.players import router as players_router
 from lorenzo_api.routers.public_repositories import router as public_repositories_router
 from lorenzo_api.routers.repositories import router as repositories_router
+from lorenzo_api.routers.repository_deprecation import router as repository_deprecation_router
 from lorenzo_api.routers.repository_flips import router as repository_flips_router
 from lorenzo_api.routers.repository_preview import (
     library_router as repository_preview_library_router,
@@ -158,6 +159,7 @@ def create_app() -> FastAPI:
     app.include_router(repositories_router)
     app.include_router(repository_profiles_router)
     app.include_router(repository_flips_router)
+    app.include_router(repository_deprecation_router)
     app.include_router(public_repositories_router)
     app.include_router(repository_preview_visitor_router)
     app.include_router(repository_preview_library_router)

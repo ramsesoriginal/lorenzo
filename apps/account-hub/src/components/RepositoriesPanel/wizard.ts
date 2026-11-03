@@ -181,7 +181,7 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
       blocked(
         state.subject.public
           ? 'This repository cannot be copied right now. It may have been made private since you opened it.'
-          : 'This repository cannot be copied right now. It may have been unpublished, or your library is no longer invited to it.',
+          : 'This repository cannot be copied right now. It may have been unpublished, your library may no longer be invited to it, or a repository it is built on may have been retired.',
         [],
       );
       return;
@@ -532,6 +532,9 @@ export function createCopyWizard(panel: HTMLElement, view: HTMLElement): CopyWiz
   return {
     async open(library, subject, mode, isCurrent) {
       const { copied, offered } = subject;
+
+      // A retired repository is copied by nobody, one the library holds a copy of included (ADR 0384).
+      if (subject.retired) return false;
 
       // A first copy is of a repository that is offered, published and not yet copied; another
       // is of one the library has copied.

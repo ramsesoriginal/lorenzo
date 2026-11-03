@@ -51,8 +51,8 @@ class Listed:
 
 
 def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
-    """The repositories that are listed: public, published, with a release and not delisted by the
-    platform's operators (ADR 0303). Deprecated ones leave when that state exists (RFC 0038 D8)."""
+    """The repositories that are listed: public, published, with a release, not delisted by the
+    platform's operators (ADR 0303) and not retired by their Owner (ADR 0384)."""
     return (
         select(RepositoryProfile, Tenant)
         .join(Tenant, Tenant.id == RepositoryProfile.tenant_id)
@@ -62,6 +62,7 @@ def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
             Tenant.kind == TenantKind.REPOSITORY,
             Tenant.published_at.is_not(None),
             Tenant.delisted_at.is_(None),
+            Tenant.deprecated_at.is_(None),
         )
     )
 
@@ -142,7 +143,8 @@ async def search(
 _LISTED_SQL = (
     "FROM repository_profile p JOIN tenant t ON t.id = p.tenant_id "
     "WHERE p.visibility = 'public' AND p.release_label IS NOT NULL "
-    "AND t.kind = 'repository' AND t.published_at IS NOT NULL AND t.delisted_at IS NULL"
+    "AND t.kind = 'repository' AND t.published_at IS NOT NULL AND t.delisted_at IS NULL "
+    "AND t.deprecated_at IS NULL"
 )
 
 

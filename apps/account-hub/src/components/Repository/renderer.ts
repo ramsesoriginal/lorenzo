@@ -32,6 +32,7 @@ import { renderTenantEdit } from '../TenantEdit/renderer';
 import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 import { createDelistedNotice } from './delisted';
 import { createPublishControls } from './publish';
+import { createRetiredControls } from './retired';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
 import { createShowcaseControls } from './showcase';
 import { createViewAs } from './viewAs';
@@ -107,6 +108,8 @@ export function renderRepository(
   const viewAs = createViewAs(root, hooks.mayCreate);
   // Off Discover by the platform's operators: the notice every member reads (ADR 0303).
   const delisted = createDelistedNotice(root);
+  // Retired by its Owner (ADR 0384): the notice every member reads, and the Owner's card.
+  const retired = createRetiredControls(root, hooks.onChanged);
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);
   const builtOn = createBuiltOn(root);
@@ -147,6 +150,7 @@ export function renderRepository(
     publishControls.clear();
     visibility.clear();
     delisted.clear();
+    retired.clear();
     showcase.clear();
     viewAs.clear();
     releases.clear();
@@ -168,6 +172,7 @@ export function renderRepository(
     void viewAs.paint(repository, current.published);
     void visibility.paint(repository);
     void delisted.paint(repository);
+    void retired.paint(repository);
     void showcase.paint(repository);
     overview.hidden = false;
   }
