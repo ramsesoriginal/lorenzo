@@ -14,7 +14,9 @@ __all__ = [
     "StatDefinitionOrder",
     "StatDefinitionOut",
     "StatDefinitionUpdate",
+    "StatEnumOptionOut",
     "StatEnumValueCreate",
+    "StatEnumValueUpdate",
     "StatGroupCreate",
     "StatGroupOrder",
     "StatGroupOut",
@@ -23,6 +25,8 @@ __all__ = [
 
 # ADR 0278: a unit is a few characters ("ft", "lb", "in.").
 UnitText = Annotated[str, Field(min_length=1, max_length=32)]
+# ADR 0385: a stat's name and an enum value are not empty.
+NameText = Annotated[str, Field(min_length=1)]
 
 
 class StatGroupCreate(BaseModel):
@@ -118,8 +122,9 @@ class StatDefinitionCreate(BaseModel):
 class StatDefinitionUpdate(BaseModel):
     """PATCH /stat-definitions/{id} - ADR 0278. Merge-patch semantics
     (`exclude_unset`); `unit` may be set to null to clear it. A definition's
-    name, type and group are not editable here."""
+    `name` is editable (ADR 0385); its type and group are not."""
 
+    name: NameText | None = None
     unit: UnitText | None = None
     adjustable_in_play: bool | None = None
     pin: bool | None = None
@@ -139,6 +144,14 @@ class StatDefinitionUpdate(BaseModel):
         return self
 
 
+class StatEnumOptionOut(BaseModel):
+    """One allowed value of an enum stat with the id a client addresses it by (ADR 0385)."""
+
+    id: uuid.UUID
+    value: str
+    sort_order: int
+
+
 class StatDefinitionOut(BaseModel):
     """Built via from_definition: `enum_values` flattens the
     StatDefinitionEnumValue rows (already ordered by sort_order, value) to
@@ -152,6 +165,8 @@ class StatDefinitionOut(BaseModel):
     # The allowed values of an enum stat, in display order; empty for any
     # other type (ADR 0103).
     enum_values: list[str]
+    # The same values with their ids and order, to edit one by (ADR 0385).
+    enum_options: list[StatEnumOptionOut]
     # How the stat is shown, and where it comes in its group (ADR 0278).
     unit: str | None
     adjustable_in_play: bool
@@ -173,6 +188,10 @@ class StatDefinitionOut(BaseModel):
             stat_group_id=stat_definition.stat_group_id,
             value_type=stat_definition.value_type,
             enum_values=[row.value for row in stat_definition.enum_values],
+            enum_options=[
+                StatEnumOptionOut(id=row.id, value=row.value, sort_order=row.sort_order)
+                for row in stat_definition.enum_values
+            ],
             unit=stat_definition.unit,
             adjustable_in_play=stat_definition.adjustable_in_play,
             pin=stat_definition.pin,
@@ -193,6 +212,21 @@ class StatEnumValueCreate(BaseModel):
 
     value: str
     sort_order: int | None = None
+
+
+class StatEnumValueUpdate(BaseModel):
+    """PATCH .../stat-definitions/{id}/enum-values/{value_id} - ADR 0385. Renames a value
+    (every stored copy follows) and/or sets its sort_order; neither can be null."""
+
+    value: NameText | None = None
+    sort_order: int | None = None
+
+    @model_validator(mode="after")
+    def _no_nulls(self) -> StatEnumValueUpdate:
+        for field in self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
 
 
 class SetEntityStatRequest(BaseModel):

@@ -3077,6 +3077,7 @@ class StatDefinitionOrder(BaseModel):
 
 
 class StatDefinitionUpdate(BaseModel):
+    name: constr(min_length=1) | None = Field(None, title="Name")
     unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
     adjustable_in_play: bool | None = Field(None, title="Adjustable In Play")
     pin: bool | None = Field(None, title="Pin")
@@ -3087,8 +3088,19 @@ class StatDefinitionUpdate(BaseModel):
     resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
 
 
+class StatEnumOptionOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    value: str = Field(..., title="Value")
+    sort_order: int = Field(..., title="Sort Order")
+
+
 class StatEnumValueCreate(BaseModel):
     value: str = Field(..., title="Value")
+    sort_order: int | None = Field(None, title="Sort Order")
+
+
+class StatEnumValueUpdate(BaseModel):
+    value: constr(min_length=1) | None = Field(None, title="Value")
     sort_order: int | None = Field(None, title="Sort Order")
 
 
@@ -4353,6 +4365,7 @@ class StatDefinitionOut(BaseModel):
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
     enum_values: list[str] = Field(..., title="Enum Values")
+    enum_options: list[StatEnumOptionOut] = Field(..., title="Enum Options")
     unit: str | None = Field(..., title="Unit")
     adjustable_in_play: bool = Field(..., title="Adjustable In Play")
     pin: bool = Field(..., title="Pin")
