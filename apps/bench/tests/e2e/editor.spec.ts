@@ -1581,6 +1581,81 @@ test.describe('the status bar and the conflict review', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(bar(page)).toContainText('Synced');
   });
+
+  const review = async (page: Page) => {
+    await conflict(page);
+    await palette(page, 'get the connection back');
+    await bar(page)
+      .getByRole('button', { name: /Conflict/ })
+      .click();
+    return page.getByRole('dialog');
+  };
+
+  test('the review is the shared element: values stacked in order, the field named, Use theirs keeps the server’s', async ({
+    page,
+  }) => {
+    const dialog = await review(page);
+
+    // What it was, what the server has and what was written, each named and in that order.
+    await expect(dialog.locator('.repo-review-label')).toHaveText('Name');
+    await expect(dialog.locator('.repo-review-term')).toHaveText(['Was', 'Theirs', 'Mine']);
+    await expect(dialog.locator('.repo-review-value')).toHaveText([
+      '“Wolf”',
+      '“Coyote”',
+      '“Hound”',
+    ]);
+    await expect(dialog.getByRole('group', { name: 'Choose for Name' })).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Use theirs' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(bar(page)).toContainText('Synced');
+    await expect(name(page)).toHaveValue('Coyote');
+  });
+
+  test('a conflict is settled from the keyboard', async ({ page }) => {
+    const dialog = await review(page);
+    const keep = dialog.getByRole('button', { name: 'Keep mine' });
+
+    await keep.focus();
+    await expect(keep).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(dialog.getByRole('button', { name: 'Use theirs' })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(keep).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(bar(page)).toContainText('Synced');
+    await expect(name(page)).toHaveValue('Hound');
+  });
+
+  test('on a phone the values stack in one column and what is pressed is 44px tall', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    const dialog = await review(page);
+
+    await expect(dialog.locator('.repo-review-value')).toHaveCount(3);
+
+    const boxes = await dialog.locator('.repo-review-term, .repo-review-value').evaluateAll((els) =>
+      els.map((e) => {
+        const { x, y } = e.getBoundingClientRect();
+        return { x, y };
+      }),
+    );
+
+    // One column: every term and value starts at the same x, each below the one before.
+    expect(new Set(boxes.map((b) => Math.round(b.x))).size).toBe(1);
+    for (let i = 1; i < boxes.length; i++) {
+      expect(boxes[i]?.y).toBeGreaterThan(boxes[i - 1]?.y ?? 0);
+    }
+
+    for (const button of await dialog.locator('.repo-review-action').all()) {
+      expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    }
+
+    expect(await dialog.evaluate((d) => d.scrollWidth - d.clientWidth)).toBeLessThanOrEqual(0);
+  });
 });
 
 test.describe('the pictures pane', () => {
