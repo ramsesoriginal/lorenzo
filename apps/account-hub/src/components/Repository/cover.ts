@@ -162,8 +162,18 @@ export function createCoverControls(
 
     unstage();
     chosen = picked;
-    stagedUrl = URL.createObjectURL(picked);
-    stagedPicture.src = stagedUrl;
+    const local = URL.createObjectURL(picked);
+
+    // Only a blob: address made here is ever shown; anything else is dropped.
+    if (!local.startsWith('blob:')) {
+      URL.revokeObjectURL(local);
+      file.value = '';
+
+      return;
+    }
+
+    stagedUrl = local;
+    stagedPicture.src = local;
     staged.hidden = false;
     say(status, '');
   });
