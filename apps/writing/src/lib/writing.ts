@@ -27,6 +27,7 @@ import {
 import { reviewAddress, reviewScreen } from './review';
 import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
+import { writingSession } from './writing-session';
 import { writingTimer } from './writing-timer';
 
 const message = (error: unknown) =>
@@ -545,6 +546,10 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     () => editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
     { tenant, id: entry, scope: 'direct' },
   );
+  const sessionGoal = writingSession(API_BASE_URL, account, tenant, () =>
+    editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
+  );
+  count.element.append(sessionGoal.element);
   count.element.append(writingTimer(API_BASE_URL, account, tenant));
   host.replaceChildren(
     back,
@@ -627,6 +632,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     });
 
     area.replaceChildren(editor.element);
+    sessionGoal.rebase();
     count.refresh();
     observed = fingerprint(editor.read());
   }
@@ -637,6 +643,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     const next = fingerprint(editor.read());
     if (next === observed) return;
     observed = next;
+    sessionGoal.changed();
     count.refresh();
     dirty = true;
 
