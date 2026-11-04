@@ -94,6 +94,7 @@ icon-kind-being-share: user-share
 icon-kind-being-unknown: user-question
 icon-kind-being-heart: user-heart
 icon-kind-beings: users
+icon-kind-being-check: user-check
 
 # Kinds: group (circle)
 icon-kind-group: circle
@@ -143,6 +144,7 @@ icon-kind-fact-known-by: user-hexagon
 icon-kind-fact-picture: photo-hexagon
 icon-kind-facts: hexagons
 icon-kind-fact-alert: alert-hexagon
+icon-kind-fact-learned: bulb
 
 # Kinds: clock
 icon-kind-clock: clock
@@ -161,6 +163,7 @@ icon-kind-clock-search: clock-search
 icon-kind-clock-pin: clock-pin
 icon-history-toggle: history-toggle
 icon-timezone: timezone
+icon-convert: replace
 
 # Kinds: calendar
 icon-kind-calendar: calendar
@@ -175,6 +178,7 @@ icon-kind-calendar-code: calendar-code
 icon-kind-calendar-cancel: calendar-cancel
 icon-kind-calendar-delete: calendar-x
 icon-kind-calendar-warning: calendar-exclamation
+icon-kind-calendar-repeat: calendar-repeat
 
 # Kinds: connection (plug)
 icon-kind-connection: plug
@@ -224,6 +228,11 @@ icon-offline: cloud-x
 icon-pending: hourglass-empty
 icon-waiting: hourglass
 icon-waiting-off: hourglass-off
+icon-conflict: git-compare
+icon-live: broadcast
+icon-local-only: device-laptop-off
+icon-online: cloud-check
+icon-storage: database
 
 # Window chrome
 icon-float: app-window
@@ -241,6 +250,16 @@ icon-outdent: indent-decrease
 icon-indent: indent-increase
 icon-decrease: minus
 icon-inherited-from: corner-down-right
+icon-zoom-in: zoom-in
+icon-zoom-out: zoom-out
+icon-zoom-fit: zoom-scan
+icon-center-on: crosshair
+icon-focus-mode: focus-2
+icon-theme-light: sun
+icon-theme-dark: moon
+icon-theme-system: sun-moon
+icon-appearance: typography
+icon-command: terminal-2
 
 # Editing
 icon-redo: arrow-forward-up
@@ -258,6 +277,16 @@ icon-italic: italic
 icon-list: list
 icon-quote: quote
 icon-code: code
+icon-heading: heading
+icon-strikethrough: strikethrough
+icon-underline: underline
+icon-subscript: subscript
+icon-superscript: superscript
+icon-list-numbered: list-numbers
+icon-list-check: list-check
+icon-rule: separator-horizontal
+icon-entity-link: brackets-contain
+icon-math: sum
 
 # Views
 icon-table: table
@@ -273,6 +302,63 @@ icon-token: key
 icon-device: device-laptop
 icon-release: tag-starred
 icon-inventory: backpack
+
+# Kinds: more
+icon-kind-map: map-2
+icon-kind-scene: masks-theater
+icon-kind-session: dice-5
+icon-kind-edition: versions
+icon-kind-telling: message-2
+icon-kind-repository: box-multiple
+icon-kind-period: calendar-month
+icon-kind-observance: confetti
+
+# Files and media
+icon-export: file-export
+icon-picture-replace: photo-up
+icon-unpack: package-export
+
+# Play
+icon-play: player-play
+icon-skip: player-skip-forward
+
+# Visibility
+icon-private-off: lock-open
+icon-redaction: eye-closed
+icon-eye-check: eye-check
+
+# Maps
+icon-globe: globe
+icon-tool-select: pointer
+icon-tool-circle: circle-dotted
+icon-tool-line: line
+icon-tool-area: polygon
+icon-grid: grid-dots
+icon-snap: magnet
+icon-layers: layers-intersect
+icon-measure: ruler-measure
+icon-route: route
+icon-legend: list-details
+
+# Writing
+icon-word-count: abacus
+icon-goal: target-arrow
+icon-cut: scissors
+icon-join: arrows-join
+icon-extract: arrow-bar-right
+
+# Repositories
+icon-discover: telescope
+icon-publish: world-upload
+icon-unpublish: world-off
+icon-announce: speakerphone
+icon-retired: archive
+icon-update-available: package-import
+icon-copy-done: copy-check
+icon-fork: git-fork
+icon-merge: git-merge
+icon-report: flag-3
+icon-license: license
 
 # Lorenzo-owned custom icons (identity.md §17.4, ADR 0326): Tabler has no set of moon phases,
 # so these eight are drawn in Tabler's grammar (24x24, 2px round stroke, currentColor) and have
