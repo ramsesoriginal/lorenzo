@@ -12,6 +12,7 @@ A **repository** is a reusable setting: a published campaign setting, a homebrew
 - Who works on a repository: its Owner publishes and hands out access, and an **Author** edits its content only ([RFC 0040](../rfcs/0040-authors-and-invites.md), [ADR 0219](../adr/0219-the-author-role.md)). Libraries have Authors too.
 - What a library copies: an Owner publishes a **release** of a repository, a library copies it and takes updates as it chooses, and one repository can be built on another ([RFC 0037](../rfcs/0037-releases-and-public-snapshots.md), [RFC 0036](../rfcs/0036-repository-tooling.md)).
 - A repository its Owner has made public can be found and copied from the Discover page, where the feature is switched on ([RFC 0038](../rfcs/0038-public-repositories-and-discovery.md)).
+- An Owner can retire a repository, public or not: it leaves Discover and nobody can copy it any more, while the libraries that already hold it keep their copy and its updates ([ADR 0384](../adr/0384-deprecating-a-repository.md)).
 
 ## Why this matters for the data model
 
