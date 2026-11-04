@@ -397,3 +397,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0392 - Bench: the second icon pass](0392-bench-the-second-icon-pass.md) — text stand-ins become atlas icons, one shared formatting toolbar over texts, honest sync states, appearance and sign-in icons
 
 - [0393 - Personal writing timer](0393-personal-writing-timer.md)
+- [0394 - Personal net-new writing-session goals](0394-personal-net-new-writing-session-goals.md)
