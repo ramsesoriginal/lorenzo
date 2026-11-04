@@ -1404,6 +1404,10 @@ class LegOut(BaseModel):
     length: float | None = Field(None, title="Length")
 
 
+class LibraryCountOut(BaseModel):
+    count: int = Field(..., title="Count")
+
+
 class LicenceIn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

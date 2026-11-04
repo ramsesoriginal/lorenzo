@@ -45,6 +45,7 @@ from lorenzo_api.information_visibility import (
 )
 from lorenzo_api.inherited_information import ancestors_of, prototype_ancestors
 from lorenzo_api.learning import require_no_learning
+from lorenzo_api.library_counts import count_libraries, libraries_note
 from lorenzo_api.models import (
     Entity,
     EntityPrototype,
@@ -649,7 +650,12 @@ async def delete_item(
         action="item.deleted",
         target_type="item",
         target_id=entity_id,
-        detail=None,
+        detail=(
+            libraries_note(
+                await count_libraries(session, tenant_id, "entity", entity_id)
+            ).removeprefix(", ")
+            or None
+        ),
     )
     await require_no_learning(session, tenant_id, entity_id=entity_id)
     await session.delete(entity)

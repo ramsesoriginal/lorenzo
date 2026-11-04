@@ -49,6 +49,7 @@ AUTHORING = {
     ("PATCH", T + "/items/{entity_id}"),
     ("PUT", T + "/items/{entity_id}/prototypes"),
     ("DELETE", T + "/entities/{entity_id}"),
+    ("GET", T + "/entities/{entity_id}/libraries"),
     ("PUT", T + "/entities/{entity_id}/kinds/{kind}"),
     ("DELETE", T + "/entities/{entity_id}/kinds/{kind}"),
     ("PUT", T + "/entities/{entity_id}/parents"),
@@ -105,6 +106,8 @@ ADMIN = {
     ("GET", T + "/subscribers"),
     ("GET", T + "/subscribers/summary"),
     ("DELETE", STAT_DEFINITION),
+    ("GET", STAT_DEFINITION + "/libraries"),
+    ("GET", STAT_GROUP + "/libraries"),
     ("DELETE", STAT_DEFINITION + "/enum-values/{enum_value_id}"),
     ("DELETE", STAT_GROUP),
 }

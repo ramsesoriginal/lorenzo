@@ -71,6 +71,7 @@ from lorenzo_api.information_visibility import (
     visible_information_clause,
 )
 from lorenzo_api.learning import require_no_learning
+from lorenzo_api.library_counts import count_libraries, libraries_note
 from lorenzo_api.models import (
     Being,
     Calendar,
@@ -134,6 +135,7 @@ from lorenzo_api.schemas.entities import (
     ResolvedSlugOut,
 )
 from lorenzo_api.schemas.knowledge import InformationAudience
+from lorenzo_api.schemas.library_counts import LibraryCountOut
 from lorenzo_api.stat_contents import attach_contents
 
 # get_tenant_or_404 here, not get_tenant_context (ADR 0038/RFC 0011,
@@ -555,10 +557,23 @@ async def delete_entity(
         action="entity.deleted",
         target_type="entity",
         target_id=entity_id,
-        detail=f"kinds={'+'.join(sorted(kinds)) or 'none'}",
+        detail=f"kinds={'+'.join(sorted(kinds)) or 'none'}"
+        + libraries_note(await count_libraries(session, tenant_id, "entity", entity_id)),
     )
     await session.delete(entity)
     await session.commit()
+
+
+@router.get("/{entity_id}/libraries", dependencies=[Depends(get_tenant_context)])
+async def count_entity_libraries(
+    tenant_id: uuid.UUID, entity_id: uuid.UUID, session: SessionDep
+) -> LibraryCountOut:
+    """How many libraries hold a copy of this entry of a repository, never which (ADR 0386, RFC
+    0041 section 9). A member of the repository, an Author included, may ask: it is the number
+    the delete dialog shows. A read, not a gate: the delete does not need it. `0` for a library,
+    which nothing was copied from."""
+    await get_entity_or_404(session, entity_id, tenant_id)
+    return LibraryCountOut(count=await count_libraries(session, tenant_id, "entity", entity_id))
 
 
 async def get_entity_detail_or_404(
