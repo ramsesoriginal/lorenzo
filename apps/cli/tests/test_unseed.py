@@ -20,6 +20,7 @@ from lorenzo_cli.seed import (
     LAYERS,
     UnseedState,
     apply_unseed,
+    libraries_holding,
     load_builtin,
     make_unseed_plan,
 )
@@ -417,3 +418,33 @@ def test_a_child_the_api_refuses_to_read_is_kept_and_the_rest_goes_on() -> None:
     ]
     assert "Refused with 403" in result.kept[0].reason
     assert len(result.deleted) == 5
+
+
+# --- the libraries that hold what it would delete (ADR 0386) --------------------------------------
+
+
+def test_what_libraries_hold_is_counted_for_each_category_stat_and_group() -> None:
+    state = held("core")
+    plan = make_unseed_plan(SPEC, state, TENANT, ("core",))
+    held_nodes = {t.id: 2 for t in plan.targets if t.kind == "node"}
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        tail = request.url.path.split("/")
+        counts = {str(k): v for k, v in held_nodes.items()}
+        return httpx.Response(200, json={"count": counts.get(tail[-2], 0)})
+
+    client = LorenzoClient(
+        "https://api.example/",
+        FixedToken(),
+        transport=httpx.MockTransport(handler),
+        sleep=lambda _: None,
+    )
+
+    holding = libraries_holding(client, TENANT.id, plan)
+
+    assert set(holding) == {t.name for t in plan.targets if t.kind == "node"}
+    assert set(holding.values()) == {2}
+    assert len(asked) == len([t for t in plan.targets if t.kind != "attachment"])
+    assert all(path.endswith("/libraries") for path in asked)

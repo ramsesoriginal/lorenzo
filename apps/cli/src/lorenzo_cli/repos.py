@@ -43,11 +43,14 @@ from lorenzo_cli.client.models import (
 from lorenzo_cli.client.ops import (
     APPLY_REPOSITORY_UPDATES,
     COPY_REPOSITORY,
+    ENTRY_LIBRARIES,
     GRANT_REPOSITORY,
     LIST_REPOSITORIES,
     LIST_REPOSITORY_UPDATES,
     LIST_SUBSCRIBERS,
     LIST_TENANTS,
+    STAT_GROUP_LIBRARIES,
+    STAT_LIBRARIES,
     SUBSCRIBERS_SUMMARY,
 )
 from lorenzo_cli.client.paging import all_items
@@ -88,6 +91,30 @@ def subscribers_summary(client: LorenzoClient, repository_id: UUID) -> Subscribe
     """How many libraries the list names, and how many copied the repository by themselves: the
     only thing a repository learns of those (ADR 0299)."""
     return client.call(SUBSCRIBERS_SUMMARY, path={"tenant_id": repository_id}).value
+
+
+LibraryKind = Literal["entry", "stat", "stat-group"]
+
+
+def library_count(
+    client: LorenzoClient, repository_id: UUID, kind: LibraryKind, source_id: UUID
+) -> int:
+    """How many libraries hold a copy of a row of the repository (ADR 0386): a number, not which."""
+    op, key = {
+        "entry": (ENTRY_LIBRARIES, "entity_id"),
+        "stat": (STAT_LIBRARIES, "stat_definition_id"),
+        "stat-group": (STAT_GROUP_LIBRARIES, "stat_group_id"),
+    }[kind]
+    return client.call(op, path={"tenant_id": repository_id, key: source_id}).value.count
+
+
+def libraries_sentence(count: int, what: str) -> str:
+    """What a delete of `what` would mean to the libraries that copied it."""
+    if count == 0:
+        return f"No library has copied {what}."
+    if count == 1:
+        return f"1 library has copied {what}. It will see it as removed upstream."
+    return f"{count} libraries have copied {what}. They will see it as removed upstream."
 
 
 def list_repositories(client: LorenzoClient, tenant_id: UUID) -> list[SubscriptionOut]:

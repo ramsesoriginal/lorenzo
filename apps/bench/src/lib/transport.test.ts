@@ -13,6 +13,7 @@ const definition = (id: string, name: string, value_type: string) => ({
   name,
   value_type,
   enum_values: [],
+  enum_options: [],
   stat_group_id: P,
 });
 const definitions = [definition(S_INT, 'armor', 'int'), definition(S_BOOL, 'magical', 'bool')];
@@ -34,7 +35,7 @@ function setup(answer: (r: Request, calls: Call[]) => Response | Promise<Respons
         ifMatch: request.headers.get('if-match'),
         body,
       });
-      if (request.url.includes('/stat-definitions')) {
+      if (request.method === 'GET' && request.url.includes('/stat-definitions?')) {
         return json({ items: definitions, total: 2, page: 1, size: 100, pages: 1 });
       }
       return answer(request, calls);
@@ -551,6 +552,82 @@ describe('apiTransport', () => {
     });
   });
 
+  describe('deleting, and the libraries that copied it', () => {
+    const base = `/tenants/${T}`;
+
+    it('counts the libraries of an entry, a stat and a stat group, each from its own route', async () => {
+      const { transport, calls } = setup(() => json({ count: 3 }));
+      expect(await transport.countLibraries('entry', E)).toBe(3);
+      expect(await transport.countLibraries('stat', S_INT)).toBe(3);
+      expect(await transport.countLibraries('stat-group', P)).toBe(3);
+      expect(calls.map((c) => c.url)).toEqual([
+        `${base}/entities/${E}/libraries`,
+        `${base}/stat-definitions/${S_INT}/libraries`,
+        `${base}/stat-groups/${P}/libraries`,
+      ]);
+    });
+
+    it('deletes an entry with its If-Match', async () => {
+      const { transport, calls } = setup(() => new Response(null, { status: 204 }));
+      await transport.deleteEntry(E, '"v1"');
+      expect(calls[0]).toMatchObject({
+        method: 'DELETE',
+        url: `${base}/entities/${E}`,
+        ifMatch: '"v1"',
+      });
+    });
+
+    it('an entry that cannot be deleted is a refusal with the API words', async () => {
+      const { transport } = setup(() =>
+        json(
+          { title: 'Cannot delete', detail: 'Another entry inherits from it.' },
+          { status: 409 },
+        ),
+      );
+      await expect(transport.deleteEntry(E, null)).rejects.toBeInstanceOf(RefusedError);
+    });
+  });
+
+  describe('the effective stats of a page of entries (K7)', () => {
+    it('asks for the stats and the page, and reads each entry with whether it holds the value', async () => {
+      const { transport, calls } = setup(() =>
+        json({
+          items: [
+            {
+              id: E,
+              name: 'Wolf',
+              stats: [
+                {
+                  stat_definition_id: S_INT,
+                  value: 12,
+                  own: false,
+                  computed: false,
+                  from_entity: null,
+                },
+              ],
+            },
+            { id: P, name: 'Rock', stats: [] },
+          ],
+          total: 2,
+          page: 2,
+          size: 100,
+          pages: 3,
+        }),
+      );
+      const page = await transport.readEffectiveStats([S_INT, S_BOOL], 2);
+      expect(calls[0]?.url).toBe(
+        `/tenants/${T}/entities/effective-stats?stat_definition_id=${S_INT}&stat_definition_id=${S_BOOL}&page=2&size=100`,
+      );
+      expect(page).toEqual({
+        pages: 3,
+        items: [
+          { entryId: E, stats: [{ statId: S_INT, value: 12, own: false }] },
+          { entryId: P, stats: [] },
+        ],
+      });
+    });
+  });
+
   describe('kinds', () => {
     const base = `/tenants/${T}/entities/${E}`;
     const send = async (kind: 'item' | 'being', on: boolean) => {
@@ -599,8 +676,8 @@ describe('apiTransport', () => {
     it('lists the definitions with their types', async () => {
       const { transport } = setup(() => json({}));
       expect(await transport.listStatDefinitions()).toEqual([
-        { id: S_INT, name: 'armor', type: 'int', enumValues: [] },
-        { id: S_BOOL, name: 'magical', type: 'bool', enumValues: [] },
+        { id: S_INT, name: 'armor', type: 'int', enumValues: [], enumIds: [] },
+        { id: S_BOOL, name: 'magical', type: 'bool', enumValues: [], enumIds: [] },
       ]);
     });
 
@@ -634,6 +711,53 @@ describe('apiTransport', () => {
       expect((await sent({ id: S_INT, type: 'int' }, null)).call).toMatchObject({
         method: 'DELETE',
         url: `${base}/stats/${S_INT}`,
+      });
+    });
+
+    describe('renaming', () => {
+      const V1 = '66666666-6666-6666-6666-666666666666';
+      const V2 = '77777777-7777-7777-7777-777777777777';
+      const rarity = {
+        ...definition(S_INT, 'rarity', 'enum'),
+        enum_values: ['common', 'rare'],
+        enum_options: [
+          { id: V1, value: 'common', sort_order: 0 },
+          { id: V2, value: 'rare', sort_order: 1 },
+        ],
+      };
+      const stat = `/tenants/${T}/stat-definitions/${S_INT}`;
+
+      it('renames a stat with a PATCH of its name, and answers it with its value ids', async () => {
+        const { transport, calls } = setup(() => json({ ...rarity, name: 'scarcity' }));
+        const renamed = await transport.renameStat(S_INT, 'scarcity');
+        expect(calls[0]).toMatchObject({ method: 'PATCH', url: stat, body: { name: 'scarcity' } });
+        expect(renamed).toEqual({
+          id: S_INT,
+          name: 'scarcity',
+          type: 'enum',
+          enumValues: ['common', 'rare'],
+          enumIds: [V1, V2],
+        });
+      });
+
+      it('renames one value of an enum by its id', async () => {
+        const { transport, calls } = setup(() => json(rarity));
+        await transport.renameEnumValue(S_INT, V2, 'scarce');
+        expect(calls[0]).toMatchObject({
+          method: 'PATCH',
+          url: `${stat}/enum-values/${V2}`,
+          body: { value: 'scarce' },
+        });
+      });
+
+      it('a name that is taken is a refusal with the API words', async () => {
+        const { transport } = setup(() =>
+          json(
+            { title: 'A stat with this name already exists', detail: 'Already called reach.' },
+            { status: 409 },
+          ),
+        );
+        await expect(transport.renameStat(S_INT, 'reach')).rejects.toBeInstanceOf(RefusedError);
       });
     });
 

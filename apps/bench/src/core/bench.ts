@@ -22,8 +22,10 @@ import { LinkResolver, type StatTexts } from './links';
 import { Pictures } from './pictures';
 import {
   type Backlink,
+  canDuplicate,
   canEditStat,
   type EditableKind,
+  type EffectivePage,
   type EntryFieldTarget,
   type EntryState,
   type EntrySummary,
@@ -224,6 +226,99 @@ export class Bench {
     this.emit();
   }
 
+  /** Renames a stat. Entries name their stats by id, so only the vocabulary is read again (K6). */
+  async renameStat(statId: string, name: string): Promise<void> {
+    await this.transport.renameStat(statId, name);
+    await this.reloadStatDefinitions();
+  }
+
+  /**
+   * Renames an allowed value of an enum stat. The server rewrites every stored copy of it, so the
+   * entries here that show it (their own value or an inherited one) and the formulas that return it
+   * are read again. A command still waiting may name the old value, so none may be (K6).
+   */
+  async renameEnumValue(statId: string, valueId: string, value: string): Promise<void> {
+    const def = this.statDefs.find((d) => d.id === statId);
+    const old = def?.enumValues[def.enumIds?.indexOf(valueId) ?? -1];
+    if (this.outbox.length)
+      throw new RefusedError(
+        'Some changes are still waiting to be sent, and one may use the old value. Send them first.',
+      );
+    await this.transport.renameEnumValue(statId, valueId, value);
+    this.statDefs = await this.transport.listStatDefinitions();
+    if (old !== undefined)
+      for (const [id, entry] of this.mirror)
+        if (entry.stats.some((s) => s.statId === statId && s.value === old))
+          this.mirror.set(id, await this.transport.getEntry(id));
+    await this.formulas.reload();
+    this.emit();
+  }
+
+  // ---- deleting an entry (K9) -------------------------------------------------------------
+
+  /**
+   * Entries being asked about deleting: how many libraries have copied each, once that is read
+   * (`'unknown'` when it could not be), and the words of a refusal. A delete is a direct, online
+   * call, like the vocabulary's, and cannot be undone.
+   */
+  deletion = new Map<string, { libraries: number | 'unknown' | null; refused?: string }>();
+
+  /** Opens the question of deleting an entry, and reads how many libraries have copied it. */
+  async askDelete(id: string): Promise<void> {
+    if (this.deletion.has(id) || !this.onServer(id)) return;
+    this.deletion.set(id, { libraries: null });
+    this.emit();
+    let libraries: number | 'unknown' = 'unknown';
+    try {
+      libraries = await this.transport.countLibraries('entry', id);
+    } catch {
+      // Said as "could not tell": the delete itself does not wait for the count.
+    }
+    if (this.deletion.has(id)) this.deletion.set(id, { libraries });
+    this.emit();
+  }
+
+  /** Leaves the entry as it is. */
+  keepEntry(id: string): void {
+    this.deletion.delete(id);
+    this.emit();
+  }
+
+  /** Deletes the entry from the repository. The entries around it are read again. */
+  async deleteEntry(id: string): Promise<void> {
+    const asked = this.deletion.get(id);
+    if (!asked) return;
+    if (this.commandsFor(id).length) {
+      this.deletion.set(id, {
+        ...asked,
+        refused: 'This entry has changes waiting to be sent. Send them, or undo them, first.',
+      });
+      return this.emit();
+    }
+    try {
+      await this.transport.deleteEntry(id, this.mirror.get(id)?.etag ?? null);
+    } catch (e) {
+      const refused = e instanceof Error ? e.message : 'The entry could not be deleted.';
+      this.deletion.set(id, { ...asked, refused });
+      return this.emit();
+    }
+    const around = [...this.mirror.entries()]
+      .filter(([other, e]) => other !== id && (e.parentIds.includes(id) || e.childIds.includes(id)))
+      .map(([other]) => other);
+    this.mirror.delete(id);
+    this.deletion.delete(id);
+    await this.loadEntries();
+    for (const other of around) {
+      try {
+        this.mirror.set(other, await this.transport.getEntry(other));
+      } catch {
+        // Read again when it is opened.
+        this.mirror.delete(other);
+      }
+    }
+    this.emit();
+  }
+
   // ---- reading ----------------------------------------------------------------------------
 
   async loadEntries(): Promise<void> {
@@ -292,40 +387,63 @@ export class Bench {
     return !!this.entry(id) && !this.pendingCreate(id);
   }
 
+  // ---- the grid's columns, read in bulk (K7) -------------------------------------------------
+
   /**
-   * Reads every entry's detail, a few at a time, quietly, so a view of many entries (the compare
-   * grid) has their stats. There is no bulk read yet (RFC 0041 K7): this is one read an entry,
-   * which is fine for hundreds and slow for thousands. The screen is told now and then, and at the end.
+   * The values of the stats the grid shows, by entry and stat, read a page of entries at a time
+   * (`GET .../entities/effective-stats`): their own and inherited values with formulas worked out,
+   * for entries whose detail is not read. An entry's own `view` wins once it is read, so what is
+   * edited shows as edited. An entry is read in full when the person first changes it.
    */
-  async loadAll(concurrency = 6): Promise<void> {
-    // One run at a time: the grid asks again each time the page is drawn.
-    this.reading ??= this.readAll(concurrency).finally(() => {
-      this.reading = null;
-    });
-    return this.reading;
+  private columns = new Map<string, Map<string, { value: StatScalar; own: boolean }>>();
+  private columnsFor = '';
+  private columnsReading: Promise<void> | null = null;
+
+  /** Reads the columns (once for a set of stats, until the set changes). */
+  loadColumns(statIds: string[]): Promise<void> {
+    const key = [...statIds].sort().join(',');
+    if (!statIds.length) return Promise.resolve();
+    if (this.columnsFor !== key) {
+      this.columnsFor = key;
+      this.columns = new Map();
+      this.columnsReading = null;
+    }
+    this.columnsReading ??= this.readColumns(statIds, key);
+    return this.columnsReading;
   }
-  private reading: Promise<void> | null = null;
-  private async readAll(concurrency: number): Promise<void> {
-    const ids = this.entries
-      .map((e) => e.id)
-      .filter((id) => !this.mirror.has(id) && !this.pendingCreate(id));
-    let next = 0;
-    let done = 0;
-    const worker = async () => {
-      while (next < ids.length) {
-        await this.open(ids[next++] as string, true);
-        if (++done % 60 === 0) this.emitLater();
+  private async readColumns(statIds: string[], key: string): Promise<void> {
+    for (let page = 1, pages = 1; page <= pages; page++) {
+      let got: EffectivePage;
+      try {
+        got = await this.transport.readEffectiveStats(statIds, page);
+      } catch {
+        // Not read (offline, or refused): asked again the next time the grid is drawn.
+        if (this.columnsFor === key) this.columnsReading = null;
+        return;
       }
-    };
-    await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
-    if (ids.length) this.emitLater();
+      if (this.columnsFor !== key) return;
+      pages = got.pages;
+      for (const row of got.items)
+        this.columns.set(
+          row.entryId,
+          new Map(row.stats.map((s) => [s.statId, { value: s.value, own: s.own }])),
+        );
+      this.emitLater();
+    }
   }
 
-  /** How many entries have their detail read, of how many there are. */
+  /** What the columns read says of an entry, for an entry whose detail is not read. */
+  columnValues(id: string): ReadonlyMap<string, { value: StatScalar; own: boolean }> {
+    return this.columns.get(id) ?? new Map();
+  }
+
+  /** How many entries have what the grid shows read (in bulk or in full), of how many there are. */
   loaded(): { read: number; of: number } {
     const of = this.entries.length;
     return {
-      read: this.entries.filter((e) => this.mirror.has(e.id) || this.pendingCreate(e.id)).length,
+      read: this.entries.filter(
+        (e) => this.mirror.has(e.id) || this.pendingCreate(e.id) || this.columns.has(e.id),
+      ).length,
       of,
     };
   }
@@ -754,6 +872,11 @@ export class Bench {
 
   /** Sets the entry's own value for a stat, or with `null` removes it so the entry inherits. */
   setStat(entryId: string, statId: string, value: StatScalar | null): Command | null {
+    // An entry the grid has only read in bulk is read in full first: a change names its version.
+    if (!this.view(entryId) && this.entry(entryId)) {
+      void this.open(entryId).then(() => this.change('stat.set', entryId, value, statId));
+      return null;
+    }
     return this.change('stat.set', entryId, value, statId);
   }
 
@@ -774,6 +897,77 @@ export class Bench {
     this.emit();
     queueMicrotask(() => void this.run());
     return noteId;
+  }
+
+  /**
+   * Makes a copy of an entry as commands (ADR 0388, RFC 0041 section 4): its kinds and direct
+   * parents, its own stat values, its description and its notes (made GM only). It shows at once
+   * and is sent in order. Its formulas follow once it is on the server (`copyFormulas`). Not its
+   * link name (made from the new name), pictures, containment, ownership or knowledge. Returns the
+   * id of the copy, or null when the entry cannot be duplicated.
+   */
+  duplicate(id: string): string | null {
+    const source = this.view(id);
+    if (!source || !canDuplicate(source.kinds)) return null;
+    const copy = this.create({
+      name: this.copyName(source.name),
+      kinds: source.kinds,
+      parents: source.parentIds,
+    });
+    for (const stat of source.stats)
+      if (stat.own && !stat.computed && stat.value !== null)
+        this.setStat(copy, stat.statId, stat.value);
+    if (source.description?.text.trim()) this.setDescription(copy, source.description.text);
+    for (const note of source.notes) this.addNote(copy, note.text);
+    if (source.notes.length)
+      this.notices.set(
+        copy,
+        'Its notes are GM only. Make one visible to everyone where it should be read.',
+      );
+    return copy;
+  }
+
+  /** A quiet line under an entry's name that says what a step could not do for it (K4). */
+  notices = new Map<string, string>();
+  dismissNotice(id: string): void {
+    this.notices.delete(id);
+    this.emit();
+  }
+
+  /** "Copy of Name", or "Copy of Name (2)" and on: the first that no entry has. */
+  private copyName(name: string): string {
+    const taken = new Set(this.listing().map((e) => e.name));
+    const base = `Copy of ${name}`;
+    if (!taken.has(base)) return base;
+    for (let n = 2; ; n++) if (!taken.has(`${base} (${n})`)) return `${base} (${n})`;
+  }
+
+  /**
+   * Gives the copy the formulas the entry holds itself, once the copy is on the server: a formula
+   * is its own write, online and direct (ADR 0253). Returns how many were copied, or null when the
+   * copy is not on the server (no connection), so the caller can say so.
+   */
+  async copyFormulas(id: string, copy: string): Promise<number | null> {
+    await this.run();
+    if (!this.onServer(copy)) {
+      this.notices.set(
+        copy,
+        'Made without its formulas: there was no connection. Give it them in Formulas.',
+      );
+      this.emit();
+      return null;
+    }
+    await this.formulas.load([id]);
+    let copied = 0;
+    for (const held of this.formulas.held(id) ?? []) {
+      try {
+        await this.formulas.save(copy, held.statId, held.formula, null);
+        copied++;
+      } catch {
+        // Left for the person to give by hand: the Formulas pane says which stats have none.
+      }
+    }
+    return copied;
   }
 
   /**

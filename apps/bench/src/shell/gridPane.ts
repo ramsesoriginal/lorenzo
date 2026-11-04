@@ -85,19 +85,21 @@ export interface GridOptions {
 
 export function renderGrid(bench: Bench, state: GridState, opts: GridOptions): HTMLElement {
   const root = el('div', opts.compact ? 'pane pane-table' : 'pane pane-grid');
-  void bench.loadAll();
-  const { read, of } = bench.loaded();
-
   const defs = new Map(bench.statDefs.map((d) => [d.id, d]));
   const columns = (state.columns ?? defaultColumns(bench.statDefs, opts.compact ? 3 : 4))
     .map((id) => defs.get(id))
     .filter((d): d is StatDef => d !== undefined);
+  void bench.loadColumns(columns.map((d) => d.id));
+  const { read, of } = bench.loaded();
   const rows = gridOrder(bench.listing(), state.order, state.filter);
   // The sources of inherited values need what is above a row, which may not be in the rows shown.
   const listing = bench.listing();
   const byId = new Map(listing.map((e) => [e.id, e]));
   const values = new Map<string, Values>();
-  for (const e of listing) values.set(e.id, valuesOf(bench.view(e.id)));
+  for (const e of listing) {
+    const seen = bench.view(e.id);
+    values.set(e.id, seen ? valuesOf(seen) : new Map(bench.columnValues(e.id)));
+  }
 
   const rerender = () => opts.redraw();
   const cellDef = (col: number) => columns[col];
