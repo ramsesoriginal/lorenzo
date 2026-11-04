@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; states decided; palette and keyboard next. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; palette and keyboard decided; dialogs, menus and toasts next. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -194,6 +194,15 @@ Turned down: a ladder of ten sizes; fixed roles with a jump at the phone step; t
 - **A hidden thing is never counted.** "No access" does not say whether the page exists; no state says how many entries a person cannot see.
 
 Turned down: retrying a write automatically; a spinner for every wait; no mascots in functional states beyond the rare page-level ones; warmer apologetic copy.
+
+### D25. The palette and the keyboard model (decided with the maintainer, 2026-11-04)
+
+- **One palette** for entries across apps, apps ("Go to") and actions. Tab narrows it (Everything, Entries, Apps, Actions). `Ctrl K` opens it (`Cmd K` on a Mac). On large and desktop screens it is centered with a preview of the selected entry (from the existing entry preview); at the tablet step it is centered without the preview; on a phone it is a full screen.
+- **Shortcuts:** `?` lists them. Go to: G then H (home), S (Sessions), B (Beings), I (Inventory), C (Calendars), M (Maps), W (Writing), R (Bench, the repository), A (Account). In a list: `J` and `K` move, `Enter` opens, `X` selects, `Shift J` selects a range, `N` new, `E` edit, `/` filters.
+- **A switch for single-key shortcuts** (WCAG 2.1.4); shortcuts with Ctrl always work. The keys may become remappable in a later slice.
+- **In a rich-text editor** `Ctrl K` inserts a link to an entry, and the palette opens with `Ctrl Shift K`.
+
+Turned down: the palette centered without a preview everywhere; anchored to the header field.
 
 ## Open questions
 
