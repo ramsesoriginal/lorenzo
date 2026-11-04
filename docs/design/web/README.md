@@ -2,11 +2,11 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell), prototype built. Header, navigation between apps and footer decided; Phase 2 built as a prototype, ready for review and iteration; then Phase 3 (the apps). No prototype is committed yet.
+Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) follows.
 
 ## Layout of this directory
 
-- `web/` (this directory): the system. Brief, decision log, shell prototype, screens.
+- `web/` (this directory): the system. Brief, decision log, [`prototype/`](prototype/index.html) (the shell and the templates), [`screens/`](screens/) (rendered from it) and [`mascot-images.md`](mascot-images.md) (the images the illustrators are asked for).
 - `web/<app>/`: one directory per app design, in the order of the log below.
 - [`../bench`](../bench/README.md) and [`../beings`](../beings/README.md) are earlier designs and are not changed by this work.
 
@@ -62,7 +62,7 @@ python3 -m http.server 8731    # from the repository root
 
 The bar at the top ("Prototype controls") switches the width of the design (430, 834, 1440, 2200 or the window), the theme, the number of libraries, who is looking (a GM or a player), online or offline, how loading behaves (slow, fails once, keeps failing), and jumps to first run, the join link and the states. It is not part of the design. The width is simulated with container queries, so every layout rule follows the frame, not the window.
 
-To open it without serving anything, [`prototype/build-review-copy.mjs`](prototype/build-review-copy.mjs) builds one page with the brand CSS, the icon sprite and the scripts inlined, and the brand fonts beside it: `node docs/design/web/prototype/build-review-copy.mjs OUT_DIR`.
+To open it without serving anything, [`prototype/build-review-copy.mjs`](prototype/build-review-copy.mjs) builds one page with the brand CSS, the icon sprite and the scripts inlined, and the brand fonts beside it: `node docs/design/web/prototype/build-review-copy.mjs OUT_DIR` (add `--fragment` for a host that supplies its own html, head and body).
 
 ### What it contains
 
