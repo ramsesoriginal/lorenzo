@@ -44,8 +44,8 @@ export function lengthGoal(panel: HTMLDetailsElement, context?: GoalContext) {
       target === null
         ? 'Set a target for yourself.'
         : count >= target
-          ? `Target reached Â· ${target} words`
-          : `${target - count} words remaining Â· target ${target}`;
+          ? `Target reached · ${target} words`
+          : `${target - count} words remaining · target ${target}`;
     clear.disabled = busy || target === null;
     save.disabled = busy;
     reload.disabled = busy;

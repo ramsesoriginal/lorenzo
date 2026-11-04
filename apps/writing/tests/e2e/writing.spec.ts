@@ -1373,6 +1373,7 @@ test('personal targets persist independently for the draft and assembled reading
     await page.reload();
     await page.getByText('Word count', { exact: true }).click();
     await expect(page.getByLabel('Personal word target')).toHaveValue('5');
+    await page.getByText('Details', { exact: true }).click();
     await page.getByRole('link', { name: 'Read', exact: true }).click();
     await page.getByText('Word count', { exact: true }).click();
     await expect(page.getByLabel('Personal word target')).toHaveValue('');
