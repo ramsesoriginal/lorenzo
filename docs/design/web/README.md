@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; density decided; spacing and type scale next. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; type and spacing decided; states next. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -161,6 +161,29 @@ Three levels: Comfortable (the default, 48px rows), Compact (36px) and Dense (28
 - **Where it is remembered:** in the account, so it follows the person to another device. This needs an API surface for a person's preferences, which does not exist yet; it is a follow-up slice, not made here.
 
 Turned down: a density control in every list toolbar; Appearance alone; saved views alone; shareable views; remembering on the device only.
+
+### D23. Type scale and spacing in use (decided with the maintainer, 2026-11-04)
+
+**Type** is a set of semantic roles, not a ladder of sizes. Editorial roles are fluid between a phone (430) and a desktop (1440), with a clamp that has a rem part so browser zoom still works; interface roles are fixed at every width.
+
+| Role | Phone | Desktop | Face, weight, line |
+| --- | --- | --- | --- |
+| Display | 34 | 56 | Newsreader 400, 1.1 |
+| Title (page, entry) | 28 | 40 | Newsreader 400, 1.15 |
+| Reading | 18 | 20 | Newsreader 400, 1.6 |
+| Heading | 18 | 18 | Geist 600, 1.3 |
+| Subheading | 16 | 16 | Geist 600, 1.35 |
+| Body | 15 | 15 | Geist 400, 1.5 |
+| UI | 14 | 14 | Geist 400 or 500, 1.4 |
+| Meta | 13 | 13 | Geist 400, 1.4 |
+| Micro | 12 | 12 | Geist 500, 1.3 |
+| Code | 13 | 13 | Geist Mono 400, 1.5 |
+
+Nothing is below 12px. Weights are 400, 500 and 600. Sizes are in rem. Numbers in tables, counts and the status bar use tabular figures. Sentence case; the serif is for titles, names and reading text.
+
+**Spacing** is the brand's 4px grid plus one new step, `--space-2h` (12px on desktop), for gaps in dense groups and the label of a field. On a phone the spacing tokens stay halved at 720px and below, as the brand does today (so `--space-2h` is 6px there).
+
+Turned down: a ladder of ten sizes; fixed roles with a jump at the phone step; the same spacing rhythm on a phone as on desktop (the repository's rule is kept).
 
 ## Open questions
 
