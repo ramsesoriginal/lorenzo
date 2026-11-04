@@ -90,7 +90,8 @@ export function renderStats(bench: Bench, id: string | null): HTMLElement {
     li.append(el('span', 'stat-name', def.name));
     const worked = bench.formulaFor(id, def.id);
     if (worked) {
-      const mark = el('span', 'stat-formula', 'ƒ');
+      const mark = el('span', 'stat-formula');
+      mark.append(icon('formula', 12));
       mark.title = 'Worked out by a formula (see the Formulas pane)';
       li.append(mark);
     }
