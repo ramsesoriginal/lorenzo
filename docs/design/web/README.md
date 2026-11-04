@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header decided; navigation between apps next, then the footer. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; page templates next. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -125,9 +125,15 @@ An app that is not deployed, or that a person's role cannot use, is not listed. 
 
 By job: Play (Sessions, Beings, Inventory), World (Calendars, Maps, Writing), Build (Bench), You (Account). The names of the groups are working names.
 
-## Input for the footer (not decided)
+### D18. The footer (decided with the maintainer, 2026-11-04)
 
-From the maintainer, 2026-11-04. The footer shows information (current version, a date or clock, links to the Impressum and the Datenschutzerklärung) and a status bar with meta information specific to the app (word counts in Writing, carried weight in the inventory, and similar). The navigation between apps may also live there. Decided after the navigation between apps.
+A slim, sticky status bar, always shown, on every app. It holds the sync state (icon and words), the app's own meta (word count in Writing, carried weight in the inventory, the in-world date where an app has one), and the real-world date and time. One button, "Apps and about", opens a drawer with the apps by job (D16, D17), the legal links, the version, the licence and the date. On a phone the status bar sits above the tab bar and the same content is in the More sheet. Turned down: two bands with a page footer; one sticky bar holding everything.
+
+Idea, not decided: the clock may open to show a calendar, a pomodoro timer or a session timer.
+
+### D19. Legal links (decided with the maintainer, 2026-11-04)
+
+Labelled in the interface language, so in English for now. Working labels: "Legal notice" (the Impressum) and "Privacy policy" (the Datenschutzerklärung). The pages do not exist yet (v1.0 lists the privacy notice as New). The source-code link stays visible because the licence is AGPL-3.0. Turned down: always the German names.
 
 ## Open questions
 
