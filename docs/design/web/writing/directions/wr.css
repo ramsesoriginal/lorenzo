@@ -1,0 +1,61 @@
+/* Writing directions. Tokens only. */
+.wr { display: flex; height: 100%; min-height: 0; }
+.wmain { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+.wtop { display: flex; align-items: center; gap: var(--s-2h); padding: var(--s-3) var(--s-4) var(--s-2); }
+.wtitle { margin: 0; font-family: var(--font-serif, 'Newsreader', serif); font-weight: 400; font-size: var(--fs-title); line-height: 1.15; }
+.crumbs { color: var(--text-tertiary); } .crumbs span { color: var(--text-secondary); }
+.wtools { display: flex; align-items: center; gap: 2px; padding: 0 var(--s-4) var(--s-2); border-bottom: 1px solid var(--border-subtle); }
+.wgoal { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.wscroll { flex: 1; min-height: 0; overflow: auto; padding: var(--s-5) var(--s-4) var(--s-6); }
+.wdoc, .cdoc { max-width: 40rem; margin: 0 auto; }
+.blk { position: relative; padding: 2px 0; margin: 0 0 var(--s-3); border-radius: var(--r-ctl); }
+.blk .grip { position: absolute; left: -36px; top: 4px; }
+.reading { margin: 0; font-family: var(--font-serif, 'Newsreader', serif); font-size: var(--fs-reading); line-height: 1.6; }
+.reading.dim { color: var(--text-tertiary); }
+.reading-sm { display: block; font-family: var(--font-serif, 'Newsreader', serif); font-size: var(--fs-body); margin-top: 4px; }
+.grip { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: var(--r-ctl); background: transparent; color: var(--text-tertiary); cursor: grab; opacity: 0; transition: opacity var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease); }
+.blk:hover .grip, .blk.is-hover .grip, .trow:hover .grip, .brow:hover .grip, .cfold:hover .grip, .grip:focus-visible, .trow.on .grip, .is-lifted .grip { opacity: 1; }
+.grip:hover { background: var(--fill-soft); color: var(--text-primary); }
+.blk:hover, .blk.is-hover { background: var(--fill-soft); }
+.scene-card { display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-3); border: 1px solid var(--border-subtle); border-radius: var(--r-card); background: var(--surface-default); }
+.scene-card > .icon { font-size: 1.25rem; margin-top: 2px; color: var(--text-secondary); }
+.pic-img { height: 150px; border-radius: var(--r-card); background: repeating-linear-gradient(135deg, var(--surface-muted) 0 12px, var(--surface-selected) 12px 24px); border: 1px solid var(--border-subtle); }
+.pic { margin: 0; } .pic figcaption { margin-top: 6px; }
+.is-lifted { background: var(--surface-default); box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22); outline: 2px solid var(--action); outline-offset: 2px; transform: translateX(10px) rotate(-0.4deg); z-index: 2; }
+.dropline { position: relative; height: 2px; margin: var(--s-3) 0; background: var(--action); border-radius: 2px; }
+.dropline::before { content: ''; position: absolute; left: -4px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--action); }
+.dropline span { position: absolute; right: 0; top: -12px; padding: 2px 8px; border-radius: 999px; background: var(--action); color: var(--text-inverse); font-size: var(--fs-micro); font-weight: 500; }
+.dropline--nest { margin-left: var(--s-5); }
+/* A: the tree */
+.wout, .wspine { flex: 0 0 280px; padding: var(--s-3) var(--s-2h); border-right: 1px solid var(--border-subtle); overflow: auto; }
+.out-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px var(--s-2); }
+.kindrow { display: inline-flex; align-items: center; gap: 8px; }
+.trow { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 8px 0 calc(2px + var(--d) * 18px); border-radius: var(--r-ctl); color: var(--text-secondary); position: relative; }
+.trow .grip { width: 22px; height: 22px; margin-left: -4px; } .trow .grip .icon { font-size: 0.9rem; }
+.trow:hover { background: var(--fill-soft); }
+.trow.on { background: var(--surface-selected); color: var(--text-primary); font-weight: 500; }
+.trow.drop { box-shadow: inset 0 0 0 2px var(--action); background: var(--action-surface); color: var(--text-primary); }
+.tn { font-variant-numeric: tabular-nums; color: var(--text-tertiary); min-width: 2.2ch; }
+.out-foot { padding: var(--s-3) var(--s-2) 0; }
+/* B: the spine */
+.wspine { flex-basis: 420px; }
+.brow { display: flex; gap: var(--s-2); align-items: flex-start; padding: var(--s-2h) var(--s-2) var(--s-2h) calc(var(--s-2) + var(--d) * 22px); border-radius: var(--r-card); border: 1px solid transparent; }
+.brow:hover { background: var(--fill-soft); } .brow.on { background: var(--surface-selected); border-color: var(--border-subtle); }
+.brow .grip { margin-left: -6px; }
+.bt { font-weight: 500; } .bs { color: var(--text-secondary); font-family: var(--font-serif, 'Newsreader', serif); font-size: var(--fs-body); line-height: 1.4; margin-top: 2px; }
+.wr--b .wdoc { max-width: 36rem; }
+/* C: one page */
+.wrail { flex: 0 0 56px; padding: var(--s-4) 0; border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 2px; overflow: hidden; transition: flex-basis var(--dur-med) var(--ease); }
+.wrail:hover, .wrail:focus-within { flex-basis: 240px; }
+.wrail a { display: flex; align-items: center; gap: 12px; min-height: 36px; padding: 0 20px; color: var(--text-secondary); text-decoration: none; white-space: nowrap; }
+.wrail a .tick { flex: 0 0 14px; height: 2px; background: var(--border-control); border-radius: 2px; } .wrail a.sub .tick { flex-basis: 8px; margin-left: 6px; }
+.wrail a.on .tick { background: var(--action); height: 3px; flex-basis: 20px; } .wrail a.on { color: var(--text-primary); font-weight: 500; }
+.wrail .rl { opacity: 0; transition: opacity var(--dur-fast) var(--ease); } .wrail:hover .rl, .wrail:focus-within .rl { opacity: 1; }
+.rail-foot { margin-top: auto; padding: 0 12px; text-align: center; }
+.cfold { position: relative; display: flex; align-items: baseline; gap: var(--s-2h); margin: var(--s-5) 0 var(--s-3); padding: var(--s-2h) 0; border-top: 1px solid var(--border-control); }
+.cfold .grip { position: absolute; left: -36px; top: 10px; }
+.chead { margin: 0; flex: 1; font-family: var(--font-serif, 'Newsreader', serif); font-weight: 400; font-size: var(--fs-title); line-height: 1.15; }
+.cfold .icon-btn { align-self: center; }
+.cfold.is-lifted { padding: var(--s-3); border-top: 0; transform: translateX(10px); }
+.wmenu { position: absolute; z-index: 5; background: var(--surface-default); border: 1px solid var(--border-control); width: 340px; }
+@container shell (max-width: 1099px) { .wout, .wspine { display: none; } }

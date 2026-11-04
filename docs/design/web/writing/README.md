@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Writing, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. This page holds the brief, the questions and the decision log for this app.
 
-Status: questions 1 to 4 are decided (WR1 to WR4); question 5, the old decisions, is open.
+Status: the brief is answered (WR1 to WR6). Three directions for the writing page are drawn in [directions](directions/index.html) and wait for a choice.
 
 ## What the app is for
 
@@ -100,7 +100,34 @@ A switch between them; Preview is inside Write. Turned down: Read as its own pla
 
 The aim is a surface with as little interface as possible: dragging and dropping does as much as it can, and what dragging cannot say is offered where the person is, on the selection or the block, not in a separate place. The exact gestures are drawn in the directions.
 
+### WR5. Old decisions
+
+All six carry over as recommended: the outline and side views by WR2; a short toolbar and focus mode, with Preview as a mode switch inside Write (WR3); the shelf instead of a picker (WR1); an address for each work, and for Write or Read within it, instead of one page driven by `?tenant=` and `?entry=`; Details and revisions as a sheet below 1100px and a side drawer above (D26); numbering, Contents and Word count kept where the work is, with the counts also in the status bar (D18).
+
+### WR6. The gestures of restructuring
+
+Dragging does: reorder, nest and promote Chapters, and move writing between Editions, with a drop target that says what will happen. Selecting text and dragging it out extracts it into a Chapter or a Scene. A divider placed in the text splits it. Dropping a Chapter onto its neighbour joins them. **A right-click (or the long press and the keyboard) offers the same actions as a menu** on the block, for anyone who does not drag. Every gesture works from the keyboard and can be undone as a whole (D26).
+
+## The three directions
+
+In `directions/`: the writing page in three ways, each at rest, mid-drag and with the right-click menu, on the shell. Made-up text; nothing is saved. Run it:
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/writing/directions/index.html
+```
+
+The controls bar switches the direction and the state. All three share the same page head (title, Write/Read switch, Details, Revisions, Focus), a short toolbar and the status bar. The outline is pinned open on a wide window (WR2).
+
+| | A. The margin | B. The spine | C. One page |
+| --- | --- | --- | --- |
+| Idea | The text is the page; a slim outline beside it | The outline is the work: each row tastes its Chapter; the text beside it | The whole Edition is one continuous page; Chapters are folds in it |
+| Structure | A tree of titles, numbers and counts | A wide tree with the first line of each Chapter | A thin rail of ticks that opens on hover and focus |
+| Drag | Grips in the margin of every block; Chapter rows take drops | Rows lift and say "Into 2 The blackout, after 2.2" | A Chapter folds to its heading while dragged |
+| Cost | The least new; long works need the outline to find your place | Wide; less room for text | A very long page; moving a Chapter is a gesture on the page, not in a list |
+
+Screens are in `directions/screens/` (`a-rest-1440.png` and so on, nine in all).
+
 ## Open questions
 
-- Question 5: which of the six old decisions carry over.
-- How far drag and drop reaches: moving, reordering and nesting are clear; splitting, extracting and joining need a gesture each.
+- Which direction, or which parts of which.
