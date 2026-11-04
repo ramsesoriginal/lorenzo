@@ -11,6 +11,7 @@ const ROUTES = {
   join: { app: 'account', tab: 'settings', render: () => pJoin(false), after: afterJoin, meta: () => 'Invite link' },
   states: { app: 'account', tab: 'settings', render: pStates, after: afterStates, meta: () => '8 states' }
 };
+if (window.ROUTES_EXT) Object.assign(ROUTES, window.ROUTES_EXT);
 function parseRoute(r) {
   const [name, arg] = r.split('/');
   if (name === 'stub') return { app: arg, tab: 'stub/' + arg, render: () => pStub(arg), meta: () => '', after: () => { $('#main').onclick = genericClick; } };
@@ -51,9 +52,9 @@ function renderMain(focus) {
   const a = appOf(r.app); document.title = `${a ? a.name : 'Lorenzo'} · Web design prototype`;
   if (focus) m.focus({ preventScroll: true });
 }
-const LOCKUP = { light: '../../../brand/assets/lorenzo_horizontal_lockup_light_bg.svg', dark: '../../../brand/assets/lorenzo_horizontal_lockup_dark_bg.svg' };
+const LOCKUP = window.LOCKUP || { light: '../../../brand/assets/lorenzo_horizontal_lockup_light_bg.svg', dark: '../../../brand/assets/lorenzo_horizontal_lockup_dark_bg.svg' };
 function renderHeader() {
-  const r = cur(); const a = appOf(r.app); const tabs = DATA.appTabs[a.id] || [];
+  const r = cur(); const a = appOf(r.app); const tabs = (DATA.appTabs[a.id] || []).filter((t) => !window.TAB_HIDE || !window.TAB_HIDE(t[1]));
   const unread = S.notifications.filter((n) => n.unread).length;
   const one = S.libs <= 1;
   const tabLinks = tabs.map(([n, t]) => `<a class="tab" href="#/${t}" ${t === r.tab ? 'aria-current="page"' : ''}>${n}</a>`).join('');
@@ -70,7 +71,7 @@ function renderHeader() {
 }
 const lib_ = () => DATA.libraries[S.lib];
 function renderTabbar() {
-  const r = cur(); const a = appOf(r.app); const tabs = (DATA.appTabs[a.id] || []).slice(0, 3);
+  const r = cur(); const a = appOf(r.app); const tabs = (DATA.appTabs[a.id] || []).filter((t) => !window.TAB_HIDE || !window.TAB_HIDE(t[1])).slice(0, 3);
   const icons = ['kinds', 'layout-compare', 'kind-fact'];
   $('#tabbar').innerHTML = tabs.map(([n, t], i) => `<a href="#/${t}" ${t === r.tab ? 'aria-current="page"' : ''}>${ic(TAB_ICONS[t] || icons[i])}${n}</a>`).join('') + `<button type="button" data-act="more" aria-haspopup="dialog" data-keep-open>${ic('more')}More</button>`;
   $('#tabbar').setAttribute('aria-label', a.name);
@@ -100,6 +101,8 @@ function openAbout() {
 }
 function openMore(btn) {
   const items = [];
+  const extra = (DATA.appTabs[cur().app] || []).filter((t) => !window.TAB_HIDE || !window.TAB_HIDE(t[1])).slice(3);
+  if (extra.length) { items.push({ label: 'In ' + appOf(cur().app).name, heading: true }); extra.forEach(([n, t]) => items.push({ label: n, fn: () => go(t) })); }
   ['Play', 'World', 'Build', 'You'].forEach((g) => { items.push({ label: g, heading: true }); DATA.apps.filter((x) => x.group === g).forEach((x) => items.push({ label: x.name, icon: x.icon, check: x.id === cur().app ? true : undefined, fn: () => go(x.route) })); });
   items.push({ sep: true }, { label: 'Legal notice', fn: () => toast({ title: 'Legal notice is not written yet' }) }, { label: 'Privacy policy', fn: () => toast({ title: 'Privacy policy is not written yet' }) }, { label: 'Source code', fn: () => toast({ title: 'The source link opens the repository' }) }, { text: `Lorenzo ${appOf(cur().app).name} 0.12.0 · API 1.8.3 · AGPL-3.0 · ${clock()}` });
   openMenu(btn, items, { label: 'More' });
@@ -114,7 +117,7 @@ function openAcct(btn) {
   openMenu(btn, [{ head: `<div style="font-weight:600">${DATA.user.name}</div><div class="t-meta">${DATA.user.email}</div>` }, { label: 'Profile', icon: 'account', fn: () => go('profile') }, { label: 'Notifications', icon: 'notifications', badge: n || '', fn: () => openBell($('#bell')) }, { label: 'Libraries and people', icon: 'library', fn: () => go('settings') }, { label: 'Access tokens and devices', icon: 'token', fn: () => go('tokens') }, { sep: true }, { label: 'Appearance…', icon: 'appearance', fn: openAppearance }, { label: 'Keyboard shortcuts', icon: 'command', kbd: '?', fn: openShortcuts }, { sep: true }, { label: 'Sign out…', icon: 'logout', fn: openSignOut }], { label: 'Account' });
 }
 function openBell(btn) {
-  const items = [{ label: 'Notifications', heading: true }, ...S.notifications.map((n) => ({ label: n.text, fn: () => { n.unread = false; renderHeader(); } })), { sep: true }, { label: 'Mark all as read', icon: 'select-item', fn: markAllRead }];
+  const items = [{ label: 'Notifications', heading: true }, ...S.notifications.map((n) => ({ label: n.text, fn: () => { n.unread = false; renderHeader(); if (n.go) go(n.go); } })), { sep: true }, { label: 'Mark all as read', icon: 'select-item', fn: markAllRead }];
   openMenu(btn, items, { label: 'Notifications' });
 }
 function markAllRead() { S.notifications.forEach((n) => (n.unread = false)); renderHeader(); toast({ title: 'All notifications marked as read' }); }
@@ -143,11 +146,12 @@ const WIDTHS = [['fit', 'Fit'], [430, '430'], [834, '834'], [1440, '1440'], [220
 function buildProto() {
   const g = (label, inner) => `<span class="group"><b>${label}</b>${inner}</span>`;
   const btn = (act, v, t, pressed) => `<button type="button" data-p="${act}" data-v="${v}" aria-pressed="${pressed}">${t}</button>`;
-  $('#proto').innerHTML = `<details ${innerWidth >= 900 ? 'open' : ''} style="width:100%"><summary style="cursor:pointer;font-weight:600;color:var(--text-primary)">Prototype controls (not part of the design)</summary><div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:6px">` + g('Width', WIDTHS.map(([v, t]) => btn('width', v, t, v === (S.w || 'fit'))).join('')) + g('Theme', ['system', 'light', 'dark'].map((t) => btn('theme', t, t[0].toUpperCase() + t.slice(1), S.theme === t)).join('')) + g('Libraries', [[1, 'One'], [3, 'Three']].map(([v, t]) => btn('libs', v, t, S.libs === v)).join('')) + g('You are', [['gm', 'GM'], ['player', 'A player']].map(([v, t]) => btn('role', v, t, S.role === v)).join('')) + g('Connection', [[0, 'Online'], [1, 'Offline']].map(([v, t]) => btn('offline', v, t, +S.offline === v)).join('')) + g('Loading', [['normal', 'Normal'], ['slow', 'Slow'], ['once', 'Fails once'], ['always', 'Keeps failing']].map(([v, t]) => btn('load', v, t, S.load === v)).join('')) + g('Show', [['first-run', 'First run'], ['join', 'Join link'], ['states', 'States']].map(([v, t]) => btn('goto', v, t, false)).join('') + btn('conflict', 1, 'Conflict', S.conflict) + btn('error', 1, 'Error toast', false) + btn('public', 1, 'Public repositories', !!S.publicRepos)) + `<button type="button" data-p="reset" data-v="1">Reset</button></div></details>`;
+  $('#proto').innerHTML = `<details ${innerWidth >= 900 ? 'open' : ''} style="width:100%"><summary style="cursor:pointer;font-weight:600;color:var(--text-primary)">Prototype controls (not part of the design)</summary><div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-top:6px">` + g('Width', WIDTHS.map(([v, t]) => btn('width', v, t, v === (S.w || 'fit'))).join('')) + g('Theme', ['system', 'light', 'dark'].map((t) => btn('theme', t, t[0].toUpperCase() + t.slice(1), S.theme === t)).join('')) + g('Libraries', [[1, 'One'], [3, 'Three']].map(([v, t]) => btn('libs', v, t, S.libs === v)).join('')) + g('You are', [['gm', 'GM'], ['player', 'A player']].map(([v, t]) => btn('role', v, t, S.role === v)).join('')) + g('Connection', [[0, 'Online'], [1, 'Offline']].map(([v, t]) => btn('offline', v, t, +S.offline === v)).join('')) + g('Loading', [['normal', 'Normal'], ['slow', 'Slow'], ['once', 'Fails once'], ['always', 'Keeps failing']].map(([v, t]) => btn('load', v, t, S.load === v)).join('')) + g('Show', [['first-run', 'First run'], ['join', 'Join link'], ['states', 'States']].map(([v, t]) => btn('goto', v, t, false)).join('') + btn('conflict', 1, 'Conflict', S.conflict) + btn('error', 1, 'Error toast', false) + btn('public', 1, 'Public repositories', !!S.publicRepos)) + (window.PROTO_EXT ? window.PROTO_EXT() : '') + `<button type="button" data-p="reset" data-v="1">Reset</button></div></details>`;
 }
-function syncProto() { $$('#proto [data-p]').forEach((b) => { const k = b.dataset.p, v = b.dataset.v; let on = null; if (k === 'width') on = String(S.w || 'fit') === v; else if (k === 'theme') on = S.theme === v; else if (k === 'libs') on = String(S.libs) === v; else if (k === 'role') on = S.role === v; else if (k === 'offline') on = String(+S.offline) === v; else if (k === 'load') on = S.load === v; else if (k === 'conflict') on = S.conflict; else if (k === 'public') on = !!S.publicRepos; if (on !== null) b.setAttribute('aria-pressed', on); }); }
+function syncProto() { if (window.PROTO_SYNC) window.PROTO_SYNC(); $$('#proto [data-p]').forEach((b) => { const k = b.dataset.p, v = b.dataset.v; let on = null; if (k === 'width') on = String(S.w || 'fit') === v; else if (k === 'theme') on = S.theme === v; else if (k === 'libs') on = String(S.libs) === v; else if (k === 'role') on = S.role === v; else if (k === 'offline') on = String(+S.offline) === v; else if (k === 'load') on = S.load === v; else if (k === 'conflict') on = S.conflict; else if (k === 'public') on = !!S.publicRepos; if (on !== null) b.setAttribute('aria-pressed', on); }); }
 function protoClick(e) {
   const b = e.target.closest('[data-p]'); if (!b) return; const k = b.dataset.p, v = b.dataset.v;
+  if (window.PROTO_CLICK && window.PROTO_CLICK(k, v)) { syncProto(); return; }
   if (k === 'width') { S.w = v === 'fit' ? 'fit' : +v; const f = frame(); if (v === 'fit') { f.style.removeProperty('--frame-w'); f.setAttribute('data-fit', ''); } else { f.style.setProperty('--frame-w', v + 'px'); f.removeAttribute('data-fit'); } setTimeout(() => { render(true); }, 340); }
   else if (k === 'theme') { S.theme = v; applyAppearance(); }
   else if (k === 'libs') { S.libs = +v; S.lib = Math.min(S.lib, S.libs - 1); renderHeader(); }
@@ -165,6 +169,7 @@ function protoClick(e) {
 /* ---- keyboard (D25) */
 let gPending = false, gTimer = null;
 const GO = { h: 'home', s: 'home', b: 'beings', i: 'board', c: 'stub/calendars', m: 'map', w: 'read', r: 'stub/bench', a: 'settings' };
+if (window.GO_EXT) Object.assign(GO, window.GO_EXT);
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey; const t = e.target;
   const typing = t.matches && (t.matches('input, textarea, select') || t.isContentEditable);
@@ -212,7 +217,7 @@ function boot() {
   $('#strip').addEventListener('click', (e) => { if (e.target.closest('[data-act="review-strip"]')) openConflictReview(); });
   addEventListener('hashchange', () => render());
   setInterval(() => { if (!document.hidden) updateStatus(); }, 20000);
-  if (!location.hash) location.hash = '#/home';
+  if (!location.hash) location.hash = window.START_ROUTE ? '#/' + window.START_ROUTE : '#/home';
   render(true);
 }
 boot();

@@ -1,6 +1,6 @@
 /* Core: state, helpers, appearance, toasts, overlays, the palette. Plain JavaScript, no framework.
    The prototype fakes the server: nothing is saved, nothing is sent. */
-const ICONS = '../../../../apps/brand/icons.svg';
+const ICONS = window.ICONS_PATH || '../../../../apps/brand/icons.svg';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -210,7 +210,7 @@ function palRender() {
   let g = '';
   const rows = PAL.items.map((it, i) => {
     const head = it.g !== g ? `<div class="p-group" role="presentation">${it.g}</div>` : ''; g = it.g;
-    const icon = it.icon || ({ Person: 'kind-being', Character: 'kind-being', NPC: 'kind-being', Place: 'kind-location', Map: 'map', Item: 'kind-item', Chapter: 'kind-chapter', Collection: 'kind-books', Session: 'kind-session' }[it.kind] || 'kind-entity');
+    const icon = it.icon || ({ Person: 'kind-being', Character: 'kind-being', NPC: 'kind-being', Place: 'kind-location', Map: 'map', Item: 'kind-item', Chapter: 'kind-chapter', Collection: 'kind-books', Session: 'kind-session', Library: 'library', Repository: 'kind-repository' }[it.kind] || 'kind-entity');
     return `${head}<div class="p-opt" role="option" id="po${i}" data-i="${i}" aria-selected="${i === PAL.i}">${ic(icon)}<span class="grow">${hl(it.name)}<span class="meta">${esc(it.type === 'action' ? '' : it.kind || '')}</span></span>${it.kbd ? it.kbd.split(' ').map((k) => `<kbd>${k}</kbd>`).join('') : ''}${it.app && !it.type ? `<span class="t-micro">${it.app}</span>` : ''}</div>`;
   }).join('');
   const sel = PAL.items[PAL.i];
