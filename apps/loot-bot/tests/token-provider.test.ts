@@ -50,7 +50,7 @@ const server = setupServer(
   ),
 );
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
@@ -87,7 +87,7 @@ describe("getValidAccessToken", () => {
       }),
     );
 
-    // No /oauth2/token handler registered - onUnhandledRequest: "error"
+    // No /oauth2/token handler registered - onUnhandledFrame: "error"
     // means an unexpected refresh call would fail this test.
     const token = await getValidAccessToken("user-1");
 
