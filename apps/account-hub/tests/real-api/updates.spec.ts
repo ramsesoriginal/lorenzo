@@ -370,10 +370,28 @@ test('on a phone, the updates are one column and everything pressed is big enoug
 
   expect(overflow).toBeLessThanOrEqual(0);
 
+  // A conflict's values are stacked: every term and value starts at the same left edge, each below
+  // the one before (identity 8.5: was, now and yours never sit side by side).
+  const stacked = await row(page, 'Longsword')
+    .locator('.repo-review-term, .repo-review-value')
+    .evaluateAll((elements) =>
+      elements.map((element) => {
+        const { x, y } = element.getBoundingClientRect();
+
+        return { x: Math.round(x), y };
+      }),
+    );
+
+  expect(stacked).toHaveLength(6);
+  expect(new Set(stacked.map((box) => box.x)).size).toBe(1);
+  for (let index = 1; index < stacked.length; index += 1) {
+    expect(stacked[index]?.y).toBeGreaterThan(stacked[index - 1]?.y ?? 0);
+  }
+
   const heights = await page.evaluate(() =>
     [
       ...document.querySelectorAll<HTMLElement>(
-        '[data-updates-view] button, [data-updates-view] .btn, [data-updates-view] .shelf-link, [data-updates-view] .field-row, [data-updates-view] .text-input, [data-updates-view] summary',
+        '[data-updates-view] button, [data-updates-view] .btn, [data-updates-view] .shelf-link, [data-updates-view] .field-row, [data-updates-view] .repo-review-option, [data-updates-view] .text-input, [data-updates-view] summary',
       ),
     ]
       .filter((element) => element.offsetParent !== null)
@@ -382,5 +400,43 @@ test('on a phone, the updates are one column and everything pressed is big enoug
 
   expect(heights.length).toBeGreaterThan(0);
   expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
+  await context.close();
+});
+
+test('a conflict is a labelled group of radios, chosen from the keyboard, and the choice is said', async ({
+  browser,
+}) => {
+  const { owner, library, repository } = await updatesWorld();
+  const { page, context } = await signedInPage(browser, owner.subject);
+
+  await page.goto(updatesAddress(library, repository));
+
+  const conflict = row(page, 'Longsword');
+  // The review element (ADR 0389): the group is named by the field and the question, and the
+  // values read Was, Now and Yours.
+  const group = conflict.getByRole('group', { name: /Name.*changed in your library too/ });
+
+  await expect(group).toBeVisible();
+  await expect(conflict.locator('.repo-review-term')).toHaveText(['Was', 'Now', 'Yours']);
+  await expect(group.getByRole('radio')).toHaveCount(2);
+  await expect(group.getByRole('radio', { name: 'Keep yours' })).not.toBeChecked();
+  await expect(group.getByRole('radio', { name: /Take the update/ })).not.toBeChecked();
+
+  // Space chooses the focused radio, the choice is said politely, and Apply opens.
+  await group.getByRole('radio', { name: 'Keep yours' }).focus();
+  await page.keyboard.press('Space');
+  await expect(group.getByRole('radio', { name: 'Keep yours' })).toBeChecked();
+  await expect(
+    conflict.getByRole('status').filter({ hasText: 'Keeping yours for Name.' }),
+  ).toHaveCount(1);
+  await expect(conflict.getByRole('button', { name: 'Apply' })).toBeEnabled();
+
+  // The choice can change before it is applied; the arrow key moves it to the other side.
+  await page.keyboard.press('ArrowDown');
+  await expect(group.getByRole('radio', { name: /Take the update/ })).toBeChecked();
+  await expect(conflict.getByRole('button', { name: 'Apply' })).toBeEnabled();
+  await conflict.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.locator('[data-result-text]')).toHaveText('Applied 1 change.');
+  expect(await itemNames(owner.api, library.id)).toContain('Longsword +1');
   await context.close();
 });
