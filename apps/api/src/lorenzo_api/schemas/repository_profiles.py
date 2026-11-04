@@ -18,7 +18,10 @@ from pydantic import (
 __all__ = [
     "CreditIn",
     "CreditOut",
+    "DEPRECATION_MESSAGE_MAX",
     "DelistedOut",
+    "DeprecatedNoticeOut",
+    "DeprecatedOut",
     "LicenceIn",
     "LicenceOut",
     "MemberProfileOut",
@@ -206,6 +209,26 @@ class RepositoryProfileUpdate(BaseModel):
         return self
 
 
+# The longest message an Owner leaves with a retired repository (ADR 0384).
+DEPRECATION_MESSAGE_MAX = 500
+
+
+class DeprecatedOut(BaseModel):
+    """That the Owner retired (deprecated) a repository, with the message they left (`null` when
+    they left none) and when: read by the repository's own members (ADR 0384). Never who."""
+
+    message: str | None
+    at: datetime
+
+
+class DeprecatedNoticeOut(BaseModel):
+    """What a library that holds a retired repository reads of it: the Owner's message, or
+    `null` when there is none. Present means retired; the library keeps its copy and its updates
+    and cannot copy it again (ADR 0384)."""
+
+    message: str | None
+
+
 class DelistedOut(BaseModel):
     """That the platform's operators took a repository off Discover, and why: read by the
     repository's own members and by nobody else (ADR 0303). Never who: the operators are the
@@ -233,8 +256,11 @@ class RepositoryProfileOut(BaseModel):
 
 class MemberProfileOut(RepositoryProfileOut):
     """What the repository's own members read of its profile (ADR 0303): the profile, and
-    `delisted` while the platform's operators have it off Discover (`null` while it is listed).
+    `delisted` while the platform's operators have it off Discover (`null` while it is listed) and
+    `deprecated` while its Owner has retired it (ADR 0384).
     A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
     they cannot read a delisted repository."""
 
     delisted: DelistedOut | None = None
+    # Set while the Owner has the repository retired (ADR 0384); `null` otherwise.
+    deprecated: DeprecatedOut | None = None

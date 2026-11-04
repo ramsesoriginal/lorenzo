@@ -16,6 +16,7 @@
 
 import { DELISTED_CANNOT_BE_MADE_PUBLIC, DELISTED_PUBLIC_NOTE } from './delisting';
 import { type ComposerForm, composerProblem, publishBody } from './releases';
+import { RETIRED_CANNOT_BE_MADE_PUBLIC, RETIRED_PUBLIC_NOTE } from './retiring';
 import { studioHref } from './studio';
 import type {
   BreakingRowOut,
@@ -56,7 +57,7 @@ export type VisibilityCard = {
 // the repository is private (there is nothing to switch). A public repository shows its card either
 // way, so that it can be made private.
 export function visibilityCard(
-  check: Pick<FlipCheckOut, 'available' | 'visibility' | 'delisted'> | null,
+  check: Pick<FlipCheckOut, 'available' | 'visibility' | 'delisted' | 'deprecated'> | null,
   role: TenantRole,
 ): VisibilityCard | null {
   if (role !== 'owner' || check === null) return null;
@@ -69,7 +70,7 @@ export function visibilityCard(
         'Anyone signed in to Lorenzo can copy it into a library and take its updates, as well as the libraries you invited.',
       button: 'Make private…',
       disabled: false,
-      note: check.delisted ? DELISTED_PUBLIC_NOTE : null,
+      note: check.delisted ? DELISTED_PUBLIC_NOTE : check.deprecated ? RETIRED_PUBLIC_NOTE : null,
     };
   }
 
@@ -81,9 +82,14 @@ export function visibilityCard(
     sentence:
       'Only the people who work on it and the libraries you invite can see it. Nobody else can find it or copy it.',
     button: 'Make public…',
-    // Refused by the API (409 repository-delisted): the button says so before it is pressed.
-    disabled: Boolean(check.delisted),
-    note: check.delisted ? DELISTED_CANNOT_BE_MADE_PUBLIC : null,
+    // Refused by the API (409 repository-delisted, 409 repository-deprecated): the button says so
+    // before it is pressed, and the operators' word comes first where both hold.
+    disabled: Boolean(check.delisted || check.deprecated),
+    note: check.delisted
+      ? DELISTED_CANNOT_BE_MADE_PUBLIC
+      : check.deprecated
+        ? RETIRED_CANNOT_BE_MADE_PUBLIC
+        : null,
   };
 }
 
@@ -97,7 +103,9 @@ export type Blocker = {
 };
 
 // A repository this one is built on, and what it needs before this one can be public.
-export function publicBlockers(check: FlipCheckOut): Blocker[] {
+export function publicBlockers(
+  check: Pick<FlipCheckOut, 'built_on_not_public' | 'built_on_behind'>,
+): Blocker[] {
   const blockers: Blocker[] = [];
 
   for (const upstream of check.built_on_not_public) {
@@ -354,6 +362,7 @@ const CHANGED_UNDER_IT = new Set([
   'repository-already-public',
   'repository-already-private',
   'repository-delisted',
+  'repository-deprecated',
 ]);
 
 export function changedUnderTheDialog(problemType: string | undefined): boolean {

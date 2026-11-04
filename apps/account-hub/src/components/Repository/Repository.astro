@@ -10,6 +10,7 @@ import TenantInviteLinks from '../TenantInviteLinks/TenantInviteLinks.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
 import TenantDelete from '../TenantDelete/TenantDelete.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
+import DiscoverCard from '../Discover/DiscoverCard.astro';
 import ReleaseComposer from './ReleaseComposer.astro';
 ---
 
@@ -48,6 +49,9 @@ import ReleaseComposer from './ReleaseComposer.astro';
         Overview
       </button>
       <button type="button" class="tab" role="tab">
+        Profile
+      </button>
+      <button type="button" class="tab" role="tab">
         People
       </button>
       <button type="button" class="tab" role="tab">
@@ -74,6 +78,15 @@ import ReleaseComposer from './ReleaseComposer.astro';
           </p>
           <p data-delisted-reason></p>
           <p data-delisted-effect></p>
+        </div>
+        <!-- Retired by its Owner (ADR 0384): every member reads it. -->
+        <div class="card card-body stack-tight" role="status" data-retired hidden>
+          <p class="row">
+            <span class="pill pill-warning" data-retired-pill></span>
+            <strong data-retired-title></strong>
+          </p>
+          <p data-retired-effect></p>
+          <p data-retired-message hidden></p>
         </div>
         <h3>State</h3>
         <p class="row">
@@ -117,6 +130,12 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <p class="caption" data-visibility-note hidden></p>
           <p class="status-text" role="status" data-visibility-status hidden></p>
         </div>
+        <!-- What is still missing before it can be public, each with a link to where to fix it (ADR 0385): an Owner's, beside the switch. -->
+        <div class="stack-tight" data-readiness hidden>
+          <h3 data-readiness-heading></h3>
+          <ul class="stack-tight" data-readiness-list></ul>
+          <p class="caption" data-readiness-note></p>
+        </div>
         <!-- What people can look at before copying, and the entries featured (ADR 0293): an Owner's, for any repository. -->
         <div class="stack-tight" data-showcase hidden>
           <h3 data-showcase-heading></h3>
@@ -144,6 +163,35 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <p class="caption" data-featured-release-note></p>
           <p class="status-text" role="status" data-featured-status hidden></p>
         </div>
+        <!-- Retire it, or bring it back (ADR 0384): an Owner's, for any repository. -->
+        <div class="stack-tight" data-retire hidden>
+          <h3 data-retire-heading></h3>
+          <p data-retire-explanation></p>
+          <div class="stack-tight" data-retire-form-box>
+            <label class="field">
+              <span class="field-label" data-retire-label></span>
+              <textarea class="text-input" rows="3" maxlength="500" data-retire-message></textarea>
+              <span class="caption" data-retire-help></span>
+              <span class="caption" role="status" data-retire-count></span>
+            </label>
+            <div class="row">
+              <button type="button" class="btn btn-secondary" data-retire-button></button>
+            </div>
+          </div>
+          <div class="stack-tight" data-retire-retired hidden>
+            <p class="row">
+              <span class="pill pill-warning" data-retire-pill></span>
+              <span data-retire-state></span>
+            </p>
+            <p class="caption" data-retire-since></p>
+            <p data-retire-saved hidden></p>
+            <div class="row">
+              <button type="button" class="btn btn-secondary" data-bring-back></button>
+            </div>
+            <p class="caption" data-bring-back-note></p>
+          </div>
+          <p class="status-text" role="status" data-retire-status hidden></p>
+        </div>
         <div class="stack-tight" data-subscriber>
           <h3 data-subscriber-heading></h3>
           <p class="caption" data-subscriber-explanation></p>
@@ -162,6 +210,198 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <p class="caption" data-subscriber-unavailable hidden></p>
           <p class="status-text" role="status" data-subscriber-status hidden></p>
         </div>
+      </section>
+    </div>
+
+    <div class="stack" role="tabpanel">
+      <!-- What it says about itself, and its cover (ADR 0385): an Owner edits, every other member reads. -->
+      <section class="stack" data-profile hidden>
+        <h3 data-profile-heading></h3>
+        <p class="caption" data-profile-intro></p>
+        <p class="caption" data-profile-owner-only hidden></p>
+        <p class="error-text" role="alert" data-profile-error hidden></p>
+
+        <!-- The cover has its own buttons: it is not part of Save. -->
+        <div class="card card-body stack" id="profile-cover" tabindex="-1" data-cover-card>
+          <h4 data-cover-heading></h4>
+          <img class="discover-cover" alt="The cover" data-cover-picture hidden />
+          <div class="row" data-cover-none hidden>
+            <span
+              class="avatar-placeholder repository-initial"
+              aria-hidden="true"
+              data-cover-initial
+            ></span>
+            <div class="grow stack-tight">
+              <strong data-cover-none-title></strong>
+              <span class="caption" data-cover-none-text></span>
+            </div>
+          </div>
+          <div class="stack-tight" data-cover-staged hidden>
+            <canvas
+              class="discover-cover"
+              width="600"
+              height="200"
+              role="img"
+              aria-label="The picture you chose"
+              data-cover-staged-picture
+            ></canvas>
+            <p class="caption" role="status" data-cover-staged-text></p>
+            <div class="row">
+              <button type="button" class="btn btn-primary" data-cover-upload></button>
+              <button type="button" class="btn btn-secondary" data-cover-cancel></button>
+            </div>
+          </div>
+          <p class="caption" data-cover-help hidden></p>
+          <div class="row" data-cover-buttons hidden>
+            <button type="button" class="btn btn-secondary" data-cover-choose></button>
+            <button type="button" class="btn btn-secondary" data-cover-remove hidden></button>
+          </div>
+          <input type="file" hidden aria-label="Choose a picture for the cover" data-cover-file />
+          <p class="status-text" role="status" data-cover-status hidden></p>
+        </div>
+
+        <!-- Only an Owner has the form: the others read what it says below. -->
+        <form class="stack" novalidate data-profile-form hidden>
+          <div class="field">
+            <label class="field-label" for="profile-summary" data-summary-label></label>
+            <textarea
+              id="profile-summary"
+              class="text-input"
+              rows="3"
+              aria-describedby="profile-summary-help profile-summary-count"
+              data-profile-summary
+            ></textarea>
+            <span class="caption" id="profile-summary-help" data-profile-summary-help></span>
+            <span class="caption" id="profile-summary-count" data-profile-summary-count></span>
+            <span class="error-text" role="alert" data-problem="summary" hidden></span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="profile-licence" data-licence-label></label>
+            <select class="text-input" id="profile-licence" data-licence></select>
+            <span class="caption" data-licence-help></span>
+          </div>
+          <div class="field" data-licence-other-field hidden>
+            <label class="field-label" for="profile-licence-other" data-licence-other-label></label>
+            <input
+              id="profile-licence-other"
+              class="text-input"
+              type="text"
+              autocomplete="off"
+              data-licence-other
+            />
+            <span class="error-text" role="alert" data-problem="licence" hidden></span>
+          </div>
+          <div class="field" data-licence-link-field hidden>
+            <label class="field-label" for="profile-licence-link" data-licence-link-label></label>
+            <input
+              id="profile-licence-link"
+              class="text-input"
+              type="url"
+              inputmode="url"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="https://"
+              data-licence-link
+            />
+            <span class="caption" data-licence-link-help></span>
+            <span class="error-text" role="alert" data-problem="licenceLink" hidden></span>
+          </div>
+
+          <fieldset id="profile-credits" tabindex="-1">
+            <legend class="field-label" data-credits-label></legend>
+            <p class="caption" data-credits-help></p>
+            <div class="stack" data-credits-list></div>
+            <p class="caption" role="status" data-credits-count></p>
+            <span class="error-text" role="alert" data-problem="credits" hidden></span>
+            <div class="row">
+              <button type="button" class="btn btn-secondary" data-credit-add></button>
+            </div>
+          </fieldset>
+
+          <div class="field">
+            <label class="field-label" for="profile-tag" data-tags-label></label>
+            <ul class="discover-tags" aria-label="Tags" data-tags-list></ul>
+            <div class="row">
+              <input
+                id="profile-tag"
+                class="text-input grow"
+                type="text"
+                autocomplete="off"
+                list="profile-tag-options"
+                aria-describedby="profile-tags-help profile-tags-count"
+                data-tag-input
+              />
+              <button type="button" class="btn btn-secondary" data-tag-add>
+                Add
+              </button>
+            </div>
+            <datalist id="profile-tag-options" data-tag-options></datalist>
+            <span class="caption" id="profile-tags-help" data-tags-help></span>
+            <span class="caption" id="profile-tags-count" role="status" data-tags-count></span>
+            <span class="error-text" role="alert" data-problem="tags" hidden></span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="profile-system" data-system-label></label>
+            <input
+              id="profile-system"
+              class="text-input"
+              type="text"
+              autocomplete="off"
+              list="profile-system-options"
+              data-system
+            />
+            <datalist id="profile-system-options" data-system-options></datalist>
+            <span class="caption" data-system-help></span>
+            <span class="error-text" role="alert" data-problem="system" hidden></span>
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="profile-language" data-languages-label></label>
+            <ul class="discover-tags" aria-label="Languages" data-languages-list></ul>
+            <div class="row">
+              <input
+                id="profile-language"
+                class="text-input grow"
+                type="text"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+                list="profile-language-options"
+                aria-describedby="profile-languages-help profile-languages-count"
+                data-language-input
+              />
+              <button type="button" class="btn btn-secondary" data-language-add>
+                Add
+              </button>
+            </div>
+            <datalist id="profile-language-options" data-language-options></datalist>
+            <span class="caption" id="profile-languages-help" data-languages-help></span>
+            <span
+              class="caption"
+              id="profile-languages-count"
+              role="status"
+              data-languages-count
+            ></span>
+            <span class="error-text" role="alert" data-problem="languages" hidden></span>
+          </div>
+
+          <p class="error-text" role="alert" data-problem="form" hidden></p>
+          <div class="row">
+            <button type="submit" class="btn btn-primary" data-profile-save></button>
+            <button type="button" class="btn btn-secondary" data-profile-revert></button>
+            <span class="status-text" role="status" data-profile-status hidden></span>
+          </div>
+        </form>
+
+        <!-- What people will see: Discover's own card, and what its page adds. -->
+        <section class="stack" data-profile-preview>
+          <h4 data-preview-heading></h4>
+          <p class="caption" data-preview-intro></p>
+          <ul class="list" data-preview-card></ul>
+          <dl class="key-values" data-preview-facts></dl>
+        </section>
       </section>
     </div>
 
@@ -323,6 +563,71 @@ import ReleaseComposer from './ReleaseComposer.astro';
       </div>
     </form>
   </dialog>
+
+  <!-- What retiring it will do, said before it does it (ADR 0384). -->
+  <dialog aria-labelledby="retire-dialog-title" data-retire-dialog>
+    <form method="dialog" class="stack" data-retire-form>
+      <h3 id="retire-dialog-title" data-retire-title></h3>
+      <ul class="stack-tight" data-retire-lines></ul>
+      <p data-retire-dialog-message hidden></p>
+      <p class="error-text" role="alert" data-retire-error hidden></p>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-retire-cancel autofocus>
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" data-retire-confirm></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- A tag or a language chosen: a button, so that it is as big to press as any (identity.md 8.5). -->
+  <template data-chip-template>
+    <li>
+      <button type="button" class="chip profile-chip" data-chip>
+        <span data-text></span>
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </li>
+  </template>
+  <template data-credit-template>
+    <div class="card card-body stack" data-credit>
+      <label class="field">
+        <span class="field-label" data-name-label></span>
+        <input type="text" class="text-input" autocomplete="off" data-credit-name />
+        <span class="error-text" role="alert" data-problem hidden></span>
+      </label>
+      <label class="field">
+        <span class="field-label" data-role-label></span>
+        <input type="text" class="text-input" autocomplete="off" data-credit-role />
+        <span class="error-text" role="alert" data-problem hidden></span>
+      </label>
+      <label class="field">
+        <span class="field-label" data-url-label></span>
+        <input
+          type="url"
+          class="text-input"
+          inputmode="url"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="https://"
+          data-credit-url
+        />
+        <span class="error-text" role="alert" data-problem hidden></span>
+      </label>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" data-credit-up>
+          Move up
+        </button>
+        <button type="button" class="btn btn-secondary" data-credit-down>
+          Move down
+        </button>
+        <button type="button" class="btn btn-secondary" data-credit-remove>
+          Remove
+        </button>
+      </div>
+    </div>
+  </template>
+  <DiscoverCard />
 
   <template data-tenant-delete-template>
     <TenantDelete />

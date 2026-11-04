@@ -121,6 +121,8 @@ OWNER = {
     ("PUT", T + "/public"),
     ("PUT", T + "/showcase"),
     ("DELETE", T + "/public"),
+    ("PUT", T + "/deprecation"),
+    ("DELETE", T + "/deprecation"),
     ("DELETE", T + "/published"),
     ("PATCH", T + "/releases/{release_id}"),
     ("PUT", T + "/releases/{release_id}/current"),

@@ -808,6 +808,22 @@ class DelistedRepositoryOut(BaseModel):
     delisted_by_nickname: str | None = Field(..., title="Delisted By Nickname")
 
 
+class DeprecateRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    message: str | None = Field(None, title="Message")
+
+
+class DeprecatedNoticeOut(BaseModel):
+    message: str | None = Field(..., title="Message")
+
+
+class DeprecatedOut(BaseModel):
+    message: str | None = Field(..., title="Message")
+    at: AwareDatetime = Field(..., title="At")
+
+
 class DeviceApproval(BaseModel):
     name: constr(min_length=1, max_length=80) = Field(..., title="Name")
     expires_at: AwareDatetime | None = Field(None, title="Expires At")
@@ -1687,6 +1703,7 @@ class MemberProfileOut(BaseModel):
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     delisted: DelistedOut | None = None
+    deprecated: DeprecatedOut | None = None
 
 
 class MembershipCreate(BaseModel):
@@ -3171,6 +3188,7 @@ class SubscriptionOut(BaseModel):
     contributed: ContributionCountsOut | None
     synced_release: ReleaseRefOut | None
     current_release: ReleaseRefOut | None
+    deprecated: DeprecatedNoticeOut | None = None
 
 
 class SumTermBodyInput(BaseModel):
@@ -3262,6 +3280,10 @@ class TenantUpdate(BaseModel):
     ability_information_type: constr(min_length=1, max_length=100) | None = Field(
         None, title="Ability Information Type"
     )
+
+
+class UndeprecatedOut(BaseModel):
+    undeprecated: bool = Field(..., title="Undeprecated")
 
 
 class UnprovenKindOut(BaseModel):
@@ -3756,6 +3778,7 @@ class FlipCheckOut(BaseModel):
     invited_libraries: int = Field(..., title="Invited Libraries")
     publishers: list[PublisherOut] = Field(..., title="Publishers")
     delisted: DelistedOut | None = None
+    deprecated: DeprecatedOut | None = None
 
 
 class GroupMemberResultItem(BaseModel):

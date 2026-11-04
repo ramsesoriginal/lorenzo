@@ -31,6 +31,9 @@ export const PLAYERS_NOTE = 'Applying an update changes what your players see.';
 // Updates never apply by themselves, and this is where that is said.
 export const NEVER_BY_ITSELF = 'Nothing is applied until you apply it.';
 
+// What a value with nothing in it reads as in a field's words; the review element says it as "No value".
+export const NONE = '(none)';
+
 export type RowKindName = RowChangeOut['kind'];
 
 export type ReleaseState = 'released' | 'edited' | null;
@@ -55,7 +58,7 @@ export type Thing = 'entry' | 'stat group' | 'stat';
 // library's links no longer know is not in `names`, and is said as what it was, never shown (ADR
 // 0197).
 export function nameOrWord(names: Names, id: unknown, thing: Thing): string {
-  if (typeof id !== 'string' || id === '') return '(none)';
+  if (typeof id !== 'string' || id === '') return NONE;
 
   const name = names[id];
 
@@ -107,7 +110,7 @@ function rounding(mode: unknown): string {
 
 // A formula in words: what a stat is worked out from.
 export function formulaText(formula: unknown, names: Names): string {
-  if (!isRecord(formula)) return '(none)';
+  if (!isRecord(formula)) return NONE;
 
   const stat = (id: unknown) => nameOrWord(names, id, 'stat');
 
@@ -131,7 +134,7 @@ export function formulaText(formula: unknown, names: Names): string {
       return `${stat(formula.left)} ${comparator} ${right}: ${formula.true_value ?? ''}, otherwise ${formula.false_value ?? ''}`;
     }
     default:
-      return '(none)';
+      return NONE;
   }
 }
 
@@ -186,7 +189,7 @@ export function fieldInfo(
 
 // One value, read for the field it belongs to.
 export function valueText(reading: Reading, value: unknown, names: Names): string {
-  if (value === null || value === undefined || value === '') return '(none)';
+  if (value === null || value === undefined || value === '') return NONE;
 
   switch (reading.type) {
     case 'bool':

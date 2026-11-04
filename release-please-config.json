@@ -116,6 +116,10 @@
     "packages/entry-preview": {
       "release-type": "node",
       "component": "entry-preview"
+    },
+    "packages/repo-ui": {
+      "release-type": "node",
+      "component": "repo-ui"
     }
   }
 }

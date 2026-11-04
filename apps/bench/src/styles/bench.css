@@ -1450,21 +1450,9 @@ dialog.confirm::backdrop {
   gap: 8px;
   align-items: baseline;
 }
-.review-values {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0;
-}
-.review-values dt {
-  color: var(--faint);
-  font-size: 11px;
-  text-transform: uppercase;
-}
-.review-values dd {
-  margin: 0;
-  font-family: var(--font-mono);
-  overflow-wrap: anywhere;
+/* The review element (packages/repo-ui, ADR 0389) draws a conflict's values; it fills the card. */
+.review-item > .repo-review {
+  justify-self: stretch;
 }
 .start-screen .confirm-list li {
   align-items: center;

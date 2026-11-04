@@ -1470,6 +1470,7 @@ for repositories only, so the two relations never share a phrase.
 | **Draft**, **Published** | Not visible to anyone with access, and visible to everyone with access. **Unpublish** goes back to draft. | |
 | **Release** | A published version with a free-text label, an optional "breaking" flag and notes. A row changed since reads "Edited since release 1.3", never "stable" or "frozen". | Version |
 | **Public repository** | One its owner has chosen to list. Logged-in users find it on the Discover page and copy it. | |
+| **Retired** | A repository its Owner stopped offering: libraries that copied it keep their copy and its updates, nobody can copy it any more, and it is not on Discover. An Owner "retires" it and can "bring it back"; the Owner may leave a message the libraries read. The API calls this deprecated. | Deprecated, archived, closed |
 | **Invite a library** | An owner gives a library access to a repository, by invite link | Grant, offer, subscribe |
 | **Libraries using it** | The libraries and repositories that copied it | Subscribers |
 | **Copy** | A library copies a repository's content into itself. Nothing is shared afterwards except updates. | Take, import |

@@ -39,6 +39,8 @@ _DEFAULTS = {
     "has_cover": False,
     # What the repository's own members read: listed, so nothing to say (ADR 0303).
     "delisted": None,
+    # And not retired by its Owner either (ADR 0384).
+    "deprecated": None,
 }
 
 
@@ -204,6 +206,7 @@ async def test_an_owner_sets_the_whole_profile_and_it_is_kept_tidy(
             "languages": ["en", "de", "pt-br"],
             "has_cover": False,
             "delisted": None,
+            "deprecated": None,
         }
         assert _without_stamp(patched.json()) == expected
         assert _without_stamp(await _profile(owner, faerun)) == expected
@@ -576,9 +579,10 @@ async def test_a_library_the_repository_is_granted_to_reads_its_profile_once_pub
         await owner.put(f"/tenants/{faerun}/published")
         seen = await gm.get(f"{path}/profile")
         assert seen.status_code == 200, seen.text
-        # A library reads the profile with no `delisted` at all: only the members are told.
+        # A library reads the profile with no `delisted` or `deprecated` at all: only the members
+        # are told.
         assert _without_stamp(seen.json()) == {
-            **{k: v for k, v in _DEFAULTS.items() if k != "delisted"},
+            **{k: v for k, v in _DEFAULTS.items() if k not in ("delisted", "deprecated")},
             "summary": "Realms.",
             "tags": ["setting"],
             "system": "5e",

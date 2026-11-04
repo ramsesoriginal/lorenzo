@@ -483,6 +483,31 @@ describe('the subject of a copy', () => {
         .copied,
     ).toBe(true);
   });
+
+  it('is not offered, and is marked retired, for a repository its Owner retired', () => {
+    const retired = {
+      granted_at: '2026-10-01T00:00:00Z',
+      copied_at: null,
+      synced_at: null,
+      deprecated: { message: 'Use Armoury 2' },
+      repository: { id: 'abc', name: 'Bestiary', published_at: '2026-10-02T00:00:00Z' },
+    } as unknown as SubscriptionOut;
+
+    expect(subjectOfSubscription(retired, { slug: 'table' })).toEqual({
+      id: 'abc',
+      name: 'Bestiary',
+      offered: false,
+      retired: true,
+      copied: false,
+      public: false,
+      backHref: '/repositories/?tenant=table&repository=abc',
+    });
+    // A library that holds a copy cannot copy it again either.
+    expect(
+      subjectOfSubscription({ ...retired, copied_at: '2026-10-03T00:00:00Z' }, { slug: 't' })
+        .retired,
+    ).toBe(true);
+  });
 });
 
 describe('the words of the page', () => {

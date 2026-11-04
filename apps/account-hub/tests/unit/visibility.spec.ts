@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DELISTED_CANNOT_BE_MADE_PUBLIC, DELISTED_PUBLIC_NOTE } from '../../src/lib/delisting';
+import { RETIRED_CANNOT_BE_MADE_PUBLIC, RETIRED_PUBLIC_NOTE } from '../../src/lib/retiring';
 import type { FlipCheckOut } from '../../src/lib/types';
 import {
   changedUnderTheDialog,
@@ -157,6 +158,34 @@ describe('the card of a repository that is off Discover', () => {
 
     expect(card?.disabled).toBe(false);
     expect(card?.note).toBeNull();
+  });
+});
+
+describe('the card of a repository that is retired', () => {
+  const deprecated = { message: 'Use Armoury 2', at: '2026-11-03T09:00:00Z' };
+
+  it('says so beside a button that cannot be pressed, while it is private', () => {
+    const card = visibilityCard(check({ deprecated }), 'owner');
+
+    expect(card?.button).toBe('Make public…');
+    expect(card?.disabled).toBe(true);
+    expect(card?.note).toBe(RETIRED_CANNOT_BE_MADE_PUBLIC);
+  });
+
+  it('leaves "Make private…" pressable while it is public, and says it is retired', () => {
+    const card = visibilityCard(check({ visibility: 'public', deprecated }), 'owner');
+
+    expect(card?.button).toBe('Make private…');
+    expect(card?.disabled).toBe(false);
+    expect(card?.note).toBe(RETIRED_PUBLIC_NOTE);
+  });
+
+  it('gives the word of the operators first where the repository is both', () => {
+    const delisted = { reason: 'It copies another publisher', at: '2026-10-15T09:00:00Z' };
+
+    expect(visibilityCard(check({ delisted, deprecated }), 'owner')?.note).toBe(
+      DELISTED_CANNOT_BE_MADE_PUBLIC,
+    );
   });
 });
 
@@ -438,6 +467,7 @@ describe('a refusal that changes what the dialog says', () => {
     expect(changedUnderTheDialog('built-on-not-public')).toBe(true);
     expect(changedUnderTheDialog('public-copies-would-be-cut-off')).toBe(true);
     expect(changedUnderTheDialog('repository-delisted')).toBe(true);
+    expect(changedUnderTheDialog('repository-deprecated')).toBe(true);
     expect(changedUnderTheDialog('public-repository-summary-required')).toBe(false);
     expect(changedUnderTheDialog(undefined)).toBe(false);
   });

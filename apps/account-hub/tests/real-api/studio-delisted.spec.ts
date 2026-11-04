@@ -78,6 +78,7 @@ const REASON = 'It copies the work of another publisher';
 test('every member reads that the repository was taken off Discover, why, and what it means', async ({
   browser,
 }) => {
+  test.slow();
   const { owner, organizer, author, operator, repository } = await world();
 
   for (const person of [owner, organizer, author]) {

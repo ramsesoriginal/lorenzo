@@ -376,6 +376,14 @@ abbreviations and local fragment links still keep a text whole. No schema or API
 locks, conditional writes, revisions and retry receipts apply as before. Joins and guarded redirects
 (ADR 0348) are accepted and not built.
 
+Lorenzo Writing W5e (RFC 0047, ADR 0348, 2026-10-27) joins two adjacent sibling Chapters into the earlier one. The
+later Chapter's complete ordered text and picture payloads and its children are appended with their identities and each
+LorenzoScript string verbatim (texts are never concatenated and re-parsed), and only the later Chapter's placement is
+removed: its entry, notes, audiences and saved manuscript history stay behind a guarded link to the first element it
+contributed. The request names the source, destination and parent versions and a client-chosen operation id; the library
+structural lock, complete-outline reads, matching audiences and authorship, the effective-reader check and actor-bound
+retry receipts apply, as for moves. A migration adds the join record and the repository copy and release carry it.
+
 Spheres (RFC 0048 slice 8, ADR 0357 to 0359, 2026-10-28): `lorenzo.map-system/1` gains `sphere`, whose
 extent is always `[-180, -90, 180, 90]` and whose positions are `[longitude, latitude]`, with an optional
 `radius`. Geometry on a sphere is points, polylines and polygons only, every coordinate in range
@@ -447,3 +455,32 @@ the same `tied_*` and `exclude_other` parameters and answers the same `tie`, fro
 (`date_lens.py`, which the Maps list now uses too) so the two lists cannot drift. The flat list only: a date with
 `root=true` is a 422, the parts read takes none, and a date is never inherited through part-of. The Locations page
 shows the same control and words, and lists by name while a date is chosen, bringing the tree back on clearing.
+
+Lorenzo Writing W5f (RFC 0047, ADR 0374, 2026-10-28) extends the join to a Chapter's immediate parent, a Chapter or an
+Edition: the Chapter's heading leaves the outline and its complete ordered elements take its place, so the reading order
+is kept and its entry, notes and history stay behind the same guarded redirect. The existing join route takes an optional
+`mode` (`previous`, the default, or `parent`); no table or release format changes.
+
+Lorenzo Writing W5g (RFC 0047, ADR 0378, 2026-10-29) extracts a consecutive range of an Edition's or Chapter's own text
+and picture payloads into a new reusable Scene and leaves a shared Scene telling at the range's position. The Scene owns
+the moved manuscript; payload identities, wording and picture bytes are kept; a selection containing a Chapter or a
+telling is refused; ordinary notes stay at the source and the source's saved history checkpoints the original.
+Nothing about Events, participation, viewpoint or knowledge is inferred from the prose.
+
+Lorenzo Writing W6a (RFC 0047, ADR 0379, 2026-10-29) adds Carriers: an entity-backed marker that can have a manuscript of
+its own and an ordered list of references to whole Editions, Chapters, Scenes or tellings, or to single payloads, even
+across Books. Forms and artifacts use the existing multiple-prototype graph, and coverage is separate from composition,
+containment and inheritance: it grants no access and follows a payload's stable identity when extraction moves it.
+
+Lorenzo Writing W7a and W7b (RFC 0047, ADR 0380 and 0381, 2026-10-29) add presentation that is never an entity title,
+identity or manuscript payload. Chapter numbering is an optional policy on an Edition or an unassigned Chapter: a format
+per level (decimal, Roman, alphabetic), a start, restart or continuous counting, and per-Chapter overrides, unnumbered,
+restart and end, recalculated when Chapters move. A structural contents list (a depth and a constrained label template,
+`{title}` and `{number}`) is generated before the prose of an Edition or Chapter tree, each Chapter can be left out of it,
+and a Chapter can take the role Contents, Index or Glossary; Index and Glossary stay authored LorenzoScript.
+
+Lorenzo Writing W7c (RFC 0047, ADR 0382, 2026-11-03) adds an optional word count: in Write the current direct text,
+unsaved edits included; in Read the assembled manuscript, or a highlighted passage or chosen text blocks. Each
+occurrence counts each time it is read; code, math, generated navigation, notes and structural titles count nothing.
+ADR 0383 (2026-11-03) decides one optional personal word target per library, account, manuscript entry and counting
+scope, compared with the Write or Read count; it is decided, not built ([#967](https://github.com/ramsesoriginal/lorenzo/issues/967)).

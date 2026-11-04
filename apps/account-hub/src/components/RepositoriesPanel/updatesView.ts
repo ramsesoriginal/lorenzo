@@ -4,6 +4,7 @@
 // a button says so; "apply all clean" is checked first and shown as a receipt. The choices (which
 // conflict to keep, how to settle a name clash, what was skipped) live in the page, in `state`.
 
+import { renderReview } from '@lorenzo/repo-ui';
 import { type Choice, choiceProblem, collisionKey } from '../../lib/copyWizard';
 import { describeError } from '../../lib/describeError';
 import { applyUpdates, getUpdates } from '../../lib/repositories';
@@ -23,6 +24,7 @@ import type {
   TenantSummaryOut,
   UpdatesOut,
 } from '../../lib/types';
+import { choiceOf, reviewItem } from '../../lib/updateReview';
 import {
   appliedSentence,
   applyAction,
@@ -39,7 +41,6 @@ import {
   countUpdates,
   describeRow,
   detachAction,
-  type FieldView,
   groupUpdates,
   NEVER_BY_ITSELF,
   NOT_COMPARED_NOTE,
@@ -212,61 +213,6 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     });
   }
 
-  function fieldBlock(
-    mine: State,
-    row: RowChangeOut,
-    field: FieldView,
-    index: number,
-  ): HTMLElement {
-    const block = cloneRoot(panel, '[data-field-template]');
-    const values = required<HTMLElement>(block, '[data-values]');
-    const note = required<HTMLElement>(block, '[data-note]');
-    const conflict = required<HTMLElement>(block, '[data-conflict]');
-    const key = rowKey(row);
-
-    required<HTMLElement>(block, '[data-label]').textContent = field.label;
-
-    const pair = (term: string, text: string) => {
-      const dt = document.createElement('dt');
-      const dd = document.createElement('dd');
-
-      dt.textContent = term;
-      dd.textContent = text;
-      values.append(dt, dd);
-    };
-
-    if (field.added !== null || field.removed !== null) {
-      if (field.added && field.added.length > 0) pair('Added', field.added.join(', '));
-      if (field.removed && field.removed.length > 0) pair('Removed', field.removed.join(', '));
-    } else {
-      pair('Was', field.was ?? '(none)');
-      pair('Now', field.now ?? '(none)');
-      if (field.yours !== null) pair('Yours', field.yours);
-    }
-
-    note.textContent = field.note ?? '';
-    note.hidden = field.note === null;
-
-    if (field.state === 'conflict') {
-      const keep = required<HTMLInputElement>(block, '[data-keep]');
-      const take = required<HTMLInputElement>(block, '[data-take]');
-      const choices = mine.conflictChoices.get(key) ?? new Map<string, ConflictChoice>();
-
-      mine.conflictChoices.set(key, choices);
-      keep.name = `conflict-${key}-${index}`;
-      take.name = keep.name;
-      keep.checked = choices.get(field.field) === 'keep';
-      take.checked = choices.get(field.field) === 'take';
-      conflict.hidden = false;
-      conflict.addEventListener('change', () => {
-        choices.set(field.field, keep.checked ? 'keep' : 'take');
-        block.dispatchEvent(new CustomEvent('conflict-chosen', { bubbles: true }));
-      });
-    }
-
-    return block;
-  }
-
   // What a row is against the latest release, and what a release since the library last updated says
   // breaks in it, each in words.
   function paintMarks(
@@ -316,8 +262,19 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     required<HTMLElement>(item, '[data-kind]').textContent = described.kindLabel;
     paintMarks(item, mine, row);
     required<HTMLElement>(item, '[data-name]').textContent = described.name;
+    // The fields are the shared review element (ADR 0389): a conflict is a pair of radios, read when
+    // the row is applied.
     required<HTMLElement>(item, '[data-fields]').replaceChildren(
-      ...described.fields.map((field, index) => fieldBlock(mine, row, field, index)),
+      renderReview(
+        described.fields.map((field) => reviewItem(field, choices.get(field.field))),
+        {
+          mode: 'choose',
+          onChoose: (field, side) => {
+            choices.set(field, choiceOf(side));
+            refresh();
+          },
+        },
+      ),
     );
 
     function refresh(): void {
@@ -330,7 +287,6 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     refresh();
     // A row whose only change cannot be applied has nothing to press.
     apply.hidden = !described.appliable;
-    item.addEventListener('conflict-chosen', refresh);
     apply.addEventListener('click', () => {
       if (!confirmed(row.breaking)) return;
 

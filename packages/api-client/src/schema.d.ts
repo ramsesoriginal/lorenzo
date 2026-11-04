@@ -1850,6 +1850,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/deprecation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Deprecate
+         * @description Retires the repository, public or not: libraries that already hold it keep their copy and
+         *     its updates, and nobody can copy it any more; it leaves Discover. The optional `message` (1 to
+         *     500 characters) is read by the libraries that hold it. Idempotent: retiring a retired
+         *     repository replaces the message and keeps the time it was first retired, and tells nobody
+         *     again. The first time, the Owners and Organizers of every library that holds it are told.
+         *     Owner only.
+         */
+        put: operations["deprecate"];
+        post?: never;
+        /**
+         * Undeprecate
+         * @description Brings a retired repository back: it can be copied again, and is listed again if it is
+         *     public. The libraries that hold it are told. A repository that is not retired is left as it
+         *     is (`undeprecated: false`). Owner only.
+         */
+        delete: operations["undeprecate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/repositories/{repository_id}/profile": {
         parameters: {
             query?: never;
@@ -9172,6 +9203,40 @@ export interface components {
             delisted_by_nickname: string | null;
         };
         /**
+         * DeprecateRequest
+         * @description `PUT .../deprecation`: the optional message the libraries that hold the repository read,
+         *     1 to `DEPRECATION_MESSAGE_MAX` characters when given. Whitespace at the ends is dropped and
+         *     line breaks are kept, since a message is a few sentences; `null` or no body is no message.
+         */
+        DeprecateRequest: {
+            /** Message */
+            message?: string | null;
+        };
+        /**
+         * DeprecatedNoticeOut
+         * @description What a library that holds a retired repository reads of it: the Owner's message, or
+         *     `null` when there is none. Present means retired; the library keeps its copy and its updates
+         *     and cannot copy it again (ADR 0384).
+         */
+        DeprecatedNoticeOut: {
+            /** Message */
+            message: string | null;
+        };
+        /**
+         * DeprecatedOut
+         * @description That the Owner retired (deprecated) a repository, with the message they left (`null` when
+         *     they left none) and when: read by the repository's own members (ADR 0384). Never who.
+         */
+        DeprecatedOut: {
+            /** Message */
+            message: string | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /**
          * DescriptionOut
          * @description Wraps one entry of `EntityViewMixin.descriptions` - see ADR 0020: the
          *     raw `tuple[str, str]` is a fine internal shape but a weak external JSON
@@ -10021,6 +10086,7 @@ export interface components {
             /** Publishers */
             publishers: components["schemas"]["PublisherOut"][];
             delisted?: components["schemas"]["DelistedOut"] | null;
+            deprecated?: components["schemas"]["DeprecatedOut"] | null;
         };
         /** FrameAxisOut */
         FrameAxisOut: {
@@ -11695,7 +11761,8 @@ export interface components {
         /**
          * MemberProfileOut
          * @description What the repository's own members read of its profile (ADR 0303): the profile, and
-         *     `delisted` while the platform's operators have it off Discover (`null` while it is listed).
+         *     `delisted` while the platform's operators have it off Discover (`null` while it is listed) and
+         *     `deprecated` while its Owner has retired it (ADR 0384).
          *     A visitor's and a library's view are `RepositoryProfileOut` and have no such field at all:
          *     they cannot read a delisted repository.
          */
@@ -11729,6 +11796,7 @@ export interface components {
              */
             updated_at: string;
             delisted?: components["schemas"]["DelistedOut"] | null;
+            deprecated?: components["schemas"]["DeprecatedOut"] | null;
         };
         /**
          * MembershipCreate
@@ -15433,6 +15501,7 @@ export interface components {
             contributed: components["schemas"]["ContributionCountsOut"] | null;
             synced_release: components["schemas"]["ReleaseRefOut"] | null;
             current_release: components["schemas"]["ReleaseRefOut"] | null;
+            deprecated?: components["schemas"]["DeprecatedNoticeOut"] | null;
         };
         /**
          * SumFormulaBody
@@ -15664,6 +15733,14 @@ export interface components {
             weapon_stat_group_id?: string | null;
             /** Ability Information Type */
             ability_information_type?: string | null;
+        };
+        /**
+         * UndeprecatedOut
+         * @description `DELETE .../deprecation`: whether the repository was retired (`false`: nothing changed).
+         */
+        UndeprecatedOut: {
+            /** Undeprecated */
+            undeprecated: boolean;
         };
         /**
          * UnprovenKindOut
@@ -22762,6 +22839,140 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MadePrivateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deprecate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeprecateRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeprecatedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    undeprecate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UndeprecatedOut"];
                 };
             };
             /** @description Validation Error */

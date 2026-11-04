@@ -162,9 +162,9 @@ export const FILTER_LIMIT = 30;
 export type FilterOption = { value: string; label: string };
 
 // "German (de)" for a language code the browser knows, the code itself for one it does not.
-export function languageLabel(code: string): string {
+export function languageLabel(code: string, locales: string | string[] = 'en'): string {
   try {
-    const name = new Intl.DisplayNames(['en'], { type: 'language' }).of(code);
+    const name = new Intl.DisplayNames(locales, { type: 'language' }).of(code);
 
     return name && name.toLowerCase() !== code.toLowerCase() ? `${name} (${code})` : code;
   } catch {
@@ -382,7 +382,10 @@ export function factsOf(item: DiscoverItemOut): Fact[] {
   if (item.system) facts.push({ term: 'Game system', value: item.system });
 
   if (item.languages.length > 0) {
-    facts.push({ term: 'Languages', value: item.languages.map(languageLabel).join(', ') });
+    facts.push({
+      term: 'Languages',
+      value: item.languages.map((code) => languageLabel(code)).join(', '),
+    });
   }
 
   if (item.entries !== null) facts.push({ term: 'Entries', value: String(item.entries) });

@@ -143,7 +143,7 @@ Write directories with a double star: a single `*` does not match across `/`, so
    - **Build output directory**: `dist`
    - **Node version**: set the environment variable `NODE_VERSION` to the major in the root `mise.toml`; Pages otherwise builds with its own default. Node 25+ no longer ships corepack, which is why the build command installs it first.
 5. **Environment variables** (that Pages project's own **Settings → Environment variables**, Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` — from the Authgear application below. These are scoped to this one Pages project alone, so `apps/inventory-web`'s own Pages project (below) can use the exact same variable names for its own, different values with no collision.
-6. **Build watch paths** (ADR 0136: changes to bundled packages must also rebuild the site), as in [Build watch paths](#build-watch-paths): `apps/account-hub/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `pnpm-lock.yaml` and `tools/brand/**`.
+6. **Build watch paths** (ADR 0136: changes to bundled packages must also rebuild the site), as in [Build watch paths](#build-watch-paths): `apps/account-hub/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/lorenzoscript/**`, `packages/lorenzoscript-editor/**`, `packages/repo-ui/**`, `pnpm-lock.yaml` and `tools/brand/**`.
 
 ### `apps/account-hub`'s own Authgear application (ADR 0071)
 
@@ -161,7 +161,7 @@ Write directories with a double star: a single `*` does not match across `/`, so
 
 - **Root directory** `apps/bench`; **build command** `npm install --global corepack@latest && corepack enable && pnpm install --frozen-lockfile && pnpm run build`; **output** `dist`; `NODE_VERSION` the major in the root `mise.toml`.
 - **Environment variables** (Production): `PUBLIC_AUTHGEAR_ENDPOINT`, `PUBLIC_AUTHGEAR_CLIENT_ID` from the application below. `PUBLIC_API_BASE_URL` is optional (it defaults to the deployed API).
-- **Build watch paths** ([the rule](#build-watch-paths)): `apps/bench/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**` and `pnpm-lock.yaml`.
+- **Build watch paths** ([the rule](#build-watch-paths)): `apps/bench/**`, `apps/brand/**`, `packages/api-client/**`, `packages/brand/**`, `packages/information-editor/**`, `packages/lorenzoscript/**`, `packages/repo-ui/**` and `pnpm-lock.yaml`.
 - **CORS**: add `https://lorenzo-bench.pages.dev` to the API's `CORS_ALLOWED_ORIGINS` and redeploy the API (see the Cloud Run section's note on that variable). Without it sign-in works but every API call fails with "Failed to fetch".
 
 ### `apps/bench`'s own Authgear application

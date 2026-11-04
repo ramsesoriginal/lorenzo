@@ -1,8 +1,11 @@
 // Reviewing what could not be sent (ADR 0254): each conflict with what it was, what the person
-// wrote and what the server has now, and a choice; and what the server refused, with a way on.
+// wrote and what the server has now, and a choice, drawn by the review element it shares with the
+// hub's update inbox (ADR 0389); and what the server refused, with a way on.
 
+import { renderReview } from '@lorenzo/repo-ui';
 import type { Bench } from '../core/bench';
 import type { Command } from '../core/commands';
+import { BENCH_REVIEW_WORDS, conflictItem } from './conflictReview';
 import { fieldLabel, showValue } from './entryPane';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
@@ -40,24 +43,18 @@ export function openConflicts(bench: Bench, go: (id: string) => void): void {
         },
         'btn link',
       ),
-      el('span', 'muted', fieldLabel(c)),
+      // A conflict's field is named by the review below; a refusal has no such block.
+      ...(c.state === 'conflict' ? [] : [el('span', 'muted', fieldLabel(c))]),
     );
     box.append(head);
     if (c.state === 'conflict') {
-      const grid = el('dl', 'review-values');
-      for (const [term, value] of [
-        ['Was', c.base],
-        ['Mine', c.mine],
-        ['Theirs', c.theirs],
-      ] as const) {
-        const d = el('div');
-        d.append(el('dt', undefined, term), el('dd', undefined, showValue(value, bench, c)));
-        grid.append(d);
-      }
+      // The shared review element (ADR 0389), in its acting mode: pressing a side is the choice.
       box.append(
-        grid,
-        button('Keep mine', () => bench.keepMine(c.id), 'btn primary'),
-        button('Use theirs', () => bench.discard(c.id)),
+        renderReview([conflictItem(c, fieldLabel(c), (value) => showValue(value, bench, c))], {
+          mode: 'act',
+          words: BENCH_REVIEW_WORDS,
+          onChoose: (_id, side) => (side === 'mine' ? bench.keepMine(c.id) : bench.discard(c.id)),
+        }),
       );
     } else {
       box.append(

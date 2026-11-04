@@ -3,14 +3,16 @@
 // rest of the hub's (lib/cache.ts); a copy is a write, which empties it (lib/api.ts).
 
 import { fetchAllPages, LorenzoApiError, MAX_PAGE_SIZE } from '@lorenzo/api-client';
-import { client, unwrap } from './api';
+import { client, pictureUpload, unwrap } from './api';
 import { cached } from './cache';
+import { fetchPictureUrl } from './pictureFetch';
 import type {
   ApplyUpdatesOut,
   ApplyUpdatesRequest,
   CopyOut,
   CopyPlanOut,
   CopyRequest,
+  DeprecatedOut,
   FlipCheckOut,
   MadePrivateOut,
   MakePublicRequest,
@@ -22,11 +24,13 @@ import type {
   ReleaseUpdate,
   RepositoryEntityOut,
   RepositoryProfileOut,
+  RepositoryProfileUpdate,
   RepositoryStatGroupOut,
   ShowcaseOut,
   SubscriberOut,
   SubscribersSummaryOut,
   SubscriptionOut,
+  UndeprecatedOut,
   UpdatesOut,
 } from './types';
 
@@ -370,6 +374,31 @@ export async function makePrivate(
   );
 }
 
+// Retires it (ADR 0384): the libraries that copied it keep their copy and its updates, nobody can copy
+// it any more, it leaves Discover, and the libraries that hold it are told. The message is optional and
+// the libraries read it. Retiring a retired repository changes the message only. An Owner's.
+export async function retireRepository(
+  repositoryId: string,
+  body: { message?: string },
+): Promise<DeprecatedOut> {
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/deprecation', {
+      params: { path: { tenant_id: repositoryId } },
+      body,
+    }),
+  );
+}
+
+// Brings a retired repository back: it can be copied again, and the libraries that hold it are told.
+// An Owner's.
+export async function bringRepositoryBack(repositoryId: string): Promise<UndeprecatedOut> {
+  return unwrap(
+    await client.DELETE('/tenants/{tenant_id}/deprecation', {
+      params: { path: { tenant_id: repositoryId } },
+    }),
+  );
+}
+
 // What a visitor may look at before copying (RFC 0038 §5, ADR 0293): the Owner's switch, written on
 // the profile. An Owner's.
 export async function setPreviewChoice(
@@ -429,4 +458,44 @@ export async function searchOwnEntries(
   );
 
   return page.items.map((entry) => ({ id: entry.id, name: entry.name }));
+}
+
+// Changes what the profile says, as one request of what changed (ADR 0213): a field left out is
+// unchanged, and a refused request keeps none of its fields. An Owner's. The answer is the profile as
+// the API keeps it, normalised.
+export async function updateRepositoryProfile(
+  repositoryId: string,
+  body: RepositoryProfileUpdate,
+): Promise<MemberProfileOut> {
+  return unwrap(
+    await client.PATCH('/tenants/{tenant_id}/profile', {
+      params: { path: { tenant_id: repositoryId } },
+      body,
+    }),
+  );
+}
+
+// The cover of a repository the caller works on, as a `blob:` address (ADR 0300): the route wants the
+// token, which an <img> cannot send. Not kept: a cover just changed must be read again.
+export async function ownCoverUrl(repositoryId: string): Promise<string> {
+  return fetchPictureUrl(`/tenants/${repositoryId}/profile/cover`);
+}
+
+// Sets or replaces the cover (ADR 0213): the types and the size of every profile picture. An Owner's.
+export async function uploadRepositoryCover(repositoryId: string, file: File): Promise<void> {
+  await unwrap(
+    await client.PUT('/tenants/{tenant_id}/profile/cover', {
+      params: { path: { tenant_id: repositoryId } },
+      ...pictureUpload(file),
+    }),
+  );
+}
+
+// Removes the cover; removing what is not there is not an error. An Owner's.
+export async function deleteRepositoryCover(repositoryId: string): Promise<void> {
+  await unwrap(
+    await client.DELETE('/tenants/{tenant_id}/profile/cover', {
+      params: { path: { tenant_id: repositoryId } },
+    }),
+  );
 }
