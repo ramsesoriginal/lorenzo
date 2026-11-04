@@ -133,42 +133,41 @@ class InventoryViewModel(
 
     fun connectDevice() {
         deviceJob?.cancel()
-        deviceJob =
-            viewModelScope.launch {
-                mutable.update { it.copy(busy = true, error = null) }
-                try {
-                    attempt {
-                        val api = LorenzoApi(BuildConfig.API_BASE_URL)
-                        val device = api.beginDeviceLogin()
-                        mutable.update { it.copy(device = device) }
-                        var interval = device.interval.coerceAtLeast(1).toLong()
-                        val deadline = SystemClock.elapsedRealtime() + device.expiresIn * 1000L
-                        while (SystemClock.elapsedRealtime() < deadline) {
-                            delay(interval * 1000)
-                            if (SystemClock.elapsedRealtime() >= deadline) break
-                            try {
-                                repository.login(api.pollDevice(device.deviceCode).token)
-                                return@attempt
-                            } catch (e: ApiException) {
-                                when (e.problem.type.substringAfterLast('/')) {
-                                    "authorization-pending" -> Unit
-                                    "slow-down" -> interval += 5
-                                    else -> throw e
-                                }
-                            } catch (e: IOException) {
-                                interval = (interval * 2).coerceAtMost(30)
+        deviceJob = viewModelScope.launch {
+            mutable.update { it.copy(busy = true, error = null) }
+            try {
+                attempt {
+                    val api = LorenzoApi(BuildConfig.API_BASE_URL)
+                    val device = api.beginDeviceLogin()
+                    mutable.update { it.copy(device = device) }
+                    var interval = device.interval.coerceAtLeast(1).toLong()
+                    val deadline = SystemClock.elapsedRealtime() + device.expiresIn * 1000L
+                    while (SystemClock.elapsedRealtime() < deadline) {
+                        delay(interval * 1000)
+                        if (SystemClock.elapsedRealtime() >= deadline) break
+                        try {
+                            repository.login(api.pollDevice(device.deviceCode).token)
+                            return@attempt
+                        } catch (e: ApiException) {
+                            when (e.problem.type.substringAfterLast('/')) {
+                                "authorization-pending" -> Unit
+                                "slow-down" -> interval += 5
+                                else -> throw e
                             }
-                        }
-                        mutable.update {
-                            it.copy(error = "This connection code expired. Start again.")
+                        } catch (e: IOException) {
+                            interval = (interval * 2).coerceAtMost(30)
                         }
                     }
-                } finally {
                     mutable.update {
-                        it.copy(busy = if (it.signedIn) it.busy else false, device = null)
+                        it.copy(error = "This connection code expired. Start again.")
                     }
                 }
+            } finally {
+                mutable.update {
+                    it.copy(busy = if (it.signedIn) it.busy else false, device = null)
+                }
             }
+        }
     }
 
     fun cancelDevice() {
@@ -194,26 +193,25 @@ class InventoryViewModel(
                 error = null,
             )
         }
-        inventoryJob =
-            viewModelScope.launch {
-                var restoredItem = false
-                repository.observeInventory(character).collect { cached ->
-                    mutable.update { current ->
-                        current.copy(
-                            inventory = cached?.value,
-                            updatedAt = cached?.updatedAt,
-                            item =
-                                current.item?.let { selected ->
-                                    cached?.value?.items?.find { it.entityId == selected.entityId }
-                                },
-                        )
-                    }
-                    if (!restoredItem && cached != null) {
-                        restoredItem = true
-                        cached.value.items.find { it.entityId == restoreItem }?.let(::open)
-                    }
+        inventoryJob = viewModelScope.launch {
+            var restoredItem = false
+            repository.observeInventory(character).collect { cached ->
+                mutable.update { current ->
+                    current.copy(
+                        inventory = cached?.value,
+                        updatedAt = cached?.updatedAt,
+                        item =
+                            current.item?.let { selected ->
+                                cached?.value?.items?.find { it.entityId == selected.entityId }
+                            },
+                    )
+                }
+                if (!restoredItem && cached != null) {
+                    restoredItem = true
+                    cached.value.items.find { it.entityId == restoreItem }?.let(::open)
                 }
             }
+        }
         refresh()
     }
 
@@ -230,26 +228,25 @@ class InventoryViewModel(
                 error = null,
             )
         }
-        noteJob =
-            viewModelScope.launch {
-                launch {
-                    repository.observeComposer(character, item.entityId).collect { draft ->
-                        mutable.update { it.copy(composer = draft) }
-                    }
+        noteJob = viewModelScope.launch {
+            launch {
+                repository.observeComposer(character, item.entityId).collect { draft ->
+                    mutable.update { it.copy(composer = draft) }
                 }
-                launch {
-                    attempt {
-                        val readers = repository.recipients(character)
-                        mutable.update { it.copy(recipients = readers) }
-                    }
-                }
-                launch {
-                    repository.observeNotes(character, item.entityId).collect { cached ->
-                        mutable.update { it.copy(notes = cached?.value.orEmpty()) }
-                    }
-                }
-                attempt { repository.refreshNotes(character, item.entityId) }
             }
+            launch {
+                attempt {
+                    val readers = repository.recipients(character)
+                    mutable.update { it.copy(recipients = readers) }
+                }
+            }
+            launch {
+                repository.observeNotes(character, item.entityId).collect { cached ->
+                    mutable.update { it.copy(notes = cached?.value.orEmpty()) }
+                }
+            }
+            attempt { repository.refreshNotes(character, item.entityId) }
+        }
     }
 
     fun back() {
@@ -276,42 +273,41 @@ class InventoryViewModel(
     fun refresh() {
         val generation = ++refreshGeneration
         refreshJob?.cancel()
-        refreshJob =
-            viewModelScope.launch {
-                mutable.update { it.copy(busy = true, error = null) }
-                try {
-                    attempt {
-                        val refreshed = repository.refreshMe()
-                        val character = mutable.value.character
-                        if (character != null) {
-                            if (refreshed.characters().none { it.key == character.key }) {
-                                back()
-                                return@attempt
-                            }
-                            repository.refreshInventory(character)
-                            mutable.value.item?.let {
-                                repository.refreshNotes(character, it.entityId)
-                            }
-                        } else {
-                            // Inventory responses already contain descriptions and stats: warm
-                            // three
-                            // likely selections without flooding the API or downloading every
-                            // library.
-                            refreshed.characters().take(3).forEach { c ->
-                                try {
-                                    repository.refreshInventory(c)
-                                } catch (e: CancellationException) {
-                                    throw e
-                                } catch (_: IOException) {
-                                    /* A failed prefetch never hides the roster. */
-                                }
+        refreshJob = viewModelScope.launch {
+            mutable.update { it.copy(busy = true, error = null) }
+            try {
+                attempt {
+                    val refreshed = repository.refreshMe()
+                    val character = mutable.value.character
+                    if (character != null) {
+                        if (refreshed.characters().none { it.key == character.key }) {
+                            back()
+                            return@attempt
+                        }
+                        repository.refreshInventory(character)
+                        mutable.value.item?.let {
+                            repository.refreshNotes(character, it.entityId)
+                        }
+                    } else {
+                        // Inventory responses already contain descriptions and stats: warm
+                        // three
+                        // likely selections without flooding the API or downloading every
+                        // library.
+                        refreshed.characters().take(3).forEach { c ->
+                            try {
+                                repository.refreshInventory(c)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: IOException) {
+                                /* A failed prefetch never hides the roster. */
                             }
                         }
                     }
-                } finally {
-                    if (generation == refreshGeneration) mutable.update { it.copy(busy = false) }
                 }
+            } finally {
+                if (generation == refreshGeneration) mutable.update { it.copy(busy = false) }
             }
+        }
     }
 
     fun startNote() {
@@ -418,16 +414,15 @@ class InventoryViewModel(
                     val source =
                         if (!accepted) null
                         else if (camera) NotePictures.captureUri(context, binding.id) else uri
-                    val bytes =
-                        source?.let {
-                            try {
-                                NotePictures.normalize(context, it)
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (_: Exception) {
-                                throw PictureImportException()
-                            }
+                    val bytes = source?.let {
+                        try {
+                            NotePictures.normalize(context, it)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            throw PictureImportException()
                         }
+                    }
                     repository.finishCapture(binding, bytes)
                 } finally {
                     withContext(NonCancellable) {
