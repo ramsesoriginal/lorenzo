@@ -1388,6 +1388,21 @@ class LegOut(BaseModel):
     length: float | None = Field(None, title="Length")
 
 
+class LengthGoalOut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    target_words: conint(ge=1, le=100000000) | None = Field(..., title="Target Words")
+    version: int = Field(..., title="Version")
+
+
+class LengthTarget(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    target_words: conint(ge=1, le=100000000) | None = Field(..., title="Target Words")
+
+
 class LicenceIn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",

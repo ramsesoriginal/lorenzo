@@ -540,8 +540,9 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
       actions.append(link);
     }
 
-  const count = draftCount(() =>
-    editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
+  const count = draftCount(
+    () => editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
+    { tenant, id: entry, scope: 'direct' },
   );
   host.replaceChildren(
     back,

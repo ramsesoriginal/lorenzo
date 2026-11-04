@@ -1,4 +1,5 @@
 import { parse, render } from '@lorenzo/lorenzoscript';
+import { type GoalContext, lengthGoal } from './length-goal';
 
 const segmenter = new Intl.Segmenter('en', { granularity: 'word' });
 const words = (text: string) => {
@@ -49,8 +50,9 @@ function disclosure(title: string) {
   return details;
 }
 
-export function draftCount(sources: () => string[]) {
+export function draftCount(sources: () => string[], context?: GoalContext) {
   const element = disclosure('Word count');
+  const updateGoal = lengthGoal(element, context);
   const output = document.createElement('p');
   element.append(output);
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -62,6 +64,7 @@ export function draftCount(sources: () => string[]) {
       template.innerHTML = render(parse(source), { externalImages: false });
       count += words(prose(template.content));
     }
+    updateGoal(count);
     output.textContent = `Current draft · ${amount(count)}`;
   };
   element.addEventListener('toggle', draw);
@@ -86,8 +89,13 @@ function watchSelection(doc: Document) {
   });
 }
 
-export function readingCount(article: HTMLElement, passages: readonly HTMLElement[]) {
+export function readingCount(
+  article: HTMLElement,
+  passages: readonly HTMLElement[],
+  context?: GoalContext,
+) {
   const element = disclosure('Word count');
+  const updateGoal = lengthGoal(element, context);
   const total = document.createElement('p');
   const selection = document.createElement('p');
   const picker = disclosure('Choose passages');
@@ -116,6 +124,7 @@ export function readingCount(article: HTMLElement, passages: readonly HTMLElemen
       const text = prose(passage);
       return { text, count: words(text) };
     });
+    updateGoal(counts.reduce((sum, item) => sum + item.count, 0));
     total.textContent = `Assembled manuscript · ${amount(counts.reduce((sum, item) => sum + item.count, 0))}`;
     updateSelection();
   });

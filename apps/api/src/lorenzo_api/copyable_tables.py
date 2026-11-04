@@ -80,6 +80,7 @@ from lorenzo_api.models import (
     LocationPart,
     ManuscriptContents,
     ManuscriptExtraction,
+    ManuscriptGoal,
     ManuscriptJoin,
     ManuscriptMove,
     ManuscriptNumbering,
@@ -289,6 +290,7 @@ REGISTRY: tuple[CopyableTable, ...] = (
     ),
     # Relative to a player, a campaign or tenant administration, none of which a repository has
     # (RFC 0024 section 4).
+    CopyableTable("manuscript_goal", ManuscriptGoal, False, "none"),
     CopyableTable("writing_review_grant", WritingReviewGrant, False, "none"),
     CopyableTable("writing_review_note", WritingReviewNote, False, "none"),
     CopyableTable("audit_log", AuditLog, False, "none"),

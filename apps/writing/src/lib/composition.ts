@@ -236,7 +236,7 @@ export async function compositionScreen(
         article.append(img);
       }
     }
-    article.before(readingCount(article, passages));
+    article.before(readingCount(article, passages, { tenant, id, scope: 'assembled' }));
     if (location.hash.startsWith('#element-'))
       document.getElementById(location.hash.slice(1))?.scrollIntoView();
     return;
