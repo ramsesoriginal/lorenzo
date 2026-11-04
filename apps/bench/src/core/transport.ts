@@ -217,6 +217,10 @@ export interface Transport {
   renameStat(statId: string, name: string): Promise<StatDef>;
   /** Renames one allowed value of an enum stat; every stored copy of it follows (K6). */
   renameEnumValue(statId: string, valueId: string, value: string): Promise<StatDef>;
+  /** How many libraries hold a copy of a row of this repository: a number, never which (K9). */
+  countLibraries(kind: 'entry' | 'stat' | 'stat-group', id: string): Promise<number>;
+  /** Deletes an entry from the repository. Nothing a library copied is touched (K9). */
+  deleteEntry(entryId: string, version: string | null): Promise<void>;
   /**
    * The entry's main picture as a URL an image can show (a `blob:` one, fetched with the sign-in),
    * or `null` when it has none or it cannot be seen.

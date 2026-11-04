@@ -1757,6 +1757,22 @@ table.grid {
 .formula-preview {
   color: var(--muted);
 }
+.delete-ask {
+  display: grid;
+  gap: 6px;
+  margin: -14px 0 22px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.delete-ask p {
+  margin: 0;
+}
+.delete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .new-stat {
   display: flex;
   flex-wrap: wrap;

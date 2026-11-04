@@ -8,6 +8,7 @@ type SampleWindow = {
     offline: boolean;
     writes: { id: string; field: string; value: unknown }[];
     renameElsewhere(id: string, name: string): void;
+    libraries: Map<string, number>;
     editTextElsewhere(id: string, which: string, text: string): void;
     setStatElsewhere(id: string, statId: string, value: unknown): void;
   };
@@ -1481,6 +1482,77 @@ test.describe('link names', () => {
     await page.keyboard.press('Enter');
     await expect(area).toHaveValue('See [Longsword](blade)');
     await expect((await reads(page)).locator('a.ls-entity')).toHaveText('Longsword');
+  });
+});
+
+test.describe('deleting an entry, and the libraries that copied it', () => {
+  const libraries = (page: Page, id: string, n: number) =>
+    page.evaluate(
+      ([entry, count]) =>
+        (window as unknown as SampleWindow).sample.libraries.set(entry as string, count as number),
+      [id, n],
+    );
+
+  test('says how many libraries have copied it, and deletes it only when asked', async ({
+    page,
+  }) => {
+    await libraries(page, 'wolf', 3);
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Delete Wolf' }).click();
+    const ask = page.getByRole('group', { name: 'Delete Wolf' });
+    await expect(ask).toContainText('3 libraries have copied this.');
+    await expect(ask).toContainText('They will see it as removed upstream.');
+    await ask.getByRole('button', { name: 'Keep it' }).click();
+    await expect(ask).toHaveCount(0);
+    await expect(page.locator('[data-entry="wolf"]')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Delete Wolf' }).click();
+    await ask.getByRole('button', { name: 'Delete it' }).click();
+    await expect(page.locator('[data-entry="wolf"]')).toHaveCount(0);
+    await expect(page.getByText('Choose an entry in the explorer.').first()).toBeVisible();
+    // What inherited from it is still there, with nothing above it.
+    await expect(page.locator('[data-entry="dire-wolf"]')).toHaveCount(1);
+  });
+
+  test('says it in the singular, and when no library has copied it', async ({ page }) => {
+    await libraries(page, 'wolf', 1);
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Delete Wolf' }).click();
+    await expect(page.getByRole('group', { name: 'Delete Wolf' })).toContainText(
+      '1 library has copied this. It will see it as removed upstream.',
+    );
+    await page
+      .getByRole('group', { name: 'Delete Wolf' })
+      .getByRole('button', { name: 'Keep it' })
+      .click();
+    await page.locator('[data-entry="dire-wolf"]').click();
+    await page.getByRole('button', { name: 'Delete Dire wolf' }).click();
+    await expect(page.getByRole('group', { name: 'Delete Dire wolf' })).toContainText(
+      'No library has copied this.',
+    );
+  });
+
+  test('is refused while the entry has changes waiting to be sent', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await page.getByRole('button', { name: 'Delete Hound' }).click();
+    await page
+      .getByRole('group', { name: 'Delete Hound' })
+      .getByRole('button', { name: 'Delete it' })
+      .click();
+    await expect(page.locator('.delete-refused')).toContainText('changes waiting to be sent');
+    await expect(page.locator('[data-entry="wolf"]')).toHaveCount(1);
+  });
+
+  test('says when the count could not be read, and still deletes', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await page.getByRole('button', { name: 'Delete Wolf' }).click();
+    await expect(page.getByRole('group', { name: 'Delete Wolf' })).toContainText(
+      'Could not tell how many libraries have copied this.',
+    );
   });
 });
 

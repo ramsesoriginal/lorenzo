@@ -13,8 +13,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, TextIO
+from typing import Annotated, TextIO, cast
 from urllib.parse import urlsplit
+from uuid import UUID
 
 import httpx
 import typer
@@ -96,6 +97,7 @@ from lorenzo_cli.importer.review import (
 )
 from lorenzo_cli.importer.run import prepare
 from lorenzo_cli.importer.teach import ask, rows_toml, unknown_values
+from lorenzo_cli.importer.tenant_view import resolve_slugs
 from lorenzo_cli.inventory import preprocess as inventory_preprocess
 from lorenzo_cli.inventory.apply import apply as apply_inventory
 from lorenzo_cli.inventory.apply import total as inventory_total
@@ -107,6 +109,7 @@ from lorenzo_cli.report import (
     import_exit_code,
     print_evaluation,
     print_import_plan,
+    print_libraries_held,
     print_seed_list,
     print_seed_plan,
     print_unseed_plan,
@@ -124,6 +127,7 @@ from lorenzo_cli.seed import (
     UnseedResult,
     apply_plan,
     apply_unseed,
+    libraries_holding,
     load_builtin,
     make_plan,
     make_unseed_plan,
@@ -853,6 +857,11 @@ def unseed(
         if not plan.targets:
             emit(plan, None)
             return
+        held = (
+            libraries_holding(client, target.id, plan) if target.kind.value == "repository" else {}
+        )
+        if held and not as_json:
+            print_libraries_held(_out, held, len(plan.targets))
         if dry_run:
             emit(plan, None)
             raise typer.Exit(2)
@@ -1682,6 +1691,58 @@ def repo_subscribers(
         _echo_json([row.model_dump(mode="json") for row in rows])
         return
     repo_report.print_subscribers(_out, rows, public_copies=public_copies)
+
+
+@repo_app.command("libraries")
+def repo_libraries(
+    ctx: typer.Context,
+    tenant: RepositoryTenant,
+    entry: Annotated[
+        str | None, typer.Option("--entry", help="An entry of the repository: its id or link name.")
+    ] = None,
+    stat: Annotated[
+        str | None, typer.Option("--stat", help="A stat of the repository: its id or name.")
+    ] = None,
+    stat_group: Annotated[
+        str | None, typer.Option("--stat-group", help="A stat group: its id or name.")
+    ] = None,
+    as_json: JsonOption = False,
+) -> None:
+    """Say how many libraries have copied an entry, a stat or a stat group of a repository.
+
+    What deleting it would mean to them: they see it as removed upstream and keep their copy. A
+    number, never which libraries. Nothing here blocks a delete.
+    """
+    given = [
+        (kind, ref)
+        for kind, ref in (("entry", entry), ("stat", stat), ("stat-group", stat_group))
+        if ref
+    ]
+    if len(given) != 1:
+        _err.print("[red]Name exactly one of --entry, --stat and --stat-group.[/red]")
+        raise typer.Exit(2)
+    (kind, ref), runtime = given[0], cast(Runtime, ctx.obj)
+    with _reporting_errors(), _client(runtime) as client:
+        repository = resolve_tenant(client, tenant)
+        repos.require_repository_tenant(repository, what="inspected")
+        try:
+            source_id = UUID(ref)  # an id is passed through: the API checks it is this tenant's
+        except ValueError:
+            if kind == "entry":
+                hits = resolve_slugs(client, repository.id, [ref])
+                if ref not in hits:
+                    raise SelfServiceError(f"No entry with the link name “{ref}” here.") from None
+                source_id = hits[ref].entity_id
+            else:
+                rows = vocabulary_commands.vocabulary(
+                    client, repository.id, groups=kind == "stat-group"
+                )
+                source_id = vocabulary_commands.resolve(rows, ref, kind)
+        count = repos.library_count(client, repository.id, kind, source_id)  # type: ignore[arg-type]
+    if as_json:
+        _echo_json({"kind": kind, "id": str(source_id), "count": count})
+        return
+    _out.print(repos.libraries_sentence(count, "this"))
 
 
 @repo_app.command("contents")

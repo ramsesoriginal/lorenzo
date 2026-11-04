@@ -252,6 +252,71 @@ export class Bench {
     this.emit();
   }
 
+  // ---- deleting an entry (K9) -------------------------------------------------------------
+
+  /**
+   * Entries being asked about deleting: how many libraries have copied each, once that is read
+   * (`'unknown'` when it could not be), and the words of a refusal. A delete is a direct, online
+   * call, like the vocabulary's, and cannot be undone.
+   */
+  deletion = new Map<string, { libraries: number | 'unknown' | null; refused?: string }>();
+
+  /** Opens the question of deleting an entry, and reads how many libraries have copied it. */
+  async askDelete(id: string): Promise<void> {
+    if (this.deletion.has(id) || !this.onServer(id)) return;
+    this.deletion.set(id, { libraries: null });
+    this.emit();
+    let libraries: number | 'unknown' = 'unknown';
+    try {
+      libraries = await this.transport.countLibraries('entry', id);
+    } catch {
+      // Said as "could not tell": the delete itself does not wait for the count.
+    }
+    if (this.deletion.has(id)) this.deletion.set(id, { libraries });
+    this.emit();
+  }
+
+  /** Leaves the entry as it is. */
+  keepEntry(id: string): void {
+    this.deletion.delete(id);
+    this.emit();
+  }
+
+  /** Deletes the entry from the repository. The entries around it are read again. */
+  async deleteEntry(id: string): Promise<void> {
+    const asked = this.deletion.get(id);
+    if (!asked) return;
+    if (this.commandsFor(id).length) {
+      this.deletion.set(id, {
+        ...asked,
+        refused: 'This entry has changes waiting to be sent. Send them, or undo them, first.',
+      });
+      return this.emit();
+    }
+    try {
+      await this.transport.deleteEntry(id, this.mirror.get(id)?.etag ?? null);
+    } catch (e) {
+      const refused = e instanceof Error ? e.message : 'The entry could not be deleted.';
+      this.deletion.set(id, { ...asked, refused });
+      return this.emit();
+    }
+    const around = [...this.mirror.entries()]
+      .filter(([other, e]) => other !== id && (e.parentIds.includes(id) || e.childIds.includes(id)))
+      .map(([other]) => other);
+    this.mirror.delete(id);
+    this.deletion.delete(id);
+    await this.loadEntries();
+    for (const other of around) {
+      try {
+        this.mirror.set(other, await this.transport.getEntry(other));
+      } catch {
+        // Read again when it is opened.
+        this.mirror.delete(other);
+      }
+    }
+    this.emit();
+  }
+
   // ---- reading ----------------------------------------------------------------------------
 
   async loadEntries(): Promise<void> {
