@@ -133,7 +133,7 @@ All data is made up and held in memory (`hub-data.js`). Nothing calls the API; p
 
 ### What was checked
 
-- 37 scripted interactions in Playwright, all passing.
+- 36 scripted checks in Playwright (interactions and 44px targets), all passing.
 - axe-core: no violations on 18 routes at 430 and 1440 wide, in light and dark.
 - Touch targets of at least 44px at 430 wide on five routes.
 - No console errors.
