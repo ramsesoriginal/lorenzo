@@ -445,6 +445,20 @@ class StatGroupNameTakenError(ConflictProblem):
     title = "A stat group with this name already exists"
 
 
+class StatDefinitionNameTakenError(ConflictProblem):
+    """PATCH /stat-definitions/{id} - another definition of the tenant already has the
+    name (UNIQUE(tenant_id, name), ADR 0385)."""
+
+    title = "A stat with this name already exists"
+
+
+class StatNameReservedError(ConflictProblem):
+    """PATCH of a stat the API reads by name, or of the value `none` of `binding` - renaming it
+    would change what the API does (ADR 0385)."""
+
+    title = "The API reads this stat by name"
+
+
 class InvalidStatHintError(UnprocessableProblem):
     """POST/PATCH /stat-definitions - a hint is not a stat definition of this
     tenant, is the definition itself, or (a minimum or maximum) is not a

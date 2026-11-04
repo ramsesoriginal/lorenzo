@@ -57,6 +57,7 @@ def definition(name: str, group_out: StatGroupOut, value_type: str) -> StatDefin
             "stat_group_id": group_out.id,
             "value_type": value_type,
             "enum_values": [],
+            "enum_options": [],
             "unit": None,
             "adjustable_in_play": False,
             "pin": False,

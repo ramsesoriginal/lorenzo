@@ -74,6 +74,7 @@ AUTHORING = {
     ("POST", T + "/stat-definitions"),
     ("GET", STAT_DEFINITION + "/dependents"),
     ("POST", STAT_DEFINITION + "/enum-values"),
+    ("PATCH", STAT_DEFINITION + "/enum-values/{enum_value_id}"),
     ("POST", T + "/stat-groups"),
     ("PATCH", STAT_GROUP),
     ("PUT", T + "/stat-groups/order"),
