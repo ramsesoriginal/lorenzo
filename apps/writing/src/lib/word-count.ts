@@ -1,46 +1,7 @@
-import { parse, render } from '@lorenzo/lorenzoscript';
 import { type GoalContext, lengthGoal } from './length-goal';
+import { countSources, prose, words } from './manuscript-count';
 
-const segmenter = new Intl.Segmenter('en', { granularity: 'word' });
-const words = (text: string) => {
-  let total = 0;
-  for (const segment of segmenter.segment(text)) if (segment.isWordLike) total++;
-  return total;
-};
 const amount = (count: number) => `${count} ${count === 1 ? 'word' : 'words'}`;
-
-// Keep inline formatting continuous. Separate blocks, cells and omitted non-prose nodes.
-function prose(root: Node, range?: Range): string {
-  const parts: string[] = [];
-  const visit = (node: Node) => {
-    if (range && !range.intersectsNode(node)) return;
-    if (node.nodeType === Node.TEXT_NODE) {
-      const value = node.textContent ?? '';
-      parts.push(
-        value.slice(
-          range?.startContainer === node ? range.startOffset : 0,
-          range?.endContainer === node ? range.endOffset : undefined,
-        ),
-      );
-      return;
-    }
-    if (
-      node instanceof Element &&
-      node.matches('nav,pre,code,math,img,input,sup.ls-fnref,a.ls-backref')
-    ) {
-      parts.push(' ');
-      return;
-    }
-    const boundary =
-      node instanceof Element &&
-      node.matches('p,h1,h2,h3,h4,h5,h6,br,li,th,td,div,section,blockquote,hr');
-    if (boundary) parts.push(' ');
-    for (const child of node.childNodes) visit(child);
-    if (boundary) parts.push(' ');
-  };
-  visit(root);
-  return parts.join('');
-}
 
 function disclosure(title: string) {
   const details = document.createElement('details');
@@ -58,12 +19,7 @@ export function draftCount(sources: () => string[], context?: GoalContext) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const draw = () => {
     if (!element.open || !element.isConnected) return;
-    const template = document.createElement('template');
-    let count = 0;
-    for (const source of sources()) {
-      template.innerHTML = render(parse(source), { externalImages: false });
-      count += words(prose(template.content));
-    }
+    const count = countSources(sources());
     updateGoal(count);
     output.textContent = `Current draft · ${amount(count)}`;
   };

@@ -360,6 +360,9 @@ test('a long manuscript keeps the caret and saves without replacing the editor',
     );
     await page.reload();
     await expect(text).toHaveValue(source);
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
     await text.focus();
     await text.press('Control+End');
     await text.press('a');
@@ -369,6 +372,7 @@ test('a long manuscript keeps the caret and saves without replacing the editor',
     });
     await expect(text).toBeFocused();
     expect(await text.evaluate((el) => (el as HTMLTextAreaElement).selectionStart)).toBe(before);
+    await expect(page.getByText('Session progress · +1 word', { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('writing-desktop.png'), fullPage: false });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: testInfo.outputPath('writing-phone.png'), fullPage: false });
@@ -677,6 +681,9 @@ test('extract complete prose and a child into a Chapter without changing the rea
     await page.getByRole('link', { name: 'The crossing', exact: true }).click();
     await manuscript.fill('The boat reached the shore.');
     await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
     await page.goto(`/?tenant=${tenant.id}&entry=${edition}&view=outline`);
     await page.getByText('Extract a Chapter', { exact: true }).click();
     await page.getByLabel('First element', { exact: true }).selectOption('0');
@@ -698,6 +705,9 @@ test('extract complete prose and a child into a Chapter without changing the rea
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
     await page.getByRole('link', { name: 'At sea', exact: true }).click();
     await expect(manuscript).toHaveValue(prose);
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Outline', exact: true }).click();
     await expect(page.getByRole('link', { name: 'The crossing', exact: true })).toBeVisible();
   } finally {
@@ -1493,6 +1503,162 @@ test('a timer remains usable when tab storage is unavailable', async ({ browser 
     ).toBeVisible();
     await page.getByRole('button', { name: 'Start timer', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Pause timer', exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});
+
+test('session goals count signed editing changes and rebase loaded revisions', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.fill('The river remembers.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const open = async () => {
+      await page.getByText('Word count', { exact: true }).click();
+      await page.getByText('Writing session', { exact: true }).click();
+    };
+    await open();
+    await page.getByLabel('Session word target').fill('2');
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
+    await page.route(`${API_URL}/tenants/**/payloads/*`, (route) =>
+      route.request().method() === 'PATCH' ? route.abort() : route.continue(),
+    );
+    await manuscript.fill('The river remembers every crossing.');
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toBeVisible();
+    await expect(page.getByText('Session target reached.', { exact: true })).toBeVisible();
+    await expect(manuscript).toBeFocused();
+    await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+      'Use Save now to retry',
+    );
+    await page.unroute(`${API_URL}/tenants/**/payloads/*`);
+    await page.getByRole('button', { name: 'Save now', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toBeVisible();
+    await manuscript.fill('The river.');
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.reload();
+    await open();
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await page.getByText('Saved revisions', { exact: true }).click();
+    await page
+      .locator('details')
+      .filter({ has: page.getByText('Saved revisions', { exact: true }) })
+      .getByRole('button')
+      .first()
+      .click();
+    await page.getByRole('button', { name: 'Load this revision as a draft' }).click();
+    await expect(manuscript).toHaveValue('The river remembers every crossing.');
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Save now', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Finish session', exact: true }).click();
+    await manuscript.fill('An ending.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await expect(page.getByText('Session progress · -1 word', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Start new session', exact: true }).click();
+    await manuscript.fill('An ending follows here.');
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('session progress does not credit another version or leak to another account', async ({
+  browser,
+}) => {
+  const { page, context, api, owner, tenant } = await world(browser);
+  try {
+    const open = async () => {
+      await page.getByText('Word count', { exact: true }).click();
+      await page.getByText('Writing session', { exact: true }).click();
+    };
+    await open();
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
+    const entry = new URL(page.url()).searchParams.get('entry') as string;
+    const entity = await ok(
+      api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+        params: { path: { tenant_id: tenant.id, entity_id: entry } },
+      }),
+    );
+    const payload = entity.information.find((i) => i.type === 'manuscript')?.payloads[0];
+    if (!payload) throw new Error('No manuscript');
+    await ok(
+      api.PATCH('/tenants/{tenant_id}/payloads/{payload_id}', {
+        params: {
+          path: { tenant_id: tenant.id, payload_id: payload.id },
+          header: { 'if-match': `W/"${payload.updated_at}"` },
+        },
+        body: { content: 'Written elsewhere with many more words.' },
+      }),
+    );
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('My words.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+      'changed elsewhere',
+    );
+    await page.getByRole('button', { name: 'Use saved manuscript', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toHaveValue(
+      'Written elsewhere with many more words.',
+    );
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toBeVisible();
+    const subject = `session-other-${randomUUID()}`;
+    const other = await apiAs(subject);
+    const user = await ok(other.GET('/me'));
+    await ok(
+      owner.POST('/tenants/{tenant_id}/memberships', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { user_id: user.id, role: 'author' },
+      }),
+    );
+    await page.evaluate(({ key, token }) => localStorage.setItem(key, token), {
+      key: REFRESH_TOKEN_KEY,
+      token: await refreshTokenFor(subject),
+    });
+    await page.reload();
+    await open();
+    await expect(page.getByRole('button', { name: 'Start session', exact: true })).toBeVisible();
+    await expect(page.getByText('Session progress · +2 words', { exact: true })).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+});
+
+test('session progress stays usable when local recovery is blocked', async ({ browser }) => {
+  const { page, context } = await world(browser);
+  try {
+    await page.addInitScript(() => {
+      const get = Storage.prototype.getItem;
+      const set = Storage.prototype.setItem;
+      Storage.prototype.getItem = function (key) {
+        if (key.startsWith('lorenzo:writing-session:')) throw new Error('Storage blocked');
+        return get.call(this, key);
+      };
+      Storage.prototype.setItem = function (key, value) {
+        if (key.startsWith('lorenzo:writing-session:')) throw new Error('Storage blocked');
+        return set.call(this, key, value);
+      };
+    });
+    await page.reload();
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await expect(
+      page.getByText(
+        'Session progress works here, but cannot be restored after reloading this tab.',
+      ),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Manuscript', exact: true }).fill('One');
+    await expect(page.getByText('Session progress · +1 word', { exact: true })).toBeVisible();
   } finally {
     await context.close();
   }

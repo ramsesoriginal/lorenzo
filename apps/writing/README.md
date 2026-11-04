@@ -88,6 +88,12 @@ the generated list before their authored prose. Index and Glossary Chapters stay
 LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
 combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
 
+**Writing session goals** ([ADR 0394](../../docs/adr/0394-personal-net-new-writing-session-goals.md))
+count net editing changes after Start, including unsaved work. Deletions subtract; structure
+changes, loaded revisions and other authors' versions add no credit. Progress follows this
+browser tab across entries and reload, separately for each account and library. Finish retains
+the result until you explicitly start a new session. This is drafting progress, not saved activity.
+
 **Writing timer** ([ADR 0393](../../docs/adr/0393-personal-writing-timer.md)) lives inside
 Word count in Write. Choose minutes, start, pause, resume or reset. It survives reload and
 entry navigation within this browser tab, separately for each account and library, and
