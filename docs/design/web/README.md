@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; overlays decided; account and library flows and first run next. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; first run and the account decided; the shell prototype is next. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -212,6 +212,15 @@ Turned down: the palette centered without a preview everywhere; anchored to the 
 - **Menus** are popovers with shortcut hints at the right and a divider before a destructive item. A row's actions are a visible button, never hover-only. On a phone a menu is a bottom sheet with 44 to 48px rows.
 
 Turned down: a centered dialog at the tablet step.
+
+### D27. First run, the account and joining (decided with the maintainer, 2026-11-04)
+
+- **First run** for an account with no library: two doors on one screen, "I run a game" (set up a library) and "I'm joining a game" (an invite link field), with the mascot image `first-run-welcome`. Turned down: a single start with a quiet invite field; a sample library to try first.
+- **The word is "library"**: "Set up a library", not "Set up a table".
+- **"Just looking around"** (browse public repositories) is hidden entirely when public repositories are off in the deployment.
+- **An account with no library but an invite pending** sees the joining page; the first-run page appears only when there is neither a library nor an invite.
+- **The account menu** holds Profile, Notifications, Libraries and people, Access tokens and devices, Appearance, Keyboard shortcuts and Sign out. Signing out with unsent changes says plainly what is only on the device and what happens to it.
+- **Joining** has four moments: preview signed out, preview signed in, done, and one message for every link that does not work.
 
 ## Open questions
 
