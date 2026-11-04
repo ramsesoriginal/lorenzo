@@ -111,6 +111,20 @@ Shown only when a person has more than one library. Hide the complexity when it 
 
 No edge on icon buttons in a toolbar (bell, search icon, account). Controls that look like fields or secondary buttons keep the D6 edge.
 
+### D16. Navigation between apps (decided with the maintainer, 2026-11-04)
+
+No app switcher (RFC 0036 section 2 and ADR 0322 stand). Four mechanisms, each with one job:
+1. **Links from the data** cross to the thing itself ("Open Mara Quill in Beings"), built from the `GET /app-links` templates.
+2. **Home**: every app has its own home. All homes share one block, "Continue" (what you were doing, across apps) and "What do you want to do?" (the apps by job); the rest of each home is specific to that app. The brand mark goes to the current app's home.
+3. **The footer** lists every app by job (desktop); on a phone the same list is the More sheet of the tab bar.
+4. **The palette** goes to other apps and to entries across apps, not only within the current app.
+
+An app that is not deployed, or that a person's role cannot use, is not listed. Turned down: a brand menu in the global tier (an app switcher); a single Home in account-hub; the footer list alone.
+
+### D17. Grouping of the apps (decided with the maintainer, 2026-11-04)
+
+By job: Play (Sessions, Beings, Inventory), World (Calendars, Maps, Writing), Build (Bench), You (Account). The names of the groups are working names.
+
 ## Input for the footer (not decided)
 
 From the maintainer, 2026-11-04. The footer shows information (current version, a date or clock, links to the Impressum and the Datenschutzerklärung) and a status bar with meta information specific to the app (word counts in Writing, carried weight in the inventory, and similar). The navigation between apps may also live there. Decided after the navigation between apps.
