@@ -71,8 +71,9 @@ class InventoryRepositoryTest {
         override suspend fun draft(scope: String, id: String) =
             drafts.value.firstOrNull { it.scope == scope && it.id == id }
 
-        override fun observeDraft(scope: String, id: String) =
-            drafts.map { rows -> rows.firstOrNull { it.scope == scope && it.id == id } }
+        override fun observeDraft(scope: String, id: String) = drafts.map { rows ->
+            rows.firstOrNull { it.scope == scope && it.id == id }
+        }
 
         override suspend fun drafts(scope: String) = drafts.value.filter { it.scope == scope }
 
