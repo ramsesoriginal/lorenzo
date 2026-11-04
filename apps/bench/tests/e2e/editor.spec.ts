@@ -1553,6 +1553,9 @@ test.describe('deleting an entry, and the libraries that copied it', () => {
     await expect(page.getByRole('group', { name: 'Delete Wolf' })).toContainText(
       'Could not tell how many libraries have copied this.',
     );
+  });
+});
+
 test.describe('new from parent and duplicate (K4)', () => {
   test('New under this opens the New form with the entry as the parent', async ({ page }) => {
     await page.locator('[data-entry="wolf"]').click();
