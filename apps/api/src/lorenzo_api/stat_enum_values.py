@@ -1,4 +1,4 @@
-"""Where an enum value's text is held, and what renames it - ADR 0385.
+"""Where an enum value's text is held, and what renames it - ADR 0390.
 
 An enum value has no foreign key to its row: an entry's value of an enum stat is the text
 (`entity_stat.value_text`), and a comparison formula whose target is the enum returns one of two

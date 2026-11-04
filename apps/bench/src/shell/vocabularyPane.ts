@@ -1,5 +1,5 @@
 // The Vocabulary pane: the stats the repository defines, and making, renaming and deleting them
-// (ADR 0253, ADR 0385). A stat or one of its values is renamed in place; its kind of value is not.
+// (ADR 0253, ADR 0390). A stat or one of its values is renamed in place; its kind of value is not.
 
 import type { Bench } from '../core/bench';
 import type { StatDef, StatGroup, StatType } from '../core/transport';

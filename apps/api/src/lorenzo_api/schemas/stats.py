@@ -25,7 +25,7 @@ __all__ = [
 
 # ADR 0278: a unit is a few characters ("ft", "lb", "in.").
 UnitText = Annotated[str, Field(min_length=1, max_length=32)]
-# ADR 0385: a stat's name and an enum value are not empty.
+# ADR 0390: a stat's name and an enum value are not empty.
 NameText = Annotated[str, Field(min_length=1)]
 
 
@@ -122,7 +122,7 @@ class StatDefinitionCreate(BaseModel):
 class StatDefinitionUpdate(BaseModel):
     """PATCH /stat-definitions/{id} - ADR 0278. Merge-patch semantics
     (`exclude_unset`); `unit` may be set to null to clear it. A definition's
-    `name` is editable (ADR 0385); its type and group are not."""
+    `name` is editable (ADR 0390); its type and group are not."""
 
     name: NameText | None = None
     unit: UnitText | None = None
@@ -145,7 +145,7 @@ class StatDefinitionUpdate(BaseModel):
 
 
 class StatEnumOptionOut(BaseModel):
-    """One allowed value of an enum stat with the id a client addresses it by (ADR 0385)."""
+    """One allowed value of an enum stat with the id a client addresses it by (ADR 0390)."""
 
     id: uuid.UUID
     value: str
@@ -165,7 +165,7 @@ class StatDefinitionOut(BaseModel):
     # The allowed values of an enum stat, in display order; empty for any
     # other type (ADR 0103).
     enum_values: list[str]
-    # The same values with their ids and order, to edit one by (ADR 0385).
+    # The same values with their ids and order, to edit one by (ADR 0390).
     enum_options: list[StatEnumOptionOut]
     # How the stat is shown, and where it comes in its group (ADR 0278).
     unit: str | None
@@ -215,7 +215,7 @@ class StatEnumValueCreate(BaseModel):
 
 
 class StatEnumValueUpdate(BaseModel):
-    """PATCH .../stat-definitions/{id}/enum-values/{value_id} - ADR 0385. Renames a value
+    """PATCH .../stat-definitions/{id}/enum-values/{value_id} - ADR 0390. Renames a value
     (every stored copy follows) and/or sets its sort_order; neither can be null."""
 
     value: NameText | None = None

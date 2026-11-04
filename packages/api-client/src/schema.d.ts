@@ -6860,7 +6860,7 @@ export interface paths {
         head?: never;
         /**
          * Update Stat Definition
-         * @description Edits a stat's name (ADR 0385) and how it is shown - its unit, sign,
+         * @description Edits a stat's name (ADR 0390) and how it is shown - its unit, sign,
          *     adjustable-in-play and pinned flags, its position in its group (ADR 0278)
          *     and its hints (ADR 0279). A definition's type and group are not editable
          *     here; a retype is breaking for the libraries that copied it. A name
@@ -6929,7 +6929,7 @@ export interface paths {
         /**
          * Remove Stat Enum Value
          * @description Removes one allowed value - ADR 0103. 409 while any entity directly
-         *     holds it or a comparison formula for this stat returns it (ADR 0385):
+         *     holds it or a comparison formula for this stat returns it (ADR 0390):
          *     removing it would leave stored values outside the allowed set. Returns
          *     the definition, like the add route.
          */
@@ -6938,7 +6938,7 @@ export interface paths {
         head?: never;
         /**
          * Update Stat Enum Value
-         * @description Renames an allowed value and/or sets its sort_order - ADR 0385. A
+         * @description Renames an allowed value and/or sets its sort_order - ADR 0390. A
          *     rename rewrites every stored copy of the old text (entries' values and
          *     a comparison formula's `true_value`/`false_value`) in the same
          *     transaction. 409 for a value this stat already allows, and for the value
@@ -15384,7 +15384,7 @@ export interface components {
          * StatDefinitionUpdate
          * @description PATCH /stat-definitions/{id} - ADR 0278. Merge-patch semantics
          *     (`exclude_unset`); `unit` may be set to null to clear it. A definition's
-         *     `name` is editable (ADR 0385); its type and group are not.
+         *     `name` is editable (ADR 0390); its type and group are not.
          */
         StatDefinitionUpdate: {
             /** Name */
@@ -15408,7 +15408,7 @@ export interface components {
         };
         /**
          * StatEnumOptionOut
-         * @description One allowed value of an enum stat with the id a client addresses it by (ADR 0385).
+         * @description One allowed value of an enum stat with the id a client addresses it by (ADR 0390).
          */
         StatEnumOptionOut: {
             /**
@@ -15434,7 +15434,7 @@ export interface components {
         };
         /**
          * StatEnumValueUpdate
-         * @description PATCH .../stat-definitions/{id}/enum-values/{value_id} - ADR 0385. Renames a value
+         * @description PATCH .../stat-definitions/{id}/enum-values/{value_id} - ADR 0390. Renames a value
          *     (every stored copy follows) and/or sets its sort_order; neither can be null.
          */
         StatEnumValueUpdate: {

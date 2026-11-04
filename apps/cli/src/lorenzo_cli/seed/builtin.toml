@@ -14,7 +14,7 @@
 # An entry may name entries of its own layer or of a layer it is built on, never of a sibling's.
 #
 # Stat definitions and groups can't be retyped or moved once a tenant has them (ADR 0014, 0143),
-# and a library's copy takes a rename as an update (ADR 0119, 0121, 0385): the seed finds a stat by
+# and a library's copy takes a rename as an update (ADR 0119, 0121, 0390): the seed finds a stat by
 # its name, so one an author renamed is made again by the next seed, as one they deleted is.
 # Changing a `value_type` later cannot be applied.
 #

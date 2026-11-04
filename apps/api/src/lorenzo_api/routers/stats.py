@@ -537,7 +537,7 @@ async def update_stat_definition(
     body: StatDefinitionUpdate,
     session: SessionDep,
 ) -> StatDefinitionOut:
-    """Edits a stat's name (ADR 0385) and how it is shown - its unit, sign,
+    """Edits a stat's name (ADR 0390) and how it is shown - its unit, sign,
     adjustable-in-play and pinned flags, its position in its group (ADR 0278)
     and its hints (ADR 0279). A definition's type and group are not editable
     here; a retype is breaking for the libraries that copied it. A name
@@ -721,7 +721,7 @@ async def remove_stat_enum_value(
     session: SessionDep,
 ) -> StatDefinitionOut:
     """Removes one allowed value - ADR 0103. 409 while any entity directly
-    holds it or a comparison formula for this stat returns it (ADR 0385):
+    holds it or a comparison formula for this stat returns it (ADR 0390):
     removing it would leave stored values outside the allowed set. Returns
     the definition, like the add route.
     """
@@ -750,7 +750,7 @@ async def update_stat_enum_value(
     body: StatEnumValueUpdate,
     session: SessionDep,
 ) -> StatDefinitionOut:
-    """Renames an allowed value and/or sets its sort_order - ADR 0385. A
+    """Renames an allowed value and/or sets its sort_order - ADR 0390. A
     rename rewrites every stored copy of the old text (entries' values and
     a comparison formula's `true_value`/`false_value`) in the same
     transaction. 409 for a value this stat already allows, and for the value

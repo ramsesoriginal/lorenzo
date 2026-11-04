@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ok } from '../../../beings/tests/e2e/support/api.ts';
 import { expect, test } from '../../../beings/tests/e2e/support/fixtures.ts';
 
-// ADR 0385: a stat and one of its values are renamed in place, and the entries that hold the
+// ADR 0390: a stat and one of its values are renamed in place, and the entries that hold the
 // value follow (the server rewrites every stored copy, a comparison formula's result included).
 test('a stat and an enum value are renamed, and what held the value follows', async ({
   world,

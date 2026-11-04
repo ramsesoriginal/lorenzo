@@ -41,4 +41,4 @@ Nothing about copies needs to change, because the link rows that track them alre
 - The OpenAPI document gains the two routes; the CLI's operation table follows ([ADR 0137](0137-lorenzo-cli-app-python-client-and-auth.md)).
 - The seed's own comment that definitions "can't be renamed, retyped or removed" (`builtin.toml`) reads "or removed while in use", and ADR 0014 gets an addendum pointing here.
 
-*Addendum, 2026-11-03: "Rename and retype stay impossible" no longer holds for rename: [ADR 0385](0385-renaming-a-stat-and-an-enum-value.md) renames a definition and an enum value, and an enum value a formula returns now counts as in use. Retype and moving a definition stay impossible.*
+*Addendum, 2026-11-03: "Rename and retype stay impossible" no longer holds for rename: [ADR 0390](0390-renaming-a-stat-and-an-enum-value.md) renames a definition and an enum value, and an enum value a formula returns now counts as in use. Retype and moving a definition stay impossible.*

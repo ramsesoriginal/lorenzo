@@ -265,7 +265,7 @@ async def test_a_flag_cannot_be_set_to_null_and_type_is_not_patchable(
     assert (await client.patch(url, json={"pin": None})).status_code == 422
     unchanged = await client.patch(url, json={"name": "renamed", "value_type": "text"})
     assert unchanged.status_code == 200
-    assert unchanged.json()["name"] == "renamed"  # ADR 0385
+    assert unchanged.json()["name"] == "renamed"  # ADR 0390
     assert unchanged.json()["value_type"] == "int"
     await delete_tenant(tenant_id)
 

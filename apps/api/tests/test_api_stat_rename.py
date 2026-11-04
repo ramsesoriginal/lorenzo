@@ -1,4 +1,4 @@
-"""ADR 0385: renaming a stat definition and an enum value, the rewrite of every stored copy of an
+"""ADR 0390: renaming a stat definition and an enum value, the rewrite of every stored copy of an
 enum value's text, an enum value a formula returns counting as in use, and what a library sees.
 """
 
@@ -347,7 +347,7 @@ async def test_a_value_a_formula_returns_is_in_use(
 
 
 async def test_every_column_that_can_hold_an_enum_value_is_one_the_rename_rewrites() -> None:
-    """The columns named like the text of an enum value are the three ADR 0385 rewrites. Another
+    """The columns named like the text of an enum value are the three ADR 0390 rewrites. Another
     one appearing (a new formula kind with texts, say) fails here until it is rewritten too."""
     async with admin_session_factory() as session:
         found = {

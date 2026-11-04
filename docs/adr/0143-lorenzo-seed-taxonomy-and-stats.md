@@ -46,4 +46,4 @@ Two properties make this the part to get right first. Stat groups and definition
 - About twenty-two items, six groups and twelve definitions are written into a tenant before its first import. That is the cost R8 accepted. ([ADR 0146](0146-a-richer-item-taxonomy-and-keeping-what-the-sheet-says.md) later grew the seed to 61 nodes and 40 definitions.)
 - The end-to-end stack costs about a minute in CI, and it is what slices 4 and 6 will be proved with.
 
-*Addendum, 2026-11-03: [ADR 0385](0385-renaming-a-stat-and-an-enum-value.md) makes a stat definition and an enum value renameable. A stat still cannot be retyped or moved, and the seed still stops on that.*
+*Addendum, 2026-11-03: [ADR 0390](0390-renaming-a-stat-and-an-enum-value.md) makes a stat definition and an enum value renameable. A stat still cannot be retyped or moved, and the seed still stops on that.*
