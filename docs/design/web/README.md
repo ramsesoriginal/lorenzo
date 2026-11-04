@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) has started: [account-hub](account-hub/README.md), the prototype is built and ready for review (decisions AH1 to AH9 are logged there).
+Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) has started: [account-hub](account-hub/README.md), decided (AH1 to AH9); [writing](writing/README.md), the brief and its questions.
 
 ## Layout of this directory
 
