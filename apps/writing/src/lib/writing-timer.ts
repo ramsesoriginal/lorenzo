@@ -108,12 +108,13 @@ export function writingTimer(api: string, account: string, tenant: string) {
     const value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
     if (clock.textContent !== value) clock.textContent = value;
     minutes.disabled = state.started && state.remaining !== 0;
-    action.textContent =
+    const actionLabel =
       state.deadline !== null
         ? 'Pause timer'
         : state.started && state.remaining > 0
           ? 'Resume timer'
           : 'Start timer';
+    if (action.textContent !== actionLabel) action.textContent = actionLabel;
   };
   form.addEventListener('submit', (event) => {
     event.preventDefault();
