@@ -24,6 +24,7 @@ import {
   type Backlink,
   canEditStat,
   type EditableKind,
+  type EffectivePage,
   type EntryFieldTarget,
   type EntryState,
   type EntrySummary,
@@ -385,40 +386,63 @@ export class Bench {
     return !!this.entry(id) && !this.pendingCreate(id);
   }
 
+  // ---- the grid's columns, read in bulk (K7) -------------------------------------------------
+
   /**
-   * Reads every entry's detail, a few at a time, quietly, so a view of many entries (the compare
-   * grid) has their stats. There is no bulk read yet (RFC 0041 K7): this is one read an entry,
-   * which is fine for hundreds and slow for thousands. The screen is told now and then, and at the end.
+   * The values of the stats the grid shows, by entry and stat, read a page of entries at a time
+   * (`GET .../entities/effective-stats`): their own and inherited values with formulas worked out,
+   * for entries whose detail is not read. An entry's own `view` wins once it is read, so what is
+   * edited shows as edited. An entry is read in full when the person first changes it.
    */
-  async loadAll(concurrency = 6): Promise<void> {
-    // One run at a time: the grid asks again each time the page is drawn.
-    this.reading ??= this.readAll(concurrency).finally(() => {
-      this.reading = null;
-    });
-    return this.reading;
+  private columns = new Map<string, Map<string, { value: StatScalar; own: boolean }>>();
+  private columnsFor = '';
+  private columnsReading: Promise<void> | null = null;
+
+  /** Reads the columns (once for a set of stats, until the set changes). */
+  loadColumns(statIds: string[]): Promise<void> {
+    const key = [...statIds].sort().join(',');
+    if (!statIds.length) return Promise.resolve();
+    if (this.columnsFor !== key) {
+      this.columnsFor = key;
+      this.columns = new Map();
+      this.columnsReading = null;
+    }
+    this.columnsReading ??= this.readColumns(statIds, key);
+    return this.columnsReading;
   }
-  private reading: Promise<void> | null = null;
-  private async readAll(concurrency: number): Promise<void> {
-    const ids = this.entries
-      .map((e) => e.id)
-      .filter((id) => !this.mirror.has(id) && !this.pendingCreate(id));
-    let next = 0;
-    let done = 0;
-    const worker = async () => {
-      while (next < ids.length) {
-        await this.open(ids[next++] as string, true);
-        if (++done % 60 === 0) this.emitLater();
+  private async readColumns(statIds: string[], key: string): Promise<void> {
+    for (let page = 1, pages = 1; page <= pages; page++) {
+      let got: EffectivePage;
+      try {
+        got = await this.transport.readEffectiveStats(statIds, page);
+      } catch {
+        // Not read (offline, or refused): asked again the next time the grid is drawn.
+        if (this.columnsFor === key) this.columnsReading = null;
+        return;
       }
-    };
-    await Promise.all(Array.from({ length: Math.min(concurrency, ids.length) }, worker));
-    if (ids.length) this.emitLater();
+      if (this.columnsFor !== key) return;
+      pages = got.pages;
+      for (const row of got.items)
+        this.columns.set(
+          row.entryId,
+          new Map(row.stats.map((s) => [s.statId, { value: s.value, own: s.own }])),
+        );
+      this.emitLater();
+    }
   }
 
-  /** How many entries have their detail read, of how many there are. */
+  /** What the columns read says of an entry, for an entry whose detail is not read. */
+  columnValues(id: string): ReadonlyMap<string, { value: StatScalar; own: boolean }> {
+    return this.columns.get(id) ?? new Map();
+  }
+
+  /** How many entries have what the grid shows read (in bulk or in full), of how many there are. */
   loaded(): { read: number; of: number } {
     const of = this.entries.length;
     return {
-      read: this.entries.filter((e) => this.mirror.has(e.id) || this.pendingCreate(e.id)).length,
+      read: this.entries.filter(
+        (e) => this.mirror.has(e.id) || this.pendingCreate(e.id) || this.columns.has(e.id),
+      ).length,
       of,
     };
   }
@@ -847,6 +871,11 @@ export class Bench {
 
   /** Sets the entry's own value for a stat, or with `null` removes it so the entry inherits. */
   setStat(entryId: string, statId: string, value: StatScalar | null): Command | null {
+    // An entry the grid has only read in bulk is read in full first: a change names its version.
+    if (!this.view(entryId) && this.entry(entryId)) {
+      void this.open(entryId).then(() => this.change('stat.set', entryId, value, statId));
+      return null;
+    }
     return this.change('stat.set', entryId, value, statId);
   }
 

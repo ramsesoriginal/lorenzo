@@ -95,6 +95,12 @@ export interface StatDef {
   enumIds?: string[];
 }
 
+/** A page of `readEffectiveStats`. */
+export interface EffectivePage {
+  items: { entryId: string; stats: { statId: string; value: StatScalar; own: boolean }[] }[];
+  pages: number;
+}
+
 /** One stat on an entry, as the server resolved it. `own` false means it is inherited. */
 export interface StatValue {
   statId: string;
@@ -221,6 +227,11 @@ export interface Transport {
   countLibraries(kind: 'entry' | 'stat' | 'stat-group', id: string): Promise<number>;
   /** Deletes an entry from the repository. Nothing a library copied is touched (K9). */
   deleteEntry(entryId: string, version: string | null): Promise<void>;
+  /**
+   * One page of the effective values of some stats on every entry, in the list's order, in one
+   * request (K7): for each entry the stats it has a value for, and whether it holds each itself.
+   */
+  readEffectiveStats(statIds: string[], page: number): Promise<EffectivePage>;
   /**
    * The entry's main picture as a URL an image can show (a `blob:` one, fetched with the sign-in),
    * or `null` when it has none or it cannot be seen.

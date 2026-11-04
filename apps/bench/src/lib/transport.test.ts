@@ -588,6 +588,46 @@ describe('apiTransport', () => {
     });
   });
 
+  describe('the effective stats of a page of entries (K7)', () => {
+    it('asks for the stats and the page, and reads each entry with whether it holds the value', async () => {
+      const { transport, calls } = setup(() =>
+        json({
+          items: [
+            {
+              id: E,
+              name: 'Wolf',
+              stats: [
+                {
+                  stat_definition_id: S_INT,
+                  value: 12,
+                  own: false,
+                  computed: false,
+                  from_entity: null,
+                },
+              ],
+            },
+            { id: P, name: 'Rock', stats: [] },
+          ],
+          total: 2,
+          page: 2,
+          size: 100,
+          pages: 3,
+        }),
+      );
+      const page = await transport.readEffectiveStats([S_INT, S_BOOL], 2);
+      expect(calls[0]?.url).toBe(
+        `/tenants/${T}/entities/effective-stats?stat_definition_id=${S_INT}&stat_definition_id=${S_BOOL}&page=2&size=100`,
+      );
+      expect(page).toEqual({
+        pages: 3,
+        items: [
+          { entryId: E, stats: [{ statId: S_INT, value: 12, own: false }] },
+          { entryId: P, stats: [] },
+        ],
+      });
+    });
+  });
+
   describe('kinds', () => {
     const base = `/tenants/${T}/entities/${E}`;
     const send = async (kind: 'item' | 'being', on: boolean) => {

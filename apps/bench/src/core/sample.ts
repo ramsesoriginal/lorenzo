@@ -10,6 +10,7 @@ import {
   canRename,
   canSetParents,
   type EditableKind,
+  type EffectivePage,
   type EntryState,
   type EntrySummary,
   type HeldFormula,
@@ -678,6 +679,20 @@ export class SampleTransport implements Transport {
       if (other.heldBy === id) other.heldBy = undefined;
     }
     this.writes.push({ id, field: 'delete', value: true });
+  }
+  async readEffectiveStats(statIds: string[], page: number): Promise<EffectivePage> {
+    this.need();
+    const size = 100;
+    const all = [...this.rows.keys()].sort((a, b) => a.localeCompare(b));
+    return {
+      pages: Math.max(1, Math.ceil(all.length / size)),
+      items: all.slice((page - 1) * size, page * size).map((id) => ({
+        entryId: id,
+        stats: this.effective(id)
+          .filter((s) => statIds.includes(s.statId) && s.value !== null)
+          .map((s) => ({ statId: s.statId, value: s.value as StatScalar, own: s.own })),
+      })),
+    };
   }
   async deleteStat(statId: string): Promise<void> {
     this.need();
