@@ -11,6 +11,7 @@ import {
   type PickerContext,
   pickerContext,
 } from './entryPickerText';
+import { icon, kindIcon } from './icons';
 
 // One list for the page, like the link card: the editors are drawn again when things change.
 let list: HTMLElement | null = null;
@@ -73,7 +74,7 @@ export function attachEntryPicker(area: HTMLTextAreaElement, bench: Bench): void
         else void bench.pictures.quiet(entry.id).then(show);
         li.append(thumb);
       }
-      li.append(document.createTextNode(entry.name));
+      li.append(icon(kindIcon(entry.kinds), 14), document.createTextNode(entry.name));
       // Pressing must not take the focus from the text.
       li.addEventListener('mousedown', (ev) => ev.preventDefault());
       li.addEventListener('click', () => void pick(i));
