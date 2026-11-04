@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; page templates in progress. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; page templates decided; density next. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -140,6 +140,17 @@ Labelled in the interface language, so in English for now. Working labels: "Lega
 Steps, not two modes. Working widths: a phone up to 720px; a tablet from 721px; a desktop from 1100px; a large screen from 1700px. The numbers are settled once the page templates are drawn, because the content decides where a layout breaks. The shell switches at 720px (bottom tab bar against top tabs). Everything below the shell adapts to the space it is given, built with container queries, so a component works in any pane. Phone design width is 430 (D8). At a tablet a list shows the list alone and the detail opens as a side sheet; on a large screen a third pane may appear.
 
 Content is capped in width (the probe caps at 1760). Certain content may use the full width: which kinds is decided with the page templates. Turned down: two modes with one 1120px container; viewport media queries only.
+
+### D21. Page templates (decided with the maintainer, 2026-11-04)
+
+Seven templates: list and detail, reading, settings and forms, document editor, board, full-width workspace, home. Rules:
+- **Reading** has a 680px measure; the **editor** a 720px writing column.
+- **Settings and forms** are capped at 1040px: label and help on the left, fields on the right, one column on a phone.
+- **Saving** is chosen per template. Forms with irreversible effects use an explicit bar at the bottom ("1 change not saved", Discard, Save changes; a border, not a shadow). Writing and entry fields autosave and say "Saved". Every screen says which one it is, by state.
+- **Home** has the app's own blocks first, then the shared "Continue" and "What do you want to do?" blocks (D16).
+- **Full width** (exempt from the cap, for now): the board, the full-width workspace (a map, a wide table) and the editor's outline pane. Everything else is capped.
+
+Turned down: autosave everywhere; an explicit save everywhere; the shared blocks first on Home.
 
 ## Open questions
 
