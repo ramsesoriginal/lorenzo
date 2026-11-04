@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; page templates next. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; page templates in progress. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -134,6 +134,12 @@ Idea, not decided: the clock may open to show a calendar, a pomodoro timer or a 
 ### D19. Legal links (decided with the maintainer, 2026-11-04)
 
 Labelled in the interface language, so in English for now. Working labels: "Legal notice" (the Impressum) and "Privacy policy" (the Datenschutzerklärung). The pages do not exist yet (v1.0 lists the privacy notice as New). The source-code link stays visible because the licence is AGPL-3.0. Turned down: always the German names.
+
+### D20. Widths and breakpoints (decided with the maintainer, 2026-11-04)
+
+Steps, not two modes. Working widths: a phone up to 720px; a tablet from 721px; a desktop from 1100px; a large screen from 1700px. The numbers are settled once the page templates are drawn, because the content decides where a layout breaks. The shell switches at 720px (bottom tab bar against top tabs). Everything below the shell adapts to the space it is given, built with container queries, so a component works in any pane. Phone design width is 430 (D8). At a tablet a list shows the list alone and the detail opens as a side sheet; on a large screen a third pane may appear.
+
+Content is capped in width (the probe caps at 1760). Certain content may use the full width: which kinds is decided with the page templates. Turned down: two modes with one 1120px container; viewport media queries only.
 
 ## Open questions
 
