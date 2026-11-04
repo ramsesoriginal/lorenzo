@@ -25,3 +25,5 @@ Hints ([ADR 0279](0279-stat-hints.md)); copy, update, digest and seed ([ADR 0280
 - The vocabulary is editable for the first time; a library can fix a unit or an order without deleting a definition.
 - Until A5 lands, a repository's order and units do not reach a copy. A5 follows directly.
 - One migration; the OpenAPI changes are additive. The apps' sort-by-name is replaced by the server's order.
+
+*Addendum, 2026-11-03: `PATCH /stat-definitions/{id}` also takes `name`, and an enum value has a `PATCH` of its own ([ADR 0385](0385-renaming-a-stat-and-an-enum-value.md)). Type and group are still not editable.*

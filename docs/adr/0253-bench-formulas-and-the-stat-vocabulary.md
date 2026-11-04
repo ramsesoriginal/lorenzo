@@ -20,3 +20,5 @@ A stat can be worked out rather than typed ([ADR 0104](0104-computed-stats.md)):
 
 - Formulas read on the server are not shown inside the stat values of the mirror until the entry is read again.
 - No bulk view of "every formula in the repository" until K7 exists.
+
+*Addendum, 2026-11-03: a stat can be renamed now ([ADR 0385](0385-renaming-a-stat-and-an-enum-value.md)); the vocabulary pane stops saying it cannot, and a rename of a stat the API reads by name is refused.*
