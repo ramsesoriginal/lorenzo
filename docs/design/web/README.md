@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; first run and the account decided; the shell prototype is next. No prototype is committed yet.
+Status: Phase 2 (the shell), prototype built. Header, navigation between apps and footer decided; Phase 2 built as a prototype, ready for review and iteration; then Phase 3 (the apps). No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -46,6 +46,76 @@ Each has a test that a screen can fail.
 Fixed: token roles and names, the three typefaces, Archive Blue for action, gold as punctuation, neutral visibility, the icon atlas, the voice and terminology of identity §14, and accessibility (§15).
 
 Open to change, one decision at a time: the chrome (decided, D5); the edge of a control (decided, D6); the blue tint of selection; whether the warmth of Paper and Parchment counts as chroma; breakpoints and widths; a type scale; density; the steps of the dark surfaces; the shape of the header and footer; motion durations.
+
+## The shell prototype
+
+A clickable composition of the shell and the templates, in [`prototype/`](prototype/index.html): plain HTML, CSS and JavaScript, no framework. **It is a reference for layout and behaviour, not code to ship.** It runs on made-up data in several settings and changes only what is in memory.
+
+### How to run it
+
+Serve the repository root (the page links `apps/brand` in place, and the brand fonts and icon sprite are fetched):
+
+```bash
+python3 -m http.server 8731    # from the repository root
+# open http://localhost:8731/docs/design/web/prototype/index.html
+```
+
+The bar at the top ("Prototype controls") switches the width of the design (430, 834, 1440, 2200 or the window), the theme, the number of libraries, who is looking (a GM or a player), online or offline, how loading behaves (slow, fails once, keeps failing), and jumps to first run, the join link and the states. It is not part of the design. The width is simulated with container queries, so every layout rule follows the frame, not the window.
+
+To open it without serving anything, [`prototype/build-review-copy.mjs`](prototype/build-review-copy.mjs) builds one page with the brand CSS, the icon sprite and the scripts inlined, and the brand fonts beside it: `node docs/design/web/prototype/build-review-copy.mjs OUT_DIR`.
+
+### What it contains
+
+The two-tier header and the bottom tab bar (D12), the state strip (D13), the library switcher shown only for more than one library (D14), the slim status bar and the "Apps and about" drawer (D18), Home with the shared blocks (D16), the palette with its preview and the shortcut model (D25), toasts with the 10-second timer (D26), dialogs and menus that become sheets (D26), density and Appearance (D22), and the first run, the account menu, signing out with unsent changes and joining with an invite link (D27). Templates: list and detail (with the tablet side sheet and the third pane on a large screen), reading, settings and forms with the save bar, the editor with autosave, the board, a full-width map workspace, Home, and the states gallery. Other apps open a plain "not drawn in the prototype" page.
+
+Keyboard: `Ctrl K` (`Cmd K`) opens the palette, `Ctrl Shift K` in an editor; `?` lists the shortcuts; G then H, S, B, I, C, M, W, R, A goes to an app; J, K, Enter, X, N, E and `/` work in the beings list; `Ctrl Z` undoes the last action.
+
+### Brand pieces and new pieces
+
+Linked from `apps/brand` in place and unchanged: `normalize.css`, `tokens.css`, `fonts.css`, `base.css`, `motion.css` (spinner, skeleton, progress bar, the spark loader, stagger, count-up, typewriter), the icon sprite. **Not used: `components.css` and `layout.css`.** The shell's controls follow decisions the brand components do not yet (a control edge at 3:1, container-driven sizes), so the prototype has its own in `prototype/shell.css`. That file defines no colour, radius or font of its own.
+
+New, and not in the brand: [`prototype/proposed-tokens.css`](prototype/proposed-tokens.css) (D6 `--border-control`, D23 type roles and the 12px step, D26 transition durations). `apps/brand` is not changed by this work.
+
+### What it fakes
+
+The API, sign-in and sign-out, real offline storage and synchronisation, real conflicts, search (a match on names), pictures (labelled boxes), the mascots (labelled slots with the image id from [mascot-images.md](mascot-images.md)), the legal pages, the in-world date, saving a person's preferences in the account (the prototype keeps them on the device), and everything in apps it does not draw.
+
+### What was checked, and what was not
+
+Checked in a real browser (Chromium, Playwright), on 2026-11-04:
+- **axe-core** on the twelve routes at 430 and 1440, in light and dark: no violations after fixes.
+- **Pressed controls** are at least 44px at 430 on eleven routes.
+- **Thirty-one scripted behaviours** pass: the palette (open, search, narrow, close), the G chords, selection and the bulk bar, row menus, delete with Undo, the toast timer pausing and resetting under the pointer, filters, the offline strip, the sign-out, shortcuts and drawer dialogs, the save bar, the type-the-name delete, editor autosave, linking an entry with `Ctrl K`, moving a board item, the setup flow, the More sheet and the detail sheet on a phone, the palette as a full screen on a phone, the detail as a side sheet and the dialog as a sheet at 834, and the third pane at 2200.
+
+Not checked: a screen reader, a real touch device, a colour-blindness simulation, Safari or Firefox (scroll-driven animations, view transitions and `corner-shape` are enhancements and degrade to static), a visual review of every route at 834 and 2200, and reduced motion beyond the setting being wired.
+
+### Findings for the brand and the design
+
+- **`--text-tertiary` on `--surface-selected` is 4.4:1** in the light theme, below 4.5 for small text. The prototype uses the secondary colour on selected rows. A brand change to consider.
+- **The spacing tokens change at 720px by the window, not the container.** The prototype redefines the same values by container so the simulated width works; the real change is container queries in the brand CSS.
+- **`Ctrl L` and `Ctrl Shift T` are reserved by browsers** and cannot be used for "switch library" and "change theme". They are `G` then `L` and `G` then `T` in the prototype, and the shortcuts list shows them so.
+- **Atlas:** no icon for an empty state (the prototype uses the dashed entity mark as a stand-in), and none for an app as a destination (the prototype uses the kind icons). Not added; listed for the maintainer.
+- **Components the shell needs that the brand lacks** (candidates for promotion, listed in Phase 4): a button and field with the control edge, a segmented control, a switch, a menu, a sheet and dialog that follow the container, a toast with a timer, the palette, the state strip, the status bar, the tab bar, the state chip with its patterns, the save bar, skeleton rows.
+
+### Screens
+
+Rendered from the prototype with Playwright; if a screen and the prototype disagree, the prototype wins. Phone and tablet screens are at 2x, the others at 1x.
+
+| | Wide screens | Phone and tablet |
+| --- | --- | --- |
+| Home | [light](screens/01-home-1440.png), [dark](screens/02-home-1440-dark.png) | |
+| List and detail | [1440](screens/03-beings-1440.png), [selected and bulk bar](screens/04-beings-bulk-1440.png), [2200, third pane](screens/06-beings-2200.png) | [834, detail as a sheet](screens/05-beings-834-detail-sheet.png), [430](screens/07-beings-430.png) |
+| Palette | [1440, with preview](screens/08-palette-1440.png) | [430, full screen](screens/09-palette-430.png) |
+| Menus, toasts | [row menu](screens/10-row-menu-1440.png), [toasts](screens/11-toasts-1440.png) | [More sheet](screens/31-more-sheet-430.png), [account menu](screens/35-account-menu-430.png) |
+| Board | [1440](screens/12-board-1440.png) | [430](screens/13-board-430.png) |
+| Reading | [1440](screens/14-read-1440.png) | [430](screens/15-read-430.png) |
+| Editor | [1440](screens/16-write-1440.png) | [430](screens/17-write-430.png) |
+| Settings and forms | [unsaved changes](screens/18-settings-unsaved-1440.png), [delete a library](screens/19-delete-library-1440.png) | |
+| Map | [1440](screens/20-map-1440.png) | [430](screens/21-map-430.png) |
+| First run, joining | [first run](screens/22-first-run-1440.png), [setting up](screens/24-setup-progress-1440.png) | [first run](screens/23-first-run-430.png), [join](screens/25-join-430.png) |
+| States | [light](screens/26-states-1440.png), [dark](screens/27-states-1440-dark.png) | |
+| State strip, footer | [offline](screens/28-offline-strip-1440.png), [conflict](screens/29-conflict-strip-1440.png), [apps and about](screens/30-apps-and-about-1440.png) | |
+| Dialogs | [shortcuts](screens/32-shortcuts-1440.png), [appearance](screens/33-appearance-1440.png), [sign out](screens/34-sign-out-1440.png) | |
 
 ## Decision log
 
@@ -221,6 +291,10 @@ Turned down: a centered dialog at the tablet step.
 - **An account with no library but an invite pending** sees the joining page; the first-run page appears only when there is neither a library nor an invite.
 - **The account menu** holds Profile, Notifications, Libraries and people, Access tokens and devices, Appearance, Keyboard shortcuts and Sign out. Signing out with unsent changes says plainly what is only on the device and what happens to it.
 - **Joining** has four moments: preview signed out, preview signed in, done, and one message for every link that does not work.
+
+### D28. The shell prototype (decided with the maintainer, 2026-11-04)
+
+Built in `docs/design/web/prototype/`, linking `apps/brand` in place and unchanged, with the new tokens in `proposed-tokens.css`. Everything drawn in Phase 2 in one go, then reviewed once and iterated, with a private copy for clicking through. The motion may be bolder than the first proposal. Turned down: changing `apps/brand` now; a new page in `apps/brand/preview`.
 
 ## Open questions
 
