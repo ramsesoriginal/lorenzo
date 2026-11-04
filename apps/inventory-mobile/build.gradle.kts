@@ -9,13 +9,12 @@ plugins {
     alias(libs.plugins.ksp) apply false
 }
 
-val formatter by
-    configurations.creating {
-        attributes {
-            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
-            attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED))
-        }
+val formatter by configurations.creating {
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+        attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.SHADOWED))
     }
+}
 
 dependencies { formatter(libs.ktfmt) }
 

@@ -234,7 +234,16 @@ The being sheet ([RFC 0043](../rfcs/0043-the-being-sheet.md), decided with the m
 - **The sheet read** ([ADR 0281](../adr/0281-sheet-settings-and-the-sheet-read.md)): a tenant's weapon stat group and ability information type, one read of a being's equipped weapons and abilities, and the stat vocabulary readable by every participant.
 - **Beings** ([ADR 0282](../adr/0282-beings-sheet-shell-modes-and-sections.md) to [0284](../adr/0284-beings-sheet-datasheet.md)): Read, Play and Edit with a sticky bar; stat tiles with provenance, steppers, an adjuster and undo; a datasheet layout.
 
-Repositories have since resolved the cross-tenant repository question named in the early chronicle above (RFC 0024, ADR 0117 to 0121). Later repository tooling adds Shelf and Studio in account-hub (RFC 0036), release documents and retention (RFC 0037, ADR 0207, 0208, 0214, 0286, 0288, 0289), and the public read, Discover, storefront and preview (RFC 0038, ADR 0287, 0290, 0292, 0293). Public reads are guarded by a deployment feature switch that defaults to off (ADR 0290).
+Repositories have since resolved the cross-tenant repository question named in the early chronicle above (RFC 0024, ADR 0117 to 0121). Later repository tooling adds Shelf and Studio in account-hub (RFC 0036), release documents and retention (RFC 0037, ADR 0207, 0208, 0214, 0286, 0288, 0289), and the public read, Discover, storefront and preview (RFC 0038, ADR 0287, 0290, 0292, 0293). The launch gates followed (RFC 0038, from 2026-10-15): operator delist (ADR 0303), quotas on a repository (ADR 0298), what a public repository says about its publisher and hides about the libraries that copied it (ADR 0299), authentication on a private repository's picture (ADR 0300), and the release fan-out and cooldown (ADR 0301). An Owner can retire a repository without cutting off the libraries that hold it (ADR 0384, 2026-11-03). Studio edits a repository's profile and cover (ADR 0385, 2026-11-03), and the three-way review of a changed field is one element in `packages/repo-ui`, drawn by the hub's update inbox and by Bench's conflict dialog (ADR 0389, 2026-11-04). Public reads are guarded by a deployment feature switch that defaults to off (ADR 0290).
+
+Entity kinds and author freedom (RFC 0041, ADR 0386 to 0388 and 0390, 2026-11-03): after kinds, parents and filters, the
+last slices landed. `GET .../entities/{id}/libraries` (and under stat definitions and stat groups) answers how many
+libraries hold a copy, never which, and Bench's delete confirmation and `lorenzo repo libraries` show it (ADR 0386).
+`GET /tenants/{id}/entities/effective-stats` pages the entries first and returns the effective values of the requested
+stats with formulas evaluated, which Bench reads a page at a time (ADR 0387). New under this and Duplicate in Bench are
+commands that copy an entry's kinds, parents, own stats, description and notes; there is no server route yet (ADR 0388).
+A stat definition's name and an enum value can be renamed, a rename rewriting the stored text in one transaction
+(ADR 0390).
 
 Bench now authors repository entries through its command layer, with text, notes, stats, formulas, pictures, a pack editor, ancestry and compare views (ADR 0221 to 0275). Its shell and online editing use the command layer introduced in ADR 0221.
 
@@ -277,6 +286,14 @@ Clocks, repeated personal participation and historical state remain outside this
 Clocks (RFC 0028, ADR 0320 and 0321, 2026-10-22):
 
 A Clock is an entry with a `clock` row that is either ticking or explicitly timeless. Nothing is seeded as a default clock, epoch or current date, and a clock inherits nothing through prototypes or placement. What is said about clocks lives in three dedicated tables, none of them Information or a causal assertion: `event_clock_reading` (an Event read on a ticking clock, as an exact point or a range with endpoint inclusion), `calendar_reckoning` (the start of one calendar date paired with an exact clock reading, several calendars per clock) and, from ADR 0321, `clock_relationship` (one exact nonzero signed ratio between two ticking clocks, optionally with anchor readings, one row per unordered pair). Values are bounded exact rationals serialised as strings. Every row starts private and can be shared with readers of both endpoints, and none of them touches Event order. A reading on another clock is derived on demand from what the reader can see (`POST /clock-conversions`, `GET .../events/{id}/clock-readings/{clock_id}/derived`) and answers `entered`, `derived`, `not_reckoned`, `conflicting` or `limit_reached`; it is never stored. The routes are `routers/clocks.py` and `routers/clock_relationships.py` (migrations `c03200000001` and `c03210000001`); the tables are content tables carried by repository copy and release. Lorenzo Calendars gains the Clock pages, reckonings, ratios and an Event reading panel. Placement inheritance, "today", changing rates and historical state stay outside.
+
+Calendars and Sessions polish (ADR 0322 to 0326, 2026-10-22): one header and page frame in `packages/app-shell` (no app
+switcher, the library picker in the header, both apps on brand tokens and classes only, with guards against undefined
+tokens and literals); one calendar-period picker in `packages/period-picker` (a day, month, year or several as an
+explicit list of coordinates, never a stored span); bulk reads for periods and day content (periods with coordinates and
+by id, per-year summaries, an idempotent batch materialize; additive and visibility-gated); one read cache in
+`packages/read-cache` (viewer-scoped stale-while-revalidate in memory, `sessionStorage` only for `/me`, `/tenants` and
+`/app-links`, access revalidated before private data is drawn); and eight `icon-moon-*` symbols in place of the emoji.
 
 Locations (RFC 0048, ADR 0330 to 0332, 2026-10-23):
 
@@ -345,6 +362,13 @@ into adjacent stable payloads. The source concatenates exactly; locale, audience
 remain unchanged. Saved revisions and operational retry receipts protect the operation. Boundary
 fixtures are checked against the canonical LorenzoScript parser. Compound blocks and cross-part
 footnote dependencies are refused; general syntax-aware splits and guarded joins remain later work.
+
+The entry preview as a package, and previews for Locations and Maps (ADR 0349 and 0350, 2026-10-27): the card an entry
+opens when it is hovered, focused or tapped is extracted from inventory-web into `packages/entry-preview` (timing,
+per-page card cache, words, drawing and stylesheet), which takes what is app-specific: triggers, how an element names an
+entry, how a card and a picture load. Bench keeps its own card. Two templates join the preview registry, for a Location
+and a Map (no stats, inherited description and picture), and Lorenzo Maps draws the card on a mark and on a places-list
+row. What the route reveals does not change.
 
 Authoring (RFC 0048 slice 6, ADR 0351 to 0353, 2026-10-27): `POST .../maps/{id}/placements/batch` writes
 at most 100 placements and removals as one transaction through the single write's validator and

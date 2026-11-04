@@ -17,8 +17,8 @@ import {
 
 import { ancestorPath } from './ancestors';
 import { attachEntryPicker } from './entryPicker';
-import { openLink } from './entryPickerText';
 import { icon, iconButton, kindIcon, statusIcon } from './icons';
+import { textToolbar } from './textToolbar';
 
 /** Set while the shell redraws: a field that loses focus then must not commit what was half typed. */
 export const redraw = { active: false };
@@ -407,28 +407,8 @@ export function pictureSection(bench: Bench, id: string): HTMLElement {
   return box;
 }
 
-/** Buttons that start a link or a picture at the caret, for whoever does not know to type `[[`. */
 function linkToolbar(area: HTMLTextAreaElement): HTMLElement {
-  const bar = el('div', 'text-toolbar');
-  bar.setAttribute('role', 'toolbar');
-  bar.setAttribute('aria-label', 'Insert');
-  for (const [label, image] of [
-    ['Link to an entry', false],
-    ['Show a picture', true],
-  ] as const) {
-    const b = button(label, () => {
-      const made = openLink(area.value, area.selectionStart, area.selectionEnd, image);
-      area.value = made.text;
-      area.focus();
-      area.setSelectionRange(made.caret, made.caret);
-      // The picker and the preview follow what is typed.
-      area.dispatchEvent(new Event('input'));
-    });
-    // Pressing must not take the focus from the text, or the caret and selection are lost.
-    b.addEventListener('mousedown', (ev) => ev.preventDefault());
-    bar.append(b);
-  }
-  return bar;
+  return textToolbar(() => area);
 }
 
 function newNote(bench: Bench, entryId: string): HTMLElement {
@@ -447,8 +427,12 @@ function newNote(bench: Bench, entryId: string): HTMLElement {
     file.type = 'file';
     file.hidden = true;
     file.accept = 'image/png,image/jpeg,image/webp,image/gif';
-    const choose = button('+', () => file.click(), 'btn quiet picture-at-caret');
-    choose.setAttribute('aria-label', 'Add a picture to the new note');
+    const choose = iconButton(
+      'upload',
+      'Add a picture to the new note',
+      () => file.click(),
+      'btn quiet picture-at-caret',
+    );
     choose.addEventListener('mousedown', (event) => event.preventDefault());
     const status = el('p', 'muted');
     status.hidden = true;

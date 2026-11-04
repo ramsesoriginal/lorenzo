@@ -107,15 +107,14 @@ class LorenzoApi(
                                         output.toByteArray()
                                     }
                                 if (!it.isSuccessful) {
-                                    val problem =
-                                        runCatching {
-                                                LorenzoJson.decodeFromString<Problem>(
-                                                    bytes.decodeToString()
-                                                )
-                                            }
-                                            .getOrElse {
-                                                Problem(title = "Request failed (${response.code})")
-                                            }
+                                    val problem = runCatching {
+                                        LorenzoJson.decodeFromString<Problem>(
+                                            bytes.decodeToString()
+                                        )
+                                    }
+                                        .getOrElse {
+                                            Problem(title = "Request failed (${response.code})")
+                                        }
                                     throw ApiException(it.code, problem)
                                 }
                                 val mime =

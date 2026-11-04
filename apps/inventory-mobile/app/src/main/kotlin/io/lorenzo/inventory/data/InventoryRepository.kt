@@ -45,12 +45,11 @@ class InventoryRepository(
     private var pictureEpoch = 0L
     private val invalidatedPictures = mutableSetOf<String>()
 
-    private suspend fun noteRevision(session: Session, suffix: String): Long =
-        lock.withLock {
-            if (!sameSession(session)) throw CancellationException("Session changed")
-            val key = session.key(suffix)
-            ((noteRevisions[key] ?: 0) + 1).also { noteRevisions[key] = it }
-        }
+    private suspend fun noteRevision(session: Session, suffix: String): Long = lock.withLock {
+        if (!sameSession(session)) throw CancellationException("Session changed")
+        val key = session.key(suffix)
+        ((noteRevisions[key] ?: 0) + 1).also { noteRevisions[key] = it }
+    }
 
     private data class Session(val token: String, val generation: Long) {
         val key: String =
@@ -345,67 +344,63 @@ class InventoryRepository(
         character: Character,
         itemId: String,
         change: (InformationDraft) -> InformationDraft,
-    ) =
-        composerLock.withLock {
-            val session = session()
-            lock.withLock {
-                check(sameSession(session))
-                val id = composerKey(character, itemId)
-                loadDraft(session, id)?.let { old ->
-                    val next = change(old)
-                    require(
-                        next.id == old.id &&
-                            next.character == old.character &&
-                            next.itemId == old.itemId
-                    )
-                    dao.putDraft(stored(session, id, next))
-                    (old.parts.mapNotNull { it.mediaId } -
-                            next.parts.mapNotNull { it.mediaId }.toSet())
-                        .forEach { dao.removeMedia(session.key("staged"), it) }
-                }
+    ) = composerLock.withLock {
+        val session = session()
+        lock.withLock {
+            check(sameSession(session))
+            val id = composerKey(character, itemId)
+            loadDraft(session, id)?.let { old ->
+                val next = change(old)
+                require(
+                    next.id == old.id &&
+                        next.character == old.character &&
+                        next.itemId == old.itemId
+                )
+                dao.putDraft(stored(session, id, next))
+                (old.parts.mapNotNull { it.mediaId } - next.parts.mapNotNull { it.mediaId }.toSet())
+                    .forEach { dao.removeMedia(session.key("staged"), it) }
             }
         }
+    }
 
-    suspend fun discardComposer(character: Character, itemId: String) =
-        composerLock.withLock {
-            val session = session()
-            lock.withLock {
-                check(sameSession(session))
-                val id = composerKey(character, itemId)
-                loadDraft(session, id)
-                    ?.parts
-                    ?.mapNotNull { it.mediaId }
-                    ?.forEach { dao.removeMedia(session.key("staged"), it) }
-                dao.removeDraft(session.key("drafts"), id)
-                dao.removeDraft(session.key("drafts"), "capture")
-            }
+    suspend fun discardComposer(character: Character, itemId: String) = composerLock.withLock {
+        val session = session()
+        lock.withLock {
+            check(sameSession(session))
+            val id = composerKey(character, itemId)
+            loadDraft(session, id)
+                ?.parts
+                ?.mapNotNull { it.mediaId }
+                ?.forEach { dao.removeMedia(session.key("staged"), it) }
+            dao.removeDraft(session.key("drafts"), id)
+            dao.removeDraft(session.key("drafts"), "capture")
         }
+    }
 
     suspend fun beginCapture(
         character: Character,
         itemId: String,
         camera: Boolean,
-    ): CaptureBinding =
-        composerLock.withLock {
-            val session = session()
-            lock.withLock {
-                check(sameSession(session))
-                val key = composerKey(character, itemId)
-                val draft = requireNotNull(loadDraft(session, key))
-                check(dao.draft(session.key("drafts"), "capture") == null) {
-                    "A picture selection is already open"
-                }
-                val binding = CaptureBinding(draftId = draft.id, composerKey = key, camera = camera)
-                dao.putDraft(
-                    StoredDraft(
-                        session.key("drafts"),
-                        "capture",
-                        cipher.encrypt(LorenzoJson.encodeToString(binding)),
-                    )
-                )
-                binding
+    ): CaptureBinding = composerLock.withLock {
+        val session = session()
+        lock.withLock {
+            check(sameSession(session))
+            val key = composerKey(character, itemId)
+            val draft = requireNotNull(loadDraft(session, key))
+            check(dao.draft(session.key("drafts"), "capture") == null) {
+                "A picture selection is already open"
             }
+            val binding = CaptureBinding(draftId = draft.id, composerKey = key, camera = camera)
+            dao.putDraft(
+                StoredDraft(
+                    session.key("drafts"),
+                    "capture",
+                    cipher.encrypt(LorenzoJson.encodeToString(binding)),
+                )
+            )
+            binding
         }
+    }
 
     fun observeCapture() =
         dao.observeDraft(key("drafts"), "capture")
@@ -524,36 +519,34 @@ class InventoryRepository(
         }
     }
 
-    suspend fun queueComposer(character: Character, itemId: String) =
-        composerLock.withLock {
-            val session = session()
-            lock.withLock {
-                check(sameSession(session))
-                val key = composerKey(character, itemId)
-                val draft = requireNotNull(loadDraft(session, key))
-                require(draft.hasContent)
-                check(dao.draft(session.key("drafts"), "capture") == null) {
-                    "Finish selecting the picture first"
-                }
-                val request =
-                    NoteCreate(
-                        draft.id,
-                        content =
-                            draft.parts.firstOrNull { it.kind == "description" }?.text.orEmpty(),
-                        locale = draft.locale,
-                    )
-                dao.putNote(
-                    PendingNote(
-                        draft.id,
-                        cipher.encrypt(
-                            LorenzoJson.encodeToString(NoteDraft(character, itemId, request, draft))
-                        ),
-                    )
-                )
-                dao.removeDraft(session.key("drafts"), key)
-                scheduleNotes()
+    suspend fun queueComposer(character: Character, itemId: String) = composerLock.withLock {
+        val session = session()
+        lock.withLock {
+            check(sameSession(session))
+            val key = composerKey(character, itemId)
+            val draft = requireNotNull(loadDraft(session, key))
+            require(draft.hasContent)
+            check(dao.draft(session.key("drafts"), "capture") == null) {
+                "Finish selecting the picture first"
             }
+            val request =
+                NoteCreate(
+                    draft.id,
+                    content = draft.parts.firstOrNull { it.kind == "description" }?.text.orEmpty(),
+                    locale = draft.locale,
+                )
+            dao.putNote(
+                PendingNote(
+                    draft.id,
+                    cipher.encrypt(
+                        LorenzoJson.encodeToString(NoteDraft(character, itemId, request, draft))
+                    ),
+                )
+            )
+            dao.removeDraft(session.key("drafts"), key)
+            scheduleNotes()
         }
+    }
 
     private fun pictureKey(tenantId: String, payload: Payload) =
         "pictures/$tenantId/${payload.id}/${payload.updatedAt}"
@@ -562,12 +555,11 @@ class InventoryRepository(
         val session = session()
         val scope = session.key("pictures/$tenantId/")
         val id = pictureKey(tenantId, payload)
-        val epoch =
-            lock.withLock {
-                check(sameSession(session))
-                if (payload.id in invalidatedPictures) throw IOException("Picture access changed")
-                pictureEpoch
-            }
+        val epoch = lock.withLock {
+            check(sameSession(session))
+            if (payload.id in invalidatedPictures) throw IOException("Picture access changed")
+            pictureEpoch
+        }
         try {
             val fresh = authenticated(session) { it.picture(tenantId, payload.id) }
             val rows = chunks(scope, id, fresh.bytes)
@@ -757,108 +749,103 @@ class InventoryRepository(
         }
     }
 
-    suspend fun retryNote(id: String) =
-        lock.withLock {
-            dao.pending().firstOrNull { it.id == id }?.let { dao.putNote(it.copy(error = null)) }
-            scheduleNotes()
-        }
+    suspend fun retryNote(id: String) = lock.withLock {
+        dao.pending().firstOrNull { it.id == id }?.let { dao.putNote(it.copy(error = null)) }
+        scheduleNotes()
+    }
 
     /**
      * A stable UUID makes POST replay safe (ADR 0222). Reader PUT is idempotent. Until both writes
      * and a readback succeed, the UI shows Pending.
      */
-    suspend fun syncNotes(): Boolean =
-        syncLock.withLock {
-            val session = lock.withLock { currentSession() } ?: return@withLock true
-            val rows = lock.withLock { if (sameSession(session)) dao.pending() else emptyList() }
-            var retry = false
-            for (row in rows.filter { it.error == null }) {
-                try {
-                    val draft =
-                        LorenzoJson.decodeFromString<NoteDraft>(cipher.decrypt(row.encrypted))
-                    val suffix = notesKey(draft.character, draft.itemId)
-                    val revision = noteRevision(session, suffix)
-                    val notes =
-                        authenticated(session) { client ->
-                            if (draft.bundle != null) {
-                                syncBundle(session, client, row, draft)
-                            } else {
-                                client.createNote(
+    suspend fun syncNotes(): Boolean = syncLock.withLock {
+        val session = lock.withLock { currentSession() } ?: return@withLock true
+        val rows = lock.withLock { if (sameSession(session)) dao.pending() else emptyList() }
+        var retry = false
+        for (row in rows.filter { it.error == null }) {
+            try {
+                val draft = LorenzoJson.decodeFromString<NoteDraft>(cipher.decrypt(row.encrypted))
+                val suffix = notesKey(draft.character, draft.itemId)
+                val revision = noteRevision(session, suffix)
+                val notes =
+                    authenticated(session) { client ->
+                        if (draft.bundle != null) {
+                            syncBundle(session, client, row, draft)
+                        } else {
+                            client.createNote(
+                                draft.character.tenantId,
+                                draft.itemId,
+                                draft.request,
+                            )
+                            if (!draft.request.isPublic)
+                                client.addReader(
                                     draft.character.tenantId,
-                                    draft.itemId,
-                                    draft.request,
-                                )
-                                if (!draft.request.isPublic)
-                                    client.addReader(
-                                        draft.character.tenantId,
-                                        row.id,
-                                        draft.character.entityId,
-                                    )
-                            }
-                            client.notes(draft.character.tenantId, draft.itemId)
-                        }
-                    val snapshot = snapshot(session, suffix, notes)
-                    val visible = notes.firstOrNull { it.id == row.id }
-                    val pictureRows = mutableListOf<MediaChunk>()
-                    if (visible != null)
-                        for (part in
-                            draft.bundle?.parts.orEmpty().filter { it.kind == "picture" }) {
-                            val payload =
-                                visible.payloads.firstOrNull {
-                                    it.id == part.id && it.kind == "picture"
-                                } ?: continue
-                            val data =
-                                bytes(session.key("staged"), requireNotNull(part.mediaId))
-                                    ?: continue
-                            pictureRows +=
-                                chunks(
-                                    session.key("pictures/${draft.character.tenantId}/"),
-                                    pictureKey(draft.character.tenantId, payload),
-                                    data,
+                                    row.id,
+                                    draft.character.entityId,
                                 )
                         }
-                    lock.withLock {
-                        if (sameSession(session)) {
-                            if (noteRevisions[session.key(suffix)] == revision) {
-                                dao.put(snapshot)
-                                dao.putMedia(pictureRows)
-                            }
-                            dao.removeNote(row.id)
-                            draft.bundle
-                                ?.parts
-                                ?.mapNotNull { it.mediaId }
-                                ?.forEach { dao.removeMedia(session.key("staged"), it) }
-                        }
+                        client.notes(draft.character.tenantId, draft.itemId)
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: ApiException) {
-                    if (e.status == 401) return@withLock true
-                    if (e.status >= 500 || e.status == 429) retry = true
-                    else
-                        lock.withLock {
-                            if (sameSession(session))
-                                dao.putNote(
-                                    (dao.pending().firstOrNull { it.id == row.id } ?: row).copy(
-                                        error =
-                                            "The server refused this note (${e.status}). Check access, then retry."
-                                    )
-                                )
+                val snapshot = snapshot(session, suffix, notes)
+                val visible = notes.firstOrNull { it.id == row.id }
+                val pictureRows = mutableListOf<MediaChunk>()
+                if (visible != null)
+                    for (part in draft.bundle?.parts.orEmpty().filter { it.kind == "picture" }) {
+                        val payload =
+                            visible.payloads.firstOrNull {
+                                it.id == part.id && it.kind == "picture"
+                            } ?: continue
+                        val data =
+                            bytes(session.key("staged"), requireNotNull(part.mediaId)) ?: continue
+                        pictureRows +=
+                            chunks(
+                                session.key("pictures/${draft.character.tenantId}/"),
+                                pictureKey(draft.character.tenantId, payload),
+                                data,
+                            )
+                    }
+                lock.withLock {
+                    if (sameSession(session)) {
+                        if (noteRevisions[session.key(suffix)] == revision) {
+                            dao.put(snapshot)
+                            dao.putMedia(pictureRows)
                         }
-                } catch (e: IOException) {
-                    retry = true
-                } catch (_: Exception) {
+                        dao.removeNote(row.id)
+                        draft.bundle
+                            ?.parts
+                            ?.mapNotNull { it.mediaId }
+                            ?.forEach { dao.removeMedia(session.key("staged"), it) }
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiException) {
+                if (e.status == 401) return@withLock true
+                if (e.status >= 500 || e.status == 429) retry = true
+                else
                     lock.withLock {
                         if (sameSession(session))
                             dao.putNote(
                                 (dao.pending().firstOrNull { it.id == row.id } ?: row).copy(
                                     error =
-                                        "Couldn't confirm this note. Your draft is retained; try again."
+                                        "The server refused this note (${e.status}). Check access, then retry."
                                 )
                             )
                     }
+            } catch (e: IOException) {
+                retry = true
+            } catch (_: Exception) {
+                lock.withLock {
+                    if (sameSession(session))
+                        dao.putNote(
+                            (dao.pending().firstOrNull { it.id == row.id } ?: row).copy(
+                                error =
+                                    "Couldn't confirm this note. Your draft is retained; try again."
+                            )
+                        )
                 }
             }
-            !retry
         }
+        !retry
+    }
 }

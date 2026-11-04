@@ -1910,6 +1910,18 @@ test.describe('the pack editor', () => {
 });
 
 test.describe('the quiet interface', () => {
+  test('the toolbar over a text is icons, and Bold wraps the selection', async ({ page }) => {
+    await page.locator('[data-entry="beast"]').click();
+    await page.getByPlaceholder('Write a description…').click();
+    await page.keyboard.type('Natural');
+    await page.keyboard.press('Shift+Home');
+    const bar = page.getByRole('toolbar', { name: 'Insert' });
+    for (const name of ['Bold', 'Italic', 'Heading', 'Link to an entry', 'Show a picture'])
+      await expect(bar.getByRole('button', { name })).toBeVisible();
+    await bar.getByRole('button', { name: 'Bold' }).click();
+    await expect(page.locator('textarea.text-edit').first()).toHaveValue(/\*\*Natural\*\*/);
+  });
+
   test('an empty description says what to write, and is written in once it is clicked', async ({
     page,
   }) => {

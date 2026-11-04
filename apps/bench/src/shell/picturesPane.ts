@@ -4,6 +4,7 @@
 
 import type { Bench } from '../core/bench';
 import { PICTURE_TYPES, pictureSource } from '../core/pictures';
+import { icon } from './icons';
 
 export interface PicturesUi {
   /** A file chosen but not yet sent, with the address of its preview. */
@@ -224,7 +225,12 @@ export function renderPictures(
       img.src = url;
       img.alt = '';
       tile.append(img);
-    } else tile.append(el('span', 'pic-none', url === null ? 'No picture' : '…'));
+    } else {
+      const none = el('span', 'pic-none');
+      if (url === null) none.textContent = 'No picture';
+      else none.append(icon('pending', 14));
+      tile.append(none);
+    }
     tile.append(el('span', 'pic-name', e.name));
     li.append(tile);
     grid.append(li);
