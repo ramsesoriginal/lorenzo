@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Writing, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief is answered (WR1 to WR7), a direction is chosen, and the prototype is built and ready for review.
+Status: the brief is answered (WR1 to WR9), a direction is chosen, and the prototype is built, with the later slices of RFC 0047 drawn into it, and ready for review.
 
 ## What the app is for
 
@@ -112,6 +112,29 @@ Dragging does: reorder, nest and promote Chapters, and move writing between Edit
 
 The writing page is A: the text in the middle, an outline beside it, a grip in the margin of every block. The outline is pinned open on a wide window. On a narrower window, or when the person unpins it, it becomes C's rail: a thin strip of ticks beside the text that opens over it on hover or focus, with the same tree and the same drag. On a phone it is a panel the person opens. Turned down: B (the spine) and C (one page) as the base.
 
+### WR8. Answers to the first review
+
+- **Join** has its own target on the Chapter above while dragging, and asks before joining.
+- **Start writing asks** what is being started: a Scene (a page to write on), a Chapter (put in a Book later) or a Book (with its first Edition).
+- **The Edition menu** holds Editions, Numbering and Contents, and now also Updates and Export.
+- **Leaving with unsent work warns** in a dialog (Stay and keep writing, or Leave anyway) and says what is and is not kept. The browser's own prompt covers closing the tab. A "Saving…" in the last second does not warn.
+
+### WR9. The later slices are drawn in
+
+From [issue #878](https://github.com/ramsesoriginal/lorenzo/issues/878) and the milestone "RFC 0047 - Lorenzo Writing", so each has a place before it is built:
+
+| Slice | What | Where it is drawn |
+| --- | --- | --- |
+| W8a | A personal length goal ([ADR 0383](../../adr/0383-personal-manuscript-length-goals.md), #967) | Count, and "goal 45%" in the status bar |
+| W8b | A personal timer (ADR 0393, #998) | Count; the countdown shows in the status bar while it runs. Quiet: no sound, no notification |
+| W8c | Net-new session goals (ADR 0394, #1000) | Count; "session +5 of 30" in the status bar. Deleting subtracts; moving earns nothing |
+| W8d | Reviewed name and date suggestions | A Suggest tab, with the matches marked in the text; accepting links a word and never changes the wording; ambiguous names ask |
+| W9 | Manuscript updates from a repository | A banner and the Edition menu open the updates, each compared as was, now and yours, with "apply all clean" that skips conflicts and edits |
+| W10 | LorenzoScript and PDF export | An Export button, a dialog with a page preview, progress, and the file |
+| W6, W7b | Carrier form and coverage; Contents and other special Chapters | Details; a Contents Chapter shows the generated list |
+
+ADR 0393 and 0394 are on the `codex/writing-docs` branch and not yet on `main`; the timer and session goal follow them. Suggestions, updates and export are drawn from RFC 0047 alone, since no ADR settles their mechanism yet, so their screens are proposals.
+
 ## The three directions (drawn, A with C's rail chosen)
 
 In `directions/`: the writing page in three ways, each at rest, mid-drag and with the right-click menu, on the shell. Made-up text; nothing is saved. Run it:
@@ -153,19 +176,25 @@ A private single-page copy is built with `node build-review-copy.mjs --fragment 
 - **Drag and drop, by keyboard and menu.** Alt with the arrow keys moves a block or a Chapter, nests it (right) and promotes it (left). Enter on a grip opens Move to…, a list to choose a place. A right-click, the long press on a touch screen, the Menu key, or a tap on a grip opens the same actions as a menu: Move to…, make a Chapter, make a Scene, split, join with the one above, make independent, copy link, delete. A selection also shows a small bar with Make a Chapter and Make a Scene.
 - **Every change can be undone as a whole** (D26), including a join and a split. A refusal says why (a split inside a list, a Chapter into itself, blocks that do not sit together).
 - **Side views.** Details (title, viewpoint, numbering, private notes), Revisions (load into a draft), Review (reviewers by email, the review address, removing one), Count (own, with subchapters, the whole Edition, the selection, and the personal length goal). A drawer beside the text on a wide window, a sheet below 1100.
-- **Numbering and Contents** from the Edition menu. Numbering changes every label live.
+- **Numbering and Contents** from the Edition menu. Numbering changes every label live. A Chapter can be a Contents Chapter, which shows the list made from the outline.
+- **Count, the timer and the session goal.** The timer counts down from a duration of 1 to 1440 minutes, pauses, resumes and resets, and survives a reload in the same tab. The session goal counts the words you add and take away after Start. Both show in the status bar. A control switches browser storage to "Fails".
+- **Suggestions.** Names and an explicit date are matched to entries you can see (made up here). Accepting links the word; a name with two matches asks which.
+- **Updates.** "Harbour field guide" was copied from a repository. Four changes are compared three ways, resolved one by one or as "apply all clean", and the new Chapter arrives with the one inside it.
+- **Export.** PDF or LorenzoScript source, a whole Edition or a Chapter, a page preview, progress, and a result. Private notes and goals are never included.
+- **Carriers.** The Carrier's Details show its forms and what it covers, and add or remove coverage.
+- **Leaving with unsent work** warns.
 - **Read.** The assembled Edition, with the headings numbered. A reviewer sees only Read, can write a note on any passage, and the note says only they and the Authors see it.
 - **Save states** in the status bar and on the page: Saving, Synced, Saved on this device, Conflict (autosave stops, Keep mine, Use theirs, Keep both), Not kept on this device, and the recovered-text banner. A failure stays visible in focus mode.
 - **The outline** pinned at 1100 and up, a rail below, a panel on a phone. The controls bar switches the account (has work, new), the save state, and whether unsent text from before is kept.
 
 ### What it fakes
 
-All data is made up and held in memory (`wr-data.js`). Nothing calls the API, saves, or syncs; the save states are switches. A paragraph stands for a text block (in the real model a text block holds many paragraphs, and Split divides it at a safe boundary). Bold and italic add the marks `**` and `_` and no more. Pictures are patterned boxes. Contents saves nothing. Edition copying, Carrier coverage, the review address, revision loading and the length goal are shown, not built.
+All data is made up and held in memory (`wr-data.js`). Nothing calls the API, saves, or syncs; the save states are switches. The timer is real; the rest of these slices are shown, not built, and use made-up entries and a made-up repository. Export makes no file. A paragraph stands for a text block (in the real model a text block holds many paragraphs, and Split divides it at a safe boundary). Bold and italic add the marks `**` and `_` and no more. Pictures are patterned boxes. Contents saves nothing. Edition copying, the review address and revision loading are shown, not built.
 
 ### What was checked
 
-- 45 scripted checks in Playwright, all passing: start writing, typing and saving, dragging (a Chapter inside, refused inside itself, the join target, a block into a Chapter, a block within the page, a selection out), Alt-arrow moves with focus kept, Move to…, the right-click menu, split and its refusal, a Chapter from a selection, join and its Undo, Roman numbering, the side views, every save state, focus mode with a failure, Read, a reviewer's note, the rail at 834, and the panel and sheet at 430.
-- axe-core: no violations on seven states at 1440, 834 and 430, in light and dark (the landmark-region rule is off for the page's overlays).
+- 79 scripted checks in Playwright, all passing. The first 46: start writing, typing and saving, dragging (a Chapter inside, refused inside itself, the join target, a block into a Chapter, a block within the page, a selection out), Alt-arrow moves with focus kept, Move to…, the right-click menu, split and its refusal, a Chapter from a selection, join and its Undo, Roman numbering, the side views, every save state, focus mode with a failure, Read, a reviewer's note, the rail at 834, and the panel and sheet at 430. The other 33: the timer (run, pause, resume, reload, finish quietly), the session goal (adds, subtracts, moving earns nothing), storage failure, suggestions (found, marked, accepted, undone, dismissed), updates (compared, apply all clean, conflicts left, resolved, the banner goes), a Contents Chapter, export (formats, progress, result), Carrier coverage, and the leave warning.
+- axe-core: no violations on seven states at 1440, 834 and 430, and seven more (Count with the timer, Suggestions, Updates, Export, Carrier, Contents, the leave warning) at 1440 and 430, in light and dark (the landmark-region rule is off for the page's overlays).
 - Touch targets of at least 44px at 430 on a touch device, on the shelf, Write and Read.
 - No console errors.
 
@@ -182,11 +211,11 @@ A screen reader, a real touch device (touch is emulated), colour-blindness simul
 
 ### Screens
 
-In `screens/`, 32 images: the shelf, new and dark (01, 02, 24); Write, dark (03, 25); dragging a Chapter, to join, a block (04 to 06); the right-click menu, the Chapter menu, the selection bar, a Chapter made, Move to… (07 to 11); Details, Revisions, Review, Count, Numbering (12 to 16); conflict, storage failed, on this device, recovered text, focus mode (17 to 21); Read and a reviewer's note (22, 23); the rail at 834 (26, 27); 430 wide (28 to 32).
+In `screens/`, 45 images (33 to 45 are the later slices: the timer, the session goal, suggestions, updates, a Contents Chapter, export, a Carrier and the leave warning); the first 32: the shelf, new and dark (01, 02, 24); Write, dark (03, 25); dragging a Chapter, to join, a block (04 to 06); the right-click menu, the Chapter menu, the selection bar, a Chapter made, Move to… (07 to 11); Details, Revisions, Review, Count, Numbering (12 to 16); conflict, storage failed, on this device, recovered text, focus mode (17 to 21); Read and a reviewer's note (22, 23); the rail at 834 (26, 27); 430 wide (28 to 32).
 
 ## Open questions
 
-1. Join has its own target on the Chapter above (see the findings). Is that right?
-2. Start writing opens a Scene. Should it open a Chapter, or ask?
-3. The Edition menu holds Editions, Numbering and Contents. Is that the right place for them?
-4. Leaving the page with unsent work: a warning dialog, or only the recovery banner on return?
+1. The timer and the session goal show in the status bar while they run, as well as in Count. Is that the right place, or should they live only in Count?
+2. Updates open in a dialog from a banner or the Edition menu. Should they be a page of their own, like the account hub's update inbox?
+3. Export is an icon in the page head and an item in the Edition menu. Both, or only the menu?
+4. Suggestions are a side tab, with the matches marked in the text while it is open. Is that the right weight for a feature that never changes anything unasked?

@@ -18,7 +18,7 @@ const read = (p) => readFileSync(p, 'utf8');
 const css = ['normalize.css', 'tokens.css', 'fonts.css', 'base.css', 'motion.css'].map((f) => read(join(brand, f))).join('\n')
   + '\n' + read(join(shell, 'proposed-tokens.css')) + '\n' + read(join(shell, 'shell.css')) + '\n' + read(join(here, 'wr.css'));
 const sprite = read(join(brand, 'icons.svg')).replace(/<\?xml[^>]*\?>/, '');
-const js = [join(shell, 'data.js'), join(here, 'wr-data.js'), join(shell, 'core.js'), join(here, 'wr-core.js'), join(shell, 'pages.js'), join(here, 'wr-pages.js'), join(here, 'wr-dnd.js'), join(shell, 'app.js')]
+const js = [join(shell, 'data.js'), join(here, 'wr-data.js'), join(shell, 'core.js'), join(here, 'wr-core.js'), join(shell, 'pages.js'), join(here, 'wr-pages.js'), join(here, 'wr-more.js'), join(here, 'wr-dnd.js'), join(shell, 'app.js')]
   .map(read).join('\n')
   .replace("const ICONS = window.ICONS_PATH || '../../../../apps/brand/icons.svg';", "const ICONS = '';")
   .replace("window.LOCKUP || { light: '../../../brand/assets/lorenzo_horizontal_lockup_light_bg.svg', dark: '../../../brand/assets/lorenzo_horizontal_lockup_dark_bg.svg' }", "{ light: 'assets/lorenzo_horizontal_lockup_light_bg.svg', dark: 'assets/lorenzo_horizontal_lockup_dark_bg.svg' }");

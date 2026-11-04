@@ -217,7 +217,7 @@ function boot() {
   $('#status').addEventListener('click', (e) => { const a = e.target.closest('[data-act="about"]'); if (!a) return; if (OV.el === $('#drawer')) closeOv(); else openAbout(); });
   $('#tabbar').addEventListener('click', (e) => { const a = e.target.closest('[data-act="more"]'); if (a) { if (a.getAttribute('aria-expanded') === 'true') closeOv(); else openMore(a); } });
   $('#strip').addEventListener('click', (e) => { if (e.target.closest('[data-act="review-strip"]')) openConflictReview(); });
-  addEventListener('hashchange', () => render());
+  addEventListener('hashchange', () => { if (window.NAV_GUARD && window.NAV_GUARD() === false) return; render(); });
   setInterval(() => { if (!document.hidden) updateStatus(); }, 20000);
   if (!location.hash) location.hash = window.START_ROUTE ? '#/' + window.START_ROUTE : '#/home';
   render(true);

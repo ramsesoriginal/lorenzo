@@ -32,7 +32,7 @@ function labels(root) {
 }
 const snapshot = () => JSON.stringify(WD.nodes);
 function mutate(title, fn, text) {
-  const snap = snapshot(); const ok = fn(); if (ok === false) return false;
+  const snap = snapshot(); const ok = fn(); if (ok === false) return false; if (window.sessRebase) sessRebase();
   WS.dirty = true; wrRefresh(true); saveTick();
   withUndo(title, () => { WD.nodes = JSON.parse(snap); wrRefresh(true); saveTick(); }, text);
   announce(title);
@@ -131,3 +131,37 @@ function extractSelection(nodeId, itemId, from, to, title, at) {
 function makeIndependent(nodeId, itemId) { const it = N(nodeId).items[itemPos(nodeId, itemId)]; it.own = true; it.text = N(it.scene).items.map((x) => x.text || '').join('\n\n'); return true; }
 function flat(root, depth = 0) { const out = []; kids(root).forEach((k) => { out.push({ id: k, depth }); out.push(...flat(k, depth + 1)); }); return out; }
 const crumbs = (id, root) => { const out = []; let cur = id; while (cur && cur !== root) { out.unshift(cur); const p = parentOf(cur); cur = p && p.node; } return out; };
+/* ---- the personal timer (ADR 0393) and the net-new session goal (ADR 0394): this tab only, kept in sessionStorage */
+const TM = { mins: 25, state: 'idle', deadline: 0, left: 25 * 60000, msg: '' };
+const SS = { target: 0, active: false, net: 0, last: 0, done: false };
+WS.storage = true;
+const sget = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+function sput(k, v) { if (!WS.storage) return false; try { sessionStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+function persist() { sput('wr-timer', { mins: TM.mins, state: TM.state, deadline: TM.deadline, left: TM.left }); sput('wr-session', { target: SS.target, active: SS.active, net: SS.net, done: SS.done }); }
+(() => { const t = sget('wr-timer'); if (t && typeof t.mins === 'number') Object.assign(TM, t); const s = sget('wr-session'); if (s && typeof s.net === 'number') Object.assign(SS, s); })();
+const tmLeft = () => (TM.state === 'running' ? Math.max(0, TM.deadline - Date.now()) : TM.left);
+const mmss = (ms) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+function tmAct(a, mins) {
+  if (a === 'start') { if (mins) TM.mins = Math.min(1440, Math.max(1, Math.round(mins))); TM.left = TM.mins * 60000; TM.deadline = Date.now() + TM.left; TM.state = 'running'; TM.msg = 'Timer started'; }
+  else if (a === 'pause') { TM.left = tmLeft(); TM.state = 'paused'; TM.msg = 'Timer paused'; }
+  else if (a === 'resume') { TM.deadline = Date.now() + TM.left; TM.state = 'running'; TM.msg = 'Timer resumed'; }
+  else if (a === 'reset') { TM.state = 'idle'; TM.left = TM.mins * 60000; TM.msg = 'Timer reset'; }
+  persist(); announce(TM.msg); if (cur().name === 'w') S.meta = wrMeta(); updateStatus();
+}
+setInterval(() => {
+  if (TM.state !== 'running') return;
+  const l = tmLeft();
+  if (l <= 0) { TM.state = 'done'; TM.left = 0; TM.msg = 'Time elapsed'; persist(); announce('Time elapsed'); toast({ title: 'Time elapsed', text: 'Quiet by design: no sound and no notification.' }); }
+  const el = $('#tm-left'); if (el) el.textContent = mmss(tmLeft()); if (cur().name === 'w') S.meta = wrMeta(); updateStatus();
+}, 500);
+/* session goal: signed net words from edits made in the editor. Structure, pictures and loaded revisions rebase and earn nothing. */
+const curWords = () => { try { return ownWords(ctx().node); } catch (e) { return 0; } };
+function sessRebase() { SS.last = curWords(); }
+function sessEdit() { if (!SS.active) return; const w = curWords(); SS.net += w - SS.last; SS.last = w; persist(); }
+function sessAct(a, target) {
+  if (a === 'start') { SS.target = Math.max(1, Math.round(target || SS.target || 500)); SS.active = true; SS.done = false; SS.net = 0; sessRebase(); }
+  else if (a === 'finish') { SS.active = false; SS.done = true; }
+  else if (a === 'new') { SS.active = false; SS.done = false; SS.net = 0; }
+  persist(); announce(a === 'start' ? 'Session started' : a === 'finish' ? 'Session finished' : 'New session ready'); if (cur().name === 'w') S.meta = wrMeta(); updateStatus();
+}
+const sessText = () => (SS.net >= SS.target ? `Target reached (${SS.net >= 0 ? '+' : ''}${SS.net})` : `${SS.net >= 0 ? '+' : ''}${SS.net} of ${SS.target}`);
