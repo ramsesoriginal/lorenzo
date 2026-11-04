@@ -424,7 +424,7 @@ a.tile .icon { margin-top: 2px; font-size: 1.4rem; }
 [data-theme="dark"] .wm-light { display: none !important; }
 [data-theme="dark"] .wm-dark { display: block !important; }
 .brand-lockup .mark-only { display: none; }
-@container shell (max-width: 960px) { .hdr-one .palette-btn { width: var(--hit); padding: 0; justify-content: center; } .hdr-one .palette-btn span, .hdr-one .palette-btn kbd { display: none; } }
+@container shell (max-width: 960px) { .hdr-one .palette-btn { width: var(--hit); padding: 0; justify-content: center; } .hdr-one .palette-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .hdr-one .palette-btn kbd { display: none; } }
 @container shell (max-width: 720px) {
   .brand-lockup .lockup { display: none; }
   .brand-lockup .mark-only { display: inline-flex; }
