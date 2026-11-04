@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 1 (principles and the brief). No prototype is committed yet.
+Status: Phase 2 (the shell), header first. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -83,7 +83,19 @@ The ten above. Changes from the first proposal: principle 2 gained an icon besid
 
 430 wide is the width phone screens are designed and checked at. Which width the layout changes at is a Phase 2 decision.
 
+### D9. How much effect an app page carries (decided with the maintainer, 2026-11-04)
+
+Effects serve orientation: reveals, scroll indicators, count-up, transitions on everything that opens, closes, moves or switches. Parallax and the canonical glow appear on home and empty-state pages; the maintainer allows a little more where it helps, case by case in the design. Turned down: effects anywhere by default.
+
+### D10. Visibility in a table (decided with the maintainer, 2026-11-04)
+
+Everyone is plain text in a table cell, with no badge (identity §6.6). Every other audience is the neutral badge with an icon and a label.
+
+### D11. Selection tint (decided with the maintainer, 2026-11-04)
+
+`--surface-selected` stays as it is (12% Archive Blue). Revisit only if the shell shows it as too much chroma.
+
 ## Open questions
 
-- Principle 10 against identity §11 ("calm, precise, short") and the rule that the canonical glow is gold's one job: how much effect does an app page carry, and where does parallax belong?
+- Where parallax belongs beyond home and empty-state pages (D9).
 - The set of patterns that carries state in greyscale, and the transition durations (the brand's §11.2 gives 150 to 220ms for small, 220 to 320ms for larger).
