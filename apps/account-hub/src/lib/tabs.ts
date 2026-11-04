@@ -18,6 +18,17 @@ export type BoundTabs = {
   refresh(): void;
   // Goes back to the first tab, for a new set of panels.
   reset(): void;
+  // Opens the tab at `index` (counting every tab, shown or not), as if it were pressed, and says
+  // whether it opened: not where its panel is empty, or where `canLeave` said no.
+  select(index: number): boolean;
+  // Which tab is open.
+  selected(): number;
+};
+
+export type TabsOptions = {
+  // Asked before the tab in use is left for another one pressed: false keeps it open. A tab chosen with
+  // `reset` is not asked.
+  canLeave?: (from: number, to: number) => boolean;
 };
 
 function hasContent(panel: HTMLElement): boolean {
@@ -25,7 +36,7 @@ function hasContent(panel: HTMLElement): boolean {
 }
 
 // `root` holds the tablist and the panels. The first tab is selected.
-export function bindTabs(root: HTMLElement): BoundTabs {
+export function bindTabs(root: HTMLElement, options: TabsOptions = {}): BoundTabs {
   const children = [...root.children];
   const tablist = children.find((child) => child.getAttribute('role') === 'tablist');
   const panels = children.filter(
@@ -88,8 +99,16 @@ export function bindTabs(root: HTMLElement): BoundTabs {
     strip.hidden = available.filter(Boolean).length < 2;
   }
 
+  function mayLeaveFor(target: number): boolean {
+    return (
+      target === selected || options.canLeave === undefined || options.canLeave(selected, target)
+    );
+  }
+
   tabs.forEach((tab, index) => {
     tab.addEventListener('click', () => {
+      if (!mayLeaveFor(index)) return;
+
       wanted = index;
       refresh();
     });
@@ -111,6 +130,9 @@ export function bindTabs(root: HTMLElement): BoundTabs {
       if (target === undefined) return;
 
       event.preventDefault();
+
+      if (!mayLeaveFor(target)) return;
+
       wanted = target;
       refresh();
       tabs[target]?.focus();
@@ -125,5 +147,14 @@ export function bindTabs(root: HTMLElement): BoundTabs {
       wanted = 0;
       refresh();
     },
+    select(index) {
+      if (!open()[index] || !mayLeaveFor(index)) return false;
+
+      wanted = index;
+      refresh();
+
+      return true;
+    },
+    selected: () => selected,
   };
 }

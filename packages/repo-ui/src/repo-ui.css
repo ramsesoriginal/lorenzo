@@ -1,0 +1,144 @@
+/* The three-way review (ADR 0389): a changed field with its values stacked and, where the person has
+   to choose, the choice. Brand tokens only. Nothing here moves, so there is no motion to reduce. */
+.repo-review {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.repo-review-item {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.repo-review-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* The name of a value beside the value on a desk, and above it on a phone (identity.md 8.5): was,
+   now and yours are never side by side. A long value wraps instead of widening the page. */
+.repo-review-values {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.repo-review-term {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.repo-review-value {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* No value and deleted are words, said in the interface's own type so that they cannot be mistaken
+   for a value that reads the same. The words carry the meaning, not the type. */
+.repo-review-value[data-value="empty"],
+.repo-review-value[data-value="deleted"] {
+  font-family: var(--font-ui);
+  font-style: italic;
+}
+
+.repo-review-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.repo-review-choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.repo-review-question {
+  padding-inline: var(--space-2);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.repo-review-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.repo-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.repo-review-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* The side that keeps what the person wrote is the main one; the other is an outline, so the two
+   differ by weight and by their words, not by hue. */
+.repo-review-action[data-side="mine"] {
+  border-color: transparent;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-fg);
+}
+
+.repo-review-action:focus-visible,
+.repo-review-option input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* One column on a phone, and what is pressed is the brand's target size there and for any coarse
+   pointer (identity.md 8.5). */
+@media (max-width: 720px) {
+  .repo-review-values {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .repo-review-value {
+    margin-bottom: var(--space-2);
+  }
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .repo-review-option,
+  .repo-review-action {
+    min-height: var(--target-min);
+  }
+}
+
+/* The status line is for a screen reader. */
+.repo-review-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

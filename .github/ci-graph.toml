@@ -164,6 +164,9 @@ batch = "packages"
 [nodes."packages/entry-preview"]
 batch = "packages"
 
+[nodes."packages/repo-ui"]
+batch = "packages"
+
 [nodes."apps/calendars"]
 batch = "web-2"
 

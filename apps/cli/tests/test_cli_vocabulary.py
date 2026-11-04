@@ -39,6 +39,7 @@ def stat(name="stress", sid=S):
         stat_group_id=str(G),
         value_type="int",
         enum_values=[],
+        enum_options=[],
         unit=None,
         adjustable_in_play=False,
         pin=False,

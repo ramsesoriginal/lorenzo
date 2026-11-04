@@ -123,6 +123,7 @@ updates:
       - "/packages/read-cache"
       - "/packages/map-renderer"
       - "/packages/entry-preview"
+      - "/packages/repo-ui"
     schedule:
       interval: "weekly"
     commit-message:

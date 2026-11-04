@@ -91,6 +91,14 @@ export interface StatDef {
   type: StatType;
   /** The allowed values of an enum stat, in order. */
   enumValues: string[];
+  /** The id of each allowed value, in the same order, so one can be renamed (K6). */
+  enumIds?: string[];
+}
+
+/** A page of `readEffectiveStats`. */
+export interface EffectivePage {
+  items: { entryId: string; stats: { statId: string; value: StatScalar; own: boolean }[] }[];
+  pages: number;
 }
 
 /** One stat on an entry, as the server resolved it. `own` false means it is inherited. */
@@ -100,6 +108,8 @@ export interface StatValue {
   /** The effective value; null for an own value just cleared, whose inherited one is not known here. */
   value: StatScalar | null;
   own: boolean;
+  /** A formula decided it: it is not a value of its own to copy or to clear (K4). */
+  computed?: boolean;
 }
 
 /** Whether a stat of this type can be written from Bench: every type can. */
@@ -163,6 +173,13 @@ export interface NewEntry {
 export const canRename = (kinds: readonly string[]): boolean =>
   kinds.includes('item') || kinds.includes('fact');
 
+/**
+ * An entry can be duplicated when it is made of kinds `POST /entities` makes: an item, a being, a
+ * fact, or none. An inventory item and a character are made by their own routes (ADR 0217).
+ */
+export const canDuplicate = (kinds: readonly string[]): boolean =>
+  kinds.every((k) => (EDITABLE_KINDS as readonly string[]).includes(k));
+
 /** An inventory item's one parent changes through its own route, not here. */
 export const canSetParents = (kinds: readonly string[]): boolean =>
   !kinds.includes('item_instance');
@@ -211,6 +228,19 @@ export interface Transport {
     enumValues: string[];
   }): Promise<StatDef>;
   deleteStat(statId: string): Promise<void>;
+  /** Renames a stat (K6). Refused when the name is taken, or the API reads the stat by name. */
+  renameStat(statId: string, name: string): Promise<StatDef>;
+  /** Renames one allowed value of an enum stat; every stored copy of it follows (K6). */
+  renameEnumValue(statId: string, valueId: string, value: string): Promise<StatDef>;
+  /** How many libraries hold a copy of a row of this repository: a number, never which (K9). */
+  countLibraries(kind: 'entry' | 'stat' | 'stat-group', id: string): Promise<number>;
+  /** Deletes an entry from the repository. Nothing a library copied is touched (K9). */
+  deleteEntry(entryId: string, version: string | null): Promise<void>;
+  /**
+   * One page of the effective values of some stats on every entry, in the list's order, in one
+   * request (K7): for each entry the stats it has a value for, and whether it holds each itself.
+   */
+  readEffectiveStats(statIds: string[], page: number): Promise<EffectivePage>;
   /**
    * The entry's main picture as a URL an image can show (a `blob:` one, fetched with the sign-in),
    * or `null` when it has none or it cannot be seen.

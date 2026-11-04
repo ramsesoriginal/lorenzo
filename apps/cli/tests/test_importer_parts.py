@@ -447,6 +447,7 @@ class FakeTenant:
                     "stat_group_id": group["id"],
                     "value_type": d.value_type,
                     "enum_values": [],
+                    "enum_options": [],
                     "unit": None,
                     "adjustable_in_play": False,
                     "pin": False,

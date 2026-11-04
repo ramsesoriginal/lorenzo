@@ -247,6 +247,8 @@ class World:
     not_applied: list[dict[str, Any]] = field(default_factory=list)
     # How many libraries copied the repository by themselves: all it learns of them (ADR 0299).
     public_copies: int = 0
+    # How many libraries hold a copy of a row of the repository, by the row's id (ADR 0386).
+    library_counts: dict[str, int] = field(default_factory=dict)
 
     # -- the routes ------------------------------------------------------------------------------
 
@@ -374,6 +376,9 @@ class World:
             return httpx.Response(
                 200, json={"items": rows, "total": len(rows), "page": 1, "size": 100, "pages": 1}
             )
+        if method == "GET" and path.startswith(f"{repo}/") and path.endswith("/libraries"):
+            counted = path.split("/")[-2]
+            return httpx.Response(200, json={"count": self.library_counts.get(counted, 0)})
         if path == f"{repo}/subscribers/summary" and method == "GET":
             named = 1 if self.granted else 0
             return httpx.Response(200, json={"named": named, "public_copies": self.public_copies})

@@ -142,6 +142,9 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
   }
 
   function navigate(view: View): void {
+    // Something typed in a profile and not saved: asked about before the page goes elsewhere (ADR 0385).
+    if (current.type === 'repository' && !repositoryView.mayLeave()) return;
+
     say(notice, '');
     window.history.pushState(null, '', urlFor(view));
     void show(view);

@@ -36,6 +36,7 @@ from lorenzo_cli.client.models import (
     ItemInstanceCreate,
     ItemInstanceOut,
     ItemOut,
+    LibraryCountOut,
     LinearFormulaBodyInput,
     MeOut,
     OwnedByResponse,
@@ -158,6 +159,24 @@ DELETE_STAT_DEFINITION: Op[None] = Op(
 )
 DELETE_STAT_GROUP: Op[None] = Op(
     "delete_stat_group", "DELETE", f"{_TENANT}/stat-groups/{{stat_group_id}}"
+)
+ENTRY_LIBRARIES: Op[LibraryCountOut] = Op(
+    "count_entity_libraries",
+    "GET",
+    f"{_TENANT}/entities/{{entity_id}}/libraries",
+    response_type=LibraryCountOut,
+)
+STAT_LIBRARIES: Op[LibraryCountOut] = Op(
+    "count_stat_definition_libraries",
+    "GET",
+    f"{_TENANT}/stat-definitions/{{stat_definition_id}}/libraries",
+    response_type=LibraryCountOut,
+)
+STAT_GROUP_LIBRARIES: Op[LibraryCountOut] = Op(
+    "count_stat_group_libraries",
+    "GET",
+    f"{_TENANT}/stat-groups/{{stat_group_id}}/libraries",
+    response_type=LibraryCountOut,
 )
 CREATE_ITEM: Op[ItemOut] = Op(
     "create_item", "POST", f"{_TENANT}/items", request_type=ItemCreate, response_type=ItemOut
@@ -410,6 +429,9 @@ ALL_OPS: tuple[Op[Any], ...] = (
     DELETE_ITEM,
     DELETE_STAT_DEFINITION,
     DELETE_STAT_GROUP,
+    ENTRY_LIBRARIES,
+    STAT_GROUP_LIBRARIES,
+    STAT_LIBRARIES,
     CREATE_ITEM,
     SET_ENTITY_TAG,
     LIST_ENTITY_COMPUTED_STATS,

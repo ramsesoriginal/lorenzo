@@ -10,6 +10,7 @@ import {
   canRename,
   canSetParents,
   type EditableKind,
+  type EffectivePage,
   type EntryState,
   type EntrySummary,
   type HeldFormula,
@@ -61,7 +62,8 @@ export type SampleWrite =
   | { id: string; field: 'description' | 'note.add' | 'note.text'; value: string }
   | { id: string; field: `stat:${string}`; value: StatScalar | null }
   | { id: string; field: 'note.order'; value: string[] }
-  | { id: string; field: 'note.public'; value: boolean };
+  | { id: string; field: 'note.public'; value: boolean }
+  | { id: string; field: 'delete'; value: true };
 
 const KIND_ORDER = ['item', 'item_instance', 'being', 'character'];
 
@@ -239,7 +241,11 @@ export class SampleTransport implements Transport {
 
   async listStatDefinitions(): Promise<StatDef[]> {
     this.need();
-    return this.defs.map((d) => ({ ...d, enumValues: [...d.enumValues] }));
+    return this.defs.map((d) => ({
+      ...d,
+      enumValues: [...d.enumValues],
+      enumIds: d.enumValues.map((_, i) => `${d.id}:${i}`),
+    }));
   }
   async getEntry(id: string) {
     this.need();
@@ -658,9 +664,61 @@ export class SampleTransport implements Transport {
     this.defs.push(made);
     return made;
   }
+  /** How many libraries have copied each entry, for tests of the delete warning. */
+  libraries = new Map<string, number>();
+  async countLibraries(_kind: 'entry' | 'stat' | 'stat-group', id: string): Promise<number> {
+    this.need();
+    return this.libraries.get(id) ?? 0;
+  }
+  async deleteEntry(id: string, etag: string | null): Promise<void> {
+    this.need();
+    this.guard(id, etag);
+    this.rows.delete(id);
+    for (const other of this.rows.values()) {
+      other.parents = other.parents.filter((p) => p !== id);
+      if (other.heldBy === id) other.heldBy = undefined;
+    }
+    this.writes.push({ id, field: 'delete', value: true });
+  }
+  async readEffectiveStats(statIds: string[], page: number): Promise<EffectivePage> {
+    this.need();
+    const size = 100;
+    const all = [...this.rows.keys()].sort((a, b) => a.localeCompare(b));
+    return {
+      pages: Math.max(1, Math.ceil(all.length / size)),
+      items: all.slice((page - 1) * size, page * size).map((id) => ({
+        entryId: id,
+        stats: this.effective(id)
+          .filter((s) => statIds.includes(s.statId) && s.value !== null)
+          .map((s) => ({ statId: s.statId, value: s.value as StatScalar, own: s.own })),
+      })),
+    };
+  }
   async deleteStat(statId: string): Promise<void> {
     this.need();
     const at = this.defs.findIndex((d) => d.id === statId);
     if (at >= 0) this.defs.splice(at, 1);
+  }
+  async renameStat(statId: string, name: string): Promise<StatDef> {
+    this.need();
+    const def = this.defs.find((d) => d.id === statId);
+    if (!def) throw new RefusedError('That stat is not there.');
+    if (name !== def.name && this.defs.some((d) => d.name.toLowerCase() === name.toLowerCase()))
+      throw new RefusedError(`There is a stat called ${name} already.`);
+    def.name = name;
+    return { ...def, enumValues: [...def.enumValues] };
+  }
+  async renameEnumValue(statId: string, valueId: string, value: string): Promise<StatDef> {
+    this.need();
+    const def = this.defs.find((d) => d.id === statId);
+    const at = def ? Number(valueId.split(':')[1]) : -1;
+    const old = def?.enumValues[at];
+    if (!def || old === undefined) throw new RefusedError('That value is not there.');
+    if (value !== old && def.enumValues.includes(value))
+      throw new RefusedError(`${value} is already allowed for ${def.name}.`);
+    def.enumValues[at] = value;
+    for (const row of this.rows.values())
+      if (row.stats.get(statId) === old) row.stats.set(statId, value);
+    return { ...def, enumValues: [...def.enumValues] };
   }
 }

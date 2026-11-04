@@ -8,6 +8,7 @@ type SampleWindow = {
     offline: boolean;
     writes: { id: string; field: string; value: unknown }[];
     renameElsewhere(id: string, name: string): void;
+    libraries: Map<string, number>;
     editTextElsewhere(id: string, which: string, text: string): void;
     setStatElsewhere(id: string, statId: string, value: unknown): void;
   };
@@ -1484,6 +1485,143 @@ test.describe('link names', () => {
   });
 });
 
+test.describe('deleting an entry, and the libraries that copied it', () => {
+  const libraries = (page: Page, id: string, n: number) =>
+    page.evaluate(
+      ([entry, count]) =>
+        (window as unknown as SampleWindow).sample.libraries.set(entry as string, count as number),
+      [id, n],
+    );
+
+  test('says how many libraries have copied it, and deletes it only when asked', async ({
+    page,
+  }) => {
+    await libraries(page, 'wolf', 3);
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Delete Wolf' }).click();
+    const ask = page.getByRole('group', { name: 'Delete Wolf' });
+    await expect(ask).toContainText('3 libraries have copied this.');
+    await expect(ask).toContainText('They will see it as removed upstream.');
+    await ask.getByRole('button', { name: 'Keep it' }).click();
+    await expect(ask).toHaveCount(0);
+    await expect(page.locator('[data-entry="wolf"]')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Delete Wolf' }).click();
+    await ask.getByRole('button', { name: 'Delete it' }).click();
+    await expect(page.locator('[data-entry="wolf"]')).toHaveCount(0);
+    await expect(page.getByText('Choose an entry in the explorer.').first()).toBeVisible();
+    // What inherited from it is still there, with nothing above it.
+    await expect(page.locator('[data-entry="dire-wolf"]')).toHaveCount(1);
+  });
+
+  test('says it in the singular, and when no library has copied it', async ({ page }) => {
+    await libraries(page, 'wolf', 1);
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Delete Wolf' }).click();
+    await expect(page.getByRole('group', { name: 'Delete Wolf' })).toContainText(
+      '1 library has copied this. It will see it as removed upstream.',
+    );
+    await page
+      .getByRole('group', { name: 'Delete Wolf' })
+      .getByRole('button', { name: 'Keep it' })
+      .click();
+    await page.locator('[data-entry="dire-wolf"]').click();
+    await page.getByRole('button', { name: 'Delete Dire wolf' }).click();
+    await expect(page.getByRole('group', { name: 'Delete Dire wolf' })).toContainText(
+      'No library has copied this.',
+    );
+  });
+
+  test('is refused while the entry has changes waiting to be sent', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await name(page).fill('Hound');
+    await name(page).press('Enter');
+    await page.getByRole('button', { name: 'Delete Hound' }).click();
+    await page
+      .getByRole('group', { name: 'Delete Hound' })
+      .getByRole('button', { name: 'Delete it' })
+      .click();
+    await expect(page.locator('.delete-refused')).toContainText('changes waiting to be sent');
+    await expect(page.locator('[data-entry="wolf"]')).toHaveCount(1);
+  });
+
+  test('says when the count could not be read, and still deletes', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'lose the connection');
+    await page.getByRole('button', { name: 'Delete Wolf' }).click();
+    await expect(page.getByRole('group', { name: 'Delete Wolf' })).toContainText(
+      'Could not tell how many libraries have copied this.',
+    );
+  });
+});
+
+test.describe('new from parent and duplicate (K4)', () => {
+  test('New under this opens the New form with the entry as the parent', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'New under this' }).click();
+    const form = page.locator('.new-entry');
+    await expect(form.getByLabel('Parent of the new entry')).toHaveValue('wolf');
+    await expect(form.getByLabel('Name of the new entry')).toBeFocused();
+    await form.getByLabel('Name of the new entry').fill('Pup');
+    await form.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(name(page)).toHaveValue('Pup');
+    expect(await writes(page)).toContainEqual({
+      id: expect.any(String),
+      field: 'create',
+      value: 'Pup',
+    });
+    await expect(page.getByRole('button', { name: 'Wolf', exact: true }).first()).toBeVisible();
+  });
+
+  test('the palette offers New entry under and Duplicate for the open entry', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await palette(page, 'New entry under Wolf');
+    await expect(page.locator('.new-entry').getByLabel('Parent of the new entry')).toHaveValue(
+      'wolf',
+    );
+    await palette(page, 'Duplicate Wolf');
+    await expect(name(page)).toHaveValue('Copy of Wolf');
+  });
+
+  test('Duplicate copies parents, own stats, description and notes, and says the notes are GM only', async ({
+    page,
+  }) => {
+    await page.locator('[data-entry="monster"]').click();
+    await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+    await expect(name(page)).toHaveValue('Copy of Monster');
+    await page
+      .getByRole('tab', { name: 'Properties' })
+      .click()
+      .catch(() => undefined);
+    expect(await writes(page)).toContainEqual({
+      id: expect.any(String),
+      field: 'stat:armor',
+      value: 10,
+    });
+
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+    await expect(name(page)).toHaveValue('Copy of Wolf');
+    await expect(page.locator('.pane-entry')).toContainText('Hunts in');
+    await expect(page.locator('.note-row')).toHaveCount(2);
+    await expect(page.locator('.entry-notice')).toContainText('Its notes are GM only.');
+    await page.locator('.entry-notice').getByRole('button', { name: 'Dismiss' }).click();
+    await expect(page.locator('.entry-notice')).toHaveCount(0);
+    // Beast is still its parent.
+    await expect(page.locator('.breadcrumb')).toContainText('Beast');
+  });
+
+  test('a second copy is named so that it differs', async ({ page }) => {
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+    await expect(name(page)).toHaveValue('Copy of Wolf');
+    await page.locator('[data-entry="wolf"]').click();
+    await page.getByRole('button', { name: 'Duplicate', exact: true }).click();
+    await expect(name(page)).toHaveValue('Copy of Wolf (2)');
+  });
+});
+
 test.describe('formulas and the stat vocabulary', () => {
   const formula = (page: Page) => page.locator('.pane-formula');
 
@@ -1537,6 +1675,40 @@ test.describe('formulas and the stat vocabulary', () => {
     await pane.getByRole('button', { name: 'Delete Rarity' }).click();
     await expect(pane.locator('.vocab-stat', { hasText: 'Rarity' })).toHaveCount(0);
   });
+
+  test('a stat and one of its values are renamed in place', async ({ page }) => {
+    await palette(page, 'Open Vocabulary');
+    const pane = page.locator('.pane-vocabulary');
+    await pane.getByLabel('Name of the new stat').fill('Rarity');
+    await pane.getByLabel('Kind of value').selectOption('enum');
+    await pane.getByLabel('Values', { exact: true }).fill('common, rare');
+    await pane.getByRole('button', { name: 'Make the stat' }).click();
+    const row = pane.locator('.vocab-stat', { hasText: 'Rarity' });
+    await expect(row).toContainText('common · rare');
+
+    await pane.getByRole('button', { name: 'Rename Rarity' }).click();
+    const input = pane.getByLabel('New name of Rarity');
+    await expect(input).toBeFocused();
+    await input.press('Escape');
+    await expect(pane.getByLabel('New name of Rarity')).toHaveCount(0);
+    await pane.getByRole('button', { name: 'Rename Rarity' }).click();
+    await pane.getByLabel('New name of Rarity').fill('Scarcity');
+    await pane.getByLabel('New name of Rarity').press('Enter');
+    await expect(pane.locator('.vocab-stat', { hasText: 'Scarcity' })).toContainText(
+      'common · rare',
+    );
+    await expect(pane.locator('.formula-note')).toHaveText('Renamed Rarity to Scarcity.');
+
+    await pane.getByRole('button', { name: 'Rename the value rare' }).click();
+    await pane.getByLabel('New name of rare').fill('common');
+    await pane.getByLabel('New name of rare').press('Enter');
+    await expect(pane.locator('.formula-note')).toContainText('common is already allowed');
+    await pane.getByLabel('New name of rare').fill('scarce');
+    await pane.getByLabel('New name of rare').press('Enter');
+    await expect(pane.locator('.vocab-stat', { hasText: 'Scarcity' })).toContainText(
+      'common · scarce',
+    );
+  });
 });
 
 test.describe('the status bar and the conflict review', () => {
@@ -1580,6 +1752,81 @@ test.describe('the status bar and the conflict review', () => {
     await dialog.getByRole('button', { name: 'Keep mine' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(bar(page)).toContainText('Synced');
+  });
+
+  const review = async (page: Page) => {
+    await conflict(page);
+    await palette(page, 'get the connection back');
+    await bar(page)
+      .getByRole('button', { name: /Conflict/ })
+      .click();
+    return page.getByRole('dialog');
+  };
+
+  test('the review is the shared element: values stacked in order, the field named, Use theirs keeps the server’s', async ({
+    page,
+  }) => {
+    const dialog = await review(page);
+
+    // What it was, what the server has and what was written, each named and in that order.
+    await expect(dialog.locator('.repo-review-label')).toHaveText('Name');
+    await expect(dialog.locator('.repo-review-term')).toHaveText(['Was', 'Theirs', 'Mine']);
+    await expect(dialog.locator('.repo-review-value')).toHaveText([
+      '“Wolf”',
+      '“Coyote”',
+      '“Hound”',
+    ]);
+    await expect(dialog.getByRole('group', { name: 'Choose for Name' })).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Use theirs' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(bar(page)).toContainText('Synced');
+    await expect(name(page)).toHaveValue('Coyote');
+  });
+
+  test('a conflict is settled from the keyboard', async ({ page }) => {
+    const dialog = await review(page);
+    const keep = dialog.getByRole('button', { name: 'Keep mine' });
+
+    await keep.focus();
+    await expect(keep).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(dialog.getByRole('button', { name: 'Use theirs' })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(keep).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(bar(page)).toContainText('Synced');
+    await expect(name(page)).toHaveValue('Hound');
+  });
+
+  test('on a phone the values stack in one column and what is pressed is 44px tall', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    const dialog = await review(page);
+
+    await expect(dialog.locator('.repo-review-value')).toHaveCount(3);
+
+    const boxes = await dialog.locator('.repo-review-term, .repo-review-value').evaluateAll((els) =>
+      els.map((e) => {
+        const { x, y } = e.getBoundingClientRect();
+        return { x, y };
+      }),
+    );
+
+    // One column: every term and value starts at the same x, each below the one before.
+    expect(new Set(boxes.map((b) => Math.round(b.x))).size).toBe(1);
+    for (let i = 1; i < boxes.length; i++) {
+      expect(boxes[i]?.y).toBeGreaterThan(boxes[i - 1]?.y ?? 0);
+    }
+
+    for (const button of await dialog.locator('.repo-review-action').all()) {
+      expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    }
+
+    expect(await dialog.evaluate((d) => d.scrollWidth - d.clientWidth)).toBeLessThanOrEqual(0);
   });
 });
 

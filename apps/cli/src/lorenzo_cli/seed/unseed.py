@@ -27,11 +27,14 @@ from lorenzo_cli.client.ops import (
     DELETE_ITEM,
     DELETE_STAT_DEFINITION,
     DELETE_STAT_GROUP,
+    ENTRY_LIBRARIES,
     GET_ENTITY,
     GET_ITEM,
     LIST_STAT_DEFINITIONS,
     LIST_STAT_GROUPS,
     REPLACE_ITEM_PROTOTYPES,
+    STAT_GROUP_LIBRARIES,
+    STAT_LIBRARIES,
     Op,
 )
 from lorenzo_cli.client.paging import all_items
@@ -270,3 +273,26 @@ def _delete(
             result.kept.append(Kept(target.kind, target.name, str(exc)))
             return
     result.deleted.append(target)
+
+
+# The count's operation for each thing unseed deletes, and the path key it takes (ADR 0386).
+_LIBRARY_COUNTS = {
+    "node": (ENTRY_LIBRARIES, "entity_id"),
+    "definition": (STAT_LIBRARIES, "stat_definition_id"),
+    "group": (STAT_GROUP_LIBRARIES, "stat_group_id"),
+}
+
+
+def libraries_holding(client: LorenzoClient, tenant_id: UUID, plan: UnseedPlan) -> dict[str, int]:
+    """For what the plan deletes: how many libraries have copied each thing some library holds,
+    by the thing's name. Never which libraries. One question for each category, stat and group."""
+    held: dict[str, int] = {}
+    for target in plan.targets:
+        counted = _LIBRARY_COUNTS.get(target.kind)
+        if counted is None:
+            continue
+        op, key = counted
+        count = client.call(op, path={"tenant_id": tenant_id, key: target.id}).value.count
+        if count:
+            held[target.name] = count
+    return held
