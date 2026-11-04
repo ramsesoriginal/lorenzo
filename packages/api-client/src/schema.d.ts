@@ -4803,6 +4803,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/effective-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Effective Stats
+         * @description The effective value of the stats asked for on a page of entries, formulas evaluated, with
+         *     whether each entry holds it itself and the entry it comes from (ADR 0387, RFC 0041 §7): a
+         *     compare grid is the list plus these columns in one request a page. The entries and their
+         *     order are `GET /entities`'s, with the same filters (q, kind, parent_id, recursive). A stat an
+         *     entry has no value for is left out of its row. A stat definition that is not the library's is
+         *     a 404.
+         */
+        get: operations["list_effective_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/kinds/{kind}": {
         parameters: {
             query?: never;
@@ -9520,6 +9545,27 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /**
+         * EffectiveStatOut
+         * @description One stat of one entry in GET .../entities/effective-stats - ADR 0387: the effective value,
+         *     formulas evaluated (as `EntityStatValueOut.value`), whether the entry holds it itself, the
+         *     entry it is inherited from (null when it holds it, or when the caller may not see the
+         *     source) and whether a formula decided it.
+         */
+        EffectiveStatOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+            /** Own */
+            own: boolean;
+            from_entity?: components["schemas"]["EntitySummary"] | null;
+            /** Computed */
+            computed: boolean;
+        };
         /** Element */
         Element: {
             /**
@@ -9900,6 +9946,22 @@ export interface components {
             can_add_notes: boolean;
             /** Editable Information Ids */
             editable_information_ids: string[];
+        };
+        /**
+         * EntryEffectiveStatsOut
+         * @description One row of GET .../entities/effective-stats: an entry and the requested stats it has a
+         *     value for, in the order asked. A stat it has none of is left out.
+         */
+        EntryEffectiveStatsOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Stats */
+            stats: components["schemas"]["EffectiveStatOut"][];
         };
         /**
          * EntryFramesOut
@@ -12566,6 +12628,19 @@ export interface components {
         Page_EntitySummary_: {
             /** Items */
             items: components["schemas"]["EntitySummary"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[EntryEffectiveStatsOut] */
+        Page_EntryEffectiveStatsOut_: {
+            /** Items */
+            items: components["schemas"]["EntryEffectiveStatsOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -35799,6 +35874,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_effective_stats: {
+        parameters: {
+            query: {
+                /** @description The stats to read (repeatable, 1 to 50): stat definitions of the library. */
+                stat_definition_id: string[];
+                /** @description Case-insensitive substring match against the entry's name. */
+                q?: string | null;
+                /** @description Only entries of these kinds (repeatable): any of them, not all. */
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
+                /** @description Only entries that have this entry as a parent. */
+                parent_id?: string | null;
+                /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
+                recursive?: boolean;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EntryEffectiveStatsOut_"];
                 };
             };
             /** @description Validation Error */
