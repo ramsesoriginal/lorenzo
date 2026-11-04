@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; palette and keyboard decided; dialogs, menus and toasts next. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; overlays decided; account and library flows and first run next. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -203,6 +203,15 @@ Turned down: retrying a write automatically; a spinner for every wait; no mascot
 - **In a rich-text editor** `Ctrl K` inserts a link to an entry, and the palette opens with `Ctrl Shift K`.
 
 Turned down: the palette centered without a preview everywhere; anchored to the header field.
+
+### D26. Toasts, dialogs and menus (decided with the maintainer, 2026-11-04)
+
+- **Toasts** sit at the bottom center, directly above the status bar (above the tab bar on a phone), in a live region. Three kinds: a quiet confirmation ("Saved"), a reversible action with **Undo**, and an error that stays until dismissed and offers "Try again". A toast that leaves by itself stays for **10 seconds**, shows a progress bar counting down, and the timer pauses and resets while the pointer is over it or focus is in it. Turned down: bottom left; top right.
+- **Undo or confirm.** A reversible action (delete an entry, move, change who sees it) is done at once and offers Undo. An irreversible or large action asks first in a dialog that names what is lost, with counts the person may know; the largest asks the person to type the name, and its button says what it does and stays disabled with a reason. Never a generic "Are you sure?". Bulk actions that are reversible also use Undo.
+- **Dialogs** are centered on desktop; the first field takes focus, `Enter` submits, `Esc` cancels. At the tablet step and on a phone a dialog is a bottom sheet with stacked buttons, the safe choice first.
+- **Menus** are popovers with shortcut hints at the right and a divider before a destructive item. A row's actions are a visible button, never hover-only. On a phone a menu is a bottom sheet with 44 to 48px rows.
+
+Turned down: a centered dialog at the tablet step.
 
 ## Open questions
 
