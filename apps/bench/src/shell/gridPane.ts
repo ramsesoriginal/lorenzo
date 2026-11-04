@@ -22,7 +22,7 @@ import {
   valueSource,
   valuesOf,
 } from './gridModel';
-import { type IconName, icon, iconButton } from './icons';
+import { type IconName, icon, iconButton, kindIcon } from './icons';
 
 /** What a grid remembers while the page is drawn again around it. */
 export interface GridState {
@@ -327,7 +327,10 @@ export function renderGrid(bench: Bench, state: GridState, opts: GridOptions): H
     const nameCell = el('th', 'grid-name');
     nameCell.scope = 'row';
     nameCell.style.paddingLeft = `${8 + depth * 14}px`;
-    nameCell.append(button(entry.name, () => opts.go(entry.id), 'lnk'));
+    nameCell.append(
+      icon(kindIcon(entry.kinds), 14),
+      button(entry.name, () => opts.go(entry.id), 'lnk'),
+    );
     tr.append(nameCell);
     if (opts.compact) {
       const parents = entry.parentIds.map((p) => bench.displayName(p)).join(', ');
