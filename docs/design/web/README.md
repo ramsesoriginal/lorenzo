@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; page templates decided; density next. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; density decided; spacing and type scale next. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -151,6 +151,16 @@ Seven templates: list and detail, reading, settings and forms, document editor, 
 - **Full width** (exempt from the cap, for now): the board, the full-width workspace (a map, a wide table) and the editor's outline pane. Everything else is capped.
 
 Turned down: autosave everywhere; an explicit save everywhere; the shared blocks first on Home.
+
+### D22. Density and saved views (decided with the maintainer, 2026-11-04)
+
+Three levels: Comfortable (the default, 48px rows), Compact (36px) and Dense (28px, fine pointer only). The type size never changes (identity §15.5); only row height and padding do. On a phone or a coarse pointer every level is at least 44px, so the control is not offered there.
+
+- **Appearance** holds a density setting (with theme and motion), the starting point for every list.
+- **Saved views** are a named layout per list (columns, sort, filters, density) and are per person. They are not shared with other people in the library.
+- **Where it is remembered:** in the account, so it follows the person to another device. This needs an API surface for a person's preferences, which does not exist yet; it is a follow-up slice, not made here.
+
+Turned down: a density control in every list toolbar; Appearance alone; saved views alone; shareable views; remembering on the device only.
 
 ## Open questions
 
