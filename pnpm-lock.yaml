@@ -290,6 +290,9 @@ importers:
       '@lorenzo/lorenzoscript':
         specifier: workspace:*
         version: link:../../packages/lorenzoscript
+      '@lorenzo/lorenzoscript-editor':
+        specifier: workspace:*
+        version: link:../../packages/lorenzoscript-editor
       '@lorenzo/repo-ui':
         specifier: workspace:*
         version: link:../../packages/repo-ui

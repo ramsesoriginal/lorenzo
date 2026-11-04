@@ -1,6 +1,7 @@
 import { validatePicture } from '@lorenzo/information-editor';
 import type { Bench } from '../core/bench';
 import type { TextDoc } from '../core/transport';
+import { icon } from './icons';
 import { liveEditor } from './liveEditor';
 
 /** Bench's in-place texts with the other payloads between them, in their stored order. */
@@ -101,7 +102,7 @@ export function informationBody(
       const menu = document.createElement('details');
       menu.className = 'picture-part-actions';
       const summary = document.createElement('summary');
-      summary.textContent = '⋯';
+      summary.append(icon('more', 14));
       summary.setAttribute('aria-label', 'Picture actions');
       menu.append(summary);
       const parts = doc.information.payloads;

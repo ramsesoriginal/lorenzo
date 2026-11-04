@@ -4,6 +4,7 @@
 
 import type { Bench } from '../core/bench';
 import { add, stepOf } from './gridModel';
+import { icon } from './icons';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text: string) => {
   const e = document.createElement(tag);
@@ -28,10 +29,11 @@ export function decorateStats(root: HTMLElement, bench: Bench, home: string): vo
       bench.setStat(home, def.id, add(value, sign * step));
     };
     for (const [label, glyph, sign] of [
-      [`Decrease ${def.name}`, '−', -1],
-      [`Increase ${def.name}`, '+', 1],
+      [`Decrease ${def.name}`, 'decrease', -1],
+      [`Increase ${def.name}`, 'add', 1],
     ] as const) {
-      const b = el('button', 'stat-step', glyph);
+      const b = el('button', 'stat-step', '');
+      b.append(icon(glyph, 12));
       b.type = 'button';
       b.setAttribute('aria-label', label);
       // Pressing must not turn the block into source.

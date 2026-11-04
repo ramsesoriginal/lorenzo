@@ -2,7 +2,7 @@
 // palette), the layouts, and the appearance (light or dark, a serif or a sans-serif for texts).
 
 import { canRemember, FACES, THEMES, type Theme } from './appearance';
-import { icon } from './icons';
+import { type IconName, icon } from './icons';
 import type { Shell } from './shell';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
@@ -18,6 +18,7 @@ function choices<T extends string>(
   options: readonly (readonly [T, string])[],
   current: () => T,
   choose: (value: T) => void,
+  glyphs: Partial<Record<T, IconName>> = {},
 ): HTMLElement {
   const seg = el('div', 'seg');
   seg.setAttribute('role', 'group');
@@ -27,7 +28,10 @@ function choices<T extends string>(
       b.setAttribute('aria-pressed', String(b.dataset.value === current()));
   };
   for (const [value, text] of options) {
-    const b = el('button', undefined, text);
+    const b = el('button');
+    const glyph = glyphs[value];
+    if (glyph) b.append(icon(glyph, 14));
+    b.append(document.createTextNode(text));
     b.type = 'button';
     b.dataset.value = value;
     b.addEventListener('click', () => {
@@ -58,6 +62,7 @@ function openAppearance(anchor: HTMLButtonElement, shell: Shell): void {
     THEMES,
     () => shell.theme(),
     (t) => shell.setTheme(t),
+    { system: 'theme-system', light: 'theme-light', dark: 'theme-dark' },
   );
   const face = choices<'serif' | 'sans'>(
     'Writing font',
@@ -103,7 +108,8 @@ export function decorateTopBar(bar: HTMLElement, shell: Shell): void {
   cmd.addEventListener('click', () => shell.openPalette());
 
   // The letters are the button's mark, as in the design: the type is the icon.
-  const aa = el('button', 'aa', 'Aa');
+  const aa = el('button', 'aa');
+  aa.append(icon('appearance', 16));
   aa.type = 'button';
   aa.title = 'Appearance: theme and writing font';
   aa.setAttribute('aria-label', 'Appearance');

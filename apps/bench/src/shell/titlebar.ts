@@ -1,5 +1,6 @@
 // The title bar: the repository picker on the left, who is signed in on the right.
 
+import { icon } from './icons';
 import { openStartScreen, type RepoChoice, repositoryMenu } from './repositories';
 import { chooseRepository, type Session, signIn } from './session';
 
@@ -41,7 +42,8 @@ export function renderTitleBar(
       break;
     case 'signed-out': {
       bar.append(el('span', 'note', 'Not signed in. Sample data.'));
-      const b = el('button', 'btn', 'Sign in');
+      const b = el('button', 'btn');
+      b.append(icon('login', 14), document.createTextNode('Sign in'));
       b.type = 'button';
       b.addEventListener('click', () => void signIn());
       right.append(b);
@@ -71,7 +73,11 @@ export function renderTitleBar(
     }
   }
   if (session.kind === 'signed-in' || session.kind === 'error') {
-    const out = el('button', 'btn', session.kind === 'error' ? 'Sign out and retry' : 'Sign out');
+    const out = el('button', 'btn');
+    out.append(
+      icon('logout', 14),
+      document.createTextNode(session.kind === 'error' ? 'Sign out and retry' : 'Sign out'),
+    );
     out.type = 'button';
     out.addEventListener('click', onSignOut);
     right.append(out);

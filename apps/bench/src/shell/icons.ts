@@ -46,6 +46,23 @@ export const ICON_NAMES = [
   'layout-write',
   'layout-inspect',
   'layout-compare',
+  // Formatting a text
+  'bold',
+  'italic',
+  'heading',
+  'quote',
+  'list-numbered',
+  'code',
+  'entity-link',
+  'more',
+  'upload',
+  // Appearance and honest states
+  'appearance',
+  'theme-system',
+  'theme-light',
+  'theme-dark',
+  'conflict',
+  'waiting',
   // Things done
   'undo',
   'login',
