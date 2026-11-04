@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell). Header, navigation between apps and footer decided; type and spacing decided; states next. No prototype is committed yet.
+Status: Phase 2 (the shell). Header, navigation between apps and footer decided; states decided; palette and keyboard next. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -184,6 +184,16 @@ Nothing is below 12px. Weights are 400, 500 and 600. Sizes are in rem. Numbers i
 **Spacing** is the brand's 4px grid plus one new step, `--space-2h` (12px on desktop), for gaps in dense groups and the label of a field. On a phone the spacing tokens stay halved at 720px and below, as the brand does today (so `--space-2h` is 6px there).
 
 Turned down: a ladder of ten sizes; fixed roles with a jump at the phone step; the same spacing rhythm on a phone as on desktop (the repository's rule is kept).
+
+### D24. States, and the mascots (decided with the maintainer, 2026-11-04)
+
+- **Retry:** a failed read retries by itself with a short backoff and says so ("Trying again in a moment"); after it gives up a "Try again" button stays. A write is never retried automatically.
+- **Loading:** a spinner only for a one-line wait (a single field); a skeleton for everything else; a progress bar wherever the progress is known. The branded spark is for the rare branded waits only (identity §17.9).
+- **Mascots** appear in states where a whole page has nothing to show or cannot be shown (first run, a page with nothing in it, not found, no access, offline, a page-level error), never in a working page's region states and never in app chrome. The images are listed in [mascot-images.md](mascot-images.md) for the illustrators.
+- **Copy** follows the brand guide (identity §14): clear, concise, precise, quietly playful, no over-cute speech, no apology boilerplate.
+- **A hidden thing is never counted.** "No access" does not say whether the page exists; no state says how many entries a person cannot see.
+
+Turned down: retrying a write automatically; a spinner for every wait; no mascots in functional states beyond the rare page-level ones; warmer apologetic copy.
 
 ## Open questions
 
