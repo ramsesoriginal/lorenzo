@@ -1351,3 +1351,50 @@ test('word counts measure direct prose, repeated Carrier passages and highlighte
     await context.close();
   }
 });
+
+test('personal targets persist independently for the draft and assembled reading', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context } = await world(browser);
+  try {
+    const writeUrl = page.url();
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByLabel('Personal word target').fill('5');
+    await page.getByRole('button', { name: 'Save target', exact: true }).click();
+    await expect(page.getByText('Target saved.', { exact: true })).toBeVisible();
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.fill('The river remembers.');
+    await expect(page.getByText('2 words remaining · target 5', { exact: true })).toBeVisible();
+    await manuscript.fill('The river remembers every crossing.');
+    await expect(page.getByText('Target reached · 5 words', { exact: true })).toBeVisible();
+    await expect(manuscript).toBeFocused();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.reload();
+    await page.getByText('Word count', { exact: true }).click();
+    await expect(page.getByLabel('Personal word target')).toHaveValue('5');
+    const readUrl = new URL(writeUrl);
+    readUrl.searchParams.set('view', 'read');
+    await page.goto(readUrl.toString());
+    await page.getByText('Word count', { exact: true }).click();
+    await expect(page.getByLabel('Personal word target')).toHaveValue('');
+    await page.getByLabel('Personal word target').fill('10');
+    await page.getByRole('button', { name: 'Save target', exact: true }).click();
+    await expect(page.getByText('5 words remaining · target 10', { exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByText('Word count', { exact: true }).click();
+    await expect(page.getByLabel('Personal word target')).toHaveValue('10');
+    await page.getByRole('button', { name: 'Clear target', exact: true }).click();
+    await expect(page.getByText('Target cleared.', { exact: true })).toBeVisible();
+    await page.goto(writeUrl);
+    await page.getByText('Word count', { exact: true }).click();
+    await expect(page.getByLabel('Personal word target')).toHaveValue('5');
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
