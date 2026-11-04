@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Bench } from './bench';
 import { compare, inverseOf, sameValue } from './commands';
 import { type SampleEntry, SampleTransport } from './sample';
-import type { StatDef } from './transport';
+import { canDuplicate, type StatDef } from './transport';
 
 const entries: SampleEntry[] = [
   { id: 'a', name: 'Monster', kinds: ['item'], parents: [] },
@@ -1173,5 +1173,103 @@ describe('the grid columns, read in bulk (K7)', () => {
     await bench.open('e3');
     await settle(bench);
     expect(bench.view('e3')?.stats.find((s) => s.statId === 'armor')?.value).toBe(9);
+  });
+});
+
+describe('duplicate (K4)', () => {
+  const withStats = async () => {
+    const server = new SampleTransport(
+      [
+        {
+          id: 'x',
+          name: 'Sword',
+          kinds: ['item'],
+          parents: ['a'],
+          description: 'Sharp.',
+          notes: [{ id: 'xn', text: 'Hidden notch.' }],
+          stats: { armor: 3, magical: true },
+        },
+        { id: 'a', name: 'Weapon', kinds: ['item'], parents: [], stats: { weight: 2 } },
+        { id: 'inst', name: 'My sword', kinds: ['item_instance'], parents: ['x'] },
+      ],
+      defs,
+    );
+    let n = 0;
+    const bench = new Bench(server, () => `new${++n}`);
+    await bench.loadEntries();
+    await bench.open('x');
+    await bench.open('inst');
+    return { server, bench };
+  };
+
+  it('copies kinds, parents, own stats, description and notes, and not the link name', async () => {
+    const { bench, server } = await withStats();
+    const copy = bench.duplicate('x');
+    expect(copy).not.toBeNull();
+    await settle(bench);
+    const made = await server.getEntry(copy as string);
+    expect(made.name).toBe('Copy of Sword');
+    expect(made.kinds).toEqual(['item']);
+    expect(made.parentIds).toEqual(['a']);
+    expect(made.slug).toBe('copy-of-sword');
+    // Its own values, not the ones it inherits (weight comes from Weapon).
+    expect(made.stats.filter((s) => s.own).map((s) => [s.statId, s.value])).toEqual([
+      ['armor', 3],
+      ['magical', true],
+    ]);
+    expect(made.description?.text).toBe('Sharp.');
+    expect(made.notes.map((n) => n.text)).toEqual(['Hidden notch.']);
+    expect(made.notes.every((n) => !n.isPublic)).toBe(true);
+    expect(bench.notices.get(copy as string)).toMatch(/notes are GM only/);
+  });
+
+  it('names a second copy so that its link name does not collide', async () => {
+    const { bench, server } = await withStats();
+    bench.duplicate('x');
+    await settle(bench);
+    const second = bench.duplicate('x');
+    await settle(bench);
+    expect((await server.getEntry(second as string)).name).toBe('Copy of Sword (2)');
+  });
+
+  it('shows at once, waits without a connection and is sent in order', async () => {
+    const { bench, server } = await withStats();
+    server.offline = true;
+    const copy = bench.duplicate('x') as string;
+    expect(bench.view(copy)?.name).toBe('Copy of Sword');
+    expect(bench.view(copy)?.stats.filter((s) => s.own)).toHaveLength(2);
+    expect(bench.status(copy)).toBe('waiting');
+    server.offline = false;
+    await settle(bench);
+    expect(bench.status(copy)).toBe('synced');
+  });
+
+  it('is refused for an inventory item or a character', async () => {
+    const { bench } = await withStats();
+    expect(canDuplicate(['item_instance'])).toBe(false);
+    expect(canDuplicate(['being', 'character'])).toBe(false);
+    expect(canDuplicate([])).toBe(true);
+    expect(bench.duplicate('inst')).toBeNull();
+  });
+
+  it('copies the formulas it holds once the copy is on the server', async () => {
+    const { bench, server } = await withStats();
+    await server.setFormula(
+      'x',
+      'weight',
+      { kind: 'linear', source: 'armor', multiplier: '2', offset: '0', round: 'none' },
+      null,
+    );
+    const copy = bench.duplicate('x') as string;
+    expect(await bench.copyFormulas('x', copy)).toBe(1);
+    expect((await server.listFormulas(copy)).map((h) => h.statId)).toEqual(['weight']);
+  });
+
+  it('says when the formulas could not follow for want of a connection', async () => {
+    const { bench, server } = await withStats();
+    server.offline = true;
+    const copy = bench.duplicate('x') as string;
+    expect(await bench.copyFormulas('x', copy)).toBeNull();
+    expect(bench.notices.get(copy)).toMatch(/without its formulas/);
   });
 });

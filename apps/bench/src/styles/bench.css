@@ -1945,3 +1945,6 @@ table.grid {
 .picture-part-actions[open] {
   opacity: 1;
 }
+.entry-notice {
+  margin: -16px 0 18px;
+}

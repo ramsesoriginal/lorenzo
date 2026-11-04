@@ -3,7 +3,7 @@ import type { EntryControls } from './entryControls';
 // input into changes to it. The layout rules live in the model; this file is the DOM.
 
 import type { Bench } from '../core/bench';
-import { canSetParents, type EntrySummary } from '../core/transport';
+import { canDuplicate, canSetParents, type EntrySummary } from '../core/transport';
 import { type HitResult, hitTest } from '../workspace/hit';
 import {
   addTab,
@@ -811,7 +811,9 @@ export class Shell {
   private paneEl(id: string): HTMLElement {
     const bench = this.bench;
     if (id === 'entry')
-      return renderEntry(bench, this.selected, (x) => this.select(x), this.entryControls);
+      return renderEntry(bench, this.selected, (x) => this.select(x), this.entryControls, {
+        newUnder: (x) => this.newUnder(x),
+      });
     if (id === 'props') return renderStats(bench, this.selected);
     if (id === 'links') return renderLinks(bench, this.selected, (x) => this.select(x));
     if (id === 'ancestry') return renderAncestry(bench, this.selected, (x) => this.select(x));
@@ -847,6 +849,22 @@ export class Shell {
   }
 
   /** Name, kind and parent of an entry to make; it shows in the list at once. */
+  /** Opens the New form in the Entries pane with `parentId` as the parent (ADR 0388). */
+  private newUnder(parentId: string) {
+    const kinds = this.bench.kindsOf(parentId);
+    this.newOpen = true;
+    this.newEntryDraft = {
+      name: '',
+      kind: kinds.includes('being') ? 'being' : 'item',
+      parent: parentId,
+    };
+    this.open('explorer');
+    this.render();
+    queueMicrotask(() =>
+      document.querySelector<HTMLInputElement>('[data-key="new-entry-name"]')?.focus(),
+    );
+  }
+
   private newEntryDraft: { name: string; kind: string; parent: string } | null = null;
   private newEntryForm(): HTMLElement {
     this.newEntryDraft ??= { name: '', kind: 'item', parent: this.selected ?? '' };
@@ -1250,6 +1268,20 @@ export class Shell {
     for (const e of this.bench.listing())
       c.push({ label: `Go to ${e.name}`, run: () => this.select(e.id), icon: kindIcon(e.kinds) });
     const sel = this.selected;
+    if (sel && this.bench.onServer(sel)) {
+      const name = this.bench.displayName(sel);
+      c.push({ label: `New entry under ${name}`, run: () => this.newUnder(sel), icon: 'add' });
+    }
+    if (sel && canDuplicate(this.bench.kindsOf(sel)))
+      c.push({
+        label: `Duplicate ${this.bench.displayName(sel)}`,
+        run: () => {
+          const copy = this.bench.duplicate(sel);
+          if (!copy) return;
+          this.select(copy);
+          void this.bench.copyFormulas(sel, copy);
+        },
+      });
     if (sel && this.bench.canUndo(sel))
       c.push({
         label: 'Undo the last change to this entry',
