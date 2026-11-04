@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell), header first. No prototype is committed yet.
+Status: Phase 2 (the shell). Header decided; navigation between apps next, then the footer. No prototype is committed yet.
 
 ## Layout of this directory
 
@@ -94,6 +94,26 @@ Everyone is plain text in a table cell, with no badge (identity §6.6). Every ot
 ### D11. Selection tint (decided with the maintainer, 2026-11-04)
 
 `--surface-selected` stays as it is (12% Archive Blue). Revisit only if the shell shows it as too much chroma.
+
+### D12. The header (decided with the maintainer, 2026-11-04)
+
+Two tiers on desktop and tablet: a global bar (brand, library switcher, palette, notifications, account) over an app bar (product name and the app's links as tabs). On a phone, the global bar on top and the app's links as a bottom tab bar (a border, not a shadow, with room for the safe area). Turned down: one bar with a menu button on a phone; a command-first bar with the links behind a menu on desktop.
+
+### D13. The state strip (decided with the maintainer, 2026-11-04)
+
+A strip under the header, shown only when something needs attention (alerts, notes, decisions, warnings, offline, waiting changes), with an icon, words and a pattern. It takes no space when nothing is wrong. The footer carries a quieter status bar (see the footer input below); the two do not repeat each other.
+
+### D14. The library switcher (decided with the maintainer, 2026-11-04)
+
+Shown only when a person has more than one library. Hide the complexity when it is not needed. Turned down: always visible.
+
+### D15. Toolbar icon buttons (decided with the maintainer, 2026-11-04)
+
+No edge on icon buttons in a toolbar (bell, search icon, account). Controls that look like fields or secondary buttons keep the D6 edge.
+
+## Input for the footer (not decided)
+
+From the maintainer, 2026-11-04. The footer shows information (current version, a date or clock, links to the Impressum and the Datenschutzerklärung) and a status bar with meta information specific to the app (word counts in Writing, carried weight in the inventory, and similar). The navigation between apps may also live there. Decided after the navigation between apps.
 
 ## Open questions
 
