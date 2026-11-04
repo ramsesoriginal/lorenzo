@@ -25,6 +25,7 @@ from lorenzo_api.exceptions import (
     InvalidStatHintError,
     InvalidStatOrderError,
     StatDefinitionInUseError,
+    StatDefinitionNameTakenError,
     StatDefinitionNotFoundError,
     StatEnumValueAlreadyExistsError,
     StatEnumValueInUseError,
@@ -32,7 +33,9 @@ from lorenzo_api.exceptions import (
     StatGroupInUseError,
     StatGroupNameTakenError,
     StatGroupNotFoundError,
+    StatNameReservedError,
 )
+from lorenzo_api.library_counts import count_libraries, libraries_note
 from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
@@ -46,16 +49,24 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
 )
+from lorenzo_api.schemas.library_counts import LibraryCountOut
 from lorenzo_api.schemas.stats import (
     StatDefinitionCreate,
     StatDefinitionOrder,
     StatDefinitionOut,
     StatDefinitionUpdate,
     StatEnumValueCreate,
+    StatEnumValueUpdate,
     StatGroupCreate,
     StatGroupOrder,
     StatGroupOut,
     StatGroupUpdate,
+)
+from lorenzo_api.stat_enum_values import (
+    RESERVED_ENUM_VALUES,
+    RESERVED_STAT_NAMES,
+    enum_value_uses,
+    rename_enum_value_text,
 )
 
 
@@ -304,6 +315,20 @@ async def reorder_stat_definitions(
     return [StatDefinitionOut.from_definition(definition) for definition in reread]
 
 
+@router.get(
+    "/stat-groups/{stat_group_id}/libraries", dependencies=[Depends(get_tenant_admin_context)]
+)
+async def count_stat_group_libraries(
+    tenant_id: uuid.UUID, stat_group_id: uuid.UUID, session: SessionDep
+) -> LibraryCountOut:
+    """How many libraries hold a copy of this stat group of a repository, never which (ADR 0386).
+    An admin, as the delete is. A read, not a gate."""
+    await _get_stat_group_or_404(tenant_id, stat_group_id, session)
+    return LibraryCountOut(
+        count=await count_libraries(session, tenant_id, "stat_group", stat_group_id)
+    )
+
+
 @router.delete(
     "/stat-groups/{stat_group_id}",
     status_code=204,
@@ -343,7 +368,8 @@ async def delete_stat_group(
         action="stat_group.deleted",
         target_type="stat_group",
         target_id=stat_group_id,
-        detail=f"priority={stat_group.priority}",
+        detail=f"priority={stat_group.priority}"
+        + libraries_note(await count_libraries(session, tenant_id, "stat_group", stat_group_id)),
     )
     await session.delete(stat_group)
     await session.commit()
@@ -511,14 +537,31 @@ async def update_stat_definition(
     body: StatDefinitionUpdate,
     session: SessionDep,
 ) -> StatDefinitionOut:
-    """Edits how a stat is shown - its unit, sign, adjustable-in-play and
-    pinned flags, its position in its group (ADR 0278) and its hints (ADR
-    0279). A definition's
-    name, type and group are not editable here; a retype is breaking for the
-    libraries that copied it. Not recorded in the activity log (ADR 0084:
-    drawing, not what exists or who can see it)."""
+    """Edits a stat's name (ADR 0390) and how it is shown - its unit, sign,
+    adjustable-in-play and pinned flags, its position in its group (ADR 0278)
+    and its hints (ADR 0279). A definition's type and group are not editable
+    here; a retype is breaking for the libraries that copied it. A name
+    another definition has is a 409, and so is renaming one the API reads by
+    name. Not recorded in the activity log (ADR 0084: naming and drawing, not
+    what exists or who can see it)."""
     stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
     changes = body.model_dump(exclude_unset=True)
+    if "name" in changes and changes["name"] != stat_definition.name:
+        if stat_definition.name in RESERVED_STAT_NAMES:
+            raise StatNameReservedError(
+                detail=f"The API reads {stat_definition.name!r} by name, so it cannot be renamed"
+            )
+        taken = await session.scalar(
+            select(StatDefinition.id).where(
+                StatDefinition.tenant_id == tenant_id,
+                StatDefinition.name == changes["name"],
+                StatDefinition.id != stat_definition_id,
+            )
+        )
+        if taken is not None:
+            raise StatDefinitionNameTakenError(
+                detail=f"Another stat in tenant {tenant_id} is already called {changes['name']!r}"
+            )
     await _check_hints(
         session,
         tenant_id,
@@ -537,6 +580,21 @@ async def update_stat_definition(
 def _in_use_parts(*counted: tuple[int | None, str]) -> str:
     """ "2 values held, 1 formula" - the nonzero counts of what uses something."""
     return ", ".join(f"{count} {what}" for count, what in counted if count)
+
+
+@router.get(
+    "/stat-definitions/{stat_definition_id}/libraries",
+    dependencies=[Depends(get_tenant_admin_context)],
+)
+async def count_stat_definition_libraries(
+    tenant_id: uuid.UUID, stat_definition_id: uuid.UUID, session: SessionDep
+) -> LibraryCountOut:
+    """How many libraries hold a copy of this stat of a repository, never which (ADR 0386). An
+    admin, as the delete is. A read, not a gate."""
+    await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
+    return LibraryCountOut(
+        count=await count_libraries(session, tenant_id, "stat_definition", stat_definition_id)
+    )
 
 
 @router.delete(
@@ -598,6 +656,9 @@ async def delete_stat_definition(
         detail=(
             f"stat_group={stat_definition.stat_group_id}, "
             f"value_type={stat_definition.value_type.value}"
+            + libraries_note(
+                await count_libraries(session, tenant_id, "stat_definition", stat_definition_id)
+            )
         ),
     )
     await session.delete(stat_definition)
@@ -660,8 +721,9 @@ async def remove_stat_enum_value(
     session: SessionDep,
 ) -> StatDefinitionOut:
     """Removes one allowed value - ADR 0103. 409 while any entity directly
-    holds it: removing it would leave stored values outside the allowed
-    set. Returns the definition, like the add route.
+    holds it or a comparison formula for this stat returns it (ADR 0390):
+    removing it would leave stored values outside the allowed set. Returns
+    the definition, like the add route.
     """
     stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
     row = next((row for row in stat_definition.enum_values if row.id == enum_value_id), None)
@@ -669,17 +731,54 @@ async def remove_stat_enum_value(
         raise StatEnumValueNotFoundError(
             detail=f"No enum value {enum_value_id} on stat definition {stat_definition_id}"
         )
-    in_use = await session.scalar(
-        select(EntityStat.entity_id)
-        .where(
-            EntityStat.stat_definition_id == stat_definition_id,
-            EntityStat.value_text == row.value,
-        )
-        .limit(1)
-    )
-    if in_use is not None:
-        raise StatEnumValueInUseError(detail=f"{row.value!r} is still held by at least one entity")
+    uses = await enum_value_uses(session, tenant_id, stat_definition_id, row.value)
+    if uses:
+        raise StatEnumValueInUseError(detail=uses.describe(row.value))
     await session.delete(row)
+    await session.commit()
+    await set_tenant_rls_context(session, tenant_id)
+    return StatDefinitionOut.from_definition(
+        await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
+    )
+
+
+@router.patch("/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id}")
+async def update_stat_enum_value(
+    tenant_id: uuid.UUID,
+    stat_definition_id: uuid.UUID,
+    enum_value_id: uuid.UUID,
+    body: StatEnumValueUpdate,
+    session: SessionDep,
+) -> StatDefinitionOut:
+    """Renames an allowed value and/or sets its sort_order - ADR 0390. A
+    rename rewrites every stored copy of the old text (entries' values and
+    a comparison formula's `true_value`/`false_value`) in the same
+    transaction. 409 for a value this stat already allows, and for the value
+    `none` of `binding`, which the API writes. Returns the definition. Not
+    logged: naming and order, not structure (ADR 0084).
+    """
+    stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
+    row = next((row for row in stat_definition.enum_values if row.id == enum_value_id), None)
+    if row is None:
+        raise StatEnumValueNotFoundError(
+            detail=f"No enum value {enum_value_id} on stat definition {stat_definition_id}"
+        )
+    changes = body.model_dump(exclude_unset=True)
+    old = row.value
+    new = changes.get("value", old)
+    if new != old:
+        if old in RESERVED_ENUM_VALUES.get(stat_definition.name, frozenset()):
+            raise StatNameReservedError(
+                detail=f"The API writes {old!r} for stat {stat_definition.name!r}, so it "
+                "cannot be renamed"
+            )
+        if any(other.value == new for other in stat_definition.enum_values):
+            raise StatEnumValueAlreadyExistsError(
+                detail=f"{new!r} is already allowed for stat {stat_definition.name!r}"
+            )
+        await rename_enum_value_text(session, tenant_id, stat_definition_id, old, new)
+    for field, value in changes.items():
+        setattr(row, field, value)
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return StatDefinitionOut.from_definition(

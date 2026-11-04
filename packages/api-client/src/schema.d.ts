@@ -4821,6 +4821,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/effective-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Effective Stats
+         * @description The effective value of the stats asked for on a page of entries, formulas evaluated, with
+         *     whether each entry holds it itself and the entry it comes from (ADR 0387, RFC 0041 §7): a
+         *     compare grid is the list plus these columns in one request a page. The entries and their
+         *     order are `GET /entities`'s, with the same filters (q, kind, parent_id, recursive). A stat an
+         *     entry has no value for is left out of its row. A stat definition that is not the library's is
+         *     a 404.
+         */
+        get: operations["list_effective_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/kinds/{kind}": {
         parameters: {
             query?: never;
@@ -4882,6 +4907,29 @@ export interface paths {
          * @description Rename a fact (ADR 0305); physical kinds retain their existing write routes.
          */
         patch: operations["update_fact"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/libraries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count Entity Libraries
+         * @description How many libraries hold a copy of this entry of a repository, never which (ADR 0386, RFC
+         *     0041 section 9). A member of the repository, an Author included, may ask: it is the number
+         *     the delete dialog shows. A read, not a gate: the delete does not need it. `0` for a library,
+         *     which nothing was copied from.
+         */
+        get: operations["count_entity_libraries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/tenants/{tenant_id}/entities/resolve": {
@@ -6755,6 +6803,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/stat-groups/{stat_group_id}/libraries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count Stat Group Libraries
+         * @description How many libraries hold a copy of this stat group of a repository, never which (ADR 0386).
+         *     An admin, as the delete is. A read, not a gate.
+         */
+        get: operations["count_stat_group_libraries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/stat-definitions": {
         parameters: {
             query?: never;
@@ -6809,14 +6878,36 @@ export interface paths {
         head?: never;
         /**
          * Update Stat Definition
-         * @description Edits how a stat is shown - its unit, sign, adjustable-in-play and
-         *     pinned flags, its position in its group (ADR 0278) and its hints (ADR
-         *     0279). A definition's
-         *     name, type and group are not editable here; a retype is breaking for the
-         *     libraries that copied it. Not recorded in the activity log (ADR 0084:
-         *     drawing, not what exists or who can see it).
+         * @description Edits a stat's name (ADR 0390) and how it is shown - its unit, sign,
+         *     adjustable-in-play and pinned flags, its position in its group (ADR 0278)
+         *     and its hints (ADR 0279). A definition's type and group are not editable
+         *     here; a retype is breaking for the libraries that copied it. A name
+         *     another definition has is a 409, and so is renaming one the API reads by
+         *     name. Not recorded in the activity log (ADR 0084: naming and drawing, not
+         *     what exists or who can see it).
          */
         patch: operations["update_stat_definition"];
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/libraries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count Stat Definition Libraries
+         * @description How many libraries hold a copy of this stat of a repository, never which (ADR 0386). An
+         *     admin, as the delete is. A read, not a gate.
+         */
+        get: operations["count_stat_definition_libraries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values": {
@@ -6856,13 +6947,23 @@ export interface paths {
         /**
          * Remove Stat Enum Value
          * @description Removes one allowed value - ADR 0103. 409 while any entity directly
-         *     holds it: removing it would leave stored values outside the allowed
-         *     set. Returns the definition, like the add route.
+         *     holds it or a comparison formula for this stat returns it (ADR 0390):
+         *     removing it would leave stored values outside the allowed set. Returns
+         *     the definition, like the add route.
          */
         delete: operations["remove_stat_enum_value"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Stat Enum Value
+         * @description Renames an allowed value and/or sets its sort_order - ADR 0390. A
+         *     rename rewrites every stored copy of the old text (entries' values and
+         *     a comparison formula's `true_value`/`false_value`) in the same
+         *     transaction. 409 for a value this stat already allows, and for the value
+         *     `none` of `binding`, which the API writes. Returns the definition. Not
+         *     logged: naming and order, not structure (ADR 0084).
+         */
+        patch: operations["update_stat_enum_value"];
         trace?: never;
     };
     "/metrics": {
@@ -9462,6 +9563,27 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /**
+         * EffectiveStatOut
+         * @description One stat of one entry in GET .../entities/effective-stats - ADR 0387: the effective value,
+         *     formulas evaluated (as `EntityStatValueOut.value`), whether the entry holds it itself, the
+         *     entry it is inherited from (null when it holds it, or when the caller may not see the
+         *     source) and whether a formula decided it.
+         */
+        EffectiveStatOut: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+            /** Own */
+            own: boolean;
+            from_entity?: components["schemas"]["EntitySummary"] | null;
+            /** Computed */
+            computed: boolean;
+        };
         /** Element */
         Element: {
             /**
@@ -9842,6 +9964,22 @@ export interface components {
             can_add_notes: boolean;
             /** Editable Information Ids */
             editable_information_ids: string[];
+        };
+        /**
+         * EntryEffectiveStatsOut
+         * @description One row of GET .../entities/effective-stats: an entry and the requested stats it has a
+         *     value for, in the order asked. A stat it has none of is left out.
+         */
+        EntryEffectiveStatsOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Stats */
+            stats: components["schemas"]["EffectiveStatOut"][];
         };
         /**
          * EntryFramesOut
@@ -11088,6 +11226,15 @@ export interface components {
         LengthTarget: {
             /** Target Words */
             target_words: number | null;
+        };
+        /**
+         * LibraryCountOut
+         * @description GET .../libraries - ADR 0386: how many libraries hold a copy of the row. A number, never
+         *     a name.
+         */
+        LibraryCountOut: {
+            /** Count */
+            count: number;
         };
         /**
          * LicenceIn
@@ -12511,6 +12658,19 @@ export interface components {
         Page_EntitySummary_: {
             /** Items */
             items: components["schemas"]["EntitySummary"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[EntryEffectiveStatsOut] */
+        Page_EntryEffectiveStatsOut_: {
+            /** Items */
+            items: components["schemas"]["EntryEffectiveStatsOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -15221,6 +15381,8 @@ export interface components {
             value_type: components["schemas"]["StatValueType"];
             /** Enum Values */
             enum_values: string[];
+            /** Enum Options */
+            enum_options: components["schemas"]["StatEnumOptionOut"][];
             /** Unit */
             unit: string | null;
             /** Adjustable In Play */
@@ -15252,9 +15414,11 @@ export interface components {
          * StatDefinitionUpdate
          * @description PATCH /stat-definitions/{id} - ADR 0278. Merge-patch semantics
          *     (`exclude_unset`); `unit` may be set to null to clear it. A definition's
-         *     name, type and group are not editable here.
+         *     `name` is editable (ADR 0390); its type and group are not.
          */
         StatDefinitionUpdate: {
+            /** Name */
+            name?: string | null;
             /** Unit */
             unit?: string | null;
             /** Adjustable In Play */
@@ -15273,6 +15437,21 @@ export interface components {
             resolved_hint_id?: string | null;
         };
         /**
+         * StatEnumOptionOut
+         * @description One allowed value of an enum stat with the id a client addresses it by (ADR 0390).
+         */
+        StatEnumOptionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Value */
+            value: string;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /**
          * StatEnumValueCreate
          * @description POST .../stat-definitions/{id}/enum-values - see ADR 0103. An
          *     omitted sort_order places the value after the last one.
@@ -15280,6 +15459,17 @@ export interface components {
         StatEnumValueCreate: {
             /** Value */
             value: string;
+            /** Sort Order */
+            sort_order?: number | null;
+        };
+        /**
+         * StatEnumValueUpdate
+         * @description PATCH .../stat-definitions/{id}/enum-values/{value_id} - ADR 0390. Renames a value
+         *     (every stored copy follows) and/or sets its sort_order; neither can be null.
+         */
+        StatEnumValueUpdate: {
+            /** Value */
+            value?: string | null;
             /** Sort Order */
             sort_order?: number | null;
         };
@@ -35901,6 +36091,84 @@ export interface operations {
             };
         };
     };
+    list_effective_stats: {
+        parameters: {
+            query: {
+                /** @description The stats to read (repeatable, 1 to 50): stat definitions of the library. */
+                stat_definition_id: string[];
+                /** @description Case-insensitive substring match against the entry's name. */
+                q?: string | null;
+                /** @description Only entries of these kinds (repeatable): any of them, not all. */
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
+                /** @description Only entries that have this entry as a parent. */
+                parent_id?: string | null;
+                /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
+                recursive?: boolean;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EntryEffectiveStatsOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     add_entity_kind: {
         parameters: {
             query?: never;
@@ -36200,6 +36468,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    count_entity_libraries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryCountOut"];
                 };
             };
             /** @description Validation Error */
@@ -42846,6 +43180,72 @@ export interface operations {
             };
         };
     };
+    count_stat_group_libraries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_group_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryCountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_stat_definitions: {
         parameters: {
             query?: {
@@ -43183,6 +43583,72 @@ export interface operations {
             };
         };
     };
+    count_stat_definition_libraries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryCountOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     add_stat_enum_value: {
         parameters: {
             query?: never;
@@ -43265,6 +43731,77 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatDefinitionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_stat_enum_value: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                stat_definition_id: string;
+                enum_value_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatEnumValueUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

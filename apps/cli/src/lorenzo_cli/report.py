@@ -132,6 +132,16 @@ def unseed_counts(plan: UnseedPlan) -> str:
     return f"{len(attachments)} attachments, {counts}" if attachments else counts
 
 
+def print_libraries_held(console: Console, held: dict[str, int], total: int) -> None:
+    """What deleting would mean to the libraries that copied some of it (ADR 0386)."""
+    names = ", ".join(f"{name} ({count})" for name, count in sorted(held.items())[:8])
+    more = f", and {len(held) - 8} more" if len(held) > 8 else ""
+    console.print(
+        f"Libraries have copied {len(held)} of these {total}: {names}{more}. "
+        "They will see them as removed upstream and keep their copies."
+    )
+
+
 def print_unseed_plan(console: Console, plan: UnseedPlan) -> None:
     tenant = plan.tenant
     published = " (published: subscribers will see these changes)" if tenant.published_at else ""

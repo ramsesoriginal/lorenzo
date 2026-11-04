@@ -280,7 +280,7 @@ def make_plan(
                 plan.problems.append(
                     f"The definition {definition.name!r} is a {present.value_type.value} stat "
                     f"in this tenant, and the seed needs a {definition.value_type}. A stat's "
-                    f"type can't be changed, so rename or remove that stat by hand first."
+                    f"type can't be changed, so rename that stat or remove it by hand first."
                 )
                 continue
             tenant_group = state.groups.get(definition.group)

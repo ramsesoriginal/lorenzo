@@ -1419,6 +1419,10 @@ class LengthTarget(BaseModel):
     target_words: conint(ge=1, le=100000000) | None = Field(..., title="Target Words")
 
 
+class LibraryCountOut(BaseModel):
+    count: int = Field(..., title="Count")
+
+
 class LicenceIn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -3092,6 +3096,7 @@ class StatDefinitionOrder(BaseModel):
 
 
 class StatDefinitionUpdate(BaseModel):
+    name: constr(min_length=1) | None = Field(None, title="Name")
     unit: constr(min_length=1, max_length=32) | None = Field(None, title="Unit")
     adjustable_in_play: bool | None = Field(None, title="Adjustable In Play")
     pin: bool | None = Field(None, title="Pin")
@@ -3102,8 +3107,19 @@ class StatDefinitionUpdate(BaseModel):
     resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
 
 
+class StatEnumOptionOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    value: str = Field(..., title="Value")
+    sort_order: int = Field(..., title="Sort Order")
+
+
 class StatEnumValueCreate(BaseModel):
     value: str = Field(..., title="Value")
+    sort_order: int | None = Field(None, title="Sort Order")
+
+
+class StatEnumValueUpdate(BaseModel):
+    value: constr(min_length=1) | None = Field(None, title="Value")
     sort_order: int | None = Field(None, title="Sort Order")
 
 
@@ -3743,12 +3759,26 @@ class DistanceOut(BaseModel):
     reason: str | None = Field(None, title="Reason")
 
 
+class EffectiveStatOut(BaseModel):
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool = Field(..., title="Value")
+    own: bool = Field(..., title="Own")
+    from_entity: EntitySummary | None = None
+    computed: bool = Field(..., title="Computed")
+
+
 class EntityStatValueOut(BaseModel):
     name: str = Field(..., title="Name")
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
     computed: bool | None = Field(False, title="Computed")
+
+
+class EntryEffectiveStatsOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    stats: list[EffectiveStatOut] = Field(..., title="Stats")
 
 
 class EntryFramesOut(BaseModel):
@@ -4091,6 +4121,14 @@ class PageConnectionOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageEntryEffectiveStatsOut(BaseModel):
+    items: list[EntryEffectiveStatsOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageInformationOut(BaseModel):
     items: list[InformationOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -4368,6 +4406,7 @@ class StatDefinitionOut(BaseModel):
     stat_group_id: UUID = Field(..., title="Stat Group Id")
     value_type: StatValueType
     enum_values: list[str] = Field(..., title="Enum Values")
+    enum_options: list[StatEnumOptionOut] = Field(..., title="Enum Options")
     unit: str | None = Field(..., title="Unit")
     adjustable_in_play: bool = Field(..., title="Adjustable In Play")
     pin: bool = Field(..., title="Pin")

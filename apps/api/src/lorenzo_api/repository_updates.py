@@ -102,6 +102,7 @@ from lorenzo_api.repository_digest import (
 from lorenzo_api.repository_digest import State as RowState
 from lorenzo_api.repository_releases import ReleaseRef
 from lorenzo_api.repository_upstream import load_upstream
+from lorenzo_api.stat_enum_values import enum_value_uses
 
 RowKind = Literal["entity", "stat_group", "stat_definition"]
 _ROW_KINDS: tuple[RowKind, ...] = ("entity", "stat_group", "stat_definition")
@@ -1427,16 +1428,7 @@ class _Applier:
         # enum_values
         ok = True
         for value in change.removed or []:
-            in_use = await s.scalar(
-                select(func.count())
-                .select_from(EntityStat)
-                .where(
-                    EntityStat.stat_definition_id == d,
-                    EntityStat.tenant_id == t,
-                    EntityStat.value_text == value,
-                )
-            )
-            if in_use:
+            if await enum_value_uses(s, t, d, value):
                 self.skip(row, "enum_values", f"{value!r} is still in use here")
                 ok = False
                 continue
