@@ -224,6 +224,34 @@ export class Bench {
     this.emit();
   }
 
+  /** Renames a stat. Entries name their stats by id, so only the vocabulary is read again (K6). */
+  async renameStat(statId: string, name: string): Promise<void> {
+    await this.transport.renameStat(statId, name);
+    await this.reloadStatDefinitions();
+  }
+
+  /**
+   * Renames an allowed value of an enum stat. The server rewrites every stored copy of it, so the
+   * entries here that show it (their own value or an inherited one) and the formulas that return it
+   * are read again. A command still waiting may name the old value, so none may be (K6).
+   */
+  async renameEnumValue(statId: string, valueId: string, value: string): Promise<void> {
+    const def = this.statDefs.find((d) => d.id === statId);
+    const old = def?.enumValues[def.enumIds?.indexOf(valueId) ?? -1];
+    if (this.outbox.length)
+      throw new RefusedError(
+        'Some changes are still waiting to be sent, and one may use the old value. Send them first.',
+      );
+    await this.transport.renameEnumValue(statId, valueId, value);
+    this.statDefs = await this.transport.listStatDefinitions();
+    if (old !== undefined)
+      for (const [id, entry] of this.mirror)
+        if (entry.stats.some((s) => s.statId === statId && s.value === old))
+          this.mirror.set(id, await this.transport.getEntry(id));
+    await this.formulas.reload();
+    this.emit();
+  }
+
   // ---- reading ----------------------------------------------------------------------------
 
   async loadEntries(): Promise<void> {

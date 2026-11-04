@@ -1762,6 +1762,21 @@ table.grid {
   flex-wrap: wrap;
   gap: 6px;
 }
+.vocab-rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.vocab-value {
+  padding: 0 2px;
+  border-radius: 4px;
+  color: inherit;
+}
+.vocab-value:hover {
+  background: var(--soft);
+  color: var(--text);
+}
 .pic-here {
   display: grid;
   gap: 8px;

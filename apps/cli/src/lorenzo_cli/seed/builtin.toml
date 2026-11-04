@@ -13,9 +13,10 @@
 #                     the equipment's forms. Built on equipment and dnd5e. Slugs prefixed `dnd5e-`.
 # An entry may name entries of its own layer or of a layer it is built on, never of a sibling's.
 #
-# Stat definitions and groups can't be renamed, retyped or removed once a tenant has them (no
-# PATCH or DELETE, ADR 0014), and are frozen in every copy of a repository (ADR 0119, 0121):
-# what is written here is chosen once. Changing a `value_type` later cannot be applied.
+# Stat definitions and groups can't be retyped or moved once a tenant has them (ADR 0014, 0143),
+# and a library's copy takes a rename as an update (ADR 0119, 0121, 0385): the seed finds a stat by
+# its name, so one an author renamed is made again by the next seed, as one they deleted is.
+# Changing a `value_type` later cannot be applied.
 #
 # A category is a prototype, so an item that has it inherits it: its tags (`is_finesse`), its
 # stat values (`stats`, such as the price of 0 an economic object carries) and its description, which

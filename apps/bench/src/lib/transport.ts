@@ -50,6 +50,17 @@ function translate(e: unknown): never {
 
 type EntityDetail = Schema<'EntityDetailOut'>;
 
+type StatDefinition = Schema<'StatDefinitionOut'>;
+
+// A definition as Bench holds it: the values in order, each with the id a rename names it by.
+const toStatDef = (d: StatDefinition): StatDef => ({
+  id: d.id,
+  name: d.name,
+  type: d.value_type as StatType,
+  enumValues: [...d.enum_values],
+  enumIds: d.enum_options.map((o) => o.id),
+});
+
 export function apiTransport(client: LorenzoClient, tenantId: string): Transport {
   const path = { tenant_id: tenantId };
 
@@ -64,14 +75,7 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
           params: { path, query: { page, size: MAX_PAGE_SIZE } },
         }),
       ),
-    ).then((rows) =>
-      rows.map((d) => ({
-        id: d.id,
-        name: d.name,
-        type: d.value_type as StatType,
-        enumValues: [...d.enum_values],
-      })),
-    );
+    ).then((rows) => rows.map(toStatDef));
     // A failed read is tried again next time, not remembered.
     definitions.catch(() => {
       definitions = null;
@@ -388,12 +392,7 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
           }),
         );
         definitions = null;
-        return {
-          id: d.id,
-          name: d.name,
-          type: d.value_type as StatType,
-          enumValues: [...d.enum_values],
-        };
+        return toStatDef(d);
       }),
 
     deleteStat: (statId) =>
@@ -404,6 +403,35 @@ export function apiTransport(client: LorenzoClient, tenantId: string): Transport
           }),
         );
         definitions = null;
+      }),
+
+    renameStat: (statId, name) =>
+      guarded(async () => {
+        const d = await unwrap(
+          await client.PATCH('/tenants/{tenant_id}/stat-definitions/{stat_definition_id}', {
+            params: { path: { ...path, stat_definition_id: statId } },
+            body: { name },
+          }),
+        );
+        definitions = null;
+        return toStatDef(d);
+      }),
+
+    renameEnumValue: (statId, valueId, value) =>
+      guarded(async () => {
+        const d = await unwrap(
+          await client.PATCH(
+            '/tenants/{tenant_id}/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id}',
+            {
+              params: {
+                path: { ...path, stat_definition_id: statId, enum_value_id: valueId },
+              },
+              body: { value },
+            },
+          ),
+        );
+        definitions = null;
+        return toStatDef(d);
       }),
 
     resolveCalendars: async (expressions) =>

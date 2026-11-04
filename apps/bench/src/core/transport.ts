@@ -91,6 +91,8 @@ export interface StatDef {
   type: StatType;
   /** The allowed values of an enum stat, in order. */
   enumValues: string[];
+  /** The id of each allowed value, in the same order, so one can be renamed (K6). */
+  enumIds?: string[];
 }
 
 /** One stat on an entry, as the server resolved it. `own` false means it is inherited. */
@@ -211,6 +213,10 @@ export interface Transport {
     enumValues: string[];
   }): Promise<StatDef>;
   deleteStat(statId: string): Promise<void>;
+  /** Renames a stat (K6). Refused when the name is taken, or the API reads the stat by name. */
+  renameStat(statId: string, name: string): Promise<StatDef>;
+  /** Renames one allowed value of an enum stat; every stored copy of it follows (K6). */
+  renameEnumValue(statId: string, valueId: string, value: string): Promise<StatDef>;
   /**
    * The entry's main picture as a URL an image can show (a `blob:` one, fetched with the sign-in),
    * or `null` when it has none or it cannot be seen.

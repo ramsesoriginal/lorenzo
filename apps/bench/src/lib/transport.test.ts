@@ -13,6 +13,7 @@ const definition = (id: string, name: string, value_type: string) => ({
   name,
   value_type,
   enum_values: [],
+  enum_options: [],
   stat_group_id: P,
 });
 const definitions = [definition(S_INT, 'armor', 'int'), definition(S_BOOL, 'magical', 'bool')];
@@ -34,7 +35,7 @@ function setup(answer: (r: Request, calls: Call[]) => Response | Promise<Respons
         ifMatch: request.headers.get('if-match'),
         body,
       });
-      if (request.url.includes('/stat-definitions')) {
+      if (request.method === 'GET' && request.url.includes('/stat-definitions')) {
         return json({ items: definitions, total: 2, page: 1, size: 100, pages: 1 });
       }
       return answer(request, calls);
@@ -599,8 +600,8 @@ describe('apiTransport', () => {
     it('lists the definitions with their types', async () => {
       const { transport } = setup(() => json({}));
       expect(await transport.listStatDefinitions()).toEqual([
-        { id: S_INT, name: 'armor', type: 'int', enumValues: [] },
-        { id: S_BOOL, name: 'magical', type: 'bool', enumValues: [] },
+        { id: S_INT, name: 'armor', type: 'int', enumValues: [], enumIds: [] },
+        { id: S_BOOL, name: 'magical', type: 'bool', enumValues: [], enumIds: [] },
       ]);
     });
 
@@ -634,6 +635,53 @@ describe('apiTransport', () => {
       expect((await sent({ id: S_INT, type: 'int' }, null)).call).toMatchObject({
         method: 'DELETE',
         url: `${base}/stats/${S_INT}`,
+      });
+    });
+
+    describe('renaming', () => {
+      const V1 = '66666666-6666-6666-6666-666666666666';
+      const V2 = '77777777-7777-7777-7777-777777777777';
+      const rarity = {
+        ...definition(S_INT, 'rarity', 'enum'),
+        enum_values: ['common', 'rare'],
+        enum_options: [
+          { id: V1, value: 'common', sort_order: 0 },
+          { id: V2, value: 'rare', sort_order: 1 },
+        ],
+      };
+      const stat = `/tenants/${T}/stat-definitions/${S_INT}`;
+
+      it('renames a stat with a PATCH of its name, and answers it with its value ids', async () => {
+        const { transport, calls } = setup(() => json({ ...rarity, name: 'scarcity' }));
+        const renamed = await transport.renameStat(S_INT, 'scarcity');
+        expect(calls[0]).toMatchObject({ method: 'PATCH', url: stat, body: { name: 'scarcity' } });
+        expect(renamed).toEqual({
+          id: S_INT,
+          name: 'scarcity',
+          type: 'enum',
+          enumValues: ['common', 'rare'],
+          enumIds: [V1, V2],
+        });
+      });
+
+      it('renames one value of an enum by its id', async () => {
+        const { transport, calls } = setup(() => json(rarity));
+        await transport.renameEnumValue(S_INT, V2, 'scarce');
+        expect(calls[0]).toMatchObject({
+          method: 'PATCH',
+          url: `${stat}/enum-values/${V2}`,
+          body: { value: 'scarce' },
+        });
+      });
+
+      it('a name that is taken is a refusal with the API words', async () => {
+        const { transport } = setup(() =>
+          json(
+            { title: 'A stat with this name already exists', detail: 'Already called reach.' },
+            { status: 409 },
+          ),
+        );
+        await expect(transport.renameStat(S_INT, 'reach')).rejects.toBeInstanceOf(RefusedError);
       });
     });
 

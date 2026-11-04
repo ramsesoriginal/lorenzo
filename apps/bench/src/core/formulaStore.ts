@@ -62,6 +62,11 @@ export class FormulaStore {
     if (found) this.changed();
   }
 
+  /** Reads again every formula read so far (an enum value was renamed under them). */
+  async reload(): Promise<void> {
+    await this.load([...this.tried], true);
+  }
+
   async save(
     entryId: string,
     statId: string,
