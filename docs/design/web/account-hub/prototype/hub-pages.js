@@ -1,5 +1,5 @@
 /* Account hub, part 1: state, helpers, Home, Libraries, a library with its campaigns, People and settings. */
-const H = { homeVar: 'a', acct: 'busy', role: 'asis', create: true, needsFilter: 'All', camp: { 'harbour-job': true }, linkSeq: 10, notifFilter: 'All', disc: { q: '', tag: 'All', lang: 'All' } };
+const H = { acct: 'busy', role: 'asis', create: true, needsFilter: 'All', camp: { 'harbour-job': true }, linkSeq: 10, notifFilter: 'All', disc: { q: '', tag: 'All', lang: 'All' } };
 const pl = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const hl = (id) => HUB.libraries.find((l) => l.id === id);
 const hr = (id) => HUB.repos.find((r) => r.id === id);
@@ -23,7 +23,7 @@ const needs = () => (H.acct === 'quiet' ? [] : HUB.needs.filter((n) => H.needsFi
 const myLibs = () => HUB.libraries.filter((l) => H.acct !== 'new');
 const attention = (l) => l.repos.some((id) => { const r = hr(id); return r.update && r.copied !== false; });
 
-/* ---------------------------------------------------------------- Home (D16, D27; direction A, three layouts) */
+/* ---------------------------------------------------------------- Home (D16, D27; one layout: needs and where you play beside what you run (AH1)) */
 function needsBlock(filters) {
   const list = needs();
   const seg = filters ? `<div class="seg" role="radiogroup" aria-label="Show">${['All', 'Updates', 'People', 'Links'].map((f) => `<button type="button" role="radio" aria-checked="${H.needsFilter === f}" data-act="needs-filter" data-v="${f}">${f}</button>`).join('')}</div>` : '';
@@ -47,11 +47,8 @@ function sharedBlocks() {
 }
 function pHubHome() {
   if (H.acct === 'new') return pFirstRun();
-  const v = H.homeVar; const n = needs().length;
-  let main;
-  if (v === 'a') main = `${needsBlock(false)}<div class="hx2" style="margin-top:var(--s-4)">${playBlock()}${runBlock()}</div>`;
-  else if (v === 'b') main = `<div class="hx-main"><div class="col-gap">${needsBlock(false)}${playBlock()}</div><div class="col-gap">${runBlock()}</div></div>`;
-  else main = `${needsBlock(true)}<div class="hx2" style="margin-top:var(--s-4)">${playBlock()}${runBlock()}</div>`;
+  const n = needs().length;
+  const main = `<div class="hx-main"><div class="col-gap">${needsBlock(false)}${playBlock()}</div><div class="col-gap">${runBlock()}</div></div>`;
   return `<div class="page page--wide page-enter"><h1 class="t-title page-title">Home</h1><p class="page-sub">${esc(DATA.user.name)} · ${n ? n + ' thing' + (n > 1 ? 's need' : ' needs') + ' you' : 'nothing needs you'}</p>${main}${sharedBlocks()}</div>`;
 }
 

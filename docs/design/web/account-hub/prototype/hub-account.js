@@ -56,10 +56,9 @@ window.ROUTES_EXT = {
 };
 /* The controls bar: the unsettled layouts and the roles, to compare by clicking */
 const PB = (k, v, t, on) => `<button type="button" data-p="${k}" data-v="${v}" aria-pressed="${on}">${t}</button>`;
-window.PROTO_EXT = () => `<span class="group"><b>Home layout</b>${[['a', 'A'], ['b', 'B'], ['c', 'C']].map(([v, t]) => PB('hv', v, t, H.homeVar === v)).join('')}</span><span class="group"><b>Account</b>${[['busy', 'Busy'], ['quiet', 'Quiet'], ['new', 'New']].map(([v, t]) => PB('acct', v, t, H.acct === v)).join('')}</span><span class="group"><b>Your role in a library or repository</b>${[['asis', 'As is'], ['Owner', 'Owner'], ['Organizer', 'Organizer'], ['Author', 'Author'], ['Player', 'No role']].map(([v, t]) => PB('hrole', v, t, H.role === v)).join('')}</span><span class="group"><b>May create</b>${[['1', 'Yes'], ['0', 'No']].map(([v, t]) => PB('hcreate', v, t, String(+H.create) === v)).join('')}</span>`;
-window.PROTO_SYNC = () => { $$('#proto [data-p]').forEach((b) => { const k = b.dataset.p, v = b.dataset.v; if (k === 'hv') b.setAttribute('aria-pressed', H.homeVar === v); else if (k === 'acct') b.setAttribute('aria-pressed', H.acct === v); else if (k === 'hrole') b.setAttribute('aria-pressed', H.role === v); else if (k === 'hcreate') b.setAttribute('aria-pressed', String(+H.create) === v); }); };
+window.PROTO_EXT = () => `<span class="group"><b>Account</b>${[['busy', 'Busy'], ['quiet', 'Quiet'], ['new', 'New']].map(([v, t]) => PB('acct', v, t, H.acct === v)).join('')}</span><span class="group"><b>Your role in a library or repository</b>${[['asis', 'As is'], ['Owner', 'Owner'], ['Organizer', 'Organizer'], ['Author', 'Author'], ['Player', 'No role']].map(([v, t]) => PB('hrole', v, t, H.role === v)).join('')}</span><span class="group"><b>May create</b>${[['1', 'Yes'], ['0', 'No']].map(([v, t]) => PB('hcreate', v, t, String(+H.create) === v)).join('')}</span>`;
+window.PROTO_SYNC = () => { $$('#proto [data-p]').forEach((b) => { const k = b.dataset.p, v = b.dataset.v; if (k === 'acct') b.setAttribute('aria-pressed', H.acct === v); else if (k === 'hrole') b.setAttribute('aria-pressed', H.role === v); else if (k === 'hcreate') b.setAttribute('aria-pressed', String(+H.create) === v); }); };
 window.PROTO_CLICK = (k, v) => {
-  if (k === 'hv') { H.homeVar = v; go('hub'); return true; }
   if (k === 'acct') { H.acct = v; go('hub'); return true; }
   if (k === 'hrole') { H.role = v; render(true); return true; }
   if (k === 'hcreate') { H.create = v === '1'; render(true); return true; }

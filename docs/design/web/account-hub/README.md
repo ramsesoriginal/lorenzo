@@ -2,7 +2,7 @@
 
 A fresh design of the account hub, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. This page holds the brief, the questions and the decision log for this app.
 
-Status: the prototype is built and ready for review. Questions 1 to 5 below are decided; the open questions at the end are for the next round.
+Status: the prototype is built and ready for review. Questions 1 to 5 and the first round of open questions are decided (AH1 to AH9).
 
 ## What the app is for
 
@@ -72,9 +72,9 @@ Named here so each can be kept or dropped on purpose. None carries over by defau
 
 Decided with the maintainer, 2026-11-04, from the brief above. Each answer is the maintainer's; none carries an old visual decision over.
 
-### AH1. The app begins at Home
+### AH1. The app begins at Home, in layout B
 
-Direction A: a person-centred Home with what needs me, where I play and what I run, then Libraries and Repositories as places to step into. Home has three layouts in the prototype so they can be compared; A is the one decided. Turned down: a console (B) and two workspaces (C).
+Direction A (a person-centred Home), in the two-column layout B: "Needs you" and "Where you play" on the left, "What you run" on the right, then Continue and the apps. Layouts A (everything stacked) and C (Needs you with filters) are turned down, and the prototype has one layout.
 
 ### AH2. One Repositories area
 
@@ -91,6 +91,16 @@ The table of old decisions above is answered "none". The rules under "What stays
 ### AH5. Discover has its own place
 
 Discover is a tab of its own in the app, shown only when public repositories are on. It is not hidden inside Repositories.
+
+### AH6. "Needs you" holds tasks only
+
+Computed tasks (updates waiting, a link about to end, a new player, a draft). Notifications stay in the bell and the notifications page and do not appear there.
+
+### AH7. Libraries is the entry for libraries and for creating one
+
+### AH8. Campaign detail is inline in the library, as drawn
+
+### AH9. The tab name "Use in a library" and the role-driven tab set stay
 
 ## The prototype
 
@@ -109,13 +119,13 @@ A private single-page copy is built with `node build-review-copy.mjs` (`--fragme
 
 Tabs: Home, Libraries, Repositories, Discover (only when public repositories are on). Notifications, Profile, and Tokens with device approval sit behind the account button.
 
-- **Home.** Needs you, Where you play, What you run, Continue, What do you want to do. A new account sees the first-run choice instead; a quiet account sees a "caught up" state.
+- **Home.** Needs you and Where you play beside What you run, then Continue and What do you want to do. A new account sees the first-run choice instead; a quiet account sees a "caught up" state.
 - **Libraries, and a library.** Overview, Campaigns (players, GMs, links shown once, revoke), People (by role), Settings (a save bar and type-the-name delete).
 - **Repositories, and a repository.** The update inbox with was, now and yours, "apply all clean" with a confirm, a four-step copy wizard with name clashes, releases with a guarded publish, a visibility switch with a blocker, libraries using it, and create.
 - **Discover and a storefront.**
 - **Account.** Notifications, profile with colours and delete account, tokens shown once, approving a device with a code.
 
-The controls bar switches Home layout, account state (busy, quiet, new), role (Owner, Organizer, Author, none) and "may create".
+The controls bar switches account state (busy, quiet, new), role (Owner, Organizer, Author, none) and "may create".
 
 ### What it fakes
 
@@ -123,7 +133,7 @@ All data is made up and held in memory (`hub-data.js`). Nothing calls the API; p
 
 ### What was checked
 
-- 39 scripted interactions in Playwright, all passing.
+- 37 scripted interactions in Playwright, all passing.
 - axe-core: no violations on 18 routes at 430 and 1440 wide, in light and dark.
 - Touch targets of at least 44px at 430 wide on five routes.
 - No console errors.
@@ -139,12 +149,8 @@ A screen reader, a real touch device, colour-blindness simulation, Safari and Fi
 
 ### Screens
 
-In `account-hub/screens/`, 38 images: Home in three layouts, quiet and first run (01 to 05); libraries and a library by tab and by role (06 to 15); repositories, the copy wizard, the update inbox, releases and publish (16 to 24); Discover and storefront (25, 26); notifications, profile and device (27 to 29); dark (30, 31); 834 wide (32, 33); 430 wide (34 to 38).
+In `account-hub/screens/`, 36 images: Home, quiet and first run (01 to 03); libraries and a library by tab and by role (04 to 13); repositories, the copy wizard, the update inbox, releases and publish (14 to 22); Discover and storefront (23, 24); notifications, profile and device (25 to 27); dark (28, 29); 834 wide (30, 31); 430 wide (32 to 36).
 
 ## Open questions
 
-1. Home layout A, B or C (A is drawn as the decided direction; B and C differ in the order of the blocks).
-2. Should "Needs you" include unread notifications and clear them when read, or only computed tasks?
-3. Is the Libraries tab the right entry for creating a library?
-4. Campaign detail inline in the library (as drawn), or its own page?
-5. Are the tab name "Use in a library" and the role-driven tab set right?
+None for the account hub. The checks are re-run once on the final layout before the write-up.
