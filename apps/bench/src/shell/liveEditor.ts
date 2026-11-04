@@ -17,9 +17,10 @@ import {
 } from './blocks';
 import { redraw } from './entryPane';
 import { attachEntryPicker } from './entryPicker';
-import { openLink } from './entryPickerText';
+import { icon } from './icons';
 import { attachLinkPreviews, excerptOf, hideCard } from './linkPreview';
 import { decorateStats } from './statChips';
+import { textToolbar } from './textToolbar';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const e = document.createElement(tag);
@@ -365,38 +366,19 @@ export function liveEditor(o: LiveOptions): HTMLElement {
 
   // ---- the buttons over the text --------------------------------------------------------------
 
-  const bar = el('div', 'text-toolbar');
-  bar.setAttribute('role', 'toolbar');
-  bar.setAttribute('aria-label', 'Insert');
-  for (const [label, image] of [
-    ['Link to an entry', false],
-    ['Show a picture', true],
-  ] as const) {
-    const b = el('button', 'btn', label);
-    b.type = 'button';
-    b.addEventListener('click', () => {
-      // With no block being written, the last one is.
-      if (state.active === null) activate(state.blocks.length - 1, 'end');
-      const target = area;
-      if (!target) return;
-      const made = openLink(target.value, target.selectionStart, target.selectionEnd, image);
-      target.value = made.text;
-      target.focus();
-      target.setSelectionRange(made.caret, made.caret);
-      // The picker and the preview follow what is typed.
-      target.dispatchEvent(new Event('input'));
-    });
-    // Pressing must not take the focus from the text, or the caret and selection are lost.
-    b.addEventListener('mousedown', (ev) => ev.preventDefault());
-    bar.append(b);
-  }
+  const bar = textToolbar(() => {
+    // With no block being written, the last one is.
+    if (state.active === null) activate(state.blocks.length - 1, 'end');
+    return area;
+  });
 
   if (o.onPicture) {
     const picker = el('input');
     picker.type = 'file';
     picker.accept = 'image/png,image/jpeg,image/webp,image/gif';
     picker.hidden = true;
-    const add = el('button', 'btn quiet picture-at-caret', '+');
+    const add = el('button', 'btn quiet picture-at-caret');
+    add.append(icon('upload', 14));
     add.type = 'button';
     add.title = 'Add a picture to this information';
     add.setAttribute('aria-label', 'Add a picture to this information');

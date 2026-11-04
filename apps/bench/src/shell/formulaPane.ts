@@ -18,6 +18,7 @@ import {
   starting,
 } from '../core/formulas';
 import { RefusedError, type StatDef } from '../core/transport';
+import { icon } from './icons';
 
 interface Draft {
   entryId: string;
@@ -248,7 +249,8 @@ function editor(bench: Bench, ui: FormulaUi, draft: Draft, hooks: Hooks): HTMLEl
   const f = draft.formula;
   if (f.kind === 'sum') {
     f.terms.forEach((t, i) => {
-      const gone = el('button', 'x', '×');
+      const gone = el('button', 'x');
+      gone.append(icon('close', 12));
       gone.type = 'button';
       gone.setAttribute('aria-label', `Remove row ${i + 1}`);
       gone.addEventListener('click', () => {
