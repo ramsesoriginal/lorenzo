@@ -88,7 +88,9 @@ function updateStatus() {
   const k = S.offline ? 'offline' : S.waiting > 0 ? 'waiting' : 'synced';
   const t = S.offline ? 'Offline' : S.waiting > 0 ? `Waiting to sync (${S.waiting})` : 'Synced 19:40';
   const i = S.offline ? 'offline' : S.waiting > 0 ? 'waiting' : 'select-item';
-  $('#status').innerHTML = `<span class="sync" data-kind="${k}">${ic(i)}${t}</span><span class="num">${esc(S.meta || '')}</span><span class="only-wide">In-world: Year 4, day 112</span><span class="grow"></span><span class="only-wide" style="color:var(--text-tertiary)">${clock()}</span><button type="button" class="btn only-wide" id="about-btn" aria-haspopup="dialog" aria-expanded="${OV.el === $('#drawer')}" data-act="about" data-keep-open>Apps and about ${ic('collapse')}</button>`;
+  const o = window.STATUS_SYNC && window.STATUS_SYNC();
+  const k2 = o ? o[0] : k, t2 = o ? o[1] : t, i2 = o ? o[2] : i;
+  $('#status').innerHTML = `<span class="sync" data-kind="${k2}">${ic(i2)}${t2}</span><span class="num">${esc(S.meta || '')}</span><span class="only-wide">In-world: Year 4, day 112</span><span class="grow"></span><span class="only-wide" style="color:var(--text-tertiary)">${clock()}</span><button type="button" class="btn only-wide" id="about-btn" aria-haspopup="dialog" aria-expanded="${OV.el === $('#drawer')}" data-act="about" data-keep-open>Apps and about ${ic('collapse')}</button>`;
 }
 function openAbout() {
   const d = $('#drawer'); const a = appOf(cur().app);

@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Writing, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief is answered (WR1 to WR6). Three directions for the writing page are drawn in [directions](directions/index.html) and wait for a choice.
+Status: the brief is answered (WR1 to WR7), a direction is chosen, and the prototype is built and ready for review.
 
 ## What the app is for
 
@@ -108,7 +108,11 @@ All six carry over as recommended: the outline and side views by WR2; a short to
 
 Dragging does: reorder, nest and promote Chapters, and move writing between Editions, with a drop target that says what will happen. Selecting text and dragging it out extracts it into a Chapter or a Scene. A divider placed in the text splits it. Dropping a Chapter onto its neighbour joins them. **A right-click (or the long press and the keyboard) offers the same actions as a menu** on the block, for anyone who does not drag. Every gesture works from the keyboard and can be undone as a whole (D26).
 
-## The three directions
+### WR7. Direction A, with C's rail
+
+The writing page is A: the text in the middle, an outline beside it, a grip in the margin of every block. The outline is pinned open on a wide window. On a narrower window, or when the person unpins it, it becomes C's rail: a thin strip of ticks beside the text that opens over it on hover or focus, with the same tree and the same drag. On a phone it is a panel the person opens. Turned down: B (the spine) and C (one page) as the base.
+
+## The three directions (drawn, A with C's rail chosen)
 
 In `directions/`: the writing page in three ways, each at rest, mid-drag and with the right-click menu, on the shell. Made-up text; nothing is saved. Run it:
 
@@ -128,6 +132,61 @@ The controls bar switches the direction and the state. All three share the same 
 
 Screens are in `directions/screens/` (`a-rest-1440.png` and so on, nine in all).
 
+## The prototype
+
+In `prototype/`. It links `apps/brand` in place and unchanged, and extends the shell prototype through its hooks (`ROUTES_EXT`, `PROTO_EXT`, `PROTO_CLICK`, `PROTO_SYNC`, `START_ROUTE`, `STATUS_SYNC`). The last is new: it lets an app put its own save state in the status bar. Plain HTML, CSS and JS.
+
+### Run it
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/writing/prototype/index.html
+```
+
+A private single-page copy is built with `node build-review-copy.mjs --fragment OUT_DIR`.
+
+### What is in it
+
+- **The shelf (Home).** Continue, then your work as a list with a filter (All, Books, Chapters, Scenes, Carriers), and the work shared with you to review. "Start writing" opens an empty Scene at once; its chevron starts a Chapter or a Book with its first Edition. A new account sees the empty state with the `empty-manuscript` illustration slot.
+- **The writing page.** Title, a Write and Read switch, Details, Revisions, Word count, focus mode, a short toolbar. A Chapter's content is an ordered list of blocks and child Chapters, so a child can sit between paragraphs. Text is editable and autosaves (the status bar says Saving, then Synced). Enter starts a new block; Backspace at the start joins it to the one above.
+- **Drag and drop, by pointer.** A grip on every block, outline row and child Chapter. The drop line and a label say what will happen ("Inside “The blackout”", "After “2.1 Lamps out”"). Blocks move within the page, into a Chapter, or between Chapters (prose can sit between children). A Chapter reorders, nests and promotes. A Chapter cannot be dropped inside itself, and says why. Dragging a Chapter shows a "Join" target on the Chapter above it, which asks before joining. A selection can be dragged out by its handle onto the outline to become a Chapter. Numbers follow every move.
+- **Drag and drop, by keyboard and menu.** Alt with the arrow keys moves a block or a Chapter, nests it (right) and promotes it (left). Enter on a grip opens Move to…, a list to choose a place. A right-click, the long press on a touch screen, the Menu key, or a tap on a grip opens the same actions as a menu: Move to…, make a Chapter, make a Scene, split, join with the one above, make independent, copy link, delete. A selection also shows a small bar with Make a Chapter and Make a Scene.
+- **Every change can be undone as a whole** (D26), including a join and a split. A refusal says why (a split inside a list, a Chapter into itself, blocks that do not sit together).
+- **Side views.** Details (title, viewpoint, numbering, private notes), Revisions (load into a draft), Review (reviewers by email, the review address, removing one), Count (own, with subchapters, the whole Edition, the selection, and the personal length goal). A drawer beside the text on a wide window, a sheet below 1100.
+- **Numbering and Contents** from the Edition menu. Numbering changes every label live.
+- **Read.** The assembled Edition, with the headings numbered. A reviewer sees only Read, can write a note on any passage, and the note says only they and the Authors see it.
+- **Save states** in the status bar and on the page: Saving, Synced, Saved on this device, Conflict (autosave stops, Keep mine, Use theirs, Keep both), Not kept on this device, and the recovered-text banner. A failure stays visible in focus mode.
+- **The outline** pinned at 1100 and up, a rail below, a panel on a phone. The controls bar switches the account (has work, new), the save state, and whether unsent text from before is kept.
+
+### What it fakes
+
+All data is made up and held in memory (`wr-data.js`). Nothing calls the API, saves, or syncs; the save states are switches. A paragraph stands for a text block (in the real model a text block holds many paragraphs, and Split divides it at a safe boundary). Bold and italic add the marks `**` and `_` and no more. Pictures are patterned boxes. Contents saves nothing. Edition copying, Carrier coverage, the review address, revision loading and the length goal are shown, not built.
+
+### What was checked
+
+- 45 scripted checks in Playwright, all passing: start writing, typing and saving, dragging (a Chapter inside, refused inside itself, the join target, a block into a Chapter, a block within the page, a selection out), Alt-arrow moves with focus kept, Move to…, the right-click menu, split and its refusal, a Chapter from a selection, join and its Undo, Roman numbering, the side views, every save state, focus mode with a failure, Read, a reviewer's note, the rail at 834, and the panel and sheet at 430.
+- axe-core: no violations on seven states at 1440, 834 and 430, in light and dark (the landmark-region rule is off for the page's overlays).
+- Touch targets of at least 44px at 430 on a touch device, on the shelf, Write and Read.
+- No console errors.
+
+### What was not checked
+
+A screen reader, a real touch device (touch is emulated), colour-blindness simulation, Safari and Firefox, a very long manuscript (typing and drag speed), drag on a touch screen, and leaving the page with unsaved work (no warning is drawn).
+
+### Findings
+
+- A drop in the middle of a Chapter row nests, so a drop "onto its neighbour" cannot also join. Join has its own target on the Chapter above, shown while dragging.
+- The right-click menu opens upward when it would run off the window; it needs the same rule in the app.
+- A toast stack covers the foot of the page after a few Alt-arrow moves; a keyboard move should replace the previous toast, not add one.
+- The tertiary text colour on the selected row is below 4.5:1 (the finding in the web README); the prototype uses the secondary colour there.
+
+### Screens
+
+In `screens/`, 32 images: the shelf, new and dark (01, 02, 24); Write, dark (03, 25); dragging a Chapter, to join, a block (04 to 06); the right-click menu, the Chapter menu, the selection bar, a Chapter made, Move to… (07 to 11); Details, Revisions, Review, Count, Numbering (12 to 16); conflict, storage failed, on this device, recovered text, focus mode (17 to 21); Read and a reviewer's note (22, 23); the rail at 834 (26, 27); 430 wide (28 to 32).
+
 ## Open questions
 
-- Which direction, or which parts of which.
+1. Join has its own target on the Chapter above (see the findings). Is that right?
+2. Start writing opens a Scene. Should it open a Chapter, or ask?
+3. The Edition menu holds Editions, Numbering and Contents. Is that the right place for them?
+4. Leaving the page with unsent work: a warning dialog, or only the recovery banner on return?
