@@ -17,7 +17,7 @@ const css = ['normalize.css', 'tokens.css', 'fonts.css', 'base.css', 'motion.css
   + '\n' + read(join(here, 'proposed-tokens.css')) + '\n' + read(join(here, 'shell.css'));
 const sprite = read(join(brand, 'icons.svg')).replace(/<\?xml[^>]*\?>/, '');
 // The icon references point at the sprite inside the page instead of at a file.
-const js = ['data.js', 'core.js', 'pages.js', 'app.js'].map((f) => read(join(here, f))).join('\n').replace("const ICONS = '../../../../apps/brand/icons.svg';", "const ICONS = '';");
+const js = ['data.js', 'core.js', 'pages.js', 'app.js'].map((f) => read(join(here, f))).join('\n').replaceAll('../../../brand/assets/', 'assets/').replace("const ICONS = '../../../../apps/brand/icons.svg';", "const ICONS = '';");
 
 const body = `<div style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${sprite}</div>
 <div class="proto-bar" id="proto" role="region" aria-label="Prototype controls"></div>
@@ -46,4 +46,6 @@ ${body}
 mkdirSync(out, { recursive: true });
 writeFileSync(join(out, 'index.html'), html);
 cpSync(join(brand, 'fonts'), join(out, 'fonts'), { recursive: true });
-console.log('Wrote', join(out, 'index.html'), `(${Math.round(html.length / 1024)} KB) and fonts/`);
+mkdirSync(join(out, 'assets'), { recursive: true });
+for (const f of ['lorenzo_horizontal_lockup_light_bg.svg', 'lorenzo_horizontal_lockup_dark_bg.svg']) cpSync(resolve(here, '../../../brand/assets', f), join(out, 'assets', f));
+console.log('Wrote', join(out, 'index.html'), `(${Math.round(html.length / 1024)} KB) and fonts/ and assets/`);

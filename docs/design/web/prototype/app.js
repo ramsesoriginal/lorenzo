@@ -51,12 +51,24 @@ function renderMain(focus) {
   const a = appOf(r.app); document.title = `${a ? a.name : 'Lorenzo'} · Web design prototype`;
   if (focus) m.focus({ preventScroll: true });
 }
+const LOCKUP = { light: '../../../brand/assets/lorenzo_horizontal_lockup_light_bg.svg', dark: '../../../brand/assets/lorenzo_horizontal_lockup_dark_bg.svg' };
 function renderHeader() {
   const r = cur(); const a = appOf(r.app); const tabs = DATA.appTabs[a.id] || [];
   const unread = S.notifications.filter((n) => n.unread).length;
-  $('#hdr').innerHTML = `<div class="hdr1"><a class="brand-link" href="#/${a.route}" aria-label="${a.name} home" title="${a.name} home">${MARK()}</a>${S.libs > 1 ? `<button type="button" id="lib-btn" class="lib-btn" aria-haspopup="menu" aria-expanded="false" data-act="lib" data-keep-open>${esc(lib())}${ic('expand')}</button>` : ''}<span class="grow"></span><button type="button" class="palette-btn" data-act="palette" data-keep-open>${ic('search')}<span>Find or go anywhere</span><kbd>${modKey} K</kbd></button><button type="button" class="icon-btn only-phone" aria-label="Find or go anywhere" data-act="palette">${ic('search')}</button><button type="button" id="bell" class="icon-btn" aria-label="Notifications, ${unread} unread" aria-haspopup="menu" aria-expanded="false" data-act="bell" data-keep-open>${ic('notifications')}${unread ? `<span class="num">${unread}</span>` : ''}</button><button type="button" id="acct-btn" class="avatar" aria-label="${DATA.user.initials}, account menu for ${DATA.user.name}" aria-haspopup="menu" aria-expanded="false" data-act="acct" data-keep-open><span aria-hidden="true">${DATA.user.initials}</span></button></div>
-  <div class="hdr2"><span class="prod">${ic(a.icon)}${a.name}</span><nav aria-label="${a.name}">${tabs.map(([n, t]) => `<a class="tab" href="#/${t}" ${t === r.tab ? 'aria-current="page"' : ''}>${n}</a>`).join('')}</nav></div>`;
+  const one = S.libs <= 1;
+  const tabLinks = tabs.map(([n, t]) => `<a class="tab" href="#/${t}" ${t === r.tab ? 'aria-current="page"' : ''}>${n}</a>`).join('');
+  const lib = S.libs > 1 ? `<button type="button" id="lib-btn" class="lib-btn" aria-haspopup="menu" aria-expanded="false" data-act="lib" data-keep-open>${esc(lib_())}${ic('expand')}</button>` : '';
+  const right = `<button type="button" class="palette-btn" aria-label="Find or go anywhere" data-act="palette" data-keep-open>${ic('search')}<span>Find or go anywhere</span><kbd>${modKey} K</kbd></button><button type="button" class="icon-btn only-phone" aria-label="Find or go anywhere" data-act="palette">${ic('search')}</button><button type="button" id="bell" class="icon-btn" aria-label="Notifications, ${unread} unread" aria-haspopup="menu" aria-expanded="false" data-act="bell" data-keep-open>${ic('notifications')}${unread ? `<span class="num">${unread}</span>` : ''}</button><button type="button" id="acct-btn" class="avatar" aria-label="${DATA.user.initials}, account menu for ${DATA.user.name}" aria-haspopup="menu" aria-expanded="false" data-act="acct" data-keep-open><span aria-hidden="true">${DATA.user.initials}</span></button>`;
+  const prod = `<span class="prod">${ic(a.icon)}${a.name}</span>`;
+  if (one) {
+    /* One library: nothing to switch, so the header is one row: the mark, the app, its links, then the global controls */
+    $('#hdr').innerHTML = `<div class="hdr1 hdr-one"><a class="brand-link" href="#/${a.route}" aria-label="${a.name} home" title="${a.name} home">${MARK()}</a>${prod}<nav aria-label="${a.name}" class="hdr-nav">${tabLinks}</nav><span class="grow"></span>${right}</div>`;
+  } else {
+    /* More than one library: two tiers. The wordmark sits between the mark and the library switcher (a phone keeps the mark alone, identity 12.2) */
+    $('#hdr').innerHTML = `<div class="hdr1"><a class="brand-link brand-lockup" href="#/${a.route}" aria-label="${a.name} home" title="${a.name} home"><span class="lockup"><img class="wm-light" src="${LOCKUP.light}" alt="" height="28"><img class="wm-dark" src="${LOCKUP.dark}" alt="" height="28"></span><span class="mark-only">${MARK()}</span></a>${lib}<span class="grow"></span>${right}</div><div class="hdr2">${prod}<nav aria-label="${a.name}">${tabLinks}</nav></div>`;
+  }
 }
+const lib_ = () => DATA.libraries[S.lib];
 function renderTabbar() {
   const r = cur(); const a = appOf(r.app); const tabs = (DATA.appTabs[a.id] || []).slice(0, 3);
   const icons = ['kinds', 'layout-compare', 'kind-fact'];

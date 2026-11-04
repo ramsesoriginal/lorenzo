@@ -411,3 +411,24 @@ a.tile .icon { margin-top: 2px; font-size: 1.4rem; }
 .skip:focus { position: absolute; left: 8px; top: 8px; z-index: 100; width: auto; height: auto; clip: auto; padding: 8px 12px; background: var(--surface-canvas); border: 1px solid var(--border-control); border-radius: var(--radius-control); }
 
 #shell-inert { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* ---- Header variants (D29): one row for one library; two tiers, with the wordmark, for several ---- */
+.hdr-one { padding: 0 var(--gutter); min-height: 52px; border-bottom: 1px solid var(--border-subtle); }
+.hdr-one .prod { display: inline-flex; align-items: center; gap: var(--s-2); margin: 0 var(--s-2h) 0 var(--s-1); font-weight: 600; }
+.hdr-one .hdr-nav { display: flex; gap: var(--s-1); align-self: stretch; }
+.hdr-one .hdr-nav .tab { min-height: 52px; }
+.brand-lockup { min-width: 0; padding: 0 var(--s-1); }
+.brand-lockup .lockup { display: inline-flex; color: inherit; }
+.brand-lockup .lockup img { height: 28px; width: auto; display: block; }
+.wm-dark { display: none !important; }
+[data-theme="dark"] .wm-light { display: none !important; }
+[data-theme="dark"] .wm-dark { display: block !important; }
+.brand-lockup .mark-only { display: none; }
+@container shell (max-width: 960px) { .hdr-one .palette-btn { width: var(--hit); padding: 0; justify-content: center; } .hdr-one .palette-btn span, .hdr-one .palette-btn kbd { display: none; } }
+@container shell (max-width: 720px) {
+  .brand-lockup .lockup { display: none; }
+  .brand-lockup .mark-only { display: inline-flex; }
+  .hdr-one .hdr-nav { display: none; }
+  .hdr-one .prod { margin-left: 0; }
+  .hdr-one { padding: 4px var(--gutter); }
+}

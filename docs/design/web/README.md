@@ -66,7 +66,7 @@ To open it without serving anything, [`prototype/build-review-copy.mjs`](prototy
 
 ### What it contains
 
-The two-tier header and the bottom tab bar (D12), the state strip (D13), the library switcher shown only for more than one library (D14), the slim status bar and the "Apps and about" drawer (D18), Home with the shared blocks (D16), the palette with its preview and the shortcut model (D25), toasts with the 10-second timer (D26), dialogs and menus that become sheets (D26), density and Appearance (D22), and the first run, the account menu, signing out with unsent changes and joining with an invite link (D27). Templates: list and detail (with the tablet side sheet and the third pane on a large screen), reading, settings and forms with the save bar, the editor with autosave, the board, a full-width map workspace, Home, and the states gallery. Other apps open a plain "not drawn in the prototype" page.
+The header, one row for one library and two tiers with the wordmark for several, and the bottom tab bar (D12, D29), the state strip (D13), the library switcher shown only for more than one library (D14), the slim status bar and the "Apps and about" drawer (D18), Home with the shared blocks (D16), the palette with its preview and the shortcut model (D25), toasts with the 10-second timer (D26), dialogs and menus that become sheets (D26), density and Appearance (D22), and the first run, the account menu, signing out with unsent changes and joining with an invite link (D27). Templates: list and detail (with the tablet side sheet and the third pane on a large screen), reading, settings and forms with the save bar, the editor with autosave, the board, a full-width map workspace, Home, and the states gallery. Other apps open a plain "not drawn in the prototype" page.
 
 Keyboard: `Ctrl K` (`Cmd K`) opens the palette, `Ctrl Shift K` in an editor; `?` lists the shortcuts; G then H, S, B, I, C, M, W, R, A goes to an app; J, K, Enter, X, N, E and `/` work in the beings list; `Ctrl Z` undoes the last action.
 
@@ -295,6 +295,10 @@ Turned down: a centered dialog at the tablet step.
 ### D28. The shell prototype (decided with the maintainer, 2026-11-04)
 
 Built in `docs/design/web/prototype/`, linking `apps/brand` in place and unchanged, with the new tokens in `proposed-tokens.css`. Everything drawn in Phase 2 in one go, then reviewed once and iterated, with a private copy for clicking through. The motion may be bolder than the first proposal. Turned down: changing `apps/brand` now; a new page in `apps/brand/preview`.
+
+### D29. The header with one library and with several (decided with the maintainer, 2026-11-04, from the prototype)
+
+Refines D12 and D14. With **one library** the library switcher is hidden and the header is **one row** on a tablet and on desktop: the mark, the app name, the app's links, then the palette, the bell and the account. Below the desktop width the palette shrinks to its icon so the row still fits. With **more than one library** it is the two tiers of D12, and **the wordmark sits between the mark and the library switcher** (the horizontal lockup, the real artwork, in its light and dark versions; never typeset). On a phone the mark stays alone (identity §12.2) and the app name sits beside it when there is one library.
 
 ## Open questions
 
