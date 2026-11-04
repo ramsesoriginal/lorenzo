@@ -1398,3 +1398,102 @@ test('personal targets persist independently for the draft and assembled reading
     await context.close();
   }
 });
+
+test('personal timer pauses, resumes, survives reload and stays separate from another account', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, tenant, owner } = await world(browser);
+  try {
+    const now = new Date();
+    await page.clock.install({ time: now });
+    await page.clock.pauseAt(now);
+    const openTimer = async () => {
+      await page.getByText('Word count', { exact: true }).click();
+      await page.getByText('Writing timer', { exact: true }).click();
+    };
+    await openTimer();
+    await page.getByLabel('Minutes', { exact: true }).fill('1');
+    await page.getByRole('button', { name: 'Start timer', exact: true }).click();
+    await page.clock.runFor(10_000);
+    await expect(page.getByRole('timer')).toHaveText('0:50');
+    await page.getByRole('button', { name: 'Pause timer', exact: true }).click();
+    await page.clock.runFor(15_000);
+    await expect(page.getByRole('timer')).toHaveText('0:50');
+    await page.reload();
+    await openTimer();
+    await expect(page.getByRole('timer')).toHaveText('0:50');
+    await page.getByRole('link', { name: 'Your writing', exact: true }).click();
+    await page.getByLabel('New draft title').fill('Another passage');
+    await page.getByRole('button', { name: 'Start writing', exact: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Manuscript', exact: true })).toBeVisible();
+    await openTimer();
+    await expect(page.getByRole('timer')).toHaveText('0:50');
+    await page.getByRole('button', { name: 'Resume timer', exact: true }).click();
+    await page.clock.runFor(10_000);
+    await page.reload();
+    await openTimer();
+    await expect(page.getByRole('timer')).toHaveText('0:40');
+    const manuscript = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    await manuscript.focus();
+    await page.clock.runFor(40_000);
+    await expect(page.getByText('Time elapsed.', { exact: true })).toBeVisible();
+    await expect(manuscript).toBeFocused();
+    await page.getByRole('button', { name: 'Reset timer', exact: true }).click();
+    await expect(page.getByRole('timer')).toHaveText('1:00');
+    await page.clock.resume();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    // A second Author in the same tab must get their own default timer.
+    const subject = `timer-other-${randomUUID()}`;
+    const api = await apiAs(subject);
+    const user = await ok(api.GET('/me'));
+    await ok(
+      owner.POST('/tenants/{tenant_id}/memberships', {
+        params: { path: { tenant_id: tenant.id } },
+        body: { user_id: user.id, role: 'author' },
+      }),
+    );
+    const token = await refreshTokenFor(subject);
+    await page.evaluate(({ key, token }) => localStorage.setItem(key, token), {
+      key: REFRESH_TOKEN_KEY,
+      token,
+    });
+    await page.reload();
+    await openTimer();
+    await expect(page.getByRole('timer')).toHaveText('25:00');
+  } finally {
+    await context.close();
+  }
+});
+
+test('a timer remains usable when tab storage is unavailable', async ({ browser }) => {
+  const { page, context } = await world(browser);
+  try {
+    await page.addInitScript(() => {
+      const get = Storage.prototype.getItem;
+      const set = Storage.prototype.setItem;
+      Storage.prototype.getItem = function (key) {
+        if (key.startsWith('lorenzo:writing-timer:')) throw new Error('Storage blocked');
+        return get.call(this, key);
+      };
+      Storage.prototype.setItem = function (key, value) {
+        if (key.startsWith('lorenzo:writing-timer:')) throw new Error('Storage blocked');
+        return set.call(this, key, value);
+      };
+    });
+    await page.reload();
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing timer', { exact: true }).click();
+    await expect(
+      page.getByText('This timer works here, but cannot be restored after reloading this tab.'),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Start timer', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Pause timer', exact: true })).toBeVisible();
+  } finally {
+    await context.close();
+  }
+});

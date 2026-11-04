@@ -88,6 +88,11 @@ the generated list before their authored prose. Index and Glossary Chapters stay
 LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
 combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
 
+**Writing timer** ([ADR 0393](../../docs/adr/0393-personal-writing-timer.md)) lives inside
+Word count in Write. Choose minutes, start, pause, resume or reset. It survives reload and
+entry navigation within this browser tab, separately for each account and library, and
+quietly shows when time has elapsed. Closing the tab ends its recovery lifetime.
+
 **Personal word targets** ([ADR 0383](../../docs/adr/0383-personal-manuscript-length-goals.md))
 are available inside Word count. Each Author keeps separate targets for direct draft prose and
 assembled reading, with live remaining-word progress. Targets belong to the account and are

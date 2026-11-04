@@ -27,6 +27,7 @@ import {
 import { reviewAddress, reviewScreen } from './review';
 import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
+import { writingTimer } from './writing-timer';
 
 const message = (error: unknown) =>
   error instanceof Error ? error.message : 'This could not be completed.';
@@ -544,6 +545,7 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
     () => editor.read().flatMap((p) => (p.kind === 'description' ? [p.content] : [])),
     { tenant, id: entry, scope: 'direct' },
   );
+  count.element.append(writingTimer(API_BASE_URL, account, tenant));
   host.replaceChildren(
     back,
     heading,
