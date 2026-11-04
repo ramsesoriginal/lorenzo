@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Writing, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief and its questions. No direction is chosen yet.
+Status: questions 1 to 4 are decided (WR1 to WR4); question 5, the old decisions, is open.
 
 ## What the app is for
 
@@ -82,4 +82,25 @@ The shell, so not asked again: the two-tier header, the app's own Home and the n
 
 ## Decision log
 
-Nothing is decided here yet.
+Decided with the maintainer, 2026-11-04, from the brief above.
+
+### WR1. The app begins at a shelf
+
+Direction A: Home is what you are writing. Continue first, then Books, standalone Chapters and Scenes as a list, with "Start writing" at the top. A person steps into a work from there. Turned down: opening straight into the last draft (B); one project at a time (C).
+
+### WR2. A wide window may keep the outline open
+
+On a wide window the outline, and the other side views, may stay open beside the text when the person chooses; the choice is remembered. On a narrow window they open on request, as a sheet. This replaces the old rule of nothing permanent beside the writing.
+
+### WR3. Write and Read are modes of one page
+
+A switch between them; Preview is inside Write. Turned down: Read as its own place.
+
+### WR4. Restructuring is inline and seamless
+
+The aim is a surface with as little interface as possible: dragging and dropping does as much as it can, and what dragging cannot say is offered where the person is, on the selection or the block, not in a separate place. The exact gestures are drawn in the directions.
+
+## Open questions
+
+- Question 5: which of the six old decisions carry over.
+- How far drag and drop reaches: moving, reordering and nesting are clear; splitting, extracting and joining need a gesture each.
