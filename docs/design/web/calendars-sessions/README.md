@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Calendars and Lorenzo Sessions, together, from the jobs people do there. The system they are built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub ([account-hub](../account-hub/README.md)) and Writing ([writing](../writing/README.md)) are decided. This page holds the brief, the questions and the decision log for this pair.
 
-Status: the brief is answered (CS1 to CS5). Directions are drawn in [directions](directions/index.html) and wait for a choice.
+Status: the brief is answered and a direction is chosen (CS1 to CS6). The prototype is being built.
 
 ## What the two apps are for
 
@@ -129,7 +129,11 @@ The Session stays one page of regions (details, roster, notes, references, game 
 
 All as recommended: two apps (CS1); the month as the main view with a Whole year view second (CS2); a month cell shows the moon, up to two marks and "+N", with the rest in the day panel; the day panel is a bottom sheet on a phone (D26); Order and causes stays an action on an Event; Events are a tab (CS3); **Clocks are a tab of Calendars,** shown only when the library has clocks; **Scenes are a tab of Sessions;** **lived order is a tab of Sessions,** with the being chosen there and Beings linking to it. The Session page's regions and the two record lists follow CS4.
 
-## The directions
+### CS6. The month is A; the Session page is C
+
+**The month** is direction A: a calm grid with the day panel docked beside it, and a strip of segments above. On a narrow window the panel is a sheet. **The Session page** is direction C: no bar of switches, a View menu that lists the views and the parts, and regions that fold. A line at the foot says what is hidden. Turned down: the month with an agenda (B), and the Session with a bar of switches (A) or a rail (B).
+
+## The directions (drawn; A for the month and C for the Session chosen)
 
 In `directions/`: the month view in two ways and the Session page in three, on the shell, with made-up data. Run it:
 
@@ -160,4 +164,4 @@ The controls bar switches the direction and the view (All, Prepare, Played). The
 
 ## Open questions
 
-- Which month direction, and which Session direction, or which parts of which.
+None yet. The prototype comes next.
