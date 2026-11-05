@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Maps, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, and Calendars with Sessions are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: decided (MP1 to MP6). The prototype is built and ready for review.
+Status: decided (MP1 to MP7). The checks are re-run once on the final screens before the write-up.
 
 ## What the app is for
 
@@ -147,6 +147,13 @@ All as recommended: the phone replaced by MP2; Locations a tab with search, the 
 6. **History is the undo surface** in the drawing view: each step is a name ("Drew a cave, seed 4821"), and a person can step back to any of them.
 7. **The registry is the contract for the real app,** so a new tool is built against it (an ADR names the tool, its output and its data), and the design needs no change for it.
 
+### MP7. Answers to the first review
+
+- **The tool keys are remappable from the start.** A Shortcuts dialog lists every tool with its key; Change then a key; a key in use is refused with the reason; the app's chord key (G) is refused for other tools; Reset returns the default. The keys are the person's own, kept in this browser. Single-key shortcuts can be turned off (WCAG 2.1.4).
+- **A generator offers a before-and-after split.** A Compare switch draws a divider across the region: the preview on one side and the Map as it is on the other, and the divider can be dragged.
+- **An applied generator becomes ordinary geometry at once.** It keeps no tool or seed to roll again; the history step names them. Undo is how a person goes back.
+- **The five groups stay** (Select, Place, Draw, Terrain, Generate), with flyouts and Search all tools for the growth.
+
 ## The directions (drawn; C with parts of A and B chosen)
 
 In `directions/`: the gallery (MP1), the read view with its slide-over panel (MP3), and three layouts for the drawing view (MP4), on the shell. The map is an SVG stand-in for the renderer's drawing, with made-up data. In all three the Map fills the page and the toolbox and panels float over it; the drawing view is Dense (D22). Run it:
@@ -197,6 +204,7 @@ A private single-page copy is built with `node build-review-copy.mjs --fragment 
 - **The command line.** It asks for what comes next ("LINE  Next point (x,y), [C]lose, Enter to finish") and takes `PIN x,y`, `CIRCLE x,y x,y`, `LINE x,y x,y …`, a tool's name, `SEED n`, `ROLL`, `APPLY`, `DISCARD`, `UNDO`, `REDO`, `FIT`, `SELECT name`, `HELP`; a generator runs from it. A planned tool says why.
 - **History is the undo surface.** Each step has a name ("Drew a cave system, seed 4821: 6 caves in the whole sheet"), a person can step to any of them, and the redo steps stay shown.
 - **Dragging an entry from the outliner onto the Map places it,** with a **Place** button as the keyboard twin.
+- **Compare and shortcuts (MP7).** A generator has a Compare switch with a draggable divider; the Shortcuts dialog remaps any tool's key.
 - **Wave function collapse and Cells** work on "The lamp tunnels", a grid of squares.
 - **On a phone** the Map reads in full (the panel is a sheet). "Edit this map" opens a page that says drawing needs a larger window and offers the small changes: the name, who sees it, and a pin's numbers.
 
@@ -206,7 +214,7 @@ All data is made up and held in memory (`mp-data.js`). The map is an SVG stand-i
 
 ### What was checked
 
-- 71 scripted checks in Playwright, all passing: the gallery and the date lens, making a Map, the tree for a GM and for a reader, the in-words path under a hidden level, the Location page, the read view (panel, where it leads, measuring, layers, look, legend, settings, a globe), a reader's limits, every drawing tool by key and pointer and by numbers, history, all three generators and their preview, Apply, Undo and Discard, the planned tool, the command line (typed lines, pins, a generator, an unknown command), the tool palette, drag from the outliner, a grid Map with cells and wave function collapse.
+- 81 scripted checks in Playwright, all passing: the gallery and the date lens, making a Map, the tree for a GM and for a reader, the in-words path under a hidden level, the Location page, the read view (panel, where it leads, measuring, layers, look, legend, settings, a globe), a reader's limits, every drawing tool by key and pointer and by numbers, history, all three generators and their preview, Apply, Undo and Discard, the planned tool, the command line (typed lines, pins, a generator, an unknown command), the tool palette, drag from the outliner, a grid Map with cells and wave function collapse.
 - axe-core: no violations on seventeen states (the gallery, a date lens, Locations, a Location, the read view with the panel, the places list, settings and the legend, a sphere, the drawing view, a generator preview, an item, the tool search, a flyout, a grid Map) at 1440 and 430 wide, in light and dark (the landmark-region rule is off for the page's overlays).
 - Touch targets of at least 44px at 430 wide, on five routes, apart from inline text links and the shell's account button (43px).
 - No console errors.
@@ -222,15 +230,13 @@ A screen reader (the drawing is a named group, and the marks are reachable throu
 - **A class named `.fl` and an id named `hdr` clashed with the shell's.** Prefix an app's classes and ids, and have the brand lint for a duplicate.
 - **Option inputs must commit as they are typed,** not on blur, or a click on the Map arrives before the name does.
 - **The generated "cave" polygons are chunky** at a coarse grid; the real tool needs smoothing and a minimum area as options.
+- **A broad selector in a component's CSS reaches into the next one:** `.mcard svg` sized the status chips' icons to the card's width in the gallery. Scope a component's selectors to its own part (`.mcard .thumb svg`). A scripted check now asserts the chips' icons stay small.
 - **A raster is the open question for heights.** Height lines are data the Map holds; a painted heightmap is not.
 
 ### Screens
 
-In `screens/`, 31 images: the gallery, a date, Locations, a Location as a reader (01 to 05); the Map, its panel, measuring, the legend, settings, a globe (06 to 11); the drawing view, a line, a spline, a height line, a cave preview and applied, wave function collapse, the planned brush, the command line, the tool search, history, the flyout and a selected Area (12 to 24); dark (25, 26); 834 (27); 430 (28 to 31).
+In `screens/`, 33 images (32 and 33 are the compare split and the shortcuts): the gallery, a date, Locations, a Location as a reader (01 to 05); the Map, its panel, measuring, the legend, settings, a globe (06 to 11); the drawing view, a line, a spline, a height line, a cave preview and applied, wave function collapse, the planned brush, the command line, the tool search, history, the flyout and a selected Area (12 to 24); dark (25, 26); 834 (27); 430 (28 to 31).
 
 ## Open questions
 
-1. A drawing view's keys: should the single letters (V P C L S F A G T H) be remappable in a shortcuts dialog from the start?
-2. A generator's preview shows over the region only. Should it also offer a split (before and after), or a ghost over the whole sheet?
-3. When an Area is applied from a generator, should it keep a record of its tool and seed (so "Roll again" can regenerate until the person edits it), or become ordinary geometry at once as now?
-4. The tool list will grow. Is the five-group header (Select, Place, Draw, Terrain, Generate) right, or should Generate be its own panel?
+None for Maps. The checks are re-run once on the final screens before the write-up.

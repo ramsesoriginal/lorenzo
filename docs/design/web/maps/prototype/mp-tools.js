@@ -12,24 +12,28 @@ const TOOLDEF = [
   { id: 'cells', g: 'Draw', n: 'Cells', icon: 'grid', key: 'G', input: 'click or drag over cells', out: 'a region of whole cells', opts: ['entry', 'role'], needs: 'grid' },
   { id: 'contour', g: 'Terrain', n: 'Height line', icon: 'timeline', key: 'T', input: 'a click for each point, Enter to finish', out: 'a line that carries a value', opts: ['entry', 'value', 'unit'], min: 2 },
   { id: 'height', g: 'Terrain', n: 'Height brush', icon: 'layers', key: 'H', input: 'drag to raise, Alt to lower', out: 'a heightmap', opts: ['radius', 'strength'], planned: 'A heightmap is a raster, and the Map holds none today. It needs its own decision before it is built. The height lines it makes are ordinary lines.' },
-  { id: 'cave', g: 'Generate', n: 'Cave system', icon: 'kind-location', key: '', input: 'a region: the selected Area, or the whole sheet', out: 'areas', opts: ['size', 'density', 'smooth', 'seed'], gen: true },
-  { id: 'march', g: 'Generate', n: 'Fill by marching squares', icon: 'filter', key: '', input: 'a region', out: 'areas, and optionally height lines', opts: ['scale', 'threshold', 'lines', 'seed'], gen: true },
-  { id: 'wfc', g: 'Generate', n: 'Fill by wave function collapse', icon: 'kind-group-items', key: '', input: 'a region of a grid', out: 'cells, by tile', opts: ['tileset', 'seed'], gen: true, needs: 'grid' }
+  { id: 'cave', g: 'Generate', n: 'Cave system', icon: 'kind-location', key: '', input: 'a region: the selected Area, or the whole sheet', out: 'areas', opts: ['size', 'density', 'smooth', 'seed', 'split'], gen: true },
+  { id: 'march', g: 'Generate', n: 'Fill by marching squares', icon: 'filter', key: '', input: 'a region', out: 'areas, and optionally height lines', opts: ['scale', 'threshold', 'lines', 'seed', 'split'], gen: true },
+  { id: 'wfc', g: 'Generate', n: 'Fill by wave function collapse', icon: 'kind-group-items', key: '', input: 'a region of a grid', out: 'cells, by tile', opts: ['tileset', 'seed', 'split'], gen: true, needs: 'grid' }
 ];
 const tdef = (id) => TOOLDEF.find((t) => t.id === id);
+const DEFKEYS = Object.fromEntries(TOOLDEF.map((t) => [t.id, t.key]));
+(() => { try { const k = JSON.parse(localStorage.getItem('mp-keys') || 'null'); if (k) TOOLDEF.forEach((t) => { if (k[t.id] !== undefined) t.key = k[t.id]; }); } catch (e) { /* storage may be unavailable */ } })();
+function saveKeys() { try { localStorage.setItem('mp-keys', JSON.stringify(Object.fromEntries(TOOLDEF.map((t) => [t.id, t.key])))); } catch (e) { /* ignore */ } }
 const OPTDEF = {
   entry: { l: 'Drawing', t: 'text', d: '' }, role: { l: 'Role', t: 'select', c: ['none', 'site', 'road', 'wall', 'water', 'cave'], d: 'none' }, style: { l: 'Line', t: 'seg', c: ['Solid', 'Dashed', 'Dotted'], d: 'Solid' },
   tension: { l: 'Tension', t: 'range', min: 0, max: 1, step: 0.05, d: 0.5 }, smoothing: { l: 'Smoothing', t: 'range', min: 0, max: 20, step: 1, d: 6 }, value: { l: 'Height', t: 'number', d: 100 }, unit: { l: 'Unit', t: 'text', d: 'm' },
   radius: { l: 'Radius', t: 'range', min: 4, max: 60, step: 1, d: 24 }, strength: { l: 'Strength', t: 'range', min: 1, max: 10, step: 1, d: 4 },
   size: { l: 'Size', t: 'range', min: 20, max: 90, step: 1, d: 48 }, density: { l: 'Density', t: 'range', min: 0.3, max: 0.6, step: 0.01, d: 0.46 }, smooth: { l: 'Smooth', t: 'range', min: 0, max: 8, step: 1, d: 4 },
   scale: { l: 'Scale', t: 'range', min: 2, max: 20, step: 1, d: 8 }, threshold: { l: 'Level', t: 'range', min: 0.2, max: 0.8, step: 0.01, d: 0.5 }, lines: { l: 'Height lines', t: 'toggle', d: true }, tileset: { l: 'Tiles', t: 'select', c: ['coast', 'caves'], d: 'coast' },
-  seed: { l: 'Seed', t: 'seed', d: 4821 }
+  seed: { l: 'Seed', t: 'seed', d: 4821 }, split: { l: 'Compare', t: 'toggle', d: false }
 };
 const optv = (tool, k) => { const o = MP.opt[tool]; return o && k in o ? o[k] : OPTDEF[k].d; };
 const gridMap = () => !!curMap().cell;
 const toolOK = (t) => !t.needs || (t.needs === 'grid' && gridMap());
 /* ---- coordinates, snapping */
 function toMap(e) { const svg = $('#mapsvg'); if (!svg) return null; const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const m = svg.getScreenCTM(); if (!m) return null; const p = pt.matrixTransform(m.inverse()); return snapPt([p.x, p.y]); }
+function toMapRaw(e) { const svg = $('#mapsvg'); if (!svg) return null; const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const m = svg.getScreenCTM(); if (!m) return null; const p = pt.matrixTransform(m.inverse()); return [p.x, p.y]; }
 function snapPt(p) { const m = curMap(); const g = m.cell || 5; const q = MP.snap ? [Math.round(p[0] / (m.cell ? g / 2 : g)) * (m.cell ? g / 2 : g), Math.round(p[1] / (m.cell ? g / 2 : g)) * (m.cell ? g / 2 : g)] : [fx(p[0]), fx(p[1])]; return [Math.max(0, Math.min(m.w, q[0])), Math.max(0, Math.min(m.h, q[1]))]; }
 const cellOf = (p) => [Math.floor(p[0] / curMap().cell), Math.floor(p[1] / curMap().cell)];
 /* ---- creating placements: an undoable, named step */
@@ -117,6 +121,7 @@ function keyTool(e) {
 let drag = null;
 function cvDown(e) {
   if (!canWrite() || !/^edit/.test(S.route)) return; const svg = $('#mapsvg'); if (!svg || !svg.contains(e.target)) return; const ae = document.activeElement; if (ae && /^(input|select|textarea)$/i.test(ae.tagName)) ae.blur(); const t = tdef(MP.tool); const p = toMap(e); if (!p) return;
+  if (e.target.closest && e.target.closest('[data-splith]')) { drag = { split: true }; return; }
   if (e.button === 1 || e.spaceKey || MP.space) { drag = { pan: true, x: e.clientX, y: e.clientY, vp: { ...MP.vp } }; return; }
   if (e.button !== 0 || t.planned && t.id !== 'height' || !toolOK(t) || t.gen) return;
   if (t.id === 'select') { const hit = e.target.closest('[data-pid]'); MP.sel = hit ? hit.dataset.pid : null; cvRedraw(); sideRedraw(); return; }
@@ -129,6 +134,7 @@ function cvDown(e) {
 }
 function cvMove(e) {
   const svg = $('#mapsvg'); if (!svg) return;
+  if (drag && drag.split) { const R = (MP.preview || {}).R; const pt = toMapRaw(e); if (R && pt) { MP.splitAt = Math.max(0.05, Math.min(0.95, (pt[0] - R.x) / R.w)); ovRedraw(); } return; }
   if (drag && drag.pan) { const k = MP.vp.k; const m = svg.getScreenCTM(); const sc = m ? m.a : 1; MP.vp.x = drag.vp.x - (e.clientX - drag.x) / sc; MP.vp.y = drag.vp.y - (e.clientY - drag.y) / sc; applyVB(); return; }
   const p = toMap(e); if (!p) return; MP.ov.pointer = p; const st = $('#sb-xy'); if (st) st.textContent = `${p[0].toFixed(2)}, ${p[1].toFixed(2)} ${curMap().unit}`;
   if (drag && drag.free) { const l = drag.pts[drag.pts.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) > 1) { drag.pts.push(p); MP.draft.pts = drag.pts; } }
