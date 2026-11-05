@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Calendars and Lorenzo Sessions, together, from the jobs people do there. The system they are built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub ([account-hub](../account-hub/README.md)) and Writing ([writing](../writing/README.md)) are decided. This page holds the brief, the questions and the decision log for this pair.
 
-Status: the brief is answered and a direction is chosen (CS1 to CS6). The prototype is built and ready for review.
+Status: decided (CS1 to CS7). The checks are re-run once on the final screens before the write-up.
 
 ## What the two apps are for
 
@@ -221,9 +221,19 @@ A screen reader (the month is an ARIA grid and needs one), a real touch device (
 
 In `screens/`, 31 images: the month and a day written, the add menu, the whole year (01 to 04); Events, story order, the time filter (05 to 07); an Event, its order and causes, a linearized comparison (08 to 10); a clock, the date lens, the calendar definition refused (11 to 13); Sessions, a Session by view, the View menu, a fold, the played draft, a player, a Scene, lived order (14 to 24, 18 to 23); dark (25, 26); 834 (27); 430 (28 to 32).
 
+### CS7. Answers to the first review
+
+- **A Session opens in Prepare** every time it is opened. A person's own saved views are still theirs to pick from the View menu.
+- **"Add to this day"** keeps its set and order: a note, an Event, a Fact, an existing one, a recurring observance.
+- **The time filter keeps a density mark for every marked day.**
+- **The time filter is one shared component.** Maps and the other lists use exactly this one; it is built once, for the apps to share.
+
+### Follow-ups for `apps/brand` (not made here)
+
+- **`.horizontal-mask`,** the twin of `.vertical-mask`: it fades the left and right edges of a row that scrolls sideways while there is more to scroll to, driven by the scroll position and behind the same `@supports`. The prototype defines it in `cs.css` and uses it on the strip of segments and on the segments table.
+- **A time filter** (a range or a single date over a year's segments, with handles that work by pointer and by keyboard), as a shared component.
+- **A bug fixed in the prototype, worth a test in the brand:** a component class named like another component's class (here `.festival`) picks up that other component's margin and padding. The segment chip and the time-filter segment now use `fest`.
+
 ## Open questions
 
-1. The Session's **Prepare** and **Played** views are built in. Should a GM's first visit to a Session open Prepare, or the view they last used?
-2. The calendar's **Add to this day** menu offers a note, an Event, a Fact, an existing one and an observance. Is that the right set, in that order?
-3. The time filter shows a density mark for every marked day. Keep, or a calmer band?
-4. The **date lens** is drawn on a Locations list. Should Maps and the other lists share exactly this component, or have their own?
+None for Calendars and Sessions. The checks are re-run once on the final screens before the write-up.

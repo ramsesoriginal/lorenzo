@@ -3,7 +3,7 @@ const CSH = []; /* click handlers, tried in order */
 const CSB = []; /* bind hooks, run after every draw */
 function csClick(e) { for (const h of CSH) if (h(e)) return; calClick(e); }
 function csKey(e) { if (window.tfKeys && tfKeys(e)) return; if (window.sesKeys && sesKeys(e)) return; calKeys(e); }
-function csAfter() { const m = $('#main'); m.onclick = csClick; m.onkeydown = csKey; CSB.forEach((f) => f(m)); }
+function csAfter() { CS.lastRoute = S.route; const m = $('#main'); m.onclick = csClick; m.onkeydown = csKey; CSB.forEach((f) => f(m)); }
 function csRefresh(keep) { const sc = $('#main'); const top = sc.scrollTop; const r = cur(); S.meta = r.meta ? r.meta() : ''; sc.innerHTML = r.render(); csAfter(); if (keep) sc.scrollTop = top; updateStatus(); }
 window.INWORLD = () => { if (/^session\//.test(S.route)) { const s = SESS.find((x) => x.id === parts()[1]); if (s && s.start && !s.mine) return `In-world: ${dateName(s.start)}`; } return null; };
 const R = (app, tab, render, meta) => ({ app, tab, render, after: csAfter, meta: meta || (() => '') });
