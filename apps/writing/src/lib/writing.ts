@@ -451,7 +451,11 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
   }
   details.addEventListener('toggle', () => {
     if (details.open && !worldDetails.children.length)
-      void writingDetails(worldDetails, tenant, entry).catch((error) => {
+      void writingDetails(worldDetails, tenant, entry, undefined, () =>
+        editor
+          .read()
+          .flatMap((payload) => (payload.kind === 'description' ? [payload.content] : [])),
+      ).catch((error) => {
         worldDetails.textContent = message(error);
       });
   });

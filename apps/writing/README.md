@@ -88,6 +88,11 @@ the generated list before their authored prose. Index and Glossary Chapters stay
 LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
 combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
 
+**Suggested Being references** ([ADR 0395](../../docs/adr/0395-reviewed-being-references.md))
+appear in Details when editing a Scene. Choose **Check names** to scan the current prose for
+accessible Beings. Choose a unique match to add a private Scene reference. The review flags
+names shared by several Beings and asks for a fresh scan when the draft or references change.
+
 **Writing session goals** ([ADR 0394](../../docs/adr/0394-personal-net-new-writing-session-goals.md))
 count net editing changes after Start, including unsaved work. Deletions subtract; structure
 changes, loaded revisions and other authors' versions add no credit. Progress follows this

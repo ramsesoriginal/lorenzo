@@ -1663,3 +1663,84 @@ test('session progress stays usable when local recovery is blocked', async ({ br
     await context.close();
   }
 });
+
+test('an author reviews Being names before adding a private Scene reference', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, api, owner, tenant } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry') as string;
+    const biography = (name: string) =>
+      ok(
+        api.POST('/tenants/{tenant_id}/writing/biographies', {
+          params: { path: { tenant_id: tenant.id } },
+          body: { name },
+        }),
+      );
+    const eira = await biography('Eira Vale');
+    const other = await biography('Rowan');
+    for (const name of ['Ash', 'Ash', 'Codebird', 'North Bank']) await biography(name);
+    const elsewhere = await ok(owner.POST('/tenants', { body: { name: 'Other shelves' } }));
+    await ok(
+      owner.POST('/tenants/{tenant_id}/writing/biographies', {
+        params: { path: { tenant_id: elsewhere.id } },
+        body: { name: 'Eira Vale' },
+      }),
+    );
+    const path = { tenant_id: tenant.id, source_kind: 'scenes' as const, source_id: scene };
+    const refs = () =>
+      api.GET('/tenants/{tenant_id}/{source_kind}/{source_id}/references', { params: { path } });
+    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const source = 'Ei**ra** Vale meets Ash. `Codebird` rests.\n\nNorth\n\nBank';
+    await draft.fill(source);
+    await page.getByText('Details', { exact: true }).click();
+    await page.getByText('Suggested Being references', { exact: true }).click();
+    const check = page.getByRole('button', { name: 'Check names', exact: true });
+    const add = page.getByRole('button', { name: 'Add reference to Eira Vale', exact: true });
+    await check.click();
+    await expect(add).toBeVisible();
+    await expect(page.getByText(/Several Beings share the name Ash/)).toBeVisible();
+    for (const name of ['Codebird', 'North Bank', 'Ash'])
+      await expect(
+        page.getByRole('button', { name: `Add reference to ${name}`, exact: true }),
+      ).toHaveCount(0);
+    expect(await ok(refs())).toEqual([]);
+    const edited = `${source} The bell rings.`;
+    await draft.fill(edited);
+    await add.click();
+    await expect(page.getByText('The draft changed. Check names again.')).toBeVisible();
+    expect(await ok(refs())).toEqual([]);
+    await check.click();
+    const before = await refs();
+    await ok(
+      api.PUT('/tenants/{tenant_id}/{source_kind}/{source_id}/references/{kind}/{target_id}', {
+        params: {
+          path: { ...path, kind: 'beings', target_id: other.id },
+          header: { 'if-match': before.response.headers.get('etag') as string },
+        },
+        body: { is_shared: false },
+      }),
+    );
+    await add.click();
+    await expect(page.getByText('The references changed. Check names again.')).toBeVisible();
+    expect((await ok(refs())).map((ref) => ref.id)).toEqual([other.id]);
+    await check.click();
+    await add.click();
+    await expect(page.getByText('Eira Vale (beings)', { exact: false })).toBeVisible();
+    const saved = await ok(refs());
+    expect(saved.find((ref) => ref.id === eira.id)?.is_shared).toBe(false);
+    await expect(draft).toHaveValue(edited);
+    await page.getByText('Suggested Being references', { exact: true }).click();
+    await check.click();
+    await expect(page.getByText(/Several Beings share the name Ash/)).toBeVisible();
+    await expect(add).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
