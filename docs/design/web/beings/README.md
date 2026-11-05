@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Beings, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions and Maps are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief and its questions. Nothing is decided yet.
+Status: the brief is answered (BN1 to BN5). Three directions for the being page are drawn and wait for a choice.
 
 ## What the app is for
 
@@ -123,4 +123,48 @@ Say which others to change; no answer means "as recommended".
 
 ## Decision log
 
-Nothing is decided here yet.
+### BN1. The list has rows and cards, one switch
+
+Rows by default, a cards view for a person who wants it, remembered per person, with the same search, filters and "Mine" in both.
+
+### BN2. Read and Play are modes; Edit happens in place
+
+Reading is the page. A section a person may change has its edit control on the section and saves as it goes, with no page-level Save. Play stays a mode, because it changes numbers live and needs steppers and Undo.
+
+### BN3. Play's steppers sit on the numbers
+
+Each number has its own stepper. The 30-step history is the undo surface, with the shell's Undo toast for the last step. Pinned numbers stay in a sticky bar for reading. A dock is added only if testing shows the phone cannot reach the numbers.
+
+### BN4. The datasheet is a layout switch on the page, and a third view of the list
+
+The page keeps Sheet and Datasheet. The list gains a side-by-side view that reads many beings at once, for a skirmish.
+
+### BN5. The old decisions
+
+Every row of the old-decisions table carries over, except mode memory: the page opens in the last mode used by the person who plays that being, so a player at a table lands in Play. The datasheet and the row shape are BN4 and BN1.
+
+## The directions (drawn; waiting for a choice)
+
+In `directions/`: the list in its three views (BN1, BN4) and three layouts for the being page, each in Read, Play and Read with About being edited (BN2, BN3), on the shell. The data is made up. The list views and the modes are the same in all three directions; what differs is how the page is arranged. Run it:
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/beings/directions/index.html
+```
+
+The controls bar switches the screen and the mode. Screens are in `directions/screens/` (12 images, at 1440).
+
+| | A. Column | B. Sheet | C. Band |
+| --- | --- | --- | --- |
+| Shape | One reading column in the old order (About, Notes, Stats, Inventory), a rail on the right | Stats on the left, prose on the right, the rail under the prose | A band of the pinned numbers over tabs: About, Notes, Stats, Inventory, Events; the rail on the right |
+| Pinned numbers | A sticky bar that follows the scroll, with the steppers and the mode switch | In the stats area; scroll away with it | A band that stays at the top of the page, large |
+| Play | Steppers in the sticky bar and on the tiles | Steppers on the tiles, all in view with no scroll | Steppers on the big tiles, and the other stats under Stats |
+| Edit in place | On each section | On each section | On the section in the open tab |
+| Best for | Reading a character top to bottom; a phone | A table with a wide screen: numbers and the story at once | A GM who runs many beings and jumps between sections |
+| Cost | A long page; the stats are far down | Two columns need 1100 px; on a phone it becomes A | Prose is one click away; the band takes height |
+
+What is not drawn yet: the phone widths, dark mode, the empty and refused states, "Hand over" and delete, the history list, and the datasheet in each direction beyond the one table. None of these have been run through the checks.
+
+## Open questions
+
+Which direction (or which parts of two) is the being page?
