@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Maps, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, and Calendars with Sessions are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: questions 1 to 4 are decided (MP1 to MP4); question 5, the old decisions, is open.
+Status: the brief is answered (MP1 to MP5). Directions for the drawing view are in [directions](directions/index.html) and wait for a choice.
 
 ## What the app is for
 
@@ -126,6 +126,31 @@ The conventions are those of Blender, Photoshop and AutoCAD, for people who draw
 
 Turned down: a toolbar alone (A, as it was) and dragging alone (C).
 
+### MP5. The old decisions
+
+All as recommended: the phone replaced by MP2; Locations a tab with search, the tree, and a list by name while a date is chosen; the two places (the gallery and the Map) kept, with the hover cards, and the panel and places list in the slide-over; the toolbar carried into the toolbox of MP4; the "what are you drawing" question a small popover at the tool instead of a dialog; Settings in the slide-over with Pictures as a section; Look and Legend as floating controls; where an entry leads as lines in the panel; the way a sphere is drawn as a floating control.
+
+## The directions
+
+In `directions/`: the gallery (MP1), the read view with its slide-over panel (MP3), and three layouts for the drawing view (MP4), on the shell. The map is an SVG stand-in for the renderer's drawing, with made-up data. In all three the Map fills the page and the toolbox and panels float over it; the drawing view is Dense (D22). Run it:
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/maps/directions/index.html
+```
+
+The controls bar switches the screen and whether a line is being drawn or an Area is selected. Screens are in `directions/screens/` (9 images).
+
+| | A. Toolbox and panels | B. Ribbon and command line | C. Header and outliner |
+| --- | --- | --- | --- |
+| Model | Photoshop | AutoCAD | Blender |
+| Tools | A vertical toolbox on the left, one key each | A ribbon with Draw, Modify, View and Map tabs, in groups | A row of tools in a viewport header, and a mode menu |
+| Options | An options bar on top that changes with the tool | The ribbon, and a command line below that asks for the next point and takes typed coordinates | A "last operation" panel at the corner that stays editable |
+| The selection | A Properties panel with Layers and History under it | A Properties palette that appears for a selection | An outliner of the places, and a sidebar with Item, Tool and View tabs |
+| Placing by dragging | From a search in the options bar | From a list the person opens | From the outliner, which is always there |
+| Best for | Drawing shapes by hand | Typing exact values | Working through many places by name |
+| Cost | Three panels on the right take width | The ribbon and command line take height | The densest; the most to learn |
+
 ## Open questions
 
-- Question 5: which of the nine old decisions carry over.
+- Which drawing-view layout, or which parts of which.
