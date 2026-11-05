@@ -1744,3 +1744,105 @@ test('an author reviews Being names before adding a private Scene reference', as
     await context.close();
   }
 });
+
+test('reviewed manuscript links preserve the selected wording, undo and saved backlink', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, api, owner, tenant } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry') as string;
+    const create = async (slug: string) => {
+      const entry = await ok(
+        api.POST('/tenants/{tenant_id}/writing/biographies', {
+          params: { path: { tenant_id: tenant.id } },
+          body: { name: 'Eira Vale' },
+        }),
+      );
+      await ok(
+        owner.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+          params: { path: { tenant_id: tenant.id, entity_id: entry.id } },
+          body: { slug },
+        }),
+      );
+      return entry.id;
+    };
+    const writer = await create('harbour-scribe');
+    const guide = await create('north-guide');
+    const other = await ok(owner.POST('/tenants', { body: { name: 'Other library' } }));
+    await ok(
+      owner.POST('/tenants/{tenant_id}/entities', {
+        params: { path: { tenant_id: other.id } },
+        body: { name: 'Eira Vale', slug: 'other-eira', kinds: ['being'], parents: [] },
+      }),
+    );
+    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const source = 'eIRA Vale met Eira Vale.';
+    await draft.fill(source);
+    const select = async (start: number) =>
+      draft.evaluate((el, from) => {
+        const area = el as HTMLTextAreaElement;
+        area.focus();
+        area.setSelectionRange(from, from + 9);
+      }, start);
+    await select(0);
+    await page.getByRole('button', { name: 'Link to an entity', exact: true }).click();
+    const find = page.getByRole('button', { name: 'Find matching entries', exact: true });
+    const choice = page.getByRole('button', { name: 'Eira Vale (harbour-scribe)', exact: true });
+    await expect(choice).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Eira Vale (north-guide)', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/other-eira/)).toHaveCount(0);
+    await expect(draft).toHaveValue(source);
+    await select(14);
+    await choice.click();
+    await expect(
+      page.getByText('The selection changed. Select the name and search again.'),
+    ).toBeVisible();
+    await select(0);
+    await find.click();
+    const guideChoice = page.getByRole('button', { name: 'Eira Vale (north-guide)', exact: true });
+    await expect(guideChoice).toBeVisible();
+    await ok(
+      owner.PUT('/tenants/{tenant_id}/entities/{entity_id}/slug', {
+        params: { path: { tenant_id: tenant.id, entity_id: guide } },
+        body: { slug: 'hill-guide' },
+      }),
+    );
+    await guideChoice.click();
+    await expect(page.getByText('The entry changed. Find matching entries again.')).toBeVisible();
+    await find.click();
+    await choice.click();
+    const linked = '[[harbour-scribe|eIRA Vale]] met Eira Vale.';
+    await expect(draft).toHaveValue(linked);
+    await expect(draft).toBeFocused();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    const backlinks = () =>
+      ok(
+        api.GET('/tenants/{tenant_id}/entities/{entity_id}/backlinks', {
+          params: { path: { tenant_id: tenant.id, entity_id: writer } },
+        }),
+      );
+    expect((await backlinks()).items.map((item) => item.entity_id)).toContain(scene);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(draft).toHaveValue(source);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    expect((await backlinks()).items).toHaveLength(0);
+    await select(0);
+    await page.getByRole('button', { name: 'Link to an entity', exact: true }).click();
+    await expect(choice).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await choice.click();
+    await expect(draft).toHaveValue(linked);
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await page.reload();
+    await expect(draft).toHaveValue(linked);
+  } finally {
+    await context.close();
+  }
+});

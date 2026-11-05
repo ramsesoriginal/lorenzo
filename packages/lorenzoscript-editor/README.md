@@ -21,6 +21,9 @@ It enhances the textarea in place, keeping its form, name, and value, so the pag
 
 Styling lives in `apps/brand` (`.ls-editor`, and `.ls-content` for rendered text anywhere); this package ships no CSS. The actions in `ACTIONS` are pure `(text, selection)` functions, exported for reuse and tested on their own.
 
+Call `editor.replaceSelection(source)` to apply an explicitly chosen insertion through the
+same textarea edit and undo handling as the toolbar.
+
 ## Demo
 
 ```bash

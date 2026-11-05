@@ -88,6 +88,11 @@ the generated list before their authored prose. Index and Glossary Chapters stay
 LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
 combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
 
+**Link to an entity** ([ADR 0396](../../docs/adr/0396-reviewed-manuscript-links.md)) lets an author
+select one name in manuscript prose, find accessible entries and choose by link name. The
+label keeps the exact selected wording. Undo, autosave and saved backlinks use the ordinary
+LorenzoScript editing path.
+
 **Suggested Being references** ([ADR 0395](../../docs/adr/0395-reviewed-being-references.md))
 appear in Details when editing a Scene. Choose **Check names** to scan the current prose for
 accessible Beings. Choose a unique match to add a private Scene reference. The review flags
