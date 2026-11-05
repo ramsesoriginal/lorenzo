@@ -1,6 +1,7 @@
 import { client, unwrap } from './api';
 import { outlineOf, writingAddress } from './composition';
 import { suggestedBeings } from './suggested-beings';
+import { suggestedPeriods } from './suggested-periods';
 
 const node = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const el = document.createElement(tag);
@@ -142,7 +143,10 @@ export async function writingDetails(
   }
   if (!version) return;
   if (current.kind === 'scene' && sources)
-    host.append(suggestedBeings(tenant, scene, sources, refresh));
+    host.append(
+      suggestedBeings(tenant, scene, sources, refresh),
+      suggestedPeriods(tenant, scene, sources, refresh),
+    );
   for (const [label, kind, plural] of [
     ['Being', 'being', 'beings'],
     ['Fact', 'fact', 'facts'],

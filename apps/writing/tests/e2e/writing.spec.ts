@@ -1846,3 +1846,111 @@ test('reviewed manuscript links preserve the selected wording, undo and saved ba
     await context.close();
   }
 });
+test('an author reviews existing calendar dates before setting a Scene period', async ({
+  browser,
+}) => {
+  test.setTimeout(120000);
+  const { page, context, api, owner, tenant } = await world(browser);
+  try {
+    const scene = new URL(page.url()).searchParams.get('entry') as string;
+    const path = { tenant_id: tenant.id, scene_id: scene };
+    const calendar = async (name: string, tenantId = tenant.id) =>
+      ok(
+        owner.POST('/tenants/{tenant_id}/calendars', {
+          params: { path: { tenant_id: tenantId } },
+          body: {
+            name,
+            is_public: true,
+            definition: {
+              format: 'lorenzo.calendar/1',
+              moons: [],
+              segments: [{ key: 'frost', name: 'Frost', days: 30, kind: 'month', in_week: true }],
+            },
+          },
+        }),
+      );
+    const first = await calendar('Coast reckoning');
+    const second = await calendar('Mountain reckoning');
+    const period = (calendarId: string, day: number, tenantId = tenant.id) =>
+      ok(
+        owner.POST('/tenants/{tenant_id}/calendars/{calendar_id}/periods', {
+          params: { path: { tenant_id: tenantId, calendar_id: calendarId } },
+          body: { year: 42, segment: 'frost', day, is_public: true },
+        }),
+      );
+    const chosen = await period(first.entity_id, 3);
+    await period(first.entity_id, 4);
+    await period(second.entity_id, 4);
+    await period(first.entity_id, 5);
+    const elsewhere = await ok(owner.POST('/tenants', { body: { name: 'Other dates' } }));
+    const foreign = await calendar('Foreign calendar', elsewhere.id);
+    await period(foreign.entity_id, 3, elsewhere.id);
+    const getScene = () => api.GET('/tenants/{tenant_id}/scenes/{scene_id}', { params: { path } });
+    const setPeriod = async (period_entity_id: string | null) => {
+      const current = await getScene();
+      await ok(
+        api.PATCH('/tenants/{tenant_id}/scenes/{scene_id}', {
+          params: { path, header: { 'if-match': current.response.headers.get('etag') as string } },
+          body: { period_entity_id },
+        }),
+      );
+    };
+    const periods = () =>
+      ok(
+        api.GET('/tenants/{tenant_id}/calendar-periods', {
+          params: { path: { tenant_id: tenant.id } },
+        }),
+      );
+    const count = (await periods()).total;
+    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+    const source = 'On 3 **Frost** 42 she recalled 4 Frost 42. `5 Frost 42`';
+    await draft.fill(source);
+    await page.getByText('Details', { exact: true }).click();
+    await page.getByText('Suggested period', { exact: true }).click();
+    const check = page.getByRole('button', { name: 'Check dates', exact: true });
+    const add = page.getByRole('button', {
+      name: 'Set period to 3 Frost 42 (Coast reckoning)',
+      exact: true,
+    });
+    await check.click();
+    await expect(add).toBeVisible();
+    await expect(page.getByText(/Several periods share the name 4 Frost 42/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Set period to 5 Frost/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Foreign calendar/ })).toHaveCount(0);
+    expect((await ok(getScene())).period_entity_id).toBeNull();
+    expect((await periods()).total).toBe(count);
+    await draft.fill(`${source} Tomorrow.`);
+    await add.click();
+    await expect(page.getByText('The draft changed. Check dates again.')).toBeVisible();
+    await check.click();
+    await setPeriod(chosen.entity_id);
+    await add.click();
+    await expect(page.getByText('The Scene changed. Check dates again.')).toBeVisible();
+    await check.click();
+    await expect(
+      page.getByText('This Scene already has a period. Use Period to change it.'),
+    ).toBeVisible();
+    await expect(add).toHaveCount(0);
+    await setPeriod(null);
+    await check.click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await add.click();
+    await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toBeVisible();
+    expect((await ok(getScene())).period_entity_id).toBe(chosen.entity_id);
+    await expect(draft).toHaveValue(`${source} Tomorrow.`);
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByText('Details', { exact: true }).click();
+    await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Clear period', exact: true }).click();
+    await expect(page.getByText('Period: 3 Frost 42', { exact: true })).toHaveCount(0);
+    expect((await ok(getScene())).period_entity_id).toBeNull();
+    expect((await periods()).total).toBe(count);
+  } finally {
+    await context.close();
+  }
+});
