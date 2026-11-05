@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Calendars and Lorenzo Sessions, together, from the jobs people do there. The system they are built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub ([account-hub](../account-hub/README.md)) and Writing ([writing](../writing/README.md)) are decided. This page holds the brief, the questions and the decision log for this pair.
 
-Status: the brief and its questions. No direction is chosen yet.
+Status: questions 1 to 3 are decided (CS1 to CS3); questions 4 and 5 are open.
 
 ## What the two apps are for
 
@@ -107,4 +107,21 @@ The shell's status bar shows an **in-world date** (D18). A campaign has no *curr
 
 ## Decision log
 
-Nothing is decided here yet.
+Decided with the maintainer, 2026-11-05, from the brief above.
+
+### CS1. Two apps, linked by data
+
+Calendars and Sessions stay two apps, each with its own Home (D16). A Session links to its starting period and the periods it covers. A calendar day lists the Sessions that start or cover it. An Event lists where it was presented. The status bar shows the in-world date of the Session being looked at, and nothing elsewhere. There is no campaign-wide "now". Turned down: a shared date lens (B) and a campaign "now" (C).
+
+### CS2. The calendar's main view is the month
+
+A grid with a year strip above it; festivals and absent segments sit in the sequence. **The line of time (C) is also wanted, as a component other apps share:** a time filter, drawn once, that a list or a map can be looked at through (the date lens on Maps and Locations is the first user). It is designed here as that component and is not the calendar's main view. Turned down: the whole year as one surface as the main view (B). A year view stays available as the second view (see the old decisions).
+
+### CS3. Events are a tab of Calendars
+
+A list with participant, causal and story-order filters. Order and causes opens from an Event. Turned down: a place of its own (B) and Events everywhere with no home (C).
+
+## Open questions
+
+- Question 4, the Session's shape.
+- Question 5, the old decisions.
