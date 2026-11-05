@@ -24,6 +24,7 @@ import {
   selectDraft,
   writeDraft,
 } from './drafts';
+import { linkReview } from './link-review';
 import { reviewAddress, reviewScreen } from './review';
 import { draftCount } from './word-count';
 import { writingDetails } from './writing-details';
@@ -621,11 +622,15 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
 
         const control = createEditor({
           textarea: text,
+          reviewEntitySelection: () => review.open(),
           layout: 'tabs',
           toolbar: ['bold', 'italic', 'heading', 'bullets', '|', 'link', 'entity', 'undo'],
 
           render: (source) => render(parse(source), { externalImages: false }),
         });
+
+        const review = linkReview(tenant, text, control);
+        container.append(review.element);
 
         return {
           value: () => text.value,

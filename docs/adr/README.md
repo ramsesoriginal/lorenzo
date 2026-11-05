@@ -399,3 +399,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0393 - Personal writing timer](0393-personal-writing-timer.md)
 - [0394 - Personal net-new writing-session goals](0394-personal-net-new-writing-session-goals.md)
 - [0395 - Reviewed Being references from Scene prose](0395-reviewed-being-references.md)
+- [0396 - Reviewed links for selected manuscript names](0396-reviewed-manuscript-links.md)
