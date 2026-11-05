@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) has started (Social, a new app from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md), joined it last): [account-hub](account-hub/README.md), decided (AH1 to AH9); [writing](writing/README.md), decided (WR1 to WR10); [calendars and sessions](calendars-sessions/README.md), decided (CS1 to CS7); [maps](maps/README.md), decided (MP1 to MP7); [beings](beings/README.md), decided (BN1 to BN10); [inventory](inventory-web/README.md), decided (IN1 to IN12); [social](social/README.md), the prototype is built and ready for review (decisions SO1 to SO6 are logged there).
+Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) has started (Social, a new app from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md), joined it last): [account-hub](account-hub/README.md), decided (AH1 to AH9); [writing](writing/README.md), decided (WR1 to WR10); [calendars and sessions](calendars-sessions/README.md), decided (CS1 to CS7); [maps](maps/README.md), decided (MP1 to MP7); [beings](beings/README.md), decided (BN1 to BN10); [inventory](inventory-web/README.md), decided (IN1 to IN12); [social](social/README.md), the prototype is built and ready for review (decisions SO1 to SO8 are logged there).
 
 ## Layout of this directory
 

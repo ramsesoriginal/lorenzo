@@ -54,3 +54,13 @@
 @container shell (min-width: 1100px) { .so-a.haspanel .sofl-br { right: calc(22rem + var(--s-3) * 2); } }
 @container shell (max-width: 1099px) { .soslide { bottom: 11.5rem; } }
 .so .seg button, .so-a .seg button { min-height: 44px; } .so .btn { min-height: 44px; } .so .btn.sm, .so .chip.sm { min-height: 44px; }
+
+/* the controls on the right are a vertical bar; the panel and the bottom-right controls sit to its left */
+.sofl-tr { flex-direction: column; align-items: flex-end; max-width: none; } .sws { flex-direction: column; flex-wrap: nowrap; align-items: stretch; width: 11.75rem; } .sws .chip { justify-content: flex-start; width: 100%; white-space: nowrap; }
+.soslide { right: calc(11.75rem + var(--s-3) * 2); } .sofl-top { left: 42%; }
+@container shell (min-width: 1100px) { .so-a.haspanel .sofl-br { right: calc(22rem + 11.75rem + var(--s-3) * 3); } }
+@container shell (max-width: 1099px) { .sws { width: auto; } .sws .chip span { display: none; } .sws .chip { width: 44px; justify-content: center; padding: 0; } .soslide { right: calc(52px + var(--s-3) * 2); width: min(22rem, calc(100% - 52px - var(--s-3) * 3)); } }
+@container shell (max-width: 719px) { .sofl-tr { align-items: stretch; } .sws { flex-direction: row; flex-wrap: wrap; width: auto; } .sws .chip { width: auto; padding: 0 var(--s-3); justify-content: flex-start; } .sws .chip span { display: inline; } .soslide { right: auto; width: auto; } }
+.sosvg .edge.dim, .sosvg .node.dim { opacity: 0.2; } .sosvg .node.dim, .sosvg .edge.dim { transition: opacity var(--so-tr); }
+.mx td.mxc { cursor: text; } .mx td.mxc.draft, .mx td.mxc:focus-visible { cursor: text; }
+@container shell (min-width: 720px) { .sov.solid { padding-right: 13.5rem; } }

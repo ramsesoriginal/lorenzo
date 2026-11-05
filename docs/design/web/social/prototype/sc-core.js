@@ -1,7 +1,7 @@
 /* Social: state, what a reader may see, the standings, the date lens, the layouts and the matrix's edits. */
 const pl = (n, a, b) => `${n} ${n === 1 ? a : b}`;
 const parts = () => S.route.split('/');
-const SC = { web: 'court', view: 'graph', sel: null, labels: true, hulls: true, hide: new Set(), steps: 0, layout: 'circle', lens: null, lensAll: false, asread: null, connect: null, z: 1, px: 0, py: 0, mxMode: 'rep', order: 'name', cur: ['mara', 'tobias'], draft: {}, refused: {}, undoS: [], redoS: [], noTypes: false, noWebs: false, stale: true, q: '', rq: '', rf: { type: '', end: '', min: '' }, ent: 'mara', editing: null };
+const SC = { web: 'court', view: 'graph', sel: null, labels: true, hulls: true, hide: new Set(), steps: 0, layout: 'circle', lens: null, lensAll: false, asread: null, connect: null, z: 1, px: 0, py: 0, mxMode: 'rep', order: 'name', cur: ['mara', 'tobias'], draft: {}, refused: {}, undoS: [], redoS: [], noTypes: false, noWebs: false, stale: true, q: '', rq: '', rf: { type: '', end: '', min: '' }, ent: 'mara', editing: null, focus: false, skipBlur: false };
 const isGM = () => S.role === 'gm';
 const MYBEING = 'imani'; /* the player's own being */
 const entOf = (id) => ENTS[id]; const typeOf = (id) => TYPES.find((t) => t.id === id); const stOf = (id) => STANDINGS.find((s) => s.id === id); const relOf = (id) => RELS.find((r) => r.id === id); const webOf = (id) => WEBS.find((w) => w.id === id);

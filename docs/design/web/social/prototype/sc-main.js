@@ -1,8 +1,8 @@
 /* Social: routes, actions, dialogs, the graph's pointer and keys, the matrix's keys and its save. */
 function scRefresh(keepFocus) {
-  const m = $('#main'); const top = m.scrollTop; const f = document.activeElement; let sel = null, pos = null;
+  const m = $('#main'); const top = m.scrollTop; const f = document.activeElement; let sel = null, pos = null; const sc = $$('.sov, .mxw').map((e) => [e.scrollTop, e.scrollLeft]);
   if (keepFocus && f && m.contains(f)) { sel = f.id ? `#${f.id}` : f.dataset.cell ? `[data-cell="${f.dataset.cell}"]` : f.dataset.ent ? `[data-ent="${f.dataset.ent}"]` : f.dataset.so ? `[data-so="${f.dataset.so}"]${f.dataset.v ? `[data-v="${CSS.escape(f.dataset.v)}"]` : ''}` : null; if (f.selectionStart != null) pos = [f.selectionStart, f.selectionEnd]; }
-  const r = cur(); S.meta = r.meta ? r.meta() : ''; m.innerHTML = r.render(); scAfter(); m.scrollTop = top;
+  const r = cur(); S.meta = r.meta ? r.meta() : ''; m.innerHTML = r.render(); scAfter(); m.scrollTop = top; $$('.sov, .mxw').forEach((e, i) => { if (sc[i]) { e.scrollTop = sc[i][0]; e.scrollLeft = sc[i][1]; } });
   if (sel) { const n = $(sel, m); if (n) { n.focus({ preventScroll: true }); if (pos && n.setSelectionRange) n.setSelectionRange(pos[0], pos[1]); } }
   updateStatus();
 }
@@ -76,7 +76,12 @@ function commitCell(key, raw) {
 }
 function mxKeydown(e) {
   const td = e.target.closest('[data-cell]'); const inp = e.target.closest('[data-mxin]');
-  if (inp) { if (e.key === 'Enter') { e.preventDefault(); commitCell(inp.dataset.mxin, inp.value.trim()); } else if (e.key === 'Escape') { e.preventDefault(); const k = inp.dataset.mxin; SC.editing = null; delete SC.refused[k]; scRefresh(); $(`[data-cell="${k}"]`).focus(); } return; }
+  if (inp) {
+    const key = inp.dataset.mxin; const nxt = (dr, dc) => { const M = mxMembers(); const [a, b] = key.split('>'); let r = M.indexOf(a), c = M.indexOf(b); r = Math.max(0, Math.min(M.length - 1, r + dr)); c = Math.max(0, Math.min(M.length - 1, c + dc)); SC.cur = [M[r], M[c]]; scRefresh(); const n = $(`[data-cell="${mxKey(M[r], M[c])}"]`); if (n) { n.focus({ preventScroll: true }); keepFrame(); } };
+    if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); SC.skipBlur = true; commitCell(key, inp.value.trim()); SC.skipBlur = false; if (!SC.refused[key]) nxt(e.key === 'Enter' ? 1 : 0, e.key === 'Tab' ? 1 : 0); }
+    else if (e.key === 'Escape') { e.preventDefault(); SC.skipBlur = true; SC.editing = null; delete SC.refused[key]; scRefresh(); SC.skipBlur = false; const c = $(`[data-cell="${key}"]`); if (c) c.focus({ preventScroll: true }); }
+    return;
+  }
   if ((e.ctrlKey || e.metaKey) && td && (e.key === 'z' || e.key === 'y')) { e.preventDefault(); if (e.key === 'z' && SC.undoS.length) { SC.redoS.push(JSON.stringify(SC.draft)); SC.draft = JSON.parse(SC.undoS.pop()); } else if (e.key === 'y' && SC.redoS.length) { SC.undoS.push(JSON.stringify(SC.draft)); SC.draft = JSON.parse(SC.redoS.pop()); } scRefresh(true); return; }
   if (!td) return; const M = mxMembers(); let r = +td.dataset.r, c = +td.dataset.c; const go = (dr, dc) => { r = Math.max(0, Math.min(M.length - 1, r + dr)); c = Math.max(0, Math.min(M.length - 1, c + dc)); SC.cur = [M[r], M[c]]; scRefresh(); const n = $(`[data-cell="${mxKey(M[r], M[c])}"]`); if (n) { n.focus({ preventScroll: true }); n.scrollIntoView({ block: 'nearest', inline: 'nearest' }); keepFrame(); } };
   const k = e.key; if (k === 'ArrowDown') { e.preventDefault(); go(1, 0); } else if (k === 'ArrowUp') { e.preventDefault(); go(-1, 0); } else if (k === 'ArrowLeft') { e.preventDefault(); go(0, -1); } else if (k === 'ArrowRight') { e.preventDefault(); go(0, 1); } else if (k === 'Home') { e.preventDefault(); go(0, -c); } else if (k === 'End') { e.preventDefault(); go(0, M.length); } else if (k === 'PageDown') { e.preventDefault(); go(5, 0); } else if (k === 'PageUp') { e.preventDefault(); go(-5, 0); }
@@ -84,7 +89,7 @@ function mxKeydown(e) {
   else if (isGM() && !isPhone() && (k === 'Delete' || k === 'Backspace')) { e.preventDefault(); clearCell(td.dataset.cell); }
 }
 function startEdit(key, first) {
-  const [a, b] = key.split('>'); if (a === b) return; const L = cellRels(a, b); const typeMode = SC.mxMode.startsWith('type:');
+  if (SC.editing === key) return; const [a, b] = key.split('>'); if (a === b) return; const L = cellRels(a, b); const typeMode = SC.mxMode.startsWith('type:');
   if (L.length > 1 && !SC.draft[key]) return openDialog({ title: 'Two relationships fill this cell', body: `<p class="muted" style="margin:0 0 var(--s-2h)">Which one do you want to edit?</p>${L.map((r, i) => `<label class="ivrd"><input type="radio" name="wr" value="${r.id}" ${i === 0 ? 'checked' : ''}> <span>${esc(sentence(r))}</span><span class="t-meta">${standing(r, mainStanding()).v !== null ? standing(r, mainStanding()).v : 'no value'}</span></label>`).join('')}`, actions: [{ label: 'Cancel' }, { label: 'Edit this one', kind: 'primary', fn: (d) => { const rid = $('input[name=wr]:checked', d).value; SC.draft[key] = { val: standing(relOf(rid), mainStanding()).v === null ? '' : String(standing(relOf(rid), mainStanding()).v), rid }; scSoon(() => { SC.editing = key; delete SC.draft[key]; SC.wr = rid; scRefresh(); const i = $('#mxi'); if (i) i.select(); }); } }] });
   if (typeMode) { if (L.length) { toast({ title: 'A relationship is removed from its own page', text: 'Open it from the list to delete it.' }); return; } setDraft(key, '1'); scRefresh(true); return; }
   SC.editing = key; scRefresh(); const i = $('#mxi'); if (i) { if (first) { i.value = first; i.setSelectionRange(1, 1); } else i.select(); i.focus(); }
@@ -113,11 +118,12 @@ function saveDrafts() {
 /* ---- clicks */
 function scClick(e) {
   if (SC.dragged) { SC.dragged = false; return; }
+  if (SC.editing && !e.target.closest('[data-mxin]')) { const i = $('#mxi'); if (i) { SC.skipBlur = true; commitCell(SC.editing, i.value.trim()); SC.skipBlur = false; if (SC.editing) return; } }
   const nd = e.target.closest('[data-ent]'); if (nd && !e.target.closest('input') && $('#sosvg') && $('#sosvg').contains(nd)) { nodeClick(nd.dataset.ent); return; }
   const ed = e.target.closest('[data-rel].edge'); if (ed && isPhone()) { location.hash = '#/rel/' + ed.dataset.rel; return; } if (ed) { SC.sel = { k: 'rel', id: ed.dataset.rel }; scRefresh(); announce(sentence(relOf(ed.dataset.rel))); return; }
-  const mc = e.target.closest('[data-cell]'); if (mc && !e.target.closest('input')) { SC.cur = mc.dataset.cell.split('>'); const ed2 = SC.editing; if (ed2 && ed2 !== mc.dataset.cell) SC.editing = null; scRefresh(); const n = $(`[data-cell="${mc.dataset.cell}"]`); if (n) { n.focus({ preventScroll: true }); keepFrame(); } return; }
+  const mc = e.target.closest('[data-cell]'); if (mc && !e.target.closest('input')) { const was = SC.cur.join('>') === mc.dataset.cell; SC.cur = mc.dataset.cell.split('>'); if (was && isGM() && !isPhone() && !SC.editing) { startEdit(mc.dataset.cell); return; } const ed2 = SC.editing; if (ed2 && ed2 !== mc.dataset.cell) SC.editing = null; scRefresh(); const n = $(`[data-cell="${mc.dataset.cell}"]`); if (n) { n.focus({ preventScroll: true }); keepFrame(); } return; }
   const t = e.target.closest('[data-so]'); if (!t) return; if (t.getAttribute('aria-disabled') === 'true') return; const k = t.dataset.so, v = t.dataset.v;
-  const F = { view: () => { SC.view = v; scRefresh(true); announce(v); }, labels: () => { SC.labels = !SC.labels; scRefresh(true); }, hulls: () => { SC.hulls = !SC.hulls; scRefresh(true); }, types: () => typesMenu(t), steps: () => stepsMenu(t), lens: () => lensMenu(t), asread: () => readMenu(t),
+  const F = { view: () => { SC.view = v; scRefresh(true); announce(v); }, labels: () => { SC.labels = !SC.labels; scRefresh(true); }, focus: () => { SC.focus = !SC.focus; if (SC.focus && !SC.sel) toast({ title: 'Select an entry or a relationship first', text: 'Focus dims everything else.' }); scRefresh(true); announce(SC.focus ? 'Focus on' : 'Focus off'); }, hulls: () => { SC.hulls = !SC.hulls; scRefresh(true); }, types: () => typesMenu(t), steps: () => stepsMenu(t), lens: () => lensMenu(t), asread: () => readMenu(t),
     clear: () => { SC.lens = null; SC.asread = null; SC.lensAll = false; scRefresh(); announce('Lens cleared'); }, lensall: () => { SC.lensAll = !SC.lensAll; scRefresh(true); }, selrel: () => { if (isPhone()) { location.hash = '#/rel/' + v; return; } SC.sel = { k: 'rel', id: v }; scRefresh(true); }, closep: () => { SC.sel = null; scRefresh(); },
     members: membersDialog, connect: () => { SC.connect = SC.connect ? null : { a: null }; scRefresh(true); announce(SC.connect ? 'Connect: choose the first entry' : 'Connect cancelled'); }, connectfrom: () => { SC.connect = { a: v }; SC.sel = null; scRefresh(); announce(`Connecting ${entName(v)}: choose the other entry`); }, cancelconnect: () => { SC.connect = null; scRefresh(); },
     zin: () => { SC.z = Math.min(3, fx(SC.z * 1.25)); scRefresh(true); }, zout: () => { SC.z = Math.max(0.4, fx(SC.z / 1.25)); scRefresh(true); }, zfit: () => { SC.z = 1; SC.px = 0; SC.py = 0; scRefresh(true); },
@@ -164,7 +170,7 @@ function graphBind() {
 }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.route.startsWith('web') && !OV.el && !$('.menu[data-open]') && SC.sel) { SC.sel = null; scRefresh(); } });
 function scAfter() {
-  const m = $('#main'); m.onclick = scClick; m.oninput = scInput; m.onchange = scChange; m.onkeydown = mxKeydown; graphBind();
+  const m = $('#main'); m.ondblclick = (e) => { const mc = e.target.closest('[data-cell]'); if (mc && isGM() && !isPhone() && !e.target.closest('input')) startEdit(mc.dataset.cell); }; m.onfocusout = (e) => { const inp = e.target.closest && e.target.closest('[data-mxin]'); if (!inp || SC.skipBlur) return; setTimeout(() => { if (inp.isConnected && SC.editing === inp.dataset.mxin && !SC.skipBlur && document.activeElement !== inp) commitCell(inp.dataset.mxin, inp.value.trim()); }, 0); }; m.onclick = scClick; m.oninput = scInput; m.onchange = scChange; m.onkeydown = mxKeydown; graphBind();
   m.onscroll = () => { if (m.scrollLeft) m.scrollLeft = 0; }; const fr = $('#frame'); if (fr) fr.onscroll = () => { if (fr.scrollLeft) fr.scrollLeft = 0; }; const sa = $('.so-a'); if (sa) sa.onscroll = () => { if (sa.scrollLeft || sa.scrollTop) { sa.scrollLeft = 0; sa.scrollTop = 0; } };
 }
 /* ---- routes */

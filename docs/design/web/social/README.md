@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Social, a new app, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions, Maps, Beings and Inventory are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the prototype is built and ready for review (decisions SO1 to SO6 are logged here).
+Status: the prototype is built and ready for review (decisions SO1 to SO8 are logged here).
 
 The app comes from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md) and ADRs 0399 to 0408, written in parallel on the open pull request [#1010](https://github.com/ramsesoriginal/lorenzo/pull/1010). Its section "For the interface design" is the brief this page builds on. Where they differ, the RFC wins until it is changed.
 
@@ -146,6 +146,14 @@ A **Relationship** is two overlapping rings (new). A **Social web**, and the app
 
 Direction A. The graph fills the page and the view switch, the region switches, the legend and the zoom float over it, with the panel sliding in from the right. From direction C comes the **Members** control: a dialog to add entries by name, add a group's members, add everyone within some steps of the selected entry, and remove members. It writes explicit rows and never a rule.
 
+### SO7. The controls on the right are a vertical bar, and the graph has a Focus
+
+The region switches (Labels, Groups, Types, Steps, Focus, As of an Event, As read by) are a vertical bar at the top right, each a chip with an icon and its word. The panel slides in to the left of the bar and the bottom-right controls move left of the panel. On a tablet the chips are icons with their words as names; on a phone the bar is a wrapped row again. **Focus** dims everything but the selected entry and its neighbours, or the selected relationship and its two ends, so a large web can be read around one thing. It says so if nothing is selected.
+
+### SO8. The matrix edits where the cell is
+
+A first click selects a cell, a second click or a double click edits it where it is, and typing on a selected cell starts the edit too. Clicking away saves the edit as a draft, Enter saves and moves down, Tab saves and moves right, Escape cancels, Delete clears. The save bar, the refusals and Undo are as before.
+
 ## The directions (drawn; A with C's members control chosen)
 
 In `directions/`: the web page in three layouts, each with its Graph, Matrix and List views, on the shell with made-up data (a harbour town, nine entries, ten relationships). The graph is an SVG stand-in for the renderer package's drawing. The matrix and the list are the same in all three; what differs is where the controls and the panel sit. Run it:
@@ -182,14 +190,14 @@ The Webs home lists the webs with a Continue block, makes a new web (empty, with
 
 - **Graph, Matrix, List** are three views of one page; the selection carries from one to the next. At phone width the switch is Graph (read-only), Standings and List.
 - **The graph:** entries and relationships, drawn solid, dashed (through others) or dotted (unknown) with an arrowhead for direction, labelled with the type and the standing. Groups are soft outlines. Several relationships between one pair curve apart. Layouts: Circle, Radial from the selected entry, Force, and Placed by hand (drag, or Alt with the arrow keys, or fields for X and Y). Pan, zoom, fit; keys for zoom and pan. The graph is one tab stop that opens into its nodes, and the arrow keys move along edges.
-- **The switches:** Labels, Groups, the types shown, and steps from the selected entry (All, 1, 2). The panel shows a relationship (ends, type, one row per standing with its scale and where it comes from, since and until, the chain it holds through, notes) or an entry (its relationships, and its members apart from them).
+- **The switches** (a vertical bar, SO7): Labels, Groups, the types shown, steps from the selected entry (All, 1, 2) and Focus. The panel shows a relationship (ends, type, one row per standing with its scale and where it comes from, since and until, the chain it holds through, notes) or an entry (its relationships, and its members apart from them).
 - **The date lens and "as read by"** (SO4): a line says what is on and clears it. As of an Event, a relationship holds, has not started, has ended, or is unknown (an Event with no recorded order, or one the reader cannot see); those that have not started or have ended are not drawn, with a count of how many, and a switch shows them faded. As read by a being shows what that being may read.
 - **Members** and **Connect:** pick one entry, pick another, then the type and a standing; the same entry twice is refused in words; a value outside the scale is refused in the form.
 - **Edit in the panel:** a standing is a number that saves and says what it refused; since and until are Events and refuse an end before a start; each change has Undo.
 
 ### The matrix (SO3)
 
-An ARIA grid with one tab stop: arrows, Home, End and the page keys move, Enter or F2 edits, typing replaces, Escape cancels, Delete clears (asked once), Ctrl Z and Ctrl Y undo and redo drafts. Cells show a number, a quiet bar, and a mark and a word for derived, inherited, unknown and two-fill-one-cell; a legend says what they are. Edits are drafts in a save bar; a value outside the scale is refused at the cell; one cell is refused on save as changed meanwhile (412) with the draft kept, and the rest are saved with Undo. An empty cell creates a restricted relationship of the type chosen in "New cells are". Presence mode shows a type as present or not, and says whether it is one-way. A conflict cell asks which relationship to edit. A cell the reader may not read is empty.
+An ARIA grid with one tab stop: arrows, Home, End and the page keys move. A click selects, a second click or a double click edits in place, and so do Enter, F2 and typing; clicking away or Tab or Enter saves the draft and Enter or Tab move on; Escape cancels, Delete clears (asked once), Ctrl Z and Ctrl Y undo and redo drafts. Cells show a number, a quiet bar, and a mark and a word for derived, inherited, unknown and two-fill-one-cell; a legend says what they are. Edits are drafts in a save bar; a value outside the scale is refused at the cell; one cell is refused on save as changed meanwhile (412) with the draft kept, and the rest are saved with Undo. An empty cell creates a restricted relationship of the type chosen in "New cells are". Presence mode shows a type as present or not, and says whether it is one-way. A conflict cell asks which relationship to edit. A cell the reader may not read is empty.
 
 ### Relationships, a relationship, an entry, Types and standings, Problems
 
@@ -205,7 +213,7 @@ The data is made up and kept in the page. The graph and its layouts are stand-in
 
 ### What was checked
 
-98 scripted checks pass (Playwright, 1440 and 430 wide): the webs and their empty states; the graph, its encodings and its layouts; selection, the panels, in-place edits, refusals and Undo; the date lens, the unknown state and "as read by"; types, steps, members and connect; zoom and the keys; placing by hand with a drag, the keys and the fields; the matrix's keys, drafts, refusals, the stale cell, the conflict cell and the presence mode; the relationships list, a relationship, an entry, types and problems; a player's absent entries and relationships; a phone's views, no horizontal scroll and 44 px targets. axe-core finds no violations on 19 to 21 states at 1440 and 430, light and dark (80 runs; the landmark-region rule is off for overlays). There are no console errors.
+108 scripted checks pass (Playwright, 1440 and 430 wide): the webs and their empty states; the graph, its encodings and its layouts; selection, the panels, in-place edits, refusals and Undo; the date lens, the unknown state and "as read by"; types, steps, members and connect; zoom and the keys; placing by hand with a drag, the keys and the fields; focus and the vertical bar; the matrix's keys, in-place edits with the pointer, drafts, refusals, the stale cell, the conflict cell and the presence mode; the relationships list, a relationship, an entry, types and problems; a player's absent entries and relationships; a phone's views, no horizontal scroll and 44 px targets. axe-core finds no violations on 19 to 21 states at 1440 and 430, light and dark (80 runs; the landmark-region rule is off for overlays). There are no console errors.
 
 ### What was not checked
 
@@ -215,15 +223,15 @@ A screen reader, a real phone or touch device, pinch zoom, colour-blindness simu
 
 - A graph edge's label text made its button's name fail axe, so labels are drawn apart from the edges and hidden from assistive technology; the list and the edge's own name carry the words.
 - A matrix cell's name could not match its visible text, so the cells take their name from their content and the row and column headers, and a refusal is attached with `aria-describedby`.
+- Re-drawing the page reset the matrix's scroll, so a second click landed on a different cell; the scroll is kept.
 - Focusing a cell that was off-screen scrolled the shell's frame; the frame is kept in place.
 - On a phone the slide-over panel fell below the page, so selecting an edge or an entry opens its page instead, with the same content.
 - With the panel open on a large screen it covered the zoom controls, which now move left of it.
 
 ### Screens
 
-In `screens/` (25 images): the Webs home and its empty state; the graph, with a relationship's panel, the date lens, "as read by", Members and Connect; the matrix, with a refused save; the list; the relationships list, a relationship, an entry's page, Types and standings and its empty state, and Problems; a player's graph; dark; and the phone's graph, standings and list.
+In `screens/` (27 images): the Webs home and its empty state; the graph, with a relationship's panel, the date lens, "as read by", Members and Connect; the matrix, with a refused save; the list; the relationships list, a relationship, an entry's page, Types and standings and its empty state, and Problems; a player's graph; dark; and the phone's graph, standings and list.
 
 ## Open questions
 
-- Should the graph offer a "focus" that dims everything but the selection and its neighbours, for a large web, in addition to the steps switch?
-- Should the matrix offer row and column totals for a standing, worded "from what you can see", or is that too close to a score?
+None are open.
