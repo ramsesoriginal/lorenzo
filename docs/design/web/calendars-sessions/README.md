@@ -129,3 +129,35 @@ The Session stays one page of regions (details, roster, notes, references, game 
 
 All as recommended: two apps (CS1); the month as the main view with a Whole year view second (CS2); a month cell shows the moon, up to two marks and "+N", with the rest in the day panel; the day panel is a bottom sheet on a phone (D26); Order and causes stays an action on an Event; Events are a tab (CS3); **Clocks are a tab of Calendars,** shown only when the library has clocks; **Scenes are a tab of Sessions;** **lived order is a tab of Sessions,** with the being chosen there and Beings linking to it. The Session page's regions and the two record lists follow CS4.
 
+## The directions
+
+In `directions/`: the month view in two ways and the Session page in three, on the shell, with made-up data. Run it:
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/calendars-sessions/directions/index.html
+```
+
+The controls bar switches the direction and the view (All, Prepare, Played). The region switches on the Session page work. Screens are in `directions/screens/` (11 images). In the Session directions the status bar shows the in-world date of the Session (CS1); on the calendar it shows none.
+
+**The month** (CS2). Both have a strip or rail of segments with a density mark, festivals and an absent leap day in the sequence, a moon on each day, and no "today".
+
+| | A. Grid and panel | B. Grid and agenda |
+| --- | --- | --- |
+| Idea | A calm grid with a day panel docked beside it | A fuller grid over a list of what is on in the month |
+| Day | The moon, up to two marks, "+N"; the rest in the panel | The moon and up to two lines of text; the rest in the list below |
+| Segments | A strip across the top | A rail down the left (hidden on a narrow window) |
+| Narrow window | The panel becomes a sheet | The list is the panel; a day opens in it |
+| Cost | The panel is always open, so the grid is narrower | A tall page; the grid is read before the detail |
+
+**The Session page** (CS4). All three show the same nine regions, hidden and shown by the person, with Prepare and Played as saved views.
+
+| | A. Switches above | B. A rail | C. Folds and a View menu |
+| --- | --- | --- | --- |
+| Idea | A bar of switches over the page, one per region, and the views | A rail of the parts beside the page, each with an eye, and the views at its top | No bar; a View menu lists the views and the parts, and each region folds |
+| Seeing what is hidden | Dashed switches say so | Struck-through names say so | A line at the foot lists what is hidden |
+| Cost | A bar of nine switches is wide, and wraps on a phone | Takes a column | The hidden parts are one step away |
+
+## Open questions
+
+- Which month direction, and which Session direction, or which parts of which.
