@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) has started (Social, a new app from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md), joined it last): [account-hub](account-hub/README.md), decided (AH1 to AH9); [writing](writing/README.md), decided (WR1 to WR10); [calendars and sessions](calendars-sessions/README.md), decided (CS1 to CS7); [maps](maps/README.md), decided (MP1 to MP7); [beings](beings/README.md), decided (BN1 to BN10); [inventory](inventory-web/README.md), decided (IN1 to IN12); [social](social/README.md), the prototype is built and ready for review (decisions SO1 to SO8 are logged there).
+Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) has started (Social, a new app from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md), joined it last): [account-hub](account-hub/README.md), decided (AH1 to AH9); [writing](writing/README.md), decided (WR1 to WR10); [calendars and sessions](calendars-sessions/README.md), decided (CS1 to CS7); [maps](maps/README.md), decided (MP1 to MP7); [beings](beings/README.md), decided (BN1 to BN10); [inventory](inventory-web/README.md), decided (IN1 to IN12); [social](social/README.md), the prototype is built and ready for review (decisions SO1 to SO8 are logged there); [profile and tokens](account-hub/profile-and-tokens/README.md), the brief and its questions.
 
 ## Layout of this directory
 
@@ -307,6 +307,10 @@ A new app, from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-soci
 ### D31. Writing is in Build (decided with the maintainer, 2026-11-05)
 
 Writing moves from World to Build, beside Bench: it is where a person makes things, not where they look at the world. The groups are now Play (Sessions, Beings, Inventory), World (Calendars, Maps, Social), Build (Writing, Bench) and You (Account). Nothing else about Writing changes; the go-to chord stays G then W.
+
+### D32. Profile and tokens are reachable from every app (decided with the maintainer, 2026-11-05)
+
+Profile and Access tokens were drawn only in the account hub's prototype; the account menu of every other app's prototype opened a page that said it was not drawn. The two pages are now in the shell, so the menu opens them from any app. The account hub keeps its own, fuller copy, which wins inside the hub. They are redesigned from a brief in [account-hub/profile-and-tokens](account-hub/profile-and-tokens/README.md). A save bar rewrote its own buttons on every change, so a click on Save that followed an edit was lost; the shell's, the hub's and the profile's save bars now rewrite only when the count changes.
 
 ## Open questions
 

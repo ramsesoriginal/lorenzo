@@ -11,6 +11,8 @@ const ROUTES = {
   join: { app: 'account', tab: 'settings', render: () => pJoin(false), after: afterJoin, meta: () => 'Invite link' },
   states: { app: 'account', tab: 'settings', render: pStates, after: afterStates, meta: () => '8 states' }
 };
+ROUTES.profile = { app: 'account', tab: 'profile', render: pSaProfile, after: afterSa, meta: () => 'Your account' };
+ROUTES.tokens = { app: 'account', tab: 'tokens', render: pSaTokens, after: afterSa, meta: () => `${SA.tokens.length} tokens` };
 if (window.ROUTES_EXT) Object.assign(ROUTES, window.ROUTES_EXT);
 function parseRoute(r) {
   const [name, arg] = r.split('/');

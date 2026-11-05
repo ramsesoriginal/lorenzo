@@ -432,3 +432,17 @@ a.tile .icon { margin-top: 2px; font-size: 1.4rem; }
   .hdr-one .prod { margin-left: 0; }
   .hdr-one { padding: 4px var(--gutter); }
 }
+
+/* account: profile and tokens (the shell's copy; the account hub carries a fuller one) */
+.sa-subtabs { display: flex; flex-wrap: wrap; gap: var(--s-1); margin: var(--s-3) 0 var(--s-4); border-bottom: 1px solid var(--border-subtle); }
+.sa-subtab { position: relative; min-height: var(--hit); padding: 0 var(--s-2h); border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-size: var(--fs-ui); cursor: pointer; }
+.sa-subtab::after { content: ""; position: absolute; left: var(--s-2h); right: var(--s-2h); bottom: -1px; height: 2px; background: var(--text-primary); transform: scaleX(0); transform-origin: left; transition: transform var(--dur-med) var(--ease); }
+.sa-subtab[aria-selected="true"] { color: var(--text-primary); font-weight: 500; } .sa-subtab[aria-selected="true"]::after { transform: scaleX(1); }
+.sa-crumb { font-size: var(--fs-meta); color: var(--text-secondary); margin-bottom: var(--s-2); }
+.sa-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-2h); } .sa-col { display: flex; flex-direction: column; gap: var(--s-3); }
+.sa-pic { display: inline-flex; align-items: center; justify-content: center; width: 72px; height: 72px; border-radius: 14px; background: var(--surface-selected); font-family: var(--font-display); font-size: 1.6rem; }
+.sa-swatch { display: inline-flex; align-items: center; gap: 8px; min-height: var(--hit); padding: 0 var(--s-2h); border: 1px solid var(--border-control); border-radius: var(--r-ctl); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--fs-ui); cursor: pointer; } .sa-swatch[aria-pressed="true"] { background: var(--surface-selected); font-weight: 500; } .sa-swatch i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.sa-tbl { border: 1px solid var(--border-subtle); border-radius: var(--r-card); overflow: hidden; }
+.sa-th, .sa-tr { display: grid; gap: var(--s-2h); align-items: center; padding: 0 var(--s-3); min-height: var(--row-h); border-top: 1px solid var(--border-subtle); }
+.sa-th { min-height: 34px; border-top: 0; background: var(--surface-muted); font-size: var(--fs-meta); font-weight: 500; color: var(--text-secondary); } .sa-nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; } .sa-lbl { display: none; color: var(--text-secondary); font-size: var(--fs-meta); margin-right: 6px; }
+@container shell (max-width: 720px) { .sa-th { display: none; } .sa-tr { grid-template-columns: minmax(0, 1fr) !important; padding: var(--s-2h) var(--s-3); gap: var(--s-1); } .sa-lbl { display: inline; } }
