@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Maps, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, and Calendars with Sessions are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief and its questions. No direction is chosen yet.
+Status: questions 1 to 4 are decided (MP1 to MP4); question 5, the old decisions, is open.
 
 ## What the app is for
 
@@ -99,4 +99,33 @@ Named here so each can be kept or dropped on purpose. None carries over by defau
 
 ## Decision log
 
-Nothing is decided here yet.
+Decided with the maintainer, 2026-11-05, from the brief above.
+
+### MP1. The app begins at a gallery of Maps
+
+Each Map is a card with a small drawing of it, its coordinate system and its date tie. "Make a Map" comes first. Locations is a tab beside it. Turned down: the Locations tree first (B) and a start from the person's characters (C).
+
+### MP2. A phone reads everything and writes on a larger window
+
+Reading, panning, zooming, the panel as a sheet and the places list all work on a phone. Drawing says it needs a larger window, and offers what a phone can do: rename, move a pin by its numbers, change who sees a Map. Turned down: full drawing by touch (B) and reading only (C).
+
+### MP3. The Map fills the page
+
+Small floating controls sit on the Map (zoom, layers, Look, Legend, the way a sphere is drawn), and a panel slides over from the side for the selected mark, the places list and settings. Turned down: a docked panel (A) and a split with the list (C).
+
+### MP4. Drawing is a toolbox, and entries can be dragged onto the Map
+
+The conventions are those of Blender, Photoshop and AutoCAD, for people who draw all day:
+
+- **A toolbox** of modal tools (Select, Pin, Circle, Line, Area, Cells), an **options bar** that changes with the tool, and a **properties** panel for the selection, with every number typeable.
+- **Keyboard first:** one key per tool, Enter and Escape to finish and cancel, Backspace to take back a point, and the arrow keys to nudge. The pointer is never the only way (the rule above).
+- **Snapping** to the grid and to other points, switched on and off, and a **history** of what was done, with undo and redo.
+- **Navigation** that does not leave the tool: scroll to zoom, hold Space to pan, a key to frame what is selected.
+- **Drag an entry** from the places list or a search onto the Map to place it. A right-click offers the same actions as a menu, and each gesture works from the keyboard.
+- This asks for a **denser** layout than the rest of the web design, so the drawing view uses the Dense setting (D22) for its toolbox and panels.
+
+Turned down: a toolbar alone (A, as it was) and dragging alone (C).
+
+## Open questions
+
+- Question 5: which of the nine old decisions carry over.
