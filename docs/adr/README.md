@@ -400,3 +400,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0394 - Personal net-new writing-session goals](0394-personal-net-new-writing-session-goals.md)
 - [0395 - Reviewed Being references from Scene prose](0395-reviewed-being-references.md)
 - [0396 - Reviewed links for selected manuscript names](0396-reviewed-manuscript-links.md)
+- [0397 - Reviewed Scene periods from manuscript prose](0397-reviewed-scene-periods.md)
