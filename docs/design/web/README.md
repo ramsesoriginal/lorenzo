@@ -2,7 +2,7 @@
 
 The design guidelines for Lorenzo's web interfaces and a fresh design of each web app, worked out with the maintainer on clickable prototypes. This page holds the brief and the decision log. Nothing is decided until it is in the log.
 
-Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) has started: [account-hub](account-hub/README.md), decided (AH1 to AH9); [writing](writing/README.md), decided (WR1 to WR10); [calendars and sessions](calendars-sessions/README.md), decided (CS1 to CS7); [maps](maps/README.md), decided (MP1 to MP7); [beings](beings/README.md), decided (BN1 to BN10); [inventory](inventory-web/README.md), the brief is answered (IN1 to IN6) and three directions are drawn.
+Status: Phase 2 (the shell): the prototype is built and ready for review. Phase 3 (the apps) has started: [account-hub](account-hub/README.md), decided (AH1 to AH9); [writing](writing/README.md), decided (WR1 to WR10); [calendars and sessions](calendars-sessions/README.md), decided (CS1 to CS7); [maps](maps/README.md), decided (MP1 to MP7); [beings](beings/README.md), decided (BN1 to BN10); [inventory](inventory-web/README.md), the prototype is built and ready for review (decisions IN1 to IN8 are logged there).
 
 ## Layout of this directory
 

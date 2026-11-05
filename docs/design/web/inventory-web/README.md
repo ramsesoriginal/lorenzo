@@ -2,7 +2,7 @@
 
 A minimal redesign of Lorenzo Inventory. The board stays: its idea and its rough look are kept, and everything around it is redone on the system in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions, Maps and Beings are decided. This page holds the brief, the questions and the decision log for this app. Bench is not redesigned.
 
-Status: the brief is answered (IN1 to IN6). Three directions for how a person reaches a board are drawn and wait for a choice.
+Status: the prototype is built and ready for review (decisions IN1 to IN8 are logged here).
 
 ## What the app is for
 
@@ -151,7 +151,15 @@ A description and notes are written in place and save as you type. Stats and tag
 Everything a GM does is drawn, not left to the old app: opening any being's board, a group's board and the board of what nobody owns; making an item from the catalog for a being, with an optional owner and link name; reassigning, unassigning and deleting an instance; adding an item to any board; creating, editing and deleting catalog items, with several prototypes, a public flag and "used as a prototype by"; editing stat values; the Unsorted page with its matching; unpacking a pack; and the notes' audiences. A player sees none of these controls, and what they may do on their own board follows self-service, with a note saying so when it is off.
 
 
-## The directions (drawn; waiting for a choice)
+### IN7. The board's name is a switcher
+
+Direction A. The board's name is a button; its menu lists your characters and groups, and for a GM a search for any being and the unowned things. A player with one character has nothing to choose. The last board you opened is remembered.
+
+### IN8. Every column shows its weight
+
+Each column says what it holds, in weight, in its header line ("12 of 12 lb" for a container with a limit, "5 lb" for the rest), above the board's carried weight. A move that would go over a container's limit is refused in words and the card stays.
+
+## The directions (drawn; A chosen)
 
 In `directions/`: three layouts for the board page, each as a player and as a GM, and the GM's other pages, which are the same in all three: the catalog, Unsorted, and an item's page. They are on the shell with made-up data. The board is drawn from the documents; the shell's board template was the starting point, so **where this board differs from the one you like, say so.** Run it:
 
@@ -178,6 +186,55 @@ The GM pages:
 
 What is not drawn yet: the phone's one-column board, the Unsorted badge's states, the dialogs (Give, Move to…, Make from catalog, Reassign, Unpack, Not in the list), a drag, the empty states, and dark mode. None of it has been through the checks.
 
+## The prototype
+
+In `prototype/`, on the shell, with made-up data. Run it from `prototype/index.html`; `prototype/build-review-copy.mjs OUT_DIR` writes a single page that runs without the repository. "You are" switches between a GM and a player; "Self-service" switches what a player may add.
+
+### The board (IN1, IN2, IN7, IN8)
+
+- Columns: Equipped, Not carried, each container, then read-only columns (dashed, marked, "Not carried, with Mara Quill"). A card that is not theirs names its owner. Each column shows its count and weight, and a limit where it has one.
+- A card is moved by dragging it to a column, or by **Move to…**; a stack keeps its count and joins an identical one. A refusal (a container's limit) is shown as given and the card stays. Read-only cards cannot be dragged.
+- **Select** turns on a bulk bar: Move to…, Give…, and Merge for stacks of the same item.
+- The search narrows the cards on this board and says how many are shown.
+- On a phone the board is one column at a time with a row of column names; on a tablet and wider the columns sit side by side.
+
+### The item (IN3, IN4)
+
+- A panel beside the board on a large screen, a sheet on a tablet, the page on a phone: the same content. The panel has the actions, the notes the person may read, and "Open the page".
+- **Move to…, Give…** (a recipient, a number, "Hand it over"; it says that giving changes the owner), **Set down** (a stack asks first, then becomes single items), **Add a note** ("Everyone can read this"), **Split**, **Unpack** (a dry run first; the pack goes), **Add an item** (from the list, or "Not in the list", which adds it with the Unsorted badge). Every change gives the shell's Undo toast.
+- A player's self-service can be off; Add an item and Unpack then say so and are disabled.
+
+### The GM and author features (IN6)
+
+- **Any board:** the switcher's "Find any being…", a group's board, and the board of unowned things.
+- **Make from catalog:** an item, an owner and an optional link name. **Reassign…, Unassign, Delete…** on an item, each with Undo.
+- **Catalog:** a list and a panel. The description saves as you type; weight, value and tags are fields; the link name, what it is made from and the public flag are kept with a save bar. A duplicate link name refuses the save and keeps the draft; leaving with unsaved changes is refused in words; deleting an item that has been made is refused in words; "Used as a prototype by" lists what depends on it. A player reads the catalog and edits nothing.
+- **Unsorted:** groups by the name a player wrote, the holders and their notes with tick boxes, suggestions (including another spelling of the name), and the three choices: give the ticked to a catalog item, make a new catalog item, keep for now.
+- **The item page** has the description in place and the weight as a field, for a GM.
+
+### What it fakes
+
+The data is made up and kept in the page. Weights are plain numbers. Containers have limits but no nesting. Nothing is saved or sent, and the API's other refusals are not drawn. The catalog's prototypes are a typed list. Import and export, and the notification page, are not drawn.
+
+### What was checked
+
+78 scripted checks pass (Playwright, 1440, 834 and 430 wide): the board and its columns, weights and read-only columns; search; the switcher, any being and the unowned board; the panel; Move to…, drag, a refused move, split and merge, give, set down, note, unpack, add an item, make from catalog, unassign and delete, each with Undo where it applies; the item page and its in-place edits; the catalog's save bar, its refusals and a new item; Unsorted, its suggestions and its choices; a player's board with no GM controls, no Unsorted tab, a read-only item and self-service off; a phone's one column and pages, and a tablet's sheet. axe-core finds no violations on 19 states at 1440 and 430, light and dark (76 runs; the landmark-region rule is off for overlays). There are no console errors.
+
+### What was not checked
+
+A screen reader, a real phone or touch device, colour-blindness simulation, Safari and Firefox. The drag was tested with a mouse only; the menu twin is the path for touch and keyboard. A board with a hundred cards has not been tried.
+
+### Findings
+
+- An error toast stays until closed, and the first scripted run found it sitting over the next menu. The checks now close it first; a person would meet the same, so the question below.
+- On a tablet and a phone the catalog and Unsorted had no way to open an item, because the panel is only drawn on a large screen. They are now pages with the panel's content.
+- A selected card's secondary text failed contrast on the tint; secondary text on a card or a row is now the secondary colour.
+
+### Screens
+
+In `screens/` (20 images): the board as a GM with the panel, the switcher, a card menu, a refused move, a selection, the add and unpack dialogs, the item page, the catalog with unsaved changes, Unsorted, an empty board, a player's board and read-only item and catalog, dark, a phone's column and item page, and a tablet's sheet.
+
 ## Open questions
 
-Which direction (or which parts of two) is the board page?
+- Should an error toast close itself after a longer time, or stay until closed as it does everywhere in the shell?
+- Should a column that has a limit show how much room is left ("4 lb free") as well as what it holds?
