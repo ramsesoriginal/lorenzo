@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Writing, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief is answered (WR1 to WR9), a direction is chosen, and the prototype is built, with the later slices of RFC 0047 drawn into it, and ready for review.
+Status: the brief is answered (WR1 to WR10), a direction is chosen, and the prototype is built, with the later slices of RFC 0047 drawn into it, and ready for review.
 
 ## What the app is for
 
@@ -213,9 +213,10 @@ A screen reader, a real touch device (touch is emulated), colour-blindness simul
 
 In `screens/`, 45 images (33 to 45 are the later slices: the timer, the session goal, suggestions, updates, a Contents Chapter, export, a Carrier and the leave warning); the first 32: the shelf, new and dark (01, 02, 24); Write, dark (03, 25); dragging a Chapter, to join, a block (04 to 06); the right-click menu, the Chapter menu, the selection bar, a Chapter made, Move to… (07 to 11); Details, Revisions, Review, Count, Numbering (12 to 16); conflict, storage failed, on this device, recovered text, focus mode (17 to 21); Read and a reviewer's note (22, 23); the rail at 834 (26, 27); 430 wide (28 to 32).
 
+### WR10. Answers to the second review
+
+The timer and the session goal show in the status bar while they run, and in Count. Updates open in a dialog. Export is both an icon in the page head and an item in the Edition menu. Suggestions stay a side tab with the matches marked in the text.
+
 ## Open questions
 
-1. The timer and the session goal show in the status bar while they run, as well as in Count. Is that the right place, or should they live only in Count?
-2. Updates open in a dialog from a banner or the Edition menu. Should they be a page of their own, like the account hub's update inbox?
-3. Export is an icon in the page head and an item in the Edition menu. Both, or only the menu?
-4. Suggestions are a side tab, with the matches marked in the text while it is open. Is that the right weight for a feature that never changes anything unasked?
+None for the writing app. The checks are re-run once on the final screens before the write-up.
