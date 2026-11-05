@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Maps, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, and Calendars with Sessions are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: decided (MP1 to MP6). The prototype is being built.
+Status: decided (MP1 to MP6). The prototype is built and ready for review.
 
 ## What the app is for
 
@@ -168,6 +168,69 @@ The controls bar switches the screen and whether a line is being drawn or an Are
 | Best for | Drawing shapes by hand | Typing exact values | Working through many places by name |
 | Cost | Three panels on the right take width | The ribbon and command line take height | The densest; the most to learn |
 
+## The prototype
+
+In `prototype/`. It links `apps/brand` in place and unchanged, and extends the shell prototype through its hooks. The map is an SVG stand-in for the renderer's drawing; everything around it is the design. Plain HTML, CSS and JS.
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/maps/prototype/index.html
+```
+
+A private single-page copy is built with `node build-review-copy.mjs --fragment OUT_DIR`. The controls bar switches the role (a GM, a reader).
+
+### Reading
+
+- **The gallery (MP1).** A card per Map with a small drawing, its system and its date tie, and "Make a Map" first. Making one has no default system, and hexes ask for their orientation. **Looking at a date** (the shared time filter, CS7) groups the Maps as tied to that date, not tied to a date, or tied to other dates. A reader does not see a Map that is not open to the library. A library with no Map shows the empty state (`empty-map`).
+- **Locations.** A tab with search and the tree of "part of". A GM sees closed Locations and can open or close them; a reader sees no trace of a closed one, and a Location inside it appears under its nearest visible ancestor, in words ("in Customs house, within Old town, within Harbour town"). Through a date the list is by name, tied first, and says the tree is not shown. A Location page has its connections (join, remove with Undo), where characters are ("here", "elsewhere, at …", "unknown"), and, for a writer, its place in the tree. GMs see the lint.
+- **The Map (MP3).** It fills the page. Floating controls: Places, a date, Edit this map, Layers, Look (only for you, in this browser), Legend, the way a sphere is drawn (flat, Mercator, a globe), zoom and frame. Selecting a mark, or a place in the list, slides a panel over: where it is "in … within …", the date it is tied to, **where it leads and on which other Maps the far end is,** and **Measure from here** (a straight line in the author's unit, and the connection's length, or "unknown"). The panel also holds the searchable Places list, and, for a writer, Settings: name, sheet, the Location shown, theme name, who sees it, and Pictures (show, opacity, add, replace, remove).
+
+### Drawing (MP4, MP6)
+
+- **The layout.** C's header of tools and outliner and sidebar, A's options bar, Layers and History, and B's command line under the Map. The Map is full-bleed under everything. It is Dense.
+- **The tool registry.** `mp-tools.js` holds one list that declares every tool (group, icon, key, input, output, options, planned, needs). The header's groups, their flyouts, the options bar, the command line's tool names, the key map and **Search all tools** are all drawn from it. 13 tools today: Select; Pin, Circle; Line, Spline, Freehand, Area, Cells; Height line, Height brush; Cave system, Fill by marching squares, Fill by wave function collapse. A tool needing a grid says so on a plane. **Adding a tool is adding one entry.**
+- **The tools that exist.** Pin, circle, line, spline (a smooth curve through the points), freehand (simplified as set), area, a height line with a value and unit, and cells on a grid Map.
+- **Generators preview, then apply.** A cave system (cellular automata, traced by marching squares), a fill by marching squares (noise, with optional height lines) and a fill by wave function collapse (on a grid) work on the selected Area or the whole sheet. Each shows a **preview overlay that is never stored,** has a **seed** and a Roll, and **Apply** writes ordinary placements in one history step that names the tool and the seed. **Discard** writes nothing.
+- **The height brush is drawn and marked planned,** with the reason: a heightmap is a raster, the Map holds none, and it needs its own decision. It paints a prototype-only field so its place in the layout can be judged. Its height lines are ordinary lines.
+- **Every number is typeable.** The Item tab shows each point as two fields; a point outside the sheet is refused with the range. The arrow keys nudge a selection (a cell on a grid). Snap to the grid or to 5 units.
+- **Keyboard first.** A key per tool (V P C L S F A G T H), Enter to finish, Backspace to take back a point, Escape to cancel, Delete, Ctrl Z and Ctrl Shift Z, `/` for the command line, Space to pan, the wheel to zoom, Home to frame.
+- **The command line.** It asks for what comes next ("LINE  Next point (x,y), [C]lose, Enter to finish") and takes `PIN x,y`, `CIRCLE x,y x,y`, `LINE x,y x,y …`, a tool's name, `SEED n`, `ROLL`, `APPLY`, `DISCARD`, `UNDO`, `REDO`, `FIT`, `SELECT name`, `HELP`; a generator runs from it. A planned tool says why.
+- **History is the undo surface.** Each step has a name ("Drew a cave system, seed 4821: 6 caves in the whole sheet"), a person can step to any of them, and the redo steps stay shown.
+- **Dragging an entry from the outliner onto the Map places it,** with a **Place** button as the keyboard twin.
+- **Wave function collapse and Cells** work on "The lamp tunnels", a grid of squares.
+- **On a phone** the Map reads in full (the panel is a sheet). "Edit this map" opens a page that says drawing needs a larger window and offers the small changes: the name, who sees it, and a pin's numbers.
+
+### What it fakes
+
+All data is made up and held in memory (`mp-data.js`). The map is an SVG stand-in, not the renderer. Only the Harbour, the Lamp tunnels and the Reach open; the others show a placeholder. The sphere is a hand-drawn few shapes with three projections. Saving, pictures and connections change nothing outside the page. The height brush is not stored.
+
+### What was checked
+
+- 71 scripted checks in Playwright, all passing: the gallery and the date lens, making a Map, the tree for a GM and for a reader, the in-words path under a hidden level, the Location page, the read view (panel, where it leads, measuring, layers, look, legend, settings, a globe), a reader's limits, every drawing tool by key and pointer and by numbers, history, all three generators and their preview, Apply, Undo and Discard, the planned tool, the command line (typed lines, pins, a generator, an unknown command), the tool palette, drag from the outliner, a grid Map with cells and wave function collapse.
+- axe-core: no violations on seventeen states (the gallery, a date lens, Locations, a Location, the read view with the panel, the places list, settings and the legend, a sphere, the drawing view, a generator preview, an item, the tool search, a flyout, a grid Map) at 1440 and 430 wide, in light and dark (the landmark-region rule is off for the page's overlays).
+- Touch targets of at least 44px at 430 wide, on five routes, apart from inline text links and the shell's account button (43px).
+- No console errors.
+
+### What was not checked
+
+A screen reader (the drawing is a named group, and the marks are reachable through the Places list), a real touch device, colour-blindness simulation, Safari and Firefox, drawing on a touch screen, a large Map with thousands of placements, and the real renderer.
+
+### Findings
+
+- **Key letters clash with the shell.** The shell's single-key switch uses G as the start of a chord, and the drawing view wants G for Cells. A person can turn single keys off (WCAG 2.1.4), but the drawing view should own its keys while it has focus and say so in the shortcuts list.
+- **A tool needs the sheet's free area.** The floating header, options bar and docks cover the top and right of the sheet, so a point near the top cannot be clicked. The drawing view should pan to keep the pointer's area clear, and the options bar should never wrap onto the sheet.
+- **A class named `.fl` and an id named `hdr` clashed with the shell's.** Prefix an app's classes and ids, and have the brand lint for a duplicate.
+- **Option inputs must commit as they are typed,** not on blur, or a click on the Map arrives before the name does.
+- **The generated "cave" polygons are chunky** at a coarse grid; the real tool needs smoothing and a minimum area as options.
+- **A raster is the open question for heights.** Height lines are data the Map holds; a painted heightmap is not.
+
+### Screens
+
+In `screens/`, 31 images: the gallery, a date, Locations, a Location as a reader (01 to 05); the Map, its panel, measuring, the legend, settings, a globe (06 to 11); the drawing view, a line, a spline, a height line, a cave preview and applied, wave function collapse, the planned brush, the command line, the tool search, history, the flyout and a selected Area (12 to 24); dark (25, 26); 834 (27); 430 (28 to 31).
+
 ## Open questions
 
-None for the choice. The prototype comes next.
+1. A drawing view's keys: should the single letters (V P C L S F A G T H) be remappable in a shortcuts dialog from the start?
+2. A generator's preview shows over the region only. Should it also offer a split (before and after), or a ghost over the whole sheet?
+3. When an Area is applied from a generator, should it keep a record of its tool and seed (so "Roll again" can regenerate until the person edits it), or become ordinary geometry at once as now?
+4. The tool list will grow. Is the five-group header (Select, Place, Draw, Terrain, Generate) right, or should Generate be its own panel?
