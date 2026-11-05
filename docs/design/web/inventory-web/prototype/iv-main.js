@@ -126,7 +126,7 @@ function ivAfter() {
     bd.ondrop = (e) => { const c = e.target.closest('.ivc'); if (!c || c.classList.contains('ro')) return; e.preventDefault(); const i = itemOf(e.dataTransfer.getData('text/plain')); if (!i || i.at !== IV.board || i.col === c.dataset.col) return; const name = colN(IV.board, c.dataset.col); ivAct(`${i.n} moved to ${name}`, () => moveTo(itemOf(i.id), IV.board, c.dataset.col)); };
   }
 }
-const ivr = (tab, render, meta) => ({ app: 'inventory', tab, render, full: tab === 'board', after: ivAfter, meta: meta || (() => '') });
+const ivr = (tab, render, meta) => ({ app: 'inventory', tab, render, full: false, after: ivAfter, meta: meta || (() => '') });
 window.ROUTES_EXT = {
   board: ivr('board', boardRoute, () => (IV.board && BOARDS[IV.board] ? `Carried ${carriedW(IV.board)} of 120 lb` : '')),
   item: { app: 'inventory', tab: 'board', render: pItem, full: false, after: ivAfter, meta: () => '' },

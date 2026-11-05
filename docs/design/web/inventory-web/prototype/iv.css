@@ -42,3 +42,23 @@
 @media (prefers-reduced-motion: reduce) { .ivi { transition: none; } }
 #dialog .ivph { display: none; }
 .ivi .t-meta, .ivrow .t-meta, .ivsug .t-meta, .ivc .t-meta { color: var(--text-secondary); } .ivh .t-meta { color: var(--text-secondary); }
+/* the board fills the page; columns are as tall as the tallest and no taller than the screen (IN9) */
+@container shell (min-width: 1100px) { .ivsplit { grid-template-columns: minmax(0, 1fr); } .ivsplit.with { grid-template-columns: minmax(0, 1fr) 22rem; } .ivsplit.one { grid-template-columns: minmax(0, 40rem); } }
+.iv.ivfill { max-width: none; }
+@container shell (min-width: 720px) {
+  .iv.ivfill { height: 100%; display: flex; flex-direction: column; min-height: 0; box-sizing: border-box; padding-bottom: 0; }
+  .ivfill .ivsplit { flex: 1; min-height: 16rem; align-items: stretch; }
+  .ivfill .ivboard { height: 100%; min-height: 0; grid-template-rows: minmax(0, max-content); align-items: stretch; padding-bottom: var(--s-2); overflow-x: auto; overflow-y: hidden; }
+  .ivfill .ivc { display: flex; flex-direction: column; min-height: 0; }
+  .ivfill .ivcards { overflow-y: auto; min-height: 0; display: grid; gap: var(--s-2); align-content: start; padding: 2px; scrollbar-gutter: stable; }
+  .ivfill .ivp { max-height: 100%; overflow-y: auto; }
+}
+.ivc { grid-auto-rows: auto; } .ivcards { display: grid; gap: var(--s-2); align-content: start; }
+.ivboard { grid-auto-columns: minmax(15rem, 1fr); }
+/* the gold ring on Equipped and Not carried (IN10) */
+@property --ivang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.ivc.glow { position: relative; border-color: transparent; box-shadow: 0 0 16px color-mix(in srgb, var(--brand-gold) 28%, transparent); }
+.ivc.glow::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2px; pointer-events: none; background: conic-gradient(from var(--ivang), color-mix(in srgb, var(--brand-gold) 25%, transparent) 0 55%, var(--brand-gold) 80%, color-mix(in srgb, var(--brand-gold) 25%, transparent) 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: ivspin 6s linear infinite; }
+@keyframes ivspin { to { --ivang: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .ivc.glow::before { animation: none; } }
+.ivcards { grid-auto-rows: max-content; } .ivcards > .ivi { min-height: 48px; flex: none; }

@@ -2,7 +2,7 @@
 
 A minimal redesign of Lorenzo Inventory. The board stays: its idea and its rough look are kept, and everything around it is redone on the system in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions, Maps and Beings are decided. This page holds the brief, the questions and the decision log for this app. Bench is not redesigned.
 
-Status: the prototype is built and ready for review (decisions IN1 to IN8 are logged here).
+Status: the prototype is built and ready for review (decisions IN1 to IN11 are logged here).
 
 ## What the app is for
 
@@ -159,6 +159,20 @@ Direction A. The board's name is a button; its menu lists your characters and gr
 
 Each column says what it holds, in weight, in its header line ("12 of 12 lb" for a container with a limit, "5 lb" for the rest), above the board's carried weight. A move that would go over a container's limit is refused in words and the card stays.
 
+### IN9. The board fills the page, and its columns are as tall as the tallest
+
+With no panel open the board spans the whole width. The columns are all as tall as the tallest one, and no taller than the space on the screen. A column with more cards than fit scrolls inside itself, and the board's sideways scroll sits at the bottom of the screen, just above the status bar.
+
+### IN10. Equipped and Not carried have a rotating gold ring
+
+The two columns a character always has carry a gold ring that turns slowly and a soft glow. With reduced motion the ring is still. No other column has it.
+
+### IN11. A column with a limit says how much room is left
+
+"3 of 4 lb · 1 lb free", or "12 of 12 lb · full". A column with no limit shows only its weight.
+
+Error toasts stay until they are closed, as in the whole shell.
+
 ## The directions (drawn; A chosen)
 
 In `directions/`: three layouts for the board page, each as a player and as a GM, and the GM's other pages, which are the same in all three: the catalog, Unsorted, and an item's page. They are on the shell with made-up data. The board is drawn from the documents; the shell's board template was the starting point, so **where this board differs from the one you like, say so.** Run it:
@@ -192,7 +206,7 @@ In `prototype/`, on the shell, with made-up data. Run it from `prototype/index.h
 
 ### The board (IN1, IN2, IN7, IN8)
 
-- Columns: Equipped, Not carried, each container, then read-only columns (dashed, marked, "Not carried, with Mara Quill"). A card that is not theirs names its owner. Each column shows its count and weight, and a limit where it has one.
+- Columns: Equipped, Not carried, each container, then read-only columns (dashed, marked, "Not carried, with Mara Quill"). A card that is not theirs names its owner. Each column shows its count, its weight, and where it has a limit, the room left. Equipped and Not carried have the gold ring (IN10). The columns fill the width and the height, and a long column scrolls inside itself (IN9).
 - A card is moved by dragging it to a column, or by **Move to…**; a stack keeps its count and joins an identical one. A refusal (a container's limit) is shown as given and the card stays. Read-only cards cannot be dragged.
 - **Select** turns on a bulk bar: Move to…, Give…, and Merge for stacks of the same item.
 - The search narrows the cards on this board and says how many are shown.
@@ -218,7 +232,7 @@ The data is made up and kept in the page. Weights are plain numbers. Containers 
 
 ### What was checked
 
-78 scripted checks pass (Playwright, 1440, 834 and 430 wide): the board and its columns, weights and read-only columns; search; the switcher, any being and the unowned board; the panel; Move to…, drag, a refused move, split and merge, give, set down, note, unpack, add an item, make from catalog, unassign and delete, each with Undo where it applies; the item page and its in-place edits; the catalog's save bar, its refusals and a new item; Unsorted, its suggestions and its choices; a player's board with no GM controls, no Unsorted tab, a read-only item and self-service off; a phone's one column and pages, and a tablet's sheet. axe-core finds no violations on 19 states at 1440 and 430, light and dark (76 runs; the landmark-region rule is off for overlays). There are no console errors.
+83 scripted checks pass (Playwright, 1440, 834 and 430 wide): the board and its columns, weights and read-only columns; search; the switcher, any being and the unowned board; the panel; Move to…, drag, a refused move, split and merge, give, set down, note, unpack, add an item, make from catalog, unassign and delete, each with Undo where it applies; the item page and its in-place edits; the catalog's save bar, its refusals and a new item; Unsorted, its suggestions and its choices; a player's board with no GM controls, no Unsorted tab, a read-only item and self-service off; the board's width with no panel, the gold ring, equal heights, a tall column scrolling inside itself with the board reaching the footer, and the room left; a phone's one column and pages, and a tablet's sheet. axe-core finds no violations on 19 states at 1440 and 430, light and dark (76 runs; the landmark-region rule is off for overlays). There are no console errors.
 
 ### What was not checked
 
@@ -226,7 +240,7 @@ A screen reader, a real phone or touch device, colour-blindness simulation, Safa
 
 ### Findings
 
-- An error toast stays until closed, and the first scripted run found it sitting over the next menu. The checks now close it first; a person would meet the same, so the question below.
+- An error toast stays until closed, and the first scripted run found it sitting over the next menu. The checks close it first; the shell's rule stays (IN11).
 - On a tablet and a phone the catalog and Unsorted had no way to open an item, because the panel is only drawn on a large screen. They are now pages with the panel's content.
 - A selected card's secondary text failed contrast on the tint; secondary text on a card or a row is now the secondary colour.
 
@@ -236,5 +250,4 @@ In `screens/` (20 images): the board as a GM with the panel, the switcher, a car
 
 ## Open questions
 
-- Should an error toast close itself after a longer time, or stay until closed as it does everywhere in the shell?
-- Should a column that has a limit show how much room is left ("4 lb free") as well as what it holds?
+None are open.
