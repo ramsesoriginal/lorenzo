@@ -102,7 +102,7 @@ relationship(entity_id PK, tenant_id NOT NULL, end_a NOT NULL, end_b NOT NULL,
 ```
 
 Same shape as `connection`: a marker that gives an entry the kind, two ends that are entries of any kind
-(a being, a group, a Location, an Event, an item that stands for the bond, another relationship), `one_way` null
+(a being, a group, a Location, an Event, an item that stands for the bond; never itself a relationship), `one_way` null
 for a way both ways and true from `end_a` to `end_b`, same-tenant foreign keys, `ON DELETE CASCADE` on the ends
 (the entry stays, a plain entry). A relationship **combines with no other kind**. Its user-facing word is
 **relationship**; in prose its prototype is its **type** (parent of, ally of), and "kind" is kept for what an
@@ -116,9 +116,9 @@ entry is.
 - **Limits** (*proposed default*): 20,000 relationships a library, counted apart from connections; a repository's
   30,000-entry quota is shared, so a dense web spends it. A bulk write takes at most 100 operations.
 - **Reads**: `GET /tenants/{t}/relationships` by name then id in the standard page shape, with `end`, `end_a_in`
-  and `end_b_in` (at most 100 ids each), `type` (a prototype and what inherits from it), `q`, repeatable
-  `stat_definition_id` (the effective values come with the row, as in ADR 0387) and the as-of parameters below;
-  `GET .../relationships/{id}` with an ETag.
+  and `end_b_in` (at most 100 ids each), `type` (a prototype and what inherits from it), `q` and the as-of parameters below;
+  `GET .../relationships/{id}` with an ETag. The standing values of a page of relationships come from the bulk
+  stat read of ADR 0387 (`kind=relationship`), which applies the same rule, and are joined to the rows by id.
 - **Writes**: `POST` one, `PUT` the ends and `one_way` under `If-Match`, and the bulk write (ADR 0400).
 
 ### Types, standings and direction (ADR 0400)

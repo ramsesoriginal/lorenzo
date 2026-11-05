@@ -22,7 +22,7 @@ design"). Hierarchy and direction are said in words ("Mara is the parent of Wren
 
 **The matrix.** One ordered pair of a web's members a cell, for a chosen standing (value mode) or type (presence mode).
 
-- *Reads*: windows of at most 100 rows by 100 columns through `end_a_in` and `end_b_in` of ADR 0399, prefetched with the
+- *Reads*: windows of at most 100 rows by 100 columns through `end_a_in` and `end_b_in` of ADR 0399, with the values of the standing from the bulk stat read of ADR 0387 (`kind=relationship`), prefetched with the
   read cache. A relationship the reader may not see is an empty cell, indistinguishable from none.
 - *Cells*: a one-way relationship fills its cell, a two-way one both cells of its pair, an inherited value is marked as
   inherited (dashed, with a word), and two visible relationships for one cell are a conflict that lists both.

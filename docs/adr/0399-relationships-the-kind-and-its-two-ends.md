@@ -29,8 +29,10 @@ is null for a way both ways and true from `end_a` to `end_b`. Indexes on `(tenan
 `copyable_tables.py` (`carried_by="entity"`). The release document gains `relationships` with a format bump and a
 reader that gives none for older documents.
 
-- **Ends are entries of any kind**, kind-blind: a being, a group, a Location, an Event, an item that stands for a bond,
-  another relationship. The two ends differ.
+- **Ends are entries of any kind**, kind-blind: a being, a group, a Location, an Event, an item that stands for a bond.
+  **An end is never itself a relationship**: the visibility rule tests the ends by the entry gate alone, and a
+  relationship that rested on another would make it recurse. A relationship that holds through others is
+  [ADR 0402](0402-relationship-through.md). The two ends differ.
 - **It combines with no other kind.** `POST /tenants/{t}/relationships` is the only way to make one; the kind route
   refuses to add it and refuses any other kind to one; deleting the marker is allowed once the entry is public, as for
   a connection. The kind joins `EntityKind`, the publishable combinations as `("relationship",)` alone and the kind
@@ -55,8 +57,8 @@ need the standing that writes Locations and Maps ([ADR 0404](0404-who-sees-and-w
 each end is resolved under the writer's own visibility (a hidden or missing end is the generic 404).
 
 **Reads.** `GET /tenants/{t}/relationships` lists the visible ones by name then id in the standard page shape, with
-`end`, `end_a_in` and `end_b_in` (at most 100 ids each), `type` (a prototype and what inherits from it), `q`,
-and repeatable `stat_definition_id` (at most 50) that adds the effective values as ADR 0387 does. `GET
+`end`, `end_a_in` and `end_b_in` (at most 100 ids each), `type` (a prototype and what inherits from it), and `q`. The standing values of a page come from the bulk stat read of ADR 0387 with `kind=relationship`, which
+applies the same rule because it reads the same clause, and are joined to the rows by id. `GET
 .../relationships/{id}` returns one with an ETag. A relationship is `{id, name, slug, kinds, end_a, end_b, one_way,
 updated_at, can_manage, is_public}`, each end an entry stub, `is_public` for managers only.
 
