@@ -8,6 +8,7 @@ const STATDEF = [
   { id: 'res', n: 'Resolve', k: 'num', pin: true, max: true },
   { id: 'arm', n: 'Armour', k: 'num', pin: true, derived: (b) => 9 + b.stats.body.v, why: (b) => `9 plus Body (${b.stats.body.v})` },
   { id: 'body', n: 'Body', k: 'num' }, { id: 'mind', n: 'Mind', k: 'num' }, { id: 'reach', n: 'Reach', k: 'num' },
+  { id: 'cond', n: 'Conditions', k: 'tags', play: true, options: ['Wounded', 'Shaken', 'Hidden'] },
   { id: 'role', n: 'Role', k: 'text' }, { id: 'langs', n: 'Languages', k: 'tags' },
 ];
 const mk = (id, name, kind, played, campaign, seen, place, about, o) => ({ id, name, kind, played, campaign, seen, place, about, notes: [], inv: [], events: [], ...o });
@@ -31,3 +32,5 @@ const BEINGS = [
   mk('customs-clerk', 'Customs clerk', 'NPC', null, null, 'Everyone', 'Customs house', 'Stamps first and reads later.', {
     stats: { hp: { v: 5, max: 5 }, res: { v: 2, max: 2 }, body: { v: 1 }, mind: { v: 2 }, reach: { v: 1 }, role: { v: 'Clerk' }, langs: { v: ['Trade'] } }, notes: [{ id: 'n11', aud: 'Everyone', t: 'Works the late shift.' }], inv: [['Stamp', 1]], events: [] }),
 ];
+
+BEINGS.forEach((b) => { b.stats.cond = { v: b.id === 'mara-quill' ? ['Hidden'] : [] }; });

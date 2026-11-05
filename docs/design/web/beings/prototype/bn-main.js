@@ -2,7 +2,7 @@
 const curBeing = () => beingOf(parts()[1]);
 function bnRefresh(keepFocus) {
   const m = $('#main'); const top = m.scrollTop; const f = document.activeElement; let sel = null;
-  if (keepFocus && f && m.contains(f)) { const a = f.dataset.bn ? `[data-bn="${f.dataset.bn}"]${f.dataset.v ? `[data-v="${f.dataset.v}"]` : ''}${f.dataset.d ? `[data-d="${f.dataset.d}"]` : ''}` : f.id ? `#${f.id}` : null; sel = a; }
+  if (keepFocus && f && m.contains(f)) { const a = f.dataset.bn ? `[data-bn="${f.dataset.bn}"]${f.dataset.b ? `[data-b="${f.dataset.b}"]` : ''}${f.dataset.v ? `[data-v="${f.dataset.v}"]` : ''}${f.dataset.d ? `[data-d="${f.dataset.d}"]` : ''}` : f.id ? `#${f.id}` : null; sel = a; }
   const r = cur(); S.meta = r.meta ? r.meta() : ''; m.innerHTML = r.render(); bnAfter(); m.scrollTop = top;
   if (sel) { const n = $(sel, m); if (n) n.focus({ preventScroll: true }); }
   updateStatus(); bnWatch();
@@ -17,11 +17,11 @@ function setMode(b, v) { BN.mode = v; BN.editAbout = false; BN.editStat = null; 
 let bnToast = null;
 function stepToast(b, h) {
   if (bnToast && bnToast.isConnected) dismiss(bnToast, true);
-  bnToast = toast({ kind: 'undo', icon: 'undo', title: h.n, text: `${b.name}`, action: { label: 'Undo', fn: () => { const l = bnHist(b); if (l[l.length - 1] === h) { undoLast(b); bnRefresh(); } else toast({ title: 'A later step came after this one', text: 'Undo that step first, or use History.', kind: 'error' }); } } });
+  bnToast = toast({ kind: 'undo', icon: 'undo', title: h.n, text: `${b.name}, by you`, action: { label: 'Undo', fn: () => { const l = bnHist(b); if (l[l.length - 1] === h) { undoLast(b); bnRefresh(); } else toast({ title: 'A later step came after this one', text: 'Undo that step first, or use History.', kind: 'error' }); } } });
 }
 function doStep(b, id, delta) {
   const before = bnHist(b).length; if (!playStep(b, id, b.stats[id].v + delta)) { bnRefresh(true); return; }
-  const l = bnHist(b); const h = BN.hist[BN.hist.length - 1]; stepToast(b, h); bnRefresh(true);
+  const h = BN.hist[BN.hist.length - 1]; stepToast(b, h); bnRefresh(true);
 }
 function applyAdjust(b, id) {
   const i = $(`[data-adj="${id}"]`); const t = (i.value || '').trim().replace('−', '-');
@@ -31,7 +31,7 @@ function applyAdjust(b, id) {
 }
 function histMenu(btn, b) {
   const l = bnHist(b); if (!l.length) return;
-  openMenu(btn, [{ label: `Steps in Play, newest first (${l.length} of 30)`, heading: true }, ...l.map((h, i) => ({ label: `Undo back to before: ${h.n}`, icon: 'undo', fn: () => { const n = undoTo(b, i); announce(`Undid ${n} step${n > 1 ? 's' : ''}`); bnRefresh(); } })).reverse()], { label: 'History' });
+  openMenu(btn, [{ label: `Steps in Play, newest first (${l.length} of 30)`, heading: true }, ...l.map((h, i) => ({ label: `Undo back to before: ${h.n}, by ${whoLabel(h)}, ${h.at}`, icon: 'undo', fn: () => { const n = undoTo(b, i); announce(`Undid ${n} step${n > 1 ? 's' : ''}`); bnRefresh(); } })).reverse()], { label: 'History' });
 }
 function addNoteDialog(b, edit) {
   const n = edit || { aud: 'Everyone', t: '', who: [] };
@@ -54,24 +54,27 @@ function deleteDialog(b) {
 }
 function newDialog() {
   openDialog({ title: 'New being', body: `<p class="muted" style="margin:0 0 var(--s-3)">A new being has no player until you hand it over. Its stats come from the library’s Settings.</p><label class="label" for="nb-n">Name</label><input id="nb-n" class="input" autocomplete="off"><label class="label" for="nb-k" style="margin-top:var(--s-3)">Kind</label><select id="nb-k" class="select"><option>NPC</option><option>Character</option></select>`,
-    actions: [{ label: 'Cancel' }, { label: 'Make the being', kind: 'primary', fn: (d) => { const n = $('#nb-n', d).value.trim(); if (!n) { toast({ kind: 'error', title: 'A being needs a name' }); return false; } const id = n.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + uidn(); BEINGS.push(mk(id, n, $('#nb-k', d).value, null, null, 'GM only', 'Nowhere yet', '', { stats: { hp: { v: 10, max: 10 }, res: { v: 3, max: 3 }, body: { v: 2 }, mind: { v: 2 }, reach: { v: 2 }, role: { v: '' }, langs: { v: [] } } })); BN.mode = 'read'; bnSoon(() => { location.hash = '#/being/' + id; }); } }], init: (d) => $('#nb-n', d).focus() });
+    actions: [{ label: 'Cancel' }, { label: 'Make the being', kind: 'primary', fn: (d) => { const n = $('#nb-n', d).value.trim(); if (!n) { toast({ kind: 'error', title: 'A being needs a name' }); return false; } const id = n.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + uidn(); BEINGS.push(mk(id, n, $('#nb-k', d).value, null, null, 'GM only', 'Nowhere yet', '', { stats: { hp: { v: 10, max: 10 }, res: { v: 3, max: 3 }, body: { v: 2 }, mind: { v: 2 }, reach: { v: 2 }, role: { v: '' }, langs: { v: [] }, cond: { v: [] } } })); BN.mode = 'read'; bnSoon(() => { location.hash = '#/being/' + id; }); } }], init: (d) => $('#nb-n', d).focus() });
 }
 function renameDialog(b) {
   openDialog({ title: 'Rename the being', body: `<label class="label" for="rn">Name</label><input id="rn" class="input" value="${esc(b.name)}" autocomplete="off">`, actions: [{ label: 'Cancel' }, { label: 'Rename', kind: 'primary', fn: (d) => { const n = $('#rn', d).value.trim(); if (!n) { toast({ kind: 'error', title: 'A being needs a name' }); return false; } const o = b.name; b.name = n; withUndo(`Renamed to ${n}`, () => { b.name = o; bnRefresh(); }); bnSoon(bnRefresh); } }], init: (d) => $('#rn', d).select() });
 }
 function bnClick(e) {
-  const t = e.target.closest('[data-bn]'); if (!t) return; const k = t.dataset.bn, v = t.dataset.v; const b = S.route.startsWith('being') ? curBeing() : null;
+  const t = e.target.closest('[data-bn]'); if (!t) return; const k = t.dataset.bn, v = t.dataset.v; const b = t.dataset.b ? beingOf(t.dataset.b) : (S.route.startsWith('being') ? curBeing() : null);
   if (t.getAttribute('aria-disabled') === 'true') return;
   if (k === 'view') { BN.view = v; bnStore.set('bn-view', v); bnRefresh(true); announce(`${v === 'side' ? 'Side by side' : v === 'rows' ? 'Rows' : 'Cards'}`); }
   else if (k === 'kind') { BN.kind = v; bnRefresh(true); }
   else if (k === 'clear') { BN.q = ''; BN.kind = 'All'; bnRefresh(); }
   else if (k === 'new') newDialog();
+  else if (k === 'lplay') { BN.lplay = v === 'play'; bnRefresh(true); announce(BN.lplay ? 'Play. Numbers can be changed.' : 'Read'); }
+  else if (k === 'lundo') { const h = undoLast(null); if (h) { toast({ title: `Undid: ${h.n}`, text: beingOf(h.b).name }); bnRefresh(true); } }
   else if (!b) return;
   else if (k === 'mode') { setMode(b, v); bnRefresh(true); }
   else if (k === 'layout') { BN.layout = v; bnRefresh(true); }
   else if (k === 'step') doStep(b, v, +t.dataset.d);
   else if (k === 'adjust') { BN.adjustOpen = BN.adjustOpen === v ? null : v; bnRefresh(); if (BN.adjustOpen) bnSoon(() => { const i = $(`[data-adj="${v}"]`); if (i) i.focus(); }); else bnSoon(() => { const a = $(`[data-bn="adjust"][data-v="${v}"]`); if (a) a.focus(); }); }
   else if (k === 'apply') applyAdjust(b, v);
+  else if (k === 'cond') { const h = toggleCond(b, v); stepToast(b, h); bnRefresh(true); }
   else if (k === 'undo') { const h = undoLast(b); if (h) { toast({ title: `Undid: ${h.n}`, text: b.name }); bnRefresh(true); } }
   else if (k === 'history') histMenu(t, b);
   else if (k === 'why') { BN.why = BN.why === v ? null : v; bnRefresh(true); }

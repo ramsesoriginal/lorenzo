@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Beings, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions and Maps are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the prototype is built and ready for review (decisions BN1 to BN6 are logged here).
+Status: the prototype is built and ready for review (decisions BN1 to BN9 are logged here).
 
 ## What the app is for
 
@@ -147,6 +147,24 @@ Every row of the old-decisions table carries over, except mode memory: the page 
 
 One reading column in the old order (About, Notes, Stats, Inventory), a rail on the right with who plays it, who sees it, the campaign, Hand over and Events. C's band of large pinned numbers sits at the top and stays in view; it shrinks when the page scrolls. The pinned numbers are shown on a phone too, three in a row. A derived number has no stepper in Play, because it cannot be set; its "why" says what it is made of.
 
+### BN7. Read and Play differ in what the page is for, and the page shows it
+
+First review: the split was not obvious. The earlier design's reasons (its own table and [ADR 0282](../../adr/0282-beings-sheet-shell-modes-and-sections.md), [0283](../../adr/0283-beings-sheet-play-stats-and-undo.md)) are that a mode says what you are doing, and that the two jobs are different. Reading is understanding a being: prose first. Playing is the table: numbers first, a change in a tap, nothing to scroll back for. So the page now says which one it is in:
+
+- **One bar for the mode.** The Read and Play switch sits in the band, above the pinned numbers, so it is in view wherever the page is scrolled and changing mode never means scrolling back. A short line next to it says what the mode is for ("Reading. Edit a section where it is." and "At the table. Numbers first; every change can be undone."). Undo and History are on the same bar, and only in Play.
+- **Play looks different.** The bar is tinted with a stripe of the action colour; every number that can be set shows its stepper; the others show nothing to press.
+- **Play reorders the page:** Stats, Inventory, Notes, About, with About closed. Read keeps About, Notes, Stats, Inventory. The order is visual only; the document and the focus order do not change.
+- **The things done at the table work in Play:** a note can be added, a condition (a tag the library marks as changeable in play) is switched on and off, and the number that changed shows its amount (−1, +3) for a moment, with a border that fades.
+- **Reading is for reading and editing in place:** the pencil on a number, the Edit on About and the menu on a note are in Read only. Play has none of them, so a stray tap cannot rewrite a being.
+
+### BN8. The side-by-side view has Play
+
+Side by side has its own Read and Play switch. In Play every column has the steppers for the numbers that can be set, for the beings the person may run; the steps go to the same history, and Undo is on the list's bar.
+
+### BN9. The history says who made a step
+
+Each step carries who made it and when: "Hit points 16 to 14, by Ana, 17:12". The person's own steps read "by you". The toast says "by you" too.
+
 ## The directions (drawn; A with C's band chosen)
 
 In `directions/`: the list in its three views (BN1, BN4) and three layouts for the being page, each in Read, Play and Read with About being edited (BN2, BN3), on the shell. The data is made up. The list views and the modes are the same in all three directions; what differs is how the page is arranged. Run it:
@@ -181,8 +199,8 @@ In `prototype/`, on the shell, with made-up data. Run it as the directions are r
 
 ### The being page (BN2, BN3, BN6)
 
-- **Read and Play** are a switch. A player lands in the mode they last used on the being they play (BN5); everyone else lands in Read.
-- **Play:** a stepper on every number that can be set, and a value that opens "Change by" (type 5, +3 or -2). A number stays between zero and its limit, and says when it cannot go further. Each step gives the shell's Undo toast; Undo and History in the header go back one step or to any earlier one, thirty at most; Ctrl or Cmd Z undoes the last.
+- **Read and Play** are a switch in the band, with a line saying what each is for (BN7). A player lands in the mode they last used on the being they play (BN5); everyone else lands in Read.
+- **Play** puts numbers first and About last (closed), tints the bar, and lets a note be added and a condition be switched. A stepper is on every number that can be set, and a value that opens "Change by" (type 5, +3 or -2). A number stays between zero and its limit, and says when it cannot go further. Each step gives the shell's Undo toast and shows its amount on the number; Undo and History on the bar go back one step or to any earlier one, thirty at most, each saying who made it; Ctrl or Cmd Z undoes the last.
 - **Edit in place, in Read:** About types and saves as you type, with a status that says when. A number has a pencil that turns it into fields. Notes are added, reworded, given another audience, and deleted, each with Undo. There is no page-level Save.
 - **Derived numbers** have a dashed border and a "why" button; changing Body changes Armour.
 - **Sheet and Datasheet** are a layout switch on the page; the datasheet has the steppers in Play.
@@ -195,11 +213,11 @@ The data is made up and kept in the page. Stats come from a fixed set; the libra
 
 ### What was checked
 
-63 scripted checks pass (Playwright, 1440 and 430 wide): the three list views and their memory, search, filters and the empty state; reading, every in-place edit, the derived rule, Play with steps, the adjuster, a refused value, the limit, thirty steps, the datasheet, the band shrinking while it stays in view; Hand over, Delete and New with their Undo; a player's page, the absent notes and the remembered mode; no horizontal scroll and 44 px targets on a phone. axe-core finds no violations on 18 states at 1440 and 430, light and dark (72 runs; the landmark-region rule is off for overlays). There are no console errors.
+78 scripted checks pass (Playwright, 1440 and 430 wide): the three list views and their memory, search, filters and the empty state; reading, every in-place edit, the derived rule, Play with steps, the adjuster, a refused value, the limit, thirty steps, the datasheet, the band shrinking while it stays in view; Hand over, Delete and New with their Undo; the order of Read and Play, the mode switch staying in view, conditions, the amount shown on a change, who made a step, steppers in the side-by-side Play; a player's page, the absent notes and the remembered mode; no horizontal scroll and 44 px targets on a phone. axe-core finds no violations on 18 states at 1440 and 430, light and dark (72 runs; the landmark-region rule is off for overlays). There are no console errors.
 
 ### What was not checked
 
-A screen reader, a real phone or touch device, colour-blindness simulation, Safari and Firefox. The 30-step history is a list in a menu and has not been tried with a keyboard-only person beyond the scripted run. The side-by-side view has not been tried with forty beings.
+A screen reader, a real phone or touch device, colour-blindness simulation, Safari and Firefox. The 30-step history is a list in a menu and has not been tried with a keyboard-only person beyond the scripted run. The side-by-side view has not been tried with forty beings. Whether the Play bar is now obvious to someone who has never seen the app is not tested; it is the reason for BN7.
 
 ### Findings
 
@@ -209,9 +227,9 @@ A screen reader, a real phone or touch device, colour-blindness simulation, Safa
 
 ### Screens
 
-In `screens/` (20 images): the list in rows, cards, side by side and empty; the page in Read, with the "why" open, editing About, in Play, with the adjuster, the history menu, the datasheet scrolled; the add-note, hand-over and delete dialogs; a player's views; dark; and the phone.
+In `screens/` (21 images): the list in rows, cards, side by side and empty; the page in Read, with the "why" open, editing About, in Play, with the adjuster, the history menu, the datasheet scrolled; the add-note, hand-over and delete dialogs; a player's views; dark; and the phone.
 
 ## Open questions
 
-- Is the side-by-side view wanted in Play, with steppers on each column, for a skirmish? It is read-only now.
-- Should the history list say who made a step when the GM and the player both change a number?
+- Is the tinted bar and the numbers-first order enough to tell Play from Read, or should Play also change the header?
+- Should a condition show on the pinned band when it is on, so a table sees "Wounded" without scrolling?
