@@ -43,6 +43,9 @@ Priority 1 is what the first builds need. Priority 2 follows. Priority 3 is opti
 | `empty-sessions` | 1 | Sessions, with none planned or assigned. Words beside it: "No Session yet. You will see a Session here once a GM assigns you to it." | Lorenzo and Catileo | Lorenzo: Warm Smile, holding a planner. Catileo: asleep on the planner (loaf) | A blank calendar page |
 | `empty-beings` | 2 | Beings, with no characters yet | Lorenzo | Curious; half-body | An empty character sheet with a silhouette outline; a pencil |
 | `empty-calendar` | 3 | Calendars, with none authored | Lorenzo | Focused / Analytical; half-body | A blank month grid; a small hourglass |
+| `empty-social-types` | 2 | Social, in a library with no relationship types. Words beside it: "No relationship types in this library yet. Start from the ready-made ones, or write your own." | Lorenzo | Curious; half-body | A loose handful of threads, ends not yet tied; nothing joined |
+| `empty-relationships` | 3 | Social, with no relationship yet | Catileo | Curious; head tilted | A single loose thread between two paws; a ball of thread |
+| `empty-social-web` | 3 | Social, with no web yet | Lorenzo | Focused / Analytical; half-body | A blank board with two pins and no string between them |
 | `caught-up` | 1 | Notifications with nothing new. Words beside it: "You're all caught up." | Catileo | Curled sleep; Slow-Blink Contentment | A folded blanket; nothing else |
 
 ### Errors and unavailable
