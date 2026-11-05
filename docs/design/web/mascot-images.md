@@ -46,6 +46,7 @@ Priority 1 is what the first builds need. Priority 2 follows. Priority 3 is opti
 | `empty-social-types` | 2 | Social, in a library with no relationship types. Words beside it: "No relationship types in this library yet. Start from the ready-made ones, or write your own." | Lorenzo | Curious; half-body | A loose handful of threads, ends not yet tied; nothing joined |
 | `empty-relationships` | 3 | Social, with no relationship yet | Catileo | Curious; head tilted | A single loose thread between two paws; a ball of thread |
 | `empty-social-web` | 3 | Social, with no web yet | Lorenzo | Focused / Analytical; half-body | A blank board with two pins and no string between them |
+| `device-connected` | 3 | Account, after a device is connected. Words beside it: "Connected. The device finishes by itself in a few seconds." | Catileo | Content; curled up | A closed laptop with the cat asleep on it |
 | `caught-up` | 1 | Notifications with nothing new. Words beside it: "You're all caught up." | Catileo | Curled sleep; Slow-Blink Contentment | A folded blanket; nothing else |
 
 ### Errors and unavailable

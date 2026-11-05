@@ -2,7 +2,7 @@
 
 A fresh design of the two personal pages of the account hub: **Profile**, and **Access tokens** with **Connect a device**. The system is in [the web design](../../README.md): the shell, the templates, the states and the decisions D1 to D31. The account hub as a whole is decided ([AH1 to AH9](../README.md)); these two pages were drawn there as part of it, and are redesigned here on purpose. This page holds the brief, the questions and the decision log.
 
-Status: the brief and its questions. Nothing is decided yet.
+Status: the brief is answered (PT1 to PT5). Three directions for the profile page are drawn, with the tokens page and the device page, and wait for a choice.
 
 ## What the pages are for
 
@@ -107,4 +107,54 @@ Say which, or say what is missing from this brief. No answer means "as recommend
 
 ## Decision log
 
-Nothing is decided here yet.
+### PT1. Two pages, not tabs
+
+Profile and Access tokens are two pages, each its own entry in the account menu ("Profile", "Access tokens and devices"), with no shared tab row.
+
+### PT2. The profile shows who sees what, and saves as it goes
+
+A form with a caption on each field saying who sees it, and a live "how others see you" card (a roster row and a notification line). Each field saves as it is changed and says so, with Undo.
+
+### PT3. The colour is a set of swatches and a custom one
+
+A small set of swatches, and "Custom…" for any `#RRGGBB`, with a check that it can be told from the surface it sits on, in light and dark. The name is what identifies a person; colour never carries meaning alone.
+
+### PT4. Tokens read as rows with a state in words
+
+Each token is a row with its state in words ("Never used", "Last used 3 weeks ago", "Expired", "Expires in 4 days") and a quiet note on one not used for a long time, so a forgotten one is noticed. Revoke is on each row. One plain sentence says that a token is a whole key. There is no grouping by device, since a token has a name and not a device.
+
+### PT5. Connect a device is a page, and the tokens page embeds it
+
+A page at `/device` is what the command line's link opens: what is asking, the code, a name for the token, when it stops (Never is the default), and Connect or Deny, with the sign-in and the way back for someone who is not signed in. Before anything else it says to approve only a code started by the person themselves. The Access tokens page embeds the same content under "Connect a device", with a box to type a code.
+
+
+## The directions (drawn; waiting for a choice)
+
+In `directions/`: the profile page in three layouts, the Access tokens page, and the Connect a device page in five states, on the shell with made-up data. The header's tab row is the shell's stand-in; in the hub the account button opens these pages (PT1) and there is no tab row between them. Run it:
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/account-hub/profile-and-tokens/directions/index.html
+```
+
+The controls bar switches the screen, the device page's state and the custom colour. Screens are in `directions/screens/` (10 images, at 1440).
+
+| | A. Side card | B. Band | C. Inline |
+| --- | --- | --- | --- |
+| Where the "how others see you" card is | Beside the form, sticky, so it stays in view as fields change | A band across the top of the page, above the form | Inside the form, right after the Names it shows |
+| Width | Wide: form and card side by side | One narrow column | One narrow column |
+| On a phone | The card moves above the form | The same, a band | The same, inline |
+| Best for | Seeing the effect of every change while editing | A quick glance, then a long form | A page that reads top to bottom as a story |
+| Cost | A second column; at tablet width the card leaves the side | The card scrolls away when the form is long | The card interrupts the form, and sits far from the colour it also shows |
+
+What is the same in all three: every field carries "Others see this" or "Only you and admins see this" with an icon and a word; fields save as they are changed and say so; the colour is five swatches and Custom…, which takes a hex and says whether it can be told from a light and a dark surface; Delete my account is at the foot and needs a signed-in session.
+
+**Access tokens** is rows, each with its state in words (Last used today; Last used 3 weeks ago and Expires in 4 days; Not used for 120 days, with the note that it still works; Never used; Expired), the last four characters, and Revoke. A stale token is tinted and an expired one is struck through, and neither relies on colour. One callout says a token is a whole key. "Connect a device" is under it, with a box for the code.
+
+**Connect a device** has five states: a code in the address (what is asking, the code and when it ends, a warning to approve only a code you started, a name, when it stops with Never first, what it can do, Connect and Deny); no code (a box to type it); a wrong code (one sentence); connected (a mascot slot, `device-connected`, and what happens next); and not signed in (sign in, and come back with the code kept).
+
+What is not drawn yet: the phone, dark mode, the save feedback per field, the Undo, the revoke and delete dialogs, and the real picture picker. None of it has been through the checks.
+
+## Open questions
+
+Which direction (or which parts of two) is the profile page?
