@@ -141,3 +141,31 @@ Both are switches in the web's toolbar, like Maps' layers. While one is on, a li
 
 A **Relationship** is two overlapping rings (new). A **Social web**, and the app, is a hub with three nodes (the atlas's `icon-social`). The two new kind icons are listed for the atlas as a follow-up and are not added by this work.
 
+
+## The directions (drawn; waiting for a choice)
+
+In `directions/`: the web page in three layouts, each with its Graph, Matrix and List views, on the shell with made-up data (a harbour town, nine entries, ten relationships). The graph is an SVG stand-in for the renderer package's drawing. The matrix and the list are the same in all three; what differs is where the controls and the panel sit. Run it:
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/social/directions/index.html
+```
+
+The controls bar switches the layout, the view, the two lenses and the panel. Screens are in `directions/screens/` (9 images, at 1440).
+
+| | A. Float over | B. Toolbar and panel | C. Members outline |
+| --- | --- | --- | --- |
+| Shape | The graph fills the page; the view switch, the region switches and the legend float over it; the panel slides over from the right | A toolbar above with the switch, the layout and the region switches; the graph beside a docked panel | An outline of the members on the left, the graph, and a panel when something is selected |
+| Same as Maps | Yes: a full-width workspace with floating controls | No: closer to a document editor | No: closer to a file tree |
+| Members | Added from a control; not on the page | Added from a control | Always on the page: add by name, add a group's members, add within some steps, and the list of entries |
+| The lens line | A line below the title, over the graph | A line under the toolbar | A line under the toolbar |
+| Cost | The panel hides part of the graph; nothing is docked | A permanent panel takes 22 rem even when nothing is selected | Two side panes take 36 rem; the graph is narrower |
+| Best for | Reading and showing a web | Editing standings and relationships all day | Building a web: choosing who is in it |
+
+What is the same in all three: a graph edge is solid (direct), dashed (derived or through) or dotted (unknown), with an arrowhead for direction and a label for the type; a group is a soft hull; a selected edge is a fill and a heavier line, never a new shape. The matrix shows a number, a quiet bar, and a mark and a word for derived, inherited, unknown and two-fill-one-cell (SO3); the legend says what each is. The list is one sentence a relationship, with its standing and "since" or "through" or "unknown as of The Wedding".
+
+What is not drawn yet: the phone, dark mode, the Webs home, the Relationships list and a relationship page as a page, an entry's social page, the Types and standings screen, Problems, the connect mode, the empty states and the dialogs. None of it has been through the checks.
+
+## Open questions
+
+Which direction (or which parts of two) is the web page?
