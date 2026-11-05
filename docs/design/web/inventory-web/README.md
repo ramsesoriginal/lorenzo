@@ -2,7 +2,7 @@
 
 A minimal redesign of Lorenzo Inventory. The board stays: its idea and its rough look are kept, and everything around it is redone on the system in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions, Maps and Beings are decided. This page holds the brief, the questions and the decision log for this app. Bench is not redesigned.
 
-Status: the brief and its questions. Nothing is decided yet.
+Status: the brief is answered (IN1 to IN6). Three directions for how a person reaches a board are drawn and wait for a choice.
 
 ## What the app is for
 
@@ -126,4 +126,58 @@ Say which of the old decisions in the table to change; no answer means "as recom
 
 ## Decision log
 
-Nothing is decided here yet.
+### IN1. The board is Home; Catalog and Unsorted are tabs
+
+The app opens on the board of your character (the last one you opened, or your only one). The tabs are Board, Catalog, and Unsorted for a GM. The board's search finds items on that board.
+
+### IN2. A phone shows one column at a time
+
+On a phone the board is one column, with a row of column names to switch between, and Move to… is the way to move a card. On a tablet and wider the columns sit side by side, scrolling sideways with the fade at the edges when there are more than fit.
+
+### IN3. An item opens in a panel; on smaller screens it is the page
+
+A panel beside the board on a large screen, a side sheet on a tablet, and the full page on a phone. It is one component with one content: the same description, notes, stats, tags, actions and links, shown in a panel or as a page. "Open the page" in the panel goes to the shareable page, which has the same content with room to edit.
+
+### IN4. Actions are on the card and in the panel
+
+Give, Move to…, Set down, Add a note, Split, Merge, Unpack, Add an item and Not in the list are on the card's menu and in the panel, with the shell's bulk bar for several cards and the shell's Undo toast for everything reversible. There is no separate Undo slot.
+
+### IN5. The catalog and the item page: in place, with a save bar for structure
+
+A description and notes are written in place and save as you type. Stats and tags are fields on the page. The link name, the prototypes an item is made from and whether it is in the public catalog are kept with an explicit save bar (D21), because they can break links.
+
+### IN6. The GM and author features are part of the design
+
+Everything a GM does is drawn, not left to the old app: opening any being's board, a group's board and the board of what nobody owns; making an item from the catalog for a being, with an optional owner and link name; reassigning, unassigning and deleting an instance; adding an item to any board; creating, editing and deleting catalog items, with several prototypes, a public flag and "used as a prototype by"; editing stat values; the Unsorted page with its matching; unpacking a pack; and the notes' audiences. A player sees none of these controls, and what they may do on their own board follows self-service, with a note saying so when it is off.
+
+
+## The directions (drawn; waiting for a choice)
+
+In `directions/`: three layouts for the board page, each as a player and as a GM, and the GM's other pages, which are the same in all three: the catalog, Unsorted, and an item's page. They are on the shell with made-up data. The board is drawn from the documents; the shell's board template was the starting point, so **where this board differs from the one you like, say so.** Run it:
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/inventory-web/directions/index.html
+```
+
+The controls bar switches the screen, the panel and the open switcher. "You are" switches between a GM and a player. Screens are in `directions/screens/` (10 images, at 1440).
+
+| | A. Switcher | B. Rail | C. Strip |
+| --- | --- | --- | --- |
+| How a board is chosen | The board's name is a button; its menu lists your characters, your groups, and for a GM a search for any being and the unowned things | A rail of boards beside the board: characters, groups, and for a GM a search and the unowned things | A strip of chips above the board, with "Find a being" and "Unowned" for a GM |
+| What it costs | Nothing on the page; one click to see the choices | 14 rem of width, and the board gets narrower with the panel open | One row of height; a long list of boards scrolls sideways |
+| A player with one character | Sees no choices to make; the switcher still shows | A rail of one | One chip, which can be hidden |
+| A GM with forty beings | A search, not a list | A search at the foot of the rail | A search chip |
+| Best for | The board as the page; the player who has one board | A GM who moves between boards all day | Two or three boards, switched often |
+
+The GM pages:
+
+- **Catalog** is a list and a panel (the shell's list-and-detail template). The panel has the description in place, stats, tags, "Make one" and "Used as a prototype by", and the structure fields with the save bar at the foot.
+- **Unsorted** is a list of names players wrote, with a panel for the holders and their notes, the suggested catalog matches, and the three choices: give the ticked ones to a catalog item, make a new catalog item, or keep it for now.
+- **The item page** is the panel's content at a page's width.
+
+What is not drawn yet: the phone's one-column board, the Unsorted badge's states, the dialogs (Give, Move to…, Make from catalog, Reassign, Unpack, Not in the list), a drag, the empty states, and dark mode. None of it has been through the checks.
+
+## Open questions
+
+Which direction (or which parts of two) is the board page?
