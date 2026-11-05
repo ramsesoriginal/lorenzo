@@ -8,7 +8,7 @@ const DATA = {
     { id: 'inventory', name: 'Inventory', group: 'Play', desc: 'What people carry', icon: 'inventory', route: 'board' },
     { id: 'calendars', name: 'Calendars', group: 'World', desc: 'Time in your world', icon: 'kind-calendar', route: 'stub/calendars' },
     { id: 'maps', name: 'Maps', group: 'World', desc: 'Places and maps', icon: 'map', route: 'map' },
-    { id: 'writing', name: 'Writing', group: 'World', desc: 'Manuscripts and books', icon: 'manuscript', route: 'read' },
+    { id: 'writing', name: 'Writing', group: 'Build', desc: 'Manuscripts and books', icon: 'manuscript', route: 'read' },
     { id: 'social', name: 'Social', group: 'World', desc: 'Who is tied to whom', icon: 'social', route: 'webs' },
     { id: 'bench', name: 'Bench', group: 'Build', desc: 'Build and edit a repository', icon: 'layout-write', route: 'stub/bench' },
     { id: 'account', name: 'Account', group: 'You', desc: 'People, libraries, repositories and tokens', icon: 'account', route: 'settings' }

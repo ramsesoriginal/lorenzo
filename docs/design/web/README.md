@@ -193,7 +193,7 @@ An app that is not deployed, or that a person's role cannot use, is not listed. 
 
 ### D17. Grouping of the apps (decided with the maintainer, 2026-11-04)
 
-By job: Play (Sessions, Beings, Inventory), World (Calendars, Maps, Writing, Social), Build (Bench), You (Account). The names of the groups are working names.
+By job: Play (Sessions, Beings, Inventory), World (Calendars, Maps, Social), Build (Writing, Bench), You (Account). The names of the groups are working names. Writing moved from World to Build in D31.
 
 ### D18. The footer (decided with the maintainer, 2026-11-04)
 
@@ -302,7 +302,11 @@ Refines D12 and D14. With **one library** the library switcher is hidden and the
 
 ### D30. Lorenzo Social joins the shell (decided with the maintainer, 2026-11-05)
 
-A new app, from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md). It joins the **World** group, beside Calendars, Maps and Writing (D17). Its go-to chord is **G then O**. Its tabs are Webs (its Home), Relationships, Types and standings (for authors) and Problems (for staff); a person who may not write sees only Webs and Relationships. Its icon is the atlas's `icon-social`. The app list, the "Apps and about" drawer, the shortcuts list and the shell prototype carry it; its screens are in [social](social/README.md).
+A new app, from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md). It joins the **World** group, beside Calendars and Maps (D17). Its go-to chord is **G then O**. Its tabs are Webs (its Home), Relationships, Types and standings (for authors) and Problems (for staff); a person who may not write sees only Webs and Relationships. Its icon is the atlas's `icon-social`. The app list, the "Apps and about" drawer, the shortcuts list and the shell prototype carry it; its screens are in [social](social/README.md).
+
+### D31. Writing is in Build (decided with the maintainer, 2026-11-05)
+
+Writing moves from World to Build, beside Bench: it is where a person makes things, not where they look at the world. The groups are now Play (Sessions, Beings, Inventory), World (Calendars, Maps, Social), Build (Writing, Bench) and You (Account). Nothing else about Writing changes; the go-to chord stays G then W.
 
 ## Open questions
 

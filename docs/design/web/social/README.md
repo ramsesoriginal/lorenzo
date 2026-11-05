@@ -73,7 +73,7 @@ This app joins the shell, so these change when its place is decided (Question 1)
 
 *Group and name.* Working name "Social", as the app is "Lorenzo Social".
 
-- **A. World, beside Calendars, Maps and Writing.** It is about the setting: who is tied to whom.
+- **A. World, beside Calendars and Maps** (Writing was in World when this was asked; it is in Build now, D31). It is about the setting: who is tied to whom.
 - **B. Play, beside Sessions, Beings and Inventory.** It is used at the table: what does Mara think of the Guild.
 - **C. Its own group.**
 
@@ -123,7 +123,7 @@ Say which, and say if you want other candidates. No answer means "as recommended
 
 ### SO1. Social is in World, with chord G then O, and four tabs
 
-Social sits in the World group beside Calendars, Maps and Writing, with the go-to chord **G then O** (D30). Its tabs are **Webs** (the app's Home: the list of webs, with Continue), **Relationships**, **Types and standings** (authors) and **Problems** (staff). A person who may not write sees Webs and Relationships.
+Social sits in the World group beside Calendars and Maps, with the go-to chord **G then O** (D30). Its tabs are **Webs** (the app's Home: the list of webs, with Continue), **Relationships**, **Types and standings** (authors) and **Problems** (staff). A person who may not write sees Webs and Relationships.
 
 ### SO2. One web is one page with three views
 
@@ -213,7 +213,7 @@ The data is made up and kept in the page. The graph and its layouts are stand-in
 
 ### What was checked
 
-108 scripted checks pass (Playwright, 1440 and 430 wide): the webs and their empty states; the graph, its encodings and its layouts; selection, the panels, in-place edits, refusals and Undo; the date lens, the unknown state and "as read by"; types, steps, members and connect; zoom and the keys; placing by hand with a drag, the keys and the fields; focus and the vertical bar; the matrix's keys, in-place edits with the pointer, drafts, refusals, the stale cell, the conflict cell and the presence mode; the relationships list, a relationship, an entry, types and problems; a player's absent entries and relationships; a phone's views, no horizontal scroll and 44 px targets. axe-core finds no violations on 19 to 21 states at 1440 and 430, light and dark (80 runs; the landmark-region rule is off for overlays). There are no console errors.
+112 scripted checks pass (Playwright, 1440 and 430 wide): the webs and their empty states; the graph, its encodings and its layouts; selection, the panels, in-place edits, refusals and Undo; the date lens, the unknown state and "as read by"; types, steps, members and connect; zoom and the keys; a real mouse selecting an entry and a relationship and panning; placing by hand with a drag, the keys and the fields; focus and the vertical bar; the matrix's keys, in-place edits with the pointer, drafts, refusals, the stale cell, the conflict cell and the presence mode; the relationships list, a relationship, an entry, types and problems; a player's absent entries and relationships; a phone's views, no horizontal scroll and 44 px targets. axe-core finds no violations on 19 to 21 states at 1440 and 430, light and dark (80 runs; the landmark-region rule is off for overlays). There are no console errors.
 
 ### What was not checked
 
@@ -223,6 +223,7 @@ A screen reader, a real phone or touch device, pinch zoom, colour-blindness simu
 
 - A graph edge's label text made its button's name fail axe, so labels are drawn apart from the edges and hidden from assistive technology; the list and the edge's own name carry the words.
 - A matrix cell's name could not match its visible text, so the cells take their name from their content and the row and column headers, and a refusal is attached with `aria-describedby`.
+- The first build captured the pointer on every press, so a real mouse click never selected anything (my scripted clicks did not show it). The pointer is now captured only once a drag starts, the graph says how to select, and the checks use a real mouse.
 - Re-drawing the page reset the matrix's scroll, so a second click landed on a different cell; the scroll is kept.
 - Focusing a cell that was off-screen scrolled the shell's frame; the frame is kept in place.
 - On a phone the slide-over panel fell below the page, so selecting an edge or an entry opens its page instead, with the same content.
