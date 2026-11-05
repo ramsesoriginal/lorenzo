@@ -40,7 +40,7 @@ Priority 1 is what the first builds need. Priority 2 follows. Priority 3 is opti
 | `empty-manuscript` | 1 | Writing, with nothing written | Catileo | Book sleep or curled sleep; Slow-Blink Contentment | A blank page under the cat; a closed ink bottle |
 | `empty-map` | 1 | Maps, with no map yet | Lorenzo and Catileo | Lorenzo: Curious, unrolling a blank map. Catileo: map occupation, sitting at the exact centre | A blank sheet with a faint grid; a compass |
 | `empty-inventory` | 1 | An inventory or board with nothing carried | Catileo | Curious; sitting in an empty satchel, looking out | An open leather satchel; nothing else |
-| `empty-sessions` | 2 | Sessions, with none planned | Lorenzo and Catileo | Lorenzo: Warm Smile, holding a planner. Catileo: asleep on the planner (loaf) | A blank calendar page |
+| `empty-sessions` | 1 | Sessions, with none planned or assigned. Words beside it: "No Session yet. You will see a Session here once a GM assigns you to it." | Lorenzo and Catileo | Lorenzo: Warm Smile, holding a planner. Catileo: asleep on the planner (loaf) | A blank calendar page |
 | `empty-beings` | 2 | Beings, with no characters yet | Lorenzo | Curious; half-body | An empty character sheet with a silhouette outline; a pencil |
 | `empty-calendar` | 3 | Calendars, with none authored | Lorenzo | Focused / Analytical; half-body | A blank month grid; a small hourglass |
 | `caught-up` | 1 | Notifications with nothing new. Words beside it: "You're all caught up." | Catileo | Curled sleep; Slow-Blink Contentment | A folded blanket; nothing else |

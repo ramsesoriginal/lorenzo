@@ -214,7 +214,7 @@ A screen reader (the month is an ARIA grid and needs one), a real touch device (
 
 - A Session or an Event that a person cannot see must not appear on a calendar day or in a count. The prototype filters the day panel and the day marks by what the role may see.
 - The shell's in-world date (D18) is no longer shown on every screen. The account hub and Writing prototypes still show the old placeholder and need it removed in the write-up.
-- There is no illustration for "no Session yet" on the list in [mascot-images.md](../mascot-images.md); the prototype uses a slot named `empty-sessions`, which should be added.
+- The "no Session yet" state uses the `empty-sessions` image, which was already on the list in [mascot-images.md](../mascot-images.md) at priority 2. It is raised to priority 1 and its words are added, because the Sessions design shows it.
 - Heavy per-day marks make the time filter noisy. A density band, not a tick for every marked day, would be calmer in the real component.
 
 ### Screens
