@@ -62,3 +62,11 @@
 @keyframes ivspin { to { --ivang: 360deg; } }
 @media (prefers-reduced-motion: reduce) { .ivc.glow::before { animation: none; } }
 .ivcards { grid-auto-rows: max-content; } .ivcards > .ivi { min-height: 48px; flex: none; }
+
+/* a ghost where a dragged card would land, and the column that would take it (IN12) */
+.ivi.dragging { opacity: 0.45; }
+.ivghost { display: grid; gap: 2px; min-height: 48px; padding: var(--s-2) var(--s-3); border: 2px dashed var(--action); border-radius: var(--r-ctl); background: color-mix(in srgb, var(--action) 8%, transparent); color: var(--text-secondary); pointer-events: none; }
+.ivghost.bad { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.ivghost .ivn { color: var(--text-primary); } .ivghost .t-meta { color: var(--text-secondary); }
+.ivc.drop { outline: 2px solid var(--action); outline-offset: 1px; background: var(--surface-selected); } .ivc.drop-bad { outline-color: var(--danger); background: color-mix(in srgb, var(--danger) 6%, var(--surface-muted)); }
+.ivi.twin { border-color: var(--action); border-style: dashed; }

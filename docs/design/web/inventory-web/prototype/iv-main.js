@@ -121,11 +121,32 @@ function ivChange(e) {
 function ivAfter() {
   const m = $('#main'); m.onclick = ivClick; m.oninput = ivInput; m.onchange = ivChange;
   const bd = $('#ivboard'); if (bd) {
-    bd.ondragstart = (e) => { const c = e.target.closest('[data-it]'); if (c && e.dataTransfer) { e.dataTransfer.setData('text/plain', c.dataset.it); e.dataTransfer.effectAllowed = 'move'; } };
-    bd.ondragover = (e) => { const c = e.target.closest('.ivc'); if (c && !c.classList.contains('ro')) e.preventDefault(); };
-    bd.ondrop = (e) => { const c = e.target.closest('.ivc'); if (!c || c.classList.contains('ro')) return; e.preventDefault(); const i = itemOf(e.dataTransfer.getData('text/plain')); if (!i || i.at !== IV.board || i.col === c.dataset.col) return; const name = colN(IV.board, c.dataset.col); ivAct(`${i.n} moved to ${name}`, () => moveTo(itemOf(i.id), IV.board, c.dataset.col)); };
+    bd.ondragstart = (e) => { const c = e.target.closest('[data-it]'); if (c && e.dataTransfer) { e.dataTransfer.setData('text/plain', c.dataset.it); e.dataTransfer.effectAllowed = 'move'; IV.drag = c.dataset.it; c.classList.add('dragging'); } };
+    bd.ondragover = (e) => { const c = e.target.closest('.ivc'); const r = c && !c.classList.contains('ro') && dropPreview(c); if (r && r.ok) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; } else if (e.dataTransfer) e.dataTransfer.dropEffect = 'none'; };
+    bd.ondragleave = (e) => { if (!bd.contains(e.relatedTarget)) clearDrop(); };
+    bd.ondragend = () => { clearDrop(); IV.drag = null; $$('.ivi.dragging').forEach((x) => x.classList.toggle('dragging', false)); };
+    bd.ondrop = (e) => { const c = e.target.closest('.ivc'); clearDrop(); if (!c || c.classList.contains('ro')) return; e.preventDefault(); const i = itemOf(e.dataTransfer.getData('text/plain') || IV.drag); IV.drag = null; if (!i || i.at !== IV.board || i.col === c.dataset.col) return; const name = colN(IV.board, c.dataset.col); ivAct(`${i.n} moved to ${name}`, () => moveTo(itemOf(i.id), IV.board, c.dataset.col)); };
   }
 }
+/* the ghost: where a dragged card would land, shown in its column before it is dropped (IN12) */
+function dropPreview(colEl) {
+  const i = itemOf(IV.drag); if (!i || i.at !== IV.board) return null; const id = colEl.dataset.col;
+  const col = BOARDS[IV.board].cols.find((x) => x.id === id); if (!col) return null;
+  if (id === i.col) { clearDrop(); return { ok: false }; }
+  const now = sumw(ITEMS.filter((x) => x.at === IV.board && x.col === id)); const twin = ITEMS.find((x) => x.at === IV.board && x.col === id && sameStack(x, i));
+  const total = fx(now + wt(i)); const over = col.cap != null && total > col.cap;
+  let g = $('.ivghost'); const same = g && g.dataset.col === id && g.dataset.item === i.id;
+  if (!same) {
+    clearDrop(); g = document.createElement('div'); g.className = 'ivghost'; g.dataset.col = id; g.dataset.item = i.id;
+    const note = over ? `Too heavy: the ${col.n.toLowerCase()} holds ${col.cap} lb, this would make ${total}` : twin ? `Joins ${twin.n} × ${twin.q}, making ${twin.q + i.q}` : col.cap != null ? `Makes ${total} of ${col.cap} lb` : `Makes ${total} lb`;
+    g.innerHTML = `<span class="ivn">${esc(i.n)}${i.q > 1 ? ` <span class="t-meta">× ${i.q}</span>` : ''}</span><span class="t-meta">${esc(note)}</span>`; g.classList.toggle('bad', over); g.setAttribute('aria-hidden', 'true');
+    const box = $('.ivcards', colEl); if (twin) { const t = $(`[data-it="${twin.id}"]`, colEl); if (t) { t.classList.add('twin'); t.after(g); } else box.appendChild(g); } else box.appendChild(g);
+    colEl.classList.add('drop'); colEl.classList.toggle('drop-bad', over);
+    g.scrollIntoView({ block: 'nearest', inline: 'nearest' }); colEl.scrollIntoView({ block: 'nearest', inline: 'nearest' }); announce(over ? `Cannot drop here. ${note}` : `Drop to move to ${col.n}`);
+  }
+  return { ok: !over };
+}
+function clearDrop() { $$('.ivghost').forEach((x) => x.parentNode.removeChild(x)); $$('.ivc.drop').forEach((x) => { x.classList.toggle('drop', false); x.classList.toggle('drop-bad', false); }); $$('.ivi.twin').forEach((x) => x.classList.toggle('twin', false)); }
 const ivr = (tab, render, meta) => ({ app: 'inventory', tab, render, full: false, after: ivAfter, meta: meta || (() => '') });
 window.ROUTES_EXT = {
   board: ivr('board', boardRoute, () => (IV.board && BOARDS[IV.board] ? `Carried ${carriedW(IV.board)} of 120 lb` : '')),

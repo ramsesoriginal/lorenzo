@@ -2,7 +2,7 @@
 
 A minimal redesign of Lorenzo Inventory. The board stays: its idea and its rough look are kept, and everything around it is redone on the system in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions, Maps and Beings are decided. This page holds the brief, the questions and the decision log for this app. Bench is not redesigned.
 
-Status: the prototype is built and ready for review (decisions IN1 to IN11 are logged here).
+Status: the prototype is built and ready for review (decisions IN1 to IN12 are logged here).
 
 ## What the app is for
 
@@ -173,6 +173,10 @@ The two columns a character always has carry a gold ring that turns slowly and a
 
 Error toasts stay until they are closed, as in the whole shell.
 
+### IN12. A drag shows where the card would land
+
+While a card is dragged, the column under it is highlighted, and a ghost of the card, a dashed outline with its name, sits in that column where the card would go. The column grows or scrolls to show the ghost, so a tall column opens at the ghost. The ghost says what the move makes ("Makes 13 lb", "Makes 9 of 12 lb"), and when the card would join an identical stack, it says so and the stack is outlined ("Joins Rations × 6, making 8"). The dragged card is dimmed where it was. A column that cannot take the card is outlined in the danger colour with the reason in the ghost ("Too heavy: the backpack holds 12 lb, this would make 15"), and it cannot be dropped on. Read-only columns show nothing. Everything goes when the drag ends. The same words are given to a screen reader, and Move to… stays the path for a keyboard and for touch.
+
 ## The directions (drawn; A chosen)
 
 In `directions/`: three layouts for the board page, each as a player and as a GM, and the GM's other pages, which are the same in all three: the catalog, Unsorted, and an item's page. They are on the shell with made-up data. The board is drawn from the documents; the shell's board template was the starting point, so **where this board differs from the one you like, say so.** Run it:
@@ -207,7 +211,7 @@ In `prototype/`, on the shell, with made-up data. Run it from `prototype/index.h
 ### The board (IN1, IN2, IN7, IN8)
 
 - Columns: Equipped, Not carried, each container, then read-only columns (dashed, marked, "Not carried, with Mara Quill"). A card that is not theirs names its owner. Each column shows its count, its weight, and where it has a limit, the room left. Equipped and Not carried have the gold ring (IN10). The columns fill the width and the height, and a long column scrolls inside itself (IN9).
-- A card is moved by dragging it to a column, or by **Move to…**; a stack keeps its count and joins an identical one. A refusal (a container's limit) is shown as given and the card stays. Read-only cards cannot be dragged.
+- A card is moved by dragging it to a column (with a ghost and a highlight, IN12), or by **Move to…**; a stack keeps its count and joins an identical one. A refusal (a container's limit) is shown as given and the card stays. Read-only cards cannot be dragged.
 - **Select** turns on a bulk bar: Move to…, Give…, and Merge for stacks of the same item.
 - The search narrows the cards on this board and says how many are shown.
 - On a phone the board is one column at a time with a row of column names; on a tablet and wider the columns sit side by side.
@@ -232,11 +236,11 @@ The data is made up and kept in the page. Weights are plain numbers. Containers 
 
 ### What was checked
 
-83 scripted checks pass (Playwright, 1440, 834 and 430 wide): the board and its columns, weights and read-only columns; search; the switcher, any being and the unowned board; the panel; Move to…, drag, a refused move, split and merge, give, set down, note, unpack, add an item, make from catalog, unassign and delete, each with Undo where it applies; the item page and its in-place edits; the catalog's save bar, its refusals and a new item; Unsorted, its suggestions and its choices; a player's board with no GM controls, no Unsorted tab, a read-only item and self-service off; the board's width with no panel, the gold ring, equal heights, a tall column scrolling inside itself with the board reaching the footer, and the room left; a phone's one column and pages, and a tablet's sheet. axe-core finds no violations on 19 states at 1440 and 430, light and dark (76 runs; the landmark-region rule is off for overlays). There are no console errors.
+88 scripted checks pass (Playwright, 1440, 834 and 430 wide): the board and its columns, weights and read-only columns; search; the switcher, any being and the unowned board; the panel; Move to…, drag, a refused move, split and merge, give, set down, note, unpack, add an item, make from catalog, unassign and delete, each with Undo where it applies; the item page and its in-place edits; the catalog's save bar, its refusals and a new item; Unsorted, its suggestions and its choices; a player's board with no GM controls, no Unsorted tab, a read-only item and self-service off; the board's width with no panel, the gold ring, equal heights, a tall column scrolling inside itself with the board reaching the footer, and the room left, the ghost, the highlight, the refusal and their going; a phone's one column and pages, and a tablet's sheet. axe-core finds no violations on 19 states at 1440 and 430, light and dark (76 runs; the landmark-region rule is off for overlays). There are no console errors.
 
 ### What was not checked
 
-A screen reader, a real phone or touch device, colour-blindness simulation, Safari and Firefox. The drag was tested with a mouse only; the menu twin is the path for touch and keyboard. A board with a hundred cards has not been tried.
+A screen reader, a real phone or touch device, colour-blindness simulation, Safari and Firefox. The drag was tested with scripted drag events, not by hand, and not with a touch screen; the menu twin is the path for touch and keyboard. A board with a hundred cards has not been tried.
 
 ### Findings
 
@@ -246,7 +250,7 @@ A screen reader, a real phone or touch device, colour-blindness simulation, Safa
 
 ### Screens
 
-In `screens/` (20 images): the board as a GM with the panel, the switcher, a card menu, a refused move, a selection, the add and unpack dialogs, the item page, the catalog with unsaved changes, Unsorted, an empty board, a player's board and read-only item and catalog, dark, a phone's column and item page, and a tablet's sheet.
+In `screens/` (22 images): the board as a GM with the panel, the switcher, a card menu, a refused move, a drag with its ghost and a refused drag, a selection, the add and unpack dialogs, the item page, the catalog with unsaved changes, Unsorted, an empty board, a player's board and read-only item and catalog, dark, a phone's column and item page, and a tablet's sheet.
 
 ## Open questions
 
