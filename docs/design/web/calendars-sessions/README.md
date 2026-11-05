@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Calendars and Lorenzo Sessions, together, from the jobs people do there. The system they are built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub ([account-hub](../account-hub/README.md)) and Writing ([writing](../writing/README.md)) are decided. This page holds the brief, the questions and the decision log for this pair.
 
-Status: questions 1 to 3 are decided (CS1 to CS3); questions 4 and 5 are open.
+Status: the brief is answered (CS1 to CS5). Directions are drawn in [directions](directions/index.html) and wait for a choice.
 
 ## What the two apps are for
 
@@ -121,7 +121,11 @@ A grid with a year strip above it; festivals and absent segments sit in the sequ
 
 A list with participant, causal and story-order filters. Order and causes opens from an Event. Turned down: a place of its own (B) and Events everywhere with no home (C).
 
-## Open questions
+### CS4. The Session is one page of regions, and a person chooses which to show
 
-- Question 4, the Session's shape.
-- Question 5, the old decisions.
+The Session stays one page of regions (details, roster, notes, references, game time, Scenes, played record, campaign order, lived order). Each region can be hidden and shown, and the choice is remembered per person. **Prepare** and **Played** are not modes but saved views of those switches (D22): Prepare shows the details, roster, notes and Scenes; Played shows the played record and the notes. A person can make others. Hiding a region hides only the drawing; nothing is deleted and nothing about permissions changes.
+
+### CS5. The old decisions
+
+All as recommended: two apps (CS1); the month as the main view with a Whole year view second (CS2); a month cell shows the moon, up to two marks and "+N", with the rest in the day panel; the day panel is a bottom sheet on a phone (D26); Order and causes stays an action on an Event; Events are a tab (CS3); **Clocks are a tab of Calendars,** shown only when the library has clocks; **Scenes are a tab of Sessions;** **lived order is a tab of Sessions,** with the being chosen there and Beings linking to it. The Session page's regions and the two record lists follow CS4.
+
