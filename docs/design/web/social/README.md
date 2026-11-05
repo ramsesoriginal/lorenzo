@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Social, a new app, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions, Maps, Beings and Inventory are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief and its questions. Nothing is decided yet.
+Status: the brief is answered (SO1 to SO5). Three directions for the web page are drawn and wait for a choice.
 
 The app comes from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md) and ADRs 0399 to 0408, written in parallel on the open pull request [#1010](https://github.com/ramsesoriginal/lorenzo/pull/1010). Its section "For the interface design" is the brief this page builds on. Where they differ, the RFC wins until it is changed.
 
@@ -121,4 +121,23 @@ Say which, and say if you want other candidates. No answer means "as recommended
 
 ## Decision log
 
-Nothing is decided here yet.
+### SO1. Social is in World, with chord G then O, and four tabs
+
+Social sits in the World group beside Calendars, Maps and Writing, with the go-to chord **G then O** (D30). Its tabs are **Webs** (the app's Home: the list of webs, with Continue), **Relationships**, **Types and standings** (authors) and **Problems** (staff). A person who may not write sees Webs and Relationships.
+
+### SO2. One web is one page with three views
+
+A web is one page with a switch between **Graph**, **Matrix** and **List**. The members, the toolbar, the lens and the side panel are shared, and the selection carries from one view to the next. The graph is full width. At phone width the switch has Graph (read-only) and List.
+
+### SO3. A standing shows a number, a quiet tint and a mark per state
+
+In the matrix and on a relationship a standing shows its number always, a quiet tint or bar scaled to the stat's minimum and maximum (or to the visible range where there is none, and the page says which), and a mark for each state: inherited, derived, unknown and in conflict. Each mark survives greyscale and has a word in the legend.
+
+### SO4. The date lens and "as read by" are region switches with a line
+
+Both are switches in the web's toolbar, like Maps' layers. While one is on, a line says so ("Looking as of The Wedding", "As read by Mara") and can be cleared, because a lens changes what the whole page means. The date lens uses the shared time filter, listing Events in story order. An unknown relationship is dotted in the graph and marked "unknown as of this Event" in the list and the matrix.
+
+### SO5. The icons are R3 and W1
+
+A **Relationship** is two overlapping rings (new). A **Social web**, and the app, is a hub with three nodes (the atlas's `icon-social`). The two new kind icons are listed for the atlas as a follow-up and are not added by this work.
+

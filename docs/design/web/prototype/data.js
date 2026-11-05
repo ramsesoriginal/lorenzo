@@ -9,6 +9,7 @@ const DATA = {
     { id: 'calendars', name: 'Calendars', group: 'World', desc: 'Time in your world', icon: 'kind-calendar', route: 'stub/calendars' },
     { id: 'maps', name: 'Maps', group: 'World', desc: 'Places and maps', icon: 'map', route: 'map' },
     { id: 'writing', name: 'Writing', group: 'World', desc: 'Manuscripts and books', icon: 'manuscript', route: 'read' },
+    { id: 'social', name: 'Social', group: 'World', desc: 'Who is tied to whom', icon: 'social', route: 'webs' },
     { id: 'bench', name: 'Bench', group: 'Build', desc: 'Build and edit a repository', icon: 'layout-write', route: 'stub/bench' },
     { id: 'account', name: 'Account', group: 'You', desc: 'People, libraries, repositories and tokens', icon: 'account', route: 'settings' }
   ],
@@ -18,6 +19,7 @@ const DATA = {
     inventory: [['Boards', 'board'], ['Items', 'items'], ['Notes', 'inv-notes']],
     maps: [['Maps', 'map'], ['Locations', 'locations'], ['Connections', 'connections']],
     writing: [['Read', 'read'], ['Write', 'write'], ['Books', 'books']],
+    social: [['Webs', 'webs'], ['Relationships', 'relationships'], ['Types and standings', 'types'], ['Problems', 'problems']],
     account: [['Libraries', 'settings'], ['Profile', 'profile'], ['Tokens', 'tokens']],
     calendars: [['Calendars', 'stub/calendars']],
     bench: [['Entries', 'stub/bench']]

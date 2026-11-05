@@ -68,7 +68,7 @@ To open it without serving anything, [`prototype/build-review-copy.mjs`](prototy
 
 The header, one row for one library and two tiers with the wordmark for several, and the bottom tab bar (D12, D29), the state strip (D13), the library switcher shown only for more than one library (D14), the slim status bar and the "Apps and about" drawer (D18), Home with the shared blocks (D16), the palette with its preview and the shortcut model (D25), toasts with the 10-second timer (D26), dialogs and menus that become sheets (D26), density and Appearance (D22), and the first run, the account menu, signing out with unsent changes and joining with an invite link (D27). Templates: list and detail (with the tablet side sheet and the third pane on a large screen), reading, settings and forms with the save bar, the editor with autosave, the board, a full-width map workspace, Home, and the states gallery. Other apps open a plain "not drawn in the prototype" page.
 
-Keyboard: `Ctrl K` (`Cmd K`) opens the palette, `Ctrl Shift K` in an editor; `?` lists the shortcuts; G then H, S, B, I, C, M, W, R, A goes to an app; J, K, Enter, X, N, E and `/` work in the beings list; `Ctrl Z` undoes the last action.
+Keyboard: `Ctrl K` (`Cmd K`) opens the palette, `Ctrl Shift K` in an editor; `?` lists the shortcuts; G then H, S, B, I, C, M, W, O, R, A goes to an app; J, K, Enter, X, N, E and `/` work in the beings list; `Ctrl Z` undoes the last action.
 
 ### Brand pieces and new pieces
 
@@ -193,7 +193,7 @@ An app that is not deployed, or that a person's role cannot use, is not listed. 
 
 ### D17. Grouping of the apps (decided with the maintainer, 2026-11-04)
 
-By job: Play (Sessions, Beings, Inventory), World (Calendars, Maps, Writing), Build (Bench), You (Account). The names of the groups are working names.
+By job: Play (Sessions, Beings, Inventory), World (Calendars, Maps, Writing, Social), Build (Bench), You (Account). The names of the groups are working names.
 
 ### D18. The footer (decided with the maintainer, 2026-11-04)
 
@@ -268,7 +268,7 @@ Turned down: retrying a write automatically; a spinner for every wait; no mascot
 ### D25. The palette and the keyboard model (decided with the maintainer, 2026-11-04)
 
 - **One palette** for entries across apps, apps ("Go to") and actions. Tab narrows it (Everything, Entries, Apps, Actions). `Ctrl K` opens it (`Cmd K` on a Mac). On large and desktop screens it is centered with a preview of the selected entry (from the existing entry preview); at the tablet step it is centered without the preview; on a phone it is a full screen.
-- **Shortcuts:** `?` lists them. Go to: G then H (home), S (Sessions), B (Beings), I (Inventory), C (Calendars), M (Maps), W (Writing), R (Bench, the repository), A (Account). In a list: `J` and `K` move, `Enter` opens, `X` selects, `Shift J` selects a range, `N` new, `E` edit, `/` filters.
+- **Shortcuts:** `?` lists them. Go to: G then H (home), S (Sessions), B (Beings), I (Inventory), C (Calendars), M (Maps), W (Writing), O (Social), R (Bench, the repository), A (Account). In a list: `J` and `K` move, `Enter` opens, `X` selects, `Shift J` selects a range, `N` new, `E` edit, `/` filters.
 - **A switch for single-key shortcuts** (WCAG 2.1.4); shortcuts with Ctrl always work. The keys may become remappable in a later slice.
 - **In a rich-text editor** `Ctrl K` inserts a link to an entry, and the palette opens with `Ctrl Shift K`.
 
@@ -299,6 +299,10 @@ Built in `docs/design/web/prototype/`, linking `apps/brand` in place and unchang
 ### D29. The header with one library and with several (decided with the maintainer, 2026-11-04, from the prototype)
 
 Refines D12 and D14. With **one library** the library switcher is hidden and the header is **one row** on a tablet and on desktop: the mark, the app name, the app's links, then the palette, the bell and the account. Below the desktop width the palette shrinks to its icon so the row still fits. With **more than one library** it is the two tiers of D12, and **the wordmark sits between the mark and the library switcher** (the horizontal lockup, the real artwork, in its light and dark versions; never typeset). On a phone the mark stays alone (identity §12.2) and the app name sits beside it when there is one library.
+
+### D30. Lorenzo Social joins the shell (decided with the maintainer, 2026-11-05)
+
+A new app, from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md). It joins the **World** group, beside Calendars, Maps and Writing (D17). Its go-to chord is **G then O**. Its tabs are Webs (its Home), Relationships, Types and standings (for authors) and Problems (for staff); a person who may not write sees only Webs and Relationships. Its icon is the atlas's `icon-social`. The app list, the "Apps and about" drawer, the shortcuts list and the shell prototype carry it; its screens are in [social](social/README.md).
 
 ## Open questions
 
