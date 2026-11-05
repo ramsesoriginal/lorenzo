@@ -14,8 +14,10 @@ The scaffolding slice creates the `app:social` and `pkg:graph-renderer` labels a
 nobody else can do: the Authgear client and its callback addresses, the Pages project and its build watch paths, the
 production origin in the API's `CORS_ALLOWED_ORIGINS`, and the `social` entries of the app-link registry.
 
-**Screens.** The relationship list and page, an entry's social page, the SocialWeb list and page (graph and list form),
-the matrix, the types and standings screen for authors, and a problems list for staff (RFC 0049, "For the interface
+**Screens.** The relationship list and page, an entry's social page, the SocialWeb list and page (graph and list form,
+with the date lens and "as read by" of [ADR 0405](0405-optional-time-on-a-relationship-and-reading-as-of-an-event.md)),
+the matrix, the types and standings screen for authors (which also sets the library's three type stats, ADR 0400), and a
+problems list for staff (RFC 0049, "For the interface
 design"). Hierarchy and direction are said in words ("Mara is the parent of Wren").
 
 **The matrix.** One ordered pair of a web's members a cell, for a chosen standing (value mode) or type (presence mode).

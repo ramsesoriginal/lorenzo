@@ -16,9 +16,13 @@ Events and shared assertions they see.
 **Two nullable references.** `relationship` gains `starts_at` and `ends_at`, each an Event (a `story_event`) under a
 same-tenant key, `CHECK (starts_at <> ends_at)`; the columns arrive with the slice that reads them. They name Events,
 never dates, and set no order. A relationship with neither behaves as if time did not exist. An Event that a
-relationship references cannot be deleted until the reference is removed (the opaque existing-reference error of
-[ADR 0313](0313-event-participation-browsing-and-calendar-addresses.md)); tenant deletion works. Writing them needs the
-standing of ADR 0399 and visibility of the Event; the release format carries them, with the older reader giving none.
+relationship references can be deleted, and the delete clears the reference (the keys are `ON DELETE SET NULL
+(starts_at)` and `(ends_at)`, clearing only the column). In the same transaction the Event's delete route leaves a note on
+each relationship it bounded: information of the ordinary note type, restricted to staff, saying that the Event of that
+name started or ended it and was deleted. The relationship does not silently become unbounded, and the note is the only
+record (ADR 0313's refusal of a delete is not used here). A repository's purge and a tenant's deletion do the same or
+nothing, as their own rules say. Writing the references needs the standing of ADR 0399 and visibility of the Event; the
+release format carries them, with the older reader giving none.
 
 **Reading as of an Event E.** `GET /tenants/{t}/relationships?as_of=<event id>` adds `as_of` to each row, one of:
 
@@ -34,11 +38,15 @@ E (before and after) are computed once, over the reader's graph, and bounded in 
 Events); past the bound the answer is `limit_reached` and no row is classed. The read takes no argument that names
 another reader's graph.
 
-**A limit the reader cannot see** reads as no limit: the Event is absent for them (RFC 0049, open question 2).
+**A limit the reader cannot see** makes the answer `unknown`: the Event is absent for them, so no recorded path can
+place it. This tells the reader that a limit exists and never which Event, a cost the maintainer accepted over reading
+it as no limit. A plain read of the relationship names only the Events the reader can see.
 
-**As seen by X.** `as_seen_by=<being id>` is staff only (full-visibility Owners and Organizers, GMs of a campaign
-the being is in): the relationships X may read through X's own grants and X's groups. It says what X *may read*, not
-what X believes; belief, rumour and confidence wait for RFC 0029, and the interface words it that way.
+**As seen by X.** `as_seen_by=<being id>` returns the relationships X may read through X's own grants and X's groups. It
+is for staff (full-visibility Owners and Organizers, GMs of a campaign the being is in) and for a player when X is a being
+that player controls; for a player the result is also limited to what that player may read, so it never shows more than
+they could see, and a being they do not control is refused. It says what X *may read*, not what X believes; belief,
+rumour and confidence wait for RFC 0029, and the interface words it that way.
 
 **Drawing.** `unknown` is the dotted edge of §18 (uncertain). `not_yet` and `ended` are absent from the graph and listed
 under a switch.
@@ -47,9 +55,10 @@ under a switch.
 
 Tests: no limits; start only; end only; both; the four states on a graph with `causal`, `ruled` and no path; a
 `linearized` pair deciding nothing; a reader with fewer shared assertions getting `unknown` where staff gets a state;
-a hidden Event reading as no limit and the same bytes as a relationship without one; the bound and `limit_reached`;
-filtering before pagination; deleting a referenced Event; `as_seen_by` for staff and refused for others; copy and
-release; and that `connection` still has no time column (the RFC 0048 scan).
+a hidden Event making the answer `unknown` with no Event named in any field or error; the bound and `limit_reached`;
+filtering before pagination; deleting a referenced Event clearing the reference and leaving the staff note, which a
+player cannot read; `as_seen_by` for staff, for a player's own being (limited to what the player may read) and refused
+for another being; copy and release; and that `connection` still has no time column (the RFC 0048 scan).
 
 ## Excluded
 

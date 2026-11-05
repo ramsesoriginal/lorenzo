@@ -39,6 +39,10 @@ Decided with the maintainer on 2026-11-05 (the number is the question it answere
 13. **Pairwise only**: a marriage of three is three relationships (13).
 14. **`relationship_through`**: an ordered chain of relationships that a relationship is stated to hold through
     (the maintainer's addition to 13).
+15. **Review answers, 2026-11-05.** The three type stats are named by a library-wide setting, not found by name.
+    A start or end Event the reader cannot see makes an as-of answer `unknown`. Deleting an Event that bounds a
+    relationship clears the reference and leaves a note. "As read by a being" is also for the players of that being.
+    A group's hull is drawn from `group_member` alone.
 
 ## Hard invariants
 
@@ -126,7 +130,9 @@ entry is.
   member; the nearest value wins, and an adjustment is a sum formula over an inherited base and an own part.
   Nothing checks that the member belongs to the group.
 - **Direction is the type's.** Three optional stats on a type say how it reads: *directed*, *reads as* and *reads
-  as, from the other end*. A directed standing is two one-way relationships, one each way, each with its own value
+  as, from the other end*. The library says which stat definitions they are in a library-wide setting (three
+  nullable columns on the tenant, as the being stat group of [ADR 0296](../adr/0296-being-stat-group.md) is
+  set; a library setting, not repository content). A directed standing is two one-way relationships, one each way, each with its own value
   and its own audience; a symmetric one is one two-way relationship, shown in both cells of the matrix and edited
   from either. Without those stats a relationship still works: it reads with its type's name and its own
   `one_way`.
@@ -189,18 +195,21 @@ This is a slice of the stat vocabulary, independent of the rest.
 reads them). They name Events, never dates, and set no order. This narrows RFC 0048's "time never reaches a
 connection row", which stays true of `connection`.
 
-- An Event referenced by a relationship cannot be deleted until the reference is removed (the opaque existing-reference
-  error of ADR 0313); tenant deletion works.
+- Deleting an Event that a relationship references clears the reference and, in the same transaction, leaves a staff-only
+  note on each relationship it bounded, so the relationship does not silently become unbounded.
 - **As of Event E**, over the reader's authorized graph only (visible Events and shared assertions, ADR 0315):
   `holds` when the start is E or recorded before E and the end is none or not recorded at or before E;
   `not yet` when the start is recorded after E; `ended` when the end is recorded at or before E; otherwise
   `unknown`. "Recorded" means a path of `causal` or `ruled` assertions; a `linearized` comparison never decides
-  anything. `unknown` is drawn dotted. A limit whose Event the reader cannot see reads as no limit.
+  anything. `unknown` is drawn dotted. A start or end Event the reader cannot see makes the answer `unknown`, which
+  tells that a limit exists and never which.
 - The read takes `as_of=<event id>` on the list and adds the state to each row; `state=` filters before
   pagination. The reachability sets are bounded in code (*proposed default*: 2,000 Events) and an answer past the
   bound is `limit_reached`.
-- **As seen by X** is staff only: the relationships X may read (X's own grants and X's groups). It is worded
-  "what X may read", never "what X believes"; belief, rumour and confidence wait for RFC 0029.
+- **As seen by X** is for staff, and for a player when X is a being they control: the relationships X may read (X's own
+  grants and X's groups). For a player the answer is also limited to what that player may read, so it never shows more
+  than they could see. It is worded "what X may read", never "what X believes"; belief, rumour and confidence wait for
+  RFC 0029.
 
 ### SocialWeb (ADR 0406)
 
@@ -322,7 +331,7 @@ library's data.
 4. **Social webs** (list) and **one web**: the canvas and a panel.
    - A toolbar: layout (circle, radial, stress, force, placed by hand), labels on or off, groups as hulls on or off,
      the types shown, steps from the selected entry (all, 1, 2), a date lens (an Event, from a picker listing Events
-     in story order), and for staff "as read by" a being.
+     in story order), and "as read by" a being (any for staff, the player's own beings for a player).
    - A legend of the three line styles and the arrowhead (not of types).
    - A panel for the selection: the relationship or the entry, with the same fields as screens 2 and 3.
    - A mode to connect two entries: pick one, pick the other, choose the type, set a standing.
@@ -378,7 +387,7 @@ slices below are proposed and each is scoped with the maintainer before it start
 | 1 | Relationship kind: table, routes, reads with the both-ends rule in the shared entry visibility, own limit, registry line, release format, kind matrix, `kinds` widening through the breaking-change process | 0399 | none | a failing test that a relationship with a hidden end is absent from every generic read |
 | 2 | Audiences with named recipients for the kind | 0404 | 1 | the atomic `GET` and `PUT` of ADR 0305 on the kind |
 | 3 | Stat scales | 0403 | none | the two columns and the write check |
-| 4 | Bulk write of relationships and stat values | 0400 | 1 | one transaction over at most 100 operations, each resolved under the writer's visibility |
+| 4 | Bulk write of relationships and stat values, and the library's three type-stat settings | 0400 | 1 | one transaction over at most 100 operations, each resolved under the writer's visibility |
 | 5 | Through | 0402 | 1 | the table and the acyclic check under the advisory lock |
 | 6 | Optional time and the as-of read | 0405 | 1 | the two columns and the bounded reachability over the reader's graph |
 | 7 | `packages/graph-renderer`: Scene, paint, hit test, interaction, default theme, `circle` and `radial` | 0407 | none | the Scene type and the golden corpus, from fixtures |
@@ -410,18 +419,11 @@ writing before slice 14; per-viewer server storage of views.
 
 Each is settled in the ADR of the slice that needs it.
 
-1. How the app finds the three type stats (*directed*, *reads as*, *reads as, from the other end*): by the name a
-   library gave them, or by something sturdier than a name. A library without them still works.
-2. A limit whose Event the reader cannot see reads as no limit; whether "unknown" would be the better answer.
-3. The deletion of an Event that a relationship references is refused; whether setting the reference to null
-   with a note is wanted instead.
-4. The numbers marked *proposed default*, after measurement.
-5. Which two icons stand for Relationship and Social web.
-6. Whether connections get the same both-ends rule in the shared entry visibility. The generic reads appear not to
+1. The numbers marked *proposed default*, after measurement.
+2. Which two icons stand for Relationship and Social web.
+3. Whether connections get the same both-ends rule in the shared entry visibility. The generic reads appear not to
    apply it to `connection` today (`readable()` is called only by the connection and distance routes); that is a
    separate defect to be proved by a test and fixed on its own.
-7. Whether "as read by a being" is wanted for players of that being, not only for staff.
-8. Whether a group's hull is drawn from `group_member` alone, or also from relationships to the group.
 
 ## Consequences
 
@@ -435,7 +437,9 @@ Harder, and accepted:
   quota before anything else.
 - A hidden relationship is absent from a standing's picture, so no total is the same for every reader; the app does
   its sums on the client and says "from what you can see".
-- A hidden step in a chain, or a hidden Event that bounds a relationship, changes what a reader sees without a trace.
+- A hidden step in a chain leaves no trace; a hidden Event that bounds a relationship makes an as-of answer `unknown`,
+  which tells a reader that a limit exists.
+- Deleting an Event changes the relationships it bounded, and the note it leaves is the only record.
 - Two readers can see different drawings of one web, since layout runs over what each may see.
 - Each slice carries a release-format bump, a registry line, a planner step and a kind-matrix row, and the `kinds`
   widening is an API break that goes through the breaking-change process.

@@ -22,8 +22,14 @@ stats of the entry read (ADR 0104). Nothing checks that the member belongs to th
 from" where a value is. A server total over a being's relationships is not built (the value would differ per reader);
 the app may add up what the reader sees and says so.
 
-**Direction is the type's.** A type may carry three optional stats, found in the library by name (RFC 0049, open
-question 1):
+**Direction is the type's.** A type may carry three optional stats. The library says which stat definitions they are
+in a **library-wide setting**: three nullable columns on `tenant`, `relationship_directed_stat_id`,
+`relationship_reads_as_stat_id` and `relationship_reads_as_back_stat_id`, each a same-tenant composite key to
+`stat_definition` that clears only the reference when the definition is deleted, set and cleared by `PATCH
+/tenants/{id}` under the tenant administrator gate and recorded in the activity log, as
+[ADR 0296](0296-being-stat-group.md) does for the being stat group. The setting is a library's own presentation choice,
+not repository content: a library that copies the starter repository sets it once, and the types screen offers to. The
+three stats are:
 
 - *directed*, a tag: a relationship of this type is one-way;
 - *reads as*: the sentence verb from the first end ("is the parent of");
@@ -32,8 +38,8 @@ question 1):
 A **directed** standing is two one-way relationships, one each way, each with its own value and its own audience ("A
 honors B" may be secret from B). A **symmetric** one is one two-way relationship, shown in both cells of the matrix and
 edited from either. A one-way relationship fills its own cell; a two-way one fills both; two visible relationships for
-one cell are a conflict the matrix shows. A library without these stats works: a relationship reads with its type's
-name and its own `one_way`.
+one cell are a conflict the matrix shows. A library with no setting works: a relationship reads with its type's name and
+its own `one_way`. The setting is checked: a stat that is not a `bool` (directed) or `text` (the two verbs) is a 422.
 
 **Pairwise only.** A relationship has two ends. A marriage of three is three symmetric relationships, each with its
 own audience and Events. "The marriage" as one thing with dates and stats is an entry (a group or any entry) that each
@@ -55,7 +61,8 @@ slice, holds no default audience (every new relationship is restricted, ADR 0404
 ## Validation and delivery
 
 Tests: a standing inherited through a prototype chain and overridden; a sum formula over an inherited base; two
-one-way relationships and one two-way one for the matrix cells; a library without the type stats; the bulk write with
+one-way relationships and one two-way one for the matrix cells; a library with no type-stat setting; the setting's
+wrong types, clearing on a stat definition's deletion and the activity log; the bulk write with
 each refusal writing nothing and ends hidden from the writer; the starter repository copied into an empty library.
 
 ## Excluded
