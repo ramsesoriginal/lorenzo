@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Maps, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, and Calendars with Sessions are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief is answered (MP1 to MP5). Directions for the drawing view are in [directions](directions/index.html) and wait for a choice.
+Status: decided (MP1 to MP6). The prototype is being built.
 
 ## What the app is for
 
@@ -130,7 +130,24 @@ Turned down: a toolbar alone (A, as it was) and dragging alone (C).
 
 All as recommended: the phone replaced by MP2; Locations a tab with search, the tree, and a list by name while a date is chosen; the two places (the gallery and the Map) kept, with the hover cards, and the panel and places list in the slide-over; the toolbar carried into the toolbox of MP4; the "what are you drawing" question a small popover at the tool instead of a dialog; Settings in the slide-over with Pictures as a section; Look and Legend as floating controls; where an entry leads as lines in the panel; the way a sphere is drawn as a floating control.
 
-## The directions
+### MP6. The drawing view is C, with A's options bar, layers and history, and B's command line
+
+- **From C (Blender):** a row of tools in a header over the Map, an outliner of the places, a sidebar with tabs, and drag from the outliner onto the Map.
+- **From A (Photoshop):** an **options bar that changes with the tool**, a **Layers** panel and a **History** panel.
+- **From B (AutoCAD):** a **command line** under the Map that asks for the next point and takes typed coordinates and commands.
+- Turned down as the base: A's toolbox and B's ribbon.
+
+**A tool set that grows.** More tools are coming: cave systems, filling parts of a Map by marching squares or wave function collapse, heights, height lines, splines, freehand, and more. The drawing view is built for that, not for the six tools of today:
+
+1. **A tool is a declaration, not a layout.** Each tool states its name, group, icon, key, what it takes as input (a click, two clicks, a path, a drag, a brush, a region), the options it shows (a name, a type, a range, a seed), what it produces, and whether it can preview. The toolbox, the options bar, the command line, the palette and the key map are all drawn from these declarations, so a new tool adds one entry and no new screen.
+2. **Tools are grouped, and a group scales.** The header shows one button per group (Select, Place, Draw, Terrain, Generate, Modify) with the group's current tool, and a flyout for the rest. **Search all tools** finds any tool by name or key, and the command line takes the tool's name. A tool the data cannot hold yet shows as **planned**, with the reason.
+3. **A generator previews, then applies.** A generating tool (a cave system, a fill) works on a region: the chosen Area, or the whole sheet. It draws a **preview** as an overlay that is never stored, shows its options in the options bar (a **seed** among them, and a button to roll another), and does nothing to the Map until **Apply**. Apply writes ordinary placements in one step, with one history entry that names the tool and the seed. **Discard** drops it.
+4. **What a tool makes is data the Map already holds,** or the tool says it needs a decision first. A cave is areas; a marching-squares fill is areas and contour lines; wave function collapse on a grid is cells; a spline, a freehand stroke and a contour are lines with a value. A **heightmap is a raster,** which the Map does not hold today: that tool is drawn, marked **planned**, and needs its own decision before it is built.
+5. **Every tool has a keyboard and a number twin.** Each option is a field, each point is a number, and each command is a line the command line accepts. A generator can be run from the command line with its parameters.
+6. **History is the undo surface** in the drawing view: each step is a name ("Drew a cave, seed 4821"), and a person can step back to any of them.
+7. **The registry is the contract for the real app,** so a new tool is built against it (an ADR names the tool, its output and its data), and the design needs no change for it.
+
+## The directions (drawn; C with parts of A and B chosen)
 
 In `directions/`: the gallery (MP1), the read view with its slide-over panel (MP3), and three layouts for the drawing view (MP4), on the shell. The map is an SVG stand-in for the renderer's drawing, with made-up data. In all three the Map fills the page and the toolbox and panels float over it; the drawing view is Dense (D22). Run it:
 
@@ -153,4 +170,4 @@ The controls bar switches the screen and whether a line is being drawn or an Are
 
 ## Open questions
 
-- Which drawing-view layout, or which parts of which.
+None for the choice. The prototype comes next.
