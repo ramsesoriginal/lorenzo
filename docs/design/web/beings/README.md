@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Beings, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions and Maps are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the prototype is built and ready for review (decisions BN1 to BN10 are logged here).
+Status: decided (BN1 to BN10). The checks are re-run once on the final screens before the write-up.
 
 ## What the app is for
 
