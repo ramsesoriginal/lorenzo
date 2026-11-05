@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Beings, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions and Maps are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the prototype is built and ready for review (decisions BN1 to BN9 are logged here).
+Status: the prototype is built and ready for review (decisions BN1 to BN10 are logged here).
 
 ## What the app is for
 
@@ -165,6 +165,10 @@ Side by side has its own Read and Play switch. In Play every column has the step
 
 Each step carries who made it and when: "Hit points 16 to 14, by Ana, 17:12". The person's own steps read "by you". The toast says "by you" too.
 
+### BN10. An active condition shows in the band
+
+A condition that is on (for example "Wounded") is shown under the pinned numbers, in Read and Play, so a table sees it without scrolling. Nothing shows when none is on.
+
 ## The directions (drawn; A with C's band chosen)
 
 In `directions/`: the list in its three views (BN1, BN4) and three layouts for the being page, each in Read, Play and Read with About being edited (BN2, BN3), on the shell. The data is made up. The list views and the modes are the same in all three directions; what differs is how the page is arranged. Run it:
@@ -213,7 +217,7 @@ The data is made up and kept in the page. Stats come from a fixed set; the libra
 
 ### What was checked
 
-78 scripted checks pass (Playwright, 1440 and 430 wide): the three list views and their memory, search, filters and the empty state; reading, every in-place edit, the derived rule, Play with steps, the adjuster, a refused value, the limit, thirty steps, the datasheet, the band shrinking while it stays in view; Hand over, Delete and New with their Undo; the order of Read and Play, the mode switch staying in view, conditions, the amount shown on a change, who made a step, steppers in the side-by-side Play; a player's page, the absent notes and the remembered mode; no horizontal scroll and 44 px targets on a phone. axe-core finds no violations on 18 states at 1440 and 430, light and dark (72 runs; the landmark-region rule is off for overlays). There are no console errors.
+80 scripted checks pass (Playwright, 1440 and 430 wide): the three list views and their memory, search, filters and the empty state; reading, every in-place edit, the derived rule, Play with steps, the adjuster, a refused value, the limit, thirty steps, the datasheet, the band shrinking while it stays in view; Hand over, Delete and New with their Undo; the order of Read and Play, the mode switch staying in view, conditions, the amount shown on a change, who made a step, steppers in the side-by-side Play; a player's page, the absent notes and the remembered mode; no horizontal scroll and 44 px targets on a phone. axe-core finds no violations on 18 states at 1440 and 430, light and dark (72 runs; the landmark-region rule is off for overlays). There are no console errors.
 
 ### What was not checked
 
@@ -223,6 +227,7 @@ A screen reader, a real phone or touch device, colour-blindness simulation, Safa
 
 - The first build used viewport media queries, which misfire in the phone frame; every width rule is now a container query on the shell (D20). A check at a real 430-wide window passed even while the frame was broken, so the checks now also run in the frame.
 - The rail on a phone sat above the page and pushed About out of view; it now comes after the page.
+- In the first review the New being button touched the view switch on the list; the header now has its own space above the toolbar, and a check measures it.
 - A label that did not begin with its visible text failed axe; the value button's name now starts with the number.
 
 ### Screens
@@ -232,4 +237,3 @@ In `screens/` (21 images): the list in rows, cards, side by side and empty; the 
 ## Open questions
 
 - Is the tinted bar and the numbers-first order enough to tell Play from Read, or should Play also change the header?
-- Should a condition show on the pinned band when it is on, so a table sees "Wounded" without scrolling?

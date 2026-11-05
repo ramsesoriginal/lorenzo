@@ -82,3 +82,5 @@ details.bn-sec > summary::before { content: ''; width: 8px; height: 8px; border-
 .bn-modewrap .seg button { min-height: 44px; }
 .bn-bar2 .btn { background: var(--surface-default); } .bn-lastn { color: var(--text-secondary); }
 .bn-modehint { color: var(--text-secondary); }
+.bn-bandc { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin: 0; } .bn-bandc .t-meta { color: var(--text-secondary); } .bn-tag.on { background: var(--surface-selected); border-color: var(--action); font-weight: 600; }
+.bn .head-row { margin-bottom: var(--s-4); }
