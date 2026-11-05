@@ -142,3 +142,8 @@ its history. This screen does not offer that destructive action.
 The app is a single page, `/`, driven by `?tenant=` and `?entry=` (plus `/auth/redirect/` for sign-in).
 
 Deployed at <https://lorenzo-writing.pages.dev/> on Cloudflare Pages; [the setup guide](../../docs/operations/writing-setup.md) records the procedure. `.env.example` lists the build variables.
+
+**Suggested periods** ([ADR 0397](../../docs/adr/0397-reviewed-scene-periods.md)) in direct Scene Details
+checks prose for full names of existing visible calendar periods. Review a match and explicitly
+set an empty Scene period. Ambiguous names use the manual Period lookup. Existing periods, relative
+dates and dates not yet created in a calendar are never filled or replaced automatically.
