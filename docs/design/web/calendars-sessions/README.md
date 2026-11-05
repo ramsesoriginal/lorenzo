@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Calendars and Lorenzo Sessions, together, from the jobs people do there. The system they are built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub ([account-hub](../account-hub/README.md)) and Writing ([writing](../writing/README.md)) are decided. This page holds the brief, the questions and the decision log for this pair.
 
-Status: the brief is answered and a direction is chosen (CS1 to CS6). The prototype is being built.
+Status: the brief is answered and a direction is chosen (CS1 to CS6). The prototype is built and ready for review.
 
 ## What the two apps are for
 
@@ -162,6 +162,68 @@ The controls bar switches the direction and the view (All, Prepare, Played). The
 | Seeing what is hidden | Dashed switches say so | Struck-through names say so | A line at the foot lists what is hidden |
 | Cost | A bar of nine switches is wide, and wraps on a phone | Takes a column | The hidden parts are one step away |
 
+## The prototype
+
+In `prototype/`. It links `apps/brand` in place and unchanged, and extends the shell prototype through its hooks (`ROUTES_EXT`, `PROTO_EXT`, `PROTO_CLICK`, `PROTO_SYNC`, `START_ROUTE`, `TAB_HIDE`, `INWORLD`). `INWORLD` is new: it lets an app decide what the status bar says about the in-world date (CS1). Plain HTML, CSS and JS.
+
+### Run it
+
+```bash
+python3 -m http.server 8731   # from the repository root
+# open http://localhost:8731/docs/design/web/calendars-sessions/prototype/index.html
+```
+
+A private single-page copy is built with `node build-review-copy.mjs --fragment OUT_DIR`. The controls bar switches the role (a GM, a player, a reader) and whether the library has clocks.
+
+### Calendars
+
+- **The month (CS6, A).** A strip of segments with a density mark, a grid with a moon on every day and up to two marks and "+N", and the day panel beside it; a bottom sheet on a narrow window. The festival and the absent leap day sit in the sequence; an absent one says so and cannot be opened. Arrow keys move through days, Page Up and Page Down change segment. There is no "today".
+- **Writing on a day.** Opening a day creates nothing; a status line says whether the period exists. Add a note, an Event (with who can see it), a Fact, an existing Event or Fact, or, for a GM, a recurring observance. Every write can be undone as a whole, and writing a note on an empty day is the only thing that makes its period. A player can add notes, Events and Facts but not observances; a reader adds nothing.
+- **Whole year.** The second view: every day as a square, darker for more written on it.
+- **Events (CS3).** A tab with a name search, who took part, causes and effects, and a story-order switch that marks each Event **recorded** or **linearized**. The time filter narrows it by date. A reader sees only what is open to everyone.
+- **An Event.** When (dates, clock readings), who took part, learning (GMs), information, and **Order and causes**: the relationships you can see, share or make private (starting private), add (a loop is refused with a reason), and **Compare Events**, which finds a recorded causal chain or ordering or says the display order is linearized and is not a claim. A player sees only shared relationships between Events they can see. Also: a group made from the people who took part, learning records, a clock reading and **Read this Event on another clock**, which is derived and never saved.
+- **Clocks.** A tab shown only when the library has clocks: ticking and timeless clocks, reckonings, relationships, a converter, and sharing.
+- **The calendar definition.** An Author's page: segments in order (add, rename, move, remove), weekday names, a preview of the year, and a refusal when an edit would strand a written period ("Greening has 4 periods written on it").
+- **The time filter (CS2).** A strip of the year with a marked density. A range (Events) or a single date (a date lens). Drag across it, or use the arrow keys, Page Up, Page Down, Home and End on a handle. It is a shared component; the **date lens** route shows it filtering a Locations list the way Maps would, from stated dates only.
+
+### Sessions
+
+- **Home.** The next Session, then Sessions by campaign with a status. A GM makes a Session (the roster starts empty). A reader with no Session sees an empty state.
+- **The Session page (CS4, CS6, C).** Nine regions: details, roster, notes, references, game time, Scenes, played, campaign order, lived order. A **View** menu lists the views (Prepare, Played, All, and your own) and the parts. Each region folds and hides, and the foot says what is hidden. **Save this view** names the current set; it is remembered in this browser and is the person's own.
+- **In the regions.** Edit the details (the in-world start moves the status bar's date); add or remove a player with a Character; notes for me, the Session's GMs or its participants; references that start private; game time covered, apart from the start; Scenes in order (up and down, or Alt with the arrows), each appearance with its own audience and notes, and added new or reused; the **played record** proposed from the outline as a draft, with played or skipped and the Events presented, saved on purpose and untouched by later preparation; the campaign order, for the Sessions you manage only.
+- **Scenes** and **Lived order** are tabs, for GMs. A Scene has a link name, a date, references and where it is played. Lived order lists a being's participations to reorder or leave out, a ruling that can be removed, and saving refuses an order that contradicts a ruling.
+- **A player** sees fewer regions, only shared Scenes and references, no controls to change them, and no campaign order.
+- **The status bar** shows the in-world date of the Session being looked at and nothing on the calendar (CS1).
+
+### What it fakes
+
+All data is made up and held in memory (`cs-data.js`). The calendar's arithmetic (days, moon phases, recurrence) is a few lines, where the real app asks the API. Nothing is saved except the person's own views, in `localStorage`. Clocks use a simple ratio. The date lens uses a made-up list of places.
+
+### What was checked
+
+- 71 scripted checks in Playwright, all passing: the month and its keys, absent segments, writing and undoing on a day, an Event with its audience, the whole year, three roles, Events and every filter, the time filter by key and drag, an Event's order and causes (share, compare, a loop refused, what a player sees), learning kept after a participant is removed, a reading converted, clocks, the date lens, the calendar definition and its refusal, Sessions and every region, the view menu and saved views, the played record staying fixed, the campaign order, a player's view, an empty state, lived order and its refusal.
+- axe-core: no violations on twenty states (the month, whole year, Events, an Event, its order dialog, clocks, a clock, the lens, the definition, Sessions, a Session in two views, the played dialog, Scenes, a Scene, lived order, the menus, the day sheet and an empty state) at 1440 and 430 wide, in light and dark (the landmark-region rule is off for the page's overlays).
+- Touch targets of at least 44px at 430 wide on a touch device, on thirteen routes.
+- No console errors.
+
+### What was not checked
+
+A screen reader (the month is an ARIA grid and needs one), a real touch device (touch is emulated), colour-blindness simulation, Safari and Firefox, a calendar with hundreds of marks, a Session with many Scenes, and a very large library of Events.
+
+### Findings
+
+- A Session or an Event that a person cannot see must not appear on a calendar day or in a count. The prototype filters the day panel and the day marks by what the role may see.
+- The shell's in-world date (D18) is no longer shown on every screen. The account hub and Writing prototypes still show the old placeholder and need it removed in the write-up.
+- There is no illustration for "no Session yet" on the list in [mascot-images.md](../mascot-images.md); the prototype uses a slot named `empty-sessions`, which should be added.
+- Heavy per-day marks make the time filter noisy. A density band, not a tick for every marked day, would be calmer in the real component.
+
+### Screens
+
+In `screens/`, 31 images: the month and a day written, the add menu, the whole year (01 to 04); Events, story order, the time filter (05 to 07); an Event, its order and causes, a linearized comparison (08 to 10); a clock, the date lens, the calendar definition refused (11 to 13); Sessions, a Session by view, the View menu, a fold, the played draft, a player, a Scene, lived order (14 to 24, 18 to 23); dark (25, 26); 834 (27); 430 (28 to 32).
+
 ## Open questions
 
-None yet. The prototype comes next.
+1. The Session's **Prepare** and **Played** views are built in. Should a GM's first visit to a Session open Prepare, or the view they last used?
+2. The calendar's **Add to this day** menu offers a note, an Event, a Fact, an existing one and an observance. Is that the right set, in that order?
+3. The time filter shows a density mark for every marked day. Keep, or a calmer band?
+4. The **date lens** is drawn on a Locations list. Should Maps and the other lists share exactly this component, or have their own?
