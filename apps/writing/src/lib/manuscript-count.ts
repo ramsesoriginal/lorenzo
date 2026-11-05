@@ -8,7 +8,7 @@ export const words = (text: string) => {
 };
 
 // Keep inline formatting continuous. Separate blocks, cells and omitted non-prose nodes.
-export function prose(root: Node, range?: Range): string {
+export function prose(root: Node, range?: Range, boundaryText = ' '): string {
   const parts: string[] = [];
   const visit = (node: Node) => {
     if (range && !range.intersectsNode(node)) return;
@@ -26,15 +26,15 @@ export function prose(root: Node, range?: Range): string {
       node instanceof Element &&
       node.matches('nav,pre,code,math,img,input,sup.ls-fnref,a.ls-backref')
     ) {
-      parts.push(' ');
+      parts.push(boundaryText);
       return;
     }
     const boundary =
       node instanceof Element &&
       node.matches('p,h1,h2,h3,h4,h5,h6,br,li,th,td,div,section,blockquote,hr');
-    if (boundary) parts.push(' ');
+    if (boundary) parts.push(boundaryText);
     for (const child of node.childNodes) visit(child);
-    if (boundary) parts.push(' ');
+    if (boundary) parts.push(boundaryText);
   };
   visit(root);
   return parts.join('');
@@ -48,4 +48,10 @@ export function countSources(sources: readonly string[]) {
     count += words(prose(template.content));
   }
   return count;
+}
+
+export function manuscriptPassages(source: string) {
+  const template = document.createElement('template');
+  template.innerHTML = render(parse(source), { externalImages: false });
+  return prose(template.content, undefined, '\0').split('\0').filter(Boolean);
 }
