@@ -2,7 +2,7 @@
 
 A fresh design of Lorenzo Beings, from the jobs people do there. The system it is built on is in [the web design](../README.md): the shell, the templates, the states and the decisions D1 to D29. The account hub, Writing, Calendars with Sessions and Maps are decided. This page holds the brief, the questions and the decision log for this app.
 
-Status: the brief is answered (BN1 to BN5). Three directions for the being page are drawn and wait for a choice.
+Status: the prototype is built and ready for review (decisions BN1 to BN6 are logged here).
 
 ## What the app is for
 
@@ -143,7 +143,11 @@ The page keeps Sheet and Datasheet. The list gains a side-by-side view that read
 
 Every row of the old-decisions table carries over, except mode memory: the page opens in the last mode used by the person who plays that being, so a player at a table lands in Play. The datasheet and the row shape are BN4 and BN1.
 
-## The directions (drawn; waiting for a choice)
+### BN6. The being page is A's column with C's band
+
+One reading column in the old order (About, Notes, Stats, Inventory), a rail on the right with who plays it, who sees it, the campaign, Hand over and Events. C's band of large pinned numbers sits at the top and stays in view; it shrinks when the page scrolls. The pinned numbers are shown on a phone too, three in a row. A derived number has no stepper in Play, because it cannot be set; its "why" says what it is made of.
+
+## The directions (drawn; A with C's band chosen)
 
 In `directions/`: the list in its three views (BN1, BN4) and three layouts for the being page, each in Read, Play and Read with About being edited (BN2, BN3), on the shell. The data is made up. The list views and the modes are the same in all three directions; what differs is how the page is arranged. Run it:
 
@@ -165,6 +169,49 @@ The controls bar switches the screen and the mode. Screens are in `directions/sc
 
 What is not drawn yet: the phone widths, dark mode, the empty and refused states, "Hand over" and delete, the history list, and the datasheet in each direction beyond the one table. None of these have been run through the checks.
 
+## The prototype
+
+In `prototype/`, on the shell, with made-up data. Run it as the directions are run, from `prototype/index.html`; `prototype/build-review-copy.mjs OUT_DIR` writes a single page that runs without the repository.
+
+### The list (BN1, BN4)
+
+- Rows, cards and side by side, in one switch, remembered in the browser. Search and a kind filter work in all three. "Mine" is a tab.
+- A being a person may not read is absent from every view, with no count. A dead link says one thing.
+- An empty library shows the `empty-beings` slot and a way to make the first being, for a GM.
+
+### The being page (BN2, BN3, BN6)
+
+- **Read and Play** are a switch. A player lands in the mode they last used on the being they play (BN5); everyone else lands in Read.
+- **Play:** a stepper on every number that can be set, and a value that opens "Change by" (type 5, +3 or -2). A number stays between zero and its limit, and says when it cannot go further. Each step gives the shell's Undo toast; Undo and History in the header go back one step or to any earlier one, thirty at most; Ctrl or Cmd Z undoes the last.
+- **Edit in place, in Read:** About types and saves as you type, with a status that says when. A number has a pencil that turns it into fields. Notes are added, reworded, given another audience, and deleted, each with Undo. There is no page-level Save.
+- **Derived numbers** have a dashed border and a "why" button; changing Body changes Armour.
+- **Sheet and Datasheet** are a layout switch on the page; the datasheet has the steppers in Play.
+- **Hand over** asks for a campaign and then a player, and can be undone. **Delete being** names what goes with it (ADR 0302) and asks for the name; it is undone from the toast in the prototype only.
+- **A player** sees no GM controls, no Events, no GM-only note and no note meant for other characters. On their own being they edit and play; on another's, Play has no steppers and says why.
+
+### What it fakes
+
+The data is made up and kept in the page. Stats come from a fixed set; the library's Settings are not drawn. Nothing is saved, nothing is sent, and the API's refusals are not shown except for a bad number. Seen by is one of "Everyone" or "GM only". Inventory, picture, link name and tags are read-only or not drawn. The "who plays it" rule is one person, Ana.
+
+### What was checked
+
+63 scripted checks pass (Playwright, 1440 and 430 wide): the three list views and their memory, search, filters and the empty state; reading, every in-place edit, the derived rule, Play with steps, the adjuster, a refused value, the limit, thirty steps, the datasheet, the band shrinking while it stays in view; Hand over, Delete and New with their Undo; a player's page, the absent notes and the remembered mode; no horizontal scroll and 44 px targets on a phone. axe-core finds no violations on 18 states at 1440 and 430, light and dark (72 runs; the landmark-region rule is off for overlays). There are no console errors.
+
+### What was not checked
+
+A screen reader, a real phone or touch device, colour-blindness simulation, Safari and Firefox. The 30-step history is a list in a menu and has not been tried with a keyboard-only person beyond the scripted run. The side-by-side view has not been tried with forty beings.
+
+### Findings
+
+- The first build used viewport media queries, which misfire in the phone frame; every width rule is now a container query on the shell (D20). A check at a real 430-wide window passed even while the frame was broken, so the checks now also run in the frame.
+- The rail on a phone sat above the page and pushed About out of view; it now comes after the page.
+- A label that did not begin with its visible text failed axe; the value button's name now starts with the number.
+
+### Screens
+
+In `screens/` (20 images): the list in rows, cards, side by side and empty; the page in Read, with the "why" open, editing About, in Play, with the adjuster, the history menu, the datasheet scrolled; the add-note, hand-over and delete dialogs; a player's views; dark; and the phone.
+
 ## Open questions
 
-Which direction (or which parts of two) is the being page?
+- Is the side-by-side view wanted in Play, with steppers on each column, for a skirmish? It is read-only now.
+- Should the history list say who made a step when the GM and the player both change a number?
