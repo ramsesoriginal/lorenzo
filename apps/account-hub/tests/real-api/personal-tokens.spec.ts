@@ -1,6 +1,6 @@
 // Connecting a device and personal access tokens (ADR 0268, 0269): the device asks for a code, a
 // signed-in person approves or denies it on /device, and the token it gets works until revoked
-// in the profile's list.
+// in the tokens page's list.
 import { expect, type Page, test } from '@playwright/test';
 import { ok } from '../../../inventory-web/tests/e2e/support/api';
 import { API_URL } from '../../../inventory-web/tests/e2e/support/env';
@@ -73,8 +73,9 @@ test('a person approves the code in the address, names the token, and the device
   expect(Math.abs(new Date(issued.expires_at ?? 0).getTime() - inThirtyDays)).toBeLessThan(120_000);
   expect((await asBearer(issued.access_token)).status).toBe(200);
 
-  // The profile lists it, never its secret, and revoking asks first and ends it.
-  await page.goto('/profile');
+  // The tokens page lists it, never its secret, and revoking asks first, in a dialog that names it,
+  // and ends it.
+  await page.goto('/tokens');
   const row = page
     .locator('[data-personal-tokens] [data-list] > li')
     .filter({ hasText: 'Test laptop' });
@@ -83,8 +84,10 @@ test('a person approves the code in the address, names the token, and the device
   await expect(page.locator('[data-personal-tokens]')).not.toContainText(issued.access_token);
 
   await row.getByRole('button', { name: 'Revoke' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Test laptop');
+  await dialog.getByRole('button', { name: 'Revoke', exact: true }).click();
   await expect(page.locator('[data-personal-tokens] [data-list] > li')).toHaveCount(0);
-  expect(session.confirmations.some((message) => message.includes('"Test laptop"'))).toBe(true);
   expect((await asBearer(issued.access_token)).status).toBe(401);
   expect(await ok(person.api.GET('/me/tokens'))).toEqual([]);
   await session.context.close();
