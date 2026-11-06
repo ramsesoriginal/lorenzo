@@ -251,7 +251,8 @@ button:disabled {
   color: var(--text-primary);
 }
 
-.tab[aria-selected="true"] {
+.tab[aria-selected="true"],
+.tab[aria-current="page"] {
   color: var(--text-primary);
   font-weight: 600;
   border-bottom-color: var(--action);
@@ -1590,5 +1591,580 @@ fieldset:disabled {
 
   .card-body .card-body .card-body {
     padding: var(--space-2);
+  }
+}
+
+/* ---------------------------------------------------------------------------------------
+   The web shell (docs/design/web, ADR 0410, ADR 0414): a global bar, an app bar, a state
+   strip, a status bar, a phone tab bar, an apps drawer and the palette. Widths are the
+   viewport's here; the pieces are built to sit in a full-width page.
+   --------------------------------------------------------------------------------------- */
+
+/* A state: an icon, a word and a pattern, so it survives greyscale. --c is its colour. */
+.state-chip {
+  --c: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border: 1px solid var(--c);
+  border-radius: var(--radius-pill);
+  background-color: var(--surface-default);
+  font-size: var(--fs-meta);
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.state-chip .icon {
+  color: var(--c);
+}
+
+.state-chip > span {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--surface-default);
+}
+
+.state-chip[data-state="synced"] {
+  --c: var(--success);
+}
+
+.state-chip[data-state="waiting"],
+.state-chip[data-state="stale"] {
+  --c: var(--warning);
+}
+
+.state-chip[data-state="conflict"] {
+  --c: var(--danger);
+}
+
+.state-chip[data-state="waiting"] {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--c) 30%, transparent) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.state-chip[data-state="stale"] {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--c) 45%, transparent) 1px,
+    transparent 1.6px
+  );
+  background-size: 6px 6px;
+}
+
+.state-chip[data-state="conflict"] {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--c) 30%, transparent) 0 2px,
+      transparent 2px 6px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--c) 30%, transparent) 0 2px,
+      transparent 2px 6px
+    );
+}
+
+/* Icons in the shell are a little larger than the text beside them. */
+.shell-bar .icon,
+.shell-strip-in .icon,
+.shell-status .icon,
+.state-chip .icon,
+.palette .icon {
+  width: 1.25em;
+  height: 1.25em;
+}
+
+.avatar .icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Global bar: brand, library switcher, palette button, notifications, account. */
+.shell-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2h);
+  min-height: 52px;
+  padding: 4px var(--space-4);
+  background: var(--surface-default);
+}
+
+.shell-bar .grow {
+  flex: 1;
+}
+
+.shell-bar .brand-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  color: var(--canonical);
+}
+
+.shell-field-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-2h);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.shell-field-btn:hover,
+.shell-field-btn[aria-expanded="true"] {
+  background: var(--fill-soft);
+}
+
+.shell-field-btn.palette-btn {
+  width: min(320px, 100%);
+  color: var(--text-secondary);
+}
+
+.shell-field-btn.palette-btn > span {
+  flex: 1;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill-soft);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.avatar:hover {
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+
+/* App bar: the app's name and its links as tabs (aria-current="page" marks the open one). */
+.shell-apps {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  background: var(--surface-default);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.shell-apps .prod {
+  align-self: center;
+  margin-inline-end: var(--space-2h);
+  font-weight: 600;
+}
+
+.shell-apps nav {
+  display: flex;
+  gap: var(--space-1);
+  align-self: stretch;
+}
+
+.shell-apps .tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2h);
+  border-bottom: 0;
+  text-decoration: none;
+  font-size: var(--fs-ui);
+}
+
+.shell-apps .tab::after {
+  content: "";
+  position: absolute;
+  inset: auto var(--space-2h) -1px;
+  height: 2px;
+  background: var(--text-primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-med) var(--ease);
+}
+
+.shell-apps .tab[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+/* State strip: shown only when something needs attention, and then it grows open. */
+.shell-strip {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-med) var(--ease);
+}
+
+.shell-strip[data-open] {
+  grid-template-rows: 1fr;
+}
+
+.shell-strip > div {
+  overflow: hidden;
+}
+
+.shell-strip-in {
+  --c: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2h);
+  min-height: 36px;
+  padding: 4px var(--space-4);
+  border-bottom: 1px solid var(--c);
+  background-color: var(--surface-default);
+}
+
+.shell-strip-in .msg {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--surface-default);
+}
+
+.shell-strip-in .icon {
+  color: var(--c);
+}
+
+.shell-strip-in .grow {
+  flex: 1;
+}
+
+.shell-strip-in[data-kind="offline"],
+.shell-strip-in[data-kind="waiting"] {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--c) 22%, transparent) 0 2px,
+    transparent 2px 7px
+  );
+}
+
+.shell-strip-in[data-kind="conflict"] {
+  --c: var(--danger);
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--c) 22%, transparent) 0 2px,
+      transparent 2px 7px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--c) 22%, transparent) 0 2px,
+      transparent 2px 7px
+    );
+}
+
+/* Status bar: slim, always shown: sync state, the app's meta, the real date and time. */
+.shell-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 32px;
+  padding: 0 var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-default);
+  font-size: var(--fs-meta);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.shell-status .grow {
+  flex: 1;
+}
+
+.shell-status .sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shell-status .sync .icon {
+  color: var(--success);
+}
+
+.shell-status .sync[data-kind="waiting"] .icon,
+.shell-status .sync[data-kind="offline"] .icon {
+  color: var(--warning);
+}
+
+/* Phone tab bar: the app's links at the bottom, clear of the safe area. */
+.shell-tabbar {
+  display: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-default);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.shell-tabbar a,
+.shell-tabbar button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);
+  cursor: pointer;
+}
+
+.shell-tabbar .icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.shell-tabbar a[aria-current="page"] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.shell-tabbar a[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  inset: -1px 20% auto;
+  height: 2px;
+  background: var(--text-primary);
+}
+
+/* Apps drawer: every app by job, the legal links, the version. A sheet from the status bar. */
+.shell-drawer {
+  padding: var(--space-4);
+  background: var(--surface-default);
+  border-top: 1px solid var(--border-strong);
+}
+
+.shell-drawer .cols {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.shell-drawer .apps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.shell-drawer a.l {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 30px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: var(--fs-ui);
+}
+
+.shell-drawer a.l:hover {
+  text-decoration: underline;
+}
+
+.shell-drawer .foot {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2h);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--fs-meta);
+  color: var(--text-tertiary);
+}
+
+/* The palette: a dialog with a search field, scope buttons, grouped options and a key hint. */
+dialog.palette {
+  display: flex;
+  flex-direction: column;
+  width: min(660px, calc(100% - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 96px);
+  margin: 72px auto auto;
+  padding: 0;
+  overflow: hidden;
+}
+
+dialog.palette:not([open]) {
+  display: none;
+}
+
+.palette .p-in {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2h);
+  min-height: 52px;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.palette .p-in input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sub);
+}
+
+.palette .p-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.palette .p-tabs button {
+  padding: 4px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.palette .p-tabs button[aria-selected="true"] {
+  background: var(--surface-selected);
+  border-color: var(--border-control);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.palette .p-list {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  overflow: auto;
+}
+
+.palette .p-group {
+  padding: 10px 8px 4px;
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.palette .p-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2h);
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.palette .p-opt[aria-selected="true"] {
+  background: var(--surface-selected);
+}
+
+.palette .p-opt .grow {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette .p-opt mark {
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+}
+
+.palette .p-opt .meta {
+  margin-inline-start: 8px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-meta);
+}
+
+.palette .p-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 8px var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+}
+
+.palette .p-empty {
+  padding: var(--space-4) var(--space-3);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 720px) {
+  .shell-apps,
+  .only-wide {
+    display: none;
+  }
+
+  .shell-tabbar {
+    display: grid;
+  }
+
+  .shell-field-btn.palette-btn {
+    display: none;
+  }
+
+  .shell-bar .shell-field-btn {
+    max-width: 190px;
+    overflow: hidden;
+  }
+
+  .shell-status .wide {
+    display: none;
+  }
+
+  .shell-drawer {
+    display: none;
+  }
+
+  /* On a phone the palette is a full screen. */
+  dialog.palette {
+    width: 100%;
+    max-height: none;
+    height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .palette .p-foot {
+    display: none;
+  }
+
+  .palette .p-opt {
+    min-height: 48px;
+  }
+}
+
+@media (min-width: 721px) {
+  .only-phone {
+    display: none !important;
   }
 }
