@@ -271,3 +271,4 @@ window.PROTO_CLICK = (k, v) => {
   return false;
 };
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && WS.focus && !OV.el && cur().name === 'w') { WS.focus = false; wrRefresh(true); } });
+window.INWORLD = () => null; /* no in-world date outside the calendar apps (CS1) */

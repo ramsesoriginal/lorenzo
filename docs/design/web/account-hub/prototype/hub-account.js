@@ -36,3 +36,4 @@ window.PROTO_CLICK = (k, v) => {
   if (k === 'hcreate') { H.create = v === '1'; render(true); return true; }
   return false;
 };
+window.INWORLD = () => null; /* no in-world date outside the calendar apps (CS1) */
