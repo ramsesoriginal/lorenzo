@@ -5,10 +5,11 @@
 import { getAppLinks } from '@lorenzo/api-client';
 import { bindShell, type Shell } from '@lorenzo/app-shell';
 import { getUserInfo, isAuthConfigured, isAuthenticated, login, logout } from './auth';
-import { API_BASE_URL, THEME_KEY } from './config';
+import { API_BASE_URL, RECENT_KEY, THEME_KEY } from './config';
 import { showsDiscover } from './discover';
 import { getFacets } from './discoverApi';
 import { isTenantAdmin } from './format';
+import { pageTitle, parseRecent, rememberPage } from './home';
 import { getMe } from './me';
 import { getUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from './notifications';
 import { bindPrefetch } from './prefetch';
@@ -99,6 +100,26 @@ function watchUnread(shell: Shell): void {
 const withoutReferrer: typeof fetch = (input, init) =>
   fetch(input, { ...init, referrerPolicy: 'no-referrer' });
 
+// Pages whose address is a secret or only a step are not remembered for Continue.
+const NOT_REMEMBERED = ['/', '/device/', '/join/'];
+
+function rememberThisPage(): void {
+  const path = window.location.pathname;
+
+  if (NOT_REMEMBERED.includes(path) || path.startsWith('/auth/')) return;
+
+  try {
+    const recent = parseRecent(window.localStorage.getItem(RECENT_KEY));
+
+    window.localStorage.setItem(
+      RECENT_KEY,
+      JSON.stringify(rememberPage(recent, { href: path, title: pageTitle(document.title) })),
+    );
+  } catch {
+    // Private browsing: Continue simply remembers nothing.
+  }
+}
+
 let started: Shell | null = null;
 
 /** The shell this page started, for a page that gives feedback (a toast, an Undo); null before it starts. */
@@ -154,6 +175,7 @@ export async function startShell(): Promise<void> {
     return;
   }
 
+  rememberThisPage();
   // Just a convenience - on failure, the header stays without it.
   watchUnread(shell);
   bindPrefetch();

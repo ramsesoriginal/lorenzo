@@ -3,19 +3,21 @@
 
 import { runRows, seatsIn, type TableCard, tableCards } from '../../lib/campaigns';
 import { listMyChanges } from '../../lib/changes';
+import { RECENT_KEY } from '../../lib/config';
+import { needsYou, parseRecent, splitTables } from '../../lib/home';
 import { getManaged } from '../../lib/me';
-import { listNotifications } from '../../lib/notifications';
 import { sayError } from '../../lib/statusLine';
+import { studioHref } from '../../lib/studio';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants, isRepository, publishedLabel } from '../../lib/tenantKind';
 import { getTenant, listMyTenants, listTenantCampaigns } from '../../lib/tenants';
 import type { ManagedScopeOut, MeOut, TenantSummaryOut } from '../../lib/types';
 import { showChanges } from './changes';
+import { showNeeds } from './needs';
+import { showRecent } from './recent';
 import { type RepositoryCard, showRepositories } from './repositories';
 import { showTables } from './tables';
-import { showUnread } from './unread';
 
-const UNREAD_SHOWN = 3;
 const CHANGES_SHOWN = 5;
 
 const required = requiredIn('Briefing');
@@ -67,7 +69,6 @@ export async function renderBriefing(root: HTMLElement, me: MeOut): Promise<void
 
   const tenants = listMyTenants();
   const managed = getManaged();
-  const unread = listNotifications(true);
   const changes = listMyChanges(CHANGES_SHOWN);
 
   // A section whose answer fails says so in its own place and leaves the rest alone.
@@ -85,18 +86,23 @@ export async function renderBriefing(root: HTMLElement, me: MeOut): Promise<void
     me.players.flatMap((player) => player.characters).map((c) => [c.entity_id, c.name]),
   );
 
-  await Promise.all([
-    section('[data-unread]', async () =>
-      showUnread(root, (await unread).items.slice(0, UNREAD_SHOWN)),
-    ),
-    section('[data-tables]', async () => {
-      const [tenantPage, managedScope] = await Promise.all([tenants, managed]);
+  required<HTMLElement>(root, '[data-setup]').hidden = !canCreateTenants(me);
+  showRecent(root, parseRecent(window.localStorage.getItem(RECENT_KEY)));
 
-      showTables(root, await loadTables(me, tenantPage.items, managedScope), canCreateTenants(me));
+  await Promise.all([
+    section('[data-play]', async () => {
+      const [tenantPage, managedScope] = await Promise.all([tenants, managed]);
+      const split = splitTables(await loadTables(me, tenantPage.items, managedScope));
+
+      showTables(root, '[data-play]', split.play);
+      showTables(root, '[data-run]', split.run);
     }),
-    section('[data-repositories]', async () =>
-      showRepositories(root, await loadRepositories((await tenants).items)),
-    ),
+    section('[data-repositories]', async () => {
+      const repositories = await loadRepositories((await tenants).items);
+
+      showRepositories(root, repositories);
+      showNeeds(root, needsYou(repositories, studioHref));
+    }),
     section('[data-changes]', async () => {
       // Without the libraries' names, a change just doesn't say which one.
       const [changePage, tenantItems] = await Promise.all([

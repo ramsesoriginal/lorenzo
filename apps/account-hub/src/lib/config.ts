@@ -32,3 +32,6 @@ export const BEINGS_BASE_URL: string | undefined =
 
 // Where the chosen appearance is kept in this browser (the shell's theme toggle).
 export const THEME_KEY = 'lorenzo:account-hub:theme';
+
+// The last pages opened here, kept in this browser only, for Home's "Continue".
+export const RECENT_KEY = 'lorenzo:hub-recent';
