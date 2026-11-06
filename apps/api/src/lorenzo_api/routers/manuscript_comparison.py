@@ -22,7 +22,13 @@ from lorenzo_api.exceptions import (
     RepositoryNotFoundError,
 )
 from lorenzo_api.information_bundles import touch_bundle
-from lorenzo_api.manuscript_comparison import bundle, standalone, state, update_reason
+from lorenzo_api.manuscript_comparison import (
+    bundle,
+    chapter_contexts,
+    standalone,
+    state,
+    update_reason,
+)
 from lorenzo_api.models import Payload, RepositoryCopy, RepositoryCopyLinkEntity
 from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.repository_content import load_content
@@ -97,17 +103,46 @@ async def compare_manuscript(
     local = bundle(local_content, id, saved["identities"])
     if local is None:
         return ManuscriptComparison(state="local_unavailable")
+    # Read identity maps only, not every retained manuscript's prose baseline.
+    links = await session.execute(
+        select(
+            RepositoryCopyLinkEntity.entity_id,
+            RepositoryCopyLinkEntity.source_id,
+            RepositoryCopyLinkEntity.manuscript_baseline["identities"],
+        ).where(
+            RepositoryCopyLinkEntity.tenant_id == tenant_id,
+            RepositoryCopyLinkEntity.source_tenant_id == link.source_tenant_id,
+            RepositoryCopyLinkEntity.entity_id.is_not(None),
+        )
+    )
+    identities = {}
+    for local_id, source_id, payload_ids in links:
+        identities[str(local_id)] = str(source_id)
+        identities.update(payload_ids or {})
+    local_context = chapter_contexts(local_content, identities).get(id)
+    upstream_context = chapter_contexts(source.content).get(link.source_id)
+    unchanged_composition = (
+        saved.get("composition") is not None
+        and saved["composition"] == local_context == upstream_context
+    )
     reason = update_reason(
         saved["bundle"],
         local,
         upstream,
-        standalone(local_content, id) and standalone(source.content, link.source_id),
+        unchanged_composition
+        or (
+            saved.get("composition") is None
+            and standalone(local_content, id)
+            and standalone(source.content, link.source_id)
+        ),
     )
     version = (
         '"'
         + hashlib.sha256(
             json.dumps(
-                [saved, local, upstream, reason], sort_keys=True, separators=(",", ":")
+                [saved, local, upstream, reason, local_context, upstream_context],
+                sort_keys=True,
+                separators=(",", ":"),
             ).encode()
         ).hexdigest()
         + '"'

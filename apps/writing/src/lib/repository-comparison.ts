@@ -118,7 +118,7 @@ export function repositoryComparison(tenant: string, id: string, apply?: ApplyRe
       note.textContent =
         comparison.update_reason ??
         (apply
-          ? 'Accepting keeps all existing audiences and saves the previous text in revisions.'
+          ? 'Accepting keeps the current placement and audiences and saves the previous text in revisions.'
           : 'Open Write to accept an update.');
       result.append(note);
     } catch (error) {

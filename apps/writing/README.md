@@ -155,3 +155,8 @@ Chapter drafts with unchanged payload structure offer explicit Keep yours / Take
 choices ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Save local edits
 before accepting. Accepted text preserves history and audiences and adds no session credit.
 Connected manuscripts and structural changes remain comparison-only.
+
+Placed leaf Chapters directly inside an Edition can also accept text updates when their copied
+Book, Edition, anchor and position still match on both sides
+([ADR 0430](../../docs/adr/0430-placed-chapter-text-updates.md)). New copies retain this context;
+older connected copies, nested Chapters and dependent structural changes remain comparison-only.

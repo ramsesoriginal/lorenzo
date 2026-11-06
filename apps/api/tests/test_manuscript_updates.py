@@ -11,8 +11,15 @@ from httpx import AsyncClient
 from sqlalchemy import select, update
 
 from lorenzo_api.config import get_settings
-from lorenzo_api.manuscript_comparison import standalone, update_reason
-from lorenzo_api.models import ContentReference, Information, Payload, PayloadDescription
+from lorenzo_api.manuscript_comparison import chapter_contexts, standalone, update_reason
+from lorenzo_api.models import (
+    ContentReference,
+    Information,
+    ManuscriptPlacement,
+    Payload,
+    PayloadDescription,
+    RepositoryCopyLinkEntity,
+)
 from lorenzo_api.repository_content import Content
 
 
@@ -42,12 +49,14 @@ def test_structural_and_binary_changes_are_not_partial_text_updates():
     assert update_reason(base, base, base, False)
 
 
+@pytest.mark.parametrize("placed", [False, True])
 @pytest.mark.parametrize("public", [False, True])
 async def test_explicit_choices_and_stale_review(
     raw_client: AsyncClient,
     fake_jwks_server: FakeJwksServer,
     monkeypatch: pytest.MonkeyPatch,
     public: bool,
+    placed: bool,
 ):
     from conftest import delete_tenant
 
@@ -75,6 +84,30 @@ async def test_explicit_choices_and_stale_review(
             json={"content": "Second original", "locale": "en"},
         )
         assert second.status_code == 201, second.text
+        if placed:
+            book = (await owner.post(source + "/writing/books", json={"name": "Stories"})).json()
+            edition = book["editions"][0]["id"]
+            parent_text = (
+                await owner.post(
+                    source + f"/entities/{edition}/information",
+                    json={
+                        "title": "Manuscript",
+                        "type": "manuscript",
+                        "content": "After the Chapter",
+                    },
+                )
+            ).json()
+            parent_bundle = (
+                await owner.get(source + f"/information/{parent_text['id']}/editor")
+            ).json()
+            anchor = parent_bundle["payloads"][0]["id"]
+            outline = (await owner.get(source + f"/writing/entries/{edition}")).json()
+            arranged = await raw_client.put(
+                source + f"/writing/entries/{edition}/composition",
+                headers={**owner.headers, "If-Match": outline["version"]},
+                json={"elements": [chapter, anchor]},
+            )
+            assert arranged.status_code == 200, arranged.text
         target = await owner.create_tenant("Subscriber")
         assert (await owner.put(source + f"/subscribers/{target}")).status_code in (200, 201)
         assert (await owner.put(source + "/published")).status_code == 200
@@ -127,6 +160,64 @@ async def test_explicit_choices_and_stale_review(
         await change(source_info, "Repository [[crossing]]")
         review = await compare()
         assert review["update_allowed"] and review["state"] == "upstream"
+        if placed:
+            async with admin_session_factory() as session:
+                local_placement = await session.scalar(
+                    select(ManuscriptPlacement).where(
+                        ManuscriptPlacement.tenant_id == uuid.UUID(str(target)),
+                        ManuscriptPlacement.child_entity_id == uuid.UUID(local),
+                    )
+                )
+                assert local_placement is not None
+                local_edition = str(local_placement.parent_entity_id)
+                position = local_placement.position
+                local_placement.position += 1
+                await session.commit()
+            assert (await accept(review)).status_code == 412
+            assert not (await compare())["update_allowed"]
+            async with admin_session_factory() as session:
+                await session.execute(
+                    update(ManuscriptPlacement)
+                    .where(ManuscriptPlacement.child_entity_id == uuid.UUID(local))
+                    .values(position=position)
+                )
+                link = await session.scalar(
+                    select(RepositoryCopyLinkEntity).where(
+                        RepositoryCopyLinkEntity.entity_id == uuid.UUID(local)
+                    )
+                )
+                baseline = dict(link.manuscript_baseline)
+                link.manuscript_baseline = {k: v for k, v in baseline.items() if k != "composition"}
+                await session.commit()
+            assert not (await compare())["update_allowed"]
+            async with admin_session_factory() as session:
+                await session.execute(
+                    update(RepositoryCopyLinkEntity)
+                    .where(RepositoryCopyLinkEntity.entity_id == uuid.UUID(local))
+                    .values(manuscript_baseline=baseline)
+                )
+                await session.commit()
+            # Changing the source placement invalidates a review too, including released reads.
+            async with admin_session_factory() as session:
+                await session.execute(
+                    update(ManuscriptPlacement)
+                    .where(ManuscriptPlacement.child_entity_id == uuid.UUID(chapter))
+                    .values(position=position + 1)
+                )
+                await session.commit()
+            if public:
+                assert (await owner.put(source + "/published")).status_code == 200
+            assert (await accept(review)).status_code == 412
+            assert not (await compare())["update_allowed"]
+            async with admin_session_factory() as session:
+                await session.execute(
+                    update(ManuscriptPlacement)
+                    .where(ManuscriptPlacement.child_entity_id == uuid.UUID(chapter))
+                    .values(position=position)
+                )
+                await session.commit()
+            if public:
+                assert (await owner.put(source + "/published")).status_code == 200
         await change(local_info, "Local change")
         assert (await accept(review)).status_code == 412
         conflict = await compare()
@@ -152,6 +243,12 @@ async def test_explicit_choices_and_stale_review(
         accepted = await accept(view)
         assert accepted.status_code == 204, accepted.text
         after = await compare()
+        if placed:
+            reading = await owner.get(base + f"/writing/entries/{local}")
+            assert reading.status_code == 200, reading.text
+            assert reading.json()["parent_id"] == local_edition
+            outline = (await owner.get(base + f"/writing/entries/{local_edition}")).json()
+            assert local in json.dumps(outline)
         assert after["state"] == "unchanged"
         assert after["local"] == view["upstream"]
         assert [p["id"] for p in after["local"]["payloads"]] == [
@@ -199,3 +296,27 @@ async def test_explicit_choices_and_stale_review(
         if target:
             await delete_tenant(target)
         await world.clean_up()
+
+
+def test_placed_context_remaps_anchors_and_refuses_dependencies():
+    chapter, edition, book, anchor, other = [uuid.uuid4() for _ in range(5)]
+    c = Content(tenant_id=uuid.uuid4())
+    c.kinds = {chapter: {"chapter"}, edition: {"edition"}, book: {"book"}}
+    c.editions[edition] = book
+    c.manuscript_placements[chapter] = {"parent": edition, "before": anchor, "position": 2}
+    original = chapter_contexts(c)[chapter]
+    mapped = chapter_contexts(c, {str(v): str(v) for v in (edition, book, anchor)})[chapter]
+    assert mapped == original
+    assert chapter_contexts(c, {})[chapter] != original
+    for entry in (chapter, edition, book):
+        c.carrier_coverage[other] = {"carrier": other, "entry": entry}
+        assert chapter_contexts(c) == {}
+        c.carrier_coverage.clear()
+        c.manuscript_redirects[other] = {"destination": entry, "child": None}
+        assert chapter_contexts(c) == {}
+        c.manuscript_redirects.clear()
+    c.manuscript_placements[other] = {"parent": chapter, "before": None, "position": 0}
+    assert chapter_contexts(c) == {}
+    c.manuscript_placements.clear()
+    c.manuscript_placements[chapter] = {"parent": other, "before": None, "position": 0}
+    assert chapter_contexts(c) == {}
