@@ -20,4 +20,5 @@ ADR 0410 decides what the web shell is: two header tiers, a state strip, a statu
 
 - The package gains `astro`, `jsdom` and `@types/jsdom` as development dependencies, and a `vitest.config.ts` that uses Astro's Vite config.
 - Until the last app has moved, the package carries two headers.
-- The palette, the keyboard model and the account menu (ADR 0414) and the toasts, Undo and dialog helpers (ADR 0415) follow in the next UI-B parts.
+- The palette and the keyboard model (ADR 0414) follow in the next UI-B part, and the account menu, toasts, Undo and the dialog and menu helpers (ADR 0415, ADR 0416) after it.
+- **The palette:** the shell lists the apps, its own actions and an app's declared commands; entries across apps come from a function the app gives it, since the shell has no search of its own. Its keys are a pure keymap with the single-key shortcuts behind a switch kept in this browser.

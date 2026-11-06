@@ -65,6 +65,14 @@ shell?.strip({ kind: 'conflict', text: 'Two edits met.', action: { label: 'Revie
 shell?.notifications({ count: 3, href: hubUrl + '/notifications/' }); // the bell exists only when an app supplies this
 ```
 
+### The palette and the keys
+
+`shell.palette({ commands, entries, navigate })` ([ADR 0414](../../docs/adr/0414-the-palette-and-the-keyboard-model.md)) mounts one palette and the keys; without the call there are none, and the palette buttons in the header stay hidden.
+
+- **What it lists:** the apps by job from `apps(registry)` ("Go to", with their `G` chords), the shell's own actions (Home, Change theme, Switch library…, Show keyboard shortcuts) and the app's `commands`, which have the shape of [`palette-command.schema.json`](../../apps/brand/palette-command.schema.json) plus a `run`. **Entries across apps** come from the app's `entries(query)`: the shell does not know how to search; a late answer to an older query is ignored. Scopes (Everything, Entries, Apps, Actions) narrow with Tab; the last three opened are remembered in this browser.
+- **Keys:** Ctrl or Cmd K opens it (also in a field); `?` lists the shortcuts; `G` then H, S, B, I, C, M, W, O, R, A goes to Home or an app, L focuses the library switcher and T changes the theme. A key typed into a field is the field's. The single keys can be switched off in the `?` list (WCAG 2.1.4); the Ctrl and Cmd ones stay.
+- **Pure parts:** `search`, `matchRanges`, `nextScope`, `moveSelection` (`palette.ts`) and `createKeymap` (`keys.ts`) need no page and are tested without one; the dialog is `palette-ui.ts`.
+
 `openDialog`, `closeDialog` and `fadeOnDismiss` (`dialog.ts`) are the one place the dialog closing fade lives: a dialog sets `data-closing`, waits for `animationend`, then closes, and a reopen in the middle wins. The styles are the brand's ([apps/brand](../../apps/brand/README.md#the-web-interface-parts)).
 
 ## Tests

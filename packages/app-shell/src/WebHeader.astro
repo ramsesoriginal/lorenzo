@@ -16,7 +16,7 @@ const { product, brandingUrl, nav = [] } = Astro.props;
 const icons = `${brandingUrl}/icons.svg`;
 ---
 
-<header class="shell-header" data-site-header data-shell>
+<header class="shell-header" data-site-header data-shell data-sprite={icons}>
   <div class="shell-bar">
     <a class="brand brand--compact" href="/" aria-label={`Lorenzo ${product}, home`}>
       <img
@@ -42,6 +42,24 @@ const icons = `${brandingUrl}/icons.svg`;
       <select class="text-input" aria-label="Library or repository" data-library-select></select>
     </div>
     <span class="grow"></span>
+    <button type="button" class="shell-field-btn palette-btn" data-shell-open-palette hidden>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${icons}#icon-search`}></use>
+      </svg>
+      <span>Search or go anywhere</span>
+      <kbd data-shell-palette-keys>Ctrl K</kbd>
+    </button>
+    <button
+      type="button"
+      class="icon-button only-phone"
+      aria-label="Search or go anywhere"
+      data-shell-open-palette
+      hidden
+    >
+      <svg class="icon" aria-hidden="true">
+        <use href={`${icons}#icon-search`}></use>
+      </svg>
+    </button>
     <a class="icon-button" data-shell-bell hidden>
       <svg class="icon" aria-hidden="true">
         <use href={`${icons}#icon-notifications`}></use>

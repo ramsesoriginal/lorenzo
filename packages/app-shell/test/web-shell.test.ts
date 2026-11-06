@@ -38,11 +38,14 @@ function mount(html: string, path = '/'): Shell {
   const { window } = dom;
 
   // jsdom has no dialog methods or media queries.
-  const dialog = window.document.querySelector('dialog');
-  if (dialog) {
-    dialog.showModal = () => dialog.setAttribute('open', '');
-    dialog.close = () => dialog.removeAttribute('open');
-  }
+  const proto = window.HTMLDialogElement.prototype;
+
+  proto.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  proto.close = function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  };
   window.matchMedia = (() => ({ matches: false, addEventListener() {} })) as never;
   vi.stubGlobal('window', window);
   vi.stubGlobal('document', window.document);
@@ -264,5 +267,184 @@ describe('the notifications bell', () => {
     expect(bell.querySelector('[data-shell-bell-count]')?.textContent).toBe('3');
     shell.notifications(null);
     expect(bell.hidden).toBe(true);
+  });
+});
+
+describe('the palette and the keys', () => {
+  const registry = {
+    apps: {
+      sessions: { url: 'https://sessions.example/' },
+      beings: { url: 'https://beings.example/' },
+    },
+  };
+
+  function press(key: string, init: KeyboardEventInit = {}, target: EventTarget = document) {
+    const event = new dom.window.KeyboardEvent('keydown', {
+      key,
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+
+    target.dispatchEvent(event);
+
+    return event;
+  }
+
+  async function open() {
+    const shell = mount(await render('web'));
+    const assign = vi.fn();
+    const run = vi.fn();
+
+    shell.apps(registry);
+    shell.palette({
+      navigate: assign,
+      commands: [{ id: 'beings.new', name: 'New being…', icon: 'add', keys: 'N', run }],
+    });
+
+    return { shell, assign, run };
+  }
+
+  it('does nothing until an app asks for it, and the buttons stay hidden', async () => {
+    mount(await render('web'));
+
+    expect(press('k', { ctrlKey: true }).defaultPrevented).toBe(false);
+    expect((document.querySelector('[data-shell-open-palette]') as HTMLElement).hidden).toBe(true);
+    expect(document.querySelector('dialog.palette')).toBeNull();
+  });
+
+  it('shows the buttons once an app asks, and Ctrl K opens a palette with the apps and the commands', async () => {
+    await open();
+
+    for (const button of document.querySelectorAll<HTMLElement>('[data-shell-open-palette]')) {
+      expect(button.hidden).toBe(false);
+    }
+    expect(press('k', { ctrlKey: true }).defaultPrevented).toBe(true);
+
+    const palette = document.querySelector('dialog.palette') as HTMLDialogElement;
+
+    expect(palette.hasAttribute('open')).toBe(true);
+    const rows = [...palette.querySelectorAll('.p-opt')].map(
+      (r) => r.querySelector('.grow')?.textContent,
+    );
+
+    expect(rows).toEqual(
+      expect.arrayContaining(['Home', 'Sessions', 'Beings', 'Change theme', 'New being…']),
+    );
+    expect(palette.querySelector('.p-opt[aria-selected="true"]')).not.toBeNull();
+  });
+
+  it('types to find, arrows to move, Enter to run, and remembers it', async () => {
+    const { run } = await open();
+
+    press('k', { ctrlKey: true });
+    const palette = document.querySelector('dialog.palette') as HTMLDialogElement;
+    const input = palette.querySelector('input') as HTMLInputElement;
+
+    input.value = 'new';
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    expect([...palette.querySelectorAll('.p-opt .grow')].map((n) => n.textContent)).toEqual([
+      'New being…',
+    ]);
+    expect(palette.querySelector('mark')?.textContent).toBe('New');
+
+    press('Enter', {}, palette);
+    expect(run).toHaveBeenCalledOnce();
+    expect(JSON.parse(window.localStorage.getItem('lorenzo:palette-recent') ?? '[]')).toEqual([
+      'beings.new',
+    ]);
+  });
+
+  it('Tab narrows to a scope, and a click on a row runs it', async () => {
+    const { assign } = await open();
+
+    press('k', { ctrlKey: true });
+    const palette = document.querySelector('dialog.palette') as HTMLDialogElement;
+
+    press('Tab', {}, palette); // Entries: nothing to show without a query
+    expect(palette.querySelector('.p-tabs [aria-selected="true"]')?.textContent).toBe('Entries');
+    press('Tab', {}, palette); // Apps
+    expect([...palette.querySelectorAll('.p-opt .grow')].map((n) => n.textContent)).toEqual([
+      'Home',
+      'Sessions',
+      'Beings',
+    ]);
+
+    (palette.querySelectorAll('.p-opt')[1] as HTMLElement).click();
+    expect(assign).toHaveBeenCalledWith('https://sessions.example/');
+  });
+
+  it('asks an app for entries as the person types, and ignores a late answer to an older query', async () => {
+    const shell = mount(await render('web'));
+    let resolveFirst: (items: never[]) => void = () => {};
+    const entries = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((resolve) => (resolveFirst = resolve)))
+      .mockResolvedValueOnce([
+        {
+          id: 'entry:mara',
+          group: 'Entries',
+          name: 'Mara Quill',
+          kind: 'Character',
+          app: 'Beings',
+          run: () => {},
+        },
+      ]);
+
+    shell.palette({ entries });
+    press('k', { ctrlKey: true });
+    const input = document.querySelector('dialog.palette input') as HTMLInputElement;
+    const type = (value: string) => {
+      input.value = value;
+      input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    };
+
+    type('m');
+    type('mara');
+    await vi.advanceTimersByTimeAsync(0);
+    resolveFirst([]);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(entries).toHaveBeenCalledTimes(2);
+    expect([...document.querySelectorAll('.p-opt .grow')].map((n) => n.textContent)).toEqual([
+      'Mara Quill',
+    ]);
+  });
+
+  it('G then S goes to Sessions; a key in a field is left alone; the switch turns the single keys off', async () => {
+    const { assign } = await open();
+
+    press('g');
+    press('s');
+    expect(assign).toHaveBeenCalledWith('https://sessions.example/');
+
+    assign.mockClear();
+    const field = document.createElement('input');
+
+    document.body.append(field);
+    press('g', {}, field);
+    press('s', {}, field);
+    expect(assign).not.toHaveBeenCalled();
+
+    press('?');
+    const dialogs = [...document.querySelectorAll('dialog')];
+    const shortcuts = dialogs.find(
+      (d) => d.getAttribute('aria-labelledby') === 'shell-shortcuts-title',
+    ) as HTMLDialogElement;
+
+    expect(shortcuts.hasAttribute('open')).toBe(true);
+    expect(shortcuts.textContent).toContain('Go to Sessions');
+    expect(shortcuts.textContent).toContain('Change the theme');
+    expect(shortcuts.textContent).not.toContain('Go to Calendars'); // not deployed
+
+    const toggle = shortcuts.querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+    toggle.checked = false;
+    toggle.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    press('g');
+    press('s');
+    expect(assign).not.toHaveBeenCalled();
+    // Ctrl K still works with them off.
+    expect(press('k', { ctrlKey: true }).defaultPrevented).toBe(true);
   });
 });

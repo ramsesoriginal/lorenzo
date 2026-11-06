@@ -1,6 +1,11 @@
-import { type AppRegistry, appsByJob } from './apps';
+import { APP_INFO, type AppRegistry, appsByJob } from './apps';
 import { closeDialog, fadeOnDismiss, openDialog } from './dialog';
+import { createKeymap, GO_KEYS, goChord, type KeyInput } from './keys';
+import type { PaletteItem } from './palette';
+import { mountPalette, type PaletteUi, type PaletteUiOptions } from './palette-ui';
 import { clockText, isCurrentPage, navHref } from './pure';
+import { readSingleKeys, writeSingleKeys } from './settings';
+import { mountShortcuts } from './shortcuts-ui';
 import { bindThemeToggle } from './theme';
 
 export type AccountState =
@@ -19,6 +24,27 @@ export type ShellOptions = {
 };
 
 export type StatusTone = 'info' | 'error';
+
+/** An action an app puts in the palette. It is the shape of palette-command.schema.json, plus what it does. */
+export type PaletteCommand = {
+  /** Stable and prefixed by the app: "beings.new". */
+  id: string;
+  /** Sentence case; an ellipsis when it opens a dialog. */
+  name: string;
+  icon?: string;
+  keys?: string;
+  keywords?: string[];
+  danger?: boolean;
+  run(): void;
+};
+
+export type PaletteOptions = {
+  commands?: PaletteCommand[];
+  /** Entries across apps for a query; the palette has none without it. */
+  entries?: PaletteUiOptions['entries'];
+  /** How to go to an address; the page's own navigation unless an app (or a test) says otherwise. */
+  navigate?(url: string): void;
+};
 
 /** What the status bar says about the page's data (ADR 0410, D18). */
 export type SyncState = 'synced' | 'waiting' | 'offline' | 'conflict';
@@ -77,6 +103,8 @@ export type Shell = {
   apps(registry: AppRegistry): void;
   /** The notifications bell, shown only when an app has somewhere to send it. */
   notifications(info: { count: number; href: string } | null): void;
+  /** The palette, Ctrl or Cmd K, and the keys (`?`, G then a letter). Without this call there are none. */
+  palette(options?: PaletteOptions): void;
 };
 
 function find<T extends HTMLElement>(root: ParentNode, selector: string): T | null {
@@ -92,6 +120,13 @@ function setIcon(use: Element | null, icon: string) {
   const href = use?.getAttribute('href');
 
   if (use && href) use.setAttribute('href', `${href.split('#')[0]}#icon-${icon}`);
+}
+
+/** Whether a key was typed into something that takes text, which then keeps it. */
+function isTyping(target: EventTarget | null): boolean {
+  if (!(target instanceof window.HTMLElement)) return false;
+
+  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
 function sameOrigin(url: string): boolean {
@@ -158,6 +193,9 @@ export function bindShell(options: ShellOptions): Shell | null {
       if ((event.target as HTMLElement).closest('a')) closeDialog(sheet);
     });
   }
+
+  let registry: AppRegistry | null = null;
+  let palette: PaletteUi | null = null;
 
   const clock = find<HTMLTimeElement>(document, '[data-shell-clock]');
 
@@ -282,13 +320,14 @@ export function bindShell(options: ShellOptions): Shell | null {
       }
     },
 
-    apps(registry) {
+    apps(next) {
+      registry = next;
       const host = find<HTMLElement>(document, '[data-shell-apps]');
 
       if (!host) return;
 
       host.replaceChildren(
-        ...appsByJob(registry).map((job) => {
+        ...appsByJob(next).map((job) => {
           const column = document.createElement('div');
           const label = document.createElement('div');
 
@@ -313,6 +352,169 @@ export function bindShell(options: ShellOptions): Shell | null {
           return column;
         }),
       );
+    },
+
+    palette(options = {}) {
+      if (!web || palette) return;
+
+      const sprite = root.dataset.sprite ?? '';
+      const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+      const paletteKeys = mac ? '⌘ K' : 'Ctrl K';
+      const navigate = options.navigate ?? ((url: string) => window.location.assign(url));
+      const go = (target: string) => {
+        if (target === 'home') navigate('/');
+        else if (target === 'theme') find<HTMLButtonElement>(root, '[data-theme-toggle]')?.click();
+        else if (target === 'library') {
+          const select = find<HTMLSelectElement>(root, '[data-library-select]');
+
+          if (select && !select.closest<HTMLElement>('[data-library-switcher]')?.hidden)
+            select.focus();
+        } else {
+          const url = registry?.apps[target]?.url;
+
+          if (url) navigate(url);
+        }
+      };
+
+      // The chord a place has, if it has one: no key is no hint.
+      const keysOf = (target: string) => {
+        const keys = goChord(target);
+
+        return keys ? { keys } : {};
+      };
+
+      const items = (): PaletteItem[] => {
+        const found: PaletteItem[] = [
+          {
+            id: 'shell.home',
+            group: 'Go to',
+            name: 'Home',
+            kind: 'This app',
+            icon: 'library',
+            ...keysOf('home'),
+            run: () => go('home'),
+          },
+          {
+            id: 'shell.theme',
+            group: 'Actions',
+            name: 'Change theme',
+            icon: 'theme-system',
+            ...keysOf('theme'),
+            run: () => go('theme'),
+          },
+          {
+            id: 'shell.shortcuts',
+            group: 'Actions',
+            name: 'Show keyboard shortcuts',
+            icon: 'command',
+            keys: '?',
+            run: () => shortcuts.open(),
+          },
+        ];
+
+        if (!find<HTMLElement>(root, '[data-library-switcher]')?.hidden) {
+          found.push({
+            id: 'shell.library',
+            group: 'Actions',
+            name: 'Switch library…',
+            icon: 'library',
+            ...keysOf('library'),
+            run: () => go('library'),
+          });
+        }
+
+        for (const job of registry ? appsByJob(registry) : []) {
+          for (const app of job.apps) {
+            found.push({
+              id: `app:${app.id}`,
+              group: 'Go to',
+              name: app.name,
+              kind: 'Open the app',
+              icon: app.icon,
+              ...keysOf(app.id),
+              preview: { title: app.name, subtitle: 'Open the app', blurb: app.description },
+              run: () => go(app.id),
+            });
+          }
+        }
+
+        for (const command of options.commands ?? []) {
+          found.push({
+            id: command.id,
+            group: 'Actions',
+            name: command.name,
+            ...(command.icon ? { icon: command.icon } : {}),
+            ...(command.keys ? { keys: command.keys } : {}),
+            ...(command.keywords ? { keywords: command.keywords } : {}),
+            ...(command.danger ? { danger: true } : {}),
+            run: command.run,
+          });
+        }
+
+        // An empty hint is no hint.
+        return found.map((item) =>
+          item.keys === '' ? { ...item, keys: undefined as never } : item,
+        );
+      };
+
+      palette = mountPalette({
+        items,
+        sprite,
+        recentKey: 'lorenzo:palette-recent',
+        ...(options.entries ? { entries: options.entries } : {}),
+      });
+
+      const shortcuts = mountShortcuts({
+        paletteKeys,
+        singleKeys: readSingleKeys,
+        setSingleKeys: writeSingleKeys,
+        places: () =>
+          Object.entries(GO_KEYS).flatMap(([letter, target]) => {
+            const name =
+              target === 'home'
+                ? 'Go to Home'
+                : target === 'library'
+                  ? 'Open the library switcher'
+                  : target === 'theme'
+                    ? 'Change the theme'
+                    : APP_INFO[target as keyof typeof APP_INFO]
+                      ? `Go to ${APP_INFO[target as keyof typeof APP_INFO].name}`
+                      : '';
+            const here = target in APP_INFO ? registry?.apps[target]?.url : true;
+
+            return name && here ? [{ chord: `G ${letter.toUpperCase()}`, name }] : [];
+          }),
+      });
+
+      const keymap = createKeymap({
+        singleKeys: readSingleKeys,
+        onGo: go,
+        onHelp: () => shortcuts.open(),
+        onPalette: () => (palette?.isOpen() ? palette.close() : palette?.open()),
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.defaultPrevented) return;
+
+        const input: KeyInput = {
+          key: event.key,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+          typing: isTyping(event.target),
+        };
+
+        if (keymap.handle(input)) event.preventDefault();
+      });
+
+      for (const opener of document.querySelectorAll<HTMLElement>('[data-shell-open-palette]')) {
+        opener.hidden = false;
+        opener.addEventListener('click', () => palette?.open());
+        const hint = find<HTMLElement>(opener, '[data-shell-palette-keys]');
+
+        if (hint) hint.textContent = paletteKeys;
+      }
     },
 
     notifications(info) {
