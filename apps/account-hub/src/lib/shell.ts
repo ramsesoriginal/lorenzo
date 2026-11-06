@@ -94,6 +94,11 @@ function watchUnread(shell: Shell): void {
   if (document.visibilityState === 'visible') start();
 }
 
+// The registry is public and needs no Referer: a page whose address holds a live link or code (/join,
+// /device, ADR 0171) must not send one with anything it asks of the API.
+const withoutReferrer: typeof fetch = (input, init) =>
+  fetch(input, { ...init, referrerPolicy: 'no-referrer' });
+
 /** Starts the frame. The page's own script does the page; this does who is signed in and where to go. */
 export async function startShell(): Promise<void> {
   const shell = bindShell({
@@ -107,7 +112,7 @@ export async function startShell(): Promise<void> {
   // The hub is where the account menu's pages are.
   shell.accountLink(`${window.location.origin}/`);
   shell.palette();
-  void getAppLinks(API_BASE_URL)
+  void getAppLinks(API_BASE_URL, withoutReferrer)
     .then((registry) => shell.apps(registry))
     .catch(() => {});
 

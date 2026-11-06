@@ -287,7 +287,7 @@ test('copying again: replace it, and what that would also remove is said first',
 
   // The repository's page offers it under "More", not as the main thing to do.
   await page.goto(`/repositories/?tenant=${library.slug}&repository=${repository.id}`);
-  await page.getByText('More', { exact: true }).click();
+  await page.locator('#content').getByText('More', { exact: true }).click();
   await page.getByRole('link', { name: /Copy again/ }).click();
   await expect(page).toHaveURL(/copy=again/);
   await expect(page.getByRole('heading', { name: `Copy ${repository.name} again` })).toBeVisible();
