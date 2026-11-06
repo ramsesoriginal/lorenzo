@@ -2268,3 +2268,409 @@ dialog.palette:not([open]) {
 .toast-card .toast-action {
   align-self: center;
 }
+
+/* ---------------------------------------------------------------------------------------
+   Graph and matrix grammar (identity.md section 18, docs/design/web/social, ADR 0424). One small
+   vocabulary for direct, derived, unknown, selected and restricted, shared by the graph, the
+   matrix, the list and the timeline: a number, a quiet bar, a mark and a word, never colour
+   alone, and a selection that is a fill and never a new shape.
+   --------------------------------------------------------------------------------------- */
+
+/* A standing: a number, a quiet bar, and a mark and a word saying how it is known. */
+.standing {
+  display: inline-grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px var(--space-2);
+  min-width: 4.8rem;
+}
+
+.standing-num {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.standing-bar {
+  height: 6px;
+  min-width: 2.4rem;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+
+.standing-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--text-secondary);
+}
+
+/* Below zero is hatched, so it reads without colour. */
+.standing-bar > i.neg {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--text-secondary) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.standing-mark {
+  grid-column: 1 / -1;
+  font-size: var(--fs-micro);
+  color: var(--text-secondary);
+}
+
+.standing[data-state="derived"] .standing-bar {
+  outline: 1px dashed var(--text-secondary);
+  outline-offset: 1px;
+}
+
+.standing[data-state="inherited"] .standing-bar {
+  outline: 1px solid var(--border-control);
+  outline-offset: 1px;
+}
+
+.standing[data-state="unknown"] .standing-num {
+  font-style: italic;
+}
+
+.standing[data-state="unknown"] .standing-bar {
+  outline: 1px dotted var(--text-secondary);
+  outline-offset: 1px;
+  background: transparent;
+}
+
+.standing[data-state="none"] .standing-num {
+  color: var(--text-tertiary);
+}
+
+/* Graph: solid is direct, dashed is derived or through, dotted is unknown; an arrowhead is
+   direction; a selection is a fill and a heavier line, never a new shape. */
+.graph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--text-secondary);
+  touch-action: none;
+}
+
+.graph:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: -2px;
+}
+
+/* A label is outside whatever takes focus, and has a halo so it reads over a line. */
+.graph text {
+  fill: var(--text-primary);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--surface-muted);
+  stroke-width: 3px;
+}
+
+.graph-edge path:not(.hit) {
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+}
+
+.graph-edge .hit {
+  stroke: transparent;
+  stroke-width: 16;
+  fill: none;
+}
+
+.graph-edge[data-kind="derived"] path:not(.hit),
+.graph-edge[data-kind="through"] path:not(.hit) {
+  stroke-dasharray: 6 4;
+}
+
+.graph-edge[data-kind="unknown"] path:not(.hit) {
+  stroke-dasharray: 1.5 4;
+  stroke-linecap: round;
+}
+
+.graph-edge[aria-selected="true"] path:not(.hit) {
+  stroke: var(--action);
+  stroke-width: 3.5;
+  color: var(--action);
+}
+
+.graph-edge:focus-visible .hit {
+  stroke: var(--action);
+  stroke-opacity: 0.35;
+}
+
+.graph-node circle {
+  fill: var(--surface-default);
+  stroke: var(--text-primary);
+  stroke-width: 2;
+}
+
+.graph-node[aria-selected="true"] circle {
+  fill: var(--surface-selected);
+  stroke: var(--action);
+  stroke-width: 3;
+}
+
+.graph-node[data-state="pending"] circle {
+  stroke: var(--action);
+  stroke-dasharray: 4 3;
+  stroke-width: 3;
+}
+
+.graph-node:focus-visible circle {
+  stroke: var(--action);
+  stroke-width: 4;
+}
+
+.graph-edge,
+.graph-node {
+  cursor: pointer;
+  outline: none;
+  transition: opacity var(--dur-med) var(--ease);
+}
+
+/* Focus mode: everything but the selection and its neighbours steps back. */
+.graph-edge.dim,
+.graph-node.dim {
+  opacity: 0.2;
+}
+
+/* A lens line: says what a date lens or "as read by" switch has on, and clears it. */
+.lens-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--action);
+  border-radius: var(--radius-card);
+}
+
+.lens-line .btn {
+  min-height: var(--target-min);
+}
+
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  font-size: var(--fs-meta);
+  color: var(--text-secondary);
+}
+
+.graph-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The matrix: the same facts as the graph, in a grid that edits where the cell is. */
+.matrix {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.matrix th {
+  position: sticky;
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-default);
+  font-weight: 500;
+  text-align: start;
+}
+
+.matrix thead th {
+  top: 0;
+  z-index: 2;
+  max-width: 7rem;
+  vertical-align: bottom;
+}
+
+.matrix tbody th {
+  left: 0;
+  z-index: 1;
+  border-inline-end: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.matrix .corner {
+  left: 0;
+  z-index: 3;
+}
+
+.matrix td {
+  min-width: 7rem;
+  height: 56px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-width: 0 1px 1px 0;
+  vertical-align: middle;
+}
+
+.matrix td.diag {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--border-subtle) 0 2px,
+    transparent 2px 6px
+  );
+}
+
+.matrix td[data-cell] {
+  cursor: text;
+}
+
+.matrix td[data-cell]:focus-visible {
+  outline: 3px solid var(--action);
+  outline-offset: -3px;
+  background: var(--surface-selected);
+}
+
+.matrix td[aria-selected="true"] {
+  background: var(--surface-selected);
+}
+
+.matrix td[data-state="conflict"] {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -3px;
+}
+
+.matrix td[data-state="derived"] {
+  outline: 1px dashed var(--text-secondary);
+  outline-offset: -3px;
+}
+
+.matrix td[data-state="unknown"] {
+  outline: 1px dotted var(--text-secondary);
+  outline-offset: -3px;
+}
+
+.matrix td[data-state="draft"] {
+  background: color-mix(in srgb, var(--action) 8%, transparent);
+  box-shadow: inset 3px 0 0 var(--action);
+}
+
+.matrix td[data-state="refused"] {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.matrix td.editing {
+  padding: 2px;
+}
+
+.matrix td.editing .text-input {
+  min-width: 0;
+}
+
+/* A time filter: a strip of the calendar's own spans and marks with a range chosen by two
+   handles (Sessions, Calendars, Social). It draws; the page owns the range. */
+.time-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.time-filter-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2h);
+}
+
+.time-filter-out {
+  font-weight: 500;
+}
+
+.time-filter-strip {
+  position: relative;
+  height: 56px;
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.time-filter-segs {
+  display: flex;
+  gap: 2px;
+  height: 22px;
+}
+
+.time-filter-seg {
+  padding: 3px 5px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+}
+
+.time-filter-seg[data-mark="festival"] {
+  background: var(--surface-selected);
+}
+
+.time-filter-marks {
+  position: absolute;
+  inset: 26px 0 auto;
+  height: 16px;
+}
+
+.time-filter-marks > i {
+  position: absolute;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--action);
+  opacity: 0.7;
+}
+
+.time-filter-range {
+  position: absolute;
+  top: 0;
+  height: 44px;
+  background: color-mix(in srgb, var(--action) 14%, transparent);
+  border-inline: 2px solid var(--action);
+  pointer-events: none;
+}
+
+.time-filter-handle {
+  position: absolute;
+  top: 14px;
+  width: 20px;
+  height: 32px;
+  margin-left: -10px;
+  border: 2px solid var(--surface-default);
+  border-radius: 6px;
+  background: var(--action);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--brand-ink) 25%, transparent);
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.time-filter-handle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .time-filter-strip {
+    height: 60px;
+  }
+
+  .time-filter-handle {
+    top: 6px;
+    width: 44px;
+    height: 44px;
+    margin-left: -22px;
+  }
+}
