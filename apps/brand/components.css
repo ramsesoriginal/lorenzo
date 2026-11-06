@@ -2005,7 +2005,8 @@ fieldset:disabled {
 /* Phone tab bar: the app's links at the bottom, clear of the safe area. */
 .shell-tabbar {
   display: none;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-canvas);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -2275,8 +2276,12 @@ dialog.palette:not([open]) {
     display: none;
   }
 
-  .shell-drawer {
-    display: none;
+  .shell-drawer .cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell-drawer .apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2785,4 +2790,34 @@ dialog.palette:not([open]) {
     height: 44px;
     margin-left: -22px;
   }
+}
+
+/* The sheet that "Apps and about" (the status bar) and "More" (the phone's tab bar) open: the apps by
+   job, the legal links and the version. A bottom sheet at every width; above the phone it is as wide
+   as the window and as tall as its content. */
+dialog.shell-sheet {
+  position: fixed;
+  inset: auto 0 0 0;
+  width: 100%;
+  max-width: none;
+  max-height: 80dvh;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  border-width: 1px 0 0;
+  border-radius: var(--radius-surface) var(--radius-surface) 0 0;
+}
+
+dialog.shell-sheet .shell-drawer {
+  border-top: 0;
+  background: transparent;
+}
+
+dialog.shell-sheet .sheet-grip {
+  display: block;
+  margin-top: var(--space-3);
+}
+
+.shell-drawer a.l[aria-current="page"] {
+  font-weight: 600;
 }

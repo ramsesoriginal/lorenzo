@@ -9,11 +9,24 @@ import { fileURLToPath } from "node:url";
 
 const brand = join(dirname(fileURLToPath(import.meta.url)), "..");
 const apps = join(brand, "..");
-const { classes, allowed } = JSON.parse(readFileSync(join(brand, "web-classes.json"), "utf8"));
+const { classes, allowed } = JSON.parse(
+  readFileSync(join(brand, "web-classes.json"), "utf8"),
+);
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
-    if (["node_modules", "dist", ".astro", "test-results", "build"].includes(name)) continue;
+    // `branding` is the copy of this very package that an app's build makes (public/branding).
+    if (
+      [
+        "node_modules",
+        "dist",
+        ".astro",
+        "test-results",
+        "build",
+        "branding",
+      ].includes(name)
+    )
+      continue;
     const p = join(dir, name);
     const st = statSync(p);
     if (st.isDirectory()) walk(p, out);
@@ -35,7 +48,11 @@ test("every listed class is defined by the brand", () => {
     for (const c of classesIn(readFileSync(join(brand, f), "utf8"))) own.add(c);
   }
   const missing = classes.filter((c) => !own.has(c));
-  assert.deepEqual(missing, [], `listed but not defined in apps/brand: ${missing.join(", ")}`);
+  assert.deepEqual(
+    missing,
+    [],
+    `listed but not defined in apps/brand: ${missing.join(", ")}`,
+  );
 });
 
 test("no other app defines a class the web design added to the brand", () => {
@@ -46,8 +63,14 @@ test("no other app defines a class the web design added to the brand", () => {
     if (!statSync(dir).isDirectory() || !existsSync(dir)) continue;
     for (const file of walk(dir)) {
       const defined = classesIn(readFileSync(file, "utf8"));
-      for (const c of classes) if (defined.has(c)) clashes.push(`${file.slice(apps.length + 1)}: .${c}`);
+      for (const c of classes)
+        if (defined.has(c))
+          clashes.push(`${file.slice(apps.length + 1)}: .${c}`);
     }
   }
-  assert.deepEqual(clashes, [], `defined in another app too:\n${clashes.join("\n")}`);
+  assert.deepEqual(
+    clashes,
+    [],
+    `defined in another app too:\n${clashes.join("\n")}`,
+  );
 });
