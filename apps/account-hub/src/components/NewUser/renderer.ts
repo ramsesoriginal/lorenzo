@@ -2,12 +2,35 @@
 // or join one by an invite link or just its code, which goes on to /join as a link someone
 // opened would.
 
+import { showsDiscover } from '../../lib/discover';
+import { getFacets } from '../../lib/discoverApi';
 import { pastedInvite } from '../../lib/inviteLink';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants } from '../../lib/tenantKind';
 import type { MeOut } from '../../lib/types';
 
 const required = requiredIn('New user');
+
+// The mascot: the illustrators' image, then the earlier one, then a placeholder with the words (the
+// meaning is in the words either way).
+function showArt(root: HTMLElement): void {
+  const art = required<HTMLElement>(root, '[data-art]');
+  const image = required<HTMLImageElement>(art, '[data-art-image]');
+  const fallback = image.dataset.artFallback ?? '';
+  let triedFallback = false;
+
+  image.addEventListener('error', () => {
+    if (!triedFallback && fallback) {
+      triedFallback = true;
+      image.src = fallback;
+
+      return;
+    }
+    art.dataset.missing = '';
+    art.replaceChildren(document.createTextNode(image.alt));
+  });
+  image.src = image.dataset.artSrc ?? fallback;
+}
 
 // `root` is the <NewUser /> block; it shows itself.
 export function renderNewUser(root: HTMLElement, me: MeOut): void {
@@ -19,6 +42,16 @@ export function renderNewUser(root: HTMLElement, me: MeOut): void {
   required<HTMLElement>(root, '[data-start-card]').hidden = !mayCreate;
   required<HTMLElement>(root, '[data-can-create]').hidden = !mayCreate;
   required<HTMLElement>(root, '[data-cannot-create]').hidden = mayCreate;
+
+  showArt(root);
+
+  // Browsing public repositories is offered only where they are on (ADR 0290).
+  void getFacets().then(
+    (facets) => {
+      required<HTMLElement>(root, '[data-browse]').hidden = !showsDiscover(facets);
+    },
+    () => {},
+  );
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
