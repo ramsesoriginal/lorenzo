@@ -138,9 +138,24 @@
 
 @media (max-width: 720px), (pointer: coarse) {
   .clash .field-row,
-  [data-again] .field-row {
+  [data-again] .field-row,
+  .inclusion .field-row,
+  [data-terms-card] .field-row {
     min-height: var(--target-min);
   }
+}
+
+/* How a repository carries one it is built on (RFC 0051 H1, ADR 0431): the choice is a fieldset in a
+   list item or a dialog, with the question as its legend and no frame of its own. */
+.inclusion {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.inclusion > legend {
+  padding: 0;
 }
 
 /* The release composer in the publish dialog (ADR 0209) and the "Make public" dialog (ADR 0290): its checkboxes are pressed, so each row is

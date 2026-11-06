@@ -20,6 +20,7 @@ import {
   reportHref,
 } from '../../lib/discover';
 import { getStorefront, listPublicDependencies, listPublicReleases } from '../../lib/discoverApi';
+import { includesLines } from '../../lib/inclusion';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { visitorSource } from '../../lib/previewApi';
 import { shelfHref } from '../../lib/shelf';
@@ -69,6 +70,8 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
   const facts = required<HTMLElement>(view, '[data-facts]');
   const description = required<HTMLElement>(view, '[data-description]');
   const licence = required<HTMLElement>(view, '[data-licence]');
+  const includesSection = required<HTMLElement>(view, '[data-includes-section]');
+  const includes = required<HTMLElement>(view, '[data-includes]');
   const creditsSection = required<HTMLElement>(view, '[data-credits-section]');
   const credits = required<HTMLElement>(view, '[data-credits]');
   const reportLine = required<HTMLElement>(view, '[data-report-line]');
@@ -293,6 +296,23 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
       licence.replaceChildren(
         licenceText.url ? externalLink(licenceText.url, licenceText.text) : licenceText.text,
       );
+
+      // What it includes of other repositories, with their licences as they were when it was released.
+      const included = includesLines(profile.includes);
+
+      includes.replaceChildren(
+        ...included.map((line) => {
+          const li = document.createElement('li');
+
+          li.append(
+            `Includes content from ${line.name}, `,
+            line.url ? externalLink(line.url, line.licence) : line.licence,
+          );
+
+          return li;
+        }),
+      );
+      includesSection.hidden = included.length === 0;
 
       credits.replaceChildren(
         ...profile.credits.map((credit) => {

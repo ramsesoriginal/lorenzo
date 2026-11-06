@@ -14,6 +14,7 @@ import type {
   CopyRequest,
   DeprecatedOut,
   FlipCheckOut,
+  InclusionOut,
   MadePrivateOut,
   MakePublicRequest,
   MemberProfileOut,
@@ -370,6 +371,23 @@ export async function makePrivate(
         path: { tenant_id: repositoryId },
         query: { acknowledge_revokes: acknowledgeRevokes },
       },
+    }),
+  );
+}
+
+// How this repository carries one it is built on when it releases (ADR 0431): `include` makes its
+// entries this repository's own in the release, `show` keeps it a repository of its own. An Owner's;
+// `include` is refused (`409 repository-not-includable`) unless the Owner may include it. The answer
+// says whether the next release is breaking for it.
+export async function setInclusion(
+  repositoryId: string,
+  sourceId: string,
+  inclusion: InclusionOut['inclusion'],
+): Promise<InclusionOut> {
+  return unwrap(
+    await client.PUT('/tenants/{tenant_id}/repositories/{repository_id}/inclusion', {
+      params: { path: { tenant_id: repositoryId, repository_id: sourceId } },
+      body: { inclusion },
     }),
   );
 }
