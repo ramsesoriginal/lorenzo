@@ -680,6 +680,15 @@ importers:
       '@lorenzo/graph-renderer':
         specifier: workspace:*
         version: link:../../packages/graph-renderer
+      '@lorenzo/information-editor':
+        specifier: workspace:*
+        version: link:../../packages/information-editor
+      '@lorenzo/lorenzoscript':
+        specifier: workspace:*
+        version: link:../../packages/lorenzoscript
+      '@lorenzo/lorenzoscript-editor':
+        specifier: workspace:*
+        version: link:../../packages/lorenzoscript-editor
       '@lorenzo/period-picker':
         specifier: workspace:*
         version: link:../../packages/period-picker

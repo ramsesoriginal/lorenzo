@@ -13,6 +13,8 @@ goes through [`apps/api`](../api); the app holds no durable private cache and no
   a direction, an optional type and an audience (restricted unless opened).
 - One relationship's page: the sentence that says it, what it is of, what it holds, and the changes a
   writer may make (swap the ends, one way or both, who may see it, delete).
+- Notes on a relationship and on a web, as on every entry: LorenzoScript text and pictures, each note
+  with its own audience.
 - A relationship is shown only with both ends visible to the reader; the API decides, the page only
   words what it is told.
 
