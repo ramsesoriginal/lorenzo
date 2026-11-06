@@ -99,6 +99,13 @@ function watchUnread(shell: Shell): void {
 const withoutReferrer: typeof fetch = (input, init) =>
   fetch(input, { ...init, referrerPolicy: 'no-referrer' });
 
+let started: Shell | null = null;
+
+/** The shell this page started, for a page that gives feedback (a toast, an Undo); null before it starts. */
+export function currentShell(): Shell | null {
+  return started;
+}
+
 /** Starts the frame. The page's own script does the page; this does who is signed in and where to go. */
 export async function startShell(): Promise<void> {
   const shell = bindShell({
@@ -109,6 +116,7 @@ export async function startShell(): Promise<void> {
 
   if (!shell) return;
 
+  started = shell;
   // The hub is where the account menu's pages are.
   shell.accountLink(`${window.location.origin}/`);
   shell.palette();
