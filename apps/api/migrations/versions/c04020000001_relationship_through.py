@@ -22,7 +22,9 @@ def upgrade() -> None:
         REFERENCES relationship(entity_id, tenant_id) ON DELETE CASCADE,
       CONSTRAINT relationship_through_via_fkey FOREIGN KEY (via_entity_id, tenant_id)
         REFERENCES relationship(entity_id, tenant_id) ON DELETE CASCADE)""")
-    op.execute("CREATE INDEX ix_relationship_through_via ON relationship_through(tenant_id, via_entity_id)")
+    op.execute(
+        "CREATE INDEX ix_relationship_through_via ON relationship_through(tenant_id, via_entity_id)"
+    )
     op.execute("CREATE INDEX ix_relationship_through_tenant_id ON relationship_through(tenant_id)")
     op.execute("ALTER TABLE relationship_through ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE relationship_through FORCE ROW LEVEL SECURITY")

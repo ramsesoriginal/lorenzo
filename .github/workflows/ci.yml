@@ -580,7 +580,9 @@ jobs:
       # Postgres in the background and a cached headless shell: see the inventory-web job.
       - name: Start Postgres
         run: |
-          nohup docker run -d --name postgres -p 5432:5432 \n            -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \n            postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
+          nohup docker run -d --name postgres -p 5432:5432 \
+            -e POSTGRES_USER=lorenzo -e POSTGRES_PASSWORD=lorenzo -e POSTGRES_DB=lorenzo \
+            postgres:17-alpine > "$RUNNER_TEMP/postgres-start.log" 2>&1 < /dev/null &
       - uses: actions/checkout@v7
       - uses: jdx/mise-action@v5
         with:
@@ -588,12 +590,14 @@ jobs:
       - run: npm install --global corepack@latest && corepack enable
       - name: Build the API's environment
         run: |
-          nohup sh -c 'uv sync --frozen --no-dev --project apps/api; echo $? > "$RUNNER_TEMP/api-env.status"' \n            > "$RUNNER_TEMP/api-env.log" 2>&1 < /dev/null &
+          nohup sh -c 'uv sync --frozen --no-dev --project apps/api; echo $? > "$RUNNER_TEMP/api-env.status"' \
+            > "$RUNNER_TEMP/api-env.log" 2>&1 < /dev/null &
       - run: pnpm install --frozen-lockfile
         working-directory: apps/social
       - name: Wait for Postgres and the API's environment
         run: |
-          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \n            || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
+          timeout 90 sh -c 'until docker exec postgres pg_isready -h 127.0.0.1 -U lorenzo > /dev/null 2>&1; do sleep 1; done' \
+            || { cat "$RUNNER_TEMP/postgres-start.log"; docker logs postgres; exit 1; }
           timeout 120 sh -c 'until [ -f "$RUNNER_TEMP/api-env.status" ]; do sleep 1; done'
           [ "$(cat "$RUNNER_TEMP/api-env.status")" = 0 ] || { cat "$RUNNER_TEMP/api-env.log"; exit 1; }
       - name: Playwright version
@@ -622,6 +626,7 @@ jobs:
             apps/social/playwright-report/
             apps/social/test-results/
           retention-days: 7
+
 
   e2e-writing:
     name: e2e (writing)

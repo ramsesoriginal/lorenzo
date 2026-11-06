@@ -11,7 +11,8 @@ _RLS = """
 ALTER TABLE {t} ENABLE ROW LEVEL SECURITY;
 ALTER TABLE {t} FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON {t} USING (tenant_id = current_setting('app.tenant_id')::uuid);
-CREATE POLICY repository_read ON {t} FOR SELECT USING (tenant_id = (SELECT repository_read_tenant_id()))
+CREATE POLICY repository_read ON {t} FOR SELECT
+  USING (tenant_id = (SELECT repository_read_tenant_id()))
 """
 
 
@@ -39,7 +40,9 @@ def upgrade() -> None:
         REFERENCES social_web(entity_id, tenant_id) ON DELETE CASCADE,
       CONSTRAINT social_web_entry_entry_fkey FOREIGN KEY (entry_entity_id, tenant_id)
         REFERENCES entity(id, tenant_id) ON DELETE CASCADE)""")
-    op.execute("CREATE INDEX ix_social_web_entry_entry ON social_web_entry(tenant_id, entry_entity_id)")
+    op.execute(
+        "CREATE INDEX ix_social_web_entry_entry ON social_web_entry(tenant_id, entry_entity_id)"
+    )
     op.execute("CREATE INDEX ix_social_web_entry_tenant_id ON social_web_entry(tenant_id)")
     op.execute("""CREATE TABLE social_web_type (
       web_entity_id uuid NOT NULL, type_entity_id uuid NOT NULL,
