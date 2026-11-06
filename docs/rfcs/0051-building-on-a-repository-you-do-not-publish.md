@@ -126,6 +126,24 @@ Owner goes on authoring on top of it and taking A's updates; only the published 
 choice, the include option in Studio's built-on card and in the Make public dialog, attribution on the storefront,
 the breaking-change rule, tests (API, hub real-API, 375px).
 
+*Built as [ADR 0431](../adr/0431-including-a-repository-in-the-release-of-one-built-on-it.md).* The RFC stays the
+spec; where the build differs, it says so here:
+
+- **Terms.** H1 builds the one switch, *may be included*, and stores nothing for a default: null is the default for
+  the repository's visibility (private no, public yes) and an Owner's value wins. The other two switches and the
+  presets come with H3 and H4; `inclusion` allows `show` and `include` only until H4 widens it.
+- **The breaking rule** is a second list beside the detector's, not a reason of it: a new reason would change a
+  response enum of the contract, which the contract's diff calls breaking. `inclusion_changes` is each repository
+  whose choice differs from what the current public release recorded (`repository_profile.release_sources`); a
+  publish with any, like one with detector hits, needs `acknowledge_breaking`, and the release is marked breaking.
+- **Consent is asked again when a release is made**, for the user making it, as well as when the choice is set:
+  the terms may have changed, and the user who releases is not always the one who chose.
+- **Attribution** is taken from a snapshot of A's name and licence written into the release (and kept on the
+  profile for the storefront), not read from A's profile, which may be private.
+- **The choice is read** from the list of repositories a repository copied, the flip check and the Owner's list of
+  who copied it; the library's dependencies read (ADR 0198) is unchanged and has no step for an included
+  repository.
+
 ### H2. Public but unlisted
 
 A flag on the profile, `listed`, true by default and settable by an Owner of a public repository. Discover and its
@@ -240,7 +258,7 @@ tenant, grant, subscription, flatten or source.
 
 | Slice | What | Needs | Touches |
 | --- | --- | --- | --- |
-| H1 | Include A in B at release; A's terms; the choice column; attribution | RFC 0037 R5 to R8, ADR 0385 | api, hub |
+| H1 | Include A in B at release; A's terms; the choice column; attribution. **Built**, [ADR 0431](../adr/0431-including-a-repository-in-the-release-of-one-built-on-it.md) | RFC 0037 R5 to R8, ADR 0385 | api, hub |
 | H2 | Public but unlisted | RFC 0038 D3 | api, hub |
 | H3 | Protected: the value, the flips, the stack rule, the gate, the copy plan | H1 (terms, the choice), ADR 0287, ADR 0289 | api, hub |
 | H4 | Hide A's items | H3, the spike | api, hub, bench, beings, sessions, maps, calendars, social, writing, inventory, cli |
