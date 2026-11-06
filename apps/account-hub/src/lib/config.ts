@@ -29,3 +29,6 @@ export const BRANDING_CSS_URL: string = (
 // Optional: without either the link is not shown. Trailing slash stripped like the one above.
 export const BEINGS_BASE_URL: string | undefined =
   import.meta.env.PUBLIC_BEINGS_BASE_URL?.replace(/\/$/, '') || undefined;
+
+// Where the chosen appearance is kept in this browser (the shell's theme toggle).
+export const THEME_KEY = 'lorenzo:account-hub:theme';

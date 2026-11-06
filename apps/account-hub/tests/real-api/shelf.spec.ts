@@ -91,7 +91,7 @@ test('a library admin sees what is offered, what a repository holds and what it 
   await expect(outline).toContainText(/Ask the owner of Core rules \S+ to invite your library\./);
 
   // Entries and stat groups are read when their sections are opened.
-  await page.getByText('Entries', { exact: true }).click();
+  await page.locator('#content').getByText('Entries', { exact: true }).click();
   const entry = page.locator('[data-entries] > li').filter({ hasText: 'Flaming Longsword' });
   await expect(entry).toBeVisible();
   await expect(entry).toContainText('Item');
@@ -125,7 +125,7 @@ test('a library that copied a repository, and one that lost its invitation, say 
   await page.goto(`/repositories/?tenant=${library.slug}`);
 
   // Someone who runs two libraries chooses one; the address follows.
-  await page.getByLabel('Library').selectOption({ label: second.name });
+  await page.locator('#content').getByLabel('Library').selectOption({ label: second.name });
   await expect(page).toHaveURL(new RegExp(`tenant=${second.slug}`));
   await expect(page.getByRole('listitem').filter({ hasText: 'Core rules' })).toContainText(
     'Copied',

@@ -108,10 +108,10 @@ test('a public repository is found by a word and by a tag, and its storefront op
 
   // Discover is in the nav, and the page shows the list.
   await expect(
-    page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Discover' }),
+    page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Discover' }),
   ).toBeVisible();
   await page
-    .getByRole('navigation', { name: 'Subpages' })
+    .getByRole('navigation', { name: 'Pages' })
     .getByRole('link', { name: 'Discover' })
     .click();
   await expect(page).toHaveURL(/\/discover\/$/);
@@ -487,10 +487,10 @@ test('there is no link to Discover where the deployment has no public repositori
   await page.evaluate(() => sessionStorage.clear());
   await page.goto('/profile/');
   await expect(
-    page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Libraries' }),
+    page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Libraries' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('navigation', { name: 'Subpages' }).getByRole('link', { name: 'Discover' }),
+    page.getByRole('navigation', { name: 'Pages' }).getByRole('link', { name: 'Discover' }),
   ).toHaveCount(0);
 
   // By its address, the page says nothing is public yet, and shows no search.
