@@ -137,6 +137,77 @@
             <button class="btn btn-secondary" data-close="drop-b">Close</button>
           </div>
         </dialog>
+
+        <section id="menu">
+          <h2>A menu</h2>
+          <p class="lede">
+            <code>.menu</code> with <code>.menu-head</code>,
+            <code>.menu-label</code>, <code>.menu-item</code> and
+            <code>.menu-sep</code>; below 720px add <code>.as-sheet</code> and
+            it is a bottom sheet.
+          </p>
+          <div class="menu" role="menu" aria-label="Item actions">
+            <div class="menu-label">Rusted Shortsword</div>
+            <button class="menu-item" role="menuitem" type="button">
+              <span class="grow">Give to a character</span>
+            </button>
+            <button class="menu-item" role="menuitem" type="button">
+              <span class="grow">Move to a container</span>
+            </button>
+            <div class="menu-sep" role="separator"></div>
+            <button class="menu-item danger" role="menuitem" type="button">
+              <span class="grow">Delete</span>
+            </button>
+          </div>
+        </section>
+
+        <section id="sheet">
+          <h2>A bottom sheet</h2>
+          <p class="lede">
+            Below 720px every dialog is a bottom sheet. Open this one at a phone
+            width: <code>.sheet-grip</code>, then <code>.dialog-actions</code>
+            stacked and full width.
+          </p>
+          <button class="btn btn-primary" id="open-sheet" type="button">
+            Open as a sheet
+          </button>
+        </section>
+
+        <dialog id="sheet-dialog">
+          <div class="sheet-grip" aria-hidden="true"></div>
+          <h2>Retire this item?</h2>
+          <p class="status-text">It stays in the history.</p>
+          <div class="dialog-actions">
+            <button class="btn btn-secondary" data-close="sheet-dialog">
+              Cancel
+            </button>
+            <button class="btn btn-danger" data-close="sheet-dialog">
+              Retire
+            </button>
+          </div>
+        </dialog>
+
+        <section id="toasts">
+          <h2>Toasts</h2>
+          <p class="lede">
+            <code>.toasts</code> is a polite live region;
+            <code>.toast</code> with <code>data-kind</code> of
+            <code>ok</code> or <code>error</code>. A timed one drains
+            <code>.toast-bar</code>; an error has none and stays until closed.
+          </p>
+          <button class="btn btn-secondary" id="toast-ok" type="button">
+            Saved
+          </button>
+          <button class="btn btn-secondary" id="toast-err" type="button">
+            Refused
+          </button>
+        </section>
+        <div
+          class="toasts"
+          id="toast-region"
+          role="status"
+          aria-live="polite"
+        ></div>
       </div>
     </main>
 
@@ -187,6 +258,43 @@
             document.getElementById("drop-b").show();
           });
 
+        function toast(kind, text, ms) {
+          var t = document.createElement("div");
+          t.className = "toast";
+          t.setAttribute("data-kind", kind);
+          t.innerHTML =
+            '<span class="toast-text"></span>' +
+            '<button class="btn btn-secondary" type="button">Close</button>' +
+            (kind === "error" ? "" : '<span class="toast-bar"></span>');
+          t.querySelector(".toast-text").textContent = text;
+          function close() {
+            t.classList.add("out");
+            setTimeout(function () {
+              t.remove();
+            }, 220);
+          }
+          t.querySelector("button").addEventListener("click", close);
+          if (kind !== "error") {
+            t.style.setProperty("--toast-ms", ms + "ms");
+            setTimeout(close, ms);
+          }
+          document.getElementById("toast-region").appendChild(t);
+        }
+        document
+          .getElementById("toast-ok")
+          .addEventListener("click", function () {
+            toast("ok", "Saved.", 6000);
+          });
+        document
+          .getElementById("toast-err")
+          .addEventListener("click", function () {
+            toast("error", "Not saved: the name is already used.");
+          });
+        document
+          .getElementById("open-sheet")
+          .addEventListener("click", function () {
+            document.getElementById("sheet-dialog").showModal();
+          });
         document.querySelectorAll("[data-close]").forEach(function (btn) {
           btn.addEventListener("click", function () {
             document.getElementById(btn.getAttribute("data-close")).close();
