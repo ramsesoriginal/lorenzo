@@ -2662,6 +2662,8 @@ class RelationshipCreate(BaseModel):
     one_way: bool | None = Field(False, title="One Way")
     prototypes: list[UUID] | None = Field(None, max_length=20, title="Prototypes")
     is_public: bool | None = Field(False, title="Is Public")
+    starts_at: UUID | None = Field(None, title="Starts At")
+    ends_at: UUID | None = Field(None, title="Ends At")
 
 
 class RelationshipProblem(BaseModel):
@@ -2681,6 +2683,8 @@ class RelationshipPut(BaseModel):
     end_a: UUID = Field(..., title="End A")
     end_b: UUID = Field(..., title="End B")
     one_way: bool | None = Field(False, title="One Way")
+    starts_at: UUID | None = Field(None, title="Starts At")
+    ends_at: UUID | None = Field(None, title="Ends At")
 
 
 class Kind29(StrEnum):
@@ -3547,6 +3551,14 @@ class Kind43(StrEnum):
     session = "session"
 
 
+class AsOf(StrEnum):
+    holds = "holds"
+    not_yet = "not_yet"
+    ended = "ended"
+    unknown = "unknown"
+    limit_reached = "limit_reached"
+
+
 class LorenzoApiRoutersRelationshipsRelationshipOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -3558,6 +3570,9 @@ class LorenzoApiRoutersRelationshipsRelationshipOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title="Updated At")
     can_manage: bool = Field(..., title="Can Manage")
     is_public: bool | None = Field(None, title="Is Public")
+    starts_at: EntryStub | None = None
+    ends_at: EntryStub | None = None
+    as_of: AsOf | None = Field(None, title="As Of")
 
 
 class Problem(BaseModel):
@@ -3887,6 +3902,8 @@ class CreateOperation(BaseModel):
     one_way: bool | None = Field(False, title="One Way")
     prototypes: list[UUID] | None = Field(None, max_length=20, title="Prototypes")
     is_public: bool | None = Field(False, title="Is Public")
+    starts_at: UUID | None = Field(None, title="Starts At")
+    ends_at: UUID | None = Field(None, title="Ends At")
     op: Literal["create"] = Field(..., title="Op")
     stats: list[StatWrite] | None = Field(None, max_length=20, title="Stats")
 

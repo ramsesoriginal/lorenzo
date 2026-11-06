@@ -9392,6 +9392,10 @@ export interface components {
              * @default false
              */
             is_public: boolean;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -14529,6 +14533,10 @@ export interface components {
              * @default false
              */
             is_public: boolean;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
         };
         /** RelationshipProblem */
         RelationshipProblem: {
@@ -14563,6 +14571,10 @@ export interface components {
              * @default false
              */
             one_way: boolean;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
         };
         /** RelationshipSharingWrite */
         RelationshipSharingWrite: {
@@ -16567,6 +16579,10 @@ export interface components {
             can_manage: boolean;
             /** Is Public */
             is_public?: boolean | null;
+            starts_at?: components["schemas"]["EntryStub"] | null;
+            ends_at?: components["schemas"]["EntryStub"] | null;
+            /** As Of */
+            as_of?: ("holds" | "not_yet" | "ended" | "unknown" | "limit_reached") | null;
         };
         /** Problem */
         Problem: {
@@ -33103,6 +33119,12 @@ export interface operations {
                 type?: string | null;
                 /** @description Case-insensitive substring match against the relationship's name. */
                 q?: string | null;
+                /** @description An Event: each row says whether it holds, is not yet, has ended or is unknown as of that Event, from what the reader's own graph records (ADR 0405). */
+                as_of?: string | null;
+                /** @description With `as_of`, only the rows in these states, before paging. */
+                state?: ("holds" | "not_yet" | "ended" | "unknown")[] | null;
+                /** @description A being: only what it may read through its own grants and groups. For staff, and for a player when the being is one they control. */
+                as_seen_by?: string | null;
                 page?: number;
                 size?: number;
             };

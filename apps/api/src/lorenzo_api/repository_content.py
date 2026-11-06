@@ -820,12 +820,20 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         )
     }
     c.relationships = {
-        entity: {"end_a": end_a, "end_b": end_b, "one_way": one_way}
-        for entity, end_a, end_b, one_way in await rows(
+        entity: {
+            "end_a": end_a,
+            "end_b": end_b,
+            "one_way": one_way,
+            "starts_at": starts_at,
+            "ends_at": ends_at,
+        }
+        for entity, end_a, end_b, one_way, starts_at, ends_at in await rows(
             Relationship.entity_id,
             Relationship.end_a,
             Relationship.end_b,
             Relationship.one_way,
+            Relationship.starts_at,
+            Relationship.ends_at,
             where=Relationship.tenant_id == t,
         )
     }
@@ -1182,6 +1190,16 @@ def entity_snapshot(
                     "end_a": name("entity", content.relationships[entity_id]["end_a"]),
                     "end_b": name("entity", content.relationships[entity_id]["end_b"]),
                     "one_way": bool(content.relationships[entity_id]["one_way"]),
+                    "starts_at": (
+                        name("entity", content.relationships[entity_id]["starts_at"])
+                        if content.relationships[entity_id]["starts_at"]
+                        else None
+                    ),
+                    "ends_at": (
+                        name("entity", content.relationships[entity_id]["ends_at"])
+                        if content.relationships[entity_id]["ends_at"]
+                        else None
+                    ),
                     "through": [
                         name("entity", via)
                         for via in content.relationship_through.get(entity_id, [])

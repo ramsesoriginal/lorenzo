@@ -1558,6 +1558,12 @@ class MapPreconditionRequiredError(StatusProblem):
     title = "Read the Map before changing it"
 
 
+class RelationshipReadAsForbiddenError(ForbiddenProblem):
+    """GET /relationships?as_seen_by= - a player asked for a being not their own (ADR 0405)."""
+
+    title = "You may read what a being of yours may read, not what another being may"
+
+
 class LocationAuthoringForbiddenError(ForbiddenProblem):
     title = "Locations are edited by Authors, GMs and full-visibility Owners or Organizers"
 

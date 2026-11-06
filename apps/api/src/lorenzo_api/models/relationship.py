@@ -22,9 +22,32 @@ class Relationship(Base):
         same_tenant_fk("relationship_entity_fkey", ["entity_id"], "entity", ondelete="CASCADE"),
         same_tenant_fk("relationship_end_a_fkey", ["end_a"], "entity", ondelete="CASCADE"),
         same_tenant_fk("relationship_end_b_fkey", ["end_b"], "entity", ondelete="CASCADE"),
+        # ADR 0405: the Events that bound it in time. The database's key clears only the column
+        # (ON DELETE SET NULL (starts_at)); see the migration.
+        CheckConstraint(
+            "starts_at IS NULL OR ends_at IS NULL OR starts_at <> ends_at",
+            name="relationship_limits_differ",
+        ),
+        same_tenant_fk(
+            "relationship_starts_at_fkey",
+            ["starts_at"],
+            "story_event",
+            ["entity_id"],
+            ondelete="SET NULL",
+        ),
+        same_tenant_fk(
+            "relationship_ends_at_fkey",
+            ["ends_at"],
+            "story_event",
+            ["entity_id"],
+            ondelete="SET NULL",
+        ),
     )
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
     end_a: Mapped[uuid.UUID]
     end_b: Mapped[uuid.UUID]
     one_way: Mapped[bool | None] = mapped_column(default=None)
+    # Optional limits in time, as Events (ADR 0405); neither sets an order.
+    starts_at: Mapped[uuid.UUID | None] = mapped_column(default=None)
+    ends_at: Mapped[uuid.UUID | None] = mapped_column(default=None)

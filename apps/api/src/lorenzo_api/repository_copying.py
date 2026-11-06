@@ -77,6 +77,7 @@ from lorenzo_api.models import (
     MapPlacement,
     Ownership,
     Payload,
+    RelationshipThrough,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -1042,9 +1043,19 @@ class _Planner:
                     "end_a": end_a,
                     "end_b": end_b,
                     "one_way": True if tied["one_way"] else None,
+                    "starts_at": self._local(c, "entity", tied["starts_at"])
+                    if tied["starts_at"]
+                    else None,
+                    "ends_at": self._local(c, "entity", tied["ends_at"])
+                    if tied["ends_at"]
+                    else None,
                 }
             )
             written_relationships.add(e)
+            if (tied["starts_at"] and self.rows["relationship"][-1]["starts_at"] is None) or (
+                tied["ends_at"] and self.rows["relationship"][-1]["ends_at"] is None
+            ):
+                drop("relationship_time", e, "an Event that bounded it was not copied")
         # A step is written only when both relationships were copied; the steps are renumbered
         # from 1, so what was hidden from a copy leaves no gap (ADR 0402).
         for e, chain in c.relationship_through.items():
@@ -2315,6 +2326,18 @@ async def forget_copy(
                 LivedBefore.being_entity_id.in_(entities),
                 LivedBefore.from_event_id.in_(entities),
                 LivedBefore.to_event_id.in_(entities),
+            ),
+        )
+        # A chain that joins a copied relationship to one that was not copied here (ADR 0402).
+        also["relationship_through"] = await _count(
+            session,
+            RelationshipThrough,
+            RelationshipThrough.tenant_id == t,
+            or_(
+                RelationshipThrough.relationship_entity_id.in_(entities)
+                & RelationshipThrough.via_entity_id.not_in(entities),
+                RelationshipThrough.via_entity_id.in_(entities)
+                & RelationshipThrough.relationship_entity_id.not_in(entities),
             ),
         )
         also["manuscript_placement"] = await _count(

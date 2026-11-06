@@ -118,6 +118,7 @@ from lorenzo_api.my_links import (
     pick_for_anchor,
 )
 from lorenzo_api.picture_payloads import add_picture_payload, read_picture_upload
+from lorenzo_api.relationship_time import note_deleted_event
 from lorenzo_api.routers.item_instances import caller_reach
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.effective_stats import EntryEffectiveStatsOut
@@ -633,6 +634,16 @@ async def delete_entity(
     await author_may_delete(session, tenant_id=tenant_id, user_id=user.id, entity_id=entity_id)
     check_if_match(if_match, updated_at=entity.updated_at)
     kinds = await require_deletable(session, tenant_id=tenant_id, entity_id=entity_id)
+    if "event" in kinds:
+        # A relationship this Event bounded keeps a staff note of it; the key clears the
+        # reference (ADR 0405).
+        await note_deleted_event(
+            session,
+            tenant_id=tenant_id,
+            event_id=entity_id,
+            event_name=entity.name,
+            user_id=user.id,
+        )
     await record_activity(
         session,
         tenant_id=tenant_id,

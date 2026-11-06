@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 34
+    assert rd.FORMAT == 35
     assert rd.encode(full_content())[0] == {
         **golden,
         "definitions": {
@@ -324,7 +324,11 @@ def test_connections_survive_a_round_trip() -> None:
     identity, first, second = uuid.UUID(int=90), uuid.UUID(int=91), uuid.UUID(int=92)
     content = full_content()
     content.connections = {
-        identity: {"end_a": first, "end_b": second, "one_way": True},
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": True,
+        },
         uuid.UUID(int=93): {"end_a": second, "end_b": first, "one_way": None},
     }
 
@@ -408,8 +412,20 @@ def test_relationships_survive_a_round_trip() -> None:
     identity, first, second = uuid.UUID(int=190), uuid.UUID(int=191), uuid.UUID(int=192)
     content = full_content()
     content.relationships = {
-        identity: {"end_a": first, "end_b": second, "one_way": True},
-        uuid.UUID(int=193): {"end_a": second, "end_b": first, "one_way": None},
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": True,
+            "starts_at": None,
+            "ends_at": None,
+        },
+        uuid.UUID(int=193): {
+            "end_a": second,
+            "end_b": first,
+            "one_way": None,
+            "starts_at": first,
+            "ends_at": None,
+        },
     }
 
     document, files = rd.encode(content)
@@ -464,3 +480,30 @@ def test_relationship_chains_survive_a_round_trip_in_order() -> None:
     document, files = rd.encode(content)
 
     assert rd.decode(document, files).relationship_through == {head: [three, one, two]}
+
+
+def test_version_thirty_four_has_no_relationship_limits() -> None:
+    """A repository written before limits in time reads with none (ADR 0405)."""
+    identity, first, second = uuid.UUID(int=210), uuid.UUID(int=211), uuid.UUID(int=212)
+    content = full_content()
+    content.relationships = {
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": None,
+            "starts_at": None,
+            "ends_at": None,
+        }
+    }
+    document, files = rd.encode(content)
+    old = {
+        **document,
+        "relationships": {
+            key: {k: v for k, v in tied.items() if k not in ("starts_at", "ends_at")}
+            for key, tied in document["relationships"].items()
+        },
+    }
+
+    back = rd.READERS[34](old, files)
+
+    assert back.relationships == content.relationships

@@ -142,7 +142,7 @@ async def seed_every_content_table(
             Connection(
                 entity_id=road.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=True
             ),
-            Relationship(
+            bond_marker := Relationship(
                 entity_id=bond.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=None
             ),
             Relationship(
@@ -219,6 +219,10 @@ async def seed_every_content_table(
             Frame(entity_id=place.id, axis="plane", tenant_id=tenant_id),
         ]
     )
+    await session.flush()
+    # The fixture bond is bounded by the two fixture Events (ADR 0405).
+    bond_marker.starts_at = event.id
+    bond_marker.ends_at = later_event.id
     await session.flush()
     session.add_all(
         [

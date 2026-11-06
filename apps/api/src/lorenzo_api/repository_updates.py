@@ -966,6 +966,19 @@ class _Applier:
             tied.end_a = end_a
             tied.end_b = end_b
             tied.one_way = True if change.upstream["one_way"] else None
+            # A limit in time follows when its Event is here; otherwise it is left unset (ADR 0405).
+            tied.starts_at = (
+                self.resolve("entity", change.upstream["starts_at"])
+                if change.upstream.get("starts_at")
+                else None
+            )
+            tied.ends_at = (
+                self.resolve("entity", change.upstream["ends_at"])
+                if change.upstream.get("ends_at")
+                else None
+            )
+            if tied.starts_at is not None and tied.starts_at == tied.ends_at:
+                tied.ends_at = None
             await s.flush()
             # The chain follows, by the steps' names; a step not copied here is left out and the
             # rest are renumbered from 1 (ADR 0402).

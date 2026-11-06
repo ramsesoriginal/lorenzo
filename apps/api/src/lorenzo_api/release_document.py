@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 34
+FORMAT = 35
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -440,7 +440,13 @@ _CONTENT = _dataclass(
         ),
         "relationships": _id_map(
             _record(
-                {"end_a": _ID, "end_b": _ID, "one_way": _optional(_PLAIN)},
+                {
+                    "end_a": _ID,
+                    "end_b": _ID,
+                    "one_way": _optional(_PLAIN),
+                    "starts_at": _optional(_ID),
+                    "ends_at": _optional(_ID),
+                },
                 name="Content.relationships",
             )
         ),
@@ -670,6 +676,15 @@ def _read_v33(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v34(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 35 a relationship had no limits in time (ADR 0405).
+    relationships = {
+        key: {"starts_at": None, "ends_at": None, **relationship}
+        for key, relationship in document["relationships"].items()
+    }
+    return _read_v35({**document, "relationships": relationships}, files)
+
+
+def _read_v35(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -711,6 +726,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     32: _read_v32,
     33: _read_v33,
     34: _read_v34,
+    35: _read_v35,
 }
 
 

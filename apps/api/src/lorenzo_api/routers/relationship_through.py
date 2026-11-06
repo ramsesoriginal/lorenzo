@@ -36,8 +36,8 @@ from lorenzo_api.relationships import (
     touch_relationship,
 )
 from lorenzo_api.routers.connections import EntryStub, entry_stubs
-from lorenzo_api.routers.locations import manages, require_manager, standing
-from lorenzo_api.routers.relationships import RelationshipOut, _commit, _out, _read
+from lorenzo_api.routers.locations import require_manager, standing
+from lorenzo_api.routers.relationships import RelationshipOut, _commit, _read, build_rows
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -86,6 +86,8 @@ async def _steps(
                 Relationship.one_way,
                 Entity.updated_at,
                 own.is_public,
+                Relationship.starts_at,
+                Relationship.ends_at,
             )
             .select_from(RelationshipThrough)
             .join(Entity, Entity.id == RelationshipThrough.via_entity_id)
@@ -99,22 +101,7 @@ async def _steps(
             .order_by(RelationshipThrough.step)
         )
     ).all()
-    ids = {row[0] for row in found} | {row[1] for row in found} | {row[2] for row in found}
-    stubs = await entry_stubs(session, tenant, ids)
-    manage = manages(vis)
-    return [
-        _out(
-            stubs,
-            identity=row[0],
-            end_a=row[1],
-            end_b=row[2],
-            one_way=row[3],
-            updated_at=row[4],
-            manage=manage,
-            is_public=True if row[5] is None else row[5],
-        )
-        for row in found
-    ]
+    return await build_rows(session, vis, tenant, found)
 
 
 @router.get("/relationships/{relationship_id}/through")

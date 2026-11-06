@@ -209,12 +209,13 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(MapPlacement, "map_placement", counted_on_purge=True),
     # Joins two entries, so it comes after every entry (ADR 0363).
     _rows(Connection, "connection"),
-    # A tie between two entries, so it comes after every entry (ADR 0399).
+    _rows(ClockRelationship, "clock_relationship", counted_on_purge=True),
+    _rows(StoryEvent, "story_event", carried_by="entity"),
+    # A tie between two entries, so it comes after every entry, and after the Events that may
+    # bound it in time (ADR 0399, 0405).
     _rows(Relationship, "relationship"),
     # The relationships one holds through, so after every relationship (ADR 0402).
     _rows(RelationshipThrough, "relationship_through", counted_on_purge=True),
-    _rows(ClockRelationship, "clock_relationship", counted_on_purge=True),
-    _rows(StoryEvent, "story_event", carried_by="entity"),
     _rows(EventClockReading, "event_clock_reading", counted_on_purge=True),
     _rows(CalendarReckoning, "calendar_reckoning", counted_on_purge=True),
     _rows(CalendarPeriod, "calendar_period"),
