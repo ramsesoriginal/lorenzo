@@ -20,3 +20,12 @@ describe('the stylesheet', () => {
     expect(css).toContain(':focus-visible');
   });
 });
+
+describe('the tokens', () => {
+  it('are all ones the brand defines', () => {
+    const brand = readFileSync(new URL('../../../apps/brand/tokens.css', import.meta.url), 'utf8');
+    const used = [...new Set([...css.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]))];
+    expect(used.length).toBeGreaterThan(3);
+    for (const token of used) expect(brand, token).toContain(`${token}:`);
+  });
+});

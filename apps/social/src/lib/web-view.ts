@@ -18,6 +18,7 @@ import {
   errorNotice,
   field,
   link,
+  linkButton,
   loading,
   message,
   metaLine,
@@ -181,6 +182,9 @@ export async function mountWeb() {
           ],
           lede: `${graph.members.length} ${graph.members.length === 1 ? 'entry' : 'entries'} and ${graph.edges.length} ${graph.edges.length === 1 ? 'relationship' : 'relationships'}, as you may see them.`,
           meta,
+          actions: [
+            linkButton('Open the matrix', `/matrix/?${new URLSearchParams({ tenant, id })}`),
+          ],
         }),
       );
 

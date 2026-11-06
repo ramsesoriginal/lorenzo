@@ -223,3 +223,104 @@
 .list > li[aria-current="true"] {
   background: var(--fill-soft);
 }
+
+/* The matrix: a grid that holds only the cells in view (ADR 0408). Sizes match the constants in
+   src/lib/matrix-view.ts; colour is the brand's tokens. */
+.matrix {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.matrix-scroll {
+  height: 28rem;
+  overflow: auto;
+  position: relative;
+}
+
+.matrix-content {
+  position: relative;
+}
+
+.matrix-body {
+  position: relative;
+}
+
+.matrix-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+}
+
+.matrix-head.matrix-row {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--surface-default);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.matrix-cell {
+  position: absolute;
+  top: 0;
+  display: flex;
+  align-items: center;
+  width: 112px;
+  height: 100%;
+  padding: 0 var(--space-2);
+  border-inline-end: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.matrix-rowhead,
+.matrix-corner {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 168px;
+  background: var(--surface-default);
+  font-weight: 600;
+}
+
+.matrix-colhead {
+  background: var(--surface-default);
+  font-weight: 600;
+}
+
+.matrix-data:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.matrix-data.is-self {
+  background: var(--surface-muted);
+}
+
+.matrix-data.is-inherited {
+  border-style: dashed;
+}
+
+.matrix-data.is-pending {
+  background: var(--fill-soft);
+  outline: 1px dashed var(--border-strong);
+  outline-offset: -3px;
+}
+
+.matrix-data.is-conflict {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.matrix-data.is-failed {
+  outline: 2px solid var(--border-strong);
+  outline-offset: -2px;
+}
+
+.matrix-input {
+  width: 100%;
+  min-width: 0;
+}

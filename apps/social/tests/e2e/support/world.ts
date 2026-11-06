@@ -65,3 +65,32 @@ export async function world() {
     );
   return { tenant, path, gm, subject, playerSubject, entry, tie };
 }
+
+/** A numeric stat for a standing, on a scale, in a group of its own. */
+export async function standing(
+  w: Awaited<ReturnType<typeof world>>,
+  name: string,
+  scale: { min?: number; max?: number } = {},
+) {
+  const group = await ok(
+    w.gm.POST('/tenants/{tenant_id}/stat-groups', {
+      params: { path: w.path },
+      body: { name: `${name} group`, priority: 0, mandatory: false },
+    }),
+  );
+  return ok(
+    w.gm.POST('/tenants/{tenant_id}/stat-definitions', {
+      params: { path: w.path },
+      body: {
+        name,
+        stat_group_id: group.id,
+        value_type: 'int',
+        adjustable_in_play: false,
+        pin: false,
+        signed: false,
+        ...(scale.min === undefined ? {} : { min_value: scale.min }),
+        ...(scale.max === undefined ? {} : { max_value: scale.max }),
+      },
+    }),
+  );
+}

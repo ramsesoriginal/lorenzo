@@ -33,7 +33,7 @@
 }
 
 .gr-edge.is-selected {
-  stroke: var(--action-surface-strong, var(--action-surface));
+  stroke: var(--action-surface);
 }
 
 .gr-arrow {
@@ -42,11 +42,11 @@
 }
 
 .gr-arrow.is-selected {
-  fill: var(--action-surface-strong, var(--action-surface));
+  fill: var(--action-surface);
 }
 
 .gr-node {
-  fill: var(--surface);
+  fill: var(--surface-default);
   stroke: var(--border-strong);
   stroke-width: 1.5;
 }
@@ -70,16 +70,16 @@
 }
 
 .gr-icon {
-  color: var(--text);
+  color: var(--text-primary);
   fill: currentcolor;
 }
 
 .gr-label {
-  fill: var(--text);
-  font-family: var(--font-sans, inherit);
+  fill: var(--text-primary);
+  font-family: var(--font-ui);
   font-size: 12px;
   paint-order: stroke;
-  stroke: var(--surface);
+  stroke: var(--surface-default);
   stroke-width: 3;
   stroke-linejoin: round;
 }
