@@ -51,3 +51,12 @@ visible and a hidden member absent; the bulk write; copy and release; the older 
 
 A rule the server expands, a stored per-viewer view, an entry id inside `view`, edges for entries that are not members,
 and a web of webs.
+
+## Addendum: as built (2026-11-06)
+
+- A SocialWeb is built as **its own kind and combines with no other** in this slice, as a relationship does: a
+  combination is published only once proven (ADR 0331's rule). The ADR's "may be another kind as well" stays open.
+- Members are never relationships or webs (a web of webs is not built). `GET /social-webs/{id}/graph` returns the
+  members and edges a reader may see, at most 5,000 edges (`truncated` says so), and takes `as_of` and `as_seen_by` of
+  ADR 0405.
+- The view's JSON holds no string that reads as an id, and stays small.

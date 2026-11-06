@@ -69,3 +69,15 @@ each refusal writing nothing and ends hidden from the writer; the starter reposi
 
 A server total, a derived kinship, a relationship with a set of members, a default audience in the starter, and any
 type or standing in the schema or the code.
+
+## Addendum: as built (2026-11-06)
+
+- A refused bulk operation refuses the request with that operation's own problem (its status and type) and its position
+  as `operation`; nothing is written. `set`, `clear` and `delete` each carry the relationship's `if_match`, and every
+  operation of a request is held to the versions read at its start, so two standings of one relationship go in together.
+- `GET /relationship-types` reads the types a library has (what relationships are of, what they inherit from, and what
+  holds the three type stats) with how each points and reads, for the types screen.
+- The starter vocabulary is, for now, added on purpose from the types screen of Lorenzo Social by ordinary API calls
+  (`apps/social/src/lib/starter.ts`), for an Owner or Organizer of an empty library. Publishing the same words as a
+  repository a library copies is still to do, and the screen's offer then points there; the words and scales are the
+  author's first pass for the maintainer to review.
