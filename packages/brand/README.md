@@ -27,4 +27,3 @@ mise run //packages/brand:test-e2e
 ```
 
 CI runs them in the `e2e (brand)` job, whenever `apps/brand` or this package changes. They live here, not in `apps/brand`, because `apps/brand` is deployed as plain static files with no `package.json` and nothing to install ([ADR 0098](../../docs/adr/0098-branding-css-app-and-package.md)).
-
