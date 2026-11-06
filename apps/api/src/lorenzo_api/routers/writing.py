@@ -189,10 +189,9 @@ async def children(
     )
 
 
-async def result(
-    session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, user: CurrentUser, response: Response
-) -> WritingEntry:
-    row = await entry(session, tenant_id, id, user)
+async def writing_kind(
+    session: SessionDep, id: uuid.UUID
+) -> Literal["book", "edition", "chapter", "scene", "scene_telling", "biography", "carrier"]:
     kind: Literal["book", "edition", "chapter", "scene", "scene_telling", "biography", "carrier"]
     if await session.get(Carrier, id):
         kind = "carrier"
@@ -210,6 +209,14 @@ async def result(
         kind = "biography"
     else:
         raise EntityNotFoundError(detail="No such writing entry.")
+    return kind
+
+
+async def result(
+    session: SessionDep, tenant_id: uuid.UUID, id: uuid.UUID, user: CurrentUser, response: Response
+) -> WritingEntry:
+    row = await entry(session, tenant_id, id, user)
+    kind = await writing_kind(session, id)
     vis = await resolve_information_visibility(session, tenant_id=tenant_id, user_id=user.id)
     info, payloads = await manuscript_payloads(session, tenant_id, id)
     links = await children(session, tenant_id, id)

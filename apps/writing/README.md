@@ -88,6 +88,11 @@ the generated list before their authored prose. Index and Glossary Chapters stay
 LorenzoScript. Reading and Book review links respect the reader's access. These lists do not
 combine headings inside separate texts, and do not generate indexes, glossaries or page numbers.
 
+**Personal word targets** ([ADR 0383](../../docs/adr/0383-personal-manuscript-length-goals.md))
+are available inside Word count. Each Author keeps separate targets for direct draft prose and
+assembled reading, with live remaining-word progress. Targets belong to the account and are
+excluded from Edition duplication and repository content.
+
 **Word count** ([ADR 0382](../../docs/adr/0382-manuscript-word-counts.md)) measures the current
 direct prose in Write, including unsaved edits. In Read or a Book review, open Word count to
 measure the assembled manuscript, highlight a displayed passage or choose text blocks. Repeated

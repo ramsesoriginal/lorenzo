@@ -194,6 +194,13 @@ async def test_join_preserves_identity_and_guards_old_source(
         ]
         source = await read(second)
         assert source["joined"] and source["elements"] == [] and source["parent_id"] is None
+        goal_url = base + f"/writing/entries/{second}/length-goals/direct"
+        assert (await actor.get(goal_url)).status_code == 409
+        assert (
+            await raw_client.put(
+                goal_url, headers={**actor.headers, "If-Match": '"0"'}, json={"target_words": 100}
+            )
+        ).status_code == 409
         assert source["joined_destination"] == {
             "id": first,
             "name": "First",
