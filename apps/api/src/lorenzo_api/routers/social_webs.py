@@ -144,28 +144,28 @@ class SocialWebGraph(BaseModel):
     truncated: bool
 
 
-class Placement(BaseModel):
+class SocialWebPlacement(BaseModel):
     model_config = ConfigDict(extra="forbid")
     entry_id: uuid.UUID
     x: Finite | None = None
     y: Finite | None = None
 
     @model_validator(mode="after")
-    def _both_or_none(self) -> Placement:
+    def _both_or_none(self) -> SocialWebPlacement:
         if (self.x is None) != (self.y is None):
             raise ValueError("A hand placement has both x and y, or neither")
         return self
 
 
-class MembersWrite(BaseModel):
+class SocialWebMembersWrite(BaseModel):
     """Adds or moves members (`set`) and drops them (`remove`), at most a hundred rows in all."""
 
     model_config = ConfigDict(extra="forbid")
-    set: list[Placement] = Field(default_factory=list)
+    set: list[SocialWebPlacement] = Field(default_factory=list)
     remove: list[uuid.UUID] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def _bounded(self) -> MembersWrite:
+    def _bounded(self) -> SocialWebMembersWrite:
         rows = [p.entry_id for p in self.set] + self.remove
         if not rows or len(rows) > MAX_BULK_ROWS:
             raise ValueError(f"A write takes between 1 and {MAX_BULK_ROWS} rows")
@@ -174,7 +174,7 @@ class MembersWrite(BaseModel):
         return self
 
 
-class TypesPut(BaseModel):
+class SocialWebTypesPut(BaseModel):
     model_config = ConfigDict(extra="forbid")
     type_ids: list[uuid.UUID] = Field(max_length=MAX_TYPES)
 
@@ -501,7 +501,7 @@ async def put_social_web(
 async def write_members(
     tenant_id: uuid.UUID,
     web_id: uuid.UUID,
-    body: MembersWrite,
+    body: SocialWebMembersWrite,
     response: Response,
     session: SessionDep,
     user: CurrentUser,
@@ -558,7 +558,7 @@ async def write_members(
 async def put_social_web_types(
     tenant_id: uuid.UUID,
     web_id: uuid.UUID,
-    body: TypesPut,
+    body: SocialWebTypesPut,
     response: Response,
     session: SessionDep,
     user: CurrentUser,

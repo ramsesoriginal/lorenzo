@@ -295,13 +295,6 @@ class BulkReparentPrototypeRequest(BaseModel):
     item_ids: list[UUID] | None = Field(None, title="Item Ids")
 
 
-class Op(StrEnum):
-    create = "create"
-    set = "set"
-    clear = "clear"
-    delete = "delete"
-
-
 class CalendarDate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -451,16 +444,6 @@ class CharacterSummaryOut(BaseModel):
 class CharacterUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
-
-
-class ClearOperation(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    op: Literal["clear"] = Field(..., title="Op")
-    relationship_id: UUID = Field(..., title="Relationship Id")
-    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
-    if_match: str = Field(..., title="If Match")
 
 
 class Kind3(StrEnum):
@@ -808,15 +791,6 @@ class DayPreview(BaseModel):
     date: CalendarDate
     weekday: int | None = Field(..., title="Weekday")
     moons: dict[str, int] = Field(..., title="Moons")
-
-
-class DeleteOperation(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    op: Literal["delete"] = Field(..., title="Op")
-    relationship_id: UUID = Field(..., title="Relationship Id")
-    if_match: str = Field(..., title="If Match")
 
 
 class DelistRepositoryRequest(BaseModel):
@@ -2341,15 +2315,6 @@ class PlaceOut(BaseModel):
     slug: str | None = Field(None, title="Slug")
 
 
-class Placement(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    entry_id: UUID = Field(..., title="Entry Id")
-    x: float | None = Field(None, title="X")
-    y: float | None = Field(None, title="Y")
-
-
 class PlacementBatchIn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -2662,6 +2627,23 @@ class ReferenceShare(BaseModel):
     is_shared: bool | None = Field(False, title="Is Shared")
 
 
+class Op(StrEnum):
+    create = "create"
+    set = "set"
+    clear = "clear"
+    delete = "delete"
+
+
+class RelationshipClearOperation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    op: Literal["clear"] = Field(..., title="Op")
+    relationship_id: UUID = Field(..., title="Relationship Id")
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    if_match: str = Field(..., title="If Match")
+
+
 class RelationshipCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -2678,6 +2660,15 @@ class RelationshipCreate(BaseModel):
     is_public: bool | None = Field(False, title="Is Public")
     starts_at: UUID | None = Field(None, title="Starts At")
     ends_at: UUID | None = Field(None, title="Ends At")
+
+
+class RelationshipDeleteOperation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    op: Literal["delete"] = Field(..., title="Op")
+    relationship_id: UUID = Field(..., title="Relationship Id")
+    if_match: str = Field(..., title="If Match")
 
 
 class Kind29(StrEnum):
@@ -2773,6 +2764,17 @@ class RelationshipPut(BaseModel):
     ends_at: UUID | None = Field(None, title="Ends At")
 
 
+class RelationshipSetOperation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    op: Literal["set"] = Field(..., title="Op")
+    relationship_id: UUID = Field(..., title="Relationship Id")
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool = Field(..., title="Value")
+    if_match: str = Field(..., title="If Match")
+
+
 class Direction1(StrEnum):
     incoming = "incoming"
     outgoing = "outgoing"
@@ -2785,6 +2787,25 @@ class RelationshipSharingWrite(BaseModel):
     kind: Kind30 = Field(..., title="Kind")
     direction: Direction1 | None = Field("outgoing", title="Direction")
     is_shared: bool = Field(..., title="Is Shared")
+
+
+class RelationshipStatWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool = Field(..., title="Value")
+
+
+class RelationshipThroughOut(BaseModel):
+    via: list[RelationshipEntryOut] = Field(..., title="Via")
+
+
+class RelationshipThroughPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    via: list[UUID] = Field(..., max_length=12, title="Via")
 
 
 class RelationshipWrite(BaseModel):
@@ -3154,17 +3175,6 @@ class SetEntityStatRequest(BaseModel):
     acquire_group: bool | None = Field(False, title="Acquire Group")
 
 
-class SetOperation(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    op: Literal["set"] = Field(..., title="Op")
-    relationship_id: UUID = Field(..., title="Relationship Id")
-    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
-    value: int | str | float | bool = Field(..., title="Value")
-    if_match: str = Field(..., title="If Match")
-
-
 class SetOwnerRequest(BaseModel):
     owner_character_id: UUID = Field(..., title="Owner Character Id")
     move_to_owner: bool | None = Field(False, title="Move To Owner")
@@ -3268,6 +3278,15 @@ class SocialWebOut(BaseModel):
     is_public: bool | None = Field(None, title="Is Public")
 
 
+class SocialWebPlacement(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entry_id: UUID = Field(..., title="Entry Id")
+    x: float | None = Field(None, title="X")
+    y: float | None = Field(None, title="Y")
+
+
 class SocialWebSettings(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -3278,6 +3297,13 @@ class SocialWebSettings(BaseModel):
     view: dict[str, Any] | None = Field(None, title="View")
     standing_stat_id: UUID | None = Field(None, title="Standing Stat Id")
     as_of_event: UUID | None = Field(None, title="As Of Event")
+
+
+class SocialWebTypesPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type_ids: list[UUID] = Field(..., max_length=50, title="Type Ids")
 
 
 class SplitAcknowledgement(BaseModel):
@@ -3398,14 +3424,6 @@ class StatValueType(StrEnum):
     float = "float"
     bool = "bool"
     enum = "enum"
-
-
-class StatWrite(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
-    value: int | str | float | bool = Field(..., title="Value")
 
 
 class Via(StrEnum):
@@ -3550,24 +3568,6 @@ class TenantUpdate(BaseModel):
     relationship_reads_as_back_stat_id: UUID | None = Field(
         None, title="Relationship Reads As Back Stat Id"
     )
-
-
-class ThroughOut(BaseModel):
-    via: list[RelationshipEntryOut] = Field(..., title="Via")
-
-
-class ThroughPut(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    via: list[UUID] = Field(..., max_length=12, title="Via")
-
-
-class TypesPut(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    type_ids: list[UUID] = Field(..., max_length=50, title="Type Ids")
 
 
 class UndeprecatedOut(BaseModel):
@@ -3761,13 +3761,6 @@ class BulkMoveContainerRequest(BaseModel):
     override: bool | None = Field(False, title="Override")
     lift_binding: bool | None = Field(False, title="Lift Binding")
     merge_identical: bool | None = Field(False, title="Merge Identical")
-
-
-class BulkResult(BaseModel):
-    index: int = Field(..., title="Index")
-    op: Op = Field(..., title="Op")
-    relationship_id: UUID = Field(..., title="Relationship Id")
-    relationship: RelationshipEntryOut | None
 
 
 class CalendarDefinitionInput(BaseModel):
@@ -3995,26 +3988,6 @@ class CopyStepOut(BaseModel):
     information: int = Field(..., title="Information")
     attachments: int = Field(..., title="Attachments")
     dropped: list[DroppedOut] = Field(..., title="Dropped")
-
-
-class CreateOperation(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    id: UUID | None = Field(None, title="Id")
-    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
-    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
-        None, title="Slug"
-    )
-    end_a: UUID = Field(..., title="End A")
-    end_b: UUID = Field(..., title="End B")
-    one_way: bool | None = Field(False, title="One Way")
-    prototypes: list[UUID] | None = Field(None, max_length=20, title="Prototypes")
-    is_public: bool | None = Field(False, title="Is Public")
-    starts_at: UUID | None = Field(None, title="Starts At")
-    ends_at: UUID | None = Field(None, title="Ends At")
-    op: Literal["create"] = Field(..., title="Op")
-    stats: list[StatWrite] | None = Field(None, max_length=20, title="Stats")
 
 
 class DescriptionOut(BaseModel):
@@ -4365,14 +4338,6 @@ class MeOut(BaseModel):
     capabilities: MeCapabilitiesOut
 
 
-class MembersWrite(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    set: list[Placement] | None = Field(None, title="Set")
-    remove: list[UUID] | None = Field(None, title="Remove")
-
-
 class ObservanceCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -4624,21 +4589,31 @@ class ReadingsOut(BaseModel):
     can_manage: bool = Field(..., title="Can Manage")
 
 
-class Operations(RootModel[CreateOperation | SetOperation | ClearOperation | DeleteOperation]):
-    root: CreateOperation | SetOperation | ClearOperation | DeleteOperation = Field(
-        ..., discriminator="op"
-    )
+class RelationshipBulkResult(BaseModel):
+    index: int = Field(..., title="Index")
+    op: Op = Field(..., title="Op")
+    relationship_id: UUID = Field(..., title="Relationship Id")
+    relationship: RelationshipEntryOut | None
 
 
-class RelationshipBulkRequest(BaseModel):
+class RelationshipCreateOperation(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    operations: list[Operations] = Field(..., max_length=100, min_length=1, title="Operations")
-
-
-class RelationshipBulkResponse(BaseModel):
-    results: list[BulkResult] = Field(..., title="Results")
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    end_a: UUID = Field(..., title="End A")
+    end_b: UUID = Field(..., title="End B")
+    one_way: bool | None = Field(False, title="One Way")
+    prototypes: list[UUID] | None = Field(None, max_length=20, title="Prototypes")
+    is_public: bool | None = Field(False, title="Is Public")
+    starts_at: UUID | None = Field(None, title="Starts At")
+    ends_at: UUID | None = Field(None, title="Ends At")
+    op: Literal["create"] = Field(..., title="Op")
+    stats: list[RelationshipStatWrite] | None = Field(None, max_length=20, title="Stats")
 
 
 class ReleaseAuthoredOut(BaseModel):
@@ -4748,6 +4723,14 @@ class SocialWebGraph(BaseModel):
     members: list[SocialWebMemberOut] = Field(..., title="Members")
     edges: list[RelationshipEntryOut] = Field(..., title="Edges")
     truncated: bool = Field(..., title="Truncated")
+
+
+class SocialWebMembersWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    set: list[SocialWebPlacement] | None = Field(None, title="Set")
+    remove: list[UUID] | None = Field(None, title="Remove")
 
 
 class StatDefinitionCreate(BaseModel):
@@ -5118,6 +5101,33 @@ class PublishedOut(BaseModel):
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
     release: ReleaseAuthoredOut
+
+
+class Operations(
+    RootModel[
+        RelationshipCreateOperation
+        | RelationshipSetOperation
+        | RelationshipClearOperation
+        | RelationshipDeleteOperation
+    ]
+):
+    root: (
+        RelationshipCreateOperation
+        | RelationshipSetOperation
+        | RelationshipClearOperation
+        | RelationshipDeleteOperation
+    ) = Field(..., discriminator="op")
+
+
+class RelationshipBulkRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    operations: list[Operations] = Field(..., max_length=100, min_length=1, title="Operations")
+
+
+class RelationshipBulkResponse(BaseModel):
+    results: list[RelationshipBulkResult] = Field(..., title="Results")
 
 
 class SheetOut(BaseModel):

@@ -203,3 +203,23 @@
     align-items: center;
   }
 }
+
+/* The drawing of a web: it fills a box of a definite height, and fits a phone's width. */
+.graph-host {
+  height: 30rem;
+  min-height: 18rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .graph-host {
+    height: 24rem;
+  }
+}
+
+/* What is selected in the drawing is marked in the list that says the same in words. */
+.list > li[aria-current="true"] {
+  background: var(--fill-soft);
+}

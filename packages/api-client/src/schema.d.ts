@@ -8099,22 +8099,6 @@ export interface components {
             item?: components["schemas"]["ItemOut"] | null;
             problem?: components["schemas"]["ProblemOut"] | null;
         };
-        /** BulkResult */
-        BulkResult: {
-            /** Index */
-            index: number;
-            /**
-             * Op
-             * @enum {string}
-             */
-            op: "create" | "set" | "clear" | "delete";
-            /**
-             * Relationship Id
-             * Format: uuid
-             */
-            relationship_id: string;
-            relationship: components["schemas"]["RelationshipEntryOut"] | null;
-        };
         /** CalendarCreate */
         CalendarCreate: {
             /** Id */
@@ -8640,29 +8624,6 @@ export interface components {
             name?: string | null;
             /** Owner Player Id */
             owner_player_id?: string | null;
-        };
-        /**
-         * ClearOperation
-         * @description Remove one own standing of a relationship, keeping the relationship.
-         */
-        ClearOperation: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            op: "clear";
-            /**
-             * Relationship Id
-             * Format: uuid
-             */
-            relationship_id: string;
-            /**
-             * Stat Definition Id
-             * Format: uuid
-             */
-            stat_definition_id: string;
-            /** If Match */
-            if_match: string;
         };
         /** ClockCandidate */
         ClockCandidate: {
@@ -9467,51 +9428,6 @@ export interface components {
             elements: components["schemas"]["CoverageElement"][];
         };
         /**
-         * CreateOperation
-         * @description Make a relationship, as `POST /relationships` does, with its standings.
-         */
-        CreateOperation: {
-            /** Id */
-            id?: string | null;
-            /** Name */
-            name: string;
-            /** Slug */
-            slug?: string | null;
-            /**
-             * End A
-             * Format: uuid
-             */
-            end_a: string;
-            /**
-             * End B
-             * Format: uuid
-             */
-            end_b: string;
-            /**
-             * One Way
-             * @default false
-             */
-            one_way: boolean;
-            /** Prototypes */
-            prototypes?: string[];
-            /**
-             * Is Public
-             * @default false
-             */
-            is_public: boolean;
-            /** Starts At */
-            starts_at?: string | null;
-            /** Ends At */
-            ends_at?: string | null;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            op: "create";
-            /** Stats */
-            stats?: components["schemas"]["StatWrite"][];
-        };
-        /**
          * CreditIn
          * @description Who made some of it: a name, what they did, and optionally a link. Not the publisher,
          *     which is the Owners' account names (RFC 0038 §6).
@@ -9554,24 +9470,6 @@ export interface components {
             moons: {
                 [key: string]: number;
             };
-        };
-        /**
-         * DeleteOperation
-         * @description Delete a relationship.
-         */
-        DeleteOperation: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            op: "delete";
-            /**
-             * Relationship Id
-             * Format: uuid
-             */
-            relationship_id: string;
-            /** If Match */
-            if_match: string;
         };
         /**
          * DelistRepositoryRequest
@@ -12269,16 +12167,6 @@ export interface components {
             deprecated?: components["schemas"]["DeprecatedOut"] | null;
         };
         /**
-         * MembersWrite
-         * @description Adds or moves members (`set`) and drops them (`remove`), at most a hundred rows in all.
-         */
-        MembersWrite: {
-            /** Set */
-            set?: components["schemas"]["Placement"][];
-            /** Remove */
-            remove?: string[];
-        };
-        /**
          * MembershipCreate
          * @description POST /tenants/{id}/memberships - ADR 0036/RFC 0007. user_id must
          *     already be a real app_user row - as with PlayerCreate, this API has no
@@ -13813,18 +13701,6 @@ export interface components {
             /** Slug */
             slug?: string | null;
         };
-        /** Placement */
-        Placement: {
-            /**
-             * Entry Id
-             * Format: uuid
-             */
-            entry_id: string;
-            /** X */
-            x?: number | null;
-            /** Y */
-            y?: number | null;
-        };
         /**
          * PlacementBatchIn
          * @description At most 100 operations in all (ADR 0351): redraws or draws, and removals.
@@ -14638,12 +14514,51 @@ export interface components {
         /** RelationshipBulkRequest */
         RelationshipBulkRequest: {
             /** Operations */
-            operations: (components["schemas"]["CreateOperation"] | components["schemas"]["SetOperation"] | components["schemas"]["ClearOperation"] | components["schemas"]["DeleteOperation"])[];
+            operations: (components["schemas"]["RelationshipCreateOperation"] | components["schemas"]["RelationshipSetOperation"] | components["schemas"]["RelationshipClearOperation"] | components["schemas"]["RelationshipDeleteOperation"])[];
         };
         /** RelationshipBulkResponse */
         RelationshipBulkResponse: {
             /** Results */
-            results: components["schemas"]["BulkResult"][];
+            results: components["schemas"]["RelationshipBulkResult"][];
+        };
+        /** RelationshipBulkResult */
+        RelationshipBulkResult: {
+            /** Index */
+            index: number;
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "create" | "set" | "clear" | "delete";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            relationship: components["schemas"]["RelationshipEntryOut"] | null;
+        };
+        /**
+         * RelationshipClearOperation
+         * @description Remove one own standing of a relationship, keeping the relationship.
+         */
+        RelationshipClearOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "clear";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** If Match */
+            if_match: string;
         };
         /** RelationshipCreate */
         RelationshipCreate: {
@@ -14679,6 +14594,69 @@ export interface components {
             starts_at?: string | null;
             /** Ends At */
             ends_at?: string | null;
+        };
+        /**
+         * RelationshipCreateOperation
+         * @description Make a relationship, as `POST /relationships` does, with its standings.
+         */
+        RelationshipCreateOperation: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * End A
+             * Format: uuid
+             */
+            end_a: string;
+            /**
+             * End B
+             * Format: uuid
+             */
+            end_b: string;
+            /**
+             * One Way
+             * @default false
+             */
+            one_way: boolean;
+            /** Prototypes */
+            prototypes?: string[];
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "create";
+            /** Stats */
+            stats?: components["schemas"]["RelationshipStatWrite"][];
+        };
+        /**
+         * RelationshipDeleteOperation
+         * @description Delete a relationship.
+         */
+        RelationshipDeleteOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "delete";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /** If Match */
+            if_match: string;
         };
         /**
          * RelationshipEntryOut
@@ -14790,6 +14768,31 @@ export interface components {
             /** Ends At */
             ends_at?: string | null;
         };
+        /**
+         * RelationshipSetOperation
+         * @description Set one own standing of a relationship; `if_match` is the relationship's ETag.
+         */
+        RelationshipSetOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+            /** If Match */
+            if_match: string;
+        };
         /** RelationshipSharingWrite */
         RelationshipSharingWrite: {
             /**
@@ -14805,6 +14808,35 @@ export interface components {
             direction: "incoming" | "outgoing";
             /** Is Shared */
             is_shared: boolean;
+        };
+        /**
+         * RelationshipStatWrite
+         * @description A standing to set on a relationship made in the same request.
+         */
+        RelationshipStatWrite: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+        };
+        /**
+         * RelationshipThroughOut
+         * @description The steps the reader may see, in order. A hidden step leaves no gap and no marker.
+         */
+        RelationshipThroughOut: {
+            /** Via */
+            via: components["schemas"]["RelationshipEntryOut"][];
+        };
+        /**
+         * RelationshipThroughPut
+         * @description The whole chain, in order. An empty list removes it.
+         */
+        RelationshipThroughPut: {
+            /** Via */
+            via: string[];
         };
         /** RelationshipWrite */
         RelationshipWrite: {
@@ -15609,31 +15641,6 @@ export interface components {
             acquire_group: boolean;
         };
         /**
-         * SetOperation
-         * @description Set one own standing of a relationship; `if_match` is the relationship's ETag.
-         */
-        SetOperation: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            op: "set";
-            /**
-             * Relationship Id
-             * Format: uuid
-             */
-            relationship_id: string;
-            /**
-             * Stat Definition Id
-             * Format: uuid
-             */
-            stat_definition_id: string;
-            /** Value */
-            value: number | string | boolean;
-            /** If Match */
-            if_match: string;
-        };
-        /**
          * SetOwnerRequest
          * @description PUT /item-instances/{id}/owner body. move_to_owner (ADR 0115): also
          *     put it into its new owner, out of whatever container it's in, its stack
@@ -15834,6 +15841,16 @@ export interface components {
             /** Y */
             y: number | null;
         };
+        /**
+         * SocialWebMembersWrite
+         * @description Adds or moves members (`set`) and drops them (`remove`), at most a hundred rows in all.
+         */
+        SocialWebMembersWrite: {
+            /** Set */
+            set?: components["schemas"]["SocialWebPlacement"][];
+            /** Remove */
+            remove?: string[];
+        };
         /** SocialWebOut */
         SocialWebOut: {
             /**
@@ -15870,6 +15887,18 @@ export interface components {
             /** Is Public */
             is_public?: boolean | null;
         };
+        /** SocialWebPlacement */
+        SocialWebPlacement: {
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+        };
         /**
          * SocialWebSettings
          * @description What a web saves about how it looks and what it reads (ADR 0406).
@@ -15896,6 +15925,11 @@ export interface components {
             standing_stat_id?: string | null;
             /** As Of Event */
             as_of_event?: string | null;
+        };
+        /** SocialWebTypesPut */
+        SocialWebTypesPut: {
+            /** Type Ids */
+            type_ids: string[];
         };
         /** SplitAcknowledgement */
         SplitAcknowledgement: {
@@ -16289,19 +16323,6 @@ export interface components {
          * @enum {string}
          */
         StatValueType: "int" | "text" | "float" | "bool" | "enum";
-        /**
-         * StatWrite
-         * @description A standing to set on a relationship made in the same request.
-         */
-        StatWrite: {
-            /**
-             * Stat Definition Id
-             * Format: uuid
-             */
-            stat_definition_id: string;
-            /** Value */
-            value: number | string | boolean;
-        };
         /** StepOut */
         StepOut: {
             /**
@@ -16639,27 +16660,6 @@ export interface components {
             relationship_reads_as_stat_id?: string | null;
             /** Relationship Reads As Back Stat Id */
             relationship_reads_as_back_stat_id?: string | null;
-        };
-        /**
-         * ThroughOut
-         * @description The steps the reader may see, in order. A hidden step leaves no gap and no marker.
-         */
-        ThroughOut: {
-            /** Via */
-            via: components["schemas"]["RelationshipEntryOut"][];
-        };
-        /**
-         * ThroughPut
-         * @description The whole chain, in order. An empty list removes it.
-         */
-        ThroughPut: {
-            /** Via */
-            via: string[];
-        };
-        /** TypesPut */
-        TypesPut: {
-            /** Type Ids */
-            type_ids: string[];
         };
         /**
          * UndeprecatedOut
@@ -33227,7 +33227,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ThroughOut"];
+                    "application/json": components["schemas"]["RelationshipThroughOut"];
                 };
             };
             /** @description Validation Error */
@@ -33289,7 +33289,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ThroughPut"];
+                "application/json": components["schemas"]["RelationshipThroughPut"];
             };
         };
         responses: {
@@ -33299,7 +33299,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ThroughOut"];
+                    "application/json": components["schemas"]["RelationshipThroughOut"];
                 };
             };
             /** @description Validation Error */
@@ -33703,7 +33703,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MembersWrite"];
+                "application/json": components["schemas"]["SocialWebMembersWrite"];
             };
         };
         responses: {
@@ -33775,7 +33775,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TypesPut"];
+                "application/json": components["schemas"]["SocialWebTypesPut"];
             };
         };
         responses: {

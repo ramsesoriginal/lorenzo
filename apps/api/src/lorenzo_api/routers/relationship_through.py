@@ -49,14 +49,14 @@ router = APIRouter(
 MAX_PROBLEMS = 500
 
 
-class ThroughPut(BaseModel):
+class RelationshipThroughPut(BaseModel):
     """The whole chain, in order. An empty list removes it."""
 
     model_config = ConfigDict(extra="forbid")
     via: list[uuid.UUID] = Field(max_length=MAX_THROUGH_STEPS)
 
 
-class ThroughOut(BaseModel):
+class RelationshipThroughOut(BaseModel):
     """The steps the reader may see, in order. A hidden step leaves no gap and no marker."""
 
     via: list[RelationshipEntryOut]
@@ -111,23 +111,23 @@ async def get_through(
     response: Response,
     session: SessionDep,
     user: CurrentUser,
-) -> ThroughOut:
+) -> RelationshipThroughOut:
     vis = await standing(session, user, tenant_id)
     entity, _ = await _read(session, vis, tenant_id, relationship_id)
     response.headers["ETag"] = etag_for(entity.updated_at)
-    return ThroughOut(via=await _steps(session, vis, tenant_id, relationship_id))
+    return RelationshipThroughOut(via=await _steps(session, vis, tenant_id, relationship_id))
 
 
 @router.put("/relationships/{relationship_id}/through")
 async def put_through(
     tenant_id: uuid.UUID,
     relationship_id: uuid.UUID,
-    body: ThroughPut,
+    body: RelationshipThroughPut,
     response: Response,
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
-) -> ThroughOut:
+) -> RelationshipThroughOut:
     """Replaces the chain under `If-Match`. Steps the writer cannot see are kept where they are:
     a writer's list replaces only what the writer reads."""
     vis = await require_manager(session, user, tenant_id)
@@ -206,7 +206,7 @@ async def put_through(
     await _commit(session, tenant_id)
     entity, _ = await _read(session, vis, tenant_id, relationship_id)
     response.headers["ETag"] = etag_for(entity.updated_at)
-    return ThroughOut(via=await _steps(session, vis, tenant_id, relationship_id))
+    return RelationshipThroughOut(via=await _steps(session, vis, tenant_id, relationship_id))
 
 
 def _meets(first: tuple[uuid.UUID, uuid.UUID], steps: list[tuple[uuid.UUID, uuid.UUID]]) -> bool:

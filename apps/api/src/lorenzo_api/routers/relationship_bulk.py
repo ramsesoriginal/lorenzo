@@ -56,7 +56,7 @@ router = APIRouter(
 _NOT_FOUND = "No such relationship in this library"
 
 
-class StatWrite(BaseModel):
+class RelationshipStatWrite(BaseModel):
     """A standing to set on a relationship made in the same request."""
 
     model_config = ConfigDict(extra="forbid")
@@ -64,14 +64,14 @@ class StatWrite(BaseModel):
     value: int | str | float | bool
 
 
-class CreateOperation(RelationshipCreate):
+class RelationshipCreateOperation(RelationshipCreate):
     """Make a relationship, as `POST /relationships` does, with its standings."""
 
     op: Literal["create"]
-    stats: list[StatWrite] = Field(default_factory=list, max_length=MAX_CREATE_STATS)
+    stats: list[RelationshipStatWrite] = Field(default_factory=list, max_length=MAX_CREATE_STATS)
 
 
-class SetOperation(BaseModel):
+class RelationshipSetOperation(BaseModel):
     """Set one own standing of a relationship; `if_match` is the relationship's ETag."""
 
     model_config = ConfigDict(extra="forbid")
@@ -82,7 +82,7 @@ class SetOperation(BaseModel):
     if_match: str
 
 
-class ClearOperation(BaseModel):
+class RelationshipClearOperation(BaseModel):
     """Remove one own standing of a relationship, keeping the relationship."""
 
     model_config = ConfigDict(extra="forbid")
@@ -92,7 +92,7 @@ class ClearOperation(BaseModel):
     if_match: str
 
 
-class DeleteOperation(BaseModel):
+class RelationshipDeleteOperation(BaseModel):
     """Delete a relationship."""
 
     model_config = ConfigDict(extra="forbid")
@@ -102,7 +102,11 @@ class DeleteOperation(BaseModel):
 
 
 Operation = Annotated[
-    CreateOperation | SetOperation | ClearOperation | DeleteOperation, Field(discriminator="op")
+    RelationshipCreateOperation
+    | RelationshipSetOperation
+    | RelationshipClearOperation
+    | RelationshipDeleteOperation,
+    Field(discriminator="op"),
 ]
 
 
@@ -111,7 +115,7 @@ class RelationshipBulkRequest(BaseModel):
     operations: list[Operation] = Field(min_length=1, max_length=MAX_OPERATIONS)
 
 
-class BulkResult(BaseModel):
+class RelationshipBulkResult(BaseModel):
     index: int
     op: Literal["create", "set", "clear", "delete"]
     relationship_id: uuid.UUID
@@ -120,7 +124,7 @@ class BulkResult(BaseModel):
 
 
 class RelationshipBulkResponse(BaseModel):
-    results: list[BulkResult]
+    results: list[RelationshipBulkResult]
 
 
 async def _set_stat(
@@ -154,14 +158,17 @@ async def _apply(
     session: SessionDep,
     user: CurrentUser,
     tenant: uuid.UUID,
-    operation: CreateOperation | SetOperation | ClearOperation | DeleteOperation,
+    operation: RelationshipCreateOperation
+    | RelationshipSetOperation
+    | RelationshipClearOperation
+    | RelationshipDeleteOperation,
     *,
     seen: dict[uuid.UUID, Entity],
     versions: dict[uuid.UUID, Any],
     definitions: dict[uuid.UUID, StatDefinition],
 ) -> uuid.UUID:
     """One operation, in the writer's transaction. Returns the relationship it was about."""
-    if isinstance(operation, CreateOperation):
+    if isinstance(operation, RelationshipCreateOperation):
         entity = await add_relationship(
             session,
             user,
@@ -177,7 +184,7 @@ async def _apply(
     if target is None:
         raise EntityNotFoundError(detail=_NOT_FOUND)
     check_if_match(operation.if_match, updated_at=versions[target.id])
-    if isinstance(operation, SetOperation):
+    if isinstance(operation, RelationshipSetOperation):
         await _set_stat(
             session,
             user,
@@ -187,7 +194,7 @@ async def _apply(
             operation.value,
             definitions,
         )
-    elif isinstance(operation, ClearOperation):
+    elif isinstance(operation, RelationshipClearOperation):
         await _get_stat_definition_or_404(session, operation.stat_definition_id, tenant)
         existing = await session.get(EntityStat, (target.id, operation.stat_definition_id))
         if existing is not None:
@@ -223,13 +230,15 @@ async def write_relationships(
     by the ETag it was read at; a request holds every operation to that version, so two standings
     of one relationship can go in together."""
     vis = await require_manager(session, user, tenant_id)
-    creating = sum(1 for operation in body.operations if isinstance(operation, CreateOperation))
+    creating = sum(
+        1 for operation in body.operations if isinstance(operation, RelationshipCreateOperation)
+    )
     if creating:
         await require_relationship_room(session, tenant_id=tenant_id, adding=creating)
     wanted = {
         operation.relationship_id
         for operation in body.operations
-        if not isinstance(operation, CreateOperation)
+        if not isinstance(operation, RelationshipCreateOperation)
     }
     seen: dict[uuid.UUID, Entity] = {}
     versions: dict[uuid.UUID, Any] = {}
@@ -271,11 +280,11 @@ async def write_relationships(
                 operation=index,
             ) from problem
     await _commit(session, tenant_id)
-    results: list[BulkResult] = []
+    results: list[RelationshipBulkResult] = []
     for index, (operation, identity) in enumerate(zip(body.operations, written, strict=True)):
-        deleted = isinstance(operation, DeleteOperation)
+        deleted = isinstance(operation, RelationshipDeleteOperation)
         results.append(
-            BulkResult(
+            RelationshipBulkResult(
                 index=index,
                 op=operation.op,
                 relationship_id=identity,
