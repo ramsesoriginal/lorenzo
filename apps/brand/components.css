@@ -571,6 +571,24 @@ dialog[open]::backdrop {
   animation: brand-dialog-in var(--dur-med) var(--ease);
 }
 
+/* A dialog that is closing. Native close() is instant, which stays the default: an app that wants the
+   fade sets data-closing, waits for animationend, then calls close() and removes the attribute (a
+   reopen in the meantime just removes it). Nothing here keeps a closed dialog on the page, so a
+   script or a test that reopens a dialog at once is not surprised. Reduced motion shortens it. */
+@keyframes brand-dialog-out {
+  to {
+    opacity: 0;
+  }
+}
+
+dialog[data-closing] {
+  animation: brand-dialog-out var(--dur-med) var(--ease) forwards;
+}
+
+dialog[data-closing]::backdrop {
+  animation: brand-dialog-out var(--dur-med) var(--ease) forwards;
+}
+
 dialog h2,
 dialog h3 {
   font-size: var(--fs-heading);
