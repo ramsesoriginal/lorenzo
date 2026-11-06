@@ -303,3 +303,66 @@
 [data-credit] {
   min-width: 0;
 }
+
+/* /profile (ADR 0418, PT2, PT3): the form with a card beside it that shows how others see the person,
+   which stays in view while the form scrolls; on a tablet and a phone the card moves above the form. */
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--space-6);
+  align-items: start;
+}
+.profile-card {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+@container shell (max-width: 1100px) {
+  .profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  .profile-card {
+    position: static;
+    order: -1;
+  }
+}
+
+/* Who sees a field, told in words with an icon, never by colour alone (ADR 0418). */
+.visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-secondary);
+}
+
+/* The colour to choose from: five, and a custom one. */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.colour-swatch {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 2px solid var(--border-control);
+  border-radius: 999px;
+  background: var(--swatch);
+  cursor: pointer;
+}
+.colour-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+@container shell (max-width: 720px) {
+  .colour-swatch {
+    width: 44px;
+    height: 44px;
+  }
+}
