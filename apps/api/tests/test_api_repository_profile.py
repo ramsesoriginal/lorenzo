@@ -37,6 +37,8 @@ _DEFAULTS = {
     "system": None,
     "languages": [],
     "has_cover": False,
+    # Listed on Discover, until an Owner of a public repository says otherwise (ADR 0432).
+    "listed": True,
     # What the repository's own members read: listed, so nothing to say (ADR 0303).
     "delisted": None,
     # And not retired by its Owner either (ADR 0384).
@@ -209,6 +211,7 @@ async def test_an_owner_sets_the_whole_profile_and_it_is_kept_tidy(
             "system": "D&D 5e",
             "languages": ["en", "de", "pt-br"],
             "has_cover": False,
+            "listed": True,
             "delisted": None,
             "deprecated": None,
             "includes": [],

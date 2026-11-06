@@ -7,6 +7,10 @@ of itself and the facts of its current release that a publish wrote to its profi
 (`repository_listing.set_listing_facts`). The profile of a public repository is readable by
 `discover_read`, a policy that reaches no other table.
 
+A public repository whose Owner turned listing off (ADR 0432) is left out of the listing, its facets
+and its search, by `listed()`, `_LISTED_SQL` and `discover_read`, which say the same thing; its
+storefront is still read by its address (`storefront_of`).
+
 A hard maximum page size and a hard maximum depth cap what one caller can walk of the directory.
 """
 
@@ -18,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.exceptions import DiscoverTooDeepError
 from lorenzo_api.models import RepositoryProfile, Tenant, TenantKind
+from lorenzo_api.repository_access import reading_repository
 from lorenzo_api.schemas.discover import (
     DiscoverFacetOut,
     DiscoverFacetsOut,
@@ -34,8 +39,9 @@ __all__ = [
     "facets",
     "item_out",
     "listed",
-    "listing_of",
+    "public_repository",
     "search",
+    "storefront_of",
 ]
 
 # The most one request may ask for, and the furthest into a listing it may go (page times size).
@@ -50,9 +56,10 @@ class Listed:
     tenant: Tenant
 
 
-def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
-    """The repositories that are listed: public, published, with a release, not delisted by the
-    platform's operators (ADR 0303) and not retired by their Owner (ADR 0384)."""
+def public_repository() -> Select[tuple[RepositoryProfile, Tenant]]:
+    """The repositories a signed-in user may open by their address: public, published, with a
+    release, not delisted by the platform's operators (ADR 0303) and not retired by their Owner
+    (ADR 0384), whether or not they are on Discover. A storefront is read through this."""
     return (
         select(RepositoryProfile, Tenant)
         .join(Tenant, Tenant.id == RepositoryProfile.tenant_id)
@@ -65,6 +72,13 @@ def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
             Tenant.deprecated_at.is_(None),
         )
     )
+
+
+def listed() -> Select[tuple[RepositoryProfile, Tenant]]:
+    """The repositories Discover lists: those above whose Owner has not turned listing off (ADR
+    0432). The listing, its facets and its search read this and nothing else; `_LISTED_SQL` and the
+    `discover_read` policy say the same thing."""
+    return public_repository().where(RepositoryProfile.listed.is_(True))
 
 
 def item_out(
@@ -144,7 +158,7 @@ _LISTED_SQL = (
     "FROM repository_profile p JOIN tenant t ON t.id = p.tenant_id "
     "WHERE p.visibility = 'public' AND p.release_label IS NOT NULL "
     "AND t.kind = 'repository' AND t.published_at IS NOT NULL AND t.delisted_at IS NULL "
-    "AND t.deprecated_at IS NULL"
+    "AND t.deprecated_at IS NULL AND p.listed"
 )
 
 
@@ -169,7 +183,17 @@ async def facets(session: AsyncSession, *, enabled: bool) -> DiscoverFacetsOut:
     )
 
 
-async def listing_of(session: AsyncSession, repository_id: uuid.UUID) -> Listed | None:
-    """One listed repository, or none: not public, not published, or no release yet."""
-    row = (await session.execute(listed().where(Tenant.id == repository_id))).first()
+async def storefront_of(session: AsyncSession, repository_id: uuid.UUID) -> Listed | None:
+    """One repository a visitor may open by its address, or none: not public, not published, no
+    release yet, delisted or retired. Whether Discover lists it is not asked (ADR 0432): an
+    unlisted repository is opened by its address like any public one.
+
+    It is read through the gated read, whose public branch answers for a published repository whose
+    profile says `public` and is not delisted or retired, and not through `discover_read`, which
+    answers only for what is listed. The caller reads what it needs of the result (the publishers,
+    which switch the context) after this returns."""
+    async with reading_repository(session, repository_id) as allowed:
+        if not allowed:
+            return None
+        row = (await session.execute(public_repository().where(Tenant.id == repository_id))).first()
     return Listed(row[0], row[1]) if row else None

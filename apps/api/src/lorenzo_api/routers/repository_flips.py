@@ -85,6 +85,7 @@ async def check_flip(
     return FlipCheckOut(
         available=get_settings().public_repositories_enabled,
         visibility="public" if profile.visibility == "public" else "private",
+        listed=profile.listed,
         has_summary=bool(profile.summary.strip()),
         built_on_not_public=[
             BuiltOnPublicOut(**r) for r in await built_on_not_public(session, tenant_id, user.id)

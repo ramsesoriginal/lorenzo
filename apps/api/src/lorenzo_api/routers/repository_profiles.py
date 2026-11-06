@@ -21,6 +21,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     ProfilePictureNotFoundError,
     RepositoryNotFoundError,
+    RepositoryNotPublicError,
     VisibilityHasItsOwnRouteError,
 )
 from lorenzo_api.models import ProfilePicture, RepositoryProfile, Tenant
@@ -47,6 +48,7 @@ router = APIRouter(prefix="/tenants/{tenant_id}", tags=["repositories"])
 # What a PATCH may change, in the order the activity log names it.
 _FIELDS = (
     "visibility",
+    "listed",
     "preview",
     "summary",
     "licence",
@@ -95,7 +97,10 @@ async def update_profile(
     """An Owner changes what the profile says; only the fields named are touched. A `visibility`
     other than the repository's own is refused, in the same request as everything else in it (so
     nothing is kept): a flip makes a release, tells libraries and revokes grants, so it is `PUT`
-    and `DELETE` on `/public` (ADR 0290)."""
+    and `DELETE` on `/public` (ADR 0290).
+    `listed: false` leaves a public repository off Discover and `true` puts it back (ADR 0432): its
+    storefront and its address work either way. For a repository that is not public it is `409
+    repository-not-public`."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
     repository = await _require_repository(session, tenant_id)
     profile = await profile_of(session, tenant_id)
@@ -105,7 +110,14 @@ async def update_profile(
             "a release, tells the libraries and, going private, revokes the access they gave "
             "themselves."
         )
+    if body.listed is False and profile.visibility != "public":
+        raise RepositoryNotPublicError(
+            detail="Only a public repository can be left off Discover: a private one is not on it."
+        )
     changed = [name for name in _FIELDS if name in body.model_fields_set]
+    # `listed` is changed by what it says: a repository that is listed and is told so is unchanged.
+    if "listed" in changed and body.listed == profile.listed:
+        changed.remove("listed")
     # `terms` is changed by what it says: an empty one says nothing (ADR 0431).
     if body.terms is not None and "may_be_included" not in body.terms.model_fields_set:
         changed.remove("terms")

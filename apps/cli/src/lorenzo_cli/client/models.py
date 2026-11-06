@@ -4164,6 +4164,7 @@ class FlipCheckOut(BaseModel):
     available: bool = Field(..., title="Available")
     visibility: Visibility1 = Field(..., title="Visibility")
     has_summary: bool = Field(..., title="Has Summary")
+    listed: bool | None = Field(True, title="Listed")
     built_on_not_public: list[BuiltOnPublicOut] = Field(..., title="Built On Not Public")
     built_on_behind: list[BuiltOnBehindOut] = Field(..., title="Built On Behind")
     built_on: list[BuiltOnSourceOut] = Field(..., title="Built On")
@@ -4446,6 +4447,7 @@ class MemberProfileOut(BaseModel):
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    listed: bool | None = Field(True, title="Listed")
     includes: list[IncludedSourceOut] | None = Field([], title="Includes", validate_default=True)
     delisted: DelistedOut | None = None
     deprecated: DeprecatedOut | None = None
@@ -4779,6 +4781,7 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str] = Field(..., title="Languages")
     has_cover: bool = Field(..., title="Has Cover")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    listed: bool | None = Field(True, title="Listed")
     includes: list[IncludedSourceOut] | None = Field([], title="Includes", validate_default=True)
 
 
@@ -4788,6 +4791,7 @@ class RepositoryProfileUpdate(BaseModel):
     )
     visibility: Visibility1 | None = Field(None, title="Visibility")
     preview: Preview | None = Field(None, title="Preview")
+    listed: bool | None = Field(None, title="Listed")
     summary: constr(max_length=2000) | None = Field(None, title="Summary")
     licence: LicenceIn | None = None
     credits: list[CreditIn] | None = Field(None, title="Credits")

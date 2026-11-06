@@ -103,6 +103,8 @@ class FlipCheckOut(BaseModel):
     available: bool
     visibility: Visibility
     has_summary: bool
+    # Whether Discover lists it while it is public (ADR 0432); true for a repository that is not.
+    listed: bool = True
     built_on_not_public: list[BuiltOnPublicOut]
     built_on_behind: list[BuiltOnBehindOut]
     # Every repository it is built on, with the choice made for each (ADR 0431).

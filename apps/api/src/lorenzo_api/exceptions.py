@@ -112,6 +112,7 @@ __all__ = [
     "InvalidRepositoryUpdateError",
     "RepositoryNotCopiedError",
     "RepositoryNotIncludableError",
+    "RepositoryNotPublicError",
     "RepositoryUpdateNeedsChoicesError",
     "PublicRepositoriesNotAvailableError",
     "TermsNotAcceptedError",
@@ -1072,6 +1073,14 @@ class RepositoryNotCopiedError(ConflictProblem):
     copied - ADR 0121. Copy it first."""
 
     title = "This repository hasn't been copied here"
+
+
+class RepositoryNotPublicError(ConflictProblem):
+    """Leaving a repository off Discover when it is not public (`PATCH .../profile` with `listed:
+    false`) - ADR 0432, RFC 0051 H2. Only a public repository is listed or not; a private one is
+    on no listing, so there is nothing to leave it off."""
+
+    title = "This repository is not public"
 
 
 class RepositoryNotIncludableError(ConflictProblem):

@@ -154,6 +154,9 @@ class RepositoryProfileUpdate(BaseModel):
 
     visibility: Visibility | None = None
     preview: Preview | None = None
+    # Whether Discover lists the repository (ADR 0432): `false` only for a public repository (`409
+    # repository-not-public` otherwise); `true` is what a repository is by default.
+    listed: bool | None = None
     summary: Annotated[str, Field(max_length=2000)] | None = None
     licence: LicenceIn | None = None
     credits: Annotated[list[CreditIn], Field(max_length=CREDITS_MAX)] | None = None
@@ -220,7 +223,16 @@ class RepositoryProfileUpdate(BaseModel):
 
     @model_validator(mode="after")
     def _only_a_licence_and_a_system_are_cleared_by_null(self) -> Self:
-        for name in ("visibility", "preview", "summary", "credits", "tags", "languages", "terms"):
+        for name in (
+            "visibility",
+            "listed",
+            "preview",
+            "summary",
+            "credits",
+            "tags",
+            "languages",
+            "terms",
+        ):
             if name in self.model_fields_set and getattr(self, name) is None:
                 raise ValueError(f"{name} can't be null; leave it out to keep it")
         return self
@@ -287,6 +299,9 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str]
     has_cover: bool
     updated_at: datetime
+    # Whether Discover lists it while it is public (ADR 0432): true unless its Owner left it off. A
+    # repository that is not public is on no listing, and reads true here.
+    listed: bool = True
     # What the current public release includes, named with its licence: empty for a repository
     # that includes nothing, and before its first public release (ADR 0431).
     includes: list[IncludedSourceOut] = []
