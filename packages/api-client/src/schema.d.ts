@@ -3987,6 +3987,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/relationships/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Relationships
+         * @description Makes, sets, clears and deletes up to a hundred things at once, or none of them (ADR 0400).
+         *
+         *     An operation that is refused refuses the request with that operation's own problem (its status
+         *     and type) and its position as `operation`, and nothing is written. A relationship is addressed
+         *     by the ETag it was read at; a request holds every operation to that version, so two standings
+         *     of one relationship can go in together.
+         */
+        post: operations["write_relationships"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/relationships": {
         parameters: {
             query?: never;
@@ -7924,6 +7949,22 @@ export interface components {
             item?: components["schemas"]["ItemOut"] | null;
             problem?: components["schemas"]["ProblemOut"] | null;
         };
+        /** BulkResult */
+        BulkResult: {
+            /** Index */
+            index: number;
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "create" | "set" | "clear" | "delete";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            relationship: components["schemas"]["lorenzo_api__routers__relationships__RelationshipOut"] | null;
+        };
         /** CalendarCreate */
         CalendarCreate: {
             /** Id */
@@ -8449,6 +8490,29 @@ export interface components {
             name?: string | null;
             /** Owner Player Id */
             owner_player_id?: string | null;
+        };
+        /**
+         * ClearOperation
+         * @description Remove one own standing of a relationship, keeping the relationship.
+         */
+        ClearOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "clear";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** If Match */
+            if_match: string;
         };
         /** ClockCandidate */
         ClockCandidate: {
@@ -9253,6 +9317,47 @@ export interface components {
             elements: components["schemas"]["CoverageElement"][];
         };
         /**
+         * CreateOperation
+         * @description Make a relationship, as `POST /relationships` does, with its standings.
+         */
+        CreateOperation: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * End A
+             * Format: uuid
+             */
+            end_a: string;
+            /**
+             * End B
+             * Format: uuid
+             */
+            end_b: string;
+            /**
+             * One Way
+             * @default false
+             */
+            one_way: boolean;
+            /** Prototypes */
+            prototypes?: string[];
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "create";
+            /** Stats */
+            stats?: components["schemas"]["StatWrite"][];
+        };
+        /**
          * CreditIn
          * @description Who made some of it: a name, what they did, and optionally a link. Not the publisher,
          *     which is the Owners' account names (RFC 0038 §6).
@@ -9295,6 +9400,24 @@ export interface components {
             moons: {
                 [key: string]: number;
             };
+        };
+        /**
+         * DeleteOperation
+         * @description Delete a relationship.
+         */
+        DeleteOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "delete";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /** If Match */
+            if_match: string;
         };
         /**
          * DelistRepositoryRequest
@@ -14177,6 +14300,12 @@ export interface components {
             weapon_stat_group_id: string | null;
             /** Ability Information Type */
             ability_information_type: string | null;
+            /** Relationship Directed Stat Id */
+            relationship_directed_stat_id?: string | null;
+            /** Relationship Reads As Stat Id */
+            relationship_reads_as_stat_id?: string | null;
+            /** Relationship Reads As Back Stat Id */
+            relationship_reads_as_back_stat_id?: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -14316,6 +14445,16 @@ export interface components {
              * @default false
              */
             is_shared: boolean;
+        };
+        /** RelationshipBulkRequest */
+        RelationshipBulkRequest: {
+            /** Operations */
+            operations: (components["schemas"]["CreateOperation"] | components["schemas"]["SetOperation"] | components["schemas"]["ClearOperation"] | components["schemas"]["DeleteOperation"])[];
+        };
+        /** RelationshipBulkResponse */
+        RelationshipBulkResponse: {
+            /** Results */
+            results: components["schemas"]["BulkResult"][];
         };
         /** RelationshipCreate */
         RelationshipCreate: {
@@ -15185,6 +15324,31 @@ export interface components {
             acquire_group: boolean;
         };
         /**
+         * SetOperation
+         * @description Set one own standing of a relationship; `if_match` is the relationship's ETag.
+         */
+        SetOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+            /** If Match */
+            if_match: string;
+        };
+        /**
          * SetOwnerRequest
          * @description PUT /item-instances/{id}/owner body. move_to_owner (ADR 0115): also
          *     put it into its new owner, out of whatever container it's in, its stack
@@ -15681,6 +15845,19 @@ export interface components {
          * @enum {string}
          */
         StatValueType: "int" | "text" | "float" | "bool" | "enum";
+        /**
+         * StatWrite
+         * @description A standing to set on a relationship made in the same request.
+         */
+        StatWrite: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+        };
         /** StepOut */
         StepOut: {
             /**
@@ -15950,6 +16127,12 @@ export interface components {
             weapon_stat_group_id: string | null;
             /** Ability Information Type */
             ability_information_type: string | null;
+            /** Relationship Directed Stat Id */
+            relationship_directed_stat_id?: string | null;
+            /** Relationship Reads As Stat Id */
+            relationship_reads_as_stat_id?: string | null;
+            /** Relationship Reads As Back Stat Id */
+            relationship_reads_as_back_stat_id?: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -16006,6 +16189,12 @@ export interface components {
             weapon_stat_group_id?: string | null;
             /** Ability Information Type */
             ability_information_type?: string | null;
+            /** Relationship Directed Stat Id */
+            relationship_directed_stat_id?: string | null;
+            /** Relationship Reads As Stat Id */
+            relationship_reads_as_stat_id?: string | null;
+            /** Relationship Reads As Back Stat Id */
+            relationship_reads_as_back_stat_id?: string | null;
         };
         /**
          * UndeprecatedOut
@@ -32507,6 +32696,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LinksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    write_relationships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelationshipBulkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipBulkResponse"];
                 };
             };
             /** @description Validation Error */

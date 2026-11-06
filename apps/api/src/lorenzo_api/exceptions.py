@@ -480,6 +480,13 @@ class StatScaleBreaksValuesError(ConflictProblem):
     title = "Existing values lie outside that scale"
 
 
+class InvalidRelationshipTypeStatError(UnprocessableProblem):
+    """PATCH /tenants/{id} - a relationship-type stat is not a stat definition of this tenant, or
+    is of the wrong type: a bool for directed, text for the two verbs (ADR 0400)."""
+
+    title = "That stat cannot say this about a relationship type"
+
+
 class InvalidSheetSettingError(UnprocessableProblem):
     """PATCH /tenants/{id} - the weapon stat group is not a stat group of this
     tenant (ADR 0281)."""

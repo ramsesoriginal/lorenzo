@@ -282,9 +282,22 @@ async def create_relationship(
 ) -> RelationshipOut:
     """A relationship between two entries the writer sees, restricted unless `is_public`."""
     vis = await require_manager(session, user, tenant_id)
+    await require_relationship_room(session, tenant_id=tenant_id)
+    entity = await add_relationship(session, user, tenant_id, body)
+    await _commit(session, tenant_id)
+    out = await _after_write(session, vis, tenant_id, entity.id)
+    response.headers["ETag"] = etag_for(out.updated_at)
+    return out
+
+
+async def add_relationship(
+    session: SessionDep, user: CurrentUser, tenant_id: uuid.UUID, body: RelationshipCreate
+) -> Entity:
+    """Adds one relationship to the transaction without committing it: the single create and the
+    bulk write (ADR 0400) both make theirs here. The caller has checked the writer's standing and
+    the library's room."""
     await _check_ends(session, user, tenant_id, body.end_a, body.end_b)
     prototypes = await _prototypes(session, user, tenant_id, body.prototypes)
-    await require_relationship_room(session, tenant_id=tenant_id)
     entity = await create_entry(
         session,
         tenant_id=tenant_id,
@@ -316,10 +329,7 @@ async def create_relationship(
         target_type="entity",
         target_id=entity.id,
     )
-    await _commit(session, tenant_id)
-    out = await _after_write(session, vis, tenant_id, entity.id)
-    response.headers["ETag"] = etag_for(out.updated_at)
-    return out
+    return entity
 
 
 @router.get("/relationships/{relationship_id}")

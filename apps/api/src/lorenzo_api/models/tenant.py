@@ -57,6 +57,29 @@ class Tenant(Base):
             ondelete="SET NULL",
             use_alter=True,
         ),
+        # ADR 0400: the three stats that say how a type of relationship points and reads; the
+        # migration clears only the reference when the definition is deleted.
+        ForeignKeyConstraint(
+            ["relationship_directed_stat_id", "id"],
+            ["stat_definition.id", "stat_definition.tenant_id"],
+            name="tenant_relationship_directed_stat_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
+        ForeignKeyConstraint(
+            ["relationship_reads_as_stat_id", "id"],
+            ["stat_definition.id", "stat_definition.tenant_id"],
+            name="tenant_relationship_reads_as_stat_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
+        ForeignKeyConstraint(
+            ["relationship_reads_as_back_stat_id", "id"],
+            ["stat_definition.id", "stat_definition.tenant_id"],
+            name="tenant_relationship_reads_as_back_stat_id_fkey",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
         # ADR 0288: the release other tenants read, one of the repository's own.
         ForeignKeyConstraint(
             ["current_release_id", "id"],
@@ -129,6 +152,12 @@ class Tenant(Base):
     being_stat_group_id: Mapped[uuid.UUID | None]
     weapon_stat_group_id: Mapped[uuid.UUID | None]
     ability_information_type: Mapped[str | None]
+    # ADR 0400: which stat definitions say that a type of relationship is directed (a bool tag),
+    # and the verb it reads as from its first end and from its second (text). Unset until a
+    # library says; a library without them works.
+    relationship_directed_stat_id: Mapped[uuid.UUID | None]
+    relationship_reads_as_stat_id: Mapped[uuid.UUID | None]
+    relationship_reads_as_back_stat_id: Mapped[uuid.UUID | None]
     # ADR 0029's attribution pair, landing here alongside created_at/
     # updated_at themselves (ADR 0033/RFC 0012) - unlike every other table
     # ADR 0018 covers, `tenant`'s original bootstrap (ADR 0013) predates
@@ -155,6 +184,7 @@ class Tenant(Base):
         passive_deletes=True,
     )
     stat_definitions: Mapped[list[StatDefinition]] = relationship(
+        foreign_keys="StatDefinition.tenant_id",
         lazy="raise_on_sql",
         back_populates="tenant",
         cascade="all, delete-orphan",

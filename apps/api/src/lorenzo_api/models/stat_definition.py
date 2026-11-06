@@ -99,7 +99,11 @@ class StatDefinition(Base):
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="stat_definitions")
+    tenant: Mapped[Tenant] = relationship(
+        foreign_keys="StatDefinition.tenant_id",
+        lazy="raise_on_sql",
+        back_populates="stat_definitions",
+    )
     stat_group: Mapped[StatGroup] = relationship(
         foreign_keys="StatDefinition.stat_group_id",
         lazy="raise_on_sql",

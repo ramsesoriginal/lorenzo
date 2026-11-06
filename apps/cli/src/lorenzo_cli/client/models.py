@@ -294,6 +294,13 @@ class BulkReparentPrototypeRequest(BaseModel):
     item_ids: list[UUID] | None = Field(None, title="Item Ids")
 
 
+class Op(StrEnum):
+    create = "create"
+    set = "set"
+    clear = "clear"
+    delete = "delete"
+
+
 class CalendarDate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -443,6 +450,16 @@ class CharacterSummaryOut(BaseModel):
 class CharacterUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
+
+
+class ClearOperation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    op: Literal["clear"] = Field(..., title="Op")
+    relationship_id: UUID = Field(..., title="Relationship Id")
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    if_match: str = Field(..., title="If Match")
 
 
 class Kind3(StrEnum):
@@ -789,6 +806,15 @@ class DayPreview(BaseModel):
     date: CalendarDate
     weekday: int | None = Field(..., title="Weekday")
     moons: dict[str, int] = Field(..., title="Moons")
+
+
+class DeleteOperation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    op: Literal["delete"] = Field(..., title="Op")
+    relationship_id: UUID = Field(..., title="Relationship Id")
+    if_match: str = Field(..., title="If Match")
 
 
 class DelistRepositoryRequest(BaseModel):
@@ -3032,6 +3058,17 @@ class SetEntityStatRequest(BaseModel):
     acquire_group: bool | None = Field(False, title="Acquire Group")
 
 
+class SetOperation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    op: Literal["set"] = Field(..., title="Op")
+    relationship_id: UUID = Field(..., title="Relationship Id")
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool = Field(..., title="Value")
+    if_match: str = Field(..., title="If Match")
+
+
 class SetOwnerRequest(BaseModel):
     owner_character_id: UUID = Field(..., title="Owner Character Id")
     move_to_owner: bool | None = Field(False, title="Move To Owner")
@@ -3180,6 +3217,14 @@ class StatValueType(StrEnum):
     enum = "enum"
 
 
+class StatWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    stat_definition_id: UUID = Field(..., title="Stat Definition Id")
+    value: int | str | float | bool = Field(..., title="Value")
+
+
 class Via(StrEnum):
     contained_in = "contained_in"
     with_ = "with"
@@ -3279,6 +3324,11 @@ class TenantOut(BaseModel):
     being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
     ability_information_type: str | None = Field(..., title="Ability Information Type")
+    relationship_directed_stat_id: UUID | None = Field(None, title="Relationship Directed Stat Id")
+    relationship_reads_as_stat_id: UUID | None = Field(None, title="Relationship Reads As Stat Id")
+    relationship_reads_as_back_stat_id: UUID | None = Field(
+        None, title="Relationship Reads As Back Stat Id"
+    )
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
 
@@ -3311,6 +3361,11 @@ class TenantUpdate(BaseModel):
     weapon_stat_group_id: UUID | None = Field(None, title="Weapon Stat Group Id")
     ability_information_type: constr(min_length=1, max_length=100) | None = Field(
         None, title="Ability Information Type"
+    )
+    relationship_directed_stat_id: UUID | None = Field(None, title="Relationship Directed Stat Id")
+    relationship_reads_as_stat_id: UUID | None = Field(None, title="Relationship Reads As Stat Id")
+    relationship_reads_as_back_stat_id: UUID | None = Field(
+        None, title="Relationship Reads As Back Stat Id"
     )
 
 
@@ -3567,6 +3622,13 @@ class BulkMoveContainerRequest(BaseModel):
     merge_identical: bool | None = Field(False, title="Merge Identical")
 
 
+class BulkResult(BaseModel):
+    index: int = Field(..., title="Index")
+    op: Op = Field(..., title="Op")
+    relationship_id: UUID = Field(..., title="Relationship Id")
+    relationship: LorenzoApiRoutersRelationshipsRelationshipOut | None
+
+
 class CalendarDefinitionInput(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -3792,6 +3854,24 @@ class CopyStepOut(BaseModel):
     information: int = Field(..., title="Information")
     attachments: int = Field(..., title="Attachments")
     dropped: list[DroppedOut] = Field(..., title="Dropped")
+
+
+class CreateOperation(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    end_a: UUID = Field(..., title="End A")
+    end_b: UUID = Field(..., title="End B")
+    one_way: bool | None = Field(False, title="One Way")
+    prototypes: list[UUID] | None = Field(None, max_length=20, title="Prototypes")
+    is_public: bool | None = Field(False, title="Is Public")
+    op: Literal["create"] = Field(..., title="Op")
+    stats: list[StatWrite] | None = Field(None, max_length=20, title="Stats")
 
 
 class DescriptionOut(BaseModel):
@@ -4385,6 +4465,23 @@ class ReadingsOut(BaseModel):
     can_manage: bool = Field(..., title="Can Manage")
 
 
+class Operations(RootModel[CreateOperation | SetOperation | ClearOperation | DeleteOperation]):
+    root: CreateOperation | SetOperation | ClearOperation | DeleteOperation = Field(
+        ..., discriminator="op"
+    )
+
+
+class RelationshipBulkRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    operations: list[Operations] = Field(..., max_length=100, min_length=1, title="Operations")
+
+
+class RelationshipBulkResponse(BaseModel):
+    results: list[BulkResult] = Field(..., title="Results")
+
+
 class ReleaseAuthoredOut(BaseModel):
     id: UUID = Field(..., title="Id")
     number: int = Field(..., title="Number")
@@ -4829,6 +4926,11 @@ class PublishedOut(BaseModel):
     being_stat_group_id: UUID | None = Field(None, title="Being Stat Group Id")
     weapon_stat_group_id: UUID | None = Field(..., title="Weapon Stat Group Id")
     ability_information_type: str | None = Field(..., title="Ability Information Type")
+    relationship_directed_stat_id: UUID | None = Field(None, title="Relationship Directed Stat Id")
+    relationship_reads_as_stat_id: UUID | None = Field(None, title="Relationship Reads As Stat Id")
+    relationship_reads_as_back_stat_id: UUID | None = Field(
+        None, title="Relationship Reads As Back Stat Id"
+    )
     created_by: UUID | None = Field(..., title="Created By")
     updated_by: UUID | None = Field(..., title="Updated By")
     release: ReleaseAuthoredOut

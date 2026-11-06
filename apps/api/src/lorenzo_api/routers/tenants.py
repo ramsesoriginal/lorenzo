@@ -26,6 +26,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
+    InvalidRelationshipTypeStatError,
     InvalidSheetSettingError,
     InvalidUserError,
     LastOwnerError,
@@ -50,7 +51,9 @@ from lorenzo_api.models import (
     RepositoryProfile,
     RepositorySubscription,
     SceneAppearance,
+    StatDefinition,
     StatGroup,
+    StatValueType,
     StorySession,
     Tenant,
     TenantKind,
@@ -224,6 +227,14 @@ async def get_tenant(
     return TenantOut.model_validate(tenant)
 
 
+# ADR 0400: what each relationship-type setting must be - a bool tag, then two text stats.
+_RELATIONSHIP_TYPE_STATS = {
+    "relationship_directed_stat_id": StatValueType.BOOL,
+    "relationship_reads_as_stat_id": StatValueType.TEXT,
+    "relationship_reads_as_back_stat_id": StatValueType.TEXT,
+}
+
+
 async def _tenant_out(tenant_id: uuid.UUID, session: SessionDep) -> TenantOut:
     # Callers that already confirmed tenant_id is real (get_tenant_context/
     # get_tenant_or_404, or POST/PATCH below re-reading the row they just
@@ -331,6 +342,26 @@ async def update_tenant(
             if found is None:
                 raise InvalidSheetSettingError(
                     detail=f"No stat group with id {update[field]} in this tenant"
+                )
+        setattr(tenant, field, update[field])
+        changed_fields.append(field)
+    # ADR 0400: the three relationship-type stats - a bool tag, then two text stats.
+    for field, wanted in _RELATIONSHIP_TYPE_STATS.items():
+        if field not in update or update[field] == getattr(tenant, field):
+            continue
+        if update[field] is not None:
+            found_type = await session.scalar(
+                select(StatDefinition.value_type).where(
+                    StatDefinition.id == update[field], StatDefinition.tenant_id == tenant_id
+                )
+            )
+            if found_type is None:
+                raise InvalidRelationshipTypeStatError(
+                    detail=f"No stat definition with id {update[field]} in this tenant"
+                )
+            if found_type is not wanted:
+                raise InvalidRelationshipTypeStatError(
+                    detail=f"{field} must be a {wanted.value} stat, not {found_type.value}"
                 )
         setattr(tenant, field, update[field])
         changed_fields.append(field)
