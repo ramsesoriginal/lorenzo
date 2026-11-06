@@ -4,8 +4,8 @@ import { signedIn, world } from './support/world.ts';
 
 test('a GM makes a relationship from the form and reads it on its page', async ({ browser }) => {
   const w = await world();
-  await w.entry('Mara Quill');
-  await w.entry('Wren Ashdown');
+  await w.person('Mara Quill');
+  await w.person('Wren Ashdown');
   const page = await signedIn(browser, w.subject);
   await page.goto('/');
   await page.getByRole('link', { name: w.tenant.name }).click();
@@ -97,7 +97,7 @@ test('a player makes a relationship with their own being, and changes and delete
 }) => {
   const w = await world();
   const alice = await w.being('Alice the Bold');
-  const wren = await w.entry('Wren Ashdown');
+  const wren = await w.being('Wren Ashdown');
   const page = await signedIn(browser, w.playerSubject);
   await page.goto(`/relationships/?tenant=${w.tenant.id}`);
   const form = page.getByRole('form', { name: 'Make a relationship' });
@@ -120,4 +120,33 @@ test('a player makes a relationship with their own being, and changes and delete
   await expect(page.getByRole('heading', { name: 'Relationships', level: 1 })).toBeVisible();
   await expect(page.getByText('There are no relationships you can see yet.')).toBeVisible();
   expect(alice.entity_id).toBeTruthy();
+});
+
+test('the ends offered are beings and groups, and the types offered are types', async ({
+  browser,
+}) => {
+  const w = await world();
+  const mara = await w.person('Mara Quill');
+  await w.group('The Court', mara.id);
+  await w.entry('The Court Hall');
+  await w.entry('Ash Hold');
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/relationships/?tenant=${w.tenant.id}`);
+  const form = page.getByRole('form', { name: 'Make a relationship' });
+
+  // A being and a group are found; a Location is not, even when its name matches.
+  await form.getByLabel('First end: search by name').fill('Mara');
+  await expect(form.getByLabel('First end: results').getByRole('option')).toHaveText([
+    'Mara Quill',
+  ]);
+  await form.getByLabel('Second end: search by name').fill('Court');
+  await expect(form.getByLabel('Second end: results').getByRole('option')).toHaveText([
+    'The Court',
+  ]);
+  await form.getByLabel('Second end: search by name').fill('Ash');
+  await expect(form.getByText('No being or group by that name.')).toBeVisible();
+
+  // An entry nothing makes a type of is not offered as a type.
+  await form.getByLabel('Type of relationship (optional): search by name').fill('Court');
+  await expect(form.getByText('No type of relationship by that name.')).toBeVisible();
 });

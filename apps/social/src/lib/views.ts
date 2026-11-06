@@ -22,7 +22,7 @@ import {
   submit,
 } from './dom';
 import { canManage, libraryName, myLibraries } from './names';
-import { entryPicker } from './pickers';
+import { endPicker, typePicker } from './pickers';
 import { start } from './sign-in';
 
 import {
@@ -189,9 +189,9 @@ function creator(tenant: string, manage: boolean) {
   section.append(sectionHead('Make a relationship'));
   const form = el('form', '', 'stack');
   form.setAttribute('aria-label', 'Make a relationship');
-  const first = entryPicker(tenant, 'First end', { exclude: () => second.value() });
-  const second = entryPicker(tenant, 'Second end', { exclude: () => first.value() });
-  const kind = entryPicker(tenant, 'Type of relationship (optional)');
+  const first = endPicker(tenant, 'First end', () => second.value());
+  const second = endPicker(tenant, 'Second end', () => first.value());
+  const kind = typePicker(tenant, 'Type of relationship (optional)');
   const direction = select('How it goes', [
     ['both', 'Both ways'],
     ['one', 'From the first end to the second'],

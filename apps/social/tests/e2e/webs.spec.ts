@@ -29,9 +29,9 @@ test('a GM makes a web, adds entries and sees them drawn with a sentence a relat
   browser,
 }) => {
   const w = await world();
-  const a = await w.entry('Mara Quill');
-  const b = await w.entry('Wren Ashdown');
-  await w.entry('Dren Holloway');
+  const a = await w.person('Mara Quill');
+  const b = await w.person('Wren Ashdown');
+  await w.person('Dren Holloway');
   await w.tie('Mara is the parent of Wren', a.id, b.id, true);
   const page = await signedIn(browser, w.subject);
   await page.goto(`/webs/?tenant=${w.tenant.id}`);

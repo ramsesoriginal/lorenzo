@@ -1,5 +1,5 @@
 import { el, message } from './dom';
-import { type EntryChoice, type EntryKind, findEntries } from './social-api';
+import { type EntryChoice, type EntryKind, findEnds, findEntries, findTypes } from './social-api';
 
 export interface Picker {
   label: HTMLElement;
@@ -16,7 +16,12 @@ export interface Picker {
 export function entryPicker(
   tenant: string,
   title: string,
-  options: { exclude?: () => string | null; kind?: EntryKind } = {},
+  options: {
+    exclude?: () => string | null;
+    kind?: EntryKind;
+    find?: (tenant: string, query: string) => Promise<EntryChoice[]>;
+    nothing?: string;
+  } = {},
 ): Picker {
   const label = el('div', '', 'field');
   const input = el('input', '', 'text-input');
@@ -45,9 +50,9 @@ export function entryPicker(
       return;
     }
     try {
-      const rows = (await findEntries(tenant, text, options.kind)).filter(
-        (row) => row.id !== options.exclude?.() && !row.kinds.includes('relationship'),
-      );
+      const rows = (
+        await (options.find ?? ((t, q) => findEntries(t, q, options.kind)))(tenant, text)
+      ).filter((row) => row.id !== options.exclude?.() && !row.kinds.includes('relationship'));
       if (mine !== latest) return;
       found = rows;
       results.replaceChildren(
@@ -59,7 +64,7 @@ export function entryPicker(
       );
       results.hidden = rows.length === 0;
       results.size = Math.min(6, Math.max(2, rows.length));
-      if (rows.length === 0) chosen.textContent = 'Nothing found by that name.';
+      if (rows.length === 0) chosen.textContent = options.nothing ?? 'Nothing found by that name.';
     } catch (error) {
       chosen.textContent = message(error);
     }
@@ -77,4 +82,21 @@ export function entryPicker(
     value: () => picked?.id ?? null,
     name: () => picked?.name ?? '',
   };
+}
+
+/** A being or a group, the ends a relationship is made between. */
+export function endPicker(tenant: string, title: string, exclude?: () => string | null): Picker {
+  return entryPicker(tenant, title, {
+    find: findEnds,
+    nothing: 'No being or group by that name.',
+    ...(exclude ? { exclude } : {}),
+  });
+}
+
+/** One of the types of relationship the library has. */
+export function typePicker(tenant: string, title: string): Picker {
+  return entryPicker(tenant, title, {
+    find: findTypes,
+    nothing: 'No type of relationship by that name.',
+  });
 }

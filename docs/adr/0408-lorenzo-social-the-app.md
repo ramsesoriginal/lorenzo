@@ -72,3 +72,13 @@ Offline use, an installable shell, a native app, a matrix on a phone, and Bench'
   participant, without the choice of opening it up.
 - The Beings relationships section and Bench's Relations pane (slice 16) read only and take the renderer's `radial`
   layout.
+
+## Addendum: what the pickers offer (2026-11-06)
+
+- The ends of a relationship, and the entries added to a web, are chosen from **beings and groups** (a group being an
+  entry that has members, as `GET /groups` lists them). The API still ties any two entries (ADR 0399); the app offers
+  these two, so a Location or a plain note is not in the lists, and a relationship that already has one is read as it
+  was.
+- The type pickers (a relationship's type, the matrix, a web's limit) offer only the **types** the library has: what
+  `GET /relationship-types` returns, which is an entry that relationships are of, that holds the library's type stats,
+  or that a type inherits from.
