@@ -44,6 +44,7 @@ from lorenzo_api.exceptions import (
     RepositoryNotFoundError,
 )
 from lorenzo_api.frames import AXES
+from lorenzo_api.manuscript_comparison import copy_baselines
 from lorenzo_api.models import (
     Calendar,
     CalendarObservance,
@@ -952,6 +953,10 @@ class _Planner:
                             "target": target_text,
                         }
                     )
+        manuscript_baselines = copy_baselines(c, local_information, local_payloads)
+        for link in self.rows["link_entity"]:
+            if link["source_tenant_id"] == repository_id:
+                link["manuscript_baseline"] = manuscript_baselines.get(link["source_id"])
         for source, redirect in c.manuscript_redirects.items():
             if not copies("entity", source):
                 continue

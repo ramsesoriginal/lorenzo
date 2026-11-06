@@ -3042,6 +3042,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/writing/entries/{id}/repository-comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compare Manuscript */
+        get: operations["compare_manuscript"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/writing/entries/{id}/contents": {
         parameters: {
             query?: never;
@@ -11642,6 +11659,28 @@ export interface components {
             kind: components["schemas"]["TenantKind"];
             /** Campaigns */
             campaigns: components["schemas"]["ManagedCampaignOut"][];
+        };
+        /** ManuscriptComparison */
+        ManuscriptComparison: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "not_copied" | "no_baseline" | "local_unavailable" | "unchanged" | "local" | "upstream" | "matching" | "conflict";
+            /** Repository Name */
+            repository_name?: string | null;
+            /** Base */
+            base?: {
+                [key: string]: unknown;
+            } | null;
+            /** Local */
+            local?: {
+                [key: string]: unknown;
+            } | null;
+            /** Upstream */
+            upstream?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ManuscriptContentsOut */
         ManuscriptContentsOut: {
@@ -27705,6 +27744,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WritingEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    compare_manuscript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManuscriptComparison"];
                 };
             };
             /** @description Validation Error */

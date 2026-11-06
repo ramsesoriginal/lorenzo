@@ -73,6 +73,8 @@ class RepositoryCopyLinkEntity(_CopyLink, Base):
     )
 
     entity_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    # Historical manuscript content and copied identities, independent of ordinary updates.
+    manuscript_baseline: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class RepositoryCopyLinkStatGroup(_CopyLink, Base):

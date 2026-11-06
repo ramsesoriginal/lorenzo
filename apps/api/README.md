@@ -156,3 +156,8 @@ reads an Event through permitted relationships without saving inferred evidence.
 separate entered, derived, not-reckoned, conflicting and limit-reached results. Hidden sources
 are filtered before traversal, provenance and work limits. Repository release documents carry
 relationships; earlier formats remain readable.
+
+Copied manuscripts retain an independent direct-bundle baseline for read-only three-way
+comparison ([ADR 0398](../../docs/adr/0398-copied-manuscript-comparison.md)). The Writing comparison
+route requires current manuscript edit/history access and uses the repository's gated live or
+released read. Legacy copies report no baseline; ordinary entity updates leave this baseline intact.
