@@ -9,7 +9,7 @@
     "shell-container", "shell-app", "shell-page", "shell-page--reading", "shell-page--form", "shell-page--wide",
     "shell-bar", "shell-field-btn", "shell-apps", "shell-strip", "shell-strip-in", "shell-status", "shell-tabbar", "shell-drawer",
     "avatar", "brand-link", "palette-btn", "only-wide", "only-phone",
-    "palette", "p-in", "p-tabs", "p-list", "p-group", "p-opt", "p-foot", "p-empty",
+    "icon-button", "palette", "p-body", "p-prev", "p-end", "p-foot-end", "p-in", "p-tabs", "p-list", "p-group", "p-opt", "p-foot", "p-empty",
     "save-bar", "save-bar-in", "save-bar--float",
     "skeleton-line", "skeleton-rows", "skeleton-row",
     "horizontal-mask",

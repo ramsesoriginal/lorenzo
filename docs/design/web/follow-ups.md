@@ -35,3 +35,29 @@ What the design needs that does not exist yet. This list is a plan, not a change
 ## Apps
 
 Each app drops its own header, footer, button and field styles when its slice lands (UI-H). No app is changed before its slice.
+
+## UI-A: what is in `apps/brand` and how it was checked
+
+Slice UI-A (#1012) of [RFC 0050](../../rfcs/0050-the-web-interface.md) is built in `apps/brand`, in six stacked pull requests, and checked against the prototype.
+
+| Item | Where |
+| --- | --- |
+| `--border-control`, type roles, `--dur-*`/`--ease`, `--space-2h`, the `--text-tertiary` contrast fix | `tokens.css` |
+| Container steps, density (48, 36, 28px; 64px and 44px targets on a phone), page widths | `layout.css` (`.shell-container`, `.shell-app`, `.shell-page`) |
+| Control edge on fields, buttons and the switch; `.segmented-control`; `.icon-button`; `kbd` | `components.css` |
+| Menu, bottom-sheet dialog, toast with Undo | `components.css` (`.menu`, `dialog`, `.toast-card`) |
+| Global bar, app bar, state strip, status bar, tab bar, apps drawer, palette, state chip | `components.css` (`.shell-*`, `dialog.palette`, `.state-chip`) |
+| Save bar, skeleton rows, sideways fade | `components.css` (`.save-bar`, `.skeleton-row`, `.horizontal-mask`) |
+| Graph and matrix grammar: standing, edges and nodes, focus dimming, lens line, legend, matrix, time filter | `components.css` (`.standing`, `.graph-*`, `.lens-line`, `.graph-legend`, `.matrix`, `.time-filter`) |
+| Class-clash test; palette command contract | `web-classes.json`, `palette-command.schema.json`, `tests/` |
+| Icon atlas additions | `icons.svg` (the Relationship and Social web kind icons; the only two the prototypes lacked) |
+
+**How it was checked.** The Dialogs, Shell, Pages and Graph previews show each part. Browser checks (Chromium, light and dark, 1440 and 430 wide) cover behaviour and contrast, and the brand's computed styles were compared, element by element, with the prototype's for the global bar, library and palette buttons, avatar, app bar and tabs, status bar, tab bar, buttons, input, menu, dialog, toast and palette: spacing, heights, edges, radii, fonts and colours agree. The compare found and fixed these: the overlay and bar surfaces are `--surface-canvas`, an overlay's edge is `--border-subtle` with the prototype's shadows, the scrim has no blur, a button and a field are 36px tall (44px on a phone), the status bar's button is 24px, the palette has its preview pane from 1100px, and an icon in a flex row does not shrink.
+
+**Differences kept on purpose.**
+
+- The previews show the text lockup, not the lockup picture, because `apps/brand` is deployed alone.
+- A dialog fades in but does not move and closes at once, because two Account Hub tests reopen a dialog straight after Cancel and measure a sheet as it opens; the closing transition returns when an app's tests can wait for it.
+- Menus, dialogs and toasts follow the window; the shell's bars follow their `.shell-container`.
+- The palette's preview pane holds whatever the app puts in it; the contract for what an app declares is `palette-command.schema.json`, and how it registers at runtime is settled with the shell package (UI-B).
+- The class-clash test found and fixed four real clashes with Beings (`.segmented`, `.toast`, `.state`, `.legend`, and `.icon-btn`, now `.segmented-control`, `.toast-card`, `.state-chip`, `.graph-legend` and `.icon-button`).

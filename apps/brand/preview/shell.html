@@ -136,10 +136,14 @@
                     <use href="../icons.svg#icon-search"></use></svg
                   ><span>Search or run a command</span><kbd>Ctrl K</kbd>
                 </button>
-                <button class="avatar" type="button" aria-label="Notifications">
-                  <svg class="icon" width="16" height="16" aria-hidden="true">
-                    <use href="../icons.svg#icon-notifications"></use>
-                  </svg>
+                <button
+                  class="icon-button"
+                  type="button"
+                  aria-label="Notifications, 3 unread"
+                >
+                  <svg class="icon" width="20" height="20" aria-hidden="true">
+                    <use href="../icons.svg#icon-notifications"></use></svg
+                  >3
                 </button>
                 <button class="avatar" type="button" aria-label="Account">
                   KA
@@ -300,37 +304,48 @@
               type="text"
               placeholder="Search or run a command"
               aria-label="Search"
-            />
+            /><kbd>Esc</kbd>
           </div>
           <div class="p-tabs" role="tablist">
             <button role="tab" aria-selected="true">All</button
             ><button role="tab" aria-selected="false">Beings</button
             ><button role="tab" aria-selected="false">Commands</button>
           </div>
-          <div class="p-list" role="listbox" aria-label="Results">
-            <div class="p-group">Beings</div>
-            <div class="p-opt" role="option" aria-selected="true">
-              <svg class="icon" width="16" height="16" aria-hidden="true">
-                <use href="../icons.svg#icon-account"></use></svg
-              ><span class="grow"><mark>Kae</mark>len Ashworth</span
-              ><span class="meta">Ranger</span>
+          <div class="p-body">
+            <div class="p-list" role="listbox" aria-label="Results">
+              <div class="p-group">Beings</div>
+              <div class="p-opt" role="option" aria-selected="true">
+                <svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-account"></use></svg
+                ><span class="grow"><mark>Kae</mark>len Ashworth</span
+                ><span class="meta">Character</span
+                ><span class="p-end">Beings</span>
+              </div>
+              <div class="p-opt" role="option" aria-selected="false">
+                <svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-account"></use></svg
+                ><span class="grow"><mark>Kae</mark>la Voss</span
+                ><span class="meta">Character</span
+                ><span class="p-end">Beings</span>
+              </div>
+              <div class="p-group">Commands</div>
+              <div class="p-opt" role="option" aria-selected="false">
+                <svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-command"></use></svg
+                ><span class="grow">New being</span
+                ><span class="p-end"><kbd>N</kbd></span>
+              </div>
             </div>
-            <div class="p-opt" role="option" aria-selected="false">
-              <svg class="icon" width="16" height="16" aria-hidden="true">
-                <use href="../icons.svg#icon-account"></use></svg
-              ><span class="grow"><mark>Kae</mark>la Voss</span
-              ><span class="meta">Mage</span>
-            </div>
-            <div class="p-group">Commands</div>
-            <div class="p-opt" role="option" aria-selected="false">
-              <svg class="icon" width="16" height="16" aria-hidden="true">
-                <use href="../icons.svg#icon-command"></use></svg
-              ><span class="grow">New being</span><span class="meta">N</span>
+            <div class="p-prev">
+              <strong>Kaelen Ashworth</strong>
+              <p class="status-text">Ranger · Beings</p>
+              <p>A scout who keeps the ledger and a second, smaller ledger.</p>
             </div>
           </div>
           <div class="p-foot">
             <span><kbd>↑</kbd><kbd>↓</kbd> move</span
-            ><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span>
+            ><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span
+            ><span class="p-foot-end">? for all shortcuts</span>
           </div>
         </dialog>
       </div>

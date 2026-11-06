@@ -101,7 +101,8 @@ button:disabled {
   text-decoration: none;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--hit, 36px);
+  padding: 0 var(--space-3);
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease);
 }
@@ -143,9 +144,14 @@ button:disabled {
   background: var(--surface-default);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--hit, 36px);
+  padding: var(--space-1) var(--space-2h);
   width: 100%;
   transition: border-color var(--dur-fast) var(--ease);
+}
+
+textarea.text-input {
+  padding-block: var(--space-2);
 }
 
 .text-input:focus-visible {
@@ -172,6 +178,49 @@ button:disabled {
   gap: var(--space-2);
 }
 
+/* A toolbar icon button: no edge (the icon is the affordance), as tall as a control. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: var(--hit, 36px);
+  height: var(--hit, 36px);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.icon-button:hover {
+  background: var(--fill-soft);
+}
+
+.icon-button .icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* A key, as it is written in a hint. */
+kbd {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--fill-soft);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: 1.5;
+}
+
 /* A segmented control: a few mutually exclusive choices in one edge. Buttons with
    aria-pressed (a toggle each) or role="radio" with aria-checked. */
 .segmented-control {
@@ -184,7 +233,7 @@ button:disabled {
 .segmented-control > button {
   font-family: var(--font-ui);
   font-size: var(--fs-meta);
-  min-height: 32px;
+  min-height: calc(var(--hit, 36px) - 2px);
   padding: 0 var(--space-3);
   border: 0;
   border-radius: 0;
@@ -490,21 +539,19 @@ pre {
    controls - so unlike a modal one, it has nothing else separating it
    from whatever happens to be behind it. */
 dialog {
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
   padding: var(--space-4);
-  background: var(--surface-default);
+  background: var(--surface-canvas);
   color: var(--text-primary);
   max-width: min(480px, 92vw);
-  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-ink) 28%, transparent);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.28);
 }
 
-/* Only a modal dialog (showModal()) ever gets this - the blur is what
-   actually reads as "everything else is out of focus," well beyond what
-   the darkening tint alone communicates. */
+/* Only a modal dialog (showModal()) ever gets this: a plain scrim, with no blur, so the page
+   behind stays legible (docs/design/web, D25). */
 dialog::backdrop {
-  background: color-mix(in srgb, var(--brand-ink) 50%, transparent);
-  backdrop-filter: blur(4px);
+  background: rgb(0 0 0 / 0.42);
 }
 
 /* A dialog fades in. It does not move, so its box is its final box the moment it opens; and it
@@ -585,10 +632,10 @@ dialog h3 {
   min-width: 240px;
   max-width: 340px;
   padding: 6px;
-  background: var(--surface-default);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
-  box-shadow: 0 12px 32px color-mix(in srgb, var(--brand-ink) 22%, transparent);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.22);
 }
 
 .menu-head {
@@ -689,10 +736,10 @@ dialog h3 {
   align-items: flex-start;
   gap: var(--space-2h);
   padding: var(--space-2h) var(--space-3);
-  background: var(--surface-default);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-canvas);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--brand-ink) 20%, transparent);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
   font-size: var(--fs-ui);
   animation: brand-toast-in var(--dur-med) var(--ease) both;
 }
@@ -1630,7 +1677,7 @@ fieldset:disabled {
   padding: 2px 10px 2px 8px;
   border: 1px solid var(--c);
   border-radius: var(--radius-pill);
-  background-color: var(--surface-default);
+  background-color: var(--surface-canvas);
   font-size: var(--fs-meta);
   line-height: 20px;
   white-space: nowrap;
@@ -1643,7 +1690,7 @@ fieldset:disabled {
 .state-chip > span {
   padding: 0 2px;
   border-radius: 4px;
-  background: var(--surface-default);
+  background: var(--surface-canvas);
 }
 
 .state-chip[data-state="synced"] {
@@ -1695,11 +1742,13 @@ fieldset:disabled {
 .shell-status .icon,
 .state-chip .icon,
 .palette .icon {
+  flex: none;
   width: 1.25em;
   height: 1.25em;
 }
 
 .avatar .icon {
+  flex: none;
   width: 20px;
   height: 20px;
 }
@@ -1711,7 +1760,7 @@ fieldset:disabled {
   gap: var(--space-2h);
   min-height: 52px;
   padding: 4px var(--space-4);
-  background: var(--surface-default);
+  background: var(--surface-canvas);
 }
 
 .shell-bar .grow {
@@ -1786,7 +1835,7 @@ fieldset:disabled {
   gap: var(--space-1);
   min-height: 44px;
   padding: 0 var(--space-4);
-  background: var(--surface-default);
+  background: var(--surface-canvas);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -1823,6 +1872,10 @@ fieldset:disabled {
   transition: transform var(--dur-med) var(--ease);
 }
 
+.shell-apps .tab[aria-current="page"] {
+  font-weight: 500;
+}
+
 .shell-apps .tab[aria-current="page"]::after {
   transform: scaleX(1);
 }
@@ -1850,13 +1903,13 @@ fieldset:disabled {
   min-height: 36px;
   padding: 4px var(--space-4);
   border-bottom: 1px solid var(--c);
-  background-color: var(--surface-default);
+  background-color: var(--surface-canvas);
 }
 
 .shell-strip-in .msg {
   padding: 0 4px;
   border-radius: 4px;
-  background: var(--surface-default);
+  background: var(--surface-canvas);
 }
 
 .shell-strip-in .icon {
@@ -1899,11 +1952,17 @@ fieldset:disabled {
   min-height: 32px;
   padding: 0 var(--space-4);
   border-top: 1px solid var(--border-subtle);
-  background: var(--surface-default);
+  background: var(--surface-canvas);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
+}
+
+.shell-status .btn {
+  min-height: 24px;
+  padding: 0 var(--space-2);
+  font-size: var(--fs-meta);
 }
 
 .shell-status .grow {
@@ -1930,7 +1989,7 @@ fieldset:disabled {
   display: none;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   border-top: 1px solid var(--border-subtle);
-  background: var(--surface-default);
+  background: var(--surface-canvas);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -1974,7 +2033,7 @@ fieldset:disabled {
 /* Apps drawer: every app by job, the legal links, the version. A sheet from the status bar. */
 .shell-drawer {
   padding: var(--space-4);
-  background: var(--surface-default);
+  background: var(--surface-canvas);
   border-top: 1px solid var(--border-strong);
 }
 
@@ -2014,6 +2073,7 @@ fieldset:disabled {
 
 /* The palette: a dialog with a search field, scope buttons, grouped options and a key hint. */
 dialog.palette {
+  font-size: var(--fs-ui);
   display: flex;
   flex-direction: column;
   width: min(660px, calc(100% - 24px));
@@ -2026,6 +2086,40 @@ dialog.palette {
 
 dialog.palette:not([open]) {
   display: none;
+}
+
+.palette .p-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.palette .p-prev {
+  display: none;
+  flex: 0 0 300px;
+  padding: var(--space-3);
+  border-inline-start: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+}
+
+.palette .p-opt .p-end {
+  color: var(--text-tertiary);
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+
+.palette .p-foot .p-foot-end {
+  margin-inline-start: auto;
+}
+
+@media (min-width: 1100px) {
+  dialog.palette {
+    width: min(940px, calc(100% - 48px));
+  }
+
+  .palette .p-prev {
+    display: block;
+  }
 }
 
 .palette .p-in {
@@ -2219,7 +2313,7 @@ dialog.palette:not([open]) {
   gap: var(--space-2) var(--space-2h);
   padding: var(--space-2) var(--space-4);
   border-top: 1px solid var(--border-subtle);
-  background: var(--surface-default);
+  background: var(--surface-canvas);
 }
 
 .save-bar-in .grow {
@@ -2235,7 +2329,7 @@ dialog.palette:not([open]) {
   gap: var(--space-2);
   margin: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-default);
+  background: var(--surface-canvas);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-card);
 }
