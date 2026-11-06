@@ -21,6 +21,24 @@
         min-height: var(--row-h, 48px);
         border-bottom: 1px solid var(--border-subtle);
       }
+      .step-demo::before {
+        content: "phone (up to 720px)";
+      }
+      @container shell (min-width: 721px) {
+        .step-demo::before {
+          content: "tablet (721px up)";
+        }
+      }
+      @container shell (min-width: 1100px) {
+        .step-demo::before {
+          content: "desktop (1100px up)";
+        }
+      }
+      @container shell (min-width: 1700px) {
+        .step-demo::before {
+          content: "large (1700px up)";
+        }
+      }
     </style>
   </head>
   <body>
@@ -322,6 +340,70 @@
           </div>
         </section>
 
+        <section id="steps">
+          <h2>Container steps</h2>
+          <p class="lede">
+            Anything inside a <code>.shell-container</code> can query its width:
+            <code>@container shell (min-width: 1100px)</code>. The steps are
+            720, 1100 and 1700px.
+          </p>
+          <div
+            class="row"
+            role="group"
+            aria-label="Step width"
+            style="gap: var(--space-2)"
+          >
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-sw="430"
+              aria-pressed="true"
+            >
+              430
+            </button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-sw="900"
+              aria-pressed="false"
+            >
+              900
+            </button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-sw="1280"
+              aria-pressed="false"
+            >
+              1280
+            </button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-sw="1800"
+              aria-pressed="false"
+            >
+              1800
+            </button>
+          </div>
+          <div style="overflow-x: auto">
+            <div
+              class="shell-container"
+              id="steps-frame"
+              style="
+                width: 430px;
+                margin-top: var(--space-3);
+                outline: 1px solid var(--border-subtle);
+                border-radius: var(--radius-card);
+              "
+            >
+              <div class="shell-app" style="padding: var(--space-3)">
+                <span class="step-demo" id="step-name"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="widths">
           <h2>Page widths</h2>
           <div class="shell-container">
@@ -413,12 +495,22 @@
               render();
             });
         }
+        window.renderSaveBar = render;
         document
           .getElementById("make-change")
           .addEventListener("click", function () {
             n += 1;
             render();
           });
+        document.querySelectorAll("[data-sw]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            document.getElementById("steps-frame").style.width =
+              b.getAttribute("data-sw") + "px";
+            document.querySelectorAll("[data-sw]").forEach(function (x) {
+              x.setAttribute("aria-pressed", x === b ? "true" : "false");
+            });
+          });
+        });
         document.querySelectorAll("[data-d]").forEach(function (b) {
           b.addEventListener("click", function () {
             document

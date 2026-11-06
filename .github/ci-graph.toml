@@ -96,6 +96,11 @@ generated_from = ["apps/api"]
 
 # Slow integration suites, each its own job. A suite runs when its node is affected, or anything
 # it runs against is.
+[suites.brand-e2e]
+node = "packages/brand"
+# Playwright against the static previews in apps/brand (the web interface parts); no API and no
+# database. packages/brand depends on apps/brand, so a change to the CSS runs it.
+
 [suites.inventory-web-e2e]
 node = "apps/inventory-web"
 # Playwright against the real API and a fake Authgear (ADR 0114).
