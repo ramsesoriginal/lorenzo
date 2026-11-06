@@ -15,7 +15,7 @@ A relationship is shown only to someone who may see it and **both of its ends**.
 smaller list or a gap: it is not there. It is **restricted** when made, and opened on purpose. A restricted one can be
 granted to named characters, groups and players. Authors, GMs, and Owners and Organizers write relationships; **a player
 may make one with a being they control**, which is for that being and the GMs, can be changed or deleted by the player
-who made it, and can never be opened to everyone ([ADR 0409](../adr/0409-players-write-their-own-relationships.md)).
+who made it, and can never be opened to everyone ([ADR 0425](../adr/0425-players-write-their-own-relationships.md)).
 
 ## Standings
 

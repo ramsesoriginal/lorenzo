@@ -76,7 +76,7 @@ class RelationshipEntryOut(EntryStub):
     # Only for those who may manage relationships: whether everyone in the library may see it.
     is_public: bool | None = None
     # Whether the reader may change or delete it: a writer, or the player who made it while they
-    # control an end (ADR 0409). Only on a single read and a write's answer.
+    # control an end (ADR 0425). Only on a single read and a write's answer.
     can_edit: bool = False
     # The Events that bound it in time, when the reader may see them (ADR 0405). A limit the
     # reader cannot see is null here; it is not named in any field or error.
@@ -263,7 +263,7 @@ async def _own_ends(
     marker: Relationship,
 ) -> frozenset[uuid.UUID] | None:
     """None for a writer. For a player, the beings they control, once it is shown that they made
-    this relationship and still control an end of it (ADR 0409); anything else is a 403."""
+    this relationship and still control an end of it (ADR 0425); anything else is a 403."""
     if manages(vis):
         return None
     if vis.user_id is None:
@@ -489,7 +489,7 @@ async def create_relationship(
     vis = await standing(session, user, tenant_id)
     mine: frozenset[uuid.UUID] = frozenset()
     if not manages(vis):
-        # A player makes one with a being they control, for that being and the GMs (ADR 0409).
+        # A player makes one with a being they control, for that being and the GMs (ADR 0425).
         mine = await controlled_character_entity_ids(session, user_id=user.id, tenant_id=tenant_id)
         if body.is_public:
             raise PlayerRelationshipForbiddenError()
@@ -619,7 +619,7 @@ async def delete_relationship(
     if_match: Annotated[str | None, Header()] = None,
 ) -> None:
     """Deletes a relationship under `If-Match`: a writer's, or a player's own while they control an
-    end of it (ADR 0409)."""
+    end of it (ADR 0425)."""
     vis = await standing(session, user, tenant_id)
     entity, marker = await _read(session, vis, tenant_id, relationship_id)
     await _own_ends(session, vis, tenant_id, entity, marker)

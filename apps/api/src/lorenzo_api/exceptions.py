@@ -1567,7 +1567,7 @@ class MapPreconditionRequiredError(StatusProblem):
 
 class PlayerRelationshipForbiddenError(ForbiddenProblem):
     """POST /relationships by a player - it may not be public: what a player makes is for the
-    being and the GMs (ADR 0409)."""
+    being and the GMs (ADR 0425)."""
 
     title = "A relationship you make is for your being and the GMs"
 

@@ -68,7 +68,7 @@ Offline use, an installable shell, a native app, a matrix on a phone, and Bench'
 - Row totals are shown for the focused row only, worded as what the reader sees.
 - Two icons for Relationship and Social web are still to be chosen with the maintainer; until then the atlas's own
   `social` icon and the kind icons stand in.
-- A player writes relationships with a being they control (ADR 0409): the relationship form is offered to every
+- A player writes relationships with a being they control (ADR 0425): the relationship form is offered to every
   participant, without the choice of opening it up.
 - The Beings relationships section and Bench's Relations pane (slice 16) read only and take the renderer's `radial`
   layout.

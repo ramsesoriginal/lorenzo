@@ -51,7 +51,7 @@ test('a player sees only the relationships they may, and a form with no way to o
   await expect(page.getByText('Secret oath')).toHaveCount(0);
   await expect(page.getByText('Cut tie')).toHaveCount(0);
   await expect(page.getByText('sealed vault')).toHaveCount(0);
-  // The form is offered, without the choice of opening it to everyone (ADR 0409).
+  // The form is offered, without the choice of opening it to everyone (ADR 0425).
   await expect(page.getByRole('form', { name: 'Make a relationship' })).toBeVisible();
   await expect(page.getByLabel('Everyone in the library may see it')).toHaveCount(0);
 });

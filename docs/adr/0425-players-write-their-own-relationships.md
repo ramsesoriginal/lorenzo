@@ -1,4 +1,4 @@
-# 0409 - Players write their own relationships
+# 0425 - Players write their own relationships
 
 Status: accepted, decided with the maintainer on 2026-11-05 as the "who writes, later" of
 [ADR 0404](0404-who-sees-and-who-writes-a-relationship.md), recorded here as its own ADR;

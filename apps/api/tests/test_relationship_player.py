@@ -1,4 +1,4 @@
-"""Players write their own relationships (ADR 0409)."""
+"""Players write their own relationships (ADR 0425)."""
 
 from typing import Any
 
