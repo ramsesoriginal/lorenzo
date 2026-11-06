@@ -1023,6 +1023,24 @@ class _Planner:
                     "one_way": True if joined["one_way"] else None,
                 }
             )
+        # A relationship ties two entries: written once every entry has its place (ADR 0399).
+        for e, tied in c.relationships.items():
+            if not copies("entity", e):
+                continue
+            end_a = self._local(c, "entity", tied["end_a"])
+            end_b = self._local(c, "entity", tied["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                drop("relationship", e, "an end of it was not copied")
+                continue
+            self.rows["relationship"].append(
+                {
+                    "entity_id": self.local["entity"][e],
+                    "tenant_id": tenant_id,
+                    "end_a": end_a,
+                    "end_b": end_b,
+                    "one_way": True if tied["one_way"] else None,
+                }
+            )
         for source_id, settings in c.manuscript_contents.items():
             if copies("entity", source_id):
                 self.rows["manuscript_contents"].append(

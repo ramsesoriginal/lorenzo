@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from lorenzo_api.models.manuscript import Book, Chapter, Edition, SceneTelling
     from lorenzo_api.models.map import Map
     from lorenzo_api.models.ownership import Ownership
+    from lorenzo_api.models.relationship import Relationship
     from lorenzo_api.models.stat_group import StatGroup
     from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
     from lorenzo_api.models.tenant import Tenant
@@ -75,6 +76,10 @@ class Entity(Base):
 
     connection: Mapped[Connection | None] = relationship(
         "Connection", foreign_keys="Connection.entity_id", viewonly=True, lazy="raise_on_sql"
+    )
+
+    relationship_marker: Mapped[Relationship | None] = relationship(
+        "Relationship", foreign_keys="Relationship.entity_id", viewonly=True, lazy="raise_on_sql"
     )
 
     clock: Mapped[Clock | None] = relationship(

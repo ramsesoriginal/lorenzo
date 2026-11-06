@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 31
+    assert rd.FORMAT == 32
     assert rd.encode(full_content())[0] == {
         **golden,
         "calendars": {},
@@ -111,6 +111,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "map_placements": [],
         "map_layers": {},
         "connections": {},
+        "relationships": {},
         "clocks": {},
         "clock_readings": [],
         "clock_relationships": [],
@@ -388,3 +389,24 @@ def test_contents_format_and_previous_reader() -> None:
     assert rd.decode(document, files).manuscript_contents == content.manuscript_contents
     old = {key: value for key, value in document.items() if key != "manuscript_contents"}
     assert rd.decode(old, files, format=30).manuscript_contents == {}
+
+
+def test_version_thirty_one_has_no_relationships() -> None:
+    """A repository written before relationships reads with none (ADR 0399)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "relationships"}
+
+    assert rd.READERS[31](old, files).relationships == {}
+
+
+def test_relationships_survive_a_round_trip() -> None:
+    identity, first, second = uuid.UUID(int=190), uuid.UUID(int=191), uuid.UUID(int=192)
+    content = full_content()
+    content.relationships = {
+        identity: {"end_a": first, "end_b": second, "one_way": True},
+        uuid.UUID(int=193): {"end_a": second, "end_b": first, "one_way": None},
+    }
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).relationships == content.relationships

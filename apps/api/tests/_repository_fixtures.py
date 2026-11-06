@@ -70,6 +70,7 @@ from lorenzo_api.models import (
     PayloadDocument,
     PayloadNumber,
     PayloadPicture,
+    Relationship,
     RepositoryCopy,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
@@ -126,6 +127,7 @@ async def seed_every_content_table(
     fact = entity("The blade belongs to Elminster")
     chart = entity("Fixture map")
     road = entity("Fixture road")
+    bond = entity("Fixture bond")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     await session.flush()
@@ -137,6 +139,9 @@ async def seed_every_content_table(
             Location(entity_id=room.id, tenant_id=tenant_id),
             Connection(
                 entity_id=road.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=True
+            ),
+            Relationship(
+                entity_id=bond.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=None
             ),
             Map(
                 entity_id=chart.id,

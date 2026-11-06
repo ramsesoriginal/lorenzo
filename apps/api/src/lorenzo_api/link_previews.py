@@ -51,6 +51,8 @@ TEMPLATES: dict[str, PreviewTemplate] = {
     "map": PreviewTemplate(name="map", stats=(), max_stats=0),
     # ADR 0363: a connection shows what it is called and how it is described.
     "connection": PreviewTemplate(name="connection", stats=(), max_stats=0),
+    # ADR 0399: a relationship shows what it is called and how it is described.
+    "relationship": PreviewTemplate(name="relationship", stats=(), max_stats=0),
 }
 
 

@@ -80,6 +80,7 @@ from lorenzo_api.models import (
     PayloadDocument,
     PayloadNumber,
     PayloadPicture,
+    Relationship,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -106,6 +107,7 @@ KINDS = (
     "location",
     "map",
     "connection",
+    "relationship",
     "calendar_period",
     "event",
     "observance",
@@ -247,6 +249,8 @@ class Content:
     map_placements: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
     # connection -> {end_a, end_b, one_way}: the entries it joins, and one way or not (ADR 0363).
     connections: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # relationship -> {end_a, end_b, one_way}: the entries it ties, and one way or not (ADR 0399).
+    relationships: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     # map -> its layers in order, each {information, calibration, opacity, reviewed}: `information`
     # an id as text, `reviewed` a hex fingerprint or none (ADR 0361).
     map_layers: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
@@ -458,6 +462,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("location", Location),
         ("map", Map),
         ("connection", Connection),
+        ("relationship", Relationship),
         ("calendar_period", CalendarPeriod),
         ("event", StoryEvent),
         ("observance", CalendarObservance),
@@ -805,6 +810,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=Connection.tenant_id == t,
         )
     }
+    c.relationships = {
+        entity: {"end_a": end_a, "end_b": end_b, "one_way": one_way}
+        for entity, end_a, end_b, one_way in await rows(
+            Relationship.entity_id,
+            Relationship.end_a,
+            Relationship.end_b,
+            Relationship.one_way,
+            where=Relationship.tenant_id == t,
+        )
+    }
     for drawn_on, _position, info, calibration, opacity, reviewed in await rows(
         MapLayer.map_entity_id,
         MapLayer.position,
@@ -1143,6 +1158,17 @@ def entity_snapshot(
                 }
             }
             if entity_id in content.connections
+            else {}
+        ),
+        **(
+            {
+                "relationship": {
+                    "end_a": name("entity", content.relationships[entity_id]["end_a"]),
+                    "end_b": name("entity", content.relationships[entity_id]["end_b"]),
+                    "one_way": bool(content.relationships[entity_id]["one_way"]),
+                }
+            }
+            if entity_id in content.relationships
             else {}
         ),
         **(

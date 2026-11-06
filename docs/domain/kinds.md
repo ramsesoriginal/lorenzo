@@ -13,10 +13,11 @@ An **entry** is one thing in a library or repository; its **kind** says what it 
 | Location | A place, part of at most one other ([ADR 0330](../adr/0330-locations-the-kind-and-the-part-of-tree.md)) | [Maps](../../apps/maps/README.md) |
 | Map | A drawing of entries on a sheet ([ADR 0336](../adr/0336-maps-the-kind-its-system-and-its-placements.md)) | [Maps](../../apps/maps/README.md) |
 | Connection | A road, portal or stair joining two entries ([ADR 0363](../adr/0363-connections-the-kind-and-its-two-ends.md)) | [Maps](../../apps/maps/README.md) |
+| Relationship | A tie between two entries: parent of, ally of, a standing with a group ([ADR 0399](../adr/0399-relationships-the-kind-and-its-two-ends.md)) | The API only so far; [Lorenzo Social](../rfcs/0049-lorenzo-social-relationships-and-social-webs.md) is planned |
 | Scene | A reusable piece of a story ([ADR 0317](../adr/0317-sessions-scenes-and-collaborative-planning.md)) | [Sessions](../../apps/sessions/README.md) |
 | Session | One sitting of a campaign ([ADR 0317](../adr/0317-sessions-scenes-and-collaborative-planning.md)) | [Sessions](../../apps/sessions/README.md) |
 | Book, Edition, Chapter, Scene telling | The parts of a manuscript, see [Writing](writing.md) | [Writing](../../apps/writing/README.md) |
 
 Some kinds exist only as a part of another: a calendar period (a day, month or year of a calendar, [ADR 0309](../adr/0309-calendar-periods-events-and-date-associations.md)), a recurring observance ([ADR 0310](../adr/0310-recurring-calendar-observances.md)) and a Scene appearance (a Scene inside one Session).
 
-A Location or a Map can be another kind as well, such as a Location that is also a being ([ADR 0331](../adr/0331-a-location-may-be-any-kind.md)); a Connection is always its own kind.
+A Location or a Map can be another kind as well, such as a Location that is also a being ([ADR 0331](../adr/0331-a-location-may-be-any-kind.md)); a Connection and a Relationship are each always their own kind.

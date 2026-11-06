@@ -1507,6 +1507,12 @@ class InvalidConnectionError(UnprocessableProblem):
     title = "That is not a valid connection"
 
 
+class InvalidRelationshipError(UnprocessableProblem):
+    """A relationship the rules of ADR 0399 refuse: equal ends, an end that is one, a limit."""
+
+    title = "That is not a valid relationship"
+
+
 class InvalidDistanceError(UnprocessableProblem):
     """A question about a distance the rules of ADR 0367 cannot answer: no stat to measure in, one
     that is not a number, or two Maps that both hold both places."""

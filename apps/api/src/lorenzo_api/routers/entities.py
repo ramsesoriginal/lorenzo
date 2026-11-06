@@ -101,6 +101,7 @@ from lorenzo_api.models import (
     Ownership,
     Payload,
     Player,
+    Relationship,
     StatDefinition,
     StoryEvent,
     User,
@@ -173,6 +174,7 @@ _KINDS: tuple[
             | Location
             | Map
             | Connection
+            | Relationship
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
@@ -209,6 +211,7 @@ _KINDS: tuple[
     ("location", Location),
     ("map", Map),
     ("connection", Connection),
+    ("relationship", Relationship),
 )
 
 
@@ -729,6 +732,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.location),
             joinedload(Entity.map),
             joinedload(Entity.connection),
+            joinedload(Entity.relationship_marker),
             joinedload(Entity.calendar_period),
             joinedload(Entity.calendar_observance),
             joinedload(Entity.story_event),

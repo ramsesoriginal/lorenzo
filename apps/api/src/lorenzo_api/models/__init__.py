@@ -92,6 +92,7 @@ __all__ = [
     "Clock",
     "ClockRelationship",
     "Connection",
+    "Relationship",
     "EntityFrame",
     "Frame",
     "Location",
@@ -226,6 +227,7 @@ from lorenzo_api.models.manuscript_move import (
 from lorenzo_api.models.manuscript_revision import ManuscriptRevision
 from lorenzo_api.models.manuscript_split import ManuscriptSplit
 from lorenzo_api.models.map import Map, MapLayer, MapPlacement
+from lorenzo_api.models.relationship import Relationship
 from lorenzo_api.models.session_play import EventPresentation, SessionSequence
 from lorenzo_api.models.story_context import (
     SceneBeing,

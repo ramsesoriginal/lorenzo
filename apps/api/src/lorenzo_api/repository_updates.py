@@ -951,6 +951,23 @@ class _Applier:
             joined.one_way = True if change.upstream["one_way"] else None
             await s.flush()
             return True
+        if name == "relationship":
+            from lorenzo_api.models import Relationship
+
+            tied = await s.get(Relationship, e)
+            if tied is None or tied.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a relationship")
+                return False
+            end_a = self.resolve("entity", change.upstream["end_a"])
+            end_b = self.resolve("entity", change.upstream["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                self.skip(row, name, "Copy the entries it ties first")
+                return False
+            tied.end_a = end_a
+            tied.end_b = end_b
+            tied.one_way = True if change.upstream["one_way"] else None
+            await s.flush()
+            return True
         if name == "place":
             if await s.get(Entity, e) is None:
                 self.skip(row, name, "The local entry is gone")
