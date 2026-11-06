@@ -79,7 +79,20 @@
     "time-filter-seg",
     "time-filter-marks",
     "time-filter-range",
-    "time-filter-handle"
+    "time-filter-handle",
+    "page-heading",
+    "page-heading-actions",
+    "form-section",
+    "form-section-text",
+    "form-section-fields",
+    "state-block",
+    "state-block-title",
+    "state-block-code",
+    "state-block-actions",
+    "page-state",
+    "page-state-art",
+    "home-grid",
+    "home-block"
   ],
   "allowed": {
     "bench": "bench does not load apps/brand; its own .palette and the like are its own"
