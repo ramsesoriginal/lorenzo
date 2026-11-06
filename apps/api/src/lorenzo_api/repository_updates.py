@@ -113,7 +113,7 @@ State = Literal["clean", "conflict", "not_applicable"]
 # `kinds` is a set like the others: an entry gaining or losing a kind is shown, and a kind is added
 # or removed element by element (ADR 0217). Before, an entry's kinds were not compared.
 _HINTS = ("max_hint", "min_hint", "resolved_hint")
-_DISPLAY = ("unit", "adjustable_in_play", "pin", "signed")
+_DISPLAY = ("unit", "adjustable_in_play", "pin", "signed", "min_value", "max_value")
 _SETS = {"prototypes", "stat_groups", "enum_values", "kinds"}
 _KEYED = {"stats", "formulas", "placements"}
 # What a keyed field is keyed by: a stat, except the placements of a Map (an entry).

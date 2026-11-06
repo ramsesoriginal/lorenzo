@@ -99,9 +99,13 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 32
+    assert rd.FORMAT == 33
     assert rd.encode(full_content())[0] == {
         **golden,
+        "definitions": {
+            key: {"min_value": None, "max_value": None, **definition}
+            for key, definition in golden["definitions"].items()
+        },
         "calendars": {},
         "location_parts": {},
         "entity_locations": {},
@@ -410,3 +414,34 @@ def test_relationships_survive_a_round_trip() -> None:
     document, files = rd.encode(content)
 
     assert rd.decode(document, files).relationships == content.relationships
+
+
+def test_version_thirty_two_has_no_stat_scales() -> None:
+    """A repository written before stat scales reads with none (ADR 0403)."""
+    document, files = rd.encode(full_content())
+    old = {
+        **document,
+        "definitions": {
+            key: {k: v for k, v in definition.items() if k not in ("min_value", "max_value")}
+            for key, definition in document["definitions"].items()
+        },
+    }
+
+    back = rd.READERS[32](old, files)
+
+    assert all(d["min_value"] is None and d["max_value"] is None for d in back.definitions.values())
+
+
+def test_stat_scales_survive_a_round_trip() -> None:
+    content = full_content()
+    first = next(iter(content.definitions))
+    content.definitions[first]["min_value"] = -10.0
+    content.definitions[first]["max_value"] = 10.0
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(document, files)
+    assert (back.definitions[first]["min_value"], back.definitions[first]["max_value"]) == (
+        -10.0,
+        10.0,
+    )

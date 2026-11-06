@@ -101,3 +101,35 @@ async def test_a_position_alone_is_not_an_update(
         assert (await w.updates())["changed"] == []
     finally:
         await w.done()
+
+
+async def test_a_scale_travels_with_a_copy_and_is_offered_as_an_update(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """ADR 0403: the bounds of a definition are copied and a changed bound is an update."""
+    w = await release_world(raw_client, fake_jwks_server, published=False)
+    try:
+        await _patch(w, "Speed", min_value=-5, max_value=5)
+        await w.publish(label="1.0")
+        await w.copy()
+        speed = await _local_definition(w, w.ids["Speed"])
+        assert (speed.min_value, speed.max_value) == (-5.0, 5.0)
+
+        await _patch(w, "Speed", max_value=9)
+        await w.publish(label="1.1")
+        rows = {r["source_id"]: r for r in (await w.updates())["changed"]}
+        fields = {f["field"] for f in rows[str(w.ids["Speed"])]["fields"]}
+        assert "max_value" in fields and "min_value" not in fields
+        applied = await w.gm.post(
+            f"/tenants/{w.table}/repositories/{w.repository}/updates",
+            json={
+                "actions": [
+                    {"kind": "stat_definition", "source_id": str(w.ids["Speed"]), "action": "apply"}
+                ]
+            },
+        )
+        assert applied.status_code == 200, applied.text
+        speed = await _local_definition(w, w.ids["Speed"])
+        assert (speed.min_value, speed.max_value) == (-5.0, 9.0)
+    finally:
+        await w.done()

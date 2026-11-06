@@ -467,6 +467,19 @@ class InvalidStatHintError(UnprocessableProblem):
     title = "That stat cannot be used as a hint here"
 
 
+class InvalidStatScaleError(UnprocessableProblem):
+    """POST/PATCH /stat-definitions - a bound on a stat that is not an int or float, or a minimum
+    above the maximum (ADR 0403). Also a value written outside the scale of its stat."""
+
+    title = "That is outside the scale of this stat"
+
+
+class StatScaleBreaksValuesError(ConflictProblem):
+    """PATCH /stat-definitions/{id} - a bound that existing own values would break (ADR 0403)."""
+
+    title = "Existing values lie outside that scale"
+
+
 class InvalidSheetSettingError(UnprocessableProblem):
     """PATCH /tenants/{id} - the weapon stat group is not a stat group of this
     tenant (ADR 0281)."""

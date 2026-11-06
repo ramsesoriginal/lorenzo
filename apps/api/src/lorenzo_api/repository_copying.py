@@ -574,6 +574,8 @@ class _Planner:
                     "pin": definition["pin"],
                     "signed": definition["signed"],
                     "position": definition["position"],
+                    "min_value": definition["min_value"],
+                    "max_value": definition["max_value"],
                 }
             )
             for value, sort_order in c.enum_values.get(d, []):

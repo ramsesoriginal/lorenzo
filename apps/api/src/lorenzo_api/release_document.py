@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 32
+FORMAT = 33
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -350,6 +350,8 @@ _CONTENT = _dataclass(
                     "pin": _PLAIN,
                     "signed": _PLAIN,
                     "position": _PLAIN,
+                    "min_value": _optional(_FLOAT),
+                    "max_value": _optional(_FLOAT),
                     "hints": _record(
                         {
                             "max_hint": _optional(_ID),
@@ -650,6 +652,15 @@ def _read_v31(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v32(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 33 a stat definition had no scale (ADR 0403).
+    definitions = {
+        key: {"min_value": None, "max_value": None, **definition}
+        for key, definition in document["definitions"].items()
+    }
+    return _read_v33({**document, "definitions": definitions}, files)
+
+
+def _read_v33(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -689,6 +700,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     30: _read_v30,
     31: _read_v31,
     32: _read_v32,
+    33: _read_v33,
 }
 
 

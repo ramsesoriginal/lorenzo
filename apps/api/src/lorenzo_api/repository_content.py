@@ -509,6 +509,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         max_hint,
         min_hint,
         resolved_hint,
+        min_value,
+        max_value,
     ) in await rows(
         StatDefinition.id,
         StatDefinition.name,
@@ -522,6 +524,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         StatDefinition.max_hint_id,
         StatDefinition.min_hint_id,
         StatDefinition.resolved_hint_id,
+        StatDefinition.min_value,
+        StatDefinition.max_value,
         where=StatDefinition.tenant_id == t,
     ):
         c.definitions[def_id] = {
@@ -533,6 +537,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             "pin": pin,
             "signed": signed,
             "position": position,
+            "min_value": min_value,
+            "max_value": max_value,
             "hints": {
                 "max_hint": max_hint,
                 "min_hint": min_hint,
@@ -1257,6 +1263,8 @@ def stat_definition_snapshot(
         "adjustable_in_play": definition["adjustable_in_play"],
         "pin": definition["pin"],
         "signed": definition["signed"],
+        "min_value": definition["min_value"],
+        "max_value": definition["max_value"],
         **{
             key: name("stat_definition", hinted) if hinted is not None else None
             for key, hinted in definition["hints"].items()

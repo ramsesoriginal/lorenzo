@@ -15420,6 +15420,10 @@ export interface components {
             min_hint_id?: string | null;
             /** Resolved Hint Id */
             resolved_hint_id?: string | null;
+            /** Min Value */
+            min_value?: number | null;
+            /** Max Value */
+            max_value?: number | null;
         };
         /**
          * StatDefinitionOrder
@@ -15470,6 +15474,10 @@ export interface components {
             min_hint_id: string | null;
             /** Resolved Hint Id */
             resolved_hint_id: string | null;
+            /** Min Value */
+            min_value: number | null;
+            /** Max Value */
+            max_value: number | null;
             /**
              * Created At
              * Format: date-time
@@ -15506,6 +15514,10 @@ export interface components {
             min_hint_id?: string | null;
             /** Resolved Hint Id */
             resolved_hint_id?: string | null;
+            /** Min Value */
+            min_value?: number | null;
+            /** Max Value */
+            max_value?: number | null;
         };
         /**
          * StatEnumOptionOut

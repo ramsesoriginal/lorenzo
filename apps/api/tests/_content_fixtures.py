@@ -65,6 +65,8 @@ def full_content() -> Content:
             pin=bool(position % 3),
             signed=bool(position % 2),
             position=position,
+            min_value=None,
+            max_value=None,
             hints={"max_hint": None, "min_hint": None, "resolved_hint": None},
         )
     c.definitions[strength]["hints"] = {

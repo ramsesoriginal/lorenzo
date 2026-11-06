@@ -3119,6 +3119,8 @@ class StatDefinitionUpdate(BaseModel):
     max_hint_id: UUID | None = Field(None, title="Max Hint Id")
     min_hint_id: UUID | None = Field(None, title="Min Hint Id")
     resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
+    min_value: float | None = Field(None, title="Min Value")
+    max_value: float | None = Field(None, title="Max Value")
 
 
 class StatEnumOptionOut(BaseModel):
@@ -4480,6 +4482,8 @@ class StatDefinitionCreate(BaseModel):
     max_hint_id: UUID | None = Field(None, title="Max Hint Id")
     min_hint_id: UUID | None = Field(None, title="Min Hint Id")
     resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
+    min_value: float | None = Field(None, title="Min Value")
+    max_value: float | None = Field(None, title="Max Value")
 
 
 class StatDefinitionOut(BaseModel):
@@ -4497,6 +4501,8 @@ class StatDefinitionOut(BaseModel):
     max_hint_id: UUID | None = Field(..., title="Max Hint Id")
     min_hint_id: UUID | None = Field(..., title="Min Hint Id")
     resolved_hint_id: UUID | None = Field(..., title="Resolved Hint Id")
+    min_value: float | None = Field(..., title="Min Value")
+    max_value: float | None = Field(..., title="Max Value")
     created_at: AwareDatetime = Field(..., title="Created At")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
