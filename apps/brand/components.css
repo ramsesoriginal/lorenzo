@@ -174,14 +174,14 @@ button:disabled {
 
 /* A segmented control: a few mutually exclusive choices in one edge. Buttons with
    aria-pressed (a toggle each) or role="radio" with aria-checked. */
-.segmented {
+.segmented-control {
   display: inline-flex;
   border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   overflow: hidden;
 }
 
-.segmented > button {
+.segmented-control > button {
   font-family: var(--font-ui);
   font-size: var(--fs-meta);
   min-height: 32px;
@@ -194,28 +194,28 @@ button:disabled {
   transition: background-color var(--dur-fast) var(--ease);
 }
 
-.segmented > button:hover {
+.segmented-control > button:hover {
   background: var(--fill-soft);
 }
 
-.segmented > button + button {
+.segmented-control > button + button {
   border-inline-start: 1px solid var(--border-control);
 }
 
-.segmented > button[aria-pressed="true"],
-.segmented > button[aria-checked="true"] {
+.segmented-control > button[aria-pressed="true"],
+.segmented-control > button[aria-checked="true"] {
   background: var(--surface-selected);
   color: var(--text-primary);
   font-weight: 500;
 }
 
-.segmented > button:focus-visible {
+.segmented-control > button:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
 @media (max-width: 720px), (pointer: coarse) {
-  .segmented > button {
+  .segmented-control > button {
     min-height: var(--target-min);
   }
 }
