@@ -1,0 +1,85 @@
+/*
+ * The classes a graph Scene refers to (ADR 0407), in the brand's tokens only: light and dark follow
+ * the tokens, nothing here is a colour. Stroke widths and dashes arrive as attributes on the marks,
+ * so only colour, caps and the states live here. Selection is a fill and never changes a shape;
+ * nothing is told by colour alone (an edge's status is its dash, a direction its arrowhead).
+ */
+
+.gr-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.gr-svg[data-cursor="grabbing"] {
+  cursor: grabbing;
+}
+
+.gr-hull {
+  fill: var(--surface-muted);
+  stroke: var(--border-strong);
+  stroke-dasharray: 2 5;
+  stroke-linejoin: round;
+  opacity: 0.7;
+}
+
+.gr-edge {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-linecap: round;
+}
+
+.gr-edge.is-selected {
+  stroke: var(--action-surface-strong, var(--action-surface));
+}
+
+.gr-arrow {
+  fill: var(--border-strong);
+  stroke: none;
+}
+
+.gr-arrow.is-selected {
+  fill: var(--action-surface-strong, var(--action-surface));
+}
+
+.gr-node {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.gr-node.is-selected {
+  fill: var(--action-surface);
+}
+
+.gr-node.is-dim {
+  opacity: 0.45;
+}
+
+[role="button"][data-node-id] {
+  cursor: pointer;
+  outline: none;
+}
+
+[role="button"][data-node-id]:focus-visible .gr-node {
+  stroke: var(--focus-ring);
+  stroke-width: 3;
+}
+
+.gr-icon {
+  color: var(--text);
+  fill: currentcolor;
+}
+
+.gr-label {
+  fill: var(--text);
+  font-family: var(--font-sans, inherit);
+  font-size: 12px;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}

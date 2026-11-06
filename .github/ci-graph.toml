@@ -161,6 +161,9 @@ batch = "cli"
 [nodes."packages/map-renderer"]
 batch = "packages"
 
+[nodes."packages/graph-renderer"]
+batch = "packages"
+
 [nodes."packages/entry-preview"]
 batch = "packages"
 

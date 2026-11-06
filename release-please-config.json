@@ -113,6 +113,10 @@
       "release-type": "node",
       "component": "map-renderer"
     },
+    "packages/graph-renderer": {
+      "release-type": "node",
+      "component": "graph-renderer"
+    },
     "packages/entry-preview": {
       "release-type": "node",
       "component": "entry-preview"

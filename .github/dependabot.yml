@@ -122,6 +122,7 @@ updates:
       - "/packages/period-picker"
       - "/packages/read-cache"
       - "/packages/map-renderer"
+      - "/packages/graph-renderer"
       - "/packages/entry-preview"
       - "/packages/repo-ui"
     schedule:

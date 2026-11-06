@@ -1,5 +1,6 @@
 """The SocialWeb: a saved view of relationships (ADR 0406)."""
 
+import json
 import pathlib
 import re
 import uuid
@@ -237,3 +238,12 @@ async def test_the_kind_is_its_own_and_reach_code_never_reads_a_web(raw_client, 
     for module in ("entity_access.py", "campaign_access.py", "session_access.py"):
         text = (source / module).read_text(encoding="utf-8") if (source / module).exists() else ""
         assert not re.search(r"SocialWebEntry|SocialWebType", text), module
+
+
+def test_the_layouts_are_the_renderers_closed_list():
+    """One source: the API's `layout` check and the renderer's engines share a list (ADR 0407)."""
+    from lorenzo_api.social_webs import LAYOUTS
+
+    listed = pathlib.Path(__file__).resolve().parents[3] / "packages" / "graph-renderer"
+    names = json.loads((listed / "src" / "layouts.json").read_text(encoding="utf-8"))
+    assert list(LAYOUTS) == names
