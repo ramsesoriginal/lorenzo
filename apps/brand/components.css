@@ -103,6 +103,7 @@ button:disabled {
   border-radius: var(--radius-control);
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
 }
 
 .btn-primary,
@@ -140,10 +141,11 @@ button:disabled {
   font-size: 14px;
   color: var(--text-primary);
   background: var(--surface-default);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   padding: var(--space-2) var(--space-3);
   width: 100%;
+  transition: border-color var(--dur-fast) var(--ease);
 }
 
 .text-input:focus-visible {
@@ -168,6 +170,54 @@ button:disabled {
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* A segmented control: a few mutually exclusive choices in one edge. Buttons with
+   aria-pressed (a toggle each) or role="radio" with aria-checked. */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.segmented > button {
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.segmented > button:hover {
+  background: var(--fill-soft);
+}
+
+.segmented > button + button {
+  border-inline-start: 1px solid var(--border-control);
+}
+
+.segmented > button[aria-pressed="true"],
+.segmented > button[aria-checked="true"] {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.segmented > button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  .segmented > button {
+    min-height: var(--target-min);
+  }
 }
 
 /* Tabs */
@@ -812,7 +862,7 @@ input[type="color"] {
   width: 48px;
   height: 36px;
   padding: 2px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
   background: var(--surface-default);
   cursor: pointer;
@@ -911,9 +961,9 @@ fieldset:disabled {
 .switch-track {
   position: absolute;
   inset: 0;
-  background: var(--border-strong);
+  background: var(--border-control);
   border-radius: var(--radius-pill);
-  transition: background-color 150ms ease;
+  transition: background-color var(--dur-fast) var(--ease);
   pointer-events: none;
 }
 
@@ -926,7 +976,7 @@ fieldset:disabled {
   height: 16px;
   background: var(--surface-default);
   border-radius: 50%;
-  transition: transform 150ms ease;
+  transition: transform var(--dur-fast) var(--ease);
 }
 
 .switch input:checked + .switch-track {
