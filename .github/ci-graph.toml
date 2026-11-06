@@ -197,3 +197,10 @@ batch = "web-2"
 [suites.maps-e2e]
 node = "apps/maps"
 depends_on = ["apps/api"]
+
+[nodes."apps/social"]
+batch = "web-2"
+
+[suites.social-e2e]
+node = "apps/social"
+depends_on = ["apps/api"]

@@ -50,7 +50,7 @@ from lorenzo_api.relationships import touch_relationship
 from lorenzo_api.routers.connections import EntryStub, _visible_entry, entry_stubs
 from lorenzo_api.routers.locations import manages, require_manager, standing
 from lorenzo_api.routers.relationships import (
-    RelationshipOut,
+    RelationshipEntryOut,
     build_rows,
     visible_event_ids,
 )
@@ -123,7 +123,7 @@ class SocialWebOut(EntryStub):
     is_public: bool | None = None
 
 
-class MemberOut(BaseModel):
+class SocialWebMemberOut(BaseModel):
     entry: EntryStub
     x: float | None
     y: float | None
@@ -132,15 +132,15 @@ class MemberOut(BaseModel):
 class SocialWebDetail(SocialWebOut):
     """The web as one reader sees it: the members and types they may see, and nothing else."""
 
-    members: list[MemberOut]
+    members: list[SocialWebMemberOut]
     types: list[EntryStub]
 
 
 class SocialWebGraph(BaseModel):
     web: SocialWebOut
-    members: list[MemberOut]
+    members: list[SocialWebMemberOut]
     # The visible relationships between visible members, of the web's types if it names any.
-    edges: list[RelationshipOut]
+    edges: list[RelationshipEntryOut]
     truncated: bool
 
 
@@ -237,7 +237,7 @@ async def _out(
 
 async def _members(
     session: SessionDep, vis: InformationVisibility, tenant: uuid.UUID, web_id: uuid.UUID
-) -> list[MemberOut]:
+) -> list[SocialWebMemberOut]:
     """The members the reader may see, by name then id. A hidden member is simply absent."""
     rows = (
         await session.execute(
@@ -252,7 +252,7 @@ async def _members(
         )
     ).all()
     stubs = await entry_stubs(session, tenant, {row[0] for row in rows})
-    return [MemberOut(entry=stubs[row[0]], x=row[1], y=row[2]) for row in rows]
+    return [SocialWebMemberOut(entry=stubs[row[0]], x=row[1], y=row[2]) for row in rows]
 
 
 async def _types(
@@ -595,7 +595,7 @@ async def get_social_web_graph(
     entity, web = await _read(session, vis, tenant_id, web_id)
     members = await _members(session, vis, tenant_id, web_id)
     ids = [m.entry.id for m in members]
-    edges: list[RelationshipOut] = []
+    edges: list[RelationshipEntryOut] = []
     truncated = False
     if len(ids) >= 2:
         own = aliased(EntityAudience)

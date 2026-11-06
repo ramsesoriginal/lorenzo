@@ -37,7 +37,7 @@ from lorenzo_api.relationships import (
 )
 from lorenzo_api.routers.connections import EntryStub, entry_stubs
 from lorenzo_api.routers.locations import require_manager, standing
-from lorenzo_api.routers.relationships import RelationshipOut, _commit, _read, build_rows
+from lorenzo_api.routers.relationships import RelationshipEntryOut, _commit, _read, build_rows
 
 router = APIRouter(
     prefix="/tenants/{tenant_id}",
@@ -59,7 +59,7 @@ class ThroughPut(BaseModel):
 class ThroughOut(BaseModel):
     """The steps the reader may see, in order. A hidden step leaves no gap and no marker."""
 
-    via: list[RelationshipOut]
+    via: list[RelationshipEntryOut]
 
 
 class RelationshipProblem(BaseModel):
@@ -74,7 +74,7 @@ class RelationshipProblems(BaseModel):
 
 async def _steps(
     session: SessionDep, vis: InformationVisibility, tenant: uuid.UUID, identity: uuid.UUID
-) -> list[RelationshipOut]:
+) -> list[RelationshipEntryOut]:
     """The visible steps of one chain, in order."""
     own = aliased(EntityAudience)
     found = (

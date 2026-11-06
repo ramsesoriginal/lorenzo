@@ -60,7 +60,7 @@ _NOT_FOUND = "No such relationship in this library"
 AsOfState = Literal["holds", "not_yet", "ended", "unknown", "limit_reached"]
 
 
-class RelationshipOut(EntryStub):
+class RelationshipEntryOut(EntryStub):
     """A relationship and its two ends. `one_way` is true for a tie that goes from `end_a` to
     `end_b` only."""
 
@@ -123,10 +123,10 @@ def _out(
     starts_at: uuid.UUID | None = None,
     ends_at: uuid.UUID | None = None,
     as_of: AsOfState | None = None,
-) -> RelationshipOut:
+) -> RelationshipEntryOut:
     """A relationship row. A limit's stub is only in `stubs` when the reader may see that Event,
     so a hidden one is null and leaves no trace."""
-    return RelationshipOut(
+    return RelationshipEntryOut(
         **stubs[identity].model_dump(),
         end_a=stubs[end_a],
         end_b=stubs[end_b],
@@ -166,7 +166,7 @@ async def build_rows(
     found: Any,
     *,
     states: dict[uuid.UUID, AsOfState] | None = None,
-) -> list[RelationshipOut]:
+) -> list[RelationshipEntryOut]:
     """Rows of `(id, end_a, end_b, one_way, updated_at, is_public, starts_at, ends_at)` as
     relationships, with each entry's stub read once and each limit named only if it is visible."""
     limits = {row[6] for row in found if row[6]} | {row[7] for row in found if row[7]}
@@ -219,7 +219,7 @@ async def _built(
     tenant: uuid.UUID,
     entity: Entity,
     marker: Relationship,
-) -> RelationshipOut:
+) -> RelationshipEntryOut:
     is_public = None
     if manages(vis):
         audience = await session.get(EntityAudience, entity.id)
@@ -246,7 +246,7 @@ async def _built(
 
 async def _after_write(
     session: SessionDep, vis: InformationVisibility, tenant: uuid.UUID, identity: uuid.UUID
-) -> RelationshipOut:
+) -> RelationshipEntryOut:
     """What a write answers: the relationship as it now is. The writer's own sight was resolved
     before the entry existed, so it is read without that filter; the writer made it."""
     entity = await session.get(Entity, identity)
@@ -358,7 +358,7 @@ async def list_relationships(
             "staff, and for a player when the being is one they control."
         ),
     ] = None,
-) -> Page[RelationshipOut]:
+) -> Page[RelationshipEntryOut]:
     """The relationships the reader may see with both their ends, by name then id (ADR 0399). A
     hidden relationship or end is absent from every row, count and page."""
     vis = await standing(session, user, tenant_id)
@@ -409,10 +409,10 @@ async def list_relationships(
             wanted = [identity for identity, found in states.items() if found in state]
             stmt = stmt.where(Entity.id == any_(literal(wanted, type_=ARRAY(Uuid))))
 
-    async def rows(found: Any) -> list[RelationshipOut]:
+    async def rows(found: Any) -> list[RelationshipEntryOut]:
         return await build_rows(session, vis, tenant_id, found, states=states)
 
-    page: Page[RelationshipOut] = await apaginate(session, stmt, params, transformer=rows)
+    page: Page[RelationshipEntryOut] = await apaginate(session, stmt, params, transformer=rows)
     return page
 
 
@@ -454,7 +454,7 @@ async def create_relationship(
     response: Response,
     session: SessionDep,
     user: CurrentUser,
-) -> RelationshipOut:
+) -> RelationshipEntryOut:
     """A relationship between two entries the writer sees, restricted unless `is_public`."""
     vis = await require_manager(session, user, tenant_id)
     await require_relationship_room(session, tenant_id=tenant_id)
@@ -517,7 +517,7 @@ async def get_relationship(
     response: Response,
     session: SessionDep,
     user: CurrentUser,
-) -> RelationshipOut:
+) -> RelationshipEntryOut:
     vis = await standing(session, user, tenant_id)
     found, marker = await _read(session, vis, tenant_id, relationship_id)
     out = await _built(session, vis, tenant_id, found, marker)
@@ -534,7 +534,7 @@ async def put_relationship(
     session: SessionDep,
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
-) -> RelationshipOut:
+) -> RelationshipEntryOut:
     """Replaces the ends and the direction under `If-Match`."""
     vis = await require_manager(session, user, tenant_id)
     entity, marker = await _read(session, vis, tenant_id, relationship_id)

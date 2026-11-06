@@ -8113,7 +8113,7 @@ export interface components {
              * Format: uuid
              */
             relationship_id: string;
-            relationship: components["schemas"]["lorenzo_api__routers__relationships__RelationshipOut"] | null;
+            relationship: components["schemas"]["RelationshipEntryOut"] | null;
         };
         /** CalendarCreate */
         CalendarCreate: {
@@ -10377,7 +10377,7 @@ export interface components {
              */
             basis: "causal" | "ruled" | "linearized" | "identity";
             /** Path */
-            path: components["schemas"]["lorenzo_api__routers__event_order__RelationshipOut"][];
+            path: components["schemas"]["RelationshipOut"][];
         };
         /** EventPair */
         EventPair: {
@@ -11749,7 +11749,7 @@ export interface components {
             /** Participations */
             participations: components["schemas"]["LivedParticipation"][];
             /** Assertions */
-            assertions: components["schemas"]["lorenzo_api__routers__event_order__RelationshipOut"][];
+            assertions: components["schemas"]["RelationshipOut"][];
         };
         /** LivedOrderWrite */
         LivedOrderWrite: {
@@ -12221,6 +12221,12 @@ export interface components {
             characters: components["schemas"]["CharacterSummaryOut"][];
             /** Self Service Effective */
             self_service_effective: boolean;
+        };
+        /** MemberOut */
+        MemberOut: {
+            entry: components["schemas"]["EntryStub"];
+            /** Axis */
+            axis: string;
         };
         /**
          * MemberProfileOut
@@ -13192,7 +13198,7 @@ export interface components {
         /** Page[MemberOut] */
         Page_MemberOut_: {
             /** Items */
-            items: components["schemas"]["lorenzo_api__routers__frames__MemberOut"][];
+            items: components["schemas"]["MemberOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -13293,10 +13299,10 @@ export interface components {
             /** Pages */
             pages: number;
         };
-        /** Page[RelationshipOut] */
-        Page_RelationshipOut_: {
+        /** Page[RelationshipEntryOut] */
+        Page_RelationshipEntryOut_: {
             /** Items */
-            items: components["schemas"]["lorenzo_api__routers__relationships__RelationshipOut"][];
+            items: components["schemas"]["RelationshipEntryOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -14674,6 +14680,78 @@ export interface components {
             /** Ends At */
             ends_at?: string | null;
         };
+        /**
+         * RelationshipEntryOut
+         * @description A relationship and its two ends. `one_way` is true for a tie that goes from `end_a` to
+         *     `end_b` only.
+         */
+        RelationshipEntryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            end_a: components["schemas"]["EntryStub"];
+            end_b: components["schemas"]["EntryStub"];
+            /** One Way */
+            one_way: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Is Public */
+            is_public?: boolean | null;
+            starts_at?: components["schemas"]["EntryStub"] | null;
+            ends_at?: components["schemas"]["EntryStub"] | null;
+            /** As Of */
+            as_of?: ("holds" | "not_yet" | "ended" | "unknown" | "limit_reached") | null;
+        };
+        /** RelationshipOut */
+        RelationshipOut: {
+            /**
+             * From Event Id
+             * Format: uuid
+             */
+            from_event_id: string;
+            /**
+             * To Event Id
+             * Format: uuid
+             */
+            to_event_id: string;
+            /** From Name */
+            from_name: string;
+            /** To Name */
+            to_name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "order" | "causes";
+            /**
+             * Is Shared
+             * @default false
+             */
+            is_shared: boolean;
+            /**
+             * Evidence
+             * @default assertion
+             * @enum {string}
+             */
+            evidence: "assertion" | "lived";
+            /** Being Entity Id */
+            being_entity_id?: string | null;
+            /** Being Name */
+            being_name?: string | null;
+        };
         /** RelationshipProblem */
         RelationshipProblem: {
             /**
@@ -15734,7 +15812,7 @@ export interface components {
             /** Is Public */
             is_public?: boolean | null;
             /** Members */
-            members: components["schemas"]["lorenzo_api__routers__social_webs__MemberOut"][];
+            members: components["schemas"]["SocialWebMemberOut"][];
             /** Types */
             types: components["schemas"]["EntryStub"][];
         };
@@ -15742,11 +15820,19 @@ export interface components {
         SocialWebGraph: {
             web: components["schemas"]["SocialWebOut"];
             /** Members */
-            members: components["schemas"]["lorenzo_api__routers__social_webs__MemberOut"][];
+            members: components["schemas"]["SocialWebMemberOut"][];
             /** Edges */
-            edges: components["schemas"]["lorenzo_api__routers__relationships__RelationshipOut"][];
+            edges: components["schemas"]["RelationshipEntryOut"][];
             /** Truncated */
             truncated: boolean;
+        };
+        /** SocialWebMemberOut */
+        SocialWebMemberOut: {
+            entry: components["schemas"]["EntryStub"];
+            /** X */
+            x: number | null;
+            /** Y */
+            y: number | null;
         };
         /** SocialWebOut */
         SocialWebOut: {
@@ -16560,7 +16646,7 @@ export interface components {
          */
         ThroughOut: {
             /** Via */
-            via: components["schemas"]["lorenzo_api__routers__relationships__RelationshipOut"][];
+            via: components["schemas"]["RelationshipEntryOut"][];
         };
         /**
          * ThroughPut
@@ -16803,92 +16889,6 @@ export interface components {
             year: number;
             /** Segments */
             segments: components["schemas"]["SegmentPreview"][];
-        };
-        /** RelationshipOut */
-        lorenzo_api__routers__event_order__RelationshipOut: {
-            /**
-             * From Event Id
-             * Format: uuid
-             */
-            from_event_id: string;
-            /**
-             * To Event Id
-             * Format: uuid
-             */
-            to_event_id: string;
-            /** From Name */
-            from_name: string;
-            /** To Name */
-            to_name: string;
-            /**
-             * Kind
-             * @enum {string}
-             */
-            kind: "order" | "causes";
-            /**
-             * Is Shared
-             * @default false
-             */
-            is_shared: boolean;
-            /**
-             * Evidence
-             * @default assertion
-             * @enum {string}
-             */
-            evidence: "assertion" | "lived";
-            /** Being Entity Id */
-            being_entity_id?: string | null;
-            /** Being Name */
-            being_name?: string | null;
-        };
-        /** MemberOut */
-        lorenzo_api__routers__frames__MemberOut: {
-            entry: components["schemas"]["EntryStub"];
-            /** Axis */
-            axis: string;
-        };
-        /**
-         * RelationshipOut
-         * @description A relationship and its two ends. `one_way` is true for a tie that goes from `end_a` to
-         *     `end_b` only.
-         */
-        lorenzo_api__routers__relationships__RelationshipOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-            /** Slug */
-            slug?: string | null;
-            /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
-            end_a: components["schemas"]["EntryStub"];
-            end_b: components["schemas"]["EntryStub"];
-            /** One Way */
-            one_way: boolean;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Can Manage */
-            can_manage: boolean;
-            /** Is Public */
-            is_public?: boolean | null;
-            starts_at?: components["schemas"]["EntryStub"] | null;
-            ends_at?: components["schemas"]["EntryStub"] | null;
-            /** As Of */
-            as_of?: ("holds" | "not_yet" | "ended" | "unknown" | "limit_reached") | null;
-        };
-        /** MemberOut */
-        lorenzo_api__routers__social_webs__MemberOut: {
-            entry: components["schemas"]["EntryStub"];
-            /** X */
-            x: number | null;
-            /** Y */
-            y: number | null;
         };
         /** Problem */
         Problem: {
@@ -33935,7 +33935,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_RelationshipOut_"];
+                    "application/json": components["schemas"]["Page_RelationshipEntryOut_"];
                 };
             };
             /** @description Validation Error */
@@ -34004,7 +34004,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["lorenzo_api__routers__relationships__RelationshipOut"];
+                    "application/json": components["schemas"]["RelationshipEntryOut"];
                 };
             };
             /** @description Validation Error */
@@ -34070,7 +34070,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["lorenzo_api__routers__relationships__RelationshipOut"];
+                    "application/json": components["schemas"]["RelationshipEntryOut"];
                 };
             };
             /** @description Validation Error */
@@ -34142,7 +34142,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["lorenzo_api__routers__relationships__RelationshipOut"];
+                    "application/json": components["schemas"]["RelationshipEntryOut"];
                 };
             };
             /** @description Validation Error */
@@ -35875,7 +35875,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["lorenzo_api__routers__event_order__RelationshipOut"][];
+                    "application/json": components["schemas"]["RelationshipOut"][];
                 };
             };
             /** @description Validation Error */
@@ -35948,7 +35948,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["lorenzo_api__routers__event_order__RelationshipOut"][];
+                    "application/json": components["schemas"]["RelationshipOut"][];
                 };
             };
             /** @description Validation Error */
@@ -36020,7 +36020,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["lorenzo_api__routers__event_order__RelationshipOut"][];
+                    "application/json": components["schemas"]["RelationshipOut"][];
                 };
             };
             /** @description Validation Error */
@@ -36093,7 +36093,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["lorenzo_api__routers__event_order__RelationshipOut"][];
+                    "application/json": components["schemas"]["RelationshipOut"][];
                 };
             };
             /** @description Validation Error */

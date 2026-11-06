@@ -36,7 +36,7 @@ from lorenzo_api.routers.entity_stats import (
 from lorenzo_api.routers.locations import require_manager
 from lorenzo_api.routers.relationships import (
     RelationshipCreate,
-    RelationshipOut,
+    RelationshipEntryOut,
     _after_write,
     _commit,
     add_relationship,
@@ -116,7 +116,7 @@ class BulkResult(BaseModel):
     op: Literal["create", "set", "clear", "delete"]
     relationship_id: uuid.UUID
     # The relationship as written; null once it is deleted.
-    relationship: RelationshipOut | None
+    relationship: RelationshipEntryOut | None
 
 
 class RelationshipBulkResponse(BaseModel):

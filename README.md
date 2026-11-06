@@ -88,6 +88,7 @@ See [docs/guides/getting-started.md](docs/guides/getting-started.md).
 | Prepare a Session, its Scenes and notes | [`apps/sessions`](apps/sessions) | port 4326 |
 | Write a standalone manuscript | [`apps/writing`](apps/writing) | port 4327 |
 | Find, nest and open the Locations and Maps of a library | [`apps/maps`](apps/maps) | port 4328 |
+| Make and read the relationships between the entries of a library | [`apps/social`](apps/social) | port 4329 |
 | Write a repository's entries | [`apps/bench`](apps/bench) | `mise run //apps/bench:dev`, port 4321 (Astro's default, as `apps/inventory-web`: run one at a time) |
 | Work from Discord (`/inventory`, `/give`, `/drop` and more) | [`apps/loot-bot`](apps/loot-bot) | see its README for the command list |
 | Do bulk work the web apps don't | [`apps/cli`](apps/cli) | `uv tool install "git+https://github.com/ramsesoriginal/lorenzo#subdirectory=apps/cli"` |

@@ -105,6 +105,10 @@
       "release-type": "node",
       "component": "maps"
     },
+    "apps/social": {
+      "release-type": "node",
+      "component": "social"
+    },
     "packages/map-engine": {
       "release-type": "python",
       "package-name": "lorenzo-map"
