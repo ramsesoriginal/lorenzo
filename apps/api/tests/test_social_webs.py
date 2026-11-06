@@ -247,3 +247,44 @@ def test_the_layouts_are_the_renderers_closed_list():
     listed = pathlib.Path(__file__).resolve().parents[3] / "packages" / "graph-renderer"
     names = json.loads((listed / "src" / "layouts.json").read_text(encoding="utf-8"))
     assert list(LAYOUTS) == names
+
+
+async def test_the_graph_reads_as_of_an_event_and_as_seen_by_a_being(raw_client, fake_jwks_server):
+    from test_relationship_audience import put_audience
+    from test_relationship_time import after, event
+
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm, player = w.tenant_id, w.author, w.outsider
+        mara = await place(gm, t, "Mara", is_public=True)
+        wren = await place(gm, t, "Wren", is_public=True)
+        observer = await place(gm, t, "Observer", is_public=True)
+        e0, e1 = await event(gm, t, "Before"), await event(gm, t, "After")
+        await after(gm, t, e0, e1, "causes")
+        await made(gm, t, mara["id"], wren["id"], "Always", is_public=True)
+        await made(gm, t, mara["id"], wren["id"], "From later", is_public=True, starts_at=e1)
+        secret = await made(gm, t, mara["id"], wren["id"], "Secret")
+        granted = await put_audience(
+            gm,
+            t,
+            secret["id"],
+            {"is_public": False, "entity_ids": [observer["id"]], "player_ids": []},
+        )
+        assert granted.status_code == 200, granted.text
+        court = await web(gm, t, is_public=True)
+        two = [{"entry_id": mara["id"]}, {"entry_id": wren["id"]}]
+        assert (await members(gm, t, court["id"], {"set": two})).status_code == 200
+        base = f"/tenants/{t}/social-webs/{court['id']}/graph"
+        plain = (await gm.get(base)).json()
+        assert all(edge["as_of"] is None for edge in plain["edges"])
+        lens = (await gm.get(base, params={"as_of": e0})).json()
+        states = {edge["name"]: edge["as_of"] for edge in lens["edges"]}
+        assert states == {"Always": "holds", "From later": "not_yet", "Secret": "holds"}
+        seen = (await gm.get(base, params={"as_seen_by": observer["id"]})).json()
+        assert [edge["name"] for edge in seen["edges"]] == ["Always", "From later", "Secret"]
+        other = (await gm.get(base, params={"as_seen_by": mara["id"]})).json()
+        assert [edge["name"] for edge in other["edges"]] == ["Always", "From later"]
+        assert (await player.get(base, params={"as_seen_by": observer["id"]})).status_code == 403
+        assert (await gm.get(base, params={"as_of": mara["id"]})).status_code == 404
+    finally:
+        await w.clean_up()

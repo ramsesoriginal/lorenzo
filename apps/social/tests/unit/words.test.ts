@@ -1,5 +1,11 @@
 import { expect, test } from 'vitest';
-import { audienceWords, defaultName, directionWords, sentence } from '../../src/lib/words';
+import {
+  audienceWords,
+  defaultName,
+  directionWords,
+  sentence,
+  stateWords,
+} from '../../src/lib/words';
 
 const ends = { endA: 'Mara', endB: 'Wren', oneWay: true };
 
@@ -31,4 +37,13 @@ test('who may see it is a neutral phrase, and nothing for a reader who is not to
   expect(audienceWords(true)).toBe('Everyone in the library');
   expect(audienceWords(false)).toBe('Restricted');
   expect(audienceWords(null)).toBe('');
+});
+
+test('where a relationship stands as of an Event is said in words', () => {
+  expect(stateWords('holds')).toBe('Holds');
+  expect(stateWords('not_yet')).toBe('Has not begun');
+  expect(stateWords('ended')).toBe('Has ended');
+  expect(stateWords('unknown')).toBe('Not known from what you can see');
+  expect(stateWords('limit_reached')).toBe('Too many Events to say');
+  expect(stateWords(null)).toBe('');
 });

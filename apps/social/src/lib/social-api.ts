@@ -3,6 +3,8 @@ import { client, type Schema, unwrap } from './api';
 export type Relationship = Schema<'RelationshipEntryOut'>;
 export type RelationshipCreate = Schema<'RelationshipCreate'>;
 
+export type EntryKind = Schema<'EntityDetailOut'>['kinds'][number];
+
 export interface EntryChoice {
   id: string;
   name: string;
@@ -10,10 +12,17 @@ export interface EntryChoice {
 }
 
 /** Entries the person may see, found by name. */
-export async function findEntries(tenant: string, query: string): Promise<EntryChoice[]> {
+export async function findEntries(
+  tenant: string,
+  query: string,
+  kind?: EntryKind,
+): Promise<EntryChoice[]> {
   const page = await unwrap(
     await client.GET('/tenants/{tenant_id}/entities', {
-      params: { path: { tenant_id: tenant }, query: { q: query, size: 12 } },
+      params: {
+        path: { tenant_id: tenant },
+        query: { q: query, size: 12, ...(kind ? { kind: [kind] } : {}) },
+      },
       cache: 'no-cache',
     }),
   );

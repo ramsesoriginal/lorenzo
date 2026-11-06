@@ -26,7 +26,7 @@ from lorenzo_api.dependencies import (
     get_tenant_or_404,
     set_tenant_rls_context,
 )
-from lorenzo_api.entity_access import prototype_descendants_cte
+from lorenzo_api.entity_access import controlled_holder_entity_ids, prototype_descendants_cte
 from lorenzo_api.entity_kinds import create_entry
 from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
@@ -34,6 +34,7 @@ from lorenzo_api.exceptions import (
     EntityNotFoundError,
     InvalidSocialWebError,
     MapPreconditionRequiredError,
+    RelationshipReadAsForbiddenError,
 )
 from lorenzo_api.information_visibility import InformationVisibility
 from lorenzo_api.models import (
@@ -51,6 +52,8 @@ from lorenzo_api.routers.connections import EntryStub, _visible_entry, entry_stu
 from lorenzo_api.routers.locations import manages, require_manager, standing
 from lorenzo_api.routers.relationships import (
     RelationshipEntryOut,
+    _being_view,
+    _states_as_of,
     build_rows,
     visible_event_ids,
 )
@@ -588,6 +591,14 @@ async def get_social_web_graph(
     web_id: uuid.UUID,
     session: SessionDep,
     user: CurrentUser,
+    as_of: Annotated[
+        uuid.UUID | None,
+        Query(description="An Event: each edge says where it stands then (ADR 0405)."),
+    ] = None,
+    as_seen_by: Annotated[
+        uuid.UUID | None,
+        Query(description="A being: only what it may read through its own grants and groups."),
+    ] = None,
 ) -> SocialWebGraph:
     """What the reader draws: the members they may see and the relationships they may see between
     them, limited to the web's types when it names any. An edge to a hidden member is absent."""
@@ -639,9 +650,22 @@ async def get_social_web_graph(
                     )
                 )
             )
+        if as_seen_by is not None:
+            await _visible_entry(session, user, tenant_id, as_seen_by)
+            if not manages(vis) and as_seen_by not in await controlled_holder_entity_ids(
+                session, user_id=user.id, tenant_id=tenant_id
+            ):
+                raise RelationshipReadAsForbiddenError()
+            # What the being may read, and never more than the reader may.
+            stmt = stmt.where(
+                visible_entry_clause(await _being_view(session, tenant_id, as_seen_by), Entity.id)
+            )
+        states = (
+            await _states_as_of(session, vis, tenant_id, stmt, as_of) if as_of is not None else None
+        )
         found = (await session.execute(stmt)).all()
         truncated = len(found) > MAX_EDGES
-        edges = await build_rows(session, vis, tenant_id, found[:MAX_EDGES])
+        edges = await build_rows(session, vis, tenant_id, found[:MAX_EDGES], states=states)
     return SocialWebGraph(
         web=await _out(session, vis, tenant_id, entity, web),
         members=members,

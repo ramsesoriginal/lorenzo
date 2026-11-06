@@ -33835,7 +33835,12 @@ export interface operations {
     };
     get_social_web_graph: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description An Event: each edge says where it stands then (ADR 0405). */
+                as_of?: string | null;
+                /** @description A being: only what it may read through its own grants and groups. */
+                as_seen_by?: string | null;
+            };
             header?: never;
             path: {
                 tenant_id: string;

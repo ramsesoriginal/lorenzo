@@ -1,5 +1,5 @@
 import { el, message } from './dom';
-import { type EntryChoice, findEntries } from './social-api';
+import { type EntryChoice, type EntryKind, findEntries } from './social-api';
 
 export interface Picker {
   label: HTMLElement;
@@ -16,7 +16,7 @@ export interface Picker {
 export function entryPicker(
   tenant: string,
   title: string,
-  options: { exclude?: () => string | null } = {},
+  options: { exclude?: () => string | null; kind?: EntryKind } = {},
 ): Picker {
   const label = el('div', '', 'field');
   const input = el('input', '', 'text-input');
@@ -45,7 +45,7 @@ export function entryPicker(
       return;
     }
     try {
-      const rows = (await findEntries(tenant, text)).filter(
+      const rows = (await findEntries(tenant, text, options.kind)).filter(
         (row) => row.id !== options.exclude?.() && !row.kinds.includes('relationship'),
       );
       if (mine !== latest) return;

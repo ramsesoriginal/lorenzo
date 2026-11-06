@@ -37,10 +37,20 @@ export async function readWeb(tenant: string, id: string) {
 }
 
 /** What the person draws: the members they may see and the relationships between them. */
-export async function readGraph(tenant: string, id: string) {
+export async function readGraph(
+  tenant: string,
+  id: string,
+  lens: { asOf?: string | null; asSeenBy?: string | null } = {},
+) {
   return unwrap(
     await client.GET('/tenants/{tenant_id}/social-webs/{web_id}/graph', {
-      params: { path: { tenant_id: tenant, web_id: id } },
+      params: {
+        path: { tenant_id: tenant, web_id: id },
+        query: {
+          ...(lens.asOf ? { as_of: lens.asOf } : {}),
+          ...(lens.asSeenBy ? { as_seen_by: lens.asSeenBy } : {}),
+        },
+      },
       cache: 'no-cache',
     }),
   );

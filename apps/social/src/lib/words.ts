@@ -40,3 +40,21 @@ export function audienceWords(isPublic: boolean | null | undefined): string {
   if (isPublic === null || isPublic === undefined) return '';
   return isPublic ? 'Everyone in the library' : 'Restricted';
 }
+
+/** Where a relationship stands as of an Event, in words (ADR 0405). */
+export function stateWords(state: string | null | undefined): string {
+  switch (state) {
+    case 'holds':
+      return 'Holds';
+    case 'not_yet':
+      return 'Has not begun';
+    case 'ended':
+      return 'Has ended';
+    case 'unknown':
+      return 'Not known from what you can see';
+    case 'limit_reached':
+      return 'Too many Events to say';
+    default:
+      return '';
+  }
+}

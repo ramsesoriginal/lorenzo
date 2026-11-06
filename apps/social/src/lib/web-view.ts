@@ -33,6 +33,7 @@ import {
 import { canManage, libraryName } from './names';
 import { entryPicker } from './pickers';
 import { start } from './sign-in';
+import { readEntry } from './social-api';
 import {
   createWeb,
   type Layout,
@@ -43,7 +44,7 @@ import {
   saveTypes,
   writeMembers,
 } from './web-api';
-import { audienceWords, directionWords, sentence } from './words';
+import { audienceWords, directionWords, sentence, stateWords } from './words';
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
 
@@ -159,16 +160,48 @@ export async function mountWeb() {
   const me = await start();
   if (!me || !host.isConnected) return;
   let drawing: ReturnType<typeof createGraphView> | null = null;
+  // The date lens and "as read by" are the address of the page, unsaved (ADR 0406); a web that saved a
+  // lens starts with it when the address names none.
+  const lens: { asOf: string | null; asSeenBy: string | null; names: Map<string, string> } = {
+    asOf: params.get('as_of'),
+    asSeenBy: params.get('as_seen_by'),
+    names: new Map(),
+  };
+  let showOthers = false;
+  let first = true;
+  const remember = () => {
+    const next = new URLSearchParams(location.search);
+    for (const [key, value] of [
+      ['as_of', lens.asOf],
+      ['as_seen_by', lens.asSeenBy],
+    ] as const) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    history.replaceState(null, '', `${location.pathname}?${next}`);
+  };
+  const entryName = async (entry: string) => {
+    if (!lens.names.has(entry)) {
+      lens.names.set(entry, (await readEntry(tenant, entry).catch(() => null))?.name ?? 'an entry');
+    }
+    return lens.names.get(entry) as string;
+  };
   const draw = async () => {
     drawing?.destroy();
     drawing = null;
     try {
       host.replaceChildren(loading('Opening the web…'));
-      const [{ web, version }, graph, manage] = await Promise.all([
+      const [{ web, version }, manage] = await Promise.all([
         readWeb(tenant, id),
-        readGraph(tenant, id),
         canManage(tenant),
       ]);
+      if (first) {
+        first = false;
+        if (!lens.asOf && !params.has('as_of')) lens.asOf = web.as_of_event?.id ?? null;
+      }
+      const graph = await readGraph(tenant, id, lens);
+      const asOfName = lens.asOf ? await entryName(lens.asOf) : null;
+      const asSeenByName = lens.asSeenBy ? await entryName(lens.asSeenBy) : null;
       const view = el('div', '', 'stack view');
       const meta: Node[] = [metaLine('social', `Laid out as ${web.layout}`)];
       if (web.is_public !== null && web.is_public !== undefined) {
@@ -180,7 +213,7 @@ export async function mountWeb() {
             link('Libraries', '/'),
             link('Webs', `/webs/?${new URLSearchParams({ tenant })}`),
           ],
-          lede: `${graph.members.length} ${graph.members.length === 1 ? 'entry' : 'entries'} and ${graph.edges.length} ${graph.edges.length === 1 ? 'relationship' : 'relationships'}, as you may see them.`,
+          lede: `${graph.members.length} ${graph.members.length === 1 ? 'entry' : 'entries'} and ${graph.edges.length} ${graph.edges.length === 1 ? 'relationship' : 'relationships'}, as you may see them.${asOfName ? ` As of ${asOfName}.` : ''}${asSeenByName ? ` As read by ${asSeenByName}: what it may read, not what it believes.` : ''}`,
           meta,
           actions: [
             linkButton('Open the matrix', `/matrix/?${new URLSearchParams({ tenant, id })}`),
@@ -194,16 +227,19 @@ export async function mountWeb() {
           name: m.entry.name,
           icon: iconFor(m.entry.kinds),
         })),
-        edges: graph.edges.map(
-          (e): GraphEdge => ({
-            id: e.id,
-            a: e.end_a.id,
-            b: e.end_b.id,
-            directed: e.one_way,
-            label: e.name,
-            status: 'direct',
-          }),
-        ),
+        // What has not begun or has ended is not drawn; what is not known is dotted (ADR 0405).
+        edges: graph.edges
+          .filter((e) => e.as_of !== 'not_yet' && e.as_of !== 'ended')
+          .map(
+            (e): GraphEdge => ({
+              id: e.id,
+              a: e.end_a.id,
+              b: e.end_b.id,
+              directed: e.one_way,
+              label: e.name,
+              status: e.as_of === 'unknown' ? 'uncertain' : 'direct',
+            }),
+          ),
       };
       const positions = Object.fromEntries(
         graph.members
@@ -241,13 +277,17 @@ export async function mountWeb() {
         }
       };
       for (const e of graph.edges) {
+        const absent = e.as_of === 'not_yet' || e.as_of === 'ended';
+        if (absent && !showOthers) continue;
         const row = el('li');
         const text = el('div', '', 'stack-tight grow');
+        const ends = { endA: e.end_a.name, endB: e.end_b.name, oneWay: e.one_way };
+        const standing = stateWords(e.as_of);
         text.append(
           link(e.name, relationshipHref(tenant, e.id)),
           el(
             'span',
-            `${sentence({ endA: e.end_a.name, endB: e.end_b.name, oneWay: e.one_way })}. ${directionWords({ endA: e.end_a.name, endB: e.end_b.name, oneWay: e.one_way })}.`,
+            `${sentence(ends)}. ${directionWords(ends)}.${standing ? ` ${standing}.` : ''}`,
             'status-text',
           ),
         );
@@ -295,6 +335,56 @@ export async function mountWeb() {
         });
       }
 
+      /** The date lens and the point of view: part of the address, not saved with the web. */
+      const lensControls = () => {
+        const panel = card();
+        panel.body.append(el('h2', 'Date lens and point of view', 'group-title'));
+        const events = entryPicker(tenant, 'As of this Event', { kind: 'event' });
+        const readers = entryPicker(tenant, 'Read as this entry (what it may read)');
+        const apply = async () => {
+          remember();
+          await draw();
+        };
+        const others = field('Also list those that have not begun or have ended', '', 'checkbox');
+        others.input.checked = showOthers;
+        others.input.addEventListener('change', () => {
+          showOthers = others.input.checked;
+          void draw();
+        });
+        panel.body.append(
+          events.label,
+          actions(
+            button('Read as of this Event', async () => {
+              const picked = events.value();
+              if (!picked) throw new Error('Choose an Event first.');
+              lens.asOf = picked;
+              lens.names.set(picked, events.name());
+              await apply();
+            }),
+            button('Remove the date lens', async () => {
+              lens.asOf = null;
+              await apply();
+            }),
+          ),
+          ...(lens.asOf ? [others.label] : []),
+          readers.label,
+          actions(
+            button('Read as this entry', async () => {
+              const picked = readers.value();
+              if (!picked) throw new Error('Choose an entry first.');
+              lens.asSeenBy = picked;
+              lens.names.set(picked, readers.name());
+              await apply();
+            }),
+            button('Read as myself', async () => {
+              lens.asSeenBy = null;
+              await apply();
+            }),
+          ),
+        );
+        return panel.root;
+      };
+
       const controls = card();
       controls.body.append(el('h2', 'How it is drawn', 'group-title'));
       const layout = select(
@@ -333,7 +423,7 @@ export async function mountWeb() {
                 theme_hint: web.theme_hint ?? null,
                 view: web.view ?? null,
                 standing_stat_id: web.standing_stat_id ?? null,
-                as_of_event: web.as_of_event?.id ?? null,
+                as_of_event: lens.asOf,
               });
               state.version = saved.version;
               say(status, 'Saved how it is drawn.');
@@ -353,7 +443,7 @@ export async function mountWeb() {
           ),
         );
       }
-      view.append(controls.root, listing);
+      view.append(controls.root, lensControls(), listing);
 
       if (manage) view.append(editor(tenant, id, version, graph, web, draw));
       host.replaceChildren(view);

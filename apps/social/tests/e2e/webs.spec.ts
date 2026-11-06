@@ -130,3 +130,63 @@ test('on a phone the web fits the width and its controls are tall enough to pres
   const box = await page.getByRole('button', { name: 'Zoom in' }).boundingBox();
   expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
 });
+
+test('the date lens draws what holds, dots what is not known and lists the rest under a switch', async ({
+  browser,
+}) => {
+  const w = await world();
+  const a = await w.entry('Mara Quill');
+  const b = await w.entry('Wren Ashdown');
+  const before = await ok(
+    w.gm.POST('/tenants/{tenant_id}/entities', {
+      params: { path: w.path },
+      body: { name: 'The wedding', kinds: ['event'], parents: [] },
+    }),
+  );
+  const later = await ok(
+    w.gm.POST('/tenants/{tenant_id}/entities', {
+      params: { path: w.path },
+      body: { name: 'The war', kinds: ['event'], parents: [] },
+    }),
+  );
+  const tag = (
+    await w.gm.GET('/tenants/{tenant_id}/events/{event_id}/relationships', {
+      params: { path: { ...w.path, event_id: before.id } },
+    })
+  ).response.headers.get('etag');
+  await ok(
+    w.gm.PUT('/tenants/{tenant_id}/events/{event_id}/relationships/{other_event_id}', {
+      params: { path: { ...w.path, event_id: before.id, other_event_id: later.id } },
+      headers: { 'If-Match': tag ?? '' },
+      body: { kind: 'causes', direction: 'outgoing' },
+    }),
+  );
+  await w.tie('Always friends', a.id, b.id, true);
+  await ok(
+    w.gm.POST('/tenants/{tenant_id}/relationships', {
+      params: { path: w.path },
+      body: {
+        name: 'Rivals once the war began',
+        end_a: a.id,
+        end_b: b.id,
+        one_way: false,
+        is_public: true,
+        starts_at: later.id,
+      },
+    }),
+  );
+  const made = await webOf(w, 'The court', [a.id, b.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}&as_of=${before.id}`);
+  await expect(page.getByText('As of The wedding.')).toBeVisible();
+  const sentences = page.getByRole('list', { name: 'Relationships in this web' });
+  await expect(sentences.getByText('Always friends')).toBeVisible();
+  // It has not begun yet: not drawn, and listed only under the switch.
+  await expect(sentences.getByText('Rivals once the war began')).toHaveCount(0);
+  await page.getByLabel('Also list those that have not begun or have ended').check();
+  await expect(sentences.getByText('Has not begun.')).toBeVisible();
+  // The lens is part of the address, and can be removed.
+  await page.getByRole('button', { name: 'Remove the date lens' }).click();
+  await expect(page.getByText('As of The wedding.')).toHaveCount(0);
+  expect(page.url()).not.toContain('as_of=');
+});
