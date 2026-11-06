@@ -55,6 +55,10 @@ export function entryPicker(
       ).filter((row) => row.id !== options.exclude?.() && !row.kinds.includes('relationship'));
       if (mine !== latest) return;
       found = rows;
+      // A list box starts with nothing selected, but a one-row select picks its first option
+      // as the options arrive; clicking an option that is already selected raises no change,
+      // so size it first and clear the selection after.
+      results.size = Math.min(6, Math.max(2, rows.length));
       results.replaceChildren(
         ...rows.map((row) => {
           const option = el('option', row.name);
@@ -62,8 +66,8 @@ export function entryPicker(
           return option;
         }),
       );
+      results.selectedIndex = -1;
       results.hidden = rows.length === 0;
-      results.size = Math.min(6, Math.max(2, rows.length));
       if (rows.length === 0) chosen.textContent = options.nothing ?? 'Nothing found by that name.';
     } catch (error) {
       chosen.textContent = message(error);
