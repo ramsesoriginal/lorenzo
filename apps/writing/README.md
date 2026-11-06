@@ -152,6 +152,6 @@ dates and dates not yet created in a calendar are never filled or replaced autom
 compares saved direct manuscript bundles with their original copy and repository version.
 New copies retain a baseline; older copies explicitly report its absence. Standalone Scene and
 Chapter drafts with unchanged payload structure offer explicit Keep yours / Take the update
-choices ([ADR 0426](../../docs/adr/0426-standalone-draft-repository-updates.md)). Save local edits
+choices ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Save local edits
 before accepting. Accepted text preserves history and audiences and adds no session credit.
 Connected manuscripts and structural changes remain comparison-only.

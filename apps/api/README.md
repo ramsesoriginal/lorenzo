@@ -163,6 +163,6 @@ route requires current manuscript edit/history access and uses the repository's 
 released read. Legacy copies report no baseline; ordinary entity updates leave this baseline intact.
 
 Standalone Scene/Chapter text updates require the reviewed comparison ETag and current write
-access ([ADR 0426](../../docs/adr/0426-standalone-draft-repository-updates.md)). Explicit keep/take
+access ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Explicit keep/take
 choices advance the baseline; taking text uses ordinary history and backlink writes atomically.
 Connected manuscripts, changed payload structures and changed non-text payloads are refused.
