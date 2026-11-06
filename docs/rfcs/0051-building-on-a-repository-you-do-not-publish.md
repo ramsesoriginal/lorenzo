@@ -154,6 +154,13 @@ It stands alone and is the smallest of the four.
 
 *Slice H2:* the column, the condition, the toggle, the storefront's "not listed" note for its Owners, tests.
 
+*Built as [ADR 0432](../adr/0432-a-public-repository-that-is-not-listed.md).* The RFC stays the spec; where the build differs, it says so here:
+
+- **The flag is tied to the visibility** by a check (`listed OR visibility = 'public'`): not listed is a fact about a public repository only. `listed: false` is refused for a repository that is not public (`409 repository-not-public`), and `make_private` sets it back to listed. H3's flip from public to protected has to do the same.
+- **The storefront is read through the gated read**, not through `discover_read`: the storefront opens for any public repository and the policy says only what is listed. `discover_read` gains `listed`, so the listing cannot read an unlisted profile even if its query forgot the condition.
+- **The visibility card** has the switch "Listed on Discover" with a link "Open its page", the address an Owner shares; it is not offered while the repository is off Discover for another reason. The Make public dialog does not offer it (a repository is made public listed).
+- The page that says a repository cannot be opened no longer says "not listed".
+
 ### H3. Protected (show)
 
 A third value of `visibility`. A protected repository has a profile (no summary or cover required, none shown) and
@@ -259,7 +266,7 @@ tenant, grant, subscription, flatten or source.
 | Slice | What | Needs | Touches |
 | --- | --- | --- | --- |
 | H1 | Include A in B at release; A's terms; the choice column; attribution. **Built**, [ADR 0431](../adr/0431-including-a-repository-in-the-release-of-one-built-on-it.md) | RFC 0037 R5 to R8, ADR 0385 | api, hub |
-| H2 | Public but unlisted | RFC 0038 D3 | api, hub |
+| H2 | Public but unlisted. **Built**, [ADR 0432](../adr/0432-a-public-repository-that-is-not-listed.md) | RFC 0038 D3 | api, hub |
 | H3 | Protected: the value, the flips, the stack rule, the gate, the copy plan | H1 (terms, the choice), ADR 0287, ADR 0289 | api, hub |
 | H4 | Hide A's items | H3, the spike | api, hub, bench, beings, sessions, maps, calendars, social, writing, inventory, cli |
 
