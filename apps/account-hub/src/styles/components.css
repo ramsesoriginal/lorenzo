@@ -436,3 +436,30 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* First run (ADR 0416, D27): the mascot beside the welcome and the two doors; one column on a phone. */
+.first-run {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: center;
+}
+.doors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+@container shell (max-width: 720px) {
+  .first-run {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    justify-items: center;
+  }
+  .doors {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.doors h2 {
+  margin: 0;
+  font-size: var(--fs-sub);
+}

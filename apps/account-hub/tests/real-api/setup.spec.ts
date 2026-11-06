@@ -291,7 +291,7 @@ test('only an account the API says may create is offered setup, and the links to
   await expect(refused.page.locator('[data-account-signed-in]')).toBeVisible();
   // Neither the page's own offer nor the header's link to setup.
   await expect(
-    refused.page.locator('main').getByRole('link', { name: 'Set up a table' }),
+    refused.page.locator('main').getByRole('link', { name: /Set up a (table|library)/ }),
   ).toHaveCount(0);
   await expect(
     refused.page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
@@ -304,7 +304,8 @@ test('only an account the API says may create is offered setup, and the links to
   const maker = await newUser('maker', ['tenant_creator']);
   const { page, context } = await signedInPage(browser, maker.subject);
   await page.goto('/');
-  await expect(page.locator('main').getByRole('link', { name: 'Set up a table' })).toBeVisible();
+  // A new account is offered the first-run choice, whose door says "library".
+  await expect(page.locator('main').getByRole('link', { name: 'Set up a library' })).toBeVisible();
   await expect(
     page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
   ).toHaveAttribute('href', '/setup/');
