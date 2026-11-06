@@ -139,6 +139,9 @@ test('the ends offered are beings and groups, and the types offered are types', 
   await expect(form.getByLabel('First end: results').getByRole('option')).toHaveText([
     'Mara Quill',
   ]);
+  // The only option can be chosen by clicking it, as a person does.
+  await form.getByLabel('First end: results').getByRole('option', { name: 'Mara Quill' }).click();
+  await expect(form.getByText('Chosen: Mara Quill')).toBeVisible();
   await form.getByLabel('Second end: search by name').fill('Court');
   await expect(form.getByLabel('Second end: results').getByRole('option')).toHaveText([
     'The Court',
