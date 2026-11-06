@@ -22,6 +22,8 @@
           <a href="motion.html">Motion</a>
           <a href="dialogs.html" aria-current="page">Dialogs</a>
           <a href="shell.html">Shell</a>
+          <a href="pages.html">Pages</a>
+          <a href="graph.html">Graph</a>
           <a href="forms.html">Forms</a>
           <a href="trees.html">Trees</a>
           <a href="outline.html">Outline</a>
@@ -202,6 +204,9 @@
           <button class="btn btn-secondary" id="toast-err" type="button">
             Refused
           </button>
+          <button class="btn btn-secondary" id="toast-undo" type="button">
+            Moved, with Undo
+          </button>
         </section>
         <div
           class="toast-region"
@@ -249,7 +254,7 @@
         document
           .getElementById("open-single")
           .addEventListener("click", function () {
-            document.getElementById("award-dialog").showModal();
+            openDialog(document.getElementById("award-dialog"));
           });
 
         document
@@ -259,7 +264,7 @@
             document.getElementById("drop-b").show();
           });
 
-        function toast(kind, text, ms) {
+        function toast(kind, text, ms, action) {
           var t = document.createElement("div");
           t.className = "toast-card";
           t.setAttribute("data-kind", kind);
@@ -268,6 +273,14 @@
             '<button class="btn btn-secondary" type="button">Close</button>' +
             (kind === "error" ? "" : '<span class="toast-bar"></span>');
           t.querySelector(".toast-text").textContent = text;
+          if (action) {
+            var u = document.createElement("button");
+            u.className = "btn btn-secondary toast-action";
+            u.type = "button";
+            u.textContent = action;
+            u.addEventListener("click", close);
+            t.insertBefore(u, t.querySelector("button"));
+          }
           function close() {
             t.classList.add("out");
             setTimeout(function () {
@@ -287,6 +300,11 @@
             toast("ok", "Saved.", 6000);
           });
         document
+          .getElementById("toast-undo")
+          .addEventListener("click", function () {
+            toast("undo", "Moved to Backpack.", 8000, "Undo");
+          });
+        document
           .getElementById("toast-err")
           .addEventListener("click", function () {
             toast("error", "Not saved: the name is already used.");
@@ -294,11 +312,37 @@
         document
           .getElementById("open-sheet")
           .addEventListener("click", function () {
-            document.getElementById("sheet-dialog").showModal();
+            openDialog(document.getElementById("sheet-dialog"));
           });
+        function closeDialog(d) {
+          if (!d.open || d.hasAttribute("data-closing")) return;
+          d.setAttribute("data-closing", "");
+          d.addEventListener("animationend", function done(e) {
+            if (e.target !== d || !d.hasAttribute("data-closing")) return;
+            d.removeEventListener("animationend", done);
+            d.removeAttribute("data-closing");
+            d.close();
+          });
+        }
+        function openDialog(d) {
+          d.removeAttribute("data-closing");
+          if (!d.open) d.showModal();
+        }
+        window.closeDialog = closeDialog;
+        window.openDialog = openDialog;
+        ["award-dialog", "sheet-dialog"].forEach(function (id) {
+          var d = document.getElementById(id);
+          d.addEventListener("cancel", function (e) {
+            e.preventDefault();
+            closeDialog(d);
+          });
+        });
         document.querySelectorAll("[data-close]").forEach(function (btn) {
           btn.addEventListener("click", function () {
-            document.getElementById(btn.getAttribute("data-close")).close();
+            var d = document.getElementById(btn.getAttribute("data-close"));
+            if (d.id === "award-dialog" || d.id === "sheet-dialog")
+              closeDialog(d);
+            else d.close();
           });
         });
       })();

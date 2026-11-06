@@ -27,7 +27,7 @@ Allow the respective origins as post-logout redirect addresses. Supply the Pages
 
 Add the production origin to the API's existing space-separated `CORS_ALLOWED_ORIGINS` list and deploy the API through its normal workflow. Preview origins need their own explicit CORS and callback authorization.
 
-The app-link registry ([ADR 0273](../adr/0273-app-links-registry.md)) gets its `social` entry in a later step, once the production origin exists: until then the other apps do not link here, and Social works without the registry.
+The app-link registry ([ADR 0273](../adr/0273-app-links-registry.md)) has the `social` address `https://lorenzo-social.pages.dev` and the links `relationship` and `social_web`. Set the API/GitHub `SOCIAL_URL` variable for a different origin; deployment passes an unset value through to the API's default, and a change needs a "Deploy API" run.
 
 Open the app, sign in as a GM and make two beings or Locations, then a relationship between them: restricted, then opened to the library. Check as a player that a restricted relationship, and one whose end the player cannot see, are not listed. Check that logout works. Without `PUBLIC_AUTHGEAR_ENDPOINT` and `PUBLIC_AUTHGEAR_CLIENT_ID` the app reports that Authgear is not configured.
 

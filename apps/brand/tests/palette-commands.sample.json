@@ -1,0 +1,7 @@
+[
+  { "id": "shell.new-entry", "name": "New entry…", "group": "Actions", "icon": "icon-add", "keys": "N" },
+  { "id": "shell.theme", "name": "Change theme", "group": "Actions", "icon": "icon-theme-system" },
+  { "id": "shell.shortcuts", "name": "Show keyboard shortcuts", "group": "Actions", "icon": "icon-command", "keys": "?" },
+  { "id": "beings.open", "name": "Beings", "group": "Go to", "icon": "icon-kind-being", "keys": "G B", "keywords": ["characters"] },
+  { "id": "shell.sign-out", "name": "Sign out…", "group": "Actions", "icon": "icon-logout", "danger": true }
+]

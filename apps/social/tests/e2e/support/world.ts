@@ -64,6 +64,26 @@ export async function world() {
         body: { name, is_public: isPublic },
       }),
     );
+  /** A being no player plays: what a relationship is tied to. Its `id` is the entry's. */
+  const person = async (name: string) => {
+    const made = await ok(
+      gm.POST('/tenants/{tenant_id}/characters', {
+        params: { path },
+        body: { name, player_ids: [] },
+      }),
+    );
+    return { id: made.entity_id, name };
+  };
+  /** A group: an entry that has a member (an empty one is not listed). */
+  const group = async (name: string, member: string) => {
+    const made = await ok(
+      gm.POST('/tenants/{tenant_id}/groups', {
+        params: { path },
+        body: { name, member_character_ids: [member] },
+      }),
+    );
+    return { id: made.id, name };
+  };
   const tie = (name: string, a: string, b: string, isPublic: boolean) =>
     ok(
       gm.POST('/tenants/{tenant_id}/relationships', {
@@ -71,7 +91,7 @@ export async function world() {
         body: { name, end_a: a, end_b: b, one_way: false, is_public: isPublic },
       }),
     );
-  return { tenant, path, gm, subject, playerSubject, entry, tie, being };
+  return { tenant, path, gm, subject, playerSubject, entry, person, group, tie, being };
 }
 
 /** A numeric stat for a standing, on a scale, in a group of its own. */

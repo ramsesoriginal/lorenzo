@@ -87,6 +87,7 @@ class AppsOut(BaseModel):
     sessions: AppOut | None = None
     writing: AppOut | None = None
     maps: AppOut | None = None
+    social: AppOut | None = None
 
 
 class AtIn(BaseModel):

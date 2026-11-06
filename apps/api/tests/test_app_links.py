@@ -16,6 +16,7 @@ def test_defaults_are_the_official_pages_addresses() -> None:
         "sessions": {"url": "https://lorenzo-sessions.pages.dev"},
         "writing": {"url": "https://lorenzo-writing.pages.dev"},
         "maps": {"url": "https://lorenzo-maps.pages.dev"},
+        "social": {"url": "https://lorenzo-social.pages.dev"},
     }
     links = doc["links"]
     assert links["notifications"] == "https://lorenzo-account-hub.pages.dev/notifications/"
@@ -34,6 +35,8 @@ def test_defaults_are_the_official_pages_addresses() -> None:
     )
     assert links["calendar_by_slug"].endswith("/calendar/?tenant={tenant}&slug={slug}")
     assert links["calendar_entry"].endswith("/entry/?tenant={tenant}&id={id}")
+    assert links["social_web"] == "https://lorenzo-social.pages.dev/web/?tenant={tenant}&id={id}"
+    assert links["relationship"].endswith("/relationship/?tenant={tenant}&id={id}")
 
 
 def test_overridden_addresses_lose_trailing_slashes() -> None:
@@ -92,6 +95,7 @@ async def test_endpoint_is_public_and_cacheable(client: AsyncClient) -> None:
         "sessions",
         "writing",
         "maps",
+        "social",
     }
     assert "{tenant}" in body["links"]["item"]
 

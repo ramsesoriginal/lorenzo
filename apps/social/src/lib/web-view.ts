@@ -33,7 +33,7 @@ import {
   submit,
 } from './dom';
 import { canManage, libraryName } from './names';
-import { entryPicker } from './pickers';
+import { endPicker, entryPicker, typePicker as findType } from './pickers';
 import { start } from './sign-in';
 import { readEntry } from './social-api';
 import {
@@ -344,7 +344,9 @@ export async function mountWeb() {
         const panel = card();
         panel.body.append(el('h2', 'Date lens and point of view', 'group-title'));
         const events = entryPicker(tenant, 'As of this Event', { kind: 'event' });
-        const readers = entryPicker(tenant, 'Read as this entry (what it may read)');
+        const readers = entryPicker(tenant, 'Read as this entry (what it may read)', {
+          kind: 'being',
+        });
         const apply = async () => {
           remember();
           await draw();
@@ -509,7 +511,7 @@ function editor(
     list.append(row);
   }
   members.body.append(list);
-  const picker = entryPicker(tenant, 'Add an entry');
+  const picker = endPicker(tenant, 'Add an entry');
   members.body.append(
     picker.label,
     actions(
@@ -552,7 +554,7 @@ function editor(
     );
     typeList.append(row);
   }
-  const typePicker = entryPicker(tenant, 'Limit to a type');
+  const typePicker = findType(tenant, 'Limit to a type');
   types.body.append(
     typeList,
     typePicker.label,

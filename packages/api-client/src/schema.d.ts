@@ -7454,6 +7454,7 @@ export interface components {
             sessions?: components["schemas"]["AppOut"] | null;
             writing?: components["schemas"]["AppOut"] | null;
             maps?: components["schemas"]["AppOut"] | null;
+            social?: components["schemas"]["AppOut"] | null;
         };
         /** AtIn */
         AtIn: {

@@ -1,4 +1,4 @@
-import { client, type Schema, unwrap } from './api';
+import { client, fetchAllPages, type Schema, unwrap } from './api';
 
 export type Relationship = Schema<'RelationshipEntryOut'>;
 export type RelationshipCreate = Schema<'RelationshipCreate'>;
@@ -116,4 +116,50 @@ export async function deleteRelationship(tenant: string, id: string, version: st
     headers: { 'If-Match': version },
   });
   if (!result.response.ok) await unwrap(result as never);
+}
+
+const FOUND = 12;
+const byName = (a: EntryChoice, b: EntryChoice) => a.name.localeCompare(b.name);
+
+/**
+ * What a relationship may tie in Lorenzo Social, found by name: the beings the person may see,
+ * and the groups (an entry with members). The API ties any two entries; the app offers these.
+ */
+export async function findEnds(tenant: string, query: string): Promise<EntryChoice[]> {
+  const needle = query.toLowerCase();
+  const [beings, groups] = await Promise.all([
+    findEntries(tenant, query, 'being'),
+    fetchAllPages(async (page) =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/groups', {
+          params: { path: { tenant_id: tenant }, query: { page, size: 100 } },
+          cache: 'no-cache',
+        }),
+      ),
+    ),
+  ]);
+  const found = new Map<string, EntryChoice>(beings.map((b) => [b.id, b]));
+  for (const group of groups) {
+    if (group.name.toLowerCase().includes(needle) && !found.has(group.id)) {
+      found.set(group.id, { id: group.id, name: group.name, kinds: [] });
+    }
+  }
+  return [...found.values()].sort(byName).slice(0, FOUND);
+}
+
+/** The types of relationship the library has, found by name: an entry is a type only when
+ * relationships are of it or it holds the library's type stats (ADR 0400). */
+export async function findTypes(tenant: string, query: string): Promise<EntryChoice[]> {
+  const needle = query.toLowerCase();
+  const read = await unwrap(
+    await client.GET('/tenants/{tenant_id}/relationship-types', {
+      params: { path: { tenant_id: tenant } },
+      cache: 'no-cache',
+    }),
+  );
+  return read.items
+    .filter((type) => type.name.toLowerCase().includes(needle))
+    .map((type) => ({ id: type.id, name: type.name, kinds: [...type.kinds] }))
+    .sort(byName)
+    .slice(0, FOUND);
 }

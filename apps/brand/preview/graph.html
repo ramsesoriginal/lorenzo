@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — graph</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="shell.html">Shell</a>
+          <a href="pages.html">Pages</a>
+          <a href="graph.html" aria-current="page">Graph</a>
+
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="outline.html">Outline</a>
+          <a href="editors.html">Editor</a>
+          <a href="full-width.html">Full width</a>
+          <a href="scrolling.html">Scrolling</a>
+          <a href="item.html">Item</a>
+          <a href="icons.html">Icons</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Graph and matrix</h1>
+        <p class="lede">
+          One grammar for direct, derived, unknown, selected and restricted
+          (identity §18, ADR 0424): a number, a quiet bar, a mark and a word;
+          solid, dashed and dotted lines; a selection is a fill.
+        </p>
+
+        <section id="standing">
+          <h2>Standing</h2>
+          <div
+            class="row"
+            style="
+              gap: var(--space-5);
+              flex-wrap: wrap;
+              align-items: flex-start;
+            "
+          >
+            <span class="standing" data-state="direct"
+              ><span class="standing-num">+40</span
+              ><span class="standing-bar"><i style="width: 70%"></i></span
+              ><span class="standing-mark">Direct</span></span
+            ><span class="standing" data-state="inherited"
+              ><span class="standing-num">+25</span
+              ><span class="standing-bar"><i style="width: 55%"></i></span
+              ><span class="standing-mark">Inherited</span></span
+            ><span class="standing" data-state="derived"
+              ><span class="standing-num">+10</span
+              ><span class="standing-bar"><i style="width: 30%"></i></span
+              ><span class="standing-mark">Derived</span></span
+            ><span class="standing" data-state="unknown"
+              ><span class="standing-num">?</span
+              ><span class="standing-bar"><i style="width: 0%"></i></span
+              ><span class="standing-mark">Unknown as of this Event</span></span
+            ><span class="standing" data-state="direct"
+              ><span class="standing-num">-30</span
+              ><span class="standing-bar"
+                ><i class="neg" style="width: 45%"></i></span
+              ><span class="standing-mark">Direct, below zero</span></span
+            ><span class="standing" data-state="none"
+              ><span class="standing-num">–</span
+              ><span class="standing-bar"><i style="width: 0%"></i></span
+              ><span class="standing-mark">Not set</span></span
+            >
+          </div>
+        </section>
+
+        <section id="lens">
+          <h2>Lens line and legend</h2>
+          <div class="lens-line" role="status">
+            <span>As of the Founding Feast</span>
+            <button class="btn btn-secondary" type="button">Clear</button>
+          </div>
+          <div class="graph-legend" style="margin-top: var(--space-3)">
+            <span>Solid: direct</span><span>Dashed: derived or through</span
+            ><span>Dotted: unknown</span><span>Arrow: direction</span>
+          </div>
+        </section>
+
+        <section id="graph">
+          <h2>Graph</h2>
+          <div class="row" style="gap: var(--space-2)">
+            <button
+              class="btn btn-secondary"
+              id="focus"
+              type="button"
+              aria-pressed="false"
+            >
+              Focus on Mara
+            </button>
+          </div>
+          <div
+            style="
+              height: 320px;
+              margin-top: var(--space-3);
+              border: 1px solid var(--border-subtle);
+              border-radius: var(--radius-card);
+              background: var(--surface-muted);
+            "
+          >
+            <svg
+              class="graph"
+              viewBox="0 0 640 320"
+              role="img"
+              aria-label="Mara allies with Tobias, rivals Ilse, and may know Orin"
+            >
+              <defs>
+                <marker
+                  id="arr"
+                  viewBox="0 0 10 10"
+                  refX="9"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto"
+                >
+                  <path d="M0 0L10 5L0 10z" fill="currentColor" stroke="none" />
+                </marker>
+              </defs>
+              <g class="graph-edge" data-kind="direct">
+                <path d="M150 160 L320 80" marker-end="url(#arr)" />
+                <path class="hit" d="M150 160 L320 80" />
+                <text x="215" y="108">ally</text>
+              </g>
+              <g class="graph-edge" data-kind="derived" data-far>
+                <path d="M320 80 L500 170" />
+                <path class="hit" d="M320 80 L500 170" />
+                <text x="400" y="110">through Tobias</text>
+              </g>
+              <g class="graph-edge" data-kind="unknown" data-far>
+                <path d="M150 160 L330 250" />
+                <path class="hit" d="M150 160 L330 250" />
+                <text x="225" y="222">unknown</text>
+              </g>
+              <g
+                class="graph-node"
+                tabindex="0"
+                role="button"
+                aria-label="Mara"
+                aria-selected="true"
+              >
+                <circle cx="150" cy="160" r="26" />
+                <text x="150" y="206" text-anchor="middle">Mara</text>
+              </g>
+              <g
+                class="graph-node"
+                tabindex="0"
+                role="button"
+                aria-label="Tobias"
+                aria-selected="false"
+              >
+                <circle cx="320" cy="80" r="26" />
+                <text x="320" y="126" text-anchor="middle">Tobias</text>
+              </g>
+              <g
+                class="graph-node"
+                data-far
+                tabindex="0"
+                role="button"
+                aria-label="Ilse"
+                aria-selected="false"
+              >
+                <circle cx="500" cy="170" r="26" />
+                <text x="500" y="216" text-anchor="middle">Ilse</text>
+              </g>
+              <g
+                class="graph-node"
+                data-far
+                data-state="pending"
+                tabindex="0"
+                role="button"
+                aria-label="Orin, being added"
+                aria-selected="false"
+              >
+                <circle cx="330" cy="250" r="26" />
+                <text x="330" y="296" text-anchor="middle">Orin</text>
+              </g>
+            </svg>
+          </div>
+        </section>
+
+        <section id="matrix">
+          <h2>Matrix</h2>
+          <div class="horizontal-mask" style="overflow: auto; max-width: 100%">
+            <table class="graph-matrix" aria-label="Standings">
+              <thead>
+                <tr>
+                  <th class="corner" scope="col"></th>
+                  <th scope="col">Mara</th>
+                  <th scope="col">Tobias</th>
+                  <th scope="col">Ilse</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Mara</th>
+                  <td class="diag"></td>
+                  <td data-cell tabindex="0">
+                    <span class="standing" data-state="direct"
+                      ><span class="standing-num">+40</span
+                      ><span class="standing-bar"
+                        ><i style="width: 70%"></i></span
+                      ><span class="standing-mark">Direct</span></span
+                    >
+                  </td>
+                  <td data-cell data-state="unknown" tabindex="0">
+                    <span class="standing" data-state="unknown"
+                      ><span class="standing-num">?</span
+                      ><span class="standing-bar"
+                        ><i style="width: 0%"></i></span
+                      ><span class="standing-mark">Unknown</span></span
+                    >
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">Tobias</th>
+                  <td data-cell data-state="derived" tabindex="0">
+                    <span class="standing" data-state="derived"
+                      ><span class="standing-num">+10</span
+                      ><span class="standing-bar"
+                        ><i style="width: 30%"></i></span
+                      ><span class="standing-mark">Derived</span></span
+                    >
+                  </td>
+                  <td class="diag"></td>
+                  <td data-cell data-state="draft" tabindex="0">
+                    <span class="standing" data-state="direct"
+                      ><span class="standing-num">-30</span
+                      ><span class="standing-bar"
+                        ><i class="neg" style="width: 45%"></i></span
+                      ><span class="standing-mark">Draft</span></span
+                    >
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">Ilse</th>
+                  <td data-cell data-state="refused" tabindex="0">
+                    <span class="standing" data-state="none"
+                      ><span class="standing-num">–</span
+                      ><span class="standing-bar"
+                        ><i style="width: 0%"></i></span
+                      ><span class="standing-mark">Refused</span></span
+                    >
+                  </td>
+                  <td data-cell data-state="conflict" tabindex="0">
+                    <span class="standing" data-state="direct"
+                      ><span class="standing-num">+5</span
+                      ><span class="standing-bar"
+                        ><i style="width: 20%"></i></span
+                      ><span class="standing-mark">Conflict</span></span
+                    >
+                  </td>
+                  <td class="diag"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="time">
+          <h2>Time filter</h2>
+          <div class="time-filter">
+            <div class="time-filter-head">
+              <span class="time-filter-out">Years 1 to 3</span>
+            </div>
+            <div class="time-filter-strip">
+              <div class="time-filter-segs">
+                <span class="time-filter-seg" style="flex: 3">Year 1</span
+                ><span
+                  class="time-filter-seg"
+                  data-mark="festival"
+                  style="flex: 2"
+                  >Founding Feast</span
+                ><span class="time-filter-seg" style="flex: 4">Year 2</span>
+              </div>
+              <div class="time-filter-marks">
+                <i style="left: 20%"></i><i style="left: 55%"></i>
+              </div>
+              <div
+                class="time-filter-range"
+                style="left: 15%; width: 40%"
+              ></div>
+              <button
+                class="time-filter-handle"
+                type="button"
+                aria-label="Start of the range"
+                style="left: 15%"
+              ></button>
+              <button
+                class="time-filter-handle"
+                type="button"
+                aria-label="End of the range"
+                style="left: 55%"
+              ></button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+
+        var nodes = document.querySelectorAll(".graph-node");
+        function select(el) {
+          nodes.forEach(function (n) {
+            n.setAttribute("aria-selected", n === el ? "true" : "false");
+          });
+        }
+        nodes.forEach(function (n) {
+          n.addEventListener("click", function () {
+            select(n);
+          });
+          n.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              select(n);
+            }
+          });
+        });
+        document
+          .getElementById("focus")
+          .addEventListener("click", function (e) {
+            var on = e.currentTarget.getAttribute("aria-pressed") !== "true";
+            e.currentTarget.setAttribute("aria-pressed", on ? "true" : "false");
+            document
+              .querySelectorAll(".graph [data-far]")
+              .forEach(function (x) {
+                x.classList.toggle("dim", on);
+              });
+          });
+      })();
+    </script>
+  </body>
+</html>

@@ -40,7 +40,7 @@ import {
   writeBatch,
 } from './matrix-api';
 import { canManage } from './names';
-import { entryPicker } from './pickers';
+import { typePicker as findType } from './pickers';
 import { start } from './sign-in';
 import { readGraph, readWeb } from './web-api';
 
@@ -150,7 +150,7 @@ async function matrix(
     ],
     order,
   );
-  const typePicker = entryPicker(tenant, 'Type of relationship (to show, and for new ones)');
+  const typePicker = findType(tenant, 'Type of relationship (to show, and for new ones)');
   const clearType = button('No type', () => {
     type = null;
     void load();

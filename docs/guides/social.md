@@ -11,6 +11,8 @@ Event, anything but another relationship. It goes one way (from the first end to
 prototype entry (parent of, ally of, at war with), so what a type carries is inherited. Two relationships may tie one
 pair, even of one type: refusing a second would tell a writer that a hidden one exists.
 
+The ends are chosen from beings and groups, and a type from the types the library has; the API itself ties any two entries.
+
 A relationship is shown only to someone who may see it and **both of its ends**. One with a hidden end is not read as a
 smaller list or a gap: it is not there. It is **restricted** when made, and opened on purpose. A restricted one can be
 granted to named characters, groups and players. Authors, GMs, and Owners and Organizers write relationships; **a player
