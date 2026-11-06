@@ -2566,12 +2566,12 @@ dialog.palette:not([open]) {
 }
 
 /* The matrix: the same facts as the graph, in a grid that edits where the cell is. */
-.matrix {
+.graph-matrix {
   border-collapse: separate;
   border-spacing: 0;
 }
 
-.matrix th {
+.graph-matrix th {
   position: sticky;
   padding: var(--space-1) var(--space-2);
   background: var(--surface-default);
@@ -2579,26 +2579,26 @@ dialog.palette:not([open]) {
   text-align: start;
 }
 
-.matrix thead th {
+.graph-matrix thead th {
   top: 0;
   z-index: 2;
   max-width: 7rem;
   vertical-align: bottom;
 }
 
-.matrix tbody th {
+.graph-matrix tbody th {
   left: 0;
   z-index: 1;
   border-inline-end: 1px solid var(--border-subtle);
   white-space: nowrap;
 }
 
-.matrix .corner {
+.graph-matrix .corner {
   left: 0;
   z-index: 3;
 }
 
-.matrix td {
+.graph-matrix td {
   min-width: 7rem;
   height: 56px;
   padding: var(--space-1) var(--space-2);
@@ -2607,7 +2607,7 @@ dialog.palette:not([open]) {
   vertical-align: middle;
 }
 
-.matrix td.diag {
+.graph-matrix td.diag {
   background: repeating-linear-gradient(
     135deg,
     var(--border-subtle) 0 2px,
@@ -2615,49 +2615,49 @@ dialog.palette:not([open]) {
   );
 }
 
-.matrix td[data-cell] {
+.graph-matrix td[data-cell] {
   cursor: text;
 }
 
-.matrix td[data-cell]:focus-visible {
+.graph-matrix td[data-cell]:focus-visible {
   outline: 3px solid var(--action);
   outline-offset: -3px;
   background: var(--surface-selected);
 }
 
-.matrix td[aria-selected="true"] {
+.graph-matrix td[aria-selected="true"] {
   background: var(--surface-selected);
 }
 
-.matrix td[data-state="conflict"] {
+.graph-matrix td[data-state="conflict"] {
   outline: 2px solid var(--text-primary);
   outline-offset: -3px;
 }
 
-.matrix td[data-state="derived"] {
+.graph-matrix td[data-state="derived"] {
   outline: 1px dashed var(--text-secondary);
   outline-offset: -3px;
 }
 
-.matrix td[data-state="unknown"] {
+.graph-matrix td[data-state="unknown"] {
   outline: 1px dotted var(--text-secondary);
   outline-offset: -3px;
 }
 
-.matrix td[data-state="draft"] {
+.graph-matrix td[data-state="draft"] {
   background: color-mix(in srgb, var(--action) 8%, transparent);
   box-shadow: inset 3px 0 0 var(--action);
 }
 
-.matrix td[data-state="refused"] {
+.graph-matrix td[data-state="refused"] {
   box-shadow: inset 3px 0 0 var(--danger);
 }
 
-.matrix td.editing {
+.graph-matrix td.editing {
   padding: 2px;
 }
 
-.matrix td.editing .text-input {
+.graph-matrix td.editing .text-input {
   min-width: 0;
 }
 
