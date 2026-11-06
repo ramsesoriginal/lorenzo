@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.activity_log import record_activity
@@ -24,6 +24,7 @@ from lorenzo_api.exceptions import (
     InvalidStatGroupError,
     InvalidStatHintError,
     InvalidStatOrderError,
+    InvalidStatScaleError,
     StatDefinitionInUseError,
     StatDefinitionNameTakenError,
     StatDefinitionNotFoundError,
@@ -34,6 +35,7 @@ from lorenzo_api.exceptions import (
     StatGroupNameTakenError,
     StatGroupNotFoundError,
     StatNameReservedError,
+    StatScaleBreaksValuesError,
 )
 from lorenzo_api.library_counts import count_libraries, libraries_note
 from lorenzo_api.models import (
@@ -131,6 +133,45 @@ async def _get_stat_definition_or_404(
 
 
 _NUMERIC = (StatValueType.INT, StatValueType.FLOAT)
+
+
+def _check_scale(value_type: StatValueType, low: float | None, high: float | None) -> None:
+    """A scale is for an int or float stat, and its minimum is not above its maximum (ADR 0403)."""
+    if (low is not None or high is not None) and value_type not in _NUMERIC:
+        raise InvalidStatScaleError(
+            detail=f"A scale is for an int or float stat, not {value_type.value}"
+        )
+    if low is not None and high is not None and low > high:
+        raise InvalidStatScaleError(detail=f"The minimum {low:g} is above the maximum {high:g}")
+
+
+async def _check_scale_holds(
+    session: SessionDep, definition: StatDefinition, low: float | None, high: float | None
+) -> None:
+    """A bound that own values already break is a 409 with the number of entries (ADR 0403)."""
+    column = (
+        EntityStat.value_int
+        if definition.value_type is StatValueType.INT
+        else EntityStat.value_float
+    )
+    outside = [column < low] if low is not None else []
+    if high is not None:
+        outside.append(column > high)
+    if not outside:
+        return
+    broken = await session.scalar(
+        select(func.count())
+        .select_from(EntityStat)
+        .where(
+            EntityStat.tenant_id == definition.tenant_id,
+            EntityStat.stat_definition_id == definition.id,
+            or_(*outside),
+        )
+    )
+    if broken:
+        raise StatScaleBreaksValuesError(
+            detail=f"{broken} entries hold a value of {definition.name!r} outside that scale"
+        )
 
 
 async def _check_hints(
@@ -445,6 +486,7 @@ async def create_stat_definition(
         },
         own_id=None,
     )
+    _check_scale(body.value_type, body.min_value, body.max_value)
     stat_definition = StatDefinition(
         tenant_id=tenant_id,
         stat_group_id=body.stat_group_id,
@@ -457,6 +499,8 @@ async def create_stat_definition(
         max_hint_id=body.max_hint_id,
         min_hint_id=body.min_hint_id,
         resolved_hint_id=body.resolved_hint_id,
+        min_value=body.min_value,
+        max_value=body.max_value,
     )
     if body.position is not None:
         stat_definition.position = body.position
@@ -568,6 +612,11 @@ async def update_stat_definition(
         {k: v for k, v in changes.items() if k.endswith("_hint_id")},
         own_id=stat_definition_id,
     )
+    if "min_value" in changes or "max_value" in changes:
+        low = changes.get("min_value", stat_definition.min_value)
+        high = changes.get("max_value", stat_definition.max_value)
+        _check_scale(stat_definition.value_type, low, high)
+        await _check_scale_holds(session, stat_definition, low, high)
     for field, value in changes.items():
         setattr(stat_definition, field, value)
     await session.commit()

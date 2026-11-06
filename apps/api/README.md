@@ -157,7 +157,12 @@ separate entered, derived, not-reckoned, conflicting and limit-reached results. 
 are filtered before traversal, provenance and work limits. Repository release documents carry
 relationships; earlier formats remain readable.
 
-Copied manuscripts retain an independent direct-bundle baseline for read-only three-way
+Copied manuscripts retain an independent direct-bundle baseline for three-way
 comparison ([ADR 0398](../../docs/adr/0398-copied-manuscript-comparison.md)). The Writing comparison
 route requires current manuscript edit/history access and uses the repository's gated live or
 released read. Legacy copies report no baseline; ordinary entity updates leave this baseline intact.
+
+Standalone Scene/Chapter text updates require the reviewed comparison ETag and current write
+access ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Explicit keep/take
+choices advance the baseline; taking text uses ordinary history and backlink writes atomically.
+Connected manuscripts, changed payload structures and changed non-text payloads are refused.

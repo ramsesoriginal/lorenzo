@@ -101,6 +101,8 @@ from lorenzo_api.models import (
     PayloadNumber,
     PayloadPicture,
     Player,
+    Relationship,
+    RelationshipThrough,
     ReleaseFanout,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
@@ -114,6 +116,9 @@ from lorenzo_api.models import (
     RepositoryReleasedRow,
     RepositoryShowcase,
     SceneTelling,
+    SocialWeb,
+    SocialWebEntry,
+    SocialWebType,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -209,6 +214,15 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(Connection, "connection"),
     _rows(ClockRelationship, "clock_relationship", counted_on_purge=True),
     _rows(StoryEvent, "story_event", carried_by="entity"),
+    # A tie between two entries, so it comes after every entry, and after the Events that may
+    # bound it in time (ADR 0399, 0405).
+    _rows(Relationship, "relationship"),
+    # The relationships one holds through, so after every relationship (ADR 0402).
+    _rows(RelationshipThrough, "relationship_through", counted_on_purge=True),
+    # A saved view of relationships, after every entry and Event it may name (ADR 0406).
+    _rows(SocialWeb, "social_web"),
+    _rows(SocialWebEntry, "social_web_entry", counted_on_purge=True),
+    _rows(SocialWebType, "social_web_type", counted_on_purge=True),
     _rows(EventClockReading, "event_clock_reading", counted_on_purge=True),
     _rows(CalendarReckoning, "calendar_reckoning", counted_on_purge=True),
     _rows(CalendarPeriod, "calendar_period"),

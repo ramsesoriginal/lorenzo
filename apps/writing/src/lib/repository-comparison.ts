@@ -20,7 +20,9 @@ function manuscript(value: { [key: string]: unknown } | null | undefined) {
   return pieces.join('\n\n');
 }
 
-export function repositoryComparison(tenant: string, id: string) {
+export type ApplyRepositoryUpdate = (action: () => Promise<void>) => Promise<void>;
+
+export function repositoryComparison(tenant: string, id: string, apply?: ApplyRepositoryUpdate) {
   const panel = document.createElement('details');
   const summary = document.createElement('summary');
   summary.textContent = 'Repository comparison';
@@ -62,6 +64,33 @@ export function repositoryComparison(tenant: string, id: string) {
       if (!comparison.base) return;
       const name = document.createElement('p');
       name.textContent = comparison.repository_name ?? 'Repository';
+      const accept = async (side: 'mine' | 'theirs') => {
+        if (!apply || check.disabled || !comparison.version) return;
+        check.disabled = true;
+        try {
+          await apply(async () => {
+            await unwrap(
+              await client.POST('/tenants/{tenant_id}/writing/entries/{id}/repository-comparison', {
+                params: {
+                  path: { tenant_id: tenant, id },
+                  header: { 'if-match': comparison.version as string },
+                },
+                body: { choice: side === 'mine' ? 'local' : 'upstream' },
+              }),
+            );
+          });
+          if (panel.isConnected) {
+            result.replaceChildren();
+            status.textContent =
+              side === 'mine' ? 'Kept your writing.' : 'Repository writing saved.';
+          }
+        } catch (error) {
+          status.textContent =
+            error instanceof Error ? error.message : 'The update could not be accepted.';
+        } finally {
+          check.disabled = false;
+        }
+      };
       result.append(
         name,
         renderReview(
@@ -69,6 +98,7 @@ export function repositoryComparison(tenant: string, id: string) {
             {
               id: 'manuscript',
               label: 'Saved direct manuscript',
+              ...(comparison.update_allowed && apply ? { choice: { chosen: null } } : {}),
               change: {
                 kind: 'value',
                 was: manuscript(comparison.base),
@@ -77,11 +107,19 @@ export function repositoryComparison(tenant: string, id: string) {
               },
             },
           ],
-          { words: { was: 'Original copy', theirs: 'Repository', mine: 'Your saved writing' } },
+          {
+            mode: 'act',
+            onChoose: (_id, side) => void accept(side),
+            words: { was: 'Original copy', theirs: 'Repository', mine: 'Your saved writing' },
+          },
         ),
       );
       const note = document.createElement('p');
-      note.textContent = 'This comparison does not apply updates.';
+      note.textContent =
+        comparison.update_reason ??
+        (apply
+          ? 'Accepting keeps all existing audiences and saves the previous text in revisions.'
+          : 'Open Write to accept an update.');
       result.append(note);
     } catch (error) {
       result.replaceChildren();

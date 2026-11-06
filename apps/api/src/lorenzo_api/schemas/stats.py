@@ -117,6 +117,9 @@ class StatDefinitionCreate(BaseModel):
     max_hint_id: uuid.UUID | None = None
     min_hint_id: uuid.UUID | None = None
     resolved_hint_id: uuid.UUID | None = None
+    # The scale of an int or float stat (ADR 0403); each is optional.
+    min_value: float | None = None
+    max_value: float | None = None
 
 
 class StatDefinitionUpdate(BaseModel):
@@ -134,10 +137,20 @@ class StatDefinitionUpdate(BaseModel):
     max_hint_id: uuid.UUID | None = None
     min_hint_id: uuid.UUID | None = None
     resolved_hint_id: uuid.UUID | None = None
+    # Each bound may be set to null to clear it (ADR 0403).
+    min_value: float | None = None
+    max_value: float | None = None
 
     @model_validator(mode="after")
     def _no_nulls(self) -> StatDefinitionUpdate:
-        clearable = {"unit", "max_hint_id", "min_hint_id", "resolved_hint_id"}
+        clearable = {
+            "unit",
+            "max_hint_id",
+            "min_hint_id",
+            "resolved_hint_id",
+            "min_value",
+            "max_value",
+        }
         for field in self.model_fields_set - clearable:
             if getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be null")
@@ -177,6 +190,9 @@ class StatDefinitionOut(BaseModel):
     max_hint_id: uuid.UUID | None
     min_hint_id: uuid.UUID | None
     resolved_hint_id: uuid.UUID | None
+    # The scale of an int or float stat (ADR 0403): own values outside it are refused.
+    min_value: float | None
+    max_value: float | None
     created_at: datetime
     updated_at: datetime
 
@@ -200,6 +216,8 @@ class StatDefinitionOut(BaseModel):
             max_hint_id=stat_definition.max_hint_id,
             min_hint_id=stat_definition.min_hint_id,
             resolved_hint_id=stat_definition.resolved_hint_id,
+            min_value=stat_definition.min_value,
+            max_value=stat_definition.max_value,
             created_at=stat_definition.created_at,
             updated_at=stat_definition.updated_at,
         )

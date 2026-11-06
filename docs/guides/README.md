@@ -12,3 +12,4 @@ Task-oriented how-tos.
 - [Lorenzo Calendars](calendars.md)
 - [Lorenzo Sessions](sessions.md)
 - [Lorenzo Maps](maps.md)
+- [Lorenzo Social](social.md)

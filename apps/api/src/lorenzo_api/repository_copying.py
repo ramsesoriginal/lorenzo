@@ -78,6 +78,7 @@ from lorenzo_api.models import (
     MapPlacement,
     Ownership,
     Payload,
+    RelationshipThrough,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -87,6 +88,8 @@ from lorenzo_api.models import (
     Scene,
     SceneAppearance,
     SceneTelling,
+    SocialWebEntry,
+    SocialWebType,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -575,6 +578,8 @@ class _Planner:
                     "pin": definition["pin"],
                     "signed": definition["signed"],
                     "position": definition["position"],
+                    "min_value": definition["min_value"],
+                    "max_value": definition["max_value"],
                 }
             )
             for value, sort_order in c.enum_values.get(d, []):
@@ -1028,6 +1033,105 @@ class _Planner:
                     "one_way": True if joined["one_way"] else None,
                 }
             )
+        # A relationship ties two entries: written once every entry has its place (ADR 0399).
+        written_relationships: set[uuid.UUID] = set()
+        for e, tied in c.relationships.items():
+            if not copies("entity", e):
+                continue
+            end_a = self._local(c, "entity", tied["end_a"])
+            end_b = self._local(c, "entity", tied["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                drop("relationship", e, "an end of it was not copied")
+                continue
+            self.rows["relationship"].append(
+                {
+                    "entity_id": self.local["entity"][e],
+                    "tenant_id": tenant_id,
+                    "end_a": end_a,
+                    "end_b": end_b,
+                    "one_way": True if tied["one_way"] else None,
+                    "starts_at": self._local(c, "entity", tied["starts_at"])
+                    if tied["starts_at"]
+                    else None,
+                    "ends_at": self._local(c, "entity", tied["ends_at"])
+                    if tied["ends_at"]
+                    else None,
+                }
+            )
+            written_relationships.add(e)
+            if (tied["starts_at"] and self.rows["relationship"][-1]["starts_at"] is None) or (
+                tied["ends_at"] and self.rows["relationship"][-1]["ends_at"] is None
+            ):
+                drop("relationship_time", e, "an Event that bounded it was not copied")
+        # A step is written only when both relationships were copied; the steps are renumbered
+        # from 1, so what was hidden from a copy leaves no gap (ADR 0402).
+        for e, chain in c.relationship_through.items():
+            if e not in written_relationships:
+                continue
+            kept = [via for via in chain if via in written_relationships]
+            for position, via in enumerate(kept, start=1):
+                self.rows["relationship_through"].append(
+                    {
+                        "relationship_entity_id": self.local["entity"][e],
+                        "step": position,
+                        "via_entity_id": self.local["entity"][via],
+                        "tenant_id": tenant_id,
+                    }
+                )
+            if len(kept) != len(chain):
+                drop("relationship_through", e, "a step of it was not copied")
+        # A SocialWeb carries its settings, the members and the types that were copied, and leaves a
+        # dropped member out with a note (ADR 0406).
+        for e, saved in c.social_webs.items():
+            if not copies("entity", e):
+                continue
+            standing = self.local["stat_definition"].get(saved["standing_stat"])
+            as_of = self._local(c, "entity", saved["as_of_event"]) if saved["as_of_event"] else None
+            self.rows["social_web"].append(
+                {
+                    "entity_id": self.local["entity"][e],
+                    "tenant_id": tenant_id,
+                    "layout": saved["layout"],
+                    "layout_seed": saved["layout_seed"],
+                    "theme_hint": saved["theme_hint"],
+                    "view": saved["view"],
+                    "standing_stat_id": standing,
+                    "as_of_event": as_of,
+                }
+            )
+            lost = False
+            for (owner, entry), held_at in c.social_web_entries.items():
+                if owner != e:
+                    continue
+                local_entry = self._local(c, "entity", entry)
+                if local_entry is None:
+                    lost = True
+                    continue
+                self.rows["social_web_entry"].append(
+                    {
+                        "web_entity_id": self.local["entity"][e],
+                        "entry_entity_id": local_entry,
+                        "tenant_id": tenant_id,
+                        "x": held_at["x"],
+                        "y": held_at["y"],
+                    }
+                )
+            for owner, type_entry in sorted(c.social_web_types, key=str):
+                if owner != e:
+                    continue
+                local_kind = self._local(c, "entity", type_entry)
+                if local_kind is None:
+                    lost = True
+                    continue
+                self.rows["social_web_type"].append(
+                    {
+                        "web_entity_id": self.local["entity"][e],
+                        "type_entity_id": local_kind,
+                        "tenant_id": tenant_id,
+                    }
+                )
+            if lost:
+                drop("social_web", e, "an entry or type of it was not copied")
         for source_id, settings in c.manuscript_contents.items():
             if copies("entity", source_id):
                 self.rows["manuscript_contents"].append(
@@ -2281,6 +2385,42 @@ async def forget_copy(
                 LivedBefore.being_entity_id.in_(entities),
                 LivedBefore.from_event_id.in_(entities),
                 LivedBefore.to_event_id.in_(entities),
+            ),
+        )
+        # A chain that joins a copied relationship to one that was not copied here (ADR 0402).
+        also["relationship_through"] = await _count(
+            session,
+            RelationshipThrough,
+            RelationshipThrough.tenant_id == t,
+            or_(
+                RelationshipThrough.relationship_entity_id.in_(entities)
+                & RelationshipThrough.via_entity_id.not_in(entities),
+                RelationshipThrough.via_entity_id.in_(entities)
+                & RelationshipThrough.relationship_entity_id.not_in(entities),
+            ),
+        )
+        # A web that holds an entry copied here, or a copied web that holds one that was not (ADR
+        # 0406).
+        also["social_web_entry"] = await _count(
+            session,
+            SocialWebEntry,
+            SocialWebEntry.tenant_id == t,
+            or_(
+                SocialWebEntry.web_entity_id.in_(entities)
+                & SocialWebEntry.entry_entity_id.not_in(entities),
+                SocialWebEntry.entry_entity_id.in_(entities)
+                & SocialWebEntry.web_entity_id.not_in(entities),
+            ),
+        )
+        also["social_web_type"] = await _count(
+            session,
+            SocialWebType,
+            SocialWebType.tenant_id == t,
+            or_(
+                SocialWebType.web_entity_id.in_(entities)
+                & SocialWebType.type_entity_id.not_in(entities),
+                SocialWebType.type_entity_id.in_(entities)
+                & SocialWebType.web_entity_id.not_in(entities),
             ),
         )
         also["manuscript_placement"] = await _count(

@@ -184,6 +184,15 @@ export const canDuplicate = (kinds: readonly string[]): boolean =>
 export const canSetParents = (kinds: readonly string[]): boolean =>
   !kinds.includes('item_instance');
 
+/** One relationship an entry is an end of, for the Relations pane. */
+export interface RelationRow {
+  id: string;
+  name: string;
+  oneWay: boolean;
+  endA: { id: string; name: string };
+  endB: { id: string; name: string };
+}
+
 export interface Transport {
   readField?(target: EntryFieldTarget): Promise<FieldSnapshot>;
   writeField?(
@@ -201,6 +210,9 @@ export interface Transport {
    */
   resolveSlugs(slugs: string[], from?: string): Promise<ResolvedEntry[]>;
   resolveCalendars?(expressions: string[]): Promise<Map<string, { text: string; href: string }>>;
+  /** The relationships the reader may see that have this entry as an end (ADR 0399). Optional: a
+   * transport with no relationships, as the sample, leaves the Relations pane saying so. */
+  relationshipsOf?(entryId: string): Promise<RelationRow[]>;
   getEntry(id: string): Promise<EntryState>;
   /** What links to the entry: the texts, on other entries, that name its link name. */
   backlinks(entryId: string): Promise<Backlink[]>;

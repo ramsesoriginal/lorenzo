@@ -33,6 +33,8 @@ LIBRARY_AUTHOR_KINDS = frozenset(
         "location",
         "map",
         "connection",
+        "relationship",
+        "social_web",
         "calendar_period",
         "event",
         "observance",

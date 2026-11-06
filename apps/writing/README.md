@@ -150,5 +150,8 @@ dates and dates not yet created in a calendar are never filled or replaced autom
 
 **Repository comparison** ([ADR 0398](../../docs/adr/0398-copied-manuscript-comparison.md)) in Details
 compares saved direct manuscript bundles with their original copy and repository version.
-New copies retain a baseline; older copies explicitly report its absence. This read-only view
-excludes unsaved drafts and composition, and offers no apply action yet.
+New copies retain a baseline; older copies explicitly report its absence. Standalone Scene and
+Chapter drafts with unchanged payload structure offer explicit Keep yours / Take the update
+choices ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Save local edits
+before accepting. Accepted text preserves history and audiences and adds no session credit.
+Connected manuscripts and structural changes remain comparison-only.

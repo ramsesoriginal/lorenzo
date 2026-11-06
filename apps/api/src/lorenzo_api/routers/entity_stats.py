@@ -27,6 +27,7 @@ from lorenzo_api.exceptions import (
     ComputedStatConflictError,
     EntityStatManagementForbiddenError,
     EntityStatNotFoundError,
+    InvalidStatScaleError,
     InvalidStatValueError,
     InvalidStatValueTypeError,
     StatDefinitionNotFoundError,
@@ -173,6 +174,24 @@ async def _validate_value(
                 f"Stat {stat_definition.name!r} is declared "
                 f"{expected.value}, got a {actual.value} value"
             )
+        )
+    check_scale(value, stat_definition)
+
+
+def check_scale(value: int | str | float | bool, stat_definition: StatDefinition) -> None:
+    """An own number outside the stat's optional minimum and maximum is a 422 that names them
+    (ADR 0403). A computed value is never checked here: a formula result is shown as it is."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return
+    low, high = stat_definition.min_value, stat_definition.max_value
+    if (low is not None and value < low) or (high is not None and value > high):
+        bounds = " ".join(
+            f"{label} {bound:g}"
+            for label, bound in (("from", low), ("up to", high))
+            if bound is not None
+        )
+        raise InvalidStatScaleError(
+            detail=f"{value:g} is outside the scale of stat {stat_definition.name!r}: {bounds}"
         )
 
 

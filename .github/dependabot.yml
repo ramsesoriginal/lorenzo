@@ -108,6 +108,7 @@ updates:
       - "/apps/sessions"
       - "/apps/writing"
       - "/apps/maps"
+      - "/apps/social"
       - "/apps/bench"
       - "/apps/inventory-web"
       - "/apps/loot-bot"
@@ -122,6 +123,7 @@ updates:
       - "/packages/period-picker"
       - "/packages/read-cache"
       - "/packages/map-renderer"
+      - "/packages/graph-renderer"
       - "/packages/entry-preview"
       - "/packages/repo-ui"
     schedule:

@@ -92,10 +92,18 @@ class StatDefinition(Base):
     max_hint_id: Mapped[uuid.UUID | None]
     min_hint_id: Mapped[uuid.UUID | None]
     resolved_hint_id: Mapped[uuid.UUID | None]
+    # The scale of an int or float stat (ADR 0403): a write of an own value outside it is
+    # refused; a computed value is never clamped. Either may be unset.
+    min_value: Mapped[float | None]
+    max_value: Mapped[float | None]
     created_at: Mapped[CreatedAt]
     updated_at: Mapped[UpdatedAt]
 
-    tenant: Mapped[Tenant] = relationship(lazy="raise_on_sql", back_populates="stat_definitions")
+    tenant: Mapped[Tenant] = relationship(
+        foreign_keys="StatDefinition.tenant_id",
+        lazy="raise_on_sql",
+        back_populates="stat_definitions",
+    )
     stat_group: Mapped[StatGroup] = relationship(
         foreign_keys="StatDefinition.stat_group_id",
         lazy="raise_on_sql",

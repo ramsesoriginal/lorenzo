@@ -85,3 +85,46 @@ def state(
     if local == base:
         return "upstream"
     return "conflict"
+
+
+def standalone(content: Content, entity: uuid.UUID) -> bool:
+    if content.kinds.get(entity) not in ({"scene"}, {"chapter"}):
+        return False
+    if entity in content.manuscript_placements or any(
+        row["parent"] == entity for row in content.manuscript_placements.values()
+    ):
+        return False
+    if entity in content.tellings or any(
+        row["scene"] == entity for row in content.tellings.values()
+    ):
+        return False
+    if any(entity in (row["carrier"], row["entry"]) for row in content.carrier_coverage.values()):
+        return False
+    return not (
+        entity in content.manuscript_redirects
+        or any(
+            entity in (row["destination"], row["child"])
+            for row in content.manuscript_redirects.values()
+        )
+    )
+
+
+def text_shape(value: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {**payload, "fields": {} if payload["kind"] == "description" else payload["fields"]}
+        for payload in value["payloads"]
+    ]
+
+
+def update_reason(
+    base: dict[str, Any], local: dict[str, Any], upstream: dict[str, Any] | None, independent: bool
+) -> str | None:
+    if not independent:
+        return "Connected manuscripts remain comparison-only."
+    if upstream is None:
+        return "The repository manuscript was removed. Your copy is kept."
+    if not (text_shape(base) == text_shape(local) == text_shape(upstream)):
+        return "Payload structure or attachments changed. This update needs a structural review."
+    if upstream == base:
+        return "There is no new repository writing to accept."
+    return None
