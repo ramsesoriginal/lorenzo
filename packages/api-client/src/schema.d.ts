@@ -4012,6 +4012,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/relationship-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Relationship Types */
+        get: operations["list_relationship_types"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/relationships/{relationship_id}/through": {
         parameters: {
             query?: never;
@@ -14837,6 +14854,39 @@ export interface components {
         RelationshipThroughPut: {
             /** Via */
             via: string[];
+        };
+        /**
+         * RelationshipTypeOut
+         * @description One type: what it inherits from, how it points and reads, and how many relationships the
+         *     reader sees that are directly of it.
+         */
+        RelationshipTypeOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            /** Parent Ids */
+            parent_ids: string[];
+            /** Directed */
+            directed: boolean | null;
+            /** Reads As */
+            reads_as: string | null;
+            /** Reads As Back */
+            reads_as_back: string | null;
+            /** In Use */
+            in_use: number;
+        };
+        /** RelationshipTypesOut */
+        RelationshipTypesOut: {
+            /** Items */
+            items: components["schemas"]["RelationshipTypeOut"][];
         };
         /** RelationshipWrite */
         RelationshipWrite: {
@@ -33162,6 +33212,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RelationshipBulkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_relationship_types: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipTypesOut"];
                 };
             };
             /** @description Validation Error */

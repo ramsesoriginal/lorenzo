@@ -55,3 +55,15 @@ if (typeof window !== 'undefined') {
     standing = undefined;
   });
 }
+
+/** Whether the person administers a library (an Owner or an Organizer): only they set how the
+ * library's types point and read. It decides what is offered; the API decides the write. */
+export async function canAdminister(tenant: string) {
+  try {
+    return (await myLibraries()).some(
+      (library) => library.id === tenant && ['owner', 'orga'].includes(library.role),
+    );
+  } catch {
+    return false;
+  }
+}

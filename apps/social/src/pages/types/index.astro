@@ -1,0 +1,11 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="Types and standings — Lorenzo Social">
+  <div id="social-types" class="stack"></div>
+  <script>
+    import { mountTypes } from '../../lib/types-view';
+    document.addEventListener('astro:page-load', () => void mountTypes());
+  </script>
+</Base>

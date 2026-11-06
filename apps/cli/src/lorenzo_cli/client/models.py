@@ -2808,11 +2808,58 @@ class RelationshipThroughPut(BaseModel):
     via: list[UUID] = Field(..., max_length=12, title="Via")
 
 
+class Kind32(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+    fact = "fact"
+    calendar = "calendar"
+    clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
+    relationship = "relationship"
+    social_web = "social_web"
+    calendar_period = "calendar_period"
+    event = "event"
+    observance = "observance"
+    book = "book"
+    carrier = "carrier"
+    edition = "edition"
+    chapter = "chapter"
+    scene_telling = "scene_telling"
+    scene = "scene"
+    scene_appearance = "scene_appearance"
+    session = "session"
+
+
+class RelationshipTypeOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind32] = Field(..., title="Kinds")
+    parent_ids: list[UUID] = Field(..., title="Parent Ids")
+    directed: bool | None = Field(..., title="Directed")
+    reads_as: str | None = Field(..., title="Reads As")
+    reads_as_back: str | None = Field(..., title="Reads As Back")
+    in_use: int = Field(..., title="In Use")
+
+
+class RelationshipTypesOut(BaseModel):
+    items: list[RelationshipTypeOut] = Field(..., title="Items")
+
+
+class Kind33(StrEnum):
+    order = "order"
+    causes = "causes"
+
+
 class RelationshipWrite(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    kind: Kind30 = Field(..., title="Kind")
+    kind: Kind33 = Field(..., title="Kind")
     direction: Direction1 | None = Field("outgoing", title="Direction")
 
 
@@ -2868,7 +2915,7 @@ class RepositoryDependencyOut(BaseModel):
     public: bool = Field(..., title="Public")
 
 
-class Kind33(StrEnum):
+class Kind34(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -2883,7 +2930,7 @@ class Kind33(StrEnum):
 class RepositoryEntityOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind33] = Field(..., title="Kinds")
+    kinds: list[Kind34] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
@@ -2922,7 +2969,7 @@ class RepositorySummaryOut(BaseModel):
     published_at: AwareDatetime | None = Field(..., title="Published At")
 
 
-class Kind34(StrEnum):
+class Kind35(StrEnum):
     stat_group = "stat_group"
     stat_definition = "stat_definition"
     slug = "slug"
@@ -2935,13 +2982,13 @@ class Action1(StrEnum):
 
 
 class ResolutionIn(BaseModel):
-    kind: Kind34 = Field(..., title="Kind")
+    kind: Kind35 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action1 = Field(..., title="Action")
     name: str | None = Field(None, title="Name")
 
 
-class Kind35(StrEnum):
+class Kind36(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -2971,10 +3018,10 @@ class ResolvedSlugOut(BaseModel):
     slug: str = Field(..., title="Slug")
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
-    kinds: list[Kind35] = Field(..., title="Kinds")
+    kinds: list[Kind36] = Field(..., title="Kinds")
 
 
-class Kind36(StrEnum):
+class Kind37(StrEnum):
     text = "text"
     picture = "picture"
     entry = "entry"
@@ -2982,7 +3029,7 @@ class Kind36(StrEnum):
 
 class ReviewElement(BaseModel):
     id: UUID = Field(..., title="Id")
-    kind: Kind36 = Field(..., title="Kind")
+    kind: Kind37 = Field(..., title="Kind")
     content: str | None = Field(None, title="Content")
     url: str | None = Field(None, title="Url")
 
@@ -3017,7 +3064,7 @@ class RoundMode(StrEnum):
     truncate = "truncate"
 
 
-class Kind37(StrEnum):
+class Kind38(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -3028,7 +3075,7 @@ class State5(StrEnum):
     edited = "edited"
 
 
-class Kind38(StrEnum):
+class Kind39(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -3036,14 +3083,14 @@ class Kind38(StrEnum):
 
 
 class RowNameOut(BaseModel):
-    kind: Kind38 = Field(..., title="Kind")
+    kind: Kind39 = Field(..., title="Kind")
     row_id: UUID = Field(..., title="Row Id")
     parent_id: UUID | None = Field(..., title="Parent Id")
     name: str = Field(..., title="Name")
     parent_name: str | None = Field(..., title="Parent Name")
 
 
-class Kind39(StrEnum):
+class Kind40(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -3084,7 +3131,7 @@ class SceneUpdate(BaseModel):
     is_public: bool | None = Field(None, title="Is Public")
 
 
-class Kind40(StrEnum):
+class Kind41(StrEnum):
     month = "month"
     festival = "festival"
 
@@ -3096,7 +3143,7 @@ class Segment(BaseModel):
     key: constr(pattern=r"^[a-z][a-z0-9-]{0,63}$") = Field(..., title="Key")
     name: constr(min_length=1, max_length=200) = Field(..., title="Name")
     days: conint(ge=1, le=1000) = Field(..., title="Days")
-    kind: Kind40 | None = Field("month", title="Kind")
+    kind: Kind41 | None = Field("month", title="Kind")
     in_week: bool | None = Field(True, title="In Week")
     when: Periodic | None = None
 
@@ -3107,7 +3154,7 @@ class SegmentPreview(BaseModel):
     )
     key: str = Field(..., title="Key")
     name: str = Field(..., title="Name")
-    kind: Kind40 = Field(..., title="Kind")
+    kind: Kind41 = Field(..., title="Kind")
     month_ordinal: int | None = Field(..., title="Month Ordinal")
     days: list[DayPreview] = Field(..., title="Days")
 
@@ -3230,7 +3277,7 @@ class SocialWebCreate(BaseModel):
     is_public: bool | None = Field(False, title="Is Public")
 
 
-class Kind42(StrEnum):
+class Kind43(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -3266,7 +3313,7 @@ class SocialWebOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
-    kinds: list[Kind42] = Field(..., title="Kinds")
+    kinds: list[Kind43] = Field(..., title="Kinds")
     layout: str = Field(..., title="Layout")
     layout_seed: int = Field(..., title="Layout Seed")
     theme_hint: str | None = Field(..., title="Theme Hint")
@@ -3580,7 +3627,7 @@ class UnprovenKindOut(BaseModel):
     kinds: list[str] = Field(..., title="Kinds")
 
 
-class Kind44(StrEnum):
+class Kind45(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -3649,7 +3696,7 @@ class WhereaboutsOut(BaseModel):
     place: PlaceOut | None = None
 
 
-class Kind45(StrEnum):
+class Kind46(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
@@ -3662,7 +3709,7 @@ class Kind45(StrEnum):
 class WritingEntry(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kind: Kind45 = Field(..., title="Kind")
+    kind: Kind46 = Field(..., title="Kind")
     book_id: UUID | None = Field(None, title="Book Id")
     parent_id: UUID | None = Field(None, title="Parent Id")
     scene_id: UUID | None = Field(None, title="Scene Id")
@@ -4675,7 +4722,7 @@ class Review(BaseModel):
 
 
 class RowChangeOut(BaseModel):
-    kind: Kind37 = Field(..., title="Kind")
+    kind: Kind38 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -4685,7 +4732,7 @@ class RowChangeOut(BaseModel):
 
 
 class RowRefOut(BaseModel):
-    kind: Kind39 = Field(..., title="Kind")
+    kind: Kind40 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
@@ -4704,7 +4751,7 @@ class SocialWebDetail(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
-    kinds: list[Kind42] = Field(..., title="Kinds")
+    kinds: list[Kind43] = Field(..., title="Kinds")
     layout: str = Field(..., title="Layout")
     layout_seed: int = Field(..., title="Layout Seed")
     theme_hint: str | None = Field(..., title="Theme Hint")
@@ -4808,7 +4855,7 @@ class TenantCreate(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind44 = Field(..., title="Kind")
+    kind: Kind45 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action2 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")

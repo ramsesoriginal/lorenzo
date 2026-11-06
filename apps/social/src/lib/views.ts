@@ -23,6 +23,7 @@ import {
 import { canManage, libraryName, myLibraries } from './names';
 import { entryPicker } from './pickers';
 import { start } from './sign-in';
+
 import {
   createRelationship,
   deleteRelationship,
@@ -32,6 +33,7 @@ import {
   replaceRelationship,
   setPublic,
 } from './social-api';
+import { readLibrary, readsOf } from './types-api';
 import { audienceWords, defaultName, directionWords, sentence } from './words';
 
 const tenantOf = () => new URLSearchParams(location.search).get('tenant');
@@ -255,7 +257,18 @@ export async function mountRelationship() {
         endB: relationship.end_b.name,
         oneWay: relationship.one_way,
       };
-      const type = entry.prototypes[0] ? { name: entry.prototypes[0].name } : null;
+      const first = entry.prototypes[0];
+      // The library's words for the type, when it set them (ADR 0400).
+      const words = first
+        ? await readsOf(tenant, (await readLibrary(tenant)).library, first.id).catch(() => null)
+        : null;
+      const type = first
+        ? {
+            name: first.name,
+            readsAs: words?.readsAs ?? null,
+            readsAsBack: words?.readsAsBack ?? null,
+          }
+        : null;
       const view = el('div', '', 'stack view');
       const meta: Node[] = [metaLine('social', directionWords(ends))];
       if (relationship.is_public !== null && relationship.is_public !== undefined) {

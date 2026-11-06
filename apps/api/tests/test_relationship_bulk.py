@@ -338,3 +338,64 @@ async def test_the_type_stats_of_a_library_are_checked_set_and_cleared(
         assert cleared.json()["relationship_directed_stat_id"] is None
     finally:
         await w.clean_up()
+
+
+async def test_the_types_a_library_has_are_read_with_how_they_point_and_read(
+    raw_client, fake_jwks_server
+):
+    w, _, _ = await world(raw_client, fake_jwks_server)
+    try:
+        t, gm, owner, player = w.tenant_id, w.author, w.owner, w.outsider
+        directed = await definition(gm, t, "directed", "bool")
+        reads = await definition(gm, t, "reads as", "text")
+        back = await definition(gm, t, "reads as back", "text")
+        current = (await owner.get(f"/tenants/{t}")).headers["etag"]
+        set_up = await owner.client.patch(
+            f"/tenants/{t}",
+            headers={**owner.headers, "If-Match": current},
+            json={
+                "relationship_directed_stat_id": directed,
+                "relationship_reads_as_stat_id": reads,
+                "relationship_reads_as_back_stat_id": back,
+            },
+        )
+        assert set_up.status_code == 200, set_up.text
+        family = await entry(gm, t, "Family")
+        parent_of = await entry(gm, t, "Parent of")
+        unused = await entry(gm, t, "Unused type")
+        listed = await gm.put(
+            f"/tenants/{t}/entities/{parent_of}/parents", json={"parent_ids": [family]}
+        )
+        assert listed.status_code == 200, listed.text
+        await give(gm, t, parent_of, directed, True)
+        await give(gm, t, parent_of, reads, "is the parent of")
+        await give(gm, t, parent_of, back, "is a child of")
+        await give(gm, t, unused, reads, "is tied to")
+        mara = await place(gm, t, "Mara", is_public=True)
+        wren = await place(gm, t, "Wren", is_public=True)
+        await made(
+            gm, t, mara["id"], wren["id"], "Mara and Wren", is_public=True, prototypes=[parent_of]
+        )
+        got = await gm.get(f"/tenants/{t}/relationship-types")
+        assert got.status_code == 200, got.text
+        rows = {row["name"]: row for row in got.json()["items"]}
+        assert set(rows) == {"Family", "Parent of", "Unused type"}
+        assert rows["Parent of"]["parent_ids"] == [family]
+        assert (rows["Parent of"]["directed"], rows["Parent of"]["reads_as"]) == (
+            True,
+            "is the parent of",
+        )
+        assert rows["Parent of"]["reads_as_back"] == "is a child of"
+        assert rows["Parent of"]["in_use"] == 1 and rows["Family"]["in_use"] == 0
+        assert rows["Unused type"]["directed"] is None
+        # A relationship the reader cannot see is not counted for them.
+        await made(gm, t, mara["id"], wren["id"], "Secret tie", prototypes=[unused])
+        seen = {
+            row["name"]: row["in_use"]
+            for row in (await player.get(f"/tenants/{t}/relationship-types")).json()["items"]
+        }
+        assert seen["Parent of"] == 1 and seen["Unused type"] == 0
+        mine = (await gm.get(f"/tenants/{t}/relationship-types")).json()["items"]
+        assert {row["name"]: row["in_use"] for row in mine}["Unused type"] == 1
+    finally:
+        await w.clean_up()
