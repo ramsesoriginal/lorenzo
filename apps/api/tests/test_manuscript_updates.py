@@ -49,19 +49,20 @@ def test_structural_and_binary_changes_are_not_partial_text_updates():
     assert update_reason(base, base, base, False)
 
 
-@pytest.mark.parametrize("placed", [False, True])
+@pytest.mark.parametrize("depth", [0, 1, 3])
 @pytest.mark.parametrize("public", [False, True])
 async def test_explicit_choices_and_stale_review(
     raw_client: AsyncClient,
     fake_jwks_server: FakeJwksServer,
     monkeypatch: pytest.MonkeyPatch,
     public: bool,
-    placed: bool,
+    depth: int,
 ):
     from conftest import delete_tenant
 
     monkeypatch.setattr(get_settings(), "public_repositories_enabled", True)
     monkeypatch.setattr(get_settings(), "release_cooldown_seconds", 0)
+    placed = depth > 0
     world = await make_world(raw_client, fake_jwks_server, kind="repository")
     owner = world.owner
     source = f"/tenants/{world.tenant_id}"
@@ -87,6 +88,18 @@ async def test_explicit_choices_and_stale_review(
         if placed:
             book = (await owner.post(source + "/writing/books", json={"name": "Stories"})).json()
             edition = book["editions"][0]["id"]
+            for level in range(depth - 1):
+                parent = (
+                    await owner.post(source + "/writing/chapters", json={"name": f"Part {level}"})
+                ).json()["id"]
+                outline = (await owner.get(source + f"/writing/entries/{edition}")).json()
+                arranged = await raw_client.put(
+                    source + f"/writing/entries/{edition}/composition",
+                    headers={**owner.headers, "If-Match": outline["version"]},
+                    json={"elements": [parent]},
+                )
+                assert arranged.status_code == 200, arranged.text
+                edition = parent
             parent_text = (
                 await owner.post(
                     source + f"/entities/{edition}/information",
@@ -218,6 +231,31 @@ async def test_explicit_choices_and_stale_review(
                 await session.commit()
             if public:
                 assert (await owner.put(source + "/published")).status_code == 200
+        if depth > 1:
+            # The leaf itself is unchanged, but an ancestor reorder invalidates its review.
+            for ancestor, publish in ((local_edition, False), (edition, public)):
+                async with admin_session_factory() as session:
+                    row = await session.scalar(
+                        select(ManuscriptPlacement).where(
+                            ManuscriptPlacement.child_entity_id == uuid.UUID(ancestor)
+                        )
+                    )
+                    old_position = row.position
+                    row.position += 1
+                    await session.commit()
+                if publish:
+                    assert (await owner.put(source + "/published")).status_code == 200
+                assert (await accept(review)).status_code == 412
+                assert not (await compare())["update_allowed"]
+                async with admin_session_factory() as session:
+                    await session.execute(
+                        update(ManuscriptPlacement)
+                        .where(ManuscriptPlacement.child_entity_id == uuid.UUID(ancestor))
+                        .values(position=old_position)
+                    )
+                    await session.commit()
+                if publish:
+                    assert (await owner.put(source + "/published")).status_code == 200
         await change(local_info, "Local change")
         assert (await accept(review)).status_code == 412
         conflict = await compare()
@@ -320,3 +358,55 @@ def test_placed_context_remaps_anchors_and_refuses_dependencies():
     c.manuscript_placements.clear()
     c.manuscript_placements[chapter] = {"parent": other, "before": None, "position": 0}
     assert chapter_contexts(c) == {}
+
+
+def test_nested_context_covers_every_ancestor_and_refuses_cycles():
+    leaf, inner, outer, edition, book, anchor, other = [uuid.uuid4() for _ in range(7)]
+    c = Content(tenant_id=uuid.uuid4())
+    c.kinds = {
+        leaf: {"chapter"},
+        inner: {"chapter"},
+        outer: {"chapter"},
+        edition: {"edition"},
+        book: {"book"},
+    }
+    c.editions[edition] = book
+    for child, parent in ((leaf, inner), (inner, outer), (outer, edition)):
+        c.manuscript_placements[child] = {"parent": parent, "before": anchor, "position": 0}
+    original = chapter_contexts(c)[leaf]
+    assert len(original["path"]) == 3
+    assert set(chapter_contexts(c)) == {leaf}
+    assert (
+        chapter_contexts(c, {str(x): str(x) for x in (leaf, inner, outer, edition, book, anchor)})[
+            leaf
+        ]
+        == original
+    )
+    for ancestor in (inner, outer):
+        c.manuscript_placements[ancestor]["position"] = 1
+        assert chapter_contexts(c)[leaf] != original
+        c.manuscript_placements[ancestor]["position"] = 0
+        c.carrier_coverage[other] = {"carrier": other, "entry": ancestor}
+        assert chapter_contexts(c) == {}
+        c.carrier_coverage.clear()
+        c.manuscript_redirects[other] = {"destination": ancestor, "child": None}
+        assert chapter_contexts(c) == {}
+        c.manuscript_redirects.clear()
+    c.manuscript_placements[outer]["parent"] = inner
+    assert chapter_contexts(c) == {}
+    del c.manuscript_placements[outer]
+    assert chapter_contexts(c) == {}
+
+
+def test_deep_context_does_not_use_recursive_traversal():
+    chapters = [uuid.uuid4() for _ in range(1100)]
+    edition, book = uuid.uuid4(), uuid.uuid4()
+    c = Content(tenant_id=uuid.uuid4())
+    c.kinds = {id: {"chapter"} for id in chapters}
+    c.kinds.update({edition: {"edition"}, book: {"book"}})
+    c.editions[edition] = book
+    for child, parent in zip(chapters, [*chapters[1:], edition], strict=True):
+        c.manuscript_placements[child] = {"parent": parent, "before": None, "position": 0}
+    contexts = chapter_contexts(c)
+    assert set(contexts) == {chapters[0]}
+    assert len(contexts[chapters[0]]["path"]) == len(chapters)

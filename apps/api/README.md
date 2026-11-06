@@ -165,9 +165,14 @@ released read. Legacy copies report no baseline; ordinary entity updates leave t
 Standalone Scene/Chapter text updates require the reviewed comparison ETag and current write
 access ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Explicit keep/take
 choices advance the baseline; taking text uses ordinary history and backlink writes atomically.
-Connected manuscripts, changed payload structures and changed non-text payloads are refused.
+Unsupported connected manuscripts, changed payload structures and changed non-text payloads are refused.
 
 Placed leaf Chapters directly inside an Edition can also accept text updates when their copied
 Book, Edition, anchor and position still match on both sides
 ([ADR 0430](../../docs/adr/0430-placed-chapter-text-updates.md)). New copies retain this context;
-older connected copies, nested Chapters and dependent structural changes remain comparison-only.
+older connected copies and dependent structural changes remain comparison-only.
+
+Nested leaf Chapters also accept text updates when every copied ancestor edge to the Edition
+still matches ([ADR 0431](../../docs/adr/0431-nested-chapter-text-updates.md)). New nested copies
+retain this full path; moving an ancestor invalidates review. Parent Chapters and structural
+updates remain comparison-only.

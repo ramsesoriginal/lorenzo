@@ -1954,8 +1954,9 @@ test('an author reviews existing calendar dates before setting a Scene period', 
     await context.close();
   }
 });
-for (const placed of [false, true]) {
-  test(`copied manuscripts review updates (${placed ? 'placed Chapter' : 'draft'}), protect unsaved drafts and preserve session credit`, async ({
+for (const depth of [0, 1, 3]) {
+  const placed = depth > 0;
+  test(`copied manuscripts review updates (${depth > 1 ? 'nested Chapter' : placed ? 'placed Chapter' : 'draft'}), protect unsaved drafts and preserve session credit`, async ({
     browser,
   }) => {
     test.setTimeout(120000);
@@ -1989,11 +1990,29 @@ for (const placed of [false, true]) {
             body: { name: 'Collected crossings' },
           }),
         );
-        const edition = await ok(
+        let edition = await ok(
           owner.GET('/tenants/{tenant_id}/writing/entries/{id}', {
             params: { path: { tenant_id: repository.id, id: book.editions[0].id } },
           }),
         );
+        for (let level = 1; level < depth; level++) {
+          const parent = await ok(
+            owner.POST('/tenants/{tenant_id}/writing/chapters', {
+              params: { path: { tenant_id: repository.id } },
+              body: { name: `Part ${level}` },
+            }),
+          );
+          await ok(
+            owner.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+              params: {
+                path: { tenant_id: repository.id, id: edition.id },
+                header: { 'if-match': edition.version },
+              },
+              body: { elements: [parent.id] },
+            }),
+          );
+          edition = parent;
+        }
         await ok(
           owner.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
             params: {
@@ -2114,7 +2133,15 @@ for (const placed of [false, true]) {
           }),
         );
         expect(saved.parent_id).toBeTruthy();
-        await page.goto(`/?tenant=${tenant.id}&entry=${saved.parent_id}&view=read`);
+        let root = saved;
+        while (root.parent_id) {
+          root = await ok(
+            api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+              params: { path: { tenant_id: tenant.id, id: root.parent_id } },
+            }),
+          );
+        }
+        await page.goto(`/?tenant=${tenant.id}&entry=${root.id}&view=read`);
         await expect(page.locator('article')).toContainText('Upstream crossing.');
         await expect(page.locator('article')).toContainText('Copied crossing');
       }
