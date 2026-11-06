@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A palette command",
+  "description": "What an app declares for the palette (ADR 0414). The data is declarative; the app binds a handler to each id when it registers. How registration happens at runtime is settled with the shell package (UI-B); this is only the shape of one entry.",
+  "type": "object",
+  "required": ["id", "name", "group"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$", "description": "Stable, app-prefixed, e.g. beings.new" },
+    "name": { "type": "string", "minLength": 1, "description": "What the person reads and types, sentence case; an ellipsis when it opens a dialog" },
+    "group": { "enum": ["Go to", "Actions", "Entries", "Recent"] },
+    "icon": { "type": "string", "pattern": "^icon-[a-z0-9-]+$", "description": "An id in icons.svg" },
+    "keys": { "type": "string", "pattern": "^([A-Z0-9?/]|[A-Z] [A-Z])$", "description": "A single key or a two-key chord shown beside the name; single-key shortcuts can be turned off or remapped (WCAG 2.1.4)" },
+    "keywords": { "type": "array", "items": { "type": "string" }, "description": "Other words that find it" },
+    "danger": { "type": "boolean", "description": "Opens a confirmation; shown with the danger text colour and a word, never colour alone" }
+  }
+}
