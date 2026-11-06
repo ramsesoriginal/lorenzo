@@ -2,7 +2,7 @@
 
 A fresh design of the two personal pages of the account hub: **Profile**, and **Access tokens** with **Connect a device**. The system is in [the web design](../../README.md): the shell, the templates, the states and the decisions D1 to D31. The account hub as a whole is decided ([AH1 to AH9](../README.md)); these two pages were drawn there as part of it, and are redesigned here on purpose. This page holds the brief, the questions and the decision log.
 
-Status: the brief is answered (PT1 to PT5). Three directions for the profile page are drawn, with the tokens page and the device page, and wait for a choice.
+Status: the prototype is built and ready for review (decisions PT1 to PT6 are logged here).
 
 ## What the pages are for
 
@@ -128,7 +128,11 @@ Each token is a row with its state in words ("Never used", "Last used 3 weeks ag
 A page at `/device` is what the command line's link opens: what is asking, the code, a name for the token, when it stops (Never is the default), and Connect or Deny, with the sign-in and the way back for someone who is not signed in. Before anything else it says to approve only a code started by the person themselves. The Access tokens page embeds the same content under "Connect a device", with a box to type a code.
 
 
-## The directions (drawn; waiting for a choice)
+### PT6. The profile page is direction A
+
+The "how others see you" card sits beside the form and stays in view as fields change. On a tablet and a phone it moves above the form.
+
+## The directions (drawn; A chosen)
 
 In `directions/`: the profile page in three layouts, the Access tokens page, and the Connect a device page in five states, on the shell with made-up data. The header's tab row is the shell's stand-in; in the hub the account button opens these pages (PT1) and there is no tab row between them. Run it:
 
@@ -155,6 +159,46 @@ What is the same in all three: every field carries "Others see this" or "Only yo
 
 What is not drawn yet: the phone, dark mode, the save feedback per field, the Undo, the revoke and delete dialogs, and the real picture picker. None of it has been through the checks.
 
+## The prototype
+
+The pages are the shell's own (`docs/design/web/prototype`, `pages.js`), so every app's account menu opens them and the account hub uses them; the hub's earlier copies are gone. `prototype/` here is the shell with a controls bar to reach each state; `prototype/build-review-copy.mjs OUT_DIR` writes a single page that runs without the repository.
+
+### Profile (PT1, PT2, PT3, PT6)
+
+- A form with a caption on every field: "Others see this" for the picture, nickname, display name and colour, and "Only you and admins see this" for pronouns, bio and languages. A sticky card shows a roster row and a notification line, and follows what is typed, including the initials, the name, the nickname and the colour.
+- Each field saves when it is changed and says "Saved", with an Undo toast. A nickname that is taken, or not 2 to 30 letters, digits, dots, dashes or underscores, is refused next to the field and kept. The colour is five swatches and Custom…, which takes `#RRGGBB` and says whether it can be told from a light and a dark surface (3 to 1), or why not.
+- Delete my account asks for the email to be typed, and says that it needs a signed-in session.
+
+### Access tokens (PT4)
+
+Rows with the name, the last four characters of the secret, a state in words ("Last used today", "Last used 3 weeks ago", "Expires in 4 days", "Not used for 120 days", "Never used", "Expired 3 weeks ago") and Revoke. A stale row is tinted and an expired one is struck through, and each also has its words and an icon. One callout says a token is a whole key. Revoke names the consequence and says it cannot be undone. A box takes a code from a device.
+
+### Connect a device (PT5)
+
+A page for what the command line's link opens, with the code in the address in any case, with or without the dash. It says what is asking, the code and when it ends, and, before anything else is asked, to approve only a code started by the person themselves. It takes a name (at most 80 characters, refused in words), when it stops (Never first), and Connect or Deny. Without a code it has a box to type it; a wrong code is one sentence; not signed in it says to sign in and that the code is kept; connected it shows the `device-connected` slot and what happens next.
+
+### What it fakes
+
+Nothing is saved or sent. The nickname that is taken is fixed ("mara"). A code is valid if it is eight letters. Signing in is a button that goes back to the page. The picture picker is a toast. There are no per-token details beyond the list.
+
+### What was checked
+
+148 scripted checks pass (Playwright, 1440 and 430), run on the shell, this prototype, the account hub and Social: every field's caption, the live card, saving and Undo, the two refused nicknames, the colour and its three readability messages, delete; the five token states, the whole-key sentence, revoke with its consequence, the empty list, a wrong code, a code in any case, the device page's warning and its default, the name refusal, connecting, Deny, no code, a wrong code, not signed in; and on a phone, no horizontal scroll, the card above the form and 44 px targets. axe-core finds no violations on 16 states at 1440 and 430, light and dark (64 runs). There are no console errors.
+
+### What was not checked
+
+A screen reader, a real phone, colour-blindness simulation, Safari and Firefox. The page's request for no referrer and the real sign-in round trip are not drawn.
+
+### Findings
+
+- A save bar rewrote its own buttons on every change, so a click on Save that followed an edit blurred the field and lost the click. The shell's, the hub's and now no profile save bar do that; fields save as they change here.
+- The shell used a helper that the other prototypes define for themselves; the pages now carry their own.
+- The default custom colour was a purple that could not be told from a dark surface, which the check said; it is a blue that works on both.
+
+### Screens
+
+In `screens/` (15 images): the profile, refused, and with the custom colour; the tokens and revoke; the device page with a code, with none, with a wrong one, not signed in and connected; dark; and the phone.
+
 ## Open questions
 
-Which direction (or which parts of two) is the profile page?
+None are open.
