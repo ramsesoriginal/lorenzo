@@ -172,7 +172,7 @@ export async function mountRelationships() {
     listing.append(sectionHead('All relationships', { actions: [] }), search, list, status, more);
     view.append(listing);
 
-    if (manage) view.append(creator(tenant));
+    view.append(creator(tenant, manage));
     host.replaceChildren(view);
     await load(true);
   } catch (error) {
@@ -181,7 +181,7 @@ export async function mountRelationships() {
 }
 
 /** The form that makes a relationship: two ends, how it goes, what it is, and who may see it. */
-function creator(tenant: string) {
+function creator(tenant: string, manage: boolean) {
   const section = el('section', '', 'stack');
   section.append(sectionHead('Make a relationship'));
   const form = el('form', '', 'stack');
@@ -202,7 +202,15 @@ function creator(tenant: string) {
     direction.label,
     kind.label,
     named.label,
-    visible.label,
+    ...(manage
+      ? [visible.label]
+      : [
+          el(
+            'p',
+            'A relationship you make is for a being of yours and the GMs: it starts restricted and you cannot open it.',
+            'status-text',
+          ),
+        ]),
     actions(submit('Make the relationship')),
     status,
   );
@@ -222,7 +230,7 @@ function creator(tenant: string) {
       end_b: b,
       one_way: direction.input.value === 'one',
       prototypes: type ? [type] : [],
-      is_public: visible.input.checked,
+      is_public: manage && visible.input.checked,
     })
       .then((made) => location.assign(relationshipHref(tenant, made.id)))
       .catch((error) => say(status, message(error), true));
@@ -316,7 +324,7 @@ export async function mountRelationship() {
       }
       view.append(stats.root);
 
-      if (manage) view.append(manager(tenant, id, version, relationship, draw));
+      if (relationship.can_edit) view.append(manager(tenant, id, version, relationship, draw));
       host.replaceChildren(view);
     } catch (error) {
       host.replaceChildren(errorNotice(error));
@@ -356,13 +364,19 @@ function manager(
         one_way: !relationship.one_way,
       }),
     ),
-    button(
-      relationship.is_public ? 'Restrict who may see it' : 'Let everyone in the library see it',
-      async () => {
-        await setPublic(tenant, id, !relationship.is_public);
-        await redraw();
-      },
-    ),
+    ...(relationship.is_public === null || relationship.is_public === undefined
+      ? []
+      : [
+          button(
+            relationship.is_public
+              ? 'Restrict who may see it'
+              : 'Let everyone in the library see it',
+            async () => {
+              await setPublic(tenant, id, !relationship.is_public);
+              await redraw();
+            },
+          ),
+        ]),
     button(
       'Delete it',
       async () => {

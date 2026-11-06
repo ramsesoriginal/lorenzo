@@ -1565,6 +1565,13 @@ class MapPreconditionRequiredError(StatusProblem):
     title = "Read the Map before changing it"
 
 
+class PlayerRelationshipForbiddenError(ForbiddenProblem):
+    """POST /relationships by a player - it may not be public: what a player makes is for the
+    being and the GMs (ADR 0409)."""
+
+    title = "A relationship you make is for your being and the GMs"
+
+
 class RelationshipReadAsForbiddenError(ForbiddenProblem):
     """GET /relationships?as_seen_by= - a player asked for a being not their own (ADR 0405)."""
 

@@ -23,21 +23,25 @@ from lorenzo_api.dependencies import (
     set_tenant_rls_context,
 )
 from lorenzo_api.entity_access import (
+    controlled_character_entity_ids,
     controlled_holder_entity_ids,
     group_ids_for_characters,
     prototype_descendants_cte,
 )
-from lorenzo_api.entity_kinds import create_entry
+from lorenzo_api.entity_kinds import create_entry, require_deletable
 from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
     InvalidRelationshipError,
+    LocationAuthoringForbiddenError,
     MapPreconditionRequiredError,
+    PlayerRelationshipForbiddenError,
     RelationshipReadAsForbiddenError,
 )
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, EntityAudience, Relationship, StoryEvent
+from lorenzo_api.library_counts import count_libraries, libraries_note
+from lorenzo_api.models import Entity, EntityAudience, EntityKnowledge, Relationship, StoryEvent
 from lorenzo_api.relationship_time import ReachLimitReachedError, classify, reach
 from lorenzo_api.relationships import (
     MAX_END_IDS,
@@ -45,7 +49,7 @@ from lorenzo_api.relationships import (
     touch_relationship,
 )
 from lorenzo_api.routers.connections import EntryStub, _visible_entry, entry_stubs
-from lorenzo_api.routers.locations import manages, require_manager, standing
+from lorenzo_api.routers.locations import manages, standing
 from lorenzo_api.schemas.common import Slug
 
 router = APIRouter(
@@ -71,6 +75,9 @@ class RelationshipEntryOut(EntryStub):
     can_manage: bool
     # Only for those who may manage relationships: whether everyone in the library may see it.
     is_public: bool | None = None
+    # Whether the reader may change or delete it: a writer, or the player who made it while they
+    # control an end (ADR 0409). Only on a single read and a write's answer.
+    can_edit: bool = False
     # The Events that bound it in time, when the reader may see them (ADR 0405). A limit the
     # reader cannot see is null here; it is not named in any field or error.
     starts_at: EntryStub | None = None
@@ -241,7 +248,30 @@ async def _built(
             )
         ],
     )
+    row.can_edit = manages(vis)
+    if not row.can_edit and vis.user_id is not None and entity.created_by == vis.user_id:
+        mine = await controlled_character_entity_ids(session, user_id=vis.user_id, tenant_id=tenant)
+        row.can_edit = marker.end_a in mine or marker.end_b in mine
     return row
+
+
+async def _own_ends(
+    session: SessionDep,
+    vis: InformationVisibility,
+    tenant: uuid.UUID,
+    entity: Entity,
+    marker: Relationship,
+) -> frozenset[uuid.UUID] | None:
+    """None for a writer. For a player, the beings they control, once it is shown that they made
+    this relationship and still control an end of it (ADR 0409); anything else is a 403."""
+    if manages(vis):
+        return None
+    if vis.user_id is None:
+        raise LocationAuthoringForbiddenError()
+    mine = await controlled_character_entity_ids(session, user_id=vis.user_id, tenant_id=tenant)
+    if entity.created_by != vis.user_id or (marker.end_a not in mine and marker.end_b not in mine):
+        raise LocationAuthoringForbiddenError()
+    return mine
 
 
 async def _after_write(
@@ -456,9 +486,19 @@ async def create_relationship(
     user: CurrentUser,
 ) -> RelationshipEntryOut:
     """A relationship between two entries the writer sees, restricted unless `is_public`."""
-    vis = await require_manager(session, user, tenant_id)
+    vis = await standing(session, user, tenant_id)
+    mine: frozenset[uuid.UUID] = frozenset()
+    if not manages(vis):
+        # A player makes one with a being they control, for that being and the GMs (ADR 0409).
+        mine = await controlled_character_entity_ids(session, user_id=user.id, tenant_id=tenant_id)
+        if body.is_public:
+            raise PlayerRelationshipForbiddenError()
+        if body.end_a not in mine and body.end_b not in mine:
+            raise LocationAuthoringForbiddenError()
     await require_relationship_room(session, tenant_id=tenant_id)
     entity = await add_relationship(session, user, tenant_id, body)
+    for end in {body.end_a, body.end_b} & mine:
+        session.add(EntityKnowledge(entity_id=entity.id, tenant_id=tenant_id, knower_entity_id=end))
     await _commit(session, tenant_id)
     out = await _after_write(session, vis, tenant_id, entity.id)
     response.headers["ETag"] = etag_for(out.updated_at)
@@ -536,11 +576,14 @@ async def put_relationship(
     if_match: Annotated[str | None, Header()] = None,
 ) -> RelationshipEntryOut:
     """Replaces the ends and the direction under `If-Match`."""
-    vis = await require_manager(session, user, tenant_id)
+    vis = await standing(session, user, tenant_id)
     entity, marker = await _read(session, vis, tenant_id, relationship_id)
+    mine = await _own_ends(session, vis, tenant_id, entity, marker)
     if if_match is None:
         raise MapPreconditionRequiredError(detail="Send the relationship's ETag as If-Match.")
     check_if_match(if_match, updated_at=entity.updated_at)
+    if mine is not None and body.end_a not in mine and body.end_b not in mine:
+        raise LocationAuthoringForbiddenError()
     await _check_ends(session, user, tenant_id, body.end_a, body.end_b)
     await _check_limits(session, user, tenant_id, body.starts_at, body.ends_at)
     marker.end_a = body.end_a
@@ -565,3 +608,34 @@ async def put_relationship(
     out = await _built(session, vis, tenant_id, found, current)
     response.headers["ETag"] = etag_for(out.updated_at)
     return out
+
+
+@router.delete("/relationships/{relationship_id}", status_code=204)
+async def delete_relationship(
+    tenant_id: uuid.UUID,
+    relationship_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    if_match: Annotated[str | None, Header()] = None,
+) -> None:
+    """Deletes a relationship under `If-Match`: a writer's, or a player's own while they control an
+    end of it (ADR 0409)."""
+    vis = await standing(session, user, tenant_id)
+    entity, marker = await _read(session, vis, tenant_id, relationship_id)
+    await _own_ends(session, vis, tenant_id, entity, marker)
+    if if_match is None:
+        raise MapPreconditionRequiredError(detail="Send the relationship's ETag as If-Match.")
+    check_if_match(if_match, updated_at=entity.updated_at)
+    kinds = await require_deletable(session, tenant_id=tenant_id, entity_id=relationship_id)
+    await record_activity(
+        session,
+        tenant_id=tenant_id,
+        actor_id=user.id,
+        action="entity.deleted",
+        target_type="entity",
+        target_id=relationship_id,
+        detail=f"kinds={'+'.join(sorted(kinds)) or 'none'}"
+        + libraries_note(await count_libraries(session, tenant_id, "entity", relationship_id)),
+    )
+    await session.delete(entity)
+    await session.commit()

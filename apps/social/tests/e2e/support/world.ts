@@ -43,12 +43,20 @@ export async function world() {
   const playerSubject = `social-player-${randomUUID()}`;
   const player = await apiAs(playerSubject);
   const playerMe = await ok(player.GET('/me'));
-  await ok(
+  const playerRow = await ok(
     gm.POST('/tenants/{tenant_id}/campaigns/{campaign_id}/players', {
       params: { path: { ...path, campaign_id: campaign.id } },
       body: { user_id: playerMe.id },
     }),
   );
+  /** A being the player controls. */
+  const being = (name: string) =>
+    ok(
+      gm.POST('/tenants/{tenant_id}/characters', {
+        params: { path },
+        body: { name, owner_player_id: playerRow.id, player_ids: [] },
+      }),
+    );
   const entry = (name: string, isPublic = true) =>
     ok(
       gm.POST('/tenants/{tenant_id}/locations', {
@@ -63,7 +71,7 @@ export async function world() {
         body: { name, end_a: a, end_b: b, one_way: false, is_public: isPublic },
       }),
     );
-  return { tenant, path, gm, subject, playerSubject, entry, tie };
+  return { tenant, path, gm, subject, playerSubject, entry, tie, being };
 }
 
 /** A numeric stat for a standing, on a scale, in a group of its own. */

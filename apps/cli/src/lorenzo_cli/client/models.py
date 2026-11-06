@@ -2716,6 +2716,7 @@ class RelationshipEntryOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title="Updated At")
     can_manage: bool = Field(..., title="Can Manage")
     is_public: bool | None = Field(None, title="Is Public")
+    can_edit: bool | None = Field(False, title="Can Edit")
     starts_at: EntryStub | None = None
     ends_at: EntryStub | None = None
     as_of: AsOf | None = Field(None, title="As Of")

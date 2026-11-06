@@ -111,8 +111,8 @@ export async function setPublic(tenant: string, id: string, isPublic: boolean) {
 }
 
 export async function deleteRelationship(tenant: string, id: string, version: string) {
-  const result = await client.DELETE('/tenants/{tenant_id}/entities/{entity_id}', {
-    params: { path: { tenant_id: tenant, entity_id: id } },
+  const result = await client.DELETE('/tenants/{tenant_id}/relationships/{relationship_id}', {
+    params: { path: { tenant_id: tenant, relationship_id: id } },
     headers: { 'If-Match': version },
   });
   if (!result.response.ok) await unwrap(result as never);

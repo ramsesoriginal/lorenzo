@@ -4219,7 +4219,12 @@ export interface paths {
          */
         put: operations["put_relationship"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete Relationship
+         * @description Deletes a relationship under `If-Match`: a writer's, or a player's own while they control an
+         *     end of it (ADR 0409).
+         */
+        delete: operations["delete_relationship"];
         options?: never;
         head?: never;
         patch?: never;
@@ -14705,6 +14710,11 @@ export interface components {
             can_manage: boolean;
             /** Is Public */
             is_public?: boolean | null;
+            /**
+             * Can Edit
+             * @default false
+             */
+            can_edit: boolean;
             starts_at?: components["schemas"]["EntryStub"] | null;
             ends_at?: components["schemas"]["EntryStub"] | null;
             /** As Of */
@@ -34264,6 +34274,72 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RelationshipEntryOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_relationship: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                relationship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
