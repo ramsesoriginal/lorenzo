@@ -154,9 +154,14 @@ New copies retain a baseline; older copies explicitly report its absence. Standa
 Chapter drafts with unchanged payload structure offer explicit Keep yours / Take the update
 choices ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Save local edits
 before accepting. Accepted text preserves history and audiences and adds no session credit.
-Connected manuscripts and structural changes remain comparison-only.
+Other connected manuscripts and structural changes remain comparison-only.
 
 Placed leaf Chapters directly inside an Edition can also accept text updates when their copied
 Book, Edition, anchor and position still match on both sides
 ([ADR 0430](../../docs/adr/0430-placed-chapter-text-updates.md)). New copies retain this context;
-older connected copies, nested Chapters and dependent structural changes remain comparison-only.
+older connected copies and dependent structural changes remain comparison-only.
+
+Nested leaf Chapters also accept text updates when every copied ancestor edge to the Edition
+still matches ([ADR 0431](../../docs/adr/0431-nested-chapter-text-updates.md)). New nested copies
+retain this full path; moving an ancestor invalidates review. Parent Chapters and structural
+updates remain comparison-only.

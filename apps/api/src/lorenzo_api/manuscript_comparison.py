@@ -1,4 +1,4 @@
-"""Direct manuscript snapshots for read-only repository comparison (ADR 0398)."""
+"""Direct manuscript snapshots and copied composition contexts."""
 
 import hashlib
 import uuid
@@ -135,7 +135,7 @@ def update_reason(
 def chapter_contexts(
     content: Content, identities: dict[str, str] | None = None
 ) -> dict[uuid.UUID, dict[str, Any]]:
-    """Eligible leaf placements in one linear pass; ids are in the source namespace."""
+    """Leaf placement paths, using source identities and iterative ancestor traversal."""
 
     def identity(value: uuid.UUID | None) -> str | None:
         if value is None:
@@ -153,22 +153,45 @@ def chapter_contexts(
         dependent.update((row["destination"], row["child"]))
     parents = {row["parent"] for row in content.manuscript_placements.values()}
     result = {}
-    for chapter, placement in content.manuscript_placements.items():
-        edition = placement["parent"]
-        book = content.editions.get(edition)
+    for chapter in content.manuscript_placements:
+        if content.kinds.get(chapter) != {"chapter"} or chapter in parents:
+            continue
+        path = []
+        seen = set()
+        cursor = chapter
+        while (
+            content.kinds.get(cursor) == {"chapter"}
+            and cursor not in seen
+            and cursor not in dependent
+            and cursor in content.manuscript_placements
+        ):
+            seen.add(cursor)
+            placement = content.manuscript_placements[cursor]
+            path.append(
+                {
+                    "chapter": identity(cursor),
+                    "parent": identity(placement["parent"]),
+                    "before": identity(placement["before"]),
+                    "position": placement["position"],
+                }
+            )
+            cursor = placement["parent"]
+        book = content.editions.get(cursor)
         if (
-            content.kinds.get(chapter) != {"chapter"}
-            or content.kinds.get(edition) != {"edition"}
+            not path
+            or content.kinds.get(cursor) != {"edition"}
             or book is None
             or content.kinds.get(book) != {"book"}
-            or chapter in parents
-            or any(entry in dependent for entry in (chapter, edition, book))
+            or cursor in dependent
+            or book in dependent
         ):
             continue
         result[chapter] = {
-            "edition": identity(edition),
+            "edition": identity(cursor),
             "book": identity(book),
-            "before": identity(placement["before"]),
-            "position": placement["position"],
+            "before": path[0]["before"],
+            "position": path[0]["position"],
         }
+        if len(path) > 1:
+            result[chapter]["path"] = path
     return result
