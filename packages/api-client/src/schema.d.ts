@@ -3052,7 +3052,8 @@ export interface paths {
         /** Compare Manuscript */
         get: operations["compare_manuscript"];
         put?: never;
-        post?: never;
+        /** Accept Manuscript Update */
+        post: operations["accept_manuscript_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11667,6 +11668,15 @@ export interface components {
              * @enum {string}
              */
             state: "not_copied" | "no_baseline" | "local_unavailable" | "unchanged" | "local" | "upstream" | "matching" | "conflict";
+            /** Version */
+            version?: string | null;
+            /**
+             * Update Allowed
+             * @default false
+             */
+            update_allowed: boolean;
+            /** Update Reason */
+            update_reason?: string | null;
             /** Repository Name */
             repository_name?: string | null;
             /** Base */
@@ -11740,6 +11750,14 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /** ManuscriptUpdateChoice */
+        ManuscriptUpdateChoice: {
+            /**
+             * Choice
+             * @enum {string}
+             */
+            choice: "local" | "upstream";
         };
         /** MapCreate */
         MapCreate: {
@@ -27811,6 +27829,76 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ManuscriptComparison"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    accept_manuscript_update: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManuscriptUpdateChoice"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -1624,6 +1624,9 @@ class State5(StrEnum):
 
 class ManuscriptComparison(BaseModel):
     state: State5 = Field(..., title="State")
+    version: str | None = Field(None, title="Version")
+    update_allowed: bool | None = Field(False, title="Update Allowed")
+    update_reason: str | None = Field(None, title="Update Reason")
     repository_name: str | None = Field(None, title="Repository Name")
     base: dict[str, Any] | None = Field(None, title="Base")
     local: dict[str, Any] | None = Field(None, title="Local")
@@ -1654,6 +1657,15 @@ class ManuscriptRevisionSummary(BaseModel):
 class ManuscriptSummary(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
+
+
+class Choice1(StrEnum):
+    local = "local"
+    upstream = "upstream"
+
+
+class ManuscriptUpdateChoice(BaseModel):
+    choice: Choice1 = Field(..., title="Choice")
 
 
 class MapCreate(BaseModel):

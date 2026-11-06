@@ -452,10 +452,16 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
   }
   details.addEventListener('toggle', () => {
     if (details.open && !worldDetails.children.length)
-      void writingDetails(worldDetails, tenant, entry, undefined, () =>
-        editor
-          .read()
-          .flatMap((payload) => (payload.kind === 'description' ? [payload.content] : [])),
+      void writingDetails(
+        worldDetails,
+        tenant,
+        entry,
+        undefined,
+        () =>
+          editor
+            .read()
+            .flatMap((payload) => (payload.kind === 'description' ? [payload.content] : [])),
+        applyRepositoryUpdate,
       ).catch((error) => {
         worldDetails.textContent = message(error);
       });
@@ -747,6 +753,45 @@ async function manuscript(host: HTMLElement, account: string, tenant: string, en
           })();
         }),
       );
+    }
+  }
+
+  async function applyRepositoryUpdate(action: () => Promise<void>) {
+    if (!alive || dirty || saving || blocked) {
+      throw new Error('Save your draft and resolve any conflicts before accepting an update.');
+    }
+    saving = true;
+    area.inert = true;
+    saveButton.disabled = true;
+    try {
+      await action();
+      if (!alive) return;
+      // The server may have accepted an update even if the following read fails.
+      // Keep the mounted draft protected until its current versions can be read.
+      blocked = true;
+      const current = await read();
+      if (!alive) return;
+      original = current;
+      receipt = { id: current.id, information: current };
+      mount(current.payloads);
+      observed = fingerprint(current.payloads);
+      await serial;
+      try {
+        await removeDraft(key);
+      } catch {
+        warning.textContent = 'Saved on the server. Browser recovery could not be cleared.';
+      }
+      dirty = false;
+      blocked = false;
+      status.textContent = 'Saved';
+    } catch (error) {
+      if (blocked)
+        status.textContent = 'Update accepted. Reload to read the saved manuscript before editing.';
+      throw error;
+    } finally {
+      saving = false;
+      area.inert = blocked;
+      saveButton.disabled = blocked;
     }
   }
 

@@ -1954,7 +1954,7 @@ test('an author reviews existing calendar dates before setting a Scene period', 
     await context.close();
   }
 });
-test('copied manuscripts compare saved local and repository writing without applying changes', async ({
+test('copied manuscripts review updates, protect unsaved drafts and preserve session credit', async ({
   browser,
 }) => {
   test.setTimeout(120000);
@@ -2037,9 +2037,11 @@ test('copied manuscripts compare saved local and repository writing without appl
     await expect(review).toContainText('My saved crossing.');
     await expect(review).toContainText('<img src=x onerror=alert(1)> Upstream crossing.');
     await expect(review.locator('img')).toHaveCount(0);
-    await expect(
-      page.getByRole('button', { name: 'Take the update, and replace yours' }),
-    ).toHaveCount(0);
+    const take = page.getByRole('button', {
+      name: 'Take the update, and replace yours',
+      exact: true,
+    });
+    await expect(take).toBeVisible();
     await expect(draft).toHaveValue('My saved crossing.');
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -2047,8 +2049,38 @@ test('copied manuscripts compare saved local and repository writing without appl
     );
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     await page.screenshot({ path: test.info().outputPath('comparison-phone.png'), fullPage: true });
+    await page.route('**/payloads/*', (route) =>
+      route.request().method() === 'PATCH' ? route.abort() : route.continue(),
+    );
+    await draft.fill('My unsaved crossing.');
+    await take.click();
+    await expect(
+      page.getByText('Save your draft and resolve any conflicts before accepting an update.'),
+    ).toBeVisible();
+    await expect(draft).toHaveValue('My unsaved crossing.');
+    await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+      'Use Save now to retry.',
+    );
+    await page.unroute('**/payloads/*');
+    await page.getByRole('button', { name: 'Save now', exact: true }).click();
+    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+    await compare.click();
+    await page.getByText('Word count', { exact: true }).click();
+    await page.getByText('Writing session', { exact: true }).click();
+    await page.getByLabel('Session word target').fill('100');
+    await page.getByRole('button', { name: 'Start session', exact: true }).click();
+    await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
+    await take.click();
+    await expect(page.getByText('Repository writing saved.', { exact: true })).toBeVisible();
+    await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
+    await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
+    await compare.click();
+    await expect(
+      page.getByText('The saved writing still matches the original copy.'),
+    ).toBeVisible();
+    await expect(take).toHaveCount(0);
     await page.reload();
-    await expect(draft).toHaveValue('My saved crossing.');
+    await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
   } finally {
     await context.close();
   }
