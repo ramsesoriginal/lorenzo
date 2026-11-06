@@ -1,0 +1,112 @@
+---
+import { splitTabs } from './pure';
+import type { NavItem } from './pure';
+
+// The web shell's bottom (ADR 0410): the slim status bar, the phone's tab bar above which it sits,
+// and the sheet that "Apps and about" and "More" open. The sheet is filled by bindShell from the
+// app registry.
+interface Props {
+  brandingUrl: string;
+  nav?: NavItem[];
+  // Where its source is in the repository: "apps/calendars"
+  path: string;
+  // The release, and the licence's name, shown in the sheet
+  version?: string;
+  legal?: { notice?: string; privacy?: string };
+}
+
+const { brandingUrl, nav = [], path, version, legal } = Astro.props;
+const icons = `${brandingUrl}/icons.svg`;
+const { tabs, rest } = splitTabs(nav, 3);
+---
+
+<div class="shell-bottom">
+  <div class="save-bar" data-shell-savebar></div>
+  <div class="toast-region" data-shell-toasts role="region" aria-label="Messages"></div>
+  <div class="shell-status" data-shell-status>
+    <span class="sync" data-shell-sync data-kind="synced" hidden>
+      <svg class="icon" aria-hidden="true">
+        <use href={`${icons}#icon-select-item`} data-shell-sync-icon></use>
+      </svg>
+      <span data-shell-sync-text>Synced</span>
+    </span>
+    <span class="wide" data-shell-meta hidden></span>
+    <span class="grow"></span>
+    <time class="wide" data-shell-clock></time>
+    <button
+      type="button"
+      class="btn btn-secondary only-wide"
+      data-shell-open-sheet
+      aria-haspopup="dialog"
+    >
+      Apps and about
+    </button>
+  </div>
+  <nav class="shell-tabbar" aria-label="Pages" data-shell-tabbar>
+    {tabs.map((item) => (
+      <a
+        href={item.href}
+        data-path={item.href}
+        data-needs-library={item.needsLibrary ? '' : undefined}
+        hidden={item.needsLibrary}
+      >
+        {item.icon && (
+          <svg class="icon" aria-hidden="true">
+            <use href={`${icons}#icon-${item.icon}`}></use>
+          </svg>
+        )}
+        {item.label}
+      </a>
+    ))}
+    <button type="button" data-shell-open-sheet aria-haspopup="dialog">
+      <svg class="icon" aria-hidden="true">
+        <use href={`${icons}#icon-more`}></use>
+      </svg>
+      More
+    </button>
+  </nav>
+</div>
+
+<dialog class="shell-sheet" data-shell-sheet aria-label="Apps and about">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="shell-drawer">
+    {rest.length > 0 && (
+      <>
+        <div class="menu-label">More pages</div>
+        <div class="apps" data-shell-more>
+          {rest.map((item) => (
+            <a
+              class="l"
+              href={item.href}
+              data-path={item.href}
+              data-needs-library={item.needsLibrary ? '' : undefined}
+              hidden={item.needsLibrary}
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      </>
+    )}
+    <div class="cols">
+      <div class="apps" data-shell-apps></div>
+      <div>
+        <div class="menu-label">About</div>
+        {legal?.notice && (
+          <a class="l" href={legal.notice}>
+            Legal notice
+          </a>
+        )}
+        {legal?.privacy && (
+          <a class="l" href={legal.privacy}>
+            Privacy policy
+          </a>
+        )}
+        <a class="l" href={`https://github.com/ramsesoriginal/lorenzo/tree/main/${path}`}>
+          Source code
+        </a>
+      </div>
+    </div>
+    <div class="foot">Lorenzo{version ? ` ${version}` : ''}</div>
+  </div>
+</dialog>

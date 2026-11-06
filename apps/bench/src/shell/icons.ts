@@ -156,6 +156,7 @@ const PANE_ICONS: Readonly<Record<string, IconName>> = {
   props: 'stat',
   links: 'link',
   ancestry: 'ancestry',
+  relations: 'link',
   table: 'table',
   grid: 'compare',
   formula: 'formula',

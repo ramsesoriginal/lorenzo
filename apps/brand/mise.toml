@@ -16,8 +16,8 @@ description = "Prettier autoformat for the static CSS/HTML"
 run = "npx --yes prettier --write \"**/*.{css,html}\""
 
 [tasks.test]
-description = "No automated tests for static markup yet"
-run = "echo 'apps/brand has no automated tests yet.'"
+description = "The class-clash test: classes the web design adds must not be defined by another app"
+run = "node --test tests/*.test.mjs"
 
 [tasks.build]
 description = "No build step - Cloudflare Pages serves these files as-is"

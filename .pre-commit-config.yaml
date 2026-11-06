@@ -152,6 +152,24 @@ repos:
         language: system
         files: ^apps/maps/.*\.astro$
         pass_filenames: false
+      - id: biome-social
+        name: biome (apps/social)
+        entry: pnpm --dir apps/social exec biome check --write
+        language: system
+        files: ^apps/social/.*.(ts|js|json|css)$
+        pass_filenames: false
+      - id: astro-check-social
+        name: astro check (apps/social)
+        entry: pnpm --dir apps/social exec astro check
+        language: system
+        files: ^apps/social/.*.(astro|ts)$
+        pass_filenames: false
+      - id: prettier-social
+        name: prettier --write (apps/social, .astro)
+        entry: pnpm --dir apps/social exec prettier --write "**/*.astro"
+        language: system
+        files: ^apps/social/.*.astro$
+        pass_filenames: false
       - id: biome-beings
         name: biome (apps/beings)
         entry: pnpm --dir apps/beings exec biome check --write

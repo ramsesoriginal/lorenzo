@@ -87,6 +87,10 @@ MATRIX: dict[tuple[str, ...], str | None] = {
     ("map", "scene"): None,
     # ADR 0363: a connection is its own kind and combines with none.
     ("connection",): None,
+    # ADR 0399: a relationship is its own kind and combines with none.
+    ("relationship",): None,
+    # ADR 0406: a SocialWeb is its own kind in this slice and combines with none.
+    ("social_web",): None,
 }
 _ORDER = [
     "carrier",
@@ -108,6 +112,8 @@ _ORDER = [
     "location",
     "map",
     "connection",
+    "relationship",
+    "social_web",
 ]
 
 MAP_SYSTEM = {"format": "lorenzo.map-system/1", "kind": "plane", "extent": [0, 0, 100, 100]}
@@ -268,6 +274,46 @@ async def _make(
         response = await scene_author.post(
             f"/tenants/{repository}/connections",
             json={"name": name, "is_public": True, "end_a": str(parents[0]), "end_b": str(hub)},
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("social_web",):
+        response = await scene_author.post(
+            f"/tenants/{repository}/social-webs", json={"name": name, "is_public": True}
+        )
+        assert response.status_code == 201, response.text
+        entity_id = response.json()["id"]
+        response = await scene_author.put(
+            f"/tenants/{repository}/entities/{entity_id}/parents",
+            json={"parent_ids": [str(p) for p in parents]},
+        )
+        assert response.status_code == 200, response.text
+        return uuid.UUID(entity_id)
+    if kinds == ("relationship",):
+        # It ties two plain entries that every entry of the matrix shares (an end is never itself a
+        # relationship, so the parent cannot be one).
+        ends: list[uuid.UUID] = []
+        for end_name in ("Matrix tie end one", "Matrix tie end two"):
+            async with admin_session_factory() as session:
+                found = await session.scalar(
+                    select(Entity.id).where(Entity.tenant_id == repository, Entity.name == end_name)
+                )
+            if found is None:
+                made_end = await scene_author.post(
+                    f"/tenants/{repository}/entities", json={"name": end_name, "kinds": []}
+                )
+                assert made_end.status_code == 201, made_end.text
+                found = uuid.UUID(made_end.json()["id"])
+            ends.append(found)
+        response = await scene_author.post(
+            f"/tenants/{repository}/relationships",
+            json={"name": name, "is_public": True, "end_a": str(ends[0]), "end_b": str(ends[1])},
         )
         assert response.status_code == 201, response.text
         entity_id = response.json()["id"]

@@ -10,7 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute, aliased
 
 from lorenzo_api.entity_access import entity_id_among
-from lorenzo_api.models import CalendarObservance, CalendarPeriod, EntityAudience, EntityKnowledge
+from lorenzo_api.models import (
+    CalendarObservance,
+    CalendarPeriod,
+    EntityAudience,
+    EntityKnowledge,
+    Relationship,
+)
 
 if TYPE_CHECKING:
     from lorenzo_api.information_visibility import InformationVisibility
@@ -49,6 +55,23 @@ def _own_visible_entry_clause(
 
 
 def visible_entry_clause(
+    vis: InformationVisibility,
+    entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
+) -> ColumnElement[bool]:
+    """The entries a reader may see. A relationship is also read only with both its ends (ADR
+    0399), so the rule is here, in the clause every entry read applies, and no read has to
+    remember it. An end is never itself a relationship, so the ends are tested by the gate alone
+    and the clause does not recurse."""
+    if vis.is_admin or vis.author_sees_all:
+        return true()
+    tie = aliased(Relationship)
+    return _entry_gate(vis, entity_id) & ~exists().where(
+        tie.entity_id == entity_id,
+        ~(_entry_gate(vis, tie.end_a) & _entry_gate(vis, tie.end_b)),
+    )
+
+
+def _entry_gate(
     vis: InformationVisibility,
     entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
 ) -> ColumnElement[bool]:
@@ -113,6 +136,7 @@ async def require_visible_entry(
                     EntityAudience.is_public.is_(False),
                     exists().where(CalendarPeriod.entity_id == entity_id),
                     exists().where(CalendarObservance.entity_id == entity_id),
+                    exists().where(Relationship.entity_id == entity_id),
                 ),
             )
         )

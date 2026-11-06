@@ -9,6 +9,8 @@ export type NavItem = {
   href: string;
   // A library's page: it carries the library in `?tenant=` and stays hidden until there is one.
   needsLibrary?: boolean;
+  // An id in the brand's icons.svg without the `icon-` prefix, for the phone's tab bar.
+  icon?: string;
 };
 
 /** The saved choice if there is one, otherwise what the system prefers. */
@@ -42,4 +44,33 @@ export function isCurrentPage(href: string, pathname: string): boolean {
   const normal = (path: string) => (path.endsWith('/') ? path : `${path}/`);
 
   return normal(href) === normal(pathname);
+}
+
+/** The real date and time for the status bar, e.g. "Thu 6 Nov, 09:41", in the reader's language. */
+export function clockText(now: Date, locale?: string): string {
+  const day = new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(now);
+  const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(now);
+
+  return `${day}, ${time}`;
+}
+
+/**
+ * The phone's tab bar has room for `max` links and a "More" button: with more links than that, the
+ * rest go into the More sheet.
+ */
+export function splitTabs<T>(items: T[], max = 3): { tabs: T[]; rest: T[] } {
+  return { tabs: items.slice(0, max), rest: items.slice(max) };
+}
+
+/** The letters on the account button: the first of the first two words, or of an address's name. */
+export function initials(label: string | undefined): string {
+  const name = (label ?? '').split('@')[0]?.trim() ?? '';
+  const parts = name.split(/[\s._-]+/).filter(Boolean);
+  const letters = parts.slice(0, 2).map((part) => Array.from(part)[0] ?? '');
+
+  return letters.join('').toUpperCase() || '·';
 }
