@@ -254,7 +254,7 @@
         document
           .getElementById("open-single")
           .addEventListener("click", function () {
-            document.getElementById("award-dialog").showModal();
+            openDialog(document.getElementById("award-dialog"));
           });
 
         document
@@ -312,11 +312,37 @@
         document
           .getElementById("open-sheet")
           .addEventListener("click", function () {
-            document.getElementById("sheet-dialog").showModal();
+            openDialog(document.getElementById("sheet-dialog"));
           });
+        function closeDialog(d) {
+          if (!d.open || d.hasAttribute("data-closing")) return;
+          d.setAttribute("data-closing", "");
+          d.addEventListener("animationend", function done(e) {
+            if (e.target !== d || !d.hasAttribute("data-closing")) return;
+            d.removeEventListener("animationend", done);
+            d.removeAttribute("data-closing");
+            d.close();
+          });
+        }
+        function openDialog(d) {
+          d.removeAttribute("data-closing");
+          if (!d.open) d.showModal();
+        }
+        window.closeDialog = closeDialog;
+        window.openDialog = openDialog;
+        ["award-dialog", "sheet-dialog"].forEach(function (id) {
+          var d = document.getElementById(id);
+          d.addEventListener("cancel", function (e) {
+            e.preventDefault();
+            closeDialog(d);
+          });
+        });
         document.querySelectorAll("[data-close]").forEach(function (btn) {
           btn.addEventListener("click", function () {
-            document.getElementById(btn.getAttribute("data-close")).close();
+            var d = document.getElementById(btn.getAttribute("data-close"));
+            if (d.id === "award-dialog" || d.id === "sheet-dialog")
+              closeDialog(d);
+            else d.close();
           });
         });
       })();
