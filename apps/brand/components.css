@@ -706,7 +706,7 @@ dialog h3 {
 /* Toasts: a fixed region (role="status", aria-live="polite") holding a stack of messages. A
    message with a timer shows .toast-bar draining over --toast-ms; an error has no timer and
    stays until it is closed (identity.md 15.7). Focus inside a toast pauses the timer. */
-.toasts {
+.toast-region {
   position: fixed;
   z-index: 60;
   inset-inline: 0;
@@ -719,7 +719,7 @@ dialog h3 {
   pointer-events: none;
 }
 
-.toast {
+.toast-card {
   position: relative;
   overflow: hidden;
   pointer-events: auto;
@@ -735,32 +735,32 @@ dialog h3 {
   animation: brand-toast-in var(--dur-med) var(--ease) both;
 }
 
-.toast.out {
+.toast-card.out {
   animation: brand-toast-out var(--dur-med) var(--ease) both;
 }
 
-.toast[data-kind="error"] {
+.toast-card[data-kind="error"] {
   border-color: var(--danger);
 }
 
-.toast .toast-text {
+.toast-card .toast-text {
   flex: 1;
   min-width: 0;
 }
 
-.toast .toast-title {
+.toast-card .toast-title {
   font-weight: 500;
 }
 
-.toast .icon {
+.toast-card .icon {
   margin-top: 2px;
 }
 
-.toast[data-kind="ok"] .icon {
+.toast-card[data-kind="ok"] .icon {
   color: var(--success);
 }
 
-.toast[data-kind="error"] .icon {
+.toast-card[data-kind="error"] .icon {
   color: var(--danger);
 }
 
@@ -773,11 +773,11 @@ dialog h3 {
   animation: brand-toast-timer var(--toast-ms, 6000ms) linear forwards;
 }
 
-.toast[data-kind="error"] .toast-bar {
+.toast-card[data-kind="error"] .toast-bar {
   display: none;
 }
 
-.toast:focus-within .toast-bar {
+.toast-card:focus-within .toast-bar {
   animation-play-state: paused;
 }
 
@@ -802,7 +802,7 @@ dialog h3 {
 }
 
 @media (max-width: 720px) {
-  .toasts {
+  .toast-region {
     bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
   }
 }

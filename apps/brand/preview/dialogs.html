@@ -190,8 +190,8 @@
         <section id="toasts">
           <h2>Toasts</h2>
           <p class="lede">
-            <code>.toasts</code> is a polite live region;
-            <code>.toast</code> with <code>data-kind</code> of
+            <code>.toast-region</code> is a polite live region;
+            <code>.toast-card</code> with <code>data-kind</code> of
             <code>ok</code> or <code>error</code>. A timed one drains
             <code>.toast-bar</code>; an error has none and stays until closed.
           </p>
@@ -203,7 +203,7 @@
           </button>
         </section>
         <div
-          class="toasts"
+          class="toast-region"
           id="toast-region"
           role="status"
           aria-live="polite"
@@ -260,7 +260,7 @@
 
         function toast(kind, text, ms) {
           var t = document.createElement("div");
-          t.className = "toast";
+          t.className = "toast-card";
           t.setAttribute("data-kind", kind);
           t.innerHTML =
             '<span class="toast-text"></span>' +
