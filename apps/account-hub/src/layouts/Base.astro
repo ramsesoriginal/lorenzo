@@ -1,7 +1,7 @@
 ---
-import SiteHead from '../components/SiteHead/SiteHead.astro';
-import SiteHeader from '../components/SiteHeader/SiteHeader.astro';
-import SiteFooter from '../components/SiteFooter/SiteFooter.astro';
+import AppPage from '@lorenzo/app-shell/AppPage.astro';
+import { BRANDING_CSS_URL, THEME_KEY } from '../lib/config';
+import '../styles/global.css';
 
 interface Props {
   title?: string;
@@ -10,19 +10,38 @@ interface Props {
 const { title = 'Lorenzo - Account' } = Astro.props;
 ---
 
-<!doctype html>
-<html lang="en">
-  <SiteHead title={title}>
-    <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->
-    <slot name="head" slot="head" />
-  </SiteHead>
-  <body>
-    <SiteHeader />
-    <main>
-      <div class="wrap">
-        <slot />
-      </div>
-    </main>
-    <SiteFooter />
-  </body>
-</html>
+<AppPage
+  title={title}
+  product="Account"
+  brandingUrl={BRANDING_CSS_URL}
+  themeKey={THEME_KEY}
+  shell="web"
+  path="apps/account-hub"
+  nav={[
+    { label: 'Home', href: '/', icon: 'library' },
+    { label: 'Profile', href: '/profile/', requires: 'signed-in', icon: 'account' },
+    { label: 'Libraries', href: '/tenants/', requires: 'signed-in', icon: 'library' },
+    { label: 'Repositories', href: '/repositories/', requires: 'library-admin' },
+    { label: 'My repositories', href: '/studio/', requires: 'repository-work' },
+    { label: 'Discover', href: '/discover/', requires: 'discover' },
+    { label: 'Campaigns', href: '/campaigns/', requires: 'signed-in', icon: 'campaign' },
+    { label: 'Set Up a table', href: '/setup/', requires: 'create-tenant' },
+    { label: 'Beings', href: '/beings/', requires: 'beings', icon: 'kind-being' },
+    {
+      label: 'Notifications',
+      href: '/notifications/',
+      requires: 'signed-in',
+      icon: 'notifications',
+    },
+  ]}
+>
+  <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->
+  <slot name="head" slot="head" />
+  <slot />
+</AppPage>
+
+<script>
+  import { startShell } from '../lib/shell';
+
+  await startShell();
+</script>
