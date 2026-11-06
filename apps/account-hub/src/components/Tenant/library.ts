@@ -12,6 +12,7 @@ import { type CampaignRole, campaignRoleFor, isTenantAdmin } from '../../lib/for
 import { type LibraryReads, readLibrary } from '../../lib/libraryData';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { rosterFromPlayers } from '../../lib/roster';
+import { loadSeatOwners } from '../../lib/seatOwners';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants } from '../../lib/tenantKind';
@@ -41,6 +42,7 @@ import { renderInvitePlayer } from '../InvitePlayer/renderer';
 import { renderMembershipAdmin } from '../MembershipAdmin/renderer';
 import { renderNotificationComposer } from '../NotificationComposer/renderer';
 import { renderPictureUpload } from '../PictureUpload/renderer';
+import { renderSeat } from '../Seat/renderer';
 import { renderTenantDelete } from '../TenantDelete/renderer';
 import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 import type { TenantHooks } from './hooks';
@@ -52,6 +54,8 @@ const required = requiredIn('Tenant');
 export type LibraryData = LibraryReads & {
   // Bound to what it fetched but not in the page yet, for administrators.
   activity: HTMLElement | null;
+  // Who owns each character on the caller's seats here, for "Stop using here".
+  seatOwners: Map<string, string | null>;
 };
 
 // What you are in a campaign, as its row says: what it calls its game master (ADR 0294), Player or
@@ -72,7 +76,10 @@ export async function loadLibrary(
   tenant: TenantSummaryOut,
   me: MeOut,
 ): Promise<LibraryData> {
-  const reads = await readLibrary(tenant, me);
+  const [reads, seatOwners] = await Promise.all([
+    readLibrary(tenant, me),
+    loadSeatOwners(tenant.id, me),
+  ]);
   let activity: HTMLElement | null = null;
 
   if (isTenantAdmin(tenant)) {
@@ -89,7 +96,7 @@ export async function loadLibrary(
     );
   }
 
-  return { ...reads, activity };
+  return { ...reads, activity, seatOwners };
 }
 
 // One campaign of the library, from <Tenant />'s template, with the controls its caller may use.
@@ -111,6 +118,24 @@ function renderCampaign(
   );
   required<HTMLElement>(item, '[data-campaign-meta]').textContent =
     `${campaign.game_system} · ${roleLabel(role, campaign)}${campaign.secret ? ' · secret' : ''}`;
+
+  // Your own seat in it, if you hold one: your characters there, and leaving.
+  const seat = me.players.find((p) => p.tenant_id === tenant.id && p.campaign_id === campaign.id);
+
+  if (seat) {
+    const seatElement = cloneComponent(root, '[data-seat-template]');
+
+    renderSeat(seatElement, {
+      campaign,
+      libraryName: tenant.name,
+      player: seat,
+      me,
+      owners: data.seatOwners,
+      onChanged,
+      withinCampaign: true,
+    });
+    fillSlot(item, '[data-campaign-seat-slot]', seatElement);
+  }
 
   const admin = isTenantAdmin(tenant);
   // can_manage_campaign's real two-way gate: a tenant admin, or this

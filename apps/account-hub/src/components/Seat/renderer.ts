@@ -27,6 +27,8 @@ export type SeatInput = {
   // Who owns each of the seat's characters, if it could be read (loadSeatOwners).
   owners: Map<string, string | null>;
   onChanged: () => void;
+  // Inside the campaign's own card in its library, which already says the name.
+  withinCampaign?: boolean;
 };
 
 // One character of the seat: its name, Rename (in place), and "Stop using here" where that applies.
@@ -96,6 +98,7 @@ export function renderSeat(root: HTMLElement, input: SeatInput): void {
 
   required<HTMLElement>(root, '[data-name]').textContent = campaign.name;
   required<HTMLElement>(root, '[data-where]').textContent = ` in ${libraryName}`;
+  required<HTMLElement>(root, '[data-heading]').hidden = input.withinCampaign === true;
 
   const characters = required<HTMLElement>(root, '[data-characters]');
   const noCharacters = required<HTMLElement>(root, '[data-no-characters]');

@@ -13,6 +13,7 @@ import InvitePlayer from '../InvitePlayer/InvitePlayer.astro';
 import MembershipAdmin from '../MembershipAdmin/MembershipAdmin.astro';
 import TenantInviteLinks from '../TenantInviteLinks/TenantInviteLinks.astro';
 import NotificationComposer from '../NotificationComposer/NotificationComposer.astro';
+import Seat from '../Seat/Seat.astro';
 import PictureUpload from '../PictureUpload/PictureUpload.astro';
 import TenantDelete from '../TenantDelete/TenantDelete.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
@@ -151,6 +152,7 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       </div>
       <!-- What a campaign's managers can do, one part at a time. bindTabs makes it work; the tabs are
            only there for those who manage the campaign. -->
+      <div data-campaign-seat-slot hidden></div>
       <div class="stack" data-campaign-tabs hidden>
         <div class="tabs" role="tablist" aria-label="Manage this campaign">
           <button type="button" class="tab" role="tab">
@@ -186,6 +188,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
         </div>
       </div>
     </article>
+  </template>
+  <template data-seat-template>
+    <Seat />
   </template>
   <template data-campaign-roster-template>
     <CampaignRoster />
