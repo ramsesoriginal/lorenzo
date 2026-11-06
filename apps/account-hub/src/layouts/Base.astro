@@ -24,6 +24,7 @@ const { title = 'Lorenzo - Account', template } = Astro.props;
   nav={[
     { label: 'Home', href: '/', icon: 'library' },
     { label: 'Profile', href: '/profile/', requires: 'signed-in', icon: 'account' },
+    { label: 'Access tokens', href: '/tokens/', requires: 'signed-in' },
     { label: 'Libraries', href: '/tenants/', requires: 'signed-in', icon: 'library' },
     { label: 'Repositories', href: '/repositories/', requires: 'library-admin' },
     { label: 'My repositories', href: '/studio/', requires: 'repository-work' },

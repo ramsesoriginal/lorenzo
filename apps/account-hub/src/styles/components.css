@@ -366,3 +366,59 @@
     height: 44px;
   }
 }
+
+/* /tokens (ADR 0418, PT4): the one sentence that says what a token is, and the rows. A state is told
+   in words and an icon; a token not used for a long time is tinted and one that has ended is struck
+   through, which is never the only sign. */
+.callout .icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2h);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+}
+.token-list {
+  padding: 0;
+  list-style: none;
+}
+.token-list > .token-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.token-name,
+.token-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.token-list > .token-row[data-tone="stale"] {
+  background: var(--warning-surface);
+}
+.token-list > .token-row[data-tone="expired"] {
+  color: var(--text-secondary);
+}
+.token-list > .token-row[data-tone="expired"] [data-name] {
+  text-decoration: line-through;
+}
+@container shell (max-width: 720px) {
+  .token-list > .token-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .token-list > .token-row .btn {
+    justify-self: stretch;
+    width: 100%;
+    min-height: 44px;
+  }
+}

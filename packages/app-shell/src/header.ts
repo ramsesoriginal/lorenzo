@@ -311,7 +311,7 @@ export function bindShell(options: ShellOptions): Shell | null {
       ...hubLink('Profile', 'account', 'profile/'),
       ...hubLink('Notifications', 'notifications', 'notifications/'),
       ...hubLink('Libraries and people', 'library', 'tenants/'),
-      ...hubLink('Access tokens and devices', 'device', 'device/'),
+      ...hubLink('Access tokens and devices', 'token', 'tokens/'),
       { separator: true },
       {
         label: themeToggle?.textContent?.trim() || 'Change theme',
