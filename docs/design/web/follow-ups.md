@@ -60,4 +60,4 @@ Slice UI-A (#1012) of [RFC 0050](../../rfcs/0050-the-web-interface.md) is built 
 - A dialog fades in but does not move and closes at once, because two Account Hub tests reopen a dialog straight after Cancel and measure a sheet as it opens; the closing transition returns when an app's tests can wait for it.
 - Menus, dialogs and toasts follow the window; the shell's bars follow their `.shell-container`.
 - The palette's preview pane holds whatever the app puts in it; the contract for what an app declares is `palette-command.schema.json`, and how it registers at runtime is settled with the shell package (UI-B).
-- The class-clash test found and fixed four real clashes with Beings (`.segmented`, `.toast`, `.state`, `.legend`, and `.icon-btn`, now `.segmented-control`, `.toast-card`, `.state-chip`, `.graph-legend` and `.icon-button`).
+- The class-clash test found and fixed five real clashes with Beings (`.segmented`, `.toast`, `.state`, `.legend`, and `.icon-btn`, now `.segmented-control`, `.toast-card`, `.state-chip`, `.graph-legend` and `.icon-button`).
