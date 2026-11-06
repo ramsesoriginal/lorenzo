@@ -5,8 +5,8 @@ test('an Owner adds the starter, and a relationship reads in the words of its ty
   browser,
 }) => {
   const w = await world();
-  const mara = await w.entry('Mara Quill');
-  const wren = await w.entry('Wren Ashdown');
+  const mara = await w.person('Mara Quill');
+  const wren = await w.person('Wren Ashdown');
   const page = await signedIn(browser, w.subject);
   await page.goto(`/types/?tenant=${w.tenant.id}`);
   await expect(page.getByRole('heading', { name: 'Types and standings', level: 1 })).toBeVisible();
