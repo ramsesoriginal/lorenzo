@@ -5,16 +5,18 @@
 
 import { onCacheRefreshed } from '../../lib/cache';
 import { isEditingIn } from '../../lib/editing';
+import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { say, sayError } from '../../lib/statusLine';
-import { STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
+import { roleLabel, STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
 import { cloneRoot, fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import { canCreateTenants, isRepository, type TenantKind } from '../../lib/tenantKind';
-import { listMyTenants } from '../../lib/tenants';
+import { getTenant, listMyTenants, listTenantCampaigns } from '../../lib/tenants';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
 import { renderCreateTenant } from '../CreateTenant/renderer';
 import { renderTenant } from '../Tenant/renderer';
 
 type View =
+  | { type: 'index' }
   | { type: 'tenant'; tenant: TenantSummaryOut }
   | { type: 'new'; tenantKind: TenantKind }
   | { type: 'empty' };
@@ -23,6 +25,8 @@ const required = requiredIn('Tenants panel');
 
 function keyOf(view: View): string {
   switch (view.type) {
+    case 'index':
+      return 'index';
     case 'tenant':
       return `tenant:${view.tenant.id}`;
     case 'new':
@@ -43,6 +47,9 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   const createView = required<HTMLElement>(root, '[data-create]');
   const emptyView = required<HTMLElement>(root, '[data-empty]');
   const setup = required<HTMLElement>(root, '[data-setup]');
+  const index = required<HTMLElement>(root, '[data-index]');
+  const breadcrumb = required<HTMLElement>(root, '[data-breadcrumb]');
+  const newLibrary = document.querySelector<HTMLElement>('[data-new-library]');
 
   const mayCreate = canCreateTenants(me);
   const links = new Map<string, HTMLAnchorElement>();
@@ -99,6 +106,8 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   function defaultView(): View {
     const first = tenants[0];
 
+    // Several: all of them, to choose from. One: straight into it.
+    if (tenants.length >= 2) return { type: 'index' };
     if (first) return { type: 'tenant', tenant: first };
 
     return mayCreate ? { type: 'new', tenantKind: 'play' } : { type: 'empty' };
@@ -164,6 +173,42 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     if (view.type !== 'empty') librariesDetails.open = true;
   }
 
+  // A card for each library: its name and role at once, and its description and campaigns as they
+  // come (each from its own read, so a slow one holds up only itself).
+  function drawIndex() {
+    index.replaceChildren(
+      ...tenants.map((tenant) => {
+        const card = cloneRoot(root, '[data-card-template]');
+        const link = required<HTMLAnchorElement>(card, '[data-link]');
+        const description = required<HTMLElement>(card, '[data-description]');
+        const counts = required<HTMLElement>(card, '[data-counts]');
+
+        link.textContent = tenant.name;
+        link.href = urlFor({ type: 'tenant', tenant });
+        link.addEventListener('click', (event) => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+
+          event.preventDefault();
+          navigate({ type: 'tenant', tenant });
+        });
+        required<HTMLElement>(card, '[data-role]').textContent = roleLabel(tenant.role);
+
+        void getTenant(tenant.id).then(
+          ({ tenant: detail }) => showLorenzoScript(description, detail.description),
+          () => {},
+        );
+        void listTenantCampaigns(tenant.id).then(
+          (page) => {
+            counts.textContent = `${page.total} ${page.total === 1 ? 'campaign' : 'campaigns'}`;
+          },
+          () => {},
+        );
+
+        return card;
+      }),
+    );
+  }
+
   async function show(view: View) {
     // Only a change of selection opens a group, so reloading the open tenant after an edit does not
     // reopen one that was closed on purpose.
@@ -174,7 +219,14 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     error.hidden = true;
     createView.hidden = view.type !== 'new';
     emptyView.hidden = view.type !== 'empty';
+    index.hidden = view.type !== 'index';
+    // The way back to all of them, where there are several to go back to.
+    breadcrumb.hidden = view.type !== 'tenant' || tenants.length < 2;
+    if (view.type === 'tenant') {
+      required<HTMLElement>(breadcrumb, '[data-crumb]').textContent = view.tenant.name;
+    }
     setup.hidden = !mayCreate;
+    if (view.type === 'index') drawIndex();
 
     if (view.type !== 'tenant') tenantView.hide();
 
@@ -257,6 +309,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   }
 
   createUnavailable.hidden = mayCreate;
+  if (newLibrary) newLibrary.hidden = !mayCreate;
 
   await refresh();
 

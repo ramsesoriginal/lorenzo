@@ -53,7 +53,7 @@ test('a GM with only a campaign grant sees each person at the table by name, and
   await expect(table.getByRole('heading', { name: 'GMs' })).toBeVisible();
   await expect(table).toContainText('Gwen GM (you)');
   await expect(table).toContainText('Cleo Co-GM');
-  await expect(table.getByRole('link', { name: /Manage in Your libraries/ })).toHaveAttribute(
+  await expect(table.getByRole('link', { name: /Manage in Libraries/ })).toHaveAttribute(
     'href',
     `/tenants/?tenant=${library.slug}`,
   );
