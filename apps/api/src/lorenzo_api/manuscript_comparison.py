@@ -58,12 +58,14 @@ def copy_baselines(
     for payload_id, payload in content.payloads.items():
         if payload.information_id in grouped:
             grouped[payload.information_id].payloads[payload_id] = payload
+    contexts = chapter_contexts(content)
     result = {}
     for info_id, row in manuscripts.items():
         value = bundle(grouped[info_id], row.entity_id)
         assert value is not None
         result[row.entity_id] = {
             "format": 1,
+            "composition": contexts.get(row.entity_id),
             "bundle": value,
             "information_id": str(local_information[info_id]),
             "identities": {
@@ -120,7 +122,7 @@ def update_reason(
     base: dict[str, Any], local: dict[str, Any], upstream: dict[str, Any] | None, independent: bool
 ) -> str | None:
     if not independent:
-        return "Connected manuscripts remain comparison-only."
+        return "This composition has changed, has no saved context, or needs a structural review."
     if upstream is None:
         return "The repository manuscript was removed. Your copy is kept."
     if not (text_shape(base) == text_shape(local) == text_shape(upstream)):
@@ -128,3 +130,45 @@ def update_reason(
     if upstream == base:
         return "There is no new repository writing to accept."
     return None
+
+
+def chapter_contexts(
+    content: Content, identities: dict[str, str] | None = None
+) -> dict[uuid.UUID, dict[str, Any]]:
+    """Eligible leaf placements in one linear pass; ids are in the source namespace."""
+
+    def identity(value: uuid.UUID | None) -> str | None:
+        if value is None:
+            return None
+        return (
+            str(value) if identities is None else identities.get(str(value), "local:" + str(value))
+        )
+
+    dependent = set(content.tellings)
+    dependent.update(row["scene"] for row in content.tellings.values())
+    for row in content.carrier_coverage.values():
+        dependent.update((row["carrier"], row["entry"]))
+    dependent.update(content.manuscript_redirects)
+    for row in content.manuscript_redirects.values():
+        dependent.update((row["destination"], row["child"]))
+    parents = {row["parent"] for row in content.manuscript_placements.values()}
+    result = {}
+    for chapter, placement in content.manuscript_placements.items():
+        edition = placement["parent"]
+        book = content.editions.get(edition)
+        if (
+            content.kinds.get(chapter) != {"chapter"}
+            or content.kinds.get(edition) != {"edition"}
+            or book is None
+            or content.kinds.get(book) != {"book"}
+            or chapter in parents
+            or any(entry in dependent for entry in (chapter, edition, book))
+        ):
+            continue
+        result[chapter] = {
+            "edition": identity(edition),
+            "book": identity(book),
+            "before": identity(placement["before"]),
+            "position": placement["position"],
+        }
+    return result

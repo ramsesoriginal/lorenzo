@@ -166,3 +166,8 @@ Standalone Scene/Chapter text updates require the reviewed comparison ETag and c
 access ([ADR 0429](../../docs/adr/0429-standalone-draft-repository-updates.md)). Explicit keep/take
 choices advance the baseline; taking text uses ordinary history and backlink writes atomically.
 Connected manuscripts, changed payload structures and changed non-text payloads are refused.
+
+Placed leaf Chapters directly inside an Edition can also accept text updates when their copied
+Book, Edition, anchor and position still match on both sides
+([ADR 0430](../../docs/adr/0430-placed-chapter-text-updates.md)). New copies retain this context;
+older connected copies, nested Chapters and dependent structural changes remain comparison-only.

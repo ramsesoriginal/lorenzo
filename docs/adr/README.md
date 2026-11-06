@@ -432,3 +432,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0426 - The web shell grows in app-shell, opt-in](0426-the-web-shell-grows-in-app-shell-opt-in.md) — the web shell is built in `@lorenzo/app-shell` behind `shell="web"`, so each app moves over in its own slice; the bell appears only when an app supplies it; the apps come from the registry; tests render the real `AppPage` in jsdom
 - [0427 - Page templates, states and saving in app-shell](0427-page-templates-states-and-saving-in-app-shell.md) — the brand holds the look and app-shell the behaviour: a `template` prop on `AppPage`, built region and page states with the mascots, reads that retry and writes that do not, and an explicit save bar or an autosave indicator chosen by the page
 - [0429 - Explicit repository text updates for standalone drafts](0429-standalone-draft-repository-updates.md)
+
+- [0430 - Repository text updates for placed leaf Chapters](0430-placed-chapter-text-updates.md)

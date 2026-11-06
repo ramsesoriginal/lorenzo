@@ -1954,134 +1954,172 @@ test('an author reviews existing calendar dates before setting a Scene period', 
     await context.close();
   }
 });
-test('copied manuscripts review updates, protect unsaved drafts and preserve session credit', async ({
-  browser,
-}) => {
-  test.setTimeout(120000);
-  const { owner, api, tenant, page, context } = await world(browser);
-  try {
-    const repository = await ok(
-      owner.POST('/tenants', { body: { name: 'River stories', kind: 'repository' } }),
-    );
-    const chapter = await ok(
-      owner.POST('/tenants/{tenant_id}/writing/chapters', {
-        params: { path: { tenant_id: repository.id } },
-        body: { name: 'Copied crossing' },
-      }),
-    );
-    await ok(
-      owner.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
-        params: { path: { tenant_id: repository.id, entity_id: chapter.id } },
-        body: {
-          title: 'Manuscript',
-          type: 'manuscript',
-          content: 'The original crossing.',
-          locale: 'en',
-          is_public: true,
-        },
-      }),
-    );
-    await ok(
-      owner.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
-        params: { path: { tenant_id: repository.id, subscriber_tenant_id: tenant.id } },
-      }),
-    );
-    await ok(
-      owner.PUT('/tenants/{tenant_id}/published', {
-        params: { path: { tenant_id: repository.id } },
-      }),
-    );
-    await ok(
-      owner.POST('/tenants/{tenant_id}/repositories/{repository_id}/copy', {
-        params: { path: { tenant_id: tenant.id, repository_id: repository.id } },
-      }),
-    );
-    const entries = await ok(
-      api.GET('/tenants/{tenant_id}/entities', {
-        params: { path: { tenant_id: tenant.id }, query: { q: 'Copied crossing' } },
-      }),
-    );
-    const local = entries.items[0].id;
-    await page.goto(`/?tenant=${tenant.id}&entry=${local}`);
-    const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
-    await expect(draft).toHaveValue('The original crossing.', { timeout: 15000 });
-    await page.getByText('Details', { exact: true }).click();
-    await page.getByText('Repository comparison', { exact: true }).click();
-    const compare = page.getByRole('button', { name: 'Compare saved writing', exact: true });
-    await compare.click();
-    await expect(
-      page.getByText('The saved writing still matches the original copy.'),
-    ).toBeVisible();
-    const source = await ok(
-      owner.GET('/tenants/{tenant_id}/entities/{entity_id}', {
-        params: { path: { tenant_id: repository.id, entity_id: chapter.id } },
-      }),
-    );
-    const payload = source.information.find((i) => i.type === 'manuscript')?.payloads[0];
-    if (!payload) throw new Error('No source manuscript');
-    await ok(
-      owner.PATCH('/tenants/{tenant_id}/payloads/{payload_id}', {
-        params: {
-          path: { tenant_id: repository.id, payload_id: payload.id },
-          header: { 'if-match': `W/"${payload.updated_at}"` },
-        },
-        body: { content: '<img src=x onerror=alert(1)> Upstream crossing.' },
-      }),
-    );
-    await draft.fill('My saved crossing.');
-    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-    await compare.click();
-    await expect(page.getByText('Both versions changed differently.')).toBeVisible();
-    const review = page.locator('.repo-review-values');
-    await expect(review).toContainText('The original crossing.');
-    await expect(review).toContainText('My saved crossing.');
-    await expect(review).toContainText('<img src=x onerror=alert(1)> Upstream crossing.');
-    await expect(review.locator('img')).toHaveCount(0);
-    const take = page.getByRole('button', {
-      name: 'Take the update, and replace yours',
-      exact: true,
-    });
-    await expect(take).toBeVisible();
-    await expect(draft).toHaveValue('My saved crossing.');
-    await page.setViewportSize({ width: 390, height: 844 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-      true,
-    );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-    await page.screenshot({ path: test.info().outputPath('comparison-phone.png'), fullPage: true });
-    await page.route('**/payloads/*', (route) =>
-      route.request().method() === 'PATCH' ? route.abort() : route.continue(),
-    );
-    await draft.fill('My unsaved crossing.');
-    await take.click();
-    await expect(
-      page.getByText('Save your draft and resolve any conflicts before accepting an update.'),
-    ).toBeVisible();
-    await expect(draft).toHaveValue('My unsaved crossing.');
-    await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
-      'Use Save now to retry.',
-    );
-    await page.unroute('**/payloads/*');
-    await page.getByRole('button', { name: 'Save now', exact: true }).click();
-    await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
-    await compare.click();
-    await page.getByText('Word count', { exact: true }).click();
-    await page.getByText('Writing session', { exact: true }).click();
-    await page.getByLabel('Session word target').fill('100');
-    await page.getByRole('button', { name: 'Start session', exact: true }).click();
-    await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
-    await take.click();
-    await expect(page.getByText('Repository writing saved.', { exact: true })).toBeVisible();
-    await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
-    await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
-    await compare.click();
-    await expect(
-      page.getByText('The saved writing still matches the original copy.'),
-    ).toBeVisible();
-    await expect(take).toHaveCount(0);
-    await page.reload();
-    await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
-  } finally {
-    await context.close();
-  }
-});
+for (const placed of [false, true]) {
+  test(`copied manuscripts review updates (${placed ? 'placed Chapter' : 'draft'}), protect unsaved drafts and preserve session credit`, async ({
+    browser,
+  }) => {
+    test.setTimeout(120000);
+    const { owner, api, tenant, page, context } = await world(browser);
+    try {
+      const repository = await ok(
+        owner.POST('/tenants', { body: { name: 'River stories', kind: 'repository' } }),
+      );
+      const chapter = await ok(
+        owner.POST('/tenants/{tenant_id}/writing/chapters', {
+          params: { path: { tenant_id: repository.id } },
+          body: { name: 'Copied crossing' },
+        }),
+      );
+      await ok(
+        owner.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+          params: { path: { tenant_id: repository.id, entity_id: chapter.id } },
+          body: {
+            title: 'Manuscript',
+            type: 'manuscript',
+            content: 'The original crossing.',
+            locale: 'en',
+            is_public: true,
+          },
+        }),
+      );
+      if (placed) {
+        const book = await ok(
+          owner.POST('/tenants/{tenant_id}/writing/books', {
+            params: { path: { tenant_id: repository.id } },
+            body: { name: 'Collected crossings' },
+          }),
+        );
+        const edition = await ok(
+          owner.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+            params: { path: { tenant_id: repository.id, id: book.editions[0].id } },
+          }),
+        );
+        await ok(
+          owner.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+            params: {
+              path: { tenant_id: repository.id, id: edition.id },
+              header: { 'if-match': edition.version },
+            },
+            body: { elements: [chapter.id] },
+          }),
+        );
+      }
+      await ok(
+        owner.PUT('/tenants/{tenant_id}/subscribers/{subscriber_tenant_id}', {
+          params: { path: { tenant_id: repository.id, subscriber_tenant_id: tenant.id } },
+        }),
+      );
+      await ok(
+        owner.PUT('/tenants/{tenant_id}/published', {
+          params: { path: { tenant_id: repository.id } },
+        }),
+      );
+      await ok(
+        owner.POST('/tenants/{tenant_id}/repositories/{repository_id}/copy', {
+          params: { path: { tenant_id: tenant.id, repository_id: repository.id } },
+        }),
+      );
+      const entries = await ok(
+        api.GET('/tenants/{tenant_id}/entities', {
+          params: { path: { tenant_id: tenant.id }, query: { q: 'Copied crossing' } },
+        }),
+      );
+      const local = entries.items[0].id;
+      await page.goto(`/?tenant=${tenant.id}&entry=${local}`);
+      const draft = page.getByRole('textbox', { name: 'Manuscript', exact: true });
+      await expect(draft).toHaveValue('The original crossing.', { timeout: 15000 });
+      await page.getByText('Details', { exact: true }).click();
+      await page.getByText('Repository comparison', { exact: true }).click();
+      const compare = page.getByRole('button', { name: 'Compare saved writing', exact: true });
+      await compare.click();
+      await expect(
+        page.getByText('The saved writing still matches the original copy.'),
+      ).toBeVisible();
+      const source = await ok(
+        owner.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+          params: { path: { tenant_id: repository.id, entity_id: chapter.id } },
+        }),
+      );
+      const payload = source.information.find((i) => i.type === 'manuscript')?.payloads[0];
+      if (!payload) throw new Error('No source manuscript');
+      await ok(
+        owner.PATCH('/tenants/{tenant_id}/payloads/{payload_id}', {
+          params: {
+            path: { tenant_id: repository.id, payload_id: payload.id },
+            header: { 'if-match': `W/"${payload.updated_at}"` },
+          },
+          body: { content: '<img src=x onerror=alert(1)> Upstream crossing.' },
+        }),
+      );
+      await draft.fill('My saved crossing.');
+      await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+      await compare.click();
+      await expect(page.getByText('Both versions changed differently.')).toBeVisible();
+      const review = page.locator('.repo-review-values');
+      await expect(review).toContainText('The original crossing.');
+      await expect(review).toContainText('My saved crossing.');
+      await expect(review).toContainText('<img src=x onerror=alert(1)> Upstream crossing.');
+      await expect(review.locator('img')).toHaveCount(0);
+      const take = page.getByRole('button', {
+        name: 'Take the update, and replace yours',
+        exact: true,
+      });
+      await expect(take).toBeVisible();
+      await expect(draft).toHaveValue('My saved crossing.');
+      await page.setViewportSize({ width: 390, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await page.screenshot({
+        path: test.info().outputPath('comparison-phone.png'),
+        fullPage: true,
+      });
+      await page.route('**/payloads/*', (route) =>
+        route.request().method() === 'PATCH' ? route.abort() : route.continue(),
+      );
+      await draft.fill('My unsaved crossing.');
+      await take.click();
+      await expect(
+        page.getByText('Save your draft and resolve any conflicts before accepting an update.'),
+      ).toBeVisible();
+      await expect(draft).toHaveValue('My unsaved crossing.');
+      await expect(page.getByRole('status', { name: 'Save status' })).toContainText(
+        'Use Save now to retry.',
+      );
+      await page.unroute('**/payloads/*');
+      await page.getByRole('button', { name: 'Save now', exact: true }).click();
+      await expect(page.getByRole('status', { name: 'Save status' })).toHaveText('Saved');
+      await compare.click();
+      await page.getByText('Word count', { exact: true }).click();
+      await page.getByText('Writing session', { exact: true }).click();
+      await page.getByLabel('Session word target').fill('100');
+      await page.getByRole('button', { name: 'Start session', exact: true }).click();
+      await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
+      await take.click();
+      await expect(page.getByText('Repository writing saved.', { exact: true })).toBeVisible();
+      await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
+      await expect(page.getByText('Session progress · 0 words', { exact: true })).toBeVisible();
+      await compare.click();
+      await expect(
+        page.getByText('The saved writing still matches the original copy.'),
+      ).toBeVisible();
+      await expect(take).toHaveCount(0);
+      await page.reload();
+      await expect(draft).toHaveValue('<img src=x onerror=alert(1)> Upstream crossing.');
+      if (placed) {
+        const saved = await ok(
+          api.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+            params: { path: { tenant_id: tenant.id, id: local } },
+          }),
+        );
+        expect(saved.parent_id).toBeTruthy();
+        await page.goto(`/?tenant=${tenant.id}&entry=${saved.parent_id}&view=read`);
+        await expect(page.locator('article')).toContainText('Upstream crossing.');
+        await expect(page.locator('article')).toContainText('Copied crossing');
+      }
+    } finally {
+      await context.close();
+    }
+  });
+}
