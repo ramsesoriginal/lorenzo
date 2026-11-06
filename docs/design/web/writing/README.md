@@ -125,7 +125,7 @@ From [issue #878](https://github.com/ramsesoriginal/lorenzo/issues/878) and the 
 
 | Slice | What | Where it is drawn |
 | --- | --- | --- |
-| W8a | A personal length goal ([ADR 0383](../../adr/0383-personal-manuscript-length-goals.md), #967) | Count, and "goal 45%" in the status bar |
+| W8a | A personal length goal ([ADR 0383](../../../adr/0383-personal-manuscript-length-goals.md), #967) | Count, and "goal 45%" in the status bar |
 | W8b | A personal timer (ADR 0393, #998) | Count; the countdown shows in the status bar while it runs. Quiet: no sound, no notification |
 | W8c | Net-new session goals (ADR 0394, #1000) | Count; "session +5 of 30" in the status bar. Deleting subtracts; moving earns nothing |
 | W8d | Reviewed name and date suggestions | A Suggest tab, with the matches marked in the text; accepting links a word and never changes the wording; ambiguous names ask |

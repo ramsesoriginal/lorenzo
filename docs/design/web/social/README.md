@@ -4,7 +4,7 @@ A fresh design of Lorenzo Social, a new app, from the jobs people do there. The 
 
 Status: the prototype is built and ready for review (decisions SO1 to SO8 are logged here).
 
-The app comes from [RFC 0049](../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md) and ADRs 0399 to 0408, written in parallel on the open pull request [#1010](https://github.com/ramsesoriginal/lorenzo/pull/1010). Its section "For the interface design" is the brief this page builds on. Where they differ, the RFC wins until it is changed.
+The app comes from [RFC 0049](../../../rfcs/0049-lorenzo-social-relationships-and-social-webs.md) and ADRs 0399 to 0408, written in parallel on the open pull request [#1010](https://github.com/ramsesoriginal/lorenzo/pull/1010). Its section "For the interface design" is the brief this page builds on. Where they differ, the RFC wins until it is changed.
 
 ## What the app is for
 
@@ -17,9 +17,9 @@ Social says who is connected to whom and how, which groups hold whom, and how mu
 - **Time is optional.** A relationship may start and end at an Event. A reading *as of* an Event says `holds`, `not yet`, `ended` or `unknown`, from the reader's own recorded order.
 - **Nothing is inferred and nothing is added up on the server:** no kinship deduced from a parent, no trust along a chain, no total standing. A chain a relationship is stated to hold *through* is written by an author.
 
-Sources: the RFC and [ADR 0399](../../adr/0399-relationships-the-kind-and-its-two-ends.md), 0400 to 0408 on its branch, and [identity §18](../../brand/identity.md#18-information-visualization-grammar), the grammar for edges.
+Sources: the RFC and [ADR 0399](../../../adr/0399-relationships-the-kind-and-its-two-ends.md), 0400 to 0408 on its branch, and [identity §18](../../../brand/identity.md#18-information-visualization-grammar), the grammar for edges.
 
-**What this design does not draw.** How a graph is laid out (the engines, the Scene) and the contract for painting it belong to a package, `packages/graph-renderer` ([ADR 0407](../../adr/0407-the-graph-renderer.md)), written like Maps' renderer. This design draws the stand-in that a prototype needs and everything around it: the pages, the lists, the panels, the matrix, the forms and the words. Bench's Relations view is not redesigned here, and its per-type line styles are not adopted.
+**What this design does not draw.** How a graph is laid out (the engines, the Scene) and the contract for painting it belong to a package, `packages/graph-renderer` ([ADR 0407](../../../adr/0407-the-graph-renderer.md)), written like Maps' renderer. This design draws the stand-in that a prototype needs and everything around it: the pages, the lists, the panels, the matrix, the forms and the words. Bench's Relations view is not redesigned here, and its per-type line styles are not adopted.
 
 ## The jobs
 
@@ -140,7 +140,6 @@ Both are switches in the web's toolbar, like Maps' layers. While one is on, a li
 ### SO5. The icons are R3 and W1
 
 A **Relationship** is two overlapping rings (new). A **Social web**, and the app, is a hub with three nodes (the atlas's `icon-social`). The two new kind icons are listed for the atlas as a follow-up and are not added by this work.
-
 
 ### SO6. The web page floats its controls over the graph, with a Members control
 

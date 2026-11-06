@@ -150,7 +150,6 @@ A description and notes are written in place and save as you type. Stats and tag
 
 Everything a GM does is drawn, not left to the old app: opening any being's board, a group's board and the board of what nobody owns; making an item from the catalog for a being, with an optional owner and link name; reassigning, unassigning and deleting an instance; adding an item to any board; creating, editing and deleting catalog items, with several prototypes, a public flag and "used as a prototype by"; editing stat values; the Unsorted page with its matching; unpacking a pack; and the notes' audiences. A player sees none of these controls, and what they may do on their own board follows self-service, with a note saying so when it is off.
 
-
 ### IN7. The board's name is a switcher
 
 Direction A. The board's name is a button; its menu lists your characters and groups, and for a GM a search for any being and the unowned things. A player with one character has nothing to choose. The last board you opened is remembered.

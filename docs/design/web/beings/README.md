@@ -13,7 +13,7 @@ Beings holds the characters of a library: player characters, non-player characte
 - **A being is played by someone,** and the GM can hand it over.
 - **Play changes numbers live** (a hit point, a use, a resource) in steps that can be undone.
 
-Sources: [the app's README](../../../apps/beings/README.md), ADRs [0270](../../adr/0270-beings-app.md) to [0272](../../adr/0272-beings-editing-stats-and-handing-over.md), [0281](../../adr/0281-sheet-settings-and-the-sheet-read.md) to [0284](../../adr/0284-beings-sheet-datasheet.md), [0296](../../adr/0296-being-stat-group.md), [0297](../../adr/0297-beings-stat-selection.md), [0302](../../adr/0302-deleting-a-being.md), [0304](../../adr/0304-atomic-information-audiences.md) to [0306](../../adr/0306-information-bundles-and-their-editors.md) and [0313](../../adr/0313-event-participation-browsing-and-calendar-addresses.md). Defining which stats a library has is Settings' job and is not designed here.
+Sources: [the app's README](../../../../apps/beings/README.md), ADRs [0270](../../../adr/0270-beings-app.md) to [0272](../../../adr/0272-beings-editing-stats-and-handing-over.md), [0281](../../../adr/0281-sheet-settings-and-the-sheet-read.md) to [0284](../../../adr/0284-beings-sheet-datasheet.md), [0296](../../../adr/0296-being-stat-group.md), [0297](../../../adr/0297-beings-stat-selection.md), [0302](../../../adr/0302-deleting-a-being.md), [0304](../../../adr/0304-atomic-information-audiences.md) to [0306](../../../adr/0306-information-bundles-and-their-editors.md) and [0313](../../../adr/0313-event-participation-browsing-and-calendar-addresses.md). Defining which stats a library has is Settings' job and is not designed here.
 
 ## Already decided
 
@@ -149,7 +149,7 @@ One reading column in the old order (About, Notes, Stats, Inventory), a rail on 
 
 ### BN7. Read and Play differ in what the page is for, and the page shows it
 
-First review: the split was not obvious. The earlier design's reasons (its own table and [ADR 0282](../../adr/0282-beings-sheet-shell-modes-and-sections.md), [0283](../../adr/0283-beings-sheet-play-stats-and-undo.md)) are that a mode says what you are doing, and that the two jobs are different. Reading is understanding a being: prose first. Playing is the table: numbers first, a change in a tap, nothing to scroll back for. So the page now says which one it is in:
+First review: the split was not obvious. The earlier design's reasons (its own table and [ADR 0282](../../../adr/0282-beings-sheet-shell-modes-and-sections.md), [0283](../../../adr/0283-beings-sheet-play-stats-and-undo.md)) are that a mode says what you are doing, and that the two jobs are different. Reading is understanding a being: prose first. Playing is the table: numbers first, a change in a tap, nothing to scroll back for. So the page now says which one it is in:
 
 - **One bar for the mode.** The Read and Play switch sits in the band, above the pinned numbers, so it is in view wherever the page is scrolled and changing mode never means scrolling back. A short line next to it says what the mode is for ("Reading. Edit a section where it is." and "At the table. Numbers first; every change can be undone."). Undo and History are on the same bar, and only in Play.
 - **Play looks different.** The bar is tinted with a stripe of the action colour; every number that can be set shows its stepper; the others show nothing to press.

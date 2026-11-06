@@ -83,6 +83,7 @@ The API, sign-in and sign-out, real offline storage and synchronisation, real co
 ### What was checked, and what was not
 
 Checked in a real browser (Chromium, Playwright), on 2026-11-04:
+
 - **axe-core** on the twelve routes at 430 and 1440, in light and dark: no violations after fixes.
 - **Pressed controls** are at least 44px at 430 on eleven routes.
 - **Thirty-one scripted behaviours** pass: the palette (open, search, narrow, close), the G chords, selection and the bulk bar, row menus, delete with Undo, the toast timer pausing and resetting under the pointer, filters, the offline strip, the sign-out, shortcuts and drawer dialogs, the save bar, the type-the-name delete, editor autosave, linking an entry with `Ctrl K`, moving a board item, the setup flow, the More sheet and the detail sheet on a phone, the palette as a full screen on a phone, the detail as a side sheet and the dialog as a sheet at 834, and the third pane at 2200.
@@ -184,6 +185,7 @@ No edge on icon buttons in a toolbar (bell, search icon, account). Controls that
 ### D16. Navigation between apps (decided with the maintainer, 2026-11-04)
 
 No app switcher (RFC 0036 section 2 and ADR 0322 stand). Four mechanisms, each with one job:
+
 1. **Links from the data** cross to the thing itself ("Open Mara Quill in Beings"), built from the `GET /app-links` templates.
 2. **Home**: every app has its own home. All homes share one block, "Continue" (what you were doing, across apps) and "What do you want to do?" (the apps by job); the rest of each home is specific to that app. The brand mark goes to the current app's home.
 3. **The footer** lists every app by job (desktop); on a phone the same list is the More sheet of the tab bar.
@@ -214,6 +216,7 @@ Content is capped in width (the probe caps at 1760). Certain content may use the
 ### D21. Page templates (decided with the maintainer, 2026-11-04)
 
 Seven templates: list and detail, reading, settings and forms, document editor, board, full-width workspace, home. Rules:
+
 - **Reading** has a 680px measure; the **editor** a 720px writing column.
 - **Settings and forms** are capped at 1040px: label and help on the left, fields on the right, one column on a phone.
 - **Saving** is chosen per template. Forms with irreversible effects use an explicit bar at the bottom ("1 change not saved", Discard, Save changes; a border, not a shadow). Writing and entry fields autosave and say "Saved". Every screen says which one it is, by state.
