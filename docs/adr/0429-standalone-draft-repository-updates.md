@@ -1,4 +1,4 @@
-# 0426 - Explicit repository text updates for standalone drafts
+# 0429 - Explicit repository text updates for standalone drafts
 
 RFC 0047 W9b builds on ADR 0398. ADR 0419 supplies the three-way review direction;
 this slice adds its first guarded application mechanism to the existing comparison.
@@ -37,3 +37,9 @@ Verify clean/conflicting choices, baseline advancement, stale local/upstream ver
 missing versions, atomic multi-payload history and backlinks, unchanged audiences and binary
 payloads, structural refusals, grant revocation and public released reads. Browser tests cover
 unsaved protection, acceptance, unchanged session credit, saved revision recovery and reload.
+
+## History
+
+Originally recorded as ADR 0426 on the Writing documentation branch. Renumbered to 0429
+on 2026-11-06 after the web-shell ADR 0426 merged into main; ADR 0428 was already reserved
+by the open account-hub shell PR. The decision is unchanged.
