@@ -422,3 +422,17 @@
     min-height: 44px;
   }
 }
+
+/* Home (ADR 0417, AH1): what needs the person and where they play beside what they run; the blocks
+   below hold Continue and the actions. One column below 1100px. */
+.home-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+@container shell (max-width: 1100px) {
+  .home-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
