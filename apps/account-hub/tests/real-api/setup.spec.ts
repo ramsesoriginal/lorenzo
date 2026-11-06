@@ -77,11 +77,11 @@ test('"I do": a library, a campaign, the creator as GM, and a link that works', 
   const n = names();
   const { page, context } = await signedInPage(browser, creator.subject);
   await page.goto('/setup');
-  await expect(page.getByRole('heading', { name: 'Set up a table' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Set up a library' })).toBeVisible();
   await fillBasics(page, n);
   await page.getByRole('button', { name: 'Set up', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Your table is ready' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your library is ready' })).toBeVisible();
   await expect(page.locator('[data-setup]')).toContainText(`${n.campaign} is in ${n.library}.`);
   await expect(page.locator('[data-setup]')).toContainText("You're its GM.");
   const link = page.getByLabel('Link for your players', { exact: true });
@@ -142,7 +142,7 @@ test('"someone I can find": the person found is made GM now, and the creator is 
   await expect(page.locator('[data-setup]')).toContainText(`Found: ${nickname}`);
   await page.getByRole('button', { name: 'Set up', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Your table is ready' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your library is ready' })).toBeVisible();
   await expect(page.locator('[data-setup]')).toContainText(`${nickname} is its GM.`);
   const made = await whatWasMade(creator, n.library);
   const campaignId = made.campaigns[0]?.id as string;
@@ -162,7 +162,7 @@ test('"someone I\'ll send a link to": a single-use GM link that makes a GM and n
   await expect(page.getByLabel('GM link works for')).toBeVisible();
   await page.getByRole('button', { name: 'Set up', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Your table is ready' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your library is ready' })).toBeVisible();
   await expect(page.locator('[data-setup]')).toContainText(
     'Send the GM link to the person who should run it.',
   );
@@ -259,7 +259,7 @@ test('a step that fails stops there, says why, and goes on from it without makin
   ).toHaveLength(1);
 
   await page.getByRole('button', { name: 'Try again' }).click();
-  await expect(page.getByRole('heading', { name: 'Your table is ready' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your library is ready' })).toBeVisible();
 
   // Still one library: the retry went on from the campaign.
   const made = await whatWasMade(creator, n.library);
@@ -287,10 +287,10 @@ test('only an account the API says may create is offered setup, and the links to
   await expect(refused.page.locator('[data-account-signed-in]')).toBeVisible();
   // Neither the page's own offer nor the header's link to setup.
   await expect(
-    refused.page.locator('main').getByRole('link', { name: /Set up a (table|library)/ }),
+    refused.page.locator('main').getByRole('link', { name: 'Set up a library' }),
   ).toHaveCount(0);
   await expect(
-    refused.page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
+    refused.page.getByRole('banner').getByRole('link', { name: 'Set up a library' }),
   ).toBeHidden();
   await refused.context.close();
 
@@ -300,14 +300,14 @@ test('only an account the API says may create is offered setup, and the links to
   // A new account is offered the first-run choice, whose door says "library".
   await expect(page.locator('main').getByRole('link', { name: 'Set up a library' })).toBeVisible();
   await expect(
-    page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
+    page.getByRole('banner').getByRole('link', { name: 'Set up a library' }),
   ).toHaveAttribute('href', '/setup/');
   // /tenants no longer has an empty page for an account that may create: with no library it opens
   // the form to make one (TenantsPanel's defaultView), and the header's link is the way to /setup.
   await page.goto('/tenants');
   await expect(page.locator('[data-create-tenant]')).toBeVisible();
   await expect(
-    page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
+    page.getByRole('banner').getByRole('link', { name: 'Set up a library' }),
   ).toBeVisible();
   await context.close();
 });
