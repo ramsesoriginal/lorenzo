@@ -3,8 +3,8 @@
 Hand-written SVG drawing of a graph of Lorenzo entries ([ADR 0407](../../docs/adr/0407-the-graph-renderer.md)).
 No graph library, no canvas, no network, no runtime dependency: it draws what it is given and never
 fetches, writes or stores anything. It ships TypeScript source, as the other packages do. Lorenzo
-Social ([ADR 0408](../../docs/adr/0408-lorenzo-social-the-app.md)) is its first consumer; Bench's
-Relations view and the Beings relationships slot are the named second consumers.
+Social ([ADR 0408](../../docs/adr/0408-lorenzo-social-the-app.md)) is its first consumer; the Relations pane of
+[`apps/bench`](../../apps/bench) and the Relationships section of a being in [`apps/beings`](../../apps/beings) are the second.
 
 ```ts
 import '@lorenzo/graph-renderer/graph.css'; // the classes the drawing uses, in brand tokens only

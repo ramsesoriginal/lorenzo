@@ -226,6 +226,9 @@ importers:
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@lorenzo/graph-renderer':
+        specifier: workspace:*
+        version: link:../../packages/graph-renderer
       '@lorenzo/information-editor':
         specifier: workspace:*
         version: link:../../packages/information-editor
@@ -284,6 +287,9 @@ importers:
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@lorenzo/graph-renderer':
+        specifier: workspace:*
+        version: link:../../packages/graph-renderer
       '@lorenzo/information-editor':
         specifier: workspace:*
         version: link:../../packages/information-editor
