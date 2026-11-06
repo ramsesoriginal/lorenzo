@@ -8,11 +8,13 @@ export default defineConfig({
   output: 'static',
   // The page of a link is fetched while the pointer is on it (lib/prefetch.ts warms what it reads).
   prefetch: { prefetchAll: true, defaultStrategy: 'hover' },
-  // /overview and /characters became one page (ADR 0179). A static build turns
-  // each entry into a page that forwards, so bookmarks and old links still work.
+  // /overview and /characters became one page (ADR 0179), and that page moved into the libraries
+  // (ADR 0428). A static build turns each entry into a page that forwards, so bookmarks and old
+  // links still work.
   redirects: {
-    '/overview': '/campaigns',
-    '/characters': '/campaigns',
+    '/overview': '/tenants',
+    '/characters': '/tenants',
+    '/campaigns': '/tenants',
   },
   // Fixed, non-default port: apps/inventory-web already owns Astro's
   // default 4321, and both apps need to run concurrently in local dev.

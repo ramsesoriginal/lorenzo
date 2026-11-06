@@ -115,10 +115,6 @@ test('"I do": a library, a campaign, the creator as GM, and a link that works', 
   // "Done" takes the link off the page.
   await page.locator('[data-player-link]').getByRole('button', { name: 'Done' }).click();
   await expect(page.getByLabel('Link for your players', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Your campaigns' })).toHaveAttribute(
-    'href',
-    '/campaigns/',
-  );
   await context.close();
 });
 
@@ -296,9 +292,6 @@ test('only an account the API says may create is offered setup, and the links to
   await expect(
     refused.page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
   ).toBeHidden();
-  await refused.page.goto('/campaigns');
-  await expect(refused.page.locator('[data-empty]')).toBeVisible();
-  await expect(refused.page.locator('[data-empty] [data-setup]')).toBeHidden();
   await refused.context.close();
 
   const maker = await newUser('maker', ['tenant_creator']);
@@ -308,12 +301,6 @@ test('only an account the API says may create is offered setup, and the links to
   await expect(page.locator('main').getByRole('link', { name: 'Set up a library' })).toBeVisible();
   await expect(
     page.getByRole('banner').getByRole('link', { name: 'Set up a table' }),
-  ).toHaveAttribute('href', '/setup/');
-  // Nothing yet on /campaigns: it points at it.
-  await page.goto('/campaigns');
-  await expect(page.locator('[data-empty]')).toBeVisible();
-  await expect(
-    page.locator('[data-empty]').getByRole('link', { name: 'Set up a table' }),
   ).toHaveAttribute('href', '/setup/');
   // /tenants no longer has an empty page for an account that may create: with no library it opens
   // the form to make one (TenantsPanel's defaultView), and the header's link is the way to /setup.

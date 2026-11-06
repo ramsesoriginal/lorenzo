@@ -85,11 +85,12 @@ export function campaignCard(library: Locator, name: string) {
     .filter({ has: library.page().getByRole('heading', { name, exact: true }) });
 }
 
-/** A player's seat on /campaigns ("Where you play"), found by its campaign's name. */
+/** A player's seat in a campaign's card in the open library, found by the campaign's name. */
 export function seatFor(page: Page, campaignName: string) {
   return page
-    .locator('[data-seat]')
-    .filter({ has: page.getByRole('heading', { name: new RegExp(`^${campaignName}`) }) });
+    .locator('[data-campaign-list] > article')
+    .filter({ has: page.getByRole('heading', { name: campaignName, exact: true }) })
+    .locator('[data-seat]');
 }
 
 /** A repository, made through the API by an account holding the tenant-creator role. */
