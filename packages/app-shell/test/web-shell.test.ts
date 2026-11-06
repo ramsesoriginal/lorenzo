@@ -829,3 +829,120 @@ describe('templates and states', () => {
     expect(document.querySelector('.page-state p')?.textContent).toBe('Make the first.');
   });
 });
+
+describe('saving', () => {
+  const bar = () => document.querySelector('[data-shell-savebar]') as HTMLElement;
+  const text = () => bar().querySelector('[data-shell-savebar-text]')?.textContent;
+  const buttons = () => [...bar().querySelectorAll('button')];
+
+  it('opens on a change, counts, and closes at none', async () => {
+    const shell = mount(await render('web'));
+    const sb = shell.saveBar({ save: () => {}, discard: () => {} });
+
+    expect(bar().hasAttribute('data-open')).toBe(false);
+    sb.set(1);
+    expect(bar().hasAttribute('data-open')).toBe(true);
+    expect(text()).toBe('1 change not saved');
+    expect(buttons().map((b) => b.textContent)).toEqual(['Discard', 'Save changes']);
+    sb.set(0);
+    expect(bar().hasAttribute('data-open')).toBe(false);
+  });
+
+  it('rewrites its buttons only when the number of changes changes', async () => {
+    const shell = mount(await render('web'));
+    const sb = shell.saveBar({ save: () => {}, discard: () => {} });
+
+    sb.set(1);
+    const save = buttons()[1];
+
+    sb.set(1);
+    expect(buttons()[1]).toBe(save);
+    sb.set(2);
+    expect(text()).toBe('2 changes not saved');
+    expect(buttons()[1]).not.toBe(save);
+  });
+
+  it('saves once while it is saving, and discards', async () => {
+    const shell = mount(await render('web'));
+    const discard = vi.fn();
+    let finish = () => {};
+    const save = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    const sb = shell.saveBar({ save, discard });
+
+    sb.set(2);
+    buttons()[1]?.click();
+    buttons()[1]?.click();
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(buttons()[1]?.textContent).toBe('Saving…');
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(buttons()[1]?.textContent).toBe('Save changes');
+    buttons()[0]?.click();
+    expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the changes and says so when a save fails, with a way to try again', async () => {
+    const shell = mount(await render('web'));
+    const save = vi.fn().mockRejectedValueOnce(new Error('no')).mockResolvedValue(undefined);
+    const sb = shell.saveBar({ save, discard: () => {} });
+
+    sb.set(1);
+    buttons()[1]?.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sb.count()).toBe(1);
+    expect(document.querySelector('.toast-card[data-kind="error"] .toast-title')?.textContent).toBe(
+      'Couldn’t save',
+    );
+    (document.querySelector('.toast-action') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks before leaving the page with changes, and not without', async () => {
+    const shell = mount(await render('web'));
+    const sb = shell.saveBar({ save: () => {}, discard: () => {} });
+    const leave = () => {
+      const event = new dom.window.Event('beforeunload', { cancelable: true });
+
+      dom.window.dispatchEvent(event);
+
+      return event.defaultPrevented;
+    };
+
+    expect(leave()).toBe(false);
+    sb.set(1);
+    expect(leave()).toBe(true);
+    sb.set(0);
+    expect(leave()).toBe(false);
+  });
+
+  it('signing out with unsaved changes says so and asks first', async () => {
+    const onLogout = vi.fn();
+    const shell = mount(await render('web'), '/', { onLogout });
+
+    shell.account({ state: 'signed-in', label: 'mara@example.com' });
+    shell.saveBar({ save: () => {}, discard: () => {} }).set(2);
+    (document.querySelector('[data-shell-account-button]') as HTMLButtonElement).click();
+    [...document.querySelectorAll<HTMLElement>('.menu [role^="menuitem"]')].pop()?.click();
+    vi.advanceTimersByTime(10);
+    expect(onLogout).not.toHaveBeenCalled();
+    expect([...document.querySelectorAll('dialog')].pop()?.textContent).toContain(
+      '2 changes not saved. Signing out discards them.',
+    );
+  });
+
+  it('draws the autosave indicator into the host the app gives', async () => {
+    const shell = mount(await render('web'));
+    const host = document.createElement('span');
+    const auto = shell.autosave(host);
+
+    auto.set('saving');
+    expect(host.textContent).toBe('Saving…');
+    expect(host.getAttribute('role')).toBe('status');
+    auto.set('device');
+    expect(host.dataset.state).toBe('device');
+    expect(host.textContent).toContain('Saved on this device');
+    auto.clear();
+    expect(host.children).toHaveLength(0);
+  });
+});

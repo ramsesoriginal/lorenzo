@@ -95,3 +95,11 @@ shell?.notifications({ count: 3, href: hubUrl + '/notifications/' }); // the bel
 - `<AppPage shell="web" template="reading">` gives the page the width of one of the seven templates (`list-detail`, `reading`, `form`, `editor`, `board`, `workspace`, `home`; `pageClass` and `defaultSaving` are the pure parts). Without `template` the page keeps `wrap`.
 - `shell.state(host, { kind, noun?, actions? … })` puts a state in a region in place of its rows: `empty`, `empty-search`, `loading` (skeleton lines; `slow` says so), `error` (with a `code` for support), `partial`, `conflict`, `offline`. `shell.state(host, null)` clears it. The words are the design's; an app may give its own `title` and `text`. A state never says how many things the person cannot see.
 - `shell.pageState({ art, … })` replaces the page with a mascot: `page-not-found`, `no-access`, `offline-page`, `error-page`, `caught-up` and the empty pages have shared words; an app names its own `art` id and words for the rest. The image is `<brandingUrl>/mascots/ui_<id>.png`; until it is delivered a dashed placeholder with the alt text shows.
+
+### Saving and retry
+
+([ADR 0412](../../docs/adr/0412-web-page-templates-and-saving.md), [ADR 0413](../../docs/adr/0413-web-states-and-the-mascots.md))
+
+- **Explicit save bar** for a form with irreversible effects: `const bar = shell.saveBar({ save, discard })`, then `bar.set(n)` with the number of changes. It opens above the status bar when `n > 0`, says "N changes not saved", and rewrites its buttons only when `n` changes (rewriting them on every edit loses a click on Save). A save that fails keeps the changes and shows an error toast with "Try again". Leaving the page, or signing out, with changes asks first, and the sign-out dialog says how many.
+- **Autosave** for writing: `shell.autosave(host).set('saving' | 'saved' | 'device' | 'error')`. `device` says plainly that the change is only on this device and is sent when the connection is back.
+- **`retryRead(read, { onRetry })`** runs a read again after a failure, with a wait that doubles from a second to eight, and throws the last error after the last try so the page can show an error state with "Try again". It is for reads only: a write is never retried automatically.
