@@ -507,48 +507,21 @@ dialog::backdrop {
   backdrop-filter: blur(4px);
 }
 
-/* A dialog opens and closes with a short fade and lift; where the browser cannot animate
-   display it simply appears (no @supports, no motion). Reduced motion removes it (motion.css). */
-@supports (transition-behavior: allow-discrete) {
-  dialog {
+/* A dialog fades in. It does not move, so its box is its final box the moment it opens; and it
+   closes at once, so nothing is left on the page that a script or a test could still reach.
+   Reduced motion removes the fade (motion.css). */
+@keyframes brand-dialog-in {
+  from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
-    transition:
-      opacity var(--dur-med) var(--ease),
-      transform var(--dur-med) var(--ease),
-      overlay var(--dur-med) allow-discrete,
-      display var(--dur-med) allow-discrete;
   }
+}
 
-  dialog[open] {
-    opacity: 1;
-    transform: none;
-  }
+dialog[open] {
+  animation: brand-dialog-in var(--dur-med) var(--ease);
+}
 
-  @starting-style {
-    dialog[open] {
-      opacity: 0;
-      transform: translateY(8px) scale(0.985);
-    }
-  }
-
-  dialog::backdrop {
-    opacity: 0;
-    transition:
-      opacity var(--dur-med) var(--ease),
-      overlay var(--dur-med) allow-discrete,
-      display var(--dur-med) allow-discrete;
-  }
-
-  dialog[open]::backdrop {
-    opacity: 1;
-  }
-
-  @starting-style {
-    dialog[open]::backdrop {
-      opacity: 0;
-    }
-  }
+dialog[open]::backdrop {
+  animation: brand-dialog-in var(--dur-med) var(--ease);
 }
 
 dialog h2,
@@ -588,18 +561,6 @@ dialog h3 {
     border-radius: var(--radius-surface) var(--radius-surface) 0 0;
     padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
     overflow: auto;
-  }
-
-  @supports (transition-behavior: allow-discrete) {
-    dialog {
-      transform: translateY(100%);
-    }
-
-    @starting-style {
-      dialog[open] {
-        transform: translateY(100%);
-      }
-    }
   }
 
   dialog .sheet-grip {
