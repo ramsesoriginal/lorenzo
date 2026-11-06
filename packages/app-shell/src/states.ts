@@ -191,6 +191,8 @@ export type PageStateSpec = {
   alt?: string;
   /** The page's heading; the shared states (no access, not found, …) have their own words. */
   title?: string;
+  /** The heading's level: 1 for a page that is only this, 2 when it stands inside a page that has its own heading. */
+  level?: 1 | 2;
   text?: string;
   actions?: StateAction[];
   /** An address for a link as the one next step, when going somewhere is the step. */
@@ -251,7 +253,10 @@ export function pageState(base: string, spec: PageStateSpec): HTMLElement {
     art.replaceChildren(document.createTextNode(alt));
   });
   art.append(image);
-  block.append(art, el('h1', undefined, spec.title ?? known?.title ?? ''));
+  block.append(
+    art,
+    el(spec.level === 2 ? 'h2' : 'h1', undefined, spec.title ?? known?.title ?? ''),
+  );
   if (text) block.append(el('p', undefined, text));
 
   if (spec.link) {

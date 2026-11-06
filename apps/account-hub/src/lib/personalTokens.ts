@@ -64,6 +64,20 @@ export function suggestedTokenName(clientName: string | null | undefined): strin
   return name === '' ? 'My device' : name;
 }
 
+export const TOKEN_NAME_MAX = 80;
+
+// Why a token's name cannot be used, in words, or null when it can (ADR 0418, PT5).
+export function tokenNameProblem(name: string): string | null {
+  const trimmed = name.trim();
+
+  if (trimmed === '') return 'Give the token a name, so you can tell it from the others.';
+  if ([...trimmed].length > TOKEN_NAME_MAX) {
+    return `A name can be at most ${TOKEN_NAME_MAX} characters.`;
+  }
+
+  return null;
+}
+
 export function revokeTokenConfirmation(name: string): string {
   return `Revoke "${name}"? Whatever is using it stops working at once, and you can't undo this. You can connect it again with a new code.`;
 }
