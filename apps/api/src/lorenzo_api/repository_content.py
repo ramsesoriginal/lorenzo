@@ -280,6 +280,11 @@ class Content:
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
     entry_knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     fact_about: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    # How a release of a public repository carries each repository it is built on (ADR 0431):
+    # origin repository -> {inclusion, name, licence}, where `licence` is `{label, url}` or none.
+    # Written only by the release builder, from the repository's copy records; a `Content` loaded
+    # for any other purpose has none.
+    sources: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     links: Links = field(default_factory=Links)
 
     def origin(self, kind: str, local_id: uuid.UUID) -> uuid.UUID:

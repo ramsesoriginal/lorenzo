@@ -71,5 +71,15 @@ class RepositoryProfile(Base):
     released_at: Mapped[datetime | None]
     entry_count: Mapped[int | None]
     stat_definition_count: Mapped[int | None]
+    # A's terms (ADR 0431, RFC 0051): whether a repository built on this one may include it. Null
+    # is the default for the repository's visibility (`repository_terms.may_be_included`); a
+    # value the Owner chose wins.
+    may_be_included: Mapped[bool | None]
+    # How the current public release carries each repository it is built on, as the release
+    # recorded it: a list of `{id, name, inclusion, licence_label, licence_url}`. Null until the
+    # repository makes a public release; written with the listing facts above, so it is always
+    # that of the current release. The storefront names what is included from it, and the
+    # breaking-change rule compares the choices now with it.
+    release_sources: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     updated_by: Mapped[UpdatedBy]
     updated_at: Mapped[UpdatedAt]

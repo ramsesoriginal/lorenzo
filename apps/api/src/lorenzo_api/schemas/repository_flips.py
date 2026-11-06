@@ -6,7 +6,12 @@ from typing import Annotated
 from pydantic import BaseModel, Field, field_validator
 
 from lorenzo_api.schemas.discover import PublisherOut
-from lorenzo_api.schemas.repositories import BuiltOnBehindOut, PublishRequest
+from lorenzo_api.schemas.repositories import (
+    BuiltOnBehindOut,
+    IncludableOut,
+    InclusionName,
+    PublishRequest,
+)
 from lorenzo_api.schemas.repository_profiles import (
     SUMMARY_MAX,
     DelistedOut,
@@ -18,6 +23,7 @@ from lorenzo_api.schemas.repository_profiles import (
 
 __all__ = [
     "BuiltOnPublicOut",
+    "BuiltOnSourceOut",
     "FlipCheckOut",
     "MadePrivateOut",
     "MakePublicRequest",
@@ -61,6 +67,23 @@ class BuiltOnPublicOut(BaseModel):
     owned: bool
 
 
+class BuiltOnSourceOut(BaseModel):
+    """A repository this one is built on, as its Owner sees it before making this one public (ADR
+    0431): whether it is public, whether the caller owns it, how this repository carries it
+    (`inclusion`), whether the caller may include it and why (`includable`), and how the current
+    public release carried it (`in_release`, null when none did or it was built on later). A
+    private one that is not included stops this repository being made public; one that is
+    included does not, and says so."""
+
+    id: uuid.UUID
+    name: str
+    public: bool
+    owned: bool
+    inclusion: InclusionName
+    includable: IncludableOut
+    in_release: InclusionName | None
+
+
 class PublicDependentOut(BaseModel):
     """A public repository built on this one, and whether the caller owns it."""
 
@@ -82,6 +105,8 @@ class FlipCheckOut(BaseModel):
     has_summary: bool
     built_on_not_public: list[BuiltOnPublicOut]
     built_on_behind: list[BuiltOnBehindOut]
+    # Every repository it is built on, with the choice made for each (ADR 0431).
+    built_on: list[BuiltOnSourceOut]
     public_dependents: list[PublicDependentOut]
     public_libraries: int
     invited_libraries: int

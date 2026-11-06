@@ -10,6 +10,11 @@ from lorenzo_api.schemas.repository_profiles import DeprecatedNoticeOut
 from lorenzo_api.schemas.tenants import TenantOut
 
 __all__ = [
+    "IncludableOut",
+    "InclusionChangeOut",
+    "InclusionIn",
+    "InclusionName",
+    "InclusionOut",
     "AttachmentActionIn",
     "AttachmentActionName",
     "AttachmentAddedOut",
@@ -77,6 +82,50 @@ def _blank_is_none(value: str | None) -> str | None:
         return None
     value = value.strip()
     return value or None
+
+
+# How a repository carries one it is built on when it releases (ADR 0431, RFC 0051).
+InclusionName = Literal["show", "include"]
+
+
+class IncludableOut(BaseModel):
+    """Whether a user may include a repository in one they own (ADR 0431): they own it
+    (`by = owner`), or its terms allow it (`by = terms`)."""
+
+    allowed: bool
+    by: Literal["owner", "terms"] | None = None
+
+
+class InclusionIn(BaseModel):
+    """`PUT .../repositories/{repository_id}/inclusion` (ADR 0431): how this repository carries the
+    one it is built on when it releases. `include` makes its rows this repository's own in the
+    release document; `show` leaves it a repository of its own."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    inclusion: InclusionName
+
+
+class InclusionOut(BaseModel):
+    """The choice as it stands: `inclusion`, whether the caller may include it, how the current
+    public release carried it, and whether the next release is breaking for it (a change from what
+    that release recorded: rows libraries hold change origin)."""
+
+    repository_id: uuid.UUID
+    name: str
+    inclusion: InclusionName
+    includable: IncludableOut
+    inclusion_in_release: InclusionName | None
+    breaking_next_release: bool
+
+
+class InclusionChangeOut(BaseModel):
+    """A repository a release would carry differently from the last public one (ADR 0431)."""
+
+    repository_id: uuid.UUID
+    name: str
+    before: InclusionName
+    after: InclusionName
 
 
 ReleasedKindName = Literal["entity", "stat_group", "stat_definition", "attachment"]
@@ -294,6 +343,10 @@ class ReleasePreviewOut(BaseModel):
     libraries_told: int
     built_on_behind: list[BuiltOnBehindOut]
     built_on_blocks_publish: bool
+    # The repositories it is built on that a public release would carry differently from the way
+    # the last one did (ADR 0431). Like `breaking`, they are what a publish refuses without
+    # `acknowledge_breaking`: the rows a library holds change origin.
+    inclusion_changes: list[InclusionChangeOut] = []
 
 
 class SubscriberOut(BaseModel):
@@ -312,6 +365,9 @@ class SubscriberOut(BaseModel):
     # The release it last took: null before it copies, and for a copy made before releases
     # existed (ADR 0207).
     synced_release: ReleaseRefOut | None
+    # How it carries this repository when it releases, if it copied it (ADR 0431): a library's is
+    # always `show`. Null before it copies. The Owner of the repository reads who chose what.
+    inclusion: InclusionName | None = None
 
 
 class SubscribersSummaryOut(BaseModel):
@@ -366,6 +422,13 @@ class SubscriptionOut(BaseModel):
     # Set while the repository's Owner has it retired (ADR 0384): the library keeps what it copied
     # and its updates, and can no longer copy it. The Owner's message, or `null` when there is none.
     deprecated: DeprecatedNoticeOut | None = None
+    # For a repository that has copied this one (ADR 0431): how it carries it when it releases
+    # (`inclusion`), whether the caller may include it and why (`includable`), and how its current
+    # public release carried it (`inclusion_in_release`, null when none did or it was built on
+    # later). All null for a library, and for a repository that has not copied this one.
+    inclusion: InclusionName | None = None
+    includable: IncludableOut | None = None
+    inclusion_in_release: InclusionName | None = None
 
 
 class ContributionOut(BaseModel):

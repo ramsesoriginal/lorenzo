@@ -111,6 +111,7 @@ __all__ = [
     "RepositoryCopyNeedsGrantsError",
     "InvalidRepositoryUpdateError",
     "RepositoryNotCopiedError",
+    "RepositoryNotIncludableError",
     "RepositoryUpdateNeedsChoicesError",
     "PublicRepositoriesNotAvailableError",
     "TermsNotAcceptedError",
@@ -1073,6 +1074,14 @@ class RepositoryNotCopiedError(ConflictProblem):
     title = "This repository hasn't been copied here"
 
 
+class RepositoryNotIncludableError(ConflictProblem):
+    """Including a repository in another's release when the user is not an Owner of it and its
+    terms do not allow it - ADR 0431, RFC 0051. Carries `repositories`: each one that cannot be
+    included, by id and name. One Owner's content is not published by another without a yes."""
+
+    title = "This repository cannot be included"
+
+
 class RepositoryUpdateNeedsChoicesError(ConflictProblem):
     """Applying an update where this tenant changed a field too, without
     saying whether to keep its own value or take the repository's - ADR
@@ -1108,7 +1117,9 @@ class PublicRepositoryHasNoReleaseError(ConflictProblem):
 class ReleaseHasBreakingChangesError(ConflictProblem):
     """Publishing a release that holds changes the update engine cannot carry to a library that
     already copied the repository, without `acknowledge_breaking` - ADR 0208, RFC 0037 §3.
-    Carries `breaking_rows`: each row, with the reason it breaks, in words."""
+    Carries `breaking_rows`: each row, with the reason it breaks, in words.
+    Carries `inclusion_changes` too when a repository it is built on is carried differently from
+    the way the last public release carried it (ADR 0431)."""
 
     title = "This release would break things"
 

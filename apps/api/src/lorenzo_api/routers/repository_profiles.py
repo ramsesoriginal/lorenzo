@@ -45,7 +45,17 @@ from lorenzo_api.schemas.repository_profiles import (
 router = APIRouter(prefix="/tenants/{tenant_id}", tags=["repositories"])
 
 # What a PATCH may change, in the order the activity log names it.
-_FIELDS = ("visibility", "preview", "summary", "licence", "credits", "tags", "system", "languages")
+_FIELDS = (
+    "visibility",
+    "preview",
+    "summary",
+    "licence",
+    "credits",
+    "tags",
+    "system",
+    "languages",
+    "terms",
+)
 
 
 def _not_found(tenant_id: uuid.UUID, repository_id: uuid.UUID) -> RepositoryNotFoundError:
@@ -96,6 +106,9 @@ async def update_profile(
             "themselves."
         )
     changed = [name for name in _FIELDS if name in body.model_fields_set]
+    # `terms` is changed by what it says: an empty one says nothing (ADR 0431).
+    if body.terms is not None and "may_be_included" not in body.terms.model_fields_set:
+        changed.remove("terms")
     for name in changed:
         value = getattr(body, name)
         if name == "licence":
@@ -103,6 +116,8 @@ async def update_profile(
             profile.licence_url = value.url if value else None
         elif name == "credits":
             profile.credits = [credit.model_dump() for credit in value]
+        elif name == "terms":
+            profile.may_be_included = value.may_be_included
         else:
             setattr(profile, name, value)
     if changed:
