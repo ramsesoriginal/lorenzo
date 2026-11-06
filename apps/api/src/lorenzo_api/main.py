@@ -68,6 +68,7 @@ from lorenzo_api.routers.pictures import router as pictures_router
 from lorenzo_api.routers.players import router as players_router
 from lorenzo_api.routers.public_repositories import router as public_repositories_router
 from lorenzo_api.routers.relationship_bulk import router as relationship_bulk_router
+from lorenzo_api.routers.relationship_through import router as relationship_through_router
 from lorenzo_api.routers.relationships import router as relationships_router
 from lorenzo_api.routers.repositories import router as repositories_router
 from lorenzo_api.routers.repository_deprecation import router as repository_deprecation_router
@@ -191,6 +192,7 @@ def create_app() -> FastAPI:
     app.include_router(maps_router)
     app.include_router(connections_router)
     app.include_router(relationship_bulk_router)
+    app.include_router(relationship_through_router)
     app.include_router(relationships_router)
     app.include_router(distance_router)
     app.include_router(frames_router)

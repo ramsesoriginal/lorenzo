@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 33
+FORMAT = 34
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -152,6 +152,10 @@ def _pair_set(first: _Codec, second: _Codec) -> _Codec:
 
 _ID_SET = _Codec(lambda s, f: sorted(str(v) for v in s), lambda s, f: {uuid.UUID(v) for v in s})
 _TEXT_SET = _Codec(lambda s, f: sorted(s), lambda s, f: set(s))
+# An ordered list of ids: a list, in the order it has (a chain, ADR 0402).
+_ID_LIST = _Codec(
+    lambda items, f: [str(v) for v in items], lambda items, f: [uuid.UUID(v) for v in items]
+)
 
 
 def _keyed(value: _Codec) -> _Codec:
@@ -440,6 +444,7 @@ _CONTENT = _dataclass(
                 name="Content.relationships",
             )
         ),
+        "relationship_through": _id_map(_ID_LIST),
         "location_parts": _id_map(
             _record({"parent": _ID, "ordinal": _PLAIN}, name="Content.location_parts")
         ),
@@ -661,6 +666,10 @@ def _read_v32(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v33(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v34({**document, "relationship_through": {}}, files)
+
+
+def _read_v34(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -701,6 +710,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     31: _read_v31,
     32: _read_v32,
     33: _read_v33,
+    34: _read_v34,
 }
 
 

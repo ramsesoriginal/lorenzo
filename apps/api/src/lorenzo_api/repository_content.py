@@ -81,6 +81,7 @@ from lorenzo_api.models import (
     PayloadNumber,
     PayloadPicture,
     Relationship,
+    RelationshipThrough,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
@@ -251,6 +252,8 @@ class Content:
     connections: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     # relationship -> {end_a, end_b, one_way}: the entries it ties, and one way or not (ADR 0399).
     relationships: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # relationship -> the relationships it is stated to hold through, in order (ADR 0402).
+    relationship_through: dict[uuid.UUID, list[uuid.UUID]] = field(default_factory=dict)
     # map -> its layers in order, each {information, calibration, opacity, reviewed}: `information`
     # an id as text, `reviewed` a hex fingerprint or none (ADR 0361).
     map_layers: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
@@ -826,6 +829,13 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=Relationship.tenant_id == t,
         )
     }
+    for held, via in await rows(
+        RelationshipThrough.relationship_entity_id,
+        RelationshipThrough.via_entity_id,
+        where=RelationshipThrough.tenant_id == t,
+        order_by=(RelationshipThrough.relationship_entity_id, RelationshipThrough.step),
+    ):
+        c.relationship_through.setdefault(held, []).append(via)
     for drawn_on, _position, info, calibration, opacity, reviewed in await rows(
         MapLayer.map_entity_id,
         MapLayer.position,
@@ -1172,6 +1182,10 @@ def entity_snapshot(
                     "end_a": name("entity", content.relationships[entity_id]["end_a"]),
                     "end_b": name("entity", content.relationships[entity_id]["end_b"]),
                     "one_way": bool(content.relationships[entity_id]["one_way"]),
+                    "through": [
+                        name("entity", via)
+                        for via in content.relationship_through.get(entity_id, [])
+                    ],
                 }
             }
             if entity_id in content.relationships

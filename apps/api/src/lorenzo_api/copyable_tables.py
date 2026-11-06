@@ -102,6 +102,7 @@ from lorenzo_api.models import (
     PayloadPicture,
     Player,
     Relationship,
+    RelationshipThrough,
     ReleaseFanout,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
@@ -210,6 +211,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(Connection, "connection"),
     # A tie between two entries, so it comes after every entry (ADR 0399).
     _rows(Relationship, "relationship"),
+    # The relationships one holds through, so after every relationship (ADR 0402).
+    _rows(RelationshipThrough, "relationship_through", counted_on_purge=True),
     _rows(ClockRelationship, "clock_relationship", counted_on_purge=True),
     _rows(StoryEvent, "story_event", carried_by="entity"),
     _rows(EventClockReading, "event_clock_reading", counted_on_purge=True),

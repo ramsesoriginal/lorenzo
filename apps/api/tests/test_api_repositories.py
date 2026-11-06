@@ -65,6 +65,7 @@ async def test_granting_publishing_browsing_and_removing(
         assert set(by_name) == {
             "Fixture road",
             "Fixture bond",
+            "Fixture second bond",
             "Blade",
             "Chest",
             "Elminster",

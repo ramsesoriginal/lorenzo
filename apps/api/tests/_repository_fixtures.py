@@ -71,6 +71,7 @@ from lorenzo_api.models import (
     PayloadNumber,
     PayloadPicture,
     Relationship,
+    RelationshipThrough,
     RepositoryCopy,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
@@ -128,6 +129,7 @@ async def seed_every_content_table(
     chart = entity("Fixture map")
     road = entity("Fixture road")
     bond = entity("Fixture bond")
+    second_bond = entity("Fixture second bond")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     await session.flush()
@@ -142,6 +144,13 @@ async def seed_every_content_table(
             ),
             Relationship(
                 entity_id=bond.id, tenant_id=tenant_id, end_a=place.id, end_b=room.id, one_way=None
+            ),
+            Relationship(
+                entity_id=second_bond.id,
+                tenant_id=tenant_id,
+                end_a=room.id,
+                end_b=place.id,
+                one_way=True,
             ),
             Map(
                 entity_id=chart.id,
@@ -175,6 +184,12 @@ async def seed_every_content_table(
         [
             FactAbout(fact_entity_id=fact.id, subject_entity_id=blade.id, tenant_id=tenant_id),
             EntityKnowledge(entity_id=fact.id, knower_entity_id=guild.id, tenant_id=tenant_id),
+            RelationshipThrough(
+                relationship_entity_id=bond.id,
+                step=1,
+                via_entity_id=second_bond.id,
+                tenant_id=tenant_id,
+            ),
         ]
     )
 

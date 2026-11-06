@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 33
+    assert rd.FORMAT == 34
     assert rd.encode(full_content())[0] == {
         **golden,
         "definitions": {
@@ -116,6 +116,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "map_layers": {},
         "connections": {},
         "relationships": {},
+        "relationship_through": {},
         "clocks": {},
         "clock_readings": [],
         "clock_relationships": [],
@@ -445,3 +446,21 @@ def test_stat_scales_survive_a_round_trip() -> None:
         -10.0,
         10.0,
     )
+
+
+def test_version_thirty_three_has_no_relationship_chains() -> None:
+    """A repository written before chains reads with none (ADR 0402)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "relationship_through"}
+
+    assert rd.READERS[33](old, files).relationship_through == {}
+
+
+def test_relationship_chains_survive_a_round_trip_in_order() -> None:
+    head, one, two, three = (uuid.UUID(int=n) for n in (200, 201, 202, 203))
+    content = full_content()
+    content.relationship_through = {head: [three, one, two]}
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).relationship_through == {head: [three, one, two]}

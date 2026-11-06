@@ -2664,6 +2664,16 @@ class RelationshipCreate(BaseModel):
     is_public: bool | None = Field(False, title="Is Public")
 
 
+class RelationshipProblem(BaseModel):
+    kind: Literal["through_ends_do_not_meet"] = Field(..., title="Kind")
+    relationship: EntryStub
+    detail: str = Field(..., title="Detail")
+
+
+class RelationshipProblems(BaseModel):
+    items: list[RelationshipProblem] = Field(..., title="Items")
+
+
 class RelationshipPut(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -3367,6 +3377,13 @@ class TenantUpdate(BaseModel):
     relationship_reads_as_back_stat_id: UUID | None = Field(
         None, title="Relationship Reads As Back Stat Id"
     )
+
+
+class ThroughPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    via: list[UUID] = Field(..., max_length=12, title="Via")
 
 
 class UndeprecatedOut(BaseModel):
@@ -4638,6 +4655,10 @@ class TenantCreate(BaseModel):
     slug: constr(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$") | None = Field(None, title="Slug")
     description: str | None = Field(None, title="Description")
     kind: TenantKind | None = None
+
+
+class ThroughOut(BaseModel):
+    via: list[LorenzoApiRoutersRelationshipsRelationshipOut] = Field(..., title="Via")
 
 
 class UpdateActionIn(BaseModel):

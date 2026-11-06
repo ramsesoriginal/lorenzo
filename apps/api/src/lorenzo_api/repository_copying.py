@@ -1026,6 +1026,7 @@ class _Planner:
                 }
             )
         # A relationship ties two entries: written once every entry has its place (ADR 0399).
+        written_relationships: set[uuid.UUID] = set()
         for e, tied in c.relationships.items():
             if not copies("entity", e):
                 continue
@@ -1043,6 +1044,24 @@ class _Planner:
                     "one_way": True if tied["one_way"] else None,
                 }
             )
+            written_relationships.add(e)
+        # A step is written only when both relationships were copied; the steps are renumbered
+        # from 1, so what was hidden from a copy leaves no gap (ADR 0402).
+        for e, chain in c.relationship_through.items():
+            if e not in written_relationships:
+                continue
+            kept = [via for via in chain if via in written_relationships]
+            for position, via in enumerate(kept, start=1):
+                self.rows["relationship_through"].append(
+                    {
+                        "relationship_entity_id": self.local["entity"][e],
+                        "step": position,
+                        "via_entity_id": self.local["entity"][via],
+                        "tenant_id": tenant_id,
+                    }
+                )
+            if len(kept) != len(chain):
+                drop("relationship_through", e, "a step of it was not copied")
         for source_id, settings in c.manuscript_contents.items():
             if copies("entity", source_id):
                 self.rows["manuscript_contents"].append(

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.exceptions import InvalidRelationshipError
@@ -48,3 +48,49 @@ async def touch_relationship(
     )
     assert entity is not None
     return entity
+
+
+#: A relationship holds through at most this many others (ADR 0402, *proposed default*).
+MAX_THROUGH_STEPS = 12
+#: Readers of a chain stop here, so a cycle that arrived through a repository ends it quietly.
+MAX_THROUGH_DEPTH = 64
+
+
+async def lock_through(session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    """Serialises the writes of every chain in a library, so two that would close a cycle between
+    them cannot both pass the check (ADR 0402)."""
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended('lorenzo:through:' || :tenant, 0))"),
+        {"tenant": str(tenant_id)},
+    )
+
+
+async def through_reaches(
+    session: AsyncSession, *, tenant_id: uuid.UUID, start: uuid.UUID, target: uuid.UUID
+) -> bool:
+    """Whether `target` is among the relationships `start` holds through, directly or by a longer
+    path. A recursive walk with a path guard and a depth cap."""
+    row = await session.execute(
+        text(
+            """
+            WITH RECURSIVE walk(via, path, depth) AS (
+              SELECT via_entity_id, ARRAY[relationship_entity_id, via_entity_id], 1
+              FROM relationship_through
+              WHERE tenant_id = :tenant AND relationship_entity_id = :start
+              UNION ALL
+              SELECT t.via_entity_id, walk.path || t.via_entity_id, walk.depth + 1
+              FROM relationship_through t JOIN walk ON t.relationship_entity_id = walk.via
+              WHERE t.tenant_id = :tenant AND NOT t.via_entity_id = ANY(walk.path)
+                AND walk.depth < :depth
+            )
+            SELECT EXISTS (SELECT 1 FROM walk WHERE via = :target)
+            """
+        ),
+        {
+            "tenant": tenant_id,
+            "start": start,
+            "target": target,
+            "depth": MAX_THROUGH_DEPTH,
+        },
+    )
+    return bool(row.scalar())

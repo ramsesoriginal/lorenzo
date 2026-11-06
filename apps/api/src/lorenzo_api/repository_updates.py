@@ -967,6 +967,26 @@ class _Applier:
             tied.end_b = end_b
             tied.one_way = True if change.upstream["one_way"] else None
             await s.flush()
+            # The chain follows, by the steps' names; a step not copied here is left out and the
+            # rest are renumbered from 1 (ADR 0402).
+            from lorenzo_api.models import RelationshipThrough
+
+            await s.execute(
+                delete(RelationshipThrough).where(
+                    RelationshipThrough.relationship_entity_id == e,
+                    RelationshipThrough.tenant_id == t,
+                )
+            )
+            steps = [self.resolve("entity", via) for via in change.upstream.get("through", [])]
+            held = [via for via in steps if via is not None and via != e]
+            held = [via for via in held if await s.get(Relationship, via) is not None]
+            for step, via in enumerate(dict.fromkeys(held), start=1):
+                s.add(
+                    RelationshipThrough(
+                        relationship_entity_id=e, step=step, via_entity_id=via, tenant_id=t
+                    )
+                )
+            await s.flush()
             return True
         if name == "place":
             if await s.get(Entity, e) is None:

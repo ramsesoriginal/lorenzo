@@ -356,9 +356,14 @@ async def test_a_copy_carries_a_relationship_only_with_both_ends() -> None:
                 user_id=uuid.uuid4(),
                 resolutions=[],
             )
-        (tied,) = plan.rows["relationship"]
         local = {row["id"]: row["name"] for row in plan.rows["entity"]}
-        assert local[tied["entity_id"]] == "Fixture bond"
+        by_name = {local[row["entity_id"]]: row for row in plan.rows["relationship"]}
+        assert set(by_name) == {"Fixture bond", "Fixture second bond"}
+        tied = by_name["Fixture bond"]
+        # The chain is copied with its relationships, renumbered from 1 (ADR 0402).
+        (step,) = plan.rows["relationship_through"]
+        assert local[step["relationship_entity_id"]] == "Fixture bond"
+        assert local[step["via_entity_id"]] == "Fixture second bond" and step["step"] == 1
         assert {local[tied["end_a"]], local[tied["end_b"]]} == {"Fixture place", "Fixture room"}
         assert tied["one_way"] is None and tied["tenant_id"] == library_id
     finally:
