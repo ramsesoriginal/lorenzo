@@ -140,7 +140,8 @@
   .clash .field-row,
   [data-again] .field-row,
   .inclusion .field-row,
-  [data-terms-card] .field-row {
+  [data-terms-card] .field-row,
+  [data-visibility] .field-row {
     min-height: var(--target-min);
   }
 }

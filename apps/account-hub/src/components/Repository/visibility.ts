@@ -5,6 +5,7 @@
 // refusal, since a refusal means something changed.
 
 import { ApiError } from '../../lib/apiError';
+import { storefrontHref } from '../../lib/discover';
 import { BUILT_ON_CHOICES_TITLE, type BuiltOnChoice, builtOnChoices } from '../../lib/inclusion';
 import {
   flipCheck,
@@ -12,6 +13,7 @@ import {
   getRepositoryProfile,
   makePrivate,
   makePublic,
+  updateRepositoryProfile,
 } from '../../lib/repositories';
 import { say, sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
@@ -19,6 +21,11 @@ import type { FlipCheckOut, TenantSummaryOut } from '../../lib/types';
 import {
   type Blocker,
   changedUnderTheDialog,
+  LISTED_PAGE_LINK,
+  LISTED_SAVED,
+  LISTED_SAVING,
+  listedPatch,
+  listedSwitch,
   MAKE_PRIVATE_CONFIRM,
   MAKE_PUBLIC_CONFIRM,
   MAKE_PUBLIC_DONE,
@@ -79,6 +86,11 @@ export function createVisibilityControls(
   const button = required<HTMLButtonElement>(card, '[data-visibility-button]');
   const status = required<HTMLElement>(card, '[data-visibility-status]');
   const note = required<HTMLElement>(card, '[data-visibility-note]');
+  const listed = required<HTMLElement>(card, '[data-visibility-listed]');
+  const listedInput = required<HTMLInputElement>(card, '[data-visibility-listed-input]');
+  const listedLabel = required<HTMLElement>(card, '[data-visibility-listed-label]');
+  const listedHelp = required<HTMLElement>(card, '[data-visibility-listed-help]');
+  const listedLink = required<HTMLAnchorElement>(card, '[data-visibility-listed-link]');
 
   const dialog = required<HTMLDialogElement>(root, '[data-visibility-dialog]');
   const form = required<HTMLFormElement>(dialog, '[data-visibility-form]');
@@ -322,6 +334,39 @@ export function createVisibilityControls(
     }
   }
 
+  // Whether Discover lists it: saved at once, as the Profile tab's terms are, since nothing else waits on
+  // it. What the page says after is what the API answered.
+  listedInput.addEventListener('change', () => {
+    const repository = shown;
+
+    if (repository?.role !== 'owner') return;
+
+    const wanted = listedInput.checked;
+
+    listedInput.disabled = true;
+    say(status, LISTED_SAVING);
+
+    void (async () => {
+      try {
+        const profile = await updateRepositoryProfile(repository.id, listedPatch(wanted));
+
+        if (shown !== repository) return;
+
+        listedInput.checked = profile.listed;
+        listedHelp.textContent = listedSwitch(profile.listed).help;
+        if (check) check = { ...check, listed: profile.listed };
+        say(status, LISTED_SAVED);
+      } catch (cause) {
+        if (shown !== repository) return;
+
+        listedInput.checked = !wanted;
+        sayError(status, cause);
+      } finally {
+        listedInput.disabled = shown !== repository;
+      }
+    })();
+  });
+
   button.addEventListener('click', () => {
     if (check) void open(check.visibility === 'public' ? 'private' : 'public');
   });
@@ -421,6 +466,17 @@ export function createVisibilityControls(
     note.textContent = content.note ?? '';
     note.hidden = content.note === null;
 
+    listed.hidden = content.listed === null;
+
+    if (content.listed) {
+      listedInput.checked = content.listed.checked;
+      listedInput.disabled = false;
+      listedLabel.textContent = content.listed.label;
+      listedHelp.textContent = content.listed.help;
+      listedLink.textContent = LISTED_PAGE_LINK;
+      listedLink.href = storefrontHref(repository.id);
+    }
+
     if (pending) {
       say(status, pending);
       pending = null;
@@ -432,6 +488,7 @@ export function createVisibilityControls(
       shown = null;
       check = null;
       card.hidden = true;
+      listed.hidden = true;
       say(status, '');
     },
 

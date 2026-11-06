@@ -49,6 +49,9 @@ export type VisibilityCard = {
   // repository off Discover it cannot be made public), and a sentence to read beside it.
   disabled: boolean;
   note: string | null;
+  // The switch for being on Discover (RFC 0051 H2, ADR 0432): only for a public repository that the
+  // platform's operators and its Owner have not already taken off it.
+  listed: ListedSwitch | null;
 };
 
 // What the card shows, or null where it is not shown at all: to anyone who is not an Owner, before
@@ -56,7 +59,10 @@ export type VisibilityCard = {
 // the repository is private (there is nothing to switch). A public repository shows its card either
 // way, so that it can be made private.
 export function visibilityCard(
-  check: Pick<FlipCheckOut, 'available' | 'visibility' | 'delisted' | 'deprecated'> | null,
+  check: Pick<
+    FlipCheckOut,
+    'available' | 'visibility' | 'listed' | 'delisted' | 'deprecated'
+  > | null,
   role: TenantRole,
 ): VisibilityCard | null {
   if (role !== 'owner' || check === null) return null;
@@ -70,6 +76,7 @@ export function visibilityCard(
       button: 'Make private…',
       disabled: false,
       note: check.delisted ? DELISTED_PUBLIC_NOTE : check.deprecated ? RETIRED_PUBLIC_NOTE : null,
+      listed: check.delisted || check.deprecated ? null : listedSwitch(check.listed),
     };
   }
 
@@ -89,7 +96,37 @@ export function visibilityCard(
       : check.deprecated
         ? RETIRED_CANNOT_BE_MADE_PUBLIC
         : null,
+    listed: null,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Being on Discover (RFC 0051 H2, ADR 0432): a public repository is listed unless its Owner leaves it
+// off. Its page and its address work either way, so the sentence says what stays.
+
+export const LISTED_LABEL = 'Listed on Discover';
+// The way to the repository's page, which is what an Owner shares when it is not on Discover: the link is
+// the address.
+export const LISTED_PAGE_LINK = 'Open its page';
+export const LISTED_SAVING = 'Saving…';
+export const LISTED_SAVED = 'Saved.';
+
+export type ListedSwitch = { checked: boolean; label: string; help: string };
+
+export function listedHelp(listed: boolean): string {
+  return listed
+    ? 'Anyone signed in to Lorenzo can find it on Discover.'
+    : 'It is not on Discover, and no search finds it. Anyone who has its address can still open its page and copy it, so share the address only with people you want to have it.';
+}
+
+export function listedSwitch(listed: boolean): ListedSwitch {
+  return { checked: listed, label: LISTED_LABEL, help: listedHelp(listed) };
+}
+
+// What is sent when the switch is turned: a repository that is not public cannot be left off Discover
+// (the API says 409 repository-not-public), and the switch is not shown for one.
+export function listedPatch(listed: boolean): { listed: boolean } {
+  return { listed };
 }
 
 // ---------------------------------------------------------------------------------------------
