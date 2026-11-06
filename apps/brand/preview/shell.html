@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — shell</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="shell.html" aria-current="page">Shell</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="outline.html">Outline</a>
+          <a href="editors.html">Editor</a>
+          <a href="full-width.html">Full width</a>
+          <a href="scrolling.html">Scrolling</a>
+          <a href="item.html">Item</a>
+          <a href="icons.html">Icons</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Shell</h1>
+        <p class="lede">
+          The pieces of the web shell (ADR 0410, ADR 0414): global bar, app bar,
+          state strip, status bar, phone tab bar, apps drawer, palette and the
+          state chip. Resize below 720px: the app bar and drawer give way to the
+          tab bar.
+        </p>
+
+        <section id="bars">
+          <h2>Header and status bar</h2>
+          <div
+            style="
+              border: 1px solid var(--border-subtle);
+              border-radius: var(--radius-card);
+              overflow: hidden;
+            "
+          >
+            <div class="shell-bar">
+              <a class="brand-link" href="#" aria-label="Lorenzo home"
+                ><span aria-hidden="true" style="font-size: 1.5rem">✧</span></a
+              >
+              <button class="shell-field-btn" type="button">
+                <svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-library"></use>
+                </svg>
+                Ashfall
+                <span aria-hidden="true"
+                  ><svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-expand"></use></svg
+                ></span>
+              </button>
+              <span class="grow"></span>
+              <button
+                class="shell-field-btn palette-btn"
+                id="open-palette"
+                type="button"
+              >
+                <svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-search"></use></svg
+                ><span>Search or run a command</span><kbd>Ctrl K</kbd>
+              </button>
+              <button class="avatar" type="button" aria-label="Notifications">
+                <svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-notifications"></use>
+                </svg>
+              </button>
+              <button class="avatar" type="button" aria-label="Account">
+                KA
+              </button>
+            </div>
+            <div class="shell-apps">
+              <span class="prod">Beings</span>
+              <nav aria-label="Beings">
+                <a class="tab" href="#" aria-current="page">Home</a>
+                <a class="tab" href="#">Beings</a>
+                <a class="tab" href="#">Groups</a>
+                <a class="tab" href="#">Settings</a>
+              </nav>
+            </div>
+            <div class="shell-strip" id="strip" data-open>
+              <div>
+                <div class="shell-strip-in" data-kind="offline" role="status">
+                  <svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-offline"></use></svg
+                  ><span class="msg"
+                    >You are offline. Changes are kept on this device.</span
+                  >
+                  <span class="grow"></span>
+                  <button
+                    class="btn btn-secondary"
+                    type="button"
+                    id="strip-close"
+                  >
+                    Hide
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div
+              style="
+                padding: var(--space-5) var(--space-4);
+                color: var(--text-secondary);
+              "
+            >
+              Page content
+            </div>
+            <div class="shell-status">
+              <span class="sync" data-kind="offline"
+                ><svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-offline"></use>
+                </svg>
+                Waiting to sync</span
+              >
+              <span class="wide">12 beings</span>
+              <span class="grow"></span>
+              <span class="wide">Thu 6 Nov, 09:41</span>
+              <button class="btn btn-secondary" type="button">
+                Apps and about
+              </button>
+            </div>
+            <div class="shell-tabbar">
+              <a href="#" aria-current="page"
+                ><svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-library"></use></svg
+                >Home</a
+              >
+              <a href="#"
+                ><svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-account"></use></svg
+                >Beings</a
+              >
+              <a href="#"
+                ><svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-search"></use></svg
+                >Search</a
+              >
+              <button type="button">
+                <svg class="icon" width="16" height="16" aria-hidden="true">
+                  <use href="../icons.svg#icon-more"></use></svg
+                >More
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section id="states">
+          <h2>State chip</h2>
+          <p class="lede">
+            An icon, a word and a pattern: it reads in greyscale.
+          </p>
+          <div class="row" style="gap: var(--space-2); flex-wrap: wrap">
+            <span class="state-chip" data-state="synced"
+              ><svg class="icon" width="16" height="16" aria-hidden="true">
+                <use href="../icons.svg#icon-select-item"></use></svg
+              ><span>Synced</span></span
+            >
+            <span class="state-chip" data-state="waiting"
+              ><svg class="icon" width="16" height="16" aria-hidden="true">
+                <use href="../icons.svg#icon-waiting"></use></svg
+              ><span>Waiting</span></span
+            >
+            <span class="state-chip" data-state="stale"
+              ><svg class="icon" width="16" height="16" aria-hidden="true">
+                <use href="../icons.svg#icon-stale"></use></svg
+              ><span>Out of date</span></span
+            >
+            <span class="state-chip" data-state="conflict"
+              ><svg class="icon" width="16" height="16" aria-hidden="true">
+                <use href="../icons.svg#icon-conflict"></use></svg
+              ><span>Conflict</span></span
+            >
+          </div>
+        </section>
+
+        <section id="drawer">
+          <h2>Apps drawer</h2>
+          <div class="shell-drawer">
+            <div class="cols">
+              <div class="apps">
+                <div>
+                  <div class="menu-label">Play</div>
+                  <a class="l" href="#">Sessions</a
+                  ><a class="l" href="#">Beings</a
+                  ><a class="l" href="#">Inventory</a>
+                </div>
+                <div>
+                  <div class="menu-label">World</div>
+                  <a class="l" href="#">Calendars</a
+                  ><a class="l" href="#">Maps</a
+                  ><a class="l" href="#">Social</a>
+                </div>
+                <div>
+                  <div class="menu-label">Build</div>
+                  <a class="l" href="#">Writing</a
+                  ><a class="l" href="#">Bench</a>
+                </div>
+                <div>
+                  <div class="menu-label">You</div>
+                  <a class="l" href="#">Account</a>
+                </div>
+              </div>
+              <div>
+                <div class="menu-label">About</div>
+                <a class="l" href="#">Legal notice</a
+                ><a class="l" href="#">Privacy policy</a
+                ><a class="l" href="#">Source code</a>
+              </div>
+            </div>
+            <div class="foot">Lorenzo 1.2.0 · Licence</div>
+          </div>
+        </section>
+
+        <dialog
+          class="palette"
+          id="palette"
+          aria-label="Search or run a command"
+        >
+          <div class="p-in">
+            <svg class="icon" width="16" height="16" aria-hidden="true">
+              <use href="../icons.svg#icon-search"></use></svg
+            ><input
+              type="text"
+              placeholder="Search or run a command"
+              aria-label="Search"
+            />
+          </div>
+          <div class="p-tabs" role="tablist">
+            <button role="tab" aria-selected="true">All</button
+            ><button role="tab" aria-selected="false">Beings</button
+            ><button role="tab" aria-selected="false">Commands</button>
+          </div>
+          <div class="p-list" role="listbox" aria-label="Results">
+            <div class="p-group">Beings</div>
+            <div class="p-opt" role="option" aria-selected="true">
+              <svg class="icon" width="16" height="16" aria-hidden="true">
+                <use href="../icons.svg#icon-account"></use></svg
+              ><span class="grow"><mark>Kae</mark>len Ashworth</span
+              ><span class="meta">Ranger</span>
+            </div>
+            <div class="p-opt" role="option" aria-selected="false">
+              <svg class="icon" width="16" height="16" aria-hidden="true">
+                <use href="../icons.svg#icon-account"></use></svg
+              ><span class="grow"><mark>Kae</mark>la Voss</span
+              ><span class="meta">Mage</span>
+            </div>
+            <div class="p-group">Commands</div>
+            <div class="p-opt" role="option" aria-selected="false">
+              <svg class="icon" width="16" height="16" aria-hidden="true">
+                <use href="../icons.svg#icon-command"></use></svg
+              ><span class="grow">New being</span><span class="meta">N</span>
+            </div>
+          </div>
+          <div class="p-foot">
+            <span><kbd>↑</kbd><kbd>↓</kbd> move</span
+            ><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span>
+          </div>
+        </dialog>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+
+        document
+          .getElementById("open-palette")
+          .addEventListener("click", function () {
+            document.getElementById("palette").showModal();
+          });
+        document
+          .getElementById("strip-close")
+          .addEventListener("click", function () {
+            document.getElementById("strip").removeAttribute("data-open");
+          });
+      })();
+    </script>
+  </body>
+</html>

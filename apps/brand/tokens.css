@@ -58,12 +58,21 @@
     var(--brand-ink) 70%,
     var(--brand-paper)
   );
-  --text-tertiary: color-mix(in srgb, var(--brand-ink) 62%, var(--brand-paper));
+  /* 66%, not 62%: 4.5:1 or better on --surface-selected as well as on paper (WCAG 1.4.3) */
+  --text-tertiary: color-mix(in srgb, var(--brand-ink) 66%, var(--brand-paper));
   --text-inverse: var(--brand-paper);
 
   /* Borders */
   --border-subtle: color-mix(in srgb, var(--brand-ink) 16%, var(--brand-paper));
   --border-strong: color-mix(in srgb, var(--brand-ink) 24%, var(--brand-paper));
+  /* The edge of a control: a field, a secondary button, a switch's track. 3:1 or better
+     against paper and the default surface (WCAG 1.4.11); --border-subtle and --border-strong
+     stay for structure, which needs no contrast of its own. */
+  --border-control: color-mix(
+    in srgb,
+    var(--brand-ink) 50%,
+    var(--brand-paper)
+  );
 
   /* Interaction */
   --action: var(--brand-archive-blue);
@@ -116,7 +125,7 @@
   --button-primary-hover: var(--action-hover);
   --button-secondary-bg: transparent;
   --button-secondary-fg: var(--text-primary);
-  --button-secondary-border: var(--border-strong);
+  --button-secondary-border: var(--border-control);
   --button-danger-bg: var(--danger);
   --button-danger-fg: var(--text-inverse);
 
@@ -143,11 +152,39 @@
   --space-5: 32px;
   --space-6: 48px;
   --space-7: 64px;
+  /* A 12px step between --space-2 and --space-3 (half of 24 on this grid) */
+  --space-2h: 12px;
 
   /* The smallest size of anything pressed with a finger (§8.5): used as a
      minimum height at phone widths and for coarse pointers, never as a
      fixed size on a desktop. */
   --target-min: 44px;
+
+  /* Interface type roles (docs/design/web, ADR 0411). Fixed at every width, in rem so zoom and
+     a person's text size scale them. */
+  --fs-heading: 1.125rem; /* 18, 600 */
+  --fs-sub: 1rem; /* 16, 600 */
+  --fs-body: 0.9375rem; /* 15 */
+  --fs-ui: 0.875rem; /* 14, 400 or 500 */
+  --fs-meta: 0.8125rem; /* 13 */
+  --fs-micro: 0.75rem; /* 12, 500 */
+  --fs-code: 0.8125rem; /* 13, mono */
+  /* Editorial roles, fluid between a 430 and a 1440 wide container (cqi: the nearest
+     container, so use inside one) */
+  --fs-display: clamp(
+    2.125rem,
+    1.539rem + 2.178cqi,
+    3.5rem
+  ); /* 34 to 56, Newsreader */
+  --fs-title: clamp(1.75rem, 1.43rem + 1.188cqi, 2.5rem); /* 28 to 40 */
+  --fs-reading: clamp(1.125rem, 1.072rem + 0.198cqi, 1.25rem); /* 18 to 20 */
+
+  /* Motion (§11.2: 150 to 220 ms small, 220 to 320 ms larger). Reduced motion removes them in
+     motion.css. */
+  --dur-fast: 150ms;
+  --dur-med: 220ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* Radius — canonical values (§8.3); a different radius is a deliberate,
      named exception, not a rounding choice */
@@ -187,7 +224,8 @@
     var(--brand-ink) 25%,
     var(--brand-paper)
   );
-  --text-tertiary: color-mix(in srgb, var(--brand-ink) 45%, var(--brand-paper));
+  /* 38%, not 45%: 4.5:1 or better on --surface-selected as well */
+  --text-tertiary: color-mix(in srgb, var(--brand-ink) 38%, var(--brand-paper));
   --text-inverse: var(--brand-ink);
 
   --border-subtle: color-mix(
@@ -199,6 +237,12 @@
     in srgb,
     var(--brand-ink) 76%,
     var(--brand-paper) 24%
+  );
+  /* about 3.6:1 on the dark default surface */
+  --border-control: color-mix(
+    in srgb,
+    var(--brand-paper) 42%,
+    var(--brand-ink)
   );
 
   /* Astral replaces Archive for readable dark-mode interaction (unchanged
@@ -260,6 +304,7 @@
     --space-5: 20px;
     --space-6: 24px;
     --space-7: 28px;
+    --space-2h: 6px;
 
     /* The smallest size of anything pressed with a finger (§8.5): used as a
       minimum height at phone widths and for coarse pointers, never as a
