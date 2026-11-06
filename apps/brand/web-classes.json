@@ -14,7 +14,7 @@
     "skeleton-line", "skeleton-rows", "skeleton-row",
     "horizontal-mask",
     "standing", "standing-num", "standing-bar", "standing-mark",
-    "graph", "graph-edge", "graph-node", "lens-line", "graph-legend", "matrix",
+    "graph", "graph-edge", "graph-node", "lens-line", "graph-legend", "graph-matrix",
     "time-filter", "time-filter-head", "time-filter-out", "time-filter-strip", "time-filter-segs", "time-filter-seg", "time-filter-marks", "time-filter-range", "time-filter-handle"
   ],
   "allowed": {
