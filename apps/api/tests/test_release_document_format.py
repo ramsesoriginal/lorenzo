@@ -99,9 +99,13 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 31
+    assert rd.FORMAT == 36
     assert rd.encode(full_content())[0] == {
         **golden,
+        "definitions": {
+            key: {"min_value": None, "max_value": None, **definition}
+            for key, definition in golden["definitions"].items()
+        },
         "calendars": {},
         "location_parts": {},
         "entity_locations": {},
@@ -111,6 +115,11 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "map_placements": [],
         "map_layers": {},
         "connections": {},
+        "relationships": {},
+        "relationship_through": {},
+        "social_webs": {},
+        "social_web_entries": [],
+        "social_web_types": [],
         "clocks": {},
         "clock_readings": [],
         "clock_relationships": [],
@@ -318,7 +327,11 @@ def test_connections_survive_a_round_trip() -> None:
     identity, first, second = uuid.UUID(int=90), uuid.UUID(int=91), uuid.UUID(int=92)
     content = full_content()
     content.connections = {
-        identity: {"end_a": first, "end_b": second, "one_way": True},
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": True,
+        },
         uuid.UUID(int=93): {"end_a": second, "end_b": first, "one_way": None},
     }
 
@@ -388,3 +401,150 @@ def test_contents_format_and_previous_reader() -> None:
     assert rd.decode(document, files).manuscript_contents == content.manuscript_contents
     old = {key: value for key, value in document.items() if key != "manuscript_contents"}
     assert rd.decode(old, files, format=30).manuscript_contents == {}
+
+
+def test_version_thirty_one_has_no_relationships() -> None:
+    """A repository written before relationships reads with none (ADR 0399)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "relationships"}
+
+    assert rd.READERS[31](old, files).relationships == {}
+
+
+def test_relationships_survive_a_round_trip() -> None:
+    identity, first, second = uuid.UUID(int=190), uuid.UUID(int=191), uuid.UUID(int=192)
+    content = full_content()
+    content.relationships = {
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": True,
+            "starts_at": None,
+            "ends_at": None,
+        },
+        uuid.UUID(int=193): {
+            "end_a": second,
+            "end_b": first,
+            "one_way": None,
+            "starts_at": first,
+            "ends_at": None,
+        },
+    }
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).relationships == content.relationships
+
+
+def test_version_thirty_two_has_no_stat_scales() -> None:
+    """A repository written before stat scales reads with none (ADR 0403)."""
+    document, files = rd.encode(full_content())
+    old = {
+        **document,
+        "definitions": {
+            key: {k: v for k, v in definition.items() if k not in ("min_value", "max_value")}
+            for key, definition in document["definitions"].items()
+        },
+    }
+
+    back = rd.READERS[32](old, files)
+
+    assert all(d["min_value"] is None and d["max_value"] is None for d in back.definitions.values())
+
+
+def test_stat_scales_survive_a_round_trip() -> None:
+    content = full_content()
+    first = next(iter(content.definitions))
+    content.definitions[first]["min_value"] = -10.0
+    content.definitions[first]["max_value"] = 10.0
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(document, files)
+    assert (back.definitions[first]["min_value"], back.definitions[first]["max_value"]) == (
+        -10.0,
+        10.0,
+    )
+
+
+def test_version_thirty_three_has_no_relationship_chains() -> None:
+    """A repository written before chains reads with none (ADR 0402)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "relationship_through"}
+
+    assert rd.READERS[33](old, files).relationship_through == {}
+
+
+def test_relationship_chains_survive_a_round_trip_in_order() -> None:
+    head, one, two, three = (uuid.UUID(int=n) for n in (200, 201, 202, 203))
+    content = full_content()
+    content.relationship_through = {head: [three, one, two]}
+
+    document, files = rd.encode(content)
+
+    assert rd.decode(document, files).relationship_through == {head: [three, one, two]}
+
+
+def test_version_thirty_four_has_no_relationship_limits() -> None:
+    """A repository written before limits in time reads with none (ADR 0405)."""
+    identity, first, second = uuid.UUID(int=210), uuid.UUID(int=211), uuid.UUID(int=212)
+    content = full_content()
+    content.relationships = {
+        identity: {
+            "end_a": first,
+            "end_b": second,
+            "one_way": None,
+            "starts_at": None,
+            "ends_at": None,
+        }
+    }
+    document, files = rd.encode(content)
+    old = {
+        **document,
+        "relationships": {
+            key: {k: v for k, v in tied.items() if k not in ("starts_at", "ends_at")}
+            for key, tied in document["relationships"].items()
+        },
+    }
+
+    back = rd.READERS[34](old, files)
+
+    assert back.relationships == content.relationships
+
+
+def test_version_thirty_five_has_no_social_webs() -> None:
+    """A repository written before social webs reads with none (ADR 0406)."""
+    document, files = rd.encode(full_content())
+    old = {
+        key: value
+        for key, value in document.items()
+        if key not in ("social_webs", "social_web_entries", "social_web_types")
+    }
+
+    back = rd.READERS[35](old, files)
+
+    assert (back.social_webs, back.social_web_entries, back.social_web_types) == ({}, {}, set())
+
+
+def test_social_webs_survive_a_round_trip() -> None:
+    web, member, kind, stat = (uuid.UUID(int=n) for n in (220, 221, 222, 223))
+    content = full_content()
+    content.social_webs = {
+        web: {
+            "layout": "manual",
+            "layout_seed": 7,
+            "theme_hint": "parchment",
+            "view": {"labels": True},
+            "standing_stat": stat,
+            "as_of_event": None,
+        }
+    }
+    content.social_web_entries = {(web, member): {"x": 1.5, "y": -2.0}}
+    content.social_web_types = {(web, kind)}
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(document, files)
+    assert back.social_webs == content.social_webs
+    assert back.social_web_entries == content.social_web_entries
+    assert back.social_web_types == content.social_web_types

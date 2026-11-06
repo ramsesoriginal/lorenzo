@@ -113,7 +113,7 @@ State = Literal["clean", "conflict", "not_applicable"]
 # `kinds` is a set like the others: an entry gaining or losing a kind is shown, and a kind is added
 # or removed element by element (ADR 0217). Before, an entry's kinds were not compared.
 _HINTS = ("max_hint", "min_hint", "resolved_hint")
-_DISPLAY = ("unit", "adjustable_in_play", "pin", "signed")
+_DISPLAY = ("unit", "adjustable_in_play", "pin", "signed", "min_value", "max_value")
 _SETS = {"prototypes", "stat_groups", "enum_values", "kinds"}
 _KEYED = {"stats", "formulas", "placements"}
 # What a keyed field is keyed by: a stat, except the placements of a Map (an entry).
@@ -949,6 +949,105 @@ class _Applier:
             joined.end_a = end_a
             joined.end_b = end_b
             joined.one_way = True if change.upstream["one_way"] else None
+            await s.flush()
+            return True
+        if name == "relationship":
+            from lorenzo_api.models import Relationship
+
+            tied = await s.get(Relationship, e)
+            if tied is None or tied.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a relationship")
+                return False
+            end_a = self.resolve("entity", change.upstream["end_a"])
+            end_b = self.resolve("entity", change.upstream["end_b"])
+            if end_a is None or end_b is None or end_a == end_b:
+                self.skip(row, name, "Copy the entries it ties first")
+                return False
+            tied.end_a = end_a
+            tied.end_b = end_b
+            tied.one_way = True if change.upstream["one_way"] else None
+            # A limit in time follows when its Event is here; otherwise it is left unset (ADR 0405).
+            tied.starts_at = (
+                self.resolve("entity", change.upstream["starts_at"])
+                if change.upstream.get("starts_at")
+                else None
+            )
+            tied.ends_at = (
+                self.resolve("entity", change.upstream["ends_at"])
+                if change.upstream.get("ends_at")
+                else None
+            )
+            if tied.starts_at is not None and tied.starts_at == tied.ends_at:
+                tied.ends_at = None
+            await s.flush()
+            # The chain follows, by the steps' names; a step not copied here is left out and the
+            # rest are renumbered from 1 (ADR 0402).
+            from lorenzo_api.models import RelationshipThrough
+
+            await s.execute(
+                delete(RelationshipThrough).where(
+                    RelationshipThrough.relationship_entity_id == e,
+                    RelationshipThrough.tenant_id == t,
+                )
+            )
+            steps = [self.resolve("entity", via) for via in change.upstream.get("through", [])]
+            held = [via for via in steps if via is not None and via != e]
+            held = [via for via in held if await s.get(Relationship, via) is not None]
+            for step, via in enumerate(dict.fromkeys(held), start=1):
+                s.add(
+                    RelationshipThrough(
+                        relationship_entity_id=e, step=step, via_entity_id=via, tenant_id=t
+                    )
+                )
+            await s.flush()
+            return True
+        if name == "social_web":
+            from lorenzo_api.models import SocialWeb, SocialWebEntry, SocialWebType
+
+            web = await s.get(SocialWeb, e)
+            if web is None or web.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a social web")
+                return False
+            up = change.upstream
+            web.layout = up["layout"]
+            web.layout_seed = up["layout_seed"]
+            web.theme_hint = up["theme_hint"]
+            web.view = up["view"]
+            web.standing_stat_id = (
+                self.resolve("stat_definition", up["standing_stat"])
+                if up["standing_stat"]
+                else None
+            )
+            web.as_of_event = (
+                self.resolve("entity", up["as_of_event"]) if up["as_of_event"] else None
+            )
+            # Members and types follow by name; one not copied here is left out (ADR 0406).
+            await s.execute(
+                delete(SocialWebEntry).where(
+                    SocialWebEntry.web_entity_id == e, SocialWebEntry.tenant_id == t
+                )
+            )
+            await s.execute(
+                delete(SocialWebType).where(
+                    SocialWebType.web_entity_id == e, SocialWebType.tenant_id == t
+                )
+            )
+            for member in up["members"]:
+                local_entry = self.resolve("entity", member["entry"])
+                if local_entry is not None and local_entry != e:
+                    s.add(
+                        SocialWebEntry(
+                            web_entity_id=e,
+                            entry_entity_id=local_entry,
+                            tenant_id=t,
+                            x=member["x"],
+                            y=member["y"],
+                        )
+                    )
+            for kind_name in dict.fromkeys(up["types"]):
+                local_kind = self.resolve("entity", kind_name)
+                if local_kind is not None:
+                    s.add(SocialWebType(web_entity_id=e, type_entity_id=local_kind, tenant_id=t))
             await s.flush()
             return True
         if name == "place":

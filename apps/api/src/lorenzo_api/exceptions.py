@@ -467,6 +467,33 @@ class InvalidStatHintError(UnprocessableProblem):
     title = "That stat cannot be used as a hint here"
 
 
+class InvalidStatScaleError(UnprocessableProblem):
+    """POST/PATCH /stat-definitions - a bound on a stat that is not an int or float, or a minimum
+    above the maximum (ADR 0403). Also a value written outside the scale of its stat."""
+
+    title = "That is outside the scale of this stat"
+
+
+class StatScaleBreaksValuesError(ConflictProblem):
+    """PATCH /stat-definitions/{id} - a bound that existing own values would break (ADR 0403)."""
+
+    title = "Existing values lie outside that scale"
+
+
+class InvalidSocialWebError(UnprocessableProblem):
+    """A SocialWeb the rules of ADR 0406 refuse: too many entries, an end that is a relationship,
+    a bad position or a view that names an entry."""
+
+    title = "That is not a valid social web"
+
+
+class InvalidRelationshipTypeStatError(UnprocessableProblem):
+    """PATCH /tenants/{id} - a relationship-type stat is not a stat definition of this tenant, or
+    is of the wrong type: a bool for directed, text for the two verbs (ADR 0400)."""
+
+    title = "That stat cannot say this about a relationship type"
+
+
 class InvalidSheetSettingError(UnprocessableProblem):
     """PATCH /tenants/{id} - the weapon stat group is not a stat group of this
     tenant (ADR 0281)."""
@@ -1507,6 +1534,12 @@ class InvalidConnectionError(UnprocessableProblem):
     title = "That is not a valid connection"
 
 
+class InvalidRelationshipError(UnprocessableProblem):
+    """A relationship the rules of ADR 0399 refuse: equal ends, an end that is one, a limit."""
+
+    title = "That is not a valid relationship"
+
+
 class InvalidDistanceError(UnprocessableProblem):
     """A question about a distance the rules of ADR 0367 cannot answer: no stat to measure in, one
     that is not a number, or two Maps that both hold both places."""
@@ -1530,6 +1563,19 @@ class MapSystemConflictError(ConflictProblem):
 class MapPreconditionRequiredError(StatusProblem):
     status = 428
     title = "Read the Map before changing it"
+
+
+class PlayerRelationshipForbiddenError(ForbiddenProblem):
+    """POST /relationships by a player - it may not be public: what a player makes is for the
+    being and the GMs (ADR 0425)."""
+
+    title = "A relationship you make is for your being and the GMs"
+
+
+class RelationshipReadAsForbiddenError(ForbiddenProblem):
+    """GET /relationships?as_seen_by= - a player asked for a being not their own (ADR 0405)."""
+
+    title = "You may read what a being of yours may read, not what another being may"
 
 
 class LocationAuthoringForbiddenError(ForbiddenProblem):

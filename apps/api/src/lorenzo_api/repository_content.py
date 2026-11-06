@@ -80,12 +80,17 @@ from lorenzo_api.models import (
     PayloadDocument,
     PayloadNumber,
     PayloadPicture,
+    Relationship,
+    RelationshipThrough,
     RepositoryCopy,
     RepositoryCopyLinkAttachment,
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
     SceneTelling,
+    SocialWeb,
+    SocialWebEntry,
+    SocialWebType,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -106,6 +111,8 @@ KINDS = (
     "location",
     "map",
     "connection",
+    "relationship",
+    "social_web",
     "calendar_period",
     "event",
     "observance",
@@ -247,6 +254,17 @@ class Content:
     map_placements: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(default_factory=dict)
     # connection -> {end_a, end_b, one_way}: the entries it joins, and one way or not (ADR 0363).
     connections: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # relationship -> {end_a, end_b, one_way}: the entries it ties, and one way or not (ADR 0399).
+    relationships: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    # relationship -> the relationships it is stated to hold through, in order (ADR 0402).
+    relationship_through: dict[uuid.UUID, list[uuid.UUID]] = field(default_factory=dict)
+    # social web -> {layout, layout_seed, theme_hint, view, standing_stat, as_of_event} (ADR 0406);
+    # (web, entry) -> {x, y}; and the (web, type) pairs it limits its edges to.
+    social_webs: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    social_web_entries: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
+        default_factory=dict
+    )
+    social_web_types: set[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=set)
     # map -> its layers in order, each {information, calibration, opacity, reviewed}: `information`
     # an id as text, `reviewed` a hex fingerprint or none (ADR 0361).
     map_layers: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
@@ -458,6 +476,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("location", Location),
         ("map", Map),
         ("connection", Connection),
+        ("relationship", Relationship),
+        ("social_web", SocialWeb),
         ("calendar_period", CalendarPeriod),
         ("event", StoryEvent),
         ("observance", CalendarObservance),
@@ -504,6 +524,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         max_hint,
         min_hint,
         resolved_hint,
+        min_value,
+        max_value,
     ) in await rows(
         StatDefinition.id,
         StatDefinition.name,
@@ -517,6 +539,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         StatDefinition.max_hint_id,
         StatDefinition.min_hint_id,
         StatDefinition.resolved_hint_id,
+        StatDefinition.min_value,
+        StatDefinition.max_value,
         where=StatDefinition.tenant_id == t,
     ):
         c.definitions[def_id] = {
@@ -528,6 +552,8 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             "pin": pin,
             "signed": signed,
             "position": position,
+            "min_value": min_value,
+            "max_value": max_value,
             "hints": {
                 "max_hint": max_hint,
                 "min_hint": min_hint,
@@ -805,6 +831,69 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             where=Connection.tenant_id == t,
         )
     }
+    c.relationships = {
+        entity: {
+            "end_a": end_a,
+            "end_b": end_b,
+            "one_way": one_way,
+            "starts_at": starts_at,
+            "ends_at": ends_at,
+        }
+        for entity, end_a, end_b, one_way, starts_at, ends_at in await rows(
+            Relationship.entity_id,
+            Relationship.end_a,
+            Relationship.end_b,
+            Relationship.one_way,
+            Relationship.starts_at,
+            Relationship.ends_at,
+            where=Relationship.tenant_id == t,
+        )
+    }
+    c.social_webs = {
+        entity: {
+            "layout": layout,
+            "layout_seed": seed,
+            "theme_hint": theme_hint,
+            "view": view,
+            "standing_stat": standing_stat,
+            "as_of_event": as_of_event,
+        }
+        for entity, layout, seed, theme_hint, view, standing_stat, as_of_event in await rows(
+            SocialWeb.entity_id,
+            SocialWeb.layout,
+            SocialWeb.layout_seed,
+            SocialWeb.theme_hint,
+            SocialWeb.view,
+            SocialWeb.standing_stat_id,
+            SocialWeb.as_of_event,
+            where=SocialWeb.tenant_id == t,
+        )
+    }
+    c.social_web_entries = {
+        (web, entry): {"x": x, "y": y}
+        for web, entry, x, y in await rows(
+            SocialWebEntry.web_entity_id,
+            SocialWebEntry.entry_entity_id,
+            SocialWebEntry.x,
+            SocialWebEntry.y,
+            where=SocialWebEntry.tenant_id == t,
+        )
+    }
+    c.social_web_types = {
+        (web, kind)
+        for web, kind in await rows(
+            SocialWebType.web_entity_id,
+            SocialWebType.type_entity_id,
+            where=SocialWebType.tenant_id == t,
+        )
+    }
+    for held, via in await rows(
+        RelationshipThrough.relationship_entity_id,
+        RelationshipThrough.via_entity_id,
+        where=RelationshipThrough.tenant_id == t,
+        order_by=(RelationshipThrough.relationship_entity_id, RelationshipThrough.step),
+    ):
+        c.relationship_through.setdefault(held, []).append(via)
     for drawn_on, _position, info, calibration, opacity, reviewed in await rows(
         MapLayer.map_entity_id,
         MapLayer.position,
@@ -1146,6 +1235,70 @@ def entity_snapshot(
             else {}
         ),
         **(
+            {
+                "relationship": {
+                    "end_a": name("entity", content.relationships[entity_id]["end_a"]),
+                    "end_b": name("entity", content.relationships[entity_id]["end_b"]),
+                    "one_way": bool(content.relationships[entity_id]["one_way"]),
+                    "starts_at": (
+                        name("entity", content.relationships[entity_id]["starts_at"])
+                        if content.relationships[entity_id]["starts_at"]
+                        else None
+                    ),
+                    "ends_at": (
+                        name("entity", content.relationships[entity_id]["ends_at"])
+                        if content.relationships[entity_id]["ends_at"]
+                        else None
+                    ),
+                    "through": [
+                        name("entity", via)
+                        for via in content.relationship_through.get(entity_id, [])
+                    ],
+                }
+            }
+            if entity_id in content.relationships
+            else {}
+        ),
+        **(
+            {
+                "social_web": {
+                    "layout": content.social_webs[entity_id]["layout"],
+                    "layout_seed": content.social_webs[entity_id]["layout_seed"],
+                    "theme_hint": content.social_webs[entity_id]["theme_hint"],
+                    "view": content.social_webs[entity_id]["view"],
+                    "standing_stat": (
+                        name("stat_definition", content.social_webs[entity_id]["standing_stat"])
+                        if content.social_webs[entity_id]["standing_stat"]
+                        else None
+                    ),
+                    "as_of_event": (
+                        name("entity", content.social_webs[entity_id]["as_of_event"])
+                        if content.social_webs[entity_id]["as_of_event"]
+                        else None
+                    ),
+                    "members": sorted(
+                        (
+                            {
+                                "entry": name("entity", entry),
+                                "x": placed["x"],
+                                "y": placed["y"],
+                            }
+                            for (web, entry), placed in content.social_web_entries.items()
+                            if web == entity_id
+                        ),
+                        key=lambda m: m["entry"],
+                    ),
+                    "types": sorted(
+                        name("entity", kind)
+                        for web, kind in content.social_web_types
+                        if web == entity_id
+                    ),
+                }
+            }
+            if entity_id in content.social_webs
+            else {}
+        ),
+        **(
             {"place": {"location": name("entity", content.entity_locations[entity_id])}}
             if entity_id in content.entity_locations
             else {}
@@ -1231,6 +1384,8 @@ def stat_definition_snapshot(
         "adjustable_in_play": definition["adjustable_in_play"],
         "pin": definition["pin"],
         "signed": definition["signed"],
+        "min_value": definition["min_value"],
+        "max_value": definition["max_value"],
         **{
             key: name("stat_definition", hinted) if hinted is not None else None
             for key, hinted in definition["hints"].items()

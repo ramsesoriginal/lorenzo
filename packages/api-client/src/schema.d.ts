@@ -3987,6 +3987,249 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/relationships/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Relationships
+         * @description Makes, sets, clears and deletes up to a hundred things at once, or none of them (ADR 0400).
+         *
+         *     An operation that is refused refuses the request with that operation's own problem (its status
+         *     and type) and its position as `operation`, and nothing is written. A relationship is addressed
+         *     by the ETag it was read at; a request holds every operation to that version, so two standings
+         *     of one relationship can go in together.
+         */
+        post: operations["write_relationships"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/relationship-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Relationship Types */
+        get: operations["list_relationship_types"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/relationships/{relationship_id}/through": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Through */
+        get: operations["get_through"];
+        /**
+         * Put Through
+         * @description Replaces the chain under `If-Match`. Steps the writer cannot see are kept where they are:
+         *     a writer's list replaces only what the writer reads.
+         */
+        put: operations["put_through"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/relationship-problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Relationship Problems
+         * @description For those who manage relationships: what looks wrong in what they can see (ADR 0402).
+         *     Today, a chain whose steps do not join its ends, when every step is visible.
+         */
+        get: operations["list_relationship_problems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/social-webs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Social Webs
+         * @description The webs the reader may see, by name then id.
+         */
+        get: operations["list_social_webs"];
+        put?: never;
+        /**
+         * Create Social Web
+         * @description A new web, restricted unless `is_public`, with no members yet.
+         */
+        post: operations["create_social_web"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/social-webs/{web_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Social Web */
+        get: operations["get_social_web"];
+        /**
+         * Put Social Web
+         * @description Replaces the settings under `If-Match`: layout, seed, theme, view, standing and date lens.
+         */
+        put: operations["put_social_web"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/social-webs/{web_id}/members/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Members
+         * @description Adds, places and drops members in one transaction, at most a hundred rows (ADR 0406). Any
+         *     refused row refuses the request and nothing is written.
+         */
+        post: operations["write_members"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/social-webs/{web_id}/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Social Web Types
+         * @description Replaces the types the web limits its edges to; none means every type.
+         */
+        put: operations["put_social_web_types"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/social-webs/{web_id}/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Social Web Graph
+         * @description What the reader draws: the members they may see and the relationships they may see between
+         *     them, limited to the web's types when it names any. An edge to a hidden member is absent.
+         */
+        get: operations["get_social_web_graph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Relationships
+         * @description The relationships the reader may see with both their ends, by name then id (ADR 0399). A
+         *     hidden relationship or end is absent from every row, count and page.
+         */
+        get: operations["list_relationships"];
+        put?: never;
+        /**
+         * Create Relationship
+         * @description A relationship between two entries the writer sees, restricted unless `is_public`.
+         */
+        post: operations["create_relationship"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/relationships/{relationship_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Relationship */
+        get: operations["get_relationship"];
+        /**
+         * Put Relationship
+         * @description Replaces the ends and the direction under `If-Match`.
+         */
+        put: operations["put_relationship"];
+        post?: never;
+        /**
+         * Delete Relationship
+         * @description Deletes a relationship under `If-Match`: a writer's, or a player's own while they control an
+         *     end of it (ADR 0425).
+         */
+        delete: operations["delete_relationship"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/distance": {
         parameters: {
             query?: never;
@@ -7420,7 +7663,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /**
              * Information Id
              * Format: uuid
@@ -8837,7 +9080,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             end_a: components["schemas"]["EntryStub"];
             end_b: components["schemas"]["EntryStub"];
             /** One Way */
@@ -9708,7 +9951,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -9738,7 +9981,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Parent Ids */
             parent_ids: string[];
             /** Stat Group Ids */
@@ -9825,7 +10068,7 @@ export interface components {
             /** Quantity */
             quantity?: number | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Parent Ids */
             parent_ids: string[];
         };
@@ -9916,7 +10159,7 @@ export interface components {
             /** Information */
             information: components["schemas"]["InformationOut"][];
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Prototypes */
             prototypes: components["schemas"]["EntitySummary"][];
             /** Instances */
@@ -10020,7 +10263,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
         };
         /** EventAccess */
         EventAccess: {
@@ -11342,7 +11585,7 @@ export interface components {
             /** Slug */
             slug: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Template */
             template: string;
             /** Picture Url */
@@ -11477,7 +11720,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
             /** Tie */
@@ -11495,7 +11738,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
             within?: components["schemas"]["LocationStub"] | null;
@@ -11524,7 +11767,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Level Ordinal */
             level_ordinal?: string | null;
         };
@@ -11744,7 +11987,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Tie */
             tie?: ("tied" | "untied" | "other") | null;
         };
@@ -11760,7 +12003,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** System */
             system: {
                 [key: string]: unknown;
@@ -11813,7 +12056,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
         };
         /**
          * MeCapabilitiesOut
@@ -12966,6 +13209,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[RelationshipEntryOut] */
+        Page_RelationshipEntryOut_: {
+            /** Items */
+            items: components["schemas"]["RelationshipEntryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[ReleaseAuthoredOut] */
         Page_ReleaseAuthoredOut_: {
             /** Items */
@@ -12996,6 +13252,19 @@ export interface components {
         Page_RepositoryEntityOut_: {
             /** Items */
             items: components["schemas"]["RepositoryEntityOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[SocialWebOut] */
+        Page_SocialWebOut_: {
+            /** Items */
+            items: components["schemas"]["SocialWebOut"][];
             /** Total */
             total: number;
             /** Page */
@@ -13504,7 +13773,7 @@ export interface components {
             /** Slug */
             slug?: string | null;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
             /** Geometry */
             geometry: {
                 [key: string]: unknown;
@@ -14118,6 +14387,12 @@ export interface components {
             weapon_stat_group_id: string | null;
             /** Ability Information Type */
             ability_information_type: string | null;
+            /** Relationship Directed Stat Id */
+            relationship_directed_stat_id?: string | null;
+            /** Relationship Reads As Stat Id */
+            relationship_reads_as_stat_id?: string | null;
+            /** Relationship Reads As Back Stat Id */
+            relationship_reads_as_back_stat_id?: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -14258,6 +14533,193 @@ export interface components {
              */
             is_shared: boolean;
         };
+        /** RelationshipBulkRequest */
+        RelationshipBulkRequest: {
+            /** Operations */
+            operations: (components["schemas"]["RelationshipCreateOperation"] | components["schemas"]["RelationshipSetOperation"] | components["schemas"]["RelationshipClearOperation"] | components["schemas"]["RelationshipDeleteOperation"])[];
+        };
+        /** RelationshipBulkResponse */
+        RelationshipBulkResponse: {
+            /** Results */
+            results: components["schemas"]["RelationshipBulkResult"][];
+        };
+        /** RelationshipBulkResult */
+        RelationshipBulkResult: {
+            /** Index */
+            index: number;
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "create" | "set" | "clear" | "delete";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            relationship: components["schemas"]["RelationshipEntryOut"] | null;
+        };
+        /**
+         * RelationshipClearOperation
+         * @description Remove one own standing of a relationship, keeping the relationship.
+         */
+        RelationshipClearOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "clear";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** If Match */
+            if_match: string;
+        };
+        /** RelationshipCreate */
+        RelationshipCreate: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * End A
+             * Format: uuid
+             */
+            end_a: string;
+            /**
+             * End B
+             * Format: uuid
+             */
+            end_b: string;
+            /**
+             * One Way
+             * @default false
+             */
+            one_way: boolean;
+            /** Prototypes */
+            prototypes?: string[];
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
+        };
+        /**
+         * RelationshipCreateOperation
+         * @description Make a relationship, as `POST /relationships` does, with its standings.
+         */
+        RelationshipCreateOperation: {
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * End A
+             * Format: uuid
+             */
+            end_a: string;
+            /**
+             * End B
+             * Format: uuid
+             */
+            end_b: string;
+            /**
+             * One Way
+             * @default false
+             */
+            one_way: boolean;
+            /** Prototypes */
+            prototypes?: string[];
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "create";
+            /** Stats */
+            stats?: components["schemas"]["RelationshipStatWrite"][];
+        };
+        /**
+         * RelationshipDeleteOperation
+         * @description Delete a relationship.
+         */
+        RelationshipDeleteOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "delete";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /** If Match */
+            if_match: string;
+        };
+        /**
+         * RelationshipEntryOut
+         * @description A relationship and its two ends. `one_way` is true for a tie that goes from `end_a` to
+         *     `end_b` only.
+         */
+        RelationshipEntryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            end_a: components["schemas"]["EntryStub"];
+            end_b: components["schemas"]["EntryStub"];
+            /** One Way */
+            one_way: boolean;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Is Public */
+            is_public?: boolean | null;
+            /**
+             * Can Edit
+             * @default false
+             */
+            can_edit: boolean;
+            starts_at?: components["schemas"]["EntryStub"] | null;
+            ends_at?: components["schemas"]["EntryStub"] | null;
+            /** As Of */
+            as_of?: ("holds" | "not_yet" | "ended" | "unknown" | "limit_reached") | null;
+        };
         /** RelationshipOut */
         RelationshipOut: {
             /**
@@ -14295,6 +14757,69 @@ export interface components {
             /** Being Name */
             being_name?: string | null;
         };
+        /** RelationshipProblem */
+        RelationshipProblem: {
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "through_ends_do_not_meet";
+            relationship: components["schemas"]["EntryStub"];
+            /** Detail */
+            detail: string;
+        };
+        /** RelationshipProblems */
+        RelationshipProblems: {
+            /** Items */
+            items: components["schemas"]["RelationshipProblem"][];
+        };
+        /** RelationshipPut */
+        RelationshipPut: {
+            /**
+             * End A
+             * Format: uuid
+             */
+            end_a: string;
+            /**
+             * End B
+             * Format: uuid
+             */
+            end_b: string;
+            /**
+             * One Way
+             * @default false
+             */
+            one_way: boolean;
+            /** Starts At */
+            starts_at?: string | null;
+            /** Ends At */
+            ends_at?: string | null;
+        };
+        /**
+         * RelationshipSetOperation
+         * @description Set one own standing of a relationship; `if_match` is the relationship's ETag.
+         */
+        RelationshipSetOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set";
+            /**
+             * Relationship Id
+             * Format: uuid
+             */
+            relationship_id: string;
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+            /** If Match */
+            if_match: string;
+        };
         /** RelationshipSharingWrite */
         RelationshipSharingWrite: {
             /**
@@ -14310,6 +14835,68 @@ export interface components {
             direction: "incoming" | "outgoing";
             /** Is Shared */
             is_shared: boolean;
+        };
+        /**
+         * RelationshipStatWrite
+         * @description A standing to set on a relationship made in the same request.
+         */
+        RelationshipStatWrite: {
+            /**
+             * Stat Definition Id
+             * Format: uuid
+             */
+            stat_definition_id: string;
+            /** Value */
+            value: number | string | boolean;
+        };
+        /**
+         * RelationshipThroughOut
+         * @description The steps the reader may see, in order. A hidden step leaves no gap and no marker.
+         */
+        RelationshipThroughOut: {
+            /** Via */
+            via: components["schemas"]["RelationshipEntryOut"][];
+        };
+        /**
+         * RelationshipThroughPut
+         * @description The whole chain, in order. An empty list removes it.
+         */
+        RelationshipThroughPut: {
+            /** Via */
+            via: string[];
+        };
+        /**
+         * RelationshipTypeOut
+         * @description One type: what it inherits from, how it points and reads, and how many relationships the
+         *     reader sees that are directly of it.
+         */
+        RelationshipTypeOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            /** Parent Ids */
+            parent_ids: string[];
+            /** Directed */
+            directed: boolean | null;
+            /** Reads As */
+            reads_as: string | null;
+            /** Reads As Back */
+            reads_as_back: string | null;
+            /** In Use */
+            in_use: number;
+        };
+        /** RelationshipTypesOut */
+        RelationshipTypesOut: {
+            /** Items */
+            items: components["schemas"]["RelationshipTypeOut"][];
         };
         /** RelationshipWrite */
         RelationshipWrite: {
@@ -14704,7 +15291,7 @@ export interface components {
             /** Name */
             name: string;
             /** Kinds */
-            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
         };
         /** Review */
         Review: {
@@ -15218,6 +15805,192 @@ export interface components {
             /** Entity Ids */
             entity_ids: string[];
         };
+        /** SocialWebCreate */
+        SocialWebCreate: {
+            /**
+             * Layout
+             * @default circle
+             * @enum {string}
+             */
+            layout: "circle" | "radial" | "stress" | "forceatlas2" | "manual" | "layered";
+            /**
+             * Layout Seed
+             * @default 1
+             */
+            layout_seed: number;
+            /** Theme Hint */
+            theme_hint?: string | null;
+            /** View */
+            view?: {
+                [key: string]: unknown;
+            } | null;
+            /** Standing Stat Id */
+            standing_stat_id?: string | null;
+            /** As Of Event */
+            as_of_event?: string | null;
+            /** Id */
+            id?: string | null;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * Is Public
+             * @default false
+             */
+            is_public: boolean;
+        };
+        /**
+         * SocialWebDetail
+         * @description The web as one reader sees it: the members and types they may see, and nothing else.
+         */
+        SocialWebDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            /** Layout */
+            layout: string;
+            /** Layout Seed */
+            layout_seed: number;
+            /** Theme Hint */
+            theme_hint: string | null;
+            /** View */
+            view: {
+                [key: string]: unknown;
+            } | null;
+            /** Standing Stat Id */
+            standing_stat_id: string | null;
+            as_of_event: components["schemas"]["EntryStub"] | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Members */
+            members: components["schemas"]["SocialWebMemberOut"][];
+            /** Types */
+            types: components["schemas"]["EntryStub"][];
+        };
+        /** SocialWebGraph */
+        SocialWebGraph: {
+            web: components["schemas"]["SocialWebOut"];
+            /** Members */
+            members: components["schemas"]["SocialWebMemberOut"][];
+            /** Edges */
+            edges: components["schemas"]["RelationshipEntryOut"][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** SocialWebMemberOut */
+        SocialWebMemberOut: {
+            entry: components["schemas"]["EntryStub"];
+            /** X */
+            x: number | null;
+            /** Y */
+            y: number | null;
+        };
+        /**
+         * SocialWebMembersWrite
+         * @description Adds or moves members (`set`) and drops them (`remove`), at most a hundred rows in all.
+         */
+        SocialWebMembersWrite: {
+            /** Set */
+            set?: components["schemas"]["SocialWebPlacement"][];
+            /** Remove */
+            remove?: string[];
+        };
+        /** SocialWebOut */
+        SocialWebOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /** Kinds */
+            kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
+            /** Layout */
+            layout: string;
+            /** Layout Seed */
+            layout_seed: number;
+            /** Theme Hint */
+            theme_hint: string | null;
+            /** View */
+            view: {
+                [key: string]: unknown;
+            } | null;
+            /** Standing Stat Id */
+            standing_stat_id: string | null;
+            as_of_event: components["schemas"]["EntryStub"] | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Manage */
+            can_manage: boolean;
+            /** Is Public */
+            is_public?: boolean | null;
+        };
+        /** SocialWebPlacement */
+        SocialWebPlacement: {
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+        };
+        /**
+         * SocialWebSettings
+         * @description What a web saves about how it looks and what it reads (ADR 0406).
+         */
+        SocialWebSettings: {
+            /**
+             * Layout
+             * @default circle
+             * @enum {string}
+             */
+            layout: "circle" | "radial" | "stress" | "forceatlas2" | "manual" | "layered";
+            /**
+             * Layout Seed
+             * @default 1
+             */
+            layout_seed: number;
+            /** Theme Hint */
+            theme_hint?: string | null;
+            /** View */
+            view?: {
+                [key: string]: unknown;
+            } | null;
+            /** Standing Stat Id */
+            standing_stat_id?: string | null;
+            /** As Of Event */
+            as_of_event?: string | null;
+        };
+        /** SocialWebTypesPut */
+        SocialWebTypesPut: {
+            /** Type Ids */
+            type_ids: string[];
+        };
         /** SplitAcknowledgement */
         SplitAcknowledgement: {
             /**
@@ -15349,6 +16122,10 @@ export interface components {
             min_hint_id?: string | null;
             /** Resolved Hint Id */
             resolved_hint_id?: string | null;
+            /** Min Value */
+            min_value?: number | null;
+            /** Max Value */
+            max_value?: number | null;
         };
         /**
          * StatDefinitionOrder
@@ -15399,6 +16176,10 @@ export interface components {
             min_hint_id: string | null;
             /** Resolved Hint Id */
             resolved_hint_id: string | null;
+            /** Min Value */
+            min_value: number | null;
+            /** Max Value */
+            max_value: number | null;
             /**
              * Created At
              * Format: date-time
@@ -15435,6 +16216,10 @@ export interface components {
             min_hint_id?: string | null;
             /** Resolved Hint Id */
             resolved_hint_id?: string | null;
+            /** Min Value */
+            min_value?: number | null;
+            /** Max Value */
+            max_value?: number | null;
         };
         /**
          * StatEnumOptionOut
@@ -15867,6 +16652,12 @@ export interface components {
             weapon_stat_group_id: string | null;
             /** Ability Information Type */
             ability_information_type: string | null;
+            /** Relationship Directed Stat Id */
+            relationship_directed_stat_id?: string | null;
+            /** Relationship Reads As Stat Id */
+            relationship_reads_as_stat_id?: string | null;
+            /** Relationship Reads As Back Stat Id */
+            relationship_reads_as_back_stat_id?: string | null;
             /** Created By */
             created_by: string | null;
             /** Updated By */
@@ -15923,6 +16714,12 @@ export interface components {
             weapon_stat_group_id?: string | null;
             /** Ability Information Type */
             ability_information_type?: string | null;
+            /** Relationship Directed Stat Id */
+            relationship_directed_stat_id?: string | null;
+            /** Relationship Reads As Stat Id */
+            relationship_reads_as_stat_id?: string | null;
+            /** Relationship Reads As Back Stat Id */
+            relationship_reads_as_back_stat_id?: string | null;
         };
         /**
          * UndeprecatedOut
@@ -32403,6 +33200,1192 @@ export interface operations {
             };
         };
     };
+    write_relationships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelationshipBulkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipBulkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_relationship_types: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipTypesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_through: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                relationship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipThroughOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_through: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                relationship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelationshipThroughPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipThroughOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_relationship_problems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipProblems"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_social_webs: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive substring match against the name. */
+                q?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SocialWebOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_social_web: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialWebCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialWebDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_social_web: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                web_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialWebDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_social_web: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                web_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialWebSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialWebDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    write_members: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                web_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialWebMembersWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialWebDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_social_web_types: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                web_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SocialWebTypesPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialWebDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_social_web_graph: {
+        parameters: {
+            query?: {
+                /** @description An Event: each edge says where it stands then (ADR 0405). */
+                as_of?: string | null;
+                /** @description A being: only what it may read through its own grants and groups. */
+                as_seen_by?: string | null;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+                web_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialWebGraph"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_relationships: {
+        parameters: {
+            query?: {
+                /** @description Only the relationships that have this entry as an end. */
+                end?: string | null;
+                /** @description Only those whose first end is one of these. */
+                end_a_in?: string[] | null;
+                /** @description Only those whose second end is one of these. */
+                end_b_in?: string[] | null;
+                /** @description Only the relationships that name this type, or one that inherits from it. */
+                type?: string | null;
+                /** @description Case-insensitive substring match against the relationship's name. */
+                q?: string | null;
+                /** @description An Event: each row says whether it holds, is not yet, has ended or is unknown as of that Event, from what the reader's own graph records (ADR 0405). */
+                as_of?: string | null;
+                /** @description With `as_of`, only the rows in these states, before paging. */
+                state?: ("holds" | "not_yet" | "ended" | "unknown")[] | null;
+                /** @description A being: only what it may read through its own grants and groups. For staff, and for a player when the being is one they control. */
+                as_seen_by?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RelationshipEntryOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_relationship: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelationshipCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipEntryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_relationship: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                relationship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipEntryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_relationship: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                relationship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelationshipPut"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipEntryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_relationship: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                tenant_id: string;
+                relationship_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     read_distance: {
         parameters: {
             query: {
@@ -35952,7 +37935,7 @@ export interface operations {
                 /** @description Case-insensitive substring match against the entry's name. */
                 q?: string | null;
                 /** @description Only entries of these kinds (repeatable): any of them, not all. */
-                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
                 /** @description Only entries that have this entry as a parent. */
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
@@ -36099,7 +38082,7 @@ export interface operations {
                 /** @description Case-insensitive substring match against the entry's name. */
                 q?: string | null;
                 /** @description Only entries of these kinds (repeatable): any of them, not all. */
-                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
+                kind?: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[] | null;
                 /** @description Only entries that have this entry as a parent. */
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
@@ -36178,7 +38161,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being" | "fact" | "event" | "location" | "map" | "connection";
+                kind: "item" | "being" | "fact" | "event" | "location" | "map" | "connection" | "relationship" | "social_web";
             };
             cookie?: never;
         };
@@ -36251,7 +38234,7 @@ export interface operations {
             path: {
                 tenant_id: string;
                 entity_id: string;
-                kind: "item" | "being" | "fact" | "event" | "location" | "map" | "connection";
+                kind: "item" | "being" | "fact" | "event" | "location" | "map" | "connection" | "relationship" | "social_web";
             };
             cookie?: never;
         };

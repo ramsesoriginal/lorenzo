@@ -1,0 +1,37 @@
+---
+import AppPage from '@lorenzo/app-shell/AppPage.astro';
+import { ClientRouter } from 'astro:transitions';
+import { BRANDING_CSS_URL } from '../lib/config';
+import appStyles from '../styles/app.css?url';
+
+interface Props {
+  title?: string;
+  // What the welcome says while the page works out who is signed in.
+  status?: string;
+}
+
+const { title = 'Lorenzo Social', status = 'Opening your libraries…' } = Astro.props;
+---
+
+<AppPage
+  title={title}
+  product="Social"
+  brandingUrl={BRANDING_CSS_URL}
+  themeKey="lorenzo:social:theme"
+  nav={[
+    { label: 'Libraries', href: '/' },
+    { label: 'Relationships', href: '/relationships/', needsLibrary: true },
+    { label: 'Webs', href: '/webs/', needsLibrary: true },
+    { label: 'Types and standings', href: '/types/', needsLibrary: true },
+  ]}
+  path="apps/social"
+  welcome={{
+    title: 'Social',
+    text: 'Who knows whom: the relationships between the beings and groups of your world, and how much each one counts.',
+    status,
+  }}
+>
+  <ClientRouter slot="head" />
+  <link slot="head" rel="stylesheet" href={appStyles} />
+  <slot />
+</AppPage>

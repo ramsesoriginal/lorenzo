@@ -132,6 +132,8 @@ class Shelf:
                     "max_hint_id": None,
                     "min_hint_id": None,
                     "resolved_hint_id": None,
+                    "min_value": None,
+                    "max_value": None,
                     "created_at": NOW,
                     "updated_at": NOW,
                 }
@@ -155,6 +157,8 @@ class Shelf:
                     "max_hint_id": None,
                     "min_hint_id": None,
                     "resolved_hint_id": None,
+                    "min_value": None,
+                    "max_value": None,
                     "created_at": NOW,
                     "updated_at": NOW,
                 }

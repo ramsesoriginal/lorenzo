@@ -1,0 +1,23 @@
+{
+  "name": "@lorenzo/graph-renderer",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Hand-written SVG drawing of a graph of Lorenzo entries: layout to a Scene, painting, hit testing, interaction and themes (ADR 0407).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./graph.css": "./src/graph.css",
+    "./layouts.json": "./src/layouts.json"
+  },
+  "scripts": {
+    "lint": "biome check . && tsc --noEmit",
+    "format": "biome check --write .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@types/node": "^26.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

@@ -90,6 +90,11 @@ class TenantUpdate(BaseModel):
     being_stat_group_id: uuid.UUID | None = None
     weapon_stat_group_id: uuid.UUID | None = None
     ability_information_type: Annotated[str | None, Field(min_length=1, max_length=100)] = None
+    # ADR 0400: the stats that say how a type of relationship points and reads (a bool, then two
+    # text stats). Sent as null, they are cleared.
+    relationship_directed_stat_id: uuid.UUID | None = None
+    relationship_reads_as_stat_id: uuid.UUID | None = None
+    relationship_reads_as_back_stat_id: uuid.UUID | None = None
 
 
 class TenantSummaryOut(BaseModel):
@@ -139,6 +144,10 @@ class TenantOut(BaseModel):
     being_stat_group_id: uuid.UUID | None = None
     weapon_stat_group_id: uuid.UUID | None
     ability_information_type: str | None
+    # ADR 0400: the stats that say how a type of relationship points and reads, or null.
+    relationship_directed_stat_id: uuid.UUID | None = None
+    relationship_reads_as_stat_id: uuid.UUID | None = None
+    relationship_reads_as_back_stat_id: uuid.UUID | None = None
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
 
