@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Social: icon candidates</title>
+<link rel="stylesheet" href="../../../../apps/brand/normalize.css">
+<link rel="stylesheet" href="../../../../apps/brand/tokens.css">
+<link rel="stylesheet" href="../../../../apps/brand/fonts.css">
+<link rel="stylesheet" href="../../../../apps/brand/base.css">
+<style>
+  body { padding: var(--s-5, 24px); background: var(--surface-canvas); color: var(--text-primary); font-family: var(--font-sans, 'Geist', system-ui, sans-serif); }
+  h1 { font-family: var(--font-serif, 'Newsreader', serif); font-weight: 400; margin: 0 0 4px; } p { margin: 0 0 16px; color: var(--text-secondary); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; max-width: 1100px; }
+  .c { border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px; display: grid; gap: 12px; background: var(--surface-default); }
+  .c h2 { margin: 0; font-size: 15px; } .c .m { font-size: 13px; color: var(--text-secondary); }
+  .row { display: flex; align-items: center; gap: 16px; } .ico { width: 24px; height: 24px; } .big { width: 56px; height: 56px; }
+  .sel { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px; background: var(--surface-selected); border: 1px solid var(--border-control); font-size: 14px; }
+  .sel .ico { width: 18px; height: 18px; }
+  .ctx { display: flex; gap: 12px; align-items: center; color: var(--text-secondary); font-size: 13px; }
+  .sec { margin: 24px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- custom candidates, drawn on the atlas grid: 24px, 2px stroke, round caps and joins -->
+    <symbol id="r-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="12" r="2.5"/><circle cx="18.5" cy="12" r="2.5"/><path d="M8.5 12h5.5M12 9.5l2.5 2.5l-2.5 2.5"/></symbol>
+    <symbol id="r-overlap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></symbol>
+    <symbol id="w-mesh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="1.8"/><circle cx="4.5" cy="10" r="1.8"/><circle cx="19.5" cy="10" r="1.8"/><circle cx="7.5" cy="19" r="1.8"/><circle cx="16.5" cy="19" r="1.8"/><path d="M10.6 5.8l-4.7 2.9M13.4 5.8l4.7 2.9M5.4 11.6l1.6 5.8M18.6 11.6l-1.6 5.8M9.3 19h5.4M5.9 10.6l11.8 7M18.1 10.6l-11.8 7"/></symbol>
+    <symbol id="w-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="1.8"/><circle cx="19" cy="9.6" r="1.8"/><circle cx="16.3" cy="18" r="1.8"/><circle cx="7.7" cy="18" r="1.8"/><circle cx="5" cy="9.6" r="1.8"/><path d="M13.7 5.1l3.8 2.8M18.4 11.4l-1.5 4.9M14.5 18h-5M7.1 16.3l-1.5 -4.9M6.5 7.9l3.8 -2.8"/><circle cx="12" cy="12" r="1.8"/></symbol>
+  </defs>
+</svg>
+<h1>Relationship and Social web: candidates</h1>
+<p>Each is drawn on the atlas grid: 24px, 2px stroke, round caps and joins. Shown at 24px, 18px in a selected row, and 56px.</p>
+
+<div class="sec">Relationship (a kind)</div>
+<div class="grid">
+  <div class="c"><h2>R1. Two nodes and a line</h2><div class="m">In the atlas now as <code>icon-connection</code>. No arrow, so it reads as a plain tie.</div><div class="row"><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-connection"/></svg><svg class="big"><use href="../../../../apps/brand/icons.svg#icon-connection"/></svg></div><div class="sel"><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-connection"/></svg>Mara and Wren</div></div>
+  <div class="c"><h2>R2. Two nodes and an arrow</h2><div class="m">New. Says "from, to". Most relationships are directed, but a symmetric one would wear an arrow it does not have.</div><div class="row"><svg class="ico"><use href="#r-arrow"/></svg><svg class="big"><use href="#r-arrow"/></svg></div><div class="sel"><svg class="ico"><use href="#r-arrow"/></svg>Mara and Wren</div></div>
+  <div class="c"><h2>R3. Two overlapping rings</h2><div class="m">New. Says "shared, between", with no direction and no node vocabulary that the web already uses.</div><div class="row"><svg class="ico"><use href="#r-overlap"/></svg><svg class="big"><use href="#r-overlap"/></svg></div><div class="sel"><svg class="ico"><use href="#r-overlap"/></svg>Mara and Wren</div></div>
+</div>
+
+<div class="sec">Social web (a kind) and the app</div>
+<div class="grid">
+  <div class="c"><h2>W1. A hub and three nodes</h2><div class="m">In the atlas now as <code>icon-social</code>. Reads as a star, not a web.</div><div class="row"><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-social"/></svg><svg class="big"><use href="../../../../apps/brand/icons.svg#icon-social"/></svg></div><div class="sel"><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-social"/></svg>The harbour court</div></div>
+  <div class="c"><h2>W2. Three linked nodes</h2><div class="m">In the atlas now as <code>icon-relations</code>. Three nodes, one large: reads as a network.</div><div class="row"><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-relations"/></svg><svg class="big"><use href="../../../../apps/brand/icons.svg#icon-relations"/></svg></div><div class="sel"><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-relations"/></svg>The harbour court</div></div>
+  <div class="c"><h2>W3. A mesh of five</h2><div class="m">New. A pentagon with its diagonals. Reads as "everyone to everyone", which is close to what the matrix shows.</div><div class="row"><svg class="ico"><use href="#w-mesh"/></svg><svg class="big"><use href="#w-mesh"/></svg></div><div class="sel"><svg class="ico"><use href="#w-mesh"/></svg>The harbour court</div></div>
+  <div class="c"><h2>W4. A ring with a centre</h2><div class="m">New. Five nodes in a circle around a sixth, the circle layout's picture. At 18px the centre node touches the ring.</div><div class="row"><svg class="ico"><use href="#w-ring"/></svg><svg class="big"><use href="#w-ring"/></svg></div><div class="sel"><svg class="ico"><use href="#w-ring"/></svg>The harbour court</div></div>
+</div>
+
+<div class="sec">In the family they join</div>
+<div class="c" style="max-width:1100px"><div class="ctx">
+  <span><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-kind-being"/></svg> Being</span>
+  <span><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-kind-group"/></svg> Group</span>
+  <span><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-kind-location"/></svg> Location</span>
+  <span><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-kind-map"/></svg> Map</span>
+  <span><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-kind-connection"/></svg> Connection (Maps)</span>
+  <span><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-kind-event"/></svg> Event</span>
+  <span><svg class="ico"><use href="../../../../apps/brand/icons.svg#icon-kind-fact"/></svg> Fact</span>
+</div></div>
+</body>
+</html>
