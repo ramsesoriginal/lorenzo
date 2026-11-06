@@ -821,6 +821,66 @@ dialog h3 {
   initial-value: 1;
 }
 
+/* The same fade for a row that scrolls sideways (a table, a matrix, a strip of tabs). */
+@property --scroll-fade-start {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --scroll-fade-end {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+.horizontal-mask {
+  --fade-size: var(--space-4);
+  --fade-distance: var(--space-3);
+  --scroll-fade-start: 1;
+  --scroll-fade-end: 1;
+
+  mask-image: linear-gradient(
+    to right,
+    rgb(0 0 0 / var(--scroll-fade-start)) 0,
+    #000 var(--fade-size),
+    #000 calc(100% - var(--fade-size)),
+    rgb(0 0 0 / var(--scroll-fade-end)) 100%
+  );
+}
+
+@supports (animation-timeline: scroll()) {
+  .horizontal-mask {
+    animation-name: scroll-fade-start, scroll-fade-end;
+    animation-timing-function: linear, linear;
+    animation-fill-mode: both, both;
+    animation-timeline: scroll(self inline), scroll(self inline);
+    animation-range:
+      0 var(--fade-distance),
+      calc(100% - var(--fade-distance)) 100%;
+  }
+}
+
+@keyframes scroll-fade-start {
+  from {
+    --scroll-fade-start: 1;
+  }
+
+  to {
+    --scroll-fade-start: 0;
+  }
+}
+
+@keyframes scroll-fade-end {
+  from {
+    --scroll-fade-end: 0;
+  }
+
+  to {
+    --scroll-fade-end: 1;
+  }
+}
+
 @property --scroll-fade-bottom {
   syntax: "<number>";
   inherits: false;
@@ -1662,8 +1722,8 @@ fieldset:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  min-height: 36px;
+  min-width: var(--hit, 36px);
+  min-height: var(--hit, 36px);
   color: var(--canonical);
 }
 
@@ -1671,7 +1731,7 @@ fieldset:disabled {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: var(--hit, 36px);
   padding: 0 var(--space-2h);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-control);
@@ -2078,7 +2138,9 @@ dialog.palette:not([open]) {
   color: var(--text-secondary);
 }
 
-@media (max-width: 720px) {
+/* The shell's bars follow the width of the .shell-container they sit in (layout.css), not the
+   window, so the same markup works in a full page and in a pane. A dialog is the window's. */
+@container shell (max-width: 720px) {
   .shell-apps,
   .only-wide {
     display: none;
@@ -2104,8 +2166,16 @@ dialog.palette:not([open]) {
   .shell-drawer {
     display: none;
   }
+}
 
-  /* On a phone the palette is a full screen. */
+@container shell (min-width: 721px) {
+  .only-phone {
+    display: none !important;
+  }
+}
+
+/* On a phone the palette is a full screen. */
+@media (max-width: 720px) {
   dialog.palette {
     width: 100%;
     max-height: none;
@@ -2124,8 +2194,77 @@ dialog.palette:not([open]) {
   }
 }
 
-@media (min-width: 721px) {
-  .only-phone {
-    display: none !important;
-  }
+/* The save bar: a form with effects that cannot be undone saves from here. It opens only when
+   there is something to save, with a border and no shadow. Rewrite its buttons only when the
+   number of changes changes, never on every edit, or a click on Save that follows an edit can be
+   lost (found while building the prototypes). */
+.save-bar {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-med) var(--ease);
+}
+
+.save-bar[data-open] {
+  grid-template-rows: 1fr;
+}
+
+.save-bar > div {
+  overflow: hidden;
+}
+
+.save-bar-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-2h);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-default);
+}
+
+.save-bar-in .grow {
+  flex: 1;
+}
+
+/* The floating form: a bar that sticks to the bottom of its own scrolling region. */
+.save-bar--float {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-default);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-card);
+}
+
+/* Skeleton rows: for a wait that is not a single field. A skeleton, never a spinner, stands where
+   the real rows will be; .skeleton (motion.css) gives each bar its pulse. */
+.skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+}
+
+.skeleton-rows {
+  display: grid;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 120px;
+  gap: var(--space-2h);
+  align-items: center;
+  min-height: var(--row-h, 48px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.toast-card .toast-meta {
+  color: var(--text-tertiary);
+  font-size: var(--fs-meta);
+}
+
+.toast-card .toast-action {
+  align-self: center;
 }

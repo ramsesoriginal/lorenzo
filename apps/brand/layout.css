@@ -393,3 +393,83 @@ body:has(.full-width) {
     align-items: stretch;
   }
 }
+
+/* ---------------------------------------------------------------------------------------
+   Containers and density for the web apps (docs/design/web, ADR 0411).
+
+   An app's root is a .shell-container: the shell's bars and the pieces inside it read its
+   width, not the window's, with steps at 720px (phone), 1100px (desktop) and 1700px (large).
+   430px is the phone design width. The .shell-app inside it redefines the spacing tokens by
+   that width, as :root does by the window's at 720px, and holds the density.
+   --------------------------------------------------------------------------------------- */
+.shell-container {
+  container: shell / inline-size;
+}
+
+.shell-app {
+  --hit: 36px;
+  --row-h: 48px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--surface-default);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-ui);
+  line-height: 1.4;
+}
+
+/* Density changes only a row's height and padding, never type (D22). Dense is for a fine
+   pointer; on a phone or a coarse pointer every level is at least 44px and none is offered. */
+.shell-app[data-density="compact"] {
+  --row-h: 36px;
+}
+
+.shell-app[data-density="dense"] {
+  --row-h: 28px;
+}
+
+@container shell (max-width: 720px) {
+  .shell-app,
+  .shell-app[data-density] {
+    --space-1: 2px;
+    --space-2: 4px;
+    --space-3: 8px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-7: 28px;
+    --space-2h: 6px;
+    --hit: var(--target-min);
+    --row-h: 64px;
+  }
+}
+
+@media (pointer: coarse) {
+  .shell-app,
+  .shell-app[data-density] {
+    --hit: var(--target-min);
+    --row-h: 64px;
+  }
+}
+
+/* A page's own width: reading has a 680px measure, forms 1040px, other pages 1120px; a board, a
+   map or a wide table is exempt (ADR 0412). The gutter follows the spacing token. */
+.shell-page {
+  width: 100%;
+  margin-inline: auto;
+  padding: var(--space-5) var(--space-4);
+  max-width: 1120px;
+}
+
+.shell-page--reading {
+  max-width: 680px;
+}
+
+.shell-page--form {
+  max-width: 1040px;
+}
+
+.shell-page--wide {
+  max-width: none;
+}

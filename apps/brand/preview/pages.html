@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Lorenzo Brand — pages</title>
+    <link rel="stylesheet" href="../normalize.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="../fonts.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <link rel="stylesheet" href="../layout.css" />
+    <link rel="stylesheet" href="../components.css" />
+    <link rel="stylesheet" href="../motion.css" />
+    <style>
+      .demo-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: var(--space-2h);
+        align-items: center;
+        min-height: var(--row-h, 48px);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="row">
+        <span class="display">✧ Lorenzo</span>
+        <nav class="row" aria-label="Preview pages">
+          <a href="index.html">Tokens</a>
+          <a href="motion.html">Motion</a>
+          <a href="dialogs.html">Dialogs</a>
+          <a href="shell.html">Shell</a>
+          <a href="pages.html" aria-current="page">Pages</a>
+          <a href="forms.html">Forms</a>
+          <a href="trees.html">Trees</a>
+          <a href="outline.html">Outline</a>
+          <a href="editors.html">Editor</a>
+          <a href="full-width.html">Full width</a>
+          <a href="scrolling.html">Scrolling</a>
+          <a href="item.html">Item</a>
+          <a href="icons.html">Icons</a>
+          <a href="content/">Content</a>
+        </nav>
+      </div>
+      <button
+        class="btn btn-secondary"
+        id="theme-toggle"
+        type="button"
+        aria-pressed="false"
+      >
+        ☾ dark
+      </button>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <h1 class="display">Pages</h1>
+        <p class="lede">
+          Page parts (ADR 0411, ADR 0412, ADR 0413): the save bar, skeleton
+          rows, density, the sideways fade, and page widths.
+        </p>
+
+        <section id="savebar">
+          <h2>Save bar</h2>
+          <p class="lede">
+            Opens when there is something to save and rewrites its buttons only
+            when the count changes.
+          </p>
+          <div
+            class="shell-container"
+            style="
+              border: 1px solid var(--border-subtle);
+              border-radius: var(--radius-card);
+              overflow: hidden;
+            "
+          >
+            <div class="shell-app">
+              <div style="padding: var(--space-4)">
+                <button
+                  class="btn btn-secondary"
+                  id="make-change"
+                  type="button"
+                >
+                  Change something
+                </button>
+              </div>
+              <div class="save-bar" id="save-bar">
+                <div>
+                  <div class="save-bar-in" role="status">
+                    <span class="grow" id="sb-text">No changes</span>
+                    <span id="sb-actions"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="skeleton">
+          <h2>Skeleton rows</h2>
+          <div class="skeleton-rows" role="status" aria-label="Loading beings">
+            <div class="skeleton-row">
+              <span></span>
+              <div class="skeleton skeleton-line" style="width: 50%"></div>
+              <div class="skeleton skeleton-line" style="width: 70%"></div>
+            </div>
+            <div class="skeleton-row">
+              <span></span>
+              <div class="skeleton skeleton-line" style="width: 63%"></div>
+              <div class="skeleton skeleton-line" style="width: 70%"></div>
+            </div>
+            <div class="skeleton-row">
+              <span></span>
+              <div class="skeleton skeleton-line" style="width: 76%"></div>
+              <div class="skeleton skeleton-line" style="width: 70%"></div>
+            </div>
+            <div class="skeleton-row">
+              <span></span>
+              <div class="skeleton skeleton-line" style="width: 89%"></div>
+              <div class="skeleton skeleton-line" style="width: 70%"></div>
+            </div>
+            <div class="skeleton-row">
+              <span></span>
+              <div class="skeleton skeleton-line" style="width: 62%"></div>
+              <div class="skeleton skeleton-line" style="width: 70%"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="density">
+          <h2>Density</h2>
+          <div
+            class="row"
+            role="group"
+            aria-label="Density"
+            style="gap: var(--space-2)"
+          >
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-d="comfortable"
+              aria-pressed="true"
+            >
+              Comfortable
+            </button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-d="compact"
+              aria-pressed="false"
+            >
+              Compact
+            </button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-d="dense"
+              aria-pressed="false"
+            >
+              Dense
+            </button>
+          </div>
+          <div class="shell-container" style="margin-top: var(--space-3)">
+            <div class="shell-app" id="dens" data-density="comfortable">
+              <div role="table" aria-label="Beings">
+                <div class="demo-row" role="row">
+                  <span role="cell">Being 1</span><span role="cell">Ranger</span
+                  ><span role="cell">Level 3</span>
+                </div>
+                <div class="demo-row" role="row">
+                  <span role="cell">Being 2</span><span role="cell">Ranger</span
+                  ><span role="cell">Level 4</span>
+                </div>
+                <div class="demo-row" role="row">
+                  <span role="cell">Being 3</span><span role="cell">Ranger</span
+                  ><span role="cell">Level 5</span>
+                </div>
+                <div class="demo-row" role="row">
+                  <span role="cell">Being 4</span><span role="cell">Ranger</span
+                  ><span role="cell">Level 6</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="mask">
+          <h2>Sideways fade</h2>
+          <div
+            class="horizontal-mask"
+            id="hm"
+            style="
+              overflow-x: auto;
+              white-space: nowrap;
+              padding: var(--space-2) 0;
+            "
+          >
+            <span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 1</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 2</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 3</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 4</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 5</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 6</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 7</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 8</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 9</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 10</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 11</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 12</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 13</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 14</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 15</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 16</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 17</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 18</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 19</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 20</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 21</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 22</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 23</span></span
+            ><span
+              class="state-chip"
+              data-state="synced"
+              style="margin-right: var(--space-2)"
+              ><span>Chip number 24</span></span
+            >
+          </div>
+        </section>
+
+        <section id="widths">
+          <h2>Page widths</h2>
+          <div class="shell-container">
+            <div class="shell-app">
+              <div
+                class="shell-page shell-page--reading"
+                style="outline: 1px dashed var(--border-strong)"
+              >
+                .shell-page--reading, 680px
+              </div>
+              <div
+                class="shell-page shell-page--form"
+                style="outline: 1px dashed var(--border-strong)"
+              >
+                .shell-page--form, 1040px
+              </div>
+              <div
+                class="shell-page"
+                style="outline: 1px dashed var(--border-strong)"
+              >
+                .shell-page, 1120px
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Part of <code>apps/brand</code> — see
+        <code>docs/adr/0098-branding-css-app-and-package.md</code>.
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var toggle = document.getElementById("theme-toggle");
+        var prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        function apply(theme) {
+          if (theme === "dark") {
+            root.setAttribute("data-theme", "dark");
+            toggle.textContent = "☀ light";
+            toggle.setAttribute("aria-pressed", "true");
+          } else {
+            root.removeAttribute("data-theme");
+            toggle.textContent = "☾ dark";
+            toggle.setAttribute("aria-pressed", "false");
+          }
+        }
+
+        apply(prefersDark ? "dark" : "light");
+
+        toggle.addEventListener("click", function () {
+          var isDark = root.getAttribute("data-theme") === "dark";
+          apply(isDark ? "light" : "dark");
+        });
+
+        var n = 0;
+        var bar = document.getElementById("save-bar");
+        var text = document.getElementById("sb-text");
+        var actions = document.getElementById("sb-actions");
+        var rendered = -1;
+        function render() {
+          bar.toggleAttribute("data-open", n > 0);
+          text.textContent =
+            n === 0
+              ? "No changes"
+              : n + (n === 1 ? " change" : " changes") + " not saved";
+          if (n === rendered) return;
+          rendered = n;
+          actions.innerHTML =
+            '<button class="btn btn-secondary" type="button" id="sb-discard">Discard</button> ' +
+            '<button class="btn btn-primary" type="button" id="sb-save">Save changes</button>';
+          document
+            .getElementById("sb-discard")
+            .addEventListener("click", function () {
+              n = 0;
+              render();
+            });
+          document
+            .getElementById("sb-save")
+            .addEventListener("click", function () {
+              n = 0;
+              render();
+            });
+        }
+        document
+          .getElementById("make-change")
+          .addEventListener("click", function () {
+            n += 1;
+            render();
+          });
+        document.querySelectorAll("[data-d]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            document
+              .getElementById("dens")
+              .setAttribute("data-density", b.getAttribute("data-d"));
+            document.querySelectorAll("[data-d]").forEach(function (x) {
+              x.setAttribute("aria-pressed", x === b ? "true" : "false");
+            });
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

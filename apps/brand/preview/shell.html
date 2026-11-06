@@ -22,6 +22,7 @@
           <a href="motion.html">Motion</a>
           <a href="dialogs.html">Dialogs</a>
           <a href="shell.html" aria-current="page">Shell</a>
+          <a href="pages.html">Pages</a>
           <a href="forms.html">Forms</a>
           <a href="trees.html">Trees</a>
           <a href="outline.html">Outline</a>
@@ -55,117 +56,166 @@
 
         <section id="bars">
           <h2>Header and status bar</h2>
+          <p class="lede">
+            The bars read the width of their <code>.shell-container</code>, not
+            the window's: try the three widths.
+          </p>
           <div
+            class="row"
+            role="group"
+            aria-label="Frame width"
+            style="gap: var(--space-2)"
+          >
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-w="430"
+              aria-pressed="false"
+            >
+              430
+            </button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-w="900"
+              aria-pressed="false"
+            >
+              900
+            </button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-w="100%"
+              aria-pressed="true"
+            >
+              Full
+            </button>
+          </div>
+          <div
+            class="shell-container"
+            id="frame"
             style="
+              width: 100%;
+              max-width: 100%;
+              margin-top: var(--space-3);
               border: 1px solid var(--border-subtle);
               border-radius: var(--radius-card);
               overflow: hidden;
             "
           >
-            <div class="shell-bar">
-              <a class="brand-link" href="#" aria-label="Lorenzo home"
-                ><span aria-hidden="true" style="font-size: 1.5rem">✧</span></a
-              >
-              <button class="shell-field-btn" type="button">
-                <svg class="icon" width="16" height="16" aria-hidden="true">
-                  <use href="../icons.svg#icon-library"></use>
-                </svg>
-                Ashfall
-                <span aria-hidden="true"
-                  ><svg class="icon" width="16" height="16" aria-hidden="true">
-                    <use href="../icons.svg#icon-expand"></use></svg
-                ></span>
-              </button>
-              <span class="grow"></span>
-              <button
-                class="shell-field-btn palette-btn"
-                id="open-palette"
-                type="button"
-              >
-                <svg class="icon" width="16" height="16" aria-hidden="true">
-                  <use href="../icons.svg#icon-search"></use></svg
-                ><span>Search or run a command</span><kbd>Ctrl K</kbd>
-              </button>
-              <button class="avatar" type="button" aria-label="Notifications">
-                <svg class="icon" width="16" height="16" aria-hidden="true">
-                  <use href="../icons.svg#icon-notifications"></use>
-                </svg>
-              </button>
-              <button class="avatar" type="button" aria-label="Account">
-                KA
-              </button>
-            </div>
-            <div class="shell-apps">
-              <span class="prod">Beings</span>
-              <nav aria-label="Beings">
-                <a class="tab" href="#" aria-current="page">Home</a>
-                <a class="tab" href="#">Beings</a>
-                <a class="tab" href="#">Groups</a>
-                <a class="tab" href="#">Settings</a>
-              </nav>
-            </div>
-            <div class="shell-strip" id="strip" data-open>
-              <div>
-                <div class="shell-strip-in" data-kind="offline" role="status">
+            <div class="shell-app">
+              <div class="shell-bar">
+                <a class="brand-link" href="#" aria-label="Lorenzo home"
+                  ><span aria-hidden="true" style="font-size: 1.5rem"
+                    >✧</span
+                  ></a
+                >
+                <button class="shell-field-btn" type="button">
                   <svg class="icon" width="16" height="16" aria-hidden="true">
-                    <use href="../icons.svg#icon-offline"></use></svg
-                  ><span class="msg"
-                    >You are offline. Changes are kept on this device.</span
-                  >
-                  <span class="grow"></span>
-                  <button
-                    class="btn btn-secondary"
-                    type="button"
-                    id="strip-close"
-                  >
-                    Hide
-                  </button>
+                    <use href="../icons.svg#icon-library"></use>
+                  </svg>
+                  Ashfall
+                  <span aria-hidden="true"
+                    ><svg
+                      class="icon"
+                      width="16"
+                      height="16"
+                      aria-hidden="true"
+                    >
+                      <use href="../icons.svg#icon-expand"></use></svg
+                  ></span>
+                </button>
+                <span class="grow"></span>
+                <button
+                  class="shell-field-btn palette-btn"
+                  id="open-palette"
+                  type="button"
+                >
+                  <svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-search"></use></svg
+                  ><span>Search or run a command</span><kbd>Ctrl K</kbd>
+                </button>
+                <button class="avatar" type="button" aria-label="Notifications">
+                  <svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-notifications"></use>
+                  </svg>
+                </button>
+                <button class="avatar" type="button" aria-label="Account">
+                  KA
+                </button>
+              </div>
+              <div class="shell-apps">
+                <span class="prod">Beings</span>
+                <nav aria-label="Beings">
+                  <a class="tab" href="#" aria-current="page">Home</a>
+                  <a class="tab" href="#">Beings</a>
+                  <a class="tab" href="#">Groups</a>
+                  <a class="tab" href="#">Settings</a>
+                </nav>
+              </div>
+              <div class="shell-strip" id="strip" data-open>
+                <div>
+                  <div class="shell-strip-in" data-kind="offline" role="status">
+                    <svg class="icon" width="16" height="16" aria-hidden="true">
+                      <use href="../icons.svg#icon-offline"></use></svg
+                    ><span class="msg"
+                      >You are offline. Changes are kept on this device.</span
+                    >
+                    <span class="grow"></span>
+                    <button
+                      class="btn btn-secondary"
+                      type="button"
+                      id="strip-close"
+                    >
+                      Hide
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div
-              style="
-                padding: var(--space-5) var(--space-4);
-                color: var(--text-secondary);
-              "
-            >
-              Page content
-            </div>
-            <div class="shell-status">
-              <span class="sync" data-kind="offline"
-                ><svg class="icon" width="16" height="16" aria-hidden="true">
-                  <use href="../icons.svg#icon-offline"></use>
-                </svg>
-                Waiting to sync</span
+              <div
+                style="
+                  padding: var(--space-5) var(--space-4);
+                  color: var(--text-secondary);
+                "
               >
-              <span class="wide">12 beings</span>
-              <span class="grow"></span>
-              <span class="wide">Thu 6 Nov, 09:41</span>
-              <button class="btn btn-secondary" type="button">
-                Apps and about
-              </button>
-            </div>
-            <div class="shell-tabbar">
-              <a href="#" aria-current="page"
-                ><svg class="icon" width="16" height="16" aria-hidden="true">
-                  <use href="../icons.svg#icon-library"></use></svg
-                >Home</a
-              >
-              <a href="#"
-                ><svg class="icon" width="16" height="16" aria-hidden="true">
-                  <use href="../icons.svg#icon-account"></use></svg
-                >Beings</a
-              >
-              <a href="#"
-                ><svg class="icon" width="16" height="16" aria-hidden="true">
-                  <use href="../icons.svg#icon-search"></use></svg
-                >Search</a
-              >
-              <button type="button">
-                <svg class="icon" width="16" height="16" aria-hidden="true">
-                  <use href="../icons.svg#icon-more"></use></svg
-                >More
-              </button>
+                Page content
+              </div>
+              <div class="shell-status">
+                <span class="sync" data-kind="offline"
+                  ><svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-offline"></use>
+                  </svg>
+                  Waiting to sync</span
+                >
+                <span class="wide">12 beings</span>
+                <span class="grow"></span>
+                <span class="wide">Thu 6 Nov, 09:41</span>
+                <button class="btn btn-secondary" type="button">
+                  Apps and about
+                </button>
+              </div>
+              <div class="shell-tabbar">
+                <a href="#" aria-current="page"
+                  ><svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-library"></use></svg
+                  >Home</a
+                >
+                <a href="#"
+                  ><svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-account"></use></svg
+                  >Beings</a
+                >
+                <a href="#"
+                  ><svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-search"></use></svg
+                  >Search</a
+                >
+                <button type="button">
+                  <svg class="icon" width="16" height="16" aria-hidden="true">
+                    <use href="../icons.svg#icon-more"></use></svg
+                  >More
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -319,6 +369,16 @@
           apply(isDark ? "light" : "dark");
         });
 
+        document.querySelectorAll("[data-w]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            var w = b.getAttribute("data-w");
+            document.getElementById("frame").style.width =
+              w === "100%" ? "100%" : w + "px";
+            document.querySelectorAll("[data-w]").forEach(function (x) {
+              x.setAttribute("aria-pressed", x === b ? "true" : "false");
+            });
+          });
+        });
         document
           .getElementById("open-palette")
           .addEventListener("click", function () {
