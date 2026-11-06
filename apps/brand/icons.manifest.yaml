@@ -373,6 +373,11 @@ icon-moon-waning-gibbous: custom
 icon-moon-last-quarter: custom
 icon-moon-waning-crescent: custom
 
+# Social (ADR 0424, RFC 0050): two more of Lorenzo's own, in the same grammar. A Relationship
+# is two overlapping rings; a Social web is a hub with four spokes (icon-social is the app).
+icon-kind-relationship: custom
+icon-kind-social-web: custom
+
 # Aliases - reuse an existing symbol id above, not a new one:
 #   icon-remove            -> icon-close   (removing a chip/tag)
 #   icon-clear-selection   -> icon-close   (clearing a bulk-selection toolbar)
