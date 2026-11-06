@@ -1008,3 +1008,13 @@ describe('gated links and a page with no welcome', () => {
     expect((document.querySelector('[data-page]') as HTMLElement).hidden).toBe(true);
   });
 });
+
+describe('a page state inside a page', () => {
+  it('uses an h2 when it stands inside a page that has its own heading', async () => {
+    const shell = mount(await render('web'));
+
+    shell.pageState({ art: 'device-connected', title: 'Connected', level: 2 });
+    expect(document.querySelector('.page-state h2')?.textContent).toBe('Connected');
+    expect(document.querySelector('.page-state h1')).toBeNull();
+  });
+});

@@ -1,10 +1,21 @@
 ---
-// Connecting a device (ADR 0269): a command line or another program shows a code and sends the
-// person here. They check it is theirs, name the token, say if it should ever expire, and approve
-// or deny. Rendered by renderDeviceConnect.
+// Connecting a device (ADR 0269, ADR 0418, PT5): a command line or another program shows a code and
+// sends the person here. They check it is theirs, name the token, say if it should ever expire, and
+// approve or deny. Rendered by renderDeviceConnect.
+import { BRANDING_CSS_URL } from '../../lib/config';
 ---
 
 <div class="stack" data-device-connect>
+  <!-- Not logged in: say so, and that the code is kept while they do. -->
+  <div class="card card-body stack" data-signin hidden>
+    <p>Log in to connect your device. The code in this address is kept while you log in.</p>
+    <div>
+      <button type="button" class="btn btn-primary" data-signin-button>
+        Log in to connect your device
+      </button>
+    </div>
+  </div>
+
   <!-- Without a code in the address: type the one the device shows. -->
   <form class="card card-body stack" data-code-form hidden>
     <p>
@@ -24,39 +35,62 @@
       />
     </label>
     <div class="row">
-      <button type="submit">Continue</button>
+      <button type="submit" class="btn btn-primary">
+        Continue
+      </button>
       <span class="status-text" role="status" data-code-status hidden></span>
     </div>
   </form>
 
-  <!-- With a valid code: what is asking, and the choices. -->
-  <form class="card card-body stack" data-approve-form hidden>
-    <p>
-      <strong data-client></strong> is asking to act as you on Lorenzo, with a personal access
-      token. Connect it only if you started this yourself, just now.
+  <!-- With a valid code: first, to approve only a code started by the person themselves; then what is
+       asking, the code and when it ends, and the choices. -->
+  <form class="stack" data-approve-form hidden>
+    <p class="callout">
+      <svg class="icon" aria-hidden="true">
+        <use href={`${BRANDING_CSS_URL}/icons.svg#icon-warning`}></use>
+      </svg>
+      <span>
+        Connect a code only if you started it yourself, just now. If someone else sent you this
+        code, deny it.
+      </span>
     </p>
-    <p class="caption">
-      Code <strong data-shown-code></strong>. It can do what you can do, except manage personal
-      access tokens or delete your account. You can revoke it at any time under your profile.
-    </p>
-    <label class="field">
-      <span class="field-label">Name this token</span>
-      <input class="text-input" type="text" maxlength="80" required data-name />
-    </label>
-    <label class="field">
-      <span class="field-label">It stops working</span>
-      <select class="text-input" data-expiry></select>
-    </label>
-    <div class="row">
-      <button type="submit" data-approve>
-        Connect this device
-      </button>
-      <button type="button" class="btn-secondary" data-deny>
-        Deny
-      </button>
-      <span class="status-text" role="status" data-status hidden></span>
+    <div class="card card-body stack">
+      <p>
+        <strong data-client></strong> is asking to act as you on Lorenzo, with a personal access
+        token.
+      </p>
+      <p class="caption">
+        Code <strong data-shown-code></strong>. <span data-ends></span> It can do what you can do,
+        except manage personal access tokens or delete your account. You can revoke it at any time
+        under your access tokens.
+      </p>
+      <label class="field">
+        <span class="field-label">Name this token</span>
+        <input class="text-input" type="text" required data-name aria-describedby="name-problem" />
+        <span id="name-problem" class="status-text" role="status" data-name-problem hidden></span>
+      </label>
+      <label class="field">
+        <span class="field-label">It stops working</span>
+        <select class="text-input" data-expiry></select>
+      </label>
+      <div class="row">
+        <button type="submit" class="btn btn-primary" data-approve>
+          Connect this device
+        </button>
+        <button type="button" class="btn btn-secondary" data-deny>
+          Deny
+        </button>
+        <span class="status-text" role="status" data-status hidden></span>
+      </div>
     </div>
   </form>
 
-  <p class="status-text" role="status" data-result hidden></p>
+  <!-- Connected or denied: what happens next. -->
+  <div class="stack" data-result-block hidden>
+    <div data-connected></div>
+    <p class="status-text" role="status" data-result hidden></p>
+    <p data-next hidden>
+      <a href="/tokens/">Your access tokens</a>
+    </p>
+  </div>
 </div>

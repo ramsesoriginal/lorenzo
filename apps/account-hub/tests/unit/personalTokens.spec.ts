@@ -8,6 +8,7 @@ import {
   suggestedTokenName,
   TOKEN_EXPIRY_PRESETS,
   tokenExpiryFor,
+  tokenNameProblem,
   tokenState,
 } from '../../src/lib/personalTokens';
 
@@ -134,5 +135,21 @@ describe('describeToken', () => {
 
     expect(d).toMatchObject({ tone: 'expired', icon: 'warning' });
     expect(d.note).toBe('Expired 3 weeks ago');
+  });
+});
+
+describe('tokenNameProblem', () => {
+  it('asks for a name', () => {
+    expect(tokenNameProblem('')).toMatch(/name/);
+    expect(tokenNameProblem('   ')).toMatch(/name/);
+  });
+
+  it('refuses more than 80 characters in words, and takes 80', () => {
+    expect(tokenNameProblem('a'.repeat(80))).toBeNull();
+    expect(tokenNameProblem('a'.repeat(81))).toBe('A name can be at most 80 characters.');
+  });
+
+  it('counts characters, not bytes', () => {
+    expect(tokenNameProblem('é'.repeat(80))).toBeNull();
   });
 });
