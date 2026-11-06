@@ -45,6 +45,9 @@ _DEFAULTS: dict[str, tuple[str, str]] = {
     # Lorenzo Maps: a Map, by id or by slug.
     "map": ("maps", "/map/?tenant={tenant}&id={id}"),
     "map_by_slug": ("maps", "/map/?tenant={tenant}&slug={slug}"),
+    # Lorenzo Social: a relationship and a web (a saved view of relationships), by id.
+    "relationship": ("social", "/relationship/?tenant={tenant}&id={id}"),
+    "social_web": ("social", "/web/?tenant={tenant}&id={id}"),
 }
 
 
@@ -63,6 +66,7 @@ def apps(settings: Settings) -> dict[str, str]:
         "sessions": _clean(settings.sessions_url),
         "writing": _clean(settings.writing_url),
         "maps": _clean(settings.maps_url),
+        "social": _clean(settings.social_url),
     }
 
 
