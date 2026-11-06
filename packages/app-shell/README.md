@@ -78,3 +78,12 @@ shell?.notifications({ count: 3, href: hubUrl + '/notifications/' }); // the bel
 ## Tests
 
 `mise run //packages/app-shell:test` covers what needs no page (the first theme, the toggle's wording, a library link's address, the current-page rule, the apps by job, the clock and the tab split) and the web shell: `test/web-shell.test.ts` renders the real `AppPage` with Astro's container API and drives it in a jsdom window, so a markup change that breaks `bindShell` fails here and not in an app. The real-browser checks come with each app's own end-to-end tests when it moves over; the brand's parts have their own in `packages/brand/tests/e2e`.
+
+### Feedback, confirmations and the account menu
+
+([ADR 0415](../../docs/adr/0415-toasts-undo-dialogs-and-menus.md), [ADR 0416](../../docs/adr/0416-first-run-the-account-menu-and-joining.md)) On the web shell:
+
+- `shell.toast({ title, text?, kind?, action? })`: a quiet confirmation that leaves after ten seconds; `kind: 'error'` stays until dismissed and takes `action` ("Try again"). `shell.undoable({ title, text?, undo })` is a toast with Undo. Hovering or focusing a toast pauses it; at most three show, above the status bar (above the tab bar on a phone).
+- `shell.confirm({ title, body, confirm, danger?, typeToConfirm? })` resolves true or false. The button says what it does; with `typeToConfirm` it stays off, with the reason beside it, until the name is typed.
+- The account button (initials) opens a menu: Profile, Notifications, Libraries and people, Access tokens and devices (from the hub's address), the theme, Keyboard shortcuts, Sign out. Give `bindShell` an `unsent()` that returns paragraphs about what is only on the device and signing out asks first.
+- `openMenu(anchor, items, { label, sprite })` is the menu helper (a popover, or a bottom sheet on a phone); `placeMenu` is its pure placement.

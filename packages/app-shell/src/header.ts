@@ -1,12 +1,15 @@
 import { APP_INFO, type AppRegistry, appsByJob } from './apps';
+import { type ConfirmOptions, confirmDialog } from './confirm';
 import { closeDialog, fadeOnDismiss, openDialog } from './dialog';
 import { createKeymap, GO_KEYS, goChord, type KeyInput } from './keys';
+import { type MenuItem, openMenu } from './menu';
 import type { PaletteItem } from './palette';
 import { mountPalette, type PaletteUi, type PaletteUiOptions } from './palette-ui';
-import { clockText, isCurrentPage, navHref } from './pure';
+import { clockText, initials, isCurrentPage, navHref } from './pure';
 import { readSingleKeys, writeSingleKeys } from './settings';
 import { mountShortcuts } from './shortcuts-ui';
 import { bindThemeToggle } from './theme';
+import { createToasts, type ToastHandle, type ToastOptions } from './toast';
 
 export type AccountState =
   | { state: 'checking' }
@@ -21,6 +24,11 @@ export type ShellOptions = {
   themeKey: string;
   onLogin(): void;
   onLogout(): void;
+  /**
+   * What is only on this device and not yet sent, as paragraphs saying what it is and what happens to
+   * it, or null for nothing. Signing out then asks first (ADR 0416).
+   */
+  unsent?(): string[] | null;
 };
 
 export type StatusTone = 'info' | 'error';
@@ -105,6 +113,12 @@ export type Shell = {
   notifications(info: { count: number; href: string } | null): void;
   /** The palette, Ctrl or Cmd K, and the keys (`?`, G then a letter). Without this call there are none. */
   palette(options?: PaletteOptions): void;
+  /** A message at the bottom: a quiet confirmation, or an error that stays and offers `action`. */
+  toast(options: ToastOptions): ToastHandle;
+  /** A reversible action done: "Moved to the bin", with Undo for ten seconds. */
+  undoable(options: { title: string; text?: string; undo(): void }): ToastHandle;
+  /** A confirmation for what cannot be undone; true when confirmed. */
+  confirm(options: ConfirmOptions): Promise<boolean>;
 };
 
 function find<T extends HTMLElement>(root: ParentNode, selector: string): T | null {
@@ -129,6 +143,12 @@ function isTyping(target: EventTarget | null): boolean {
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
+function toastsFor(root: HTMLElement) {
+  const host = find<HTMLElement>(document, '[data-shell-toasts]');
+
+  return host ? createToasts(host, root.dataset.sprite ?? '') : null;
+}
+
 function sameOrigin(url: string): boolean {
   try {
     return new URL(url, window.location.href).origin === window.location.origin;
@@ -151,6 +171,7 @@ export function bindShell(options: ShellOptions): Shell | null {
   find(root, '[data-logout]')?.addEventListener('click', () => options.onLogout());
 
   const web = root.hasAttribute('data-shell');
+  const toasts = web ? toastsFor(root) : null;
   // The web shell's links are also in the phone's tab bar and the sheet, outside the header.
   const links = [
     ...(web ? document : root).querySelectorAll<HTMLAnchorElement>(
@@ -196,6 +217,97 @@ export function bindShell(options: ShellOptions): Shell | null {
 
   let registry: AppRegistry | null = null;
   let palette: PaletteUi | null = null;
+  let hub: string | null = null;
+  let shortcutsUi: { open(): void } | null = null;
+  const sprite = root.dataset.sprite ?? '';
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+  const paletteKeys = mac ? '⌘ K' : 'Ctrl K';
+
+  // The list `?` opens; made when first needed, by the palette's keys or the account menu.
+  function shortcuts(): { open(): void } {
+    shortcutsUi ??= mountShortcuts({
+      paletteKeys,
+      singleKeys: readSingleKeys,
+      setSingleKeys: writeSingleKeys,
+      places: () =>
+        Object.entries(GO_KEYS).flatMap(([letter, target]) => {
+          const name =
+            target === 'home'
+              ? 'Go to Home'
+              : target === 'library'
+                ? 'Open the library switcher'
+                : target === 'theme'
+                  ? 'Change the theme'
+                  : APP_INFO[target as keyof typeof APP_INFO]
+                    ? `Go to ${APP_INFO[target as keyof typeof APP_INFO].name}`
+                    : '';
+          const here = target in APP_INFO ? registry?.apps[target]?.url : true;
+
+          return name && here ? [{ chord: `G ${letter.toUpperCase()}`, name }] : [];
+        }),
+    });
+
+    return shortcutsUi;
+  }
+
+  const accountButton = find<HTMLButtonElement>(root, '[data-shell-account-button]');
+  let accountLabel: string | undefined;
+
+  accountButton?.addEventListener('click', () => {
+    if (accountButton.getAttribute('aria-expanded') === 'true') return;
+
+    const themeToggle = find<HTMLButtonElement>(root, '[data-theme-toggle]');
+    const at = (path: string) => (hub ? new URL(path, hub).href : undefined);
+    const hubLink = (label: string, icon: string, path: string): MenuItem[] => {
+      const href = at(path);
+
+      return href ? [{ label, icon, href }] : [];
+    };
+    const items: MenuItem[] = [
+      ...hubLink('Profile', 'account', 'profile/'),
+      ...hubLink('Notifications', 'notifications', 'notifications/'),
+      ...hubLink('Libraries and people', 'library', 'tenants/'),
+      ...hubLink('Access tokens and devices', 'device', 'device/'),
+      { separator: true },
+      {
+        label: themeToggle?.textContent?.trim() || 'Change theme',
+        icon: 'theme-system',
+        keys: 'G T',
+        run: () => themeToggle?.click(),
+      },
+      { label: 'Keyboard shortcuts', icon: 'command', keys: '?', run: () => shortcuts().open() },
+      { separator: true },
+      {
+        label: 'Sign out',
+        icon: 'logout',
+        danger: true,
+        run: () => {
+          const unsent = options.unsent?.();
+
+          if (!unsent || unsent.length === 0) {
+            options.onLogout();
+
+            return;
+          }
+          void confirmDialog({
+            title: 'Sign out with unsent changes?',
+            body: unsent,
+            confirm: 'Sign out anyway',
+            cancel: 'Stay signed in',
+            danger: true,
+          }).then((yes) => {
+            if (yes) options.onLogout();
+          });
+        },
+      },
+    ];
+
+    openMenu(accountButton, items, {
+      label: 'Account',
+      sprite,
+      ...(accountLabel ? { head: accountLabel } : {}),
+    });
+  });
 
   const clock = find<HTMLTimeElement>(document, '[data-shell-clock]');
 
@@ -227,15 +339,22 @@ export function bindShell(options: ShellOptions): Shell | null {
       if (state.state === 'signed-in' && label) {
         label.textContent = state.label ? `Signed in as ${state.label}` : '';
       }
+      if (state.state === 'signed-in') {
+        accountLabel = state.label;
+        const letters = find<HTMLElement>(root, '[data-shell-initials]');
+
+        if (letters) letters.textContent = initials(state.label);
+      }
     },
 
     accountLink(url) {
-      const hub = find<HTMLAnchorElement>(root, '[data-hub]');
+      hub = url;
+      const link = find<HTMLAnchorElement>(root, '[data-hub]');
 
-      if (!hub) return;
+      if (!link) return;
 
-      hub.href = url;
-      hub.hidden = false;
+      link.href = url;
+      link.hidden = false;
     },
 
     libraries(choices, current, onChange) {
@@ -357,9 +476,6 @@ export function bindShell(options: ShellOptions): Shell | null {
     palette(options = {}) {
       if (!web || palette) return;
 
-      const sprite = root.dataset.sprite ?? '';
-      const mac = /Mac|iPhone|iPad/.test(navigator.platform);
-      const paletteKeys = mac ? '⌘ K' : 'Ctrl K';
       const navigate = options.navigate ?? ((url: string) => window.location.assign(url));
       const go = (target: string) => {
         if (target === 'home') navigate('/');
@@ -408,7 +524,7 @@ export function bindShell(options: ShellOptions): Shell | null {
             name: 'Show keyboard shortcuts',
             icon: 'command',
             keys: '?',
-            run: () => shortcuts.open(),
+            run: () => shortcuts().open(),
           },
         ];
 
@@ -464,32 +580,10 @@ export function bindShell(options: ShellOptions): Shell | null {
         ...(options.entries ? { entries: options.entries } : {}),
       });
 
-      const shortcuts = mountShortcuts({
-        paletteKeys,
-        singleKeys: readSingleKeys,
-        setSingleKeys: writeSingleKeys,
-        places: () =>
-          Object.entries(GO_KEYS).flatMap(([letter, target]) => {
-            const name =
-              target === 'home'
-                ? 'Go to Home'
-                : target === 'library'
-                  ? 'Open the library switcher'
-                  : target === 'theme'
-                    ? 'Change the theme'
-                    : APP_INFO[target as keyof typeof APP_INFO]
-                      ? `Go to ${APP_INFO[target as keyof typeof APP_INFO].name}`
-                      : '';
-            const here = target in APP_INFO ? registry?.apps[target]?.url : true;
-
-            return name && here ? [{ chord: `G ${letter.toUpperCase()}`, name }] : [];
-          }),
-      });
-
       const keymap = createKeymap({
         singleKeys: readSingleKeys,
         onGo: go,
-        onHelp: () => shortcuts.open(),
+        onHelp: () => shortcuts().open(),
         onPalette: () => (palette?.isOpen() ? palette.close() : palette?.open()),
       });
 
@@ -516,6 +610,27 @@ export function bindShell(options: ShellOptions): Shell | null {
         if (hint) hint.textContent = paletteKeys;
       }
     },
+
+    toast(toastOptions) {
+      return (
+        toasts?.show(toastOptions) ?? {
+          dismiss() {
+            // The old header has no place for messages.
+          },
+        }
+      );
+    },
+
+    undoable({ title, text, undo }) {
+      return this.toast({
+        kind: 'undo',
+        title,
+        ...(text ? { text } : {}),
+        action: { label: 'Undo', run: undo },
+      });
+    },
+
+    confirm: confirmDialog,
 
     notifications(info) {
       const bell = find<HTMLAnchorElement>(root, '[data-shell-bell]');

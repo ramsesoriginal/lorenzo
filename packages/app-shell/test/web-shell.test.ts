@@ -4,8 +4,9 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AppPage from '../src/AppPage.astro';
-import type { Shell } from '../src/index';
-import { bindShell } from '../src/index';
+import type { Shell, ShellOptions } from '../src/index';
+import { bindShell, initials, placeMenu } from '../src/index';
+import { createToastTimer } from '../src/toast-timer';
 
 const nav = [
   { label: 'Home', href: '/', icon: 'library' },
@@ -33,7 +34,7 @@ async function render(shell?: 'web') {
 
 let dom: JSDOM;
 
-function mount(html: string, path = '/'): Shell {
+function mount(html: string, path = '/', extra: Partial<ShellOptions> = {}): Shell {
   dom = new JSDOM(html, { url: `http://localhost:3000${path}` });
   const { window } = dom;
 
@@ -51,7 +52,12 @@ function mount(html: string, path = '/'): Shell {
   vi.stubGlobal('document', window.document);
   vi.stubGlobal('Option', window.Option);
 
-  const shell = bindShell({ themeKey: 'test:theme', onLogin: () => {}, onLogout: () => {} });
+  const shell = bindShell({
+    themeKey: 'test:theme',
+    onLogin: () => {},
+    onLogout: () => {},
+    ...extra,
+  });
 
   if (!shell) throw new Error('no header');
 
@@ -446,5 +452,275 @@ describe('the palette and the keys', () => {
     expect(assign).not.toHaveBeenCalled();
     // Ctrl K still works with them off.
     expect(press('k', { ctrlKey: true }).defaultPrevented).toBe(true);
+  });
+});
+
+describe('toasts', () => {
+  async function shellWithToasts() {
+    return mount(await render('web'));
+  }
+
+  const cards = () => [...document.querySelectorAll<HTMLElement>('.toast-card')];
+
+  it('shows a quiet confirmation that leaves by itself after ten seconds', async () => {
+    const shell = await shellWithToasts();
+
+    shell.toast({ title: 'Saved' });
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]?.getAttribute('role')).toBe('status');
+    expect(document.querySelector('.toast-bar')).not.toBeNull();
+
+    vi.advanceTimersByTime(9_999);
+    expect(cards()).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    vi.advanceTimersByTime(300);
+    expect(cards()).toHaveLength(0);
+  });
+
+  it('offers Undo, which runs once and dismisses', async () => {
+    const shell = await shellWithToasts();
+    const undo = vi.fn();
+
+    shell.undoable({ title: 'Moved to the bin', text: '3 entries', undo });
+    const button = document.querySelector<HTMLButtonElement>('.toast-action');
+
+    expect(button?.textContent).toBe('Undo');
+    button?.click();
+    expect(undo).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(300);
+    expect(cards()).toHaveLength(0);
+  });
+
+  it('keeps an error until it is dismissed, and offers Try again', async () => {
+    const shell = await shellWithToasts();
+    const retry = vi.fn();
+
+    shell.toast({
+      kind: 'error',
+      title: 'Could not save',
+      action: { label: 'Try again', run: retry },
+    });
+    expect(cards()[0]?.getAttribute('role')).toBe('alert');
+    expect(document.querySelector('.toast-bar')).toBeNull();
+    vi.advanceTimersByTime(60_000);
+    expect(cards()).toHaveLength(1);
+
+    document.querySelector<HTMLButtonElement>('.toast-card .icon-button')?.click();
+    vi.advanceTimersByTime(300);
+    expect(cards()).toHaveLength(0);
+  });
+
+  it('shows at most three, the oldest going first', async () => {
+    const shell = await shellWithToasts();
+
+    for (const title of ['one', 'two', 'three', 'four']) shell.toast({ title });
+    expect(cards().map((c) => c.querySelector('.toast-title')?.textContent)).toEqual([
+      'two',
+      'three',
+      'four',
+    ]);
+  });
+
+  it('does nothing in the old header', async () => {
+    const shell = mount(await render());
+
+    expect(() => shell.toast({ title: 'Saved' })).not.toThrow();
+    expect(document.querySelector('.toast-card')).toBeNull();
+  });
+
+  it('the timer holds, and starts again from the full time', () => {
+    const done = vi.fn();
+    const timer = createToastTimer(10_000, done);
+
+    timer.start();
+    vi.advanceTimersByTime(8_000);
+    timer.hold();
+    vi.advanceTimersByTime(60_000);
+    expect(done).not.toHaveBeenCalled();
+    timer.release();
+    vi.advanceTimersByTime(9_999);
+    expect(done).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('confirmations', () => {
+  it('resolves true on the button and false on Cancel, naming what it does', async () => {
+    const shell = mount(await render('web'));
+    const yes = shell.confirm({
+      title: 'Delete 12 entries?',
+      body: 'They are gone.',
+      confirm: 'Delete 12 entries',
+      danger: true,
+    });
+    const dialog = document.querySelector('dialog:not([data-shell-sheet])') as HTMLDialogElement;
+
+    expect(dialog.querySelector('h2')?.textContent).toBe('Delete 12 entries?');
+    expect(dialog.querySelector('.btn-danger')?.textContent).toBe('Delete 12 entries');
+    (dialog.querySelector('.btn-danger') as HTMLButtonElement).click();
+    expect(await yes).toBe(true);
+
+    const no = shell.confirm({ title: 'Sure?', body: ['a', 'b'], confirm: 'Go' });
+    const second = [...document.querySelectorAll('dialog')].pop() as HTMLDialogElement;
+
+    expect(second.querySelectorAll('p')).toHaveLength(2);
+    (second.querySelector('.btn-secondary') as HTMLButtonElement).click();
+    expect(await no).toBe(false);
+  });
+
+  it('keeps the button off until the name is typed, with the reason beside it', async () => {
+    const shell = mount(await render('web'));
+    const result = shell.confirm({
+      title: 'Delete the library?',
+      body: 'All of it.',
+      confirm: 'Delete the library',
+      danger: true,
+      typeToConfirm: 'Mara',
+    });
+    const dialog = [...document.querySelectorAll('dialog')].pop() as HTMLDialogElement;
+    const input = dialog.querySelector('input') as HTMLInputElement;
+    const button = dialog.querySelector('.btn-danger') as HTMLButtonElement;
+
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(dialog.textContent).toContain('works once you have typed');
+    button.click();
+    input.value = 'Mar';
+    input.dispatchEvent(new dom.window.Event('input'));
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    input.value = 'Mara';
+    input.dispatchEvent(new dom.window.Event('input'));
+    expect(button.getAttribute('aria-disabled')).toBe('false');
+    input.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    expect(await result).toBe(true);
+  });
+});
+
+describe('placing a menu', () => {
+  const view = { width: 1000, height: 700 };
+  const size = { width: 240, height: 200 };
+
+  it('goes under its anchor on the left edge', () => {
+    expect(placeMenu({ left: 100, right: 140, top: 10, bottom: 50 }, size, view)).toEqual({
+      left: 100,
+      top: 56,
+    });
+  });
+
+  it("goes to the anchor's right edge when it would run off, and above when there is no room below", () => {
+    expect(placeMenu({ left: 900, right: 960, top: 600, bottom: 640 }, size, view)).toEqual({
+      left: 720,
+      top: 394,
+    });
+  });
+
+  it('stays inside the window', () => {
+    const at = placeMenu({ left: -50, right: -10, top: 0, bottom: 20 }, size, view);
+
+    expect(at.left).toBeGreaterThanOrEqual(8);
+    expect(at.top).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe('the account menu', () => {
+  const press = (key: string, target: EventTarget = document) =>
+    target.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+    );
+
+  async function signedIn(extra: Partial<ShellOptions> = {}) {
+    const html = await render('web');
+    const onLogout = vi.fn();
+    const shell = mount(html, '/', { onLogout, ...extra });
+
+    shell.account({ state: 'signed-in', label: 'mara.quill@example.com' });
+    shell.accountLink('https://account.example/');
+    const button = document.querySelector('[data-shell-account-button]') as HTMLButtonElement;
+
+    return { shell, onLogout, button };
+  }
+
+  const items = () => [...document.querySelectorAll<HTMLElement>('.menu [role^="menuitem"]')];
+
+  it('takes its initials from the account', () => {
+    expect(initials('mara.quill@example.com')).toBe('MQ');
+    expect(initials('Mara Quill Jr')).toBe('MQ');
+    expect(initials('mara')).toBe('M');
+    expect(initials(undefined)).toBe('·');
+  });
+
+  it('shows the initials on the button, and opens the items in the order of the design', async () => {
+    const { button } = await signedIn();
+
+    expect(button.textContent).toBe('MQ');
+    button.click();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector('.menu-head')?.textContent).toBe('mara.quill@example.com');
+    expect(items().map((i) => i.querySelector('.grow')?.textContent)).toEqual([
+      'Profile',
+      'Notifications',
+      'Libraries and people',
+      'Access tokens and devices',
+      'Dark theme',
+      'Keyboard shortcuts',
+      'Sign out',
+    ]);
+    expect((items()[0] as HTMLAnchorElement).href).toBe('https://account.example/profile/');
+  });
+
+  it('moves with the arrows, closes on Escape and gives focus back', async () => {
+    const { button } = await signedIn();
+
+    button.click();
+    expect(document.activeElement).toBe(items()[0]);
+    press('ArrowDown', items()[0] as HTMLElement);
+    expect(document.activeElement).toBe(items()[1]);
+    press('End', items()[1] as HTMLElement);
+    expect(document.activeElement).toBe(items()[6]);
+    press('Escape', items()[6] as HTMLElement);
+    expect(document.querySelector('.menu')).toBeNull();
+    expect(document.activeElement).toBe(button);
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('signs out at once when nothing is unsent', async () => {
+    const { button, onLogout } = await signedIn({ unsent: () => null });
+
+    button.click();
+    items()[6]?.click();
+    vi.advanceTimersByTime(10);
+    expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks first when something is only on the device, and signs out only if confirmed', async () => {
+    const { button, onLogout } = await signedIn({
+      unsent: () => ['2 changes are only on this device.', 'They are sent when you sign in again.'],
+    });
+
+    button.click();
+    items()[6]?.click();
+    vi.advanceTimersByTime(10);
+    expect(onLogout).not.toHaveBeenCalled();
+
+    const dialog = [...document.querySelectorAll('dialog')].pop() as HTMLDialogElement;
+
+    expect(dialog.textContent).toContain('2 changes are only on this device.');
+    expect(dialog.querySelector('.btn-danger')?.textContent).toBe('Sign out anyway');
+    (dialog.querySelector('.btn-danger') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it('the Keyboard shortcuts item opens the list', async () => {
+    const { button } = await signedIn();
+
+    button.click();
+    items()[5]?.click();
+    vi.advanceTimersByTime(10);
+    const title = document.querySelector('#shell-shortcuts-title');
+
+    expect(title?.closest('dialog')?.hasAttribute('open')).toBe(true);
   });
 });

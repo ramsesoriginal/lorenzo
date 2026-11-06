@@ -65,3 +65,12 @@ export function clockText(now: Date, locale?: string): string {
 export function splitTabs<T>(items: T[], max = 3): { tabs: T[]; rest: T[] } {
   return { tabs: items.slice(0, max), rest: items.slice(max) };
 }
+
+/** The letters on the account button: the first of the first two words, or of an address's name. */
+export function initials(label: string | undefined): string {
+  const name = (label ?? '').split('@')[0]?.trim() ?? '';
+  const parts = name.split(/[\s._-]+/).filter(Boolean);
+  const letters = parts.slice(0, 2).map((part) => Array.from(part)[0] ?? '');
+
+  return letters.join('').toUpperCase() || '·';
+}

@@ -477,6 +477,15 @@ body:has(.full-width) {
   z-index: 18;
 }
 
+/* Toasts sit directly above the status bar, and above the tab bar on a phone. */
+.shell-bottom > .toast-region {
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0;
+  bottom: 100%;
+  margin-bottom: var(--space-2);
+}
+
 .shell-page {
   width: 100%;
   margin-inline: auto;

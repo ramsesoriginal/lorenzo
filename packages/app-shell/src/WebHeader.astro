@@ -78,21 +78,19 @@ const icons = `${brandingUrl}/icons.svg`;
       Log in
     </button>
     <div class="row-tight" data-account-signed-in hidden>
-      <a class="row-tight" data-hub hidden>
-        <svg class="icon" aria-hidden="true">
-          <use href={`${icons}#icon-account`}></use>
-        </svg>
-        Account
-      </a>
-      <span class="visually-hidden" data-account-label></span>
-      <button type="button" class="btn btn-secondary row-tight" data-logout>
-        <svg class="icon" aria-hidden="true">
-          <use href={`${icons}#icon-logout`}></use>
-        </svg>
-        Log out
+      <button
+        type="button"
+        class="avatar"
+        aria-label="Account menu"
+        aria-haspopup="menu"
+        aria-expanded="false"
+        data-shell-account-button
+      >
+        <span aria-hidden="true" data-shell-initials></span>
       </button>
+      <span class="visually-hidden" data-account-label></span>
     </div>
-    <button type="button" class="btn btn-secondary" aria-pressed="false" data-theme-toggle>
+    <button type="button" hidden aria-pressed="false" data-theme-toggle>
       Dark theme
     </button>
   </div>
