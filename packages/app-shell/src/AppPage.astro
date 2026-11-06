@@ -18,7 +18,8 @@ interface Props {
   // Where its source is in the repository: "apps/calendars"
   path: string;
   // What the page says to someone who has not opened anything yet, and while it checks the session.
-  welcome: { title: string; text: string; status: string };
+  // Without it the page is shown at once, for an app whose pages say their own loading.
+  welcome?: { title: string; text: string; status: string };
   // 'web' draws the web interface's shell (ADR 0410): the two-tier header, the status bar, the
   // phone's tab bar and the apps sheet. Without it, the one-row header, until the app moves over.
   shell?: 'web';
@@ -61,15 +62,17 @@ const container = shell === 'web' && template ? pageClass(template) : 'wrap';
           <WebHeader product={product} brandingUrl={brandingUrl} nav={nav} />
           <main id="content">
             <div class={`${container} stack`}>
-              <section class="stack" data-welcome>
-                <h1>{welcome.title}</h1>
-                <p class="lede">{welcome.text}</p>
-                <p class="status-text row-tight" data-session role="status">
-                  <span class="spinner" aria-hidden="true" />
-                  <span data-session-text>{welcome.status}</span>
-                </p>
-              </section>
-              <div data-page hidden>
+              {welcome && (
+                <section class="stack" data-welcome>
+                  <h1>{welcome.title}</h1>
+                  <p class="lede">{welcome.text}</p>
+                  <p class="status-text row-tight" data-session role="status">
+                    <span class="spinner" aria-hidden="true" />
+                    <span data-session-text>{welcome.status}</span>
+                  </p>
+                </section>
+              )}
+              <div data-page hidden={Boolean(welcome)}>
                 <slot />
               </div>
             </div>
@@ -88,15 +91,17 @@ const container = shell === 'web' && template ? pageClass(template) : 'wrap';
         <AppHeader product={product} brandingUrl={brandingUrl} nav={nav} />
         <main id="content">
           <div class="wrap stack">
-            <section class="stack" data-welcome>
-              <h1>{welcome.title}</h1>
-              <p class="lede">{welcome.text}</p>
-              <p class="status-text row-tight" data-session role="status">
-                <span class="spinner" aria-hidden="true"></span>
-                <span data-session-text>{welcome.status}</span>
-              </p>
-            </section>
-            <div data-page hidden>
+            {welcome && (
+              <section class="stack" data-welcome>
+                <h1>{welcome.title}</h1>
+                <p class="lede">{welcome.text}</p>
+                <p class="status-text row-tight" data-session role="status">
+                  <span class="spinner" aria-hidden="true"></span>
+                  <span data-session-text>{welcome.status}</span>
+                </p>
+              </section>
+            )}
+            <div data-page hidden={Boolean(welcome)}>
               <slot />
             </div>
           </div>
