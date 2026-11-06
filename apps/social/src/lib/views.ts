@@ -8,6 +8,7 @@ import {
   empty,
   errorNotice,
   field,
+  icon,
   link,
   loading,
   message,
@@ -119,7 +120,9 @@ export async function mountRelationships() {
         for (const row of result.items) {
           const item = el('li');
           const text = el('div', '', 'stack-tight grow');
-          text.append(link(row.name, relationshipHref(tenant, row.id)));
+          const title = el('div', '', 'row-tight');
+          title.append(icon('kind-relationship'), link(row.name, relationshipHref(tenant, row.id)));
+          text.append(title);
           text.append(
             el(
               'span',

@@ -18,6 +18,7 @@ import {
   empty,
   errorNotice,
   field,
+  icon,
   link,
   linkButton,
   loading,
@@ -91,10 +92,12 @@ export async function mountWebs() {
     for (const web of first.items) {
       const row = el('li');
       const text = el('div', '', 'stack-tight grow');
-      text.append(
+      const title = el('div', '', 'row-tight');
+      title.append(
+        icon('kind-social-web'),
         link(web.name, `/web/?${new URLSearchParams({ tenant, id: web.id })}`),
-        el('span', `Laid out as ${web.layout}`, 'status-text'),
       );
+      text.append(title, el('span', `Laid out as ${web.layout}`, 'status-text'));
       row.append(text);
       if (web.is_public !== null && web.is_public !== undefined) {
         row.append(audienceBadge(audienceWords(web.is_public), web.is_public));
