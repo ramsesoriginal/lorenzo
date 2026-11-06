@@ -402,3 +402,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0396 - Reviewed links for selected manuscript names](0396-reviewed-manuscript-links.md)
 - [0397 - Reviewed Scene periods from manuscript prose](0397-reviewed-scene-periods.md)
 - [0398 - Comparing copied manuscript bundles](0398-copied-manuscript-comparison.md)
+- [0426 - Explicit repository text updates for standalone drafts](0426-standalone-draft-repository-updates.md)
