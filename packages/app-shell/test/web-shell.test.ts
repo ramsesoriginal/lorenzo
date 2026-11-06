@@ -724,3 +724,225 @@ describe('the account menu', () => {
     expect(title?.closest('dialog')?.hasAttribute('open')).toBe(true);
   });
 });
+
+describe('templates and states', () => {
+  it('gives the page the width of its template, only in the web shell', async () => {
+    const container = await AstroContainer.create();
+    const props = {
+      title: 'T',
+      product: 'Calendars',
+      brandingUrl: 'https://brand.example',
+      themeKey: 'k',
+      path: 'apps/calendars',
+      welcome: { title: 'T', text: 't', status: 's' },
+    };
+    const render2 = (extra: Record<string, unknown>) =>
+      container.renderToString(AppPage, { props: { ...props, ...extra }, slots: { default: 'x' } });
+
+    expect(await render2({ shell: 'web', template: 'reading' })).toContain(
+      'shell-page shell-page--reading stack',
+    );
+    expect(await render2({ shell: 'web' })).toContain('class="wrap stack"');
+    expect(await render2({ template: 'reading' })).not.toContain('shell-page--reading');
+  });
+
+  it('puts a region state where the rows were, and clears it', async () => {
+    const shell = mount(await render('web'));
+    const host = document.createElement('div');
+    const retry = vi.fn();
+
+    host.textContent = 'rows';
+    shell.state(host, {
+      kind: 'error',
+      noun: 'beings',
+      code: '503 · request 4f2a91',
+      actions: [{ label: 'Try again', run: retry, primary: true }],
+    });
+    expect(host.querySelector('.state-block-title')?.textContent).toBe('Couldn’t load beings');
+    expect(host.querySelector('.state-block-code')?.textContent).toBe('503 · request 4f2a91');
+    expect(host.querySelector('.state-block')?.getAttribute('role')).toBe('alert');
+    (host.querySelector('.btn-primary') as HTMLButtonElement).click();
+    expect(retry).toHaveBeenCalledTimes(1);
+
+    shell.state(host, null);
+    expect(host.children).toHaveLength(0);
+  });
+
+  it('draws a loading state as skeleton lines, and says when it is slow', async () => {
+    const shell = mount(await render('web'));
+    const host = document.createElement('div');
+
+    shell.state(host, { kind: 'loading', noun: 'entries' });
+    expect(host.querySelectorAll('.skeleton-line')).toHaveLength(4);
+    expect(host.querySelector('.state-block')?.getAttribute('aria-label')).toBe('Loading entries');
+    expect(host.textContent).not.toContain('Still loading');
+    shell.state(host, { kind: 'loading', noun: 'entries', slow: true });
+    expect(host.textContent).toContain('Still loading. This is taking longer than usual.');
+  });
+
+  it('words the empty, partial and offline regions from the design, and never counts what is hidden', async () => {
+    const shell = mount(await render('web'));
+    const host = document.createElement('div');
+
+    shell.state(host, { kind: 'empty', noun: 'entries' });
+    expect(host.textContent).toContain('No entries yet');
+    shell.state(host, { kind: 'empty-search', noun: 'beings' });
+    expect(host.textContent).toContain('No beings match');
+    shell.state(host, { kind: 'partial', noun: 'entries', shown: 8, missing: 2 });
+    expect(host.textContent).toContain('Showing 8. 2 could not be loaded.');
+    shell.state(host, { kind: 'offline' });
+    expect(host.textContent).toContain('Not on this device yet');
+  });
+
+  it('replaces the page with a mascot state, and falls back to a placeholder when the image is missing', async () => {
+    const shell = mount(await render('web'));
+
+    shell.pageState({ art: 'no-access', link: { label: 'Go to Home', href: '/' } });
+    const page = document.querySelector('[data-page]') as HTMLElement;
+    const image = page.querySelector('img') as HTMLImageElement;
+
+    expect(page.hidden).toBe(false);
+    expect((document.querySelector('[data-welcome]') as HTMLElement).hidden).toBe(true);
+    expect(page.querySelector('h1')?.textContent).toBe('This page isn’t available');
+    expect(image.getAttribute('src')).toBe('https://brand.example/mascots/ui_no-access.png');
+    expect(image.alt).toBe('Catileo before a closed door');
+    expect((page.querySelector('a.btn') as HTMLAnchorElement).textContent).toBe('Go to Home');
+
+    image.dispatchEvent(new dom.window.Event('error'));
+    const art = page.querySelector('.page-state-art') as HTMLElement;
+
+    expect(art.hasAttribute('data-missing')).toBe(true);
+    expect(art.textContent).toBe('Catileo before a closed door');
+    expect(page.querySelector('img')).toBeNull();
+  });
+
+  it("takes its own words for an app's own page state", async () => {
+    const shell = mount(await render('web'));
+
+    shell.pageState({
+      art: 'empty-beings',
+      alt: 'Lorenzo with an empty sheet',
+      title: 'No beings yet',
+      text: 'Make the first.',
+    });
+    expect(document.querySelector('.page-state h1')?.textContent).toBe('No beings yet');
+    expect(document.querySelector('.page-state p')?.textContent).toBe('Make the first.');
+  });
+});
+
+describe('saving', () => {
+  const bar = () => document.querySelector('[data-shell-savebar]') as HTMLElement;
+  const text = () => bar().querySelector('[data-shell-savebar-text]')?.textContent;
+  const buttons = () => [...bar().querySelectorAll('button')];
+
+  it('opens on a change, counts, and closes at none', async () => {
+    const shell = mount(await render('web'));
+    const sb = shell.saveBar({ save: () => {}, discard: () => {} });
+
+    expect(bar().hasAttribute('data-open')).toBe(false);
+    sb.set(1);
+    expect(bar().hasAttribute('data-open')).toBe(true);
+    expect(text()).toBe('1 change not saved');
+    expect(buttons().map((b) => b.textContent)).toEqual(['Discard', 'Save changes']);
+    sb.set(0);
+    expect(bar().hasAttribute('data-open')).toBe(false);
+  });
+
+  it('rewrites its buttons only when the number of changes changes', async () => {
+    const shell = mount(await render('web'));
+    const sb = shell.saveBar({ save: () => {}, discard: () => {} });
+
+    sb.set(1);
+    const save = buttons()[1];
+
+    sb.set(1);
+    expect(buttons()[1]).toBe(save);
+    sb.set(2);
+    expect(text()).toBe('2 changes not saved');
+    expect(buttons()[1]).not.toBe(save);
+  });
+
+  it('saves once while it is saving, and discards', async () => {
+    const shell = mount(await render('web'));
+    const discard = vi.fn();
+    let finish = () => {};
+    const save = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    const sb = shell.saveBar({ save, discard });
+
+    sb.set(2);
+    buttons()[1]?.click();
+    buttons()[1]?.click();
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(buttons()[1]?.textContent).toBe('Saving…');
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(buttons()[1]?.textContent).toBe('Save changes');
+    buttons()[0]?.click();
+    expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the changes and says so when a save fails, with a way to try again', async () => {
+    const shell = mount(await render('web'));
+    const save = vi.fn().mockRejectedValueOnce(new Error('no')).mockResolvedValue(undefined);
+    const sb = shell.saveBar({ save, discard: () => {} });
+
+    sb.set(1);
+    buttons()[1]?.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sb.count()).toBe(1);
+    expect(document.querySelector('.toast-card[data-kind="error"] .toast-title')?.textContent).toBe(
+      'Couldn’t save',
+    );
+    (document.querySelector('.toast-action') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks before leaving the page with changes, and not without', async () => {
+    const shell = mount(await render('web'));
+    const sb = shell.saveBar({ save: () => {}, discard: () => {} });
+    const leave = () => {
+      const event = new dom.window.Event('beforeunload', { cancelable: true });
+
+      dom.window.dispatchEvent(event);
+
+      return event.defaultPrevented;
+    };
+
+    expect(leave()).toBe(false);
+    sb.set(1);
+    expect(leave()).toBe(true);
+    sb.set(0);
+    expect(leave()).toBe(false);
+  });
+
+  it('signing out with unsaved changes says so and asks first', async () => {
+    const onLogout = vi.fn();
+    const shell = mount(await render('web'), '/', { onLogout });
+
+    shell.account({ state: 'signed-in', label: 'mara@example.com' });
+    shell.saveBar({ save: () => {}, discard: () => {} }).set(2);
+    (document.querySelector('[data-shell-account-button]') as HTMLButtonElement).click();
+    [...document.querySelectorAll<HTMLElement>('.menu [role^="menuitem"]')].pop()?.click();
+    vi.advanceTimersByTime(10);
+    expect(onLogout).not.toHaveBeenCalled();
+    expect([...document.querySelectorAll('dialog')].pop()?.textContent).toContain(
+      '2 changes not saved. Signing out discards them.',
+    );
+  });
+
+  it('draws the autosave indicator into the host the app gives', async () => {
+    const shell = mount(await render('web'));
+    const host = document.createElement('span');
+    const auto = shell.autosave(host);
+
+    auto.set('saving');
+    expect(host.textContent).toBe('Saving…');
+    expect(host.getAttribute('role')).toBe('status');
+    auto.set('device');
+    expect(host.dataset.state).toBe('device');
+    expect(host.textContent).toContain('Saved on this device');
+    auto.clear();
+    expect(host.children).toHaveLength(0);
+  });
+});

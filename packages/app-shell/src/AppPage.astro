@@ -5,6 +5,7 @@ import AppHeader from './SiteHeader.astro';
 import WebBottom from './WebBottom.astro';
 import WebHeader from './WebHeader.astro';
 import type { NavItem } from './pure';
+import { pageClass, type PageTemplate } from './templates';
 
 interface Props {
   // The tab title, "Calendars — Lorenzo"
@@ -24,10 +25,25 @@ interface Props {
   // The release shown in the web shell's sheet, and links to its legal pages once they exist.
   version?: string;
   legal?: { notice?: string; privacy?: string };
+  // The page's template (ADR 0412), which sets the width of its container; without it the page
+  // keeps the app's own `wrap`.
+  template?: PageTemplate;
 }
 
-const { title, product, brandingUrl, themeKey, nav, path, welcome, shell, version, legal } =
-  Astro.props;
+const {
+  title,
+  product,
+  brandingUrl,
+  themeKey,
+  nav,
+  path,
+  welcome,
+  shell,
+  version,
+  legal,
+  template,
+} = Astro.props;
+const container = shell === 'web' && template ? pageClass(template) : 'wrap';
 ---
 
 <!doctype html>
@@ -44,7 +60,7 @@ const { title, product, brandingUrl, themeKey, nav, path, welcome, shell, versio
         <div class="shell-app shell-app--page">
           <WebHeader product={product} brandingUrl={brandingUrl} nav={nav} />
           <main id="content">
-            <div class="wrap stack">
+            <div class={`${container} stack`}>
               <section class="stack" data-welcome>
                 <h1>{welcome.title}</h1>
                 <p class="lede">{welcome.text}</p>

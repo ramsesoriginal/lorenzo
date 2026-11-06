@@ -429,6 +429,76 @@
             </div>
           </div>
         </section>
+
+        <section id="page-parts">
+          <h2>Page parts</h2>
+          <div class="shell-container" id="parts-container">
+            <div class="shell-app">
+              <div class="shell-page shell-page--form">
+                <div class="page-heading">
+                  <h1>Library settings</h1>
+                  <div class="page-heading-actions">
+                    <button class="btn btn-secondary" type="button">
+                      Export
+                    </button>
+                  </div>
+                  <p class="page-sub">Name, visibility and members.</p>
+                </div>
+                <div class="form-section">
+                  <div class="form-section-text">
+                    <h2>Name</h2>
+                    <p>Shown to everyone in the library.</p>
+                  </div>
+                  <div class="form-section-fields">
+                    <input class="text-input" aria-label="Name" value="Orla" />
+                  </div>
+                </div>
+                <div class="form-section">
+                  <div class="form-section-text">
+                    <h2>Visibility</h2>
+                    <p>Who can find this library.</p>
+                  </div>
+                  <div class="form-section-fields">
+                    <input class="text-input" aria-label="Visibility" />
+                  </div>
+                </div>
+              </div>
+              <div class="shell-page">
+                <div class="state-block" id="demo-state" data-kind="error">
+                  <svg class="icon" aria-hidden="true">
+                    <use href="../icons.svg#icon-warning"></use>
+                  </svg>
+                  <div class="state-block-title">Couldn’t load entries</div>
+                  <p>
+                    The connection dropped before this finished. Nothing you
+                    wrote is lost.
+                  </p>
+                  <div class="state-block-code">503 · request 4f2a91</div>
+                  <div class="state-block-actions">
+                    <button class="btn btn-primary" type="button">
+                      Try again
+                    </button>
+                  </div>
+                </div>
+                <div class="page-state" id="demo-page-state">
+                  <div class="page-state-art" data-missing>
+                    Catileo at a door
+                  </div>
+                  <h1>This page isn’t available</h1>
+                  <p>
+                    It may not exist, or you may not have access. Ask a GM or an
+                    Organizer of the library to share it with you.
+                  </p>
+                  <a class="btn btn-secondary" href="#">Go to Home</a>
+                </div>
+                <div class="home-grid" id="demo-home">
+                  <div class="home-block"><h2>Continue</h2></div>
+                  <div class="home-block"><h2>What do you want to do?</h2></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
 

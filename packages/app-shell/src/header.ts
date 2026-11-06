@@ -1,4 +1,5 @@
 import { APP_INFO, type AppRegistry, appsByJob } from './apps';
+import { type Autosave, createAutosave } from './autosave';
 import { type ConfirmOptions, confirmDialog } from './confirm';
 import { closeDialog, fadeOnDismiss, openDialog } from './dialog';
 import { createKeymap, GO_KEYS, goChord, type KeyInput } from './keys';
@@ -6,8 +7,10 @@ import { type MenuItem, openMenu } from './menu';
 import type { PaletteItem } from './palette';
 import { mountPalette, type PaletteUi, type PaletteUiOptions } from './palette-ui';
 import { clockText, initials, isCurrentPage, navHref } from './pure';
+import { changesText, createSaveBar, type SaveBar, type SaveBarHandlers } from './save-bar';
 import { readSingleKeys, writeSingleKeys } from './settings';
 import { mountShortcuts } from './shortcuts-ui';
+import { type PageStateSpec, pageState, type RegionStateSpec, regionState } from './states';
 import { bindThemeToggle } from './theme';
 import { createToasts, type ToastHandle, type ToastOptions } from './toast';
 
@@ -119,6 +122,22 @@ export type Shell = {
   undoable(options: { title: string; text?: string; undo(): void }): ToastHandle;
   /** A confirmation for what cannot be undone; true when confirmed. */
   confirm(options: ConfirmOptions): Promise<boolean>;
+  /**
+   * A state inside a region (loading, empty, failed, partly loaded, in conflict, not on this
+   * device), put into `host` in place of what was there; null clears it. The rest of the page keeps
+   * working. No state counts what the person cannot see.
+   */
+  state(host: HTMLElement, spec: RegionStateSpec | null): void;
+  /** A state that replaces the whole page, with a mascot: not found, no access, offline, an error. */
+  pageState(spec: PageStateSpec): void;
+  /**
+   * The explicit save bar, for a form whose effects cannot be undone: it opens when the number of
+   * changes is above 0, says how many, and offers Discard and Save changes. A failed save keeps the
+   * changes and says so. Leaving the page or signing out with changes asks first.
+   */
+  saveBar(handlers: Omit<SaveBarHandlers, 'onError'>): SaveBar;
+  /** The autosave indicator, drawn into `host`: saving, saved, kept on this device, or failed. */
+  autosave(host: HTMLElement): Autosave;
 };
 
 function find<T extends HTMLElement>(root: ParentNode, selector: string): T | null {
@@ -250,6 +269,23 @@ export function bindShell(options: ShellOptions): Shell | null {
     return shortcutsUi;
   }
 
+  let bar: SaveBar | null = null;
+  const unsentNow = (): string[] => {
+    const changes = bar?.count() ?? 0;
+
+    return [
+      ...(options.unsent?.() ?? []),
+      ...(changes > 0 ? [`${changesText(changes)}. Signing out discards them.`] : []),
+    ];
+  };
+
+  window.addEventListener('beforeunload', (event) => {
+    if ((bar?.count() ?? 0) > 0) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  });
+
   const accountButton = find<HTMLButtonElement>(root, '[data-shell-account-button]');
   let accountLabel: string | undefined;
 
@@ -282,9 +318,9 @@ export function bindShell(options: ShellOptions): Shell | null {
         icon: 'logout',
         danger: true,
         run: () => {
-          const unsent = options.unsent?.();
+          const unsent = unsentNow();
 
-          if (!unsent || unsent.length === 0) {
+          if (unsent.length === 0) {
             options.onLogout();
 
             return;
@@ -631,6 +667,43 @@ export function bindShell(options: ShellOptions): Shell | null {
     },
 
     confirm: confirmDialog,
+
+    saveBar(handlers) {
+      const host = find<HTMLElement>(document, '[data-shell-savebar]');
+
+      if (!host) return { set() {}, count: () => 0 };
+
+      bar = createSaveBar(host, sprite, {
+        ...handlers,
+        onError: () => {
+          toasts?.show({
+            kind: 'error',
+            title: 'Couldn’t save',
+            text: 'Your changes are still here.',
+            action: {
+              label: 'Try again',
+              run: () => void host.querySelector<HTMLButtonElement>('.btn-primary')?.click(),
+            },
+          });
+        },
+      });
+
+      return bar;
+    },
+
+    autosave: (host) => createAutosave(host, sprite),
+
+    state(host, spec) {
+      host.replaceChildren(...(spec ? [regionState(sprite, spec)] : []));
+    },
+
+    pageState(spec) {
+      const target = page ?? document.body;
+
+      setHidden(welcome, true);
+      setHidden(page, false);
+      target.replaceChildren(pageState(sprite.replace(/\/icons\.svg$/, ''), spec));
+    },
 
     notifications(info) {
       const bell = find<HTMLAnchorElement>(root, '[data-shell-bell]');

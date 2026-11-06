@@ -54,8 +54,8 @@ test('the sideways fade masks a row that scrolls', async ({ page }) => {
 });
 
 test('page widths: reading 680, form 1040', async ({ page }) => {
-  expect((await page.locator('.shell-page--reading').boundingBox())?.width).toBeCloseTo(680, 0);
-  expect((await page.locator('.shell-page--form').boundingBox())?.width).toBeCloseTo(1040, 0);
+  expect((await page.locator('#widths .shell-page--reading').boundingBox())?.width).toBeCloseTo(680, 0);
+  expect((await page.locator('#widths .shell-page--form').boundingBox())?.width).toBeCloseTo(1040, 0);
 });
 
 test('container steps: phone to 720, tablet from 721, desktop from 1100, large from 1700', async ({ page }) => {
@@ -80,4 +80,30 @@ test('container steps: phone to 720, tablet from 721, desktop from 1100, large f
   expect(await label()).toContain('desktop');
   await page.evaluate(() => ((document.getElementById('steps-frame') as HTMLElement).style.width = '1700px'));
   expect(await label()).toContain('large');
+});
+
+test('page parts: a settings section is two columns on a wide container and one on a phone', async ({ page }) => {
+  const errors = collectErrors(page);
+  const section = page.locator('.form-section').first();
+  const text = section.locator('.form-section-text');
+  const fields = section.locator('.form-section-fields');
+
+  const wide = { text: await text.boundingBox(), fields: await fields.boundingBox() };
+  expect(wide.text?.width).toBeCloseTo(280, 0);
+  expect(wide.fields?.x).toBeGreaterThan((wide.text?.x ?? 0) + 280);
+
+  await page.setViewportSize({ width: 430, height: 900 });
+  const narrow = { text: await text.boundingBox(), fields: await fields.boundingBox() };
+  expect(narrow.fields?.y).toBeGreaterThan((narrow.text?.y ?? 0) + (narrow.text?.height ?? 0) - 1);
+  expect(errors).toEqual([]);
+});
+
+test('page parts: a state block is at least 300px tall; a page state shows its placeholder art', async ({ page }) => {
+  expect((await page.locator('#demo-state').boundingBox())?.height).toBeGreaterThanOrEqual(300);
+  const art = await page.locator('#demo-page-state .page-state-art').boundingBox();
+  expect(art?.width).toBeCloseTo(280, 0);
+  expect(art?.height).toBeCloseTo(280, 0);
+  await page.setViewportSize({ width: 430, height: 900 });
+  expect((await page.locator('#demo-page-state .page-state-art').boundingBox())?.width).toBeCloseTo(200, 0);
+  expect(await page.locator('#demo-home .home-block').count()).toBe(2);
 });
