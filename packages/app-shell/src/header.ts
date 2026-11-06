@@ -8,6 +8,7 @@ import { mountPalette, type PaletteUi, type PaletteUiOptions } from './palette-u
 import { clockText, initials, isCurrentPage, navHref } from './pure';
 import { readSingleKeys, writeSingleKeys } from './settings';
 import { mountShortcuts } from './shortcuts-ui';
+import { type PageStateSpec, pageState, type RegionStateSpec, regionState } from './states';
 import { bindThemeToggle } from './theme';
 import { createToasts, type ToastHandle, type ToastOptions } from './toast';
 
@@ -119,6 +120,14 @@ export type Shell = {
   undoable(options: { title: string; text?: string; undo(): void }): ToastHandle;
   /** A confirmation for what cannot be undone; true when confirmed. */
   confirm(options: ConfirmOptions): Promise<boolean>;
+  /**
+   * A state inside a region (loading, empty, failed, partly loaded, in conflict, not on this
+   * device), put into `host` in place of what was there; null clears it. The rest of the page keeps
+   * working. No state counts what the person cannot see.
+   */
+  state(host: HTMLElement, spec: RegionStateSpec | null): void;
+  /** A state that replaces the whole page, with a mascot: not found, no access, offline, an error. */
+  pageState(spec: PageStateSpec): void;
 };
 
 function find<T extends HTMLElement>(root: ParentNode, selector: string): T | null {
@@ -631,6 +640,18 @@ export function bindShell(options: ShellOptions): Shell | null {
     },
 
     confirm: confirmDialog,
+
+    state(host, spec) {
+      host.replaceChildren(...(spec ? [regionState(sprite, spec)] : []));
+    },
+
+    pageState(spec) {
+      const target = page ?? document.body;
+
+      setHidden(welcome, true);
+      setHidden(page, false);
+      target.replaceChildren(pageState(sprite.replace(/\/icons\.svg$/, ''), spec));
+    },
 
     notifications(info) {
       const bell = find<HTMLAnchorElement>(root, '[data-shell-bell]');

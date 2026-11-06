@@ -40,5 +40,15 @@ export {
   splitTabs,
   themeToggleLabel,
 } from './pure';
+export type {
+  MascotId,
+  PageStateSpec,
+  RegionStateKind,
+  RegionStateSpec,
+  StateAction,
+} from './states';
+export { PAGE_WORDS, pageState, regionState, regionWords } from './states';
+export type { PageTemplate, SaveStyle } from './templates';
+export { defaultSaving, pageClass, TEMPLATES } from './templates';
 export type { ToastKind, ToastOptions } from './toast';
 export { createToasts, TOAST_MS } from './toast';

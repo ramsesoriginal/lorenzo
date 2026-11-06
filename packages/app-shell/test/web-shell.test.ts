@@ -724,3 +724,108 @@ describe('the account menu', () => {
     expect(title?.closest('dialog')?.hasAttribute('open')).toBe(true);
   });
 });
+
+describe('templates and states', () => {
+  it('gives the page the width of its template, only in the web shell', async () => {
+    const container = await AstroContainer.create();
+    const props = {
+      title: 'T',
+      product: 'Calendars',
+      brandingUrl: 'https://brand.example',
+      themeKey: 'k',
+      path: 'apps/calendars',
+      welcome: { title: 'T', text: 't', status: 's' },
+    };
+    const render2 = (extra: Record<string, unknown>) =>
+      container.renderToString(AppPage, { props: { ...props, ...extra }, slots: { default: 'x' } });
+
+    expect(await render2({ shell: 'web', template: 'reading' })).toContain(
+      'shell-page shell-page--reading stack',
+    );
+    expect(await render2({ shell: 'web' })).toContain('class="wrap stack"');
+    expect(await render2({ template: 'reading' })).not.toContain('shell-page--reading');
+  });
+
+  it('puts a region state where the rows were, and clears it', async () => {
+    const shell = mount(await render('web'));
+    const host = document.createElement('div');
+    const retry = vi.fn();
+
+    host.textContent = 'rows';
+    shell.state(host, {
+      kind: 'error',
+      noun: 'beings',
+      code: '503 · request 4f2a91',
+      actions: [{ label: 'Try again', run: retry, primary: true }],
+    });
+    expect(host.querySelector('.state-block-title')?.textContent).toBe('Couldn’t load beings');
+    expect(host.querySelector('.state-block-code')?.textContent).toBe('503 · request 4f2a91');
+    expect(host.querySelector('.state-block')?.getAttribute('role')).toBe('alert');
+    (host.querySelector('.btn-primary') as HTMLButtonElement).click();
+    expect(retry).toHaveBeenCalledTimes(1);
+
+    shell.state(host, null);
+    expect(host.children).toHaveLength(0);
+  });
+
+  it('draws a loading state as skeleton lines, and says when it is slow', async () => {
+    const shell = mount(await render('web'));
+    const host = document.createElement('div');
+
+    shell.state(host, { kind: 'loading', noun: 'entries' });
+    expect(host.querySelectorAll('.skeleton-line')).toHaveLength(4);
+    expect(host.querySelector('.state-block')?.getAttribute('aria-label')).toBe('Loading entries');
+    expect(host.textContent).not.toContain('Still loading');
+    shell.state(host, { kind: 'loading', noun: 'entries', slow: true });
+    expect(host.textContent).toContain('Still loading. This is taking longer than usual.');
+  });
+
+  it('words the empty, partial and offline regions from the design, and never counts what is hidden', async () => {
+    const shell = mount(await render('web'));
+    const host = document.createElement('div');
+
+    shell.state(host, { kind: 'empty', noun: 'entries' });
+    expect(host.textContent).toContain('No entries yet');
+    shell.state(host, { kind: 'empty-search', noun: 'beings' });
+    expect(host.textContent).toContain('No beings match');
+    shell.state(host, { kind: 'partial', noun: 'entries', shown: 8, missing: 2 });
+    expect(host.textContent).toContain('Showing 8. 2 could not be loaded.');
+    shell.state(host, { kind: 'offline' });
+    expect(host.textContent).toContain('Not on this device yet');
+  });
+
+  it('replaces the page with a mascot state, and falls back to a placeholder when the image is missing', async () => {
+    const shell = mount(await render('web'));
+
+    shell.pageState({ art: 'no-access', link: { label: 'Go to Home', href: '/' } });
+    const page = document.querySelector('[data-page]') as HTMLElement;
+    const image = page.querySelector('img') as HTMLImageElement;
+
+    expect(page.hidden).toBe(false);
+    expect((document.querySelector('[data-welcome]') as HTMLElement).hidden).toBe(true);
+    expect(page.querySelector('h1')?.textContent).toBe('This page isn’t available');
+    expect(image.getAttribute('src')).toBe('https://brand.example/mascots/ui_no-access.png');
+    expect(image.alt).toBe('Catileo before a closed door');
+    expect((page.querySelector('a.btn') as HTMLAnchorElement).textContent).toBe('Go to Home');
+
+    image.dispatchEvent(new dom.window.Event('error'));
+    const art = page.querySelector('.page-state-art') as HTMLElement;
+
+    expect(art.hasAttribute('data-missing')).toBe(true);
+    expect(art.textContent).toBe('Catileo before a closed door');
+    expect(page.querySelector('img')).toBeNull();
+  });
+
+  it("takes its own words for an app's own page state", async () => {
+    const shell = mount(await render('web'));
+
+    shell.pageState({
+      art: 'empty-beings',
+      alt: 'Lorenzo with an empty sheet',
+      title: 'No beings yet',
+      text: 'Make the first.',
+    });
+    expect(document.querySelector('.page-state h1')?.textContent).toBe('No beings yet');
+    expect(document.querySelector('.page-state p')?.textContent).toBe('Make the first.');
+  });
+});

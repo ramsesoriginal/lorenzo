@@ -17,5 +17,5 @@ UI-A gave the brand its tokens and the save bar and skeleton styles, and UI-B th
 ## Consequences
 
 - Delivered as stacked parts: the brand's page parts, then templates, states and mascots, then saving and retry.
-- The mascot images are the illustrators' (`ui_<id>.png`, [mascot-images.md](../design/web/mascot-images.md)); until they are delivered the placeholders show.
+- The mascot images are the illustrators' (`ui_<id>.png`, [mascot-images.md](../design/web/mascot-images.md)); they are served from `<brandingUrl>/mascots/`, and until they are delivered the placeholders show.
 - Each app adopts the templates and states when it moves over (UI-D to UI-G).
