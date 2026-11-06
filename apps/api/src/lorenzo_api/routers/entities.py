@@ -1864,6 +1864,7 @@ async def editable_fact_audience(
                 Location,
                 Map,
                 Connection,
+                Relationship,
                 CalendarPeriod,
                 StoryEvent,
                 CalendarObservance,
