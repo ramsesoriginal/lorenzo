@@ -434,3 +434,5 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0429 - Explicit repository text updates for standalone drafts](0429-standalone-draft-repository-updates.md)
 
 - [0430 - Repository text updates for placed leaf Chapters](0430-placed-chapter-text-updates.md)
+
+- [0431 - Repository text updates for nested leaf Chapters](0431-nested-chapter-text-updates.md)
