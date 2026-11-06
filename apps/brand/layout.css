@@ -455,6 +455,28 @@ body:has(.full-width) {
 
 /* A page's own width: reading has a 680px measure, forms 1040px, other pages 1120px; a board, a
    map or a wide table is exempt (ADR 0412). The gutter follows the spacing token. */
+/* A web page's frame (the shell package's AppPage with shell="web"): the app fills the window, its
+   main grows, and the status bar and tab bar stay at the bottom. */
+.shell-app--page {
+  min-height: 100dvh;
+}
+
+.shell-app--page > main {
+  flex: 1;
+}
+
+.shell-header {
+  position: relative;
+  z-index: 20;
+  background: var(--surface-canvas);
+}
+
+.shell-bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 18;
+}
+
 .shell-page {
   width: 100%;
   margin-inline: auto;
