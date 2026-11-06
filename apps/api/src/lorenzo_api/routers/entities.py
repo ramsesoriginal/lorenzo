@@ -102,6 +102,7 @@ from lorenzo_api.models import (
     Payload,
     Player,
     Relationship,
+    SocialWeb,
     StatDefinition,
     StoryEvent,
     User,
@@ -176,6 +177,7 @@ _KINDS: tuple[
             | Map
             | Connection
             | Relationship
+            | SocialWeb
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
@@ -213,6 +215,7 @@ _KINDS: tuple[
     ("map", Map),
     ("connection", Connection),
     ("relationship", Relationship),
+    ("social_web", SocialWeb),
 )
 
 
@@ -744,6 +747,7 @@ async def get_entity_detail_or_404(
             joinedload(Entity.map),
             joinedload(Entity.connection),
             joinedload(Entity.relationship_marker),
+            joinedload(Entity.social_web_marker),
             joinedload(Entity.calendar_period),
             joinedload(Entity.calendar_observance),
             joinedload(Entity.story_event),
@@ -1876,6 +1880,7 @@ async def editable_fact_audience(
                 Map,
                 Connection,
                 Relationship,
+                SocialWeb,
                 CalendarPeriod,
                 StoryEvent,
                 CalendarObservance,

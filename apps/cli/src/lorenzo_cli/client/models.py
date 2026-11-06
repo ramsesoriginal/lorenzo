@@ -147,6 +147,7 @@ class Kind1(StrEnum):
     map = "map"
     connection = "connection"
     relationship = "relationship"
+    social_web = "social_web"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -658,6 +659,7 @@ class Kind7(StrEnum):
     map = "map"
     connection = "connection"
     relationship = "relationship"
+    social_web = "social_web"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -991,6 +993,7 @@ class Kind12(StrEnum):
     map = "map"
     connection = "connection"
     relationship = "relationship"
+    social_web = "social_web"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -1072,6 +1075,7 @@ class Kind17(StrEnum):
     map = "map"
     connection = "connection"
     relationship = "relationship"
+    social_web = "social_web"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -1492,6 +1496,7 @@ class Kind19(StrEnum):
     map = "map"
     connection = "connection"
     relationship = "relationship"
+    social_web = "social_web"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -1719,11 +1724,6 @@ class MePlayerOut(BaseModel):
     campaign_id: UUID = Field(..., title="Campaign Id")
     characters: list[CharacterSummaryOut] = Field(..., title="Characters")
     self_service_effective: bool = Field(..., title="Self Service Effective")
-
-
-class MemberOut(BaseModel):
-    entry: EntryStub
-    axis: str = Field(..., title="Axis")
 
 
 class MemberProfileOut(BaseModel):
@@ -2135,14 +2135,6 @@ class PageMapListItem(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
-class PageMemberOut(BaseModel):
-    items: list[MemberOut] = Field(..., title="Items")
-    total: conint(ge=0) = Field(..., title="Total")
-    page: conint(ge=1) = Field(..., title="Page")
-    size: conint(ge=1) = Field(..., title="Size")
-    pages: conint(ge=0) = Field(..., title="Pages")
-
-
 class PageNotificationOut(BaseModel):
     items: list[NotificationOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -2334,6 +2326,15 @@ class PlaceOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
+
+
+class Placement(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    entry_id: UUID = Field(..., title="Entry Id")
+    x: float | None = Field(None, title="X")
+    y: float | None = Field(None, title="Y")
 
 
 class PlacementBatchIn(BaseModel):
@@ -2851,6 +2852,7 @@ class Kind33(StrEnum):
     map = "map"
     connection = "connection"
     relationship = "relationship"
+    social_web = "social_web"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -3109,6 +3111,87 @@ class ShowcaseUpdate(BaseModel):
         extra="forbid",
     )
     entity_ids: list[UUID] = Field(..., max_length=100, title="Entity Ids")
+
+
+class Layout(StrEnum):
+    circle = "circle"
+    radial = "radial"
+    stress = "stress"
+    forceatlas2 = "forceatlas2"
+    manual = "manual"
+    layered = "layered"
+
+
+class SocialWebCreate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    layout: Layout | None = Field("circle", title="Layout")
+    layout_seed: conint(ge=0, le=2147483647) | None = Field(1, title="Layout Seed")
+    theme_hint: constr(pattern=r"^[a-z][a-z0-9-]{0,39}$") | None = Field(None, title="Theme Hint")
+    view: dict[str, Any] | None = Field(None, title="View")
+    standing_stat_id: UUID | None = Field(None, title="Standing Stat Id")
+    as_of_event: UUID | None = Field(None, title="As Of Event")
+    id: UUID | None = Field(None, title="Id")
+    name: constr(min_length=1, max_length=200) = Field(..., title="Name")
+    slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
+        None, title="Slug"
+    )
+    is_public: bool | None = Field(False, title="Is Public")
+
+
+class Kind40(StrEnum):
+    item = "item"
+    item_instance = "item_instance"
+    being = "being"
+    character = "character"
+    fact = "fact"
+    calendar = "calendar"
+    clock = "clock"
+    location = "location"
+    map = "map"
+    connection = "connection"
+    relationship = "relationship"
+    social_web = "social_web"
+    calendar_period = "calendar_period"
+    event = "event"
+    observance = "observance"
+    book = "book"
+    carrier = "carrier"
+    edition = "edition"
+    chapter = "chapter"
+    scene_telling = "scene_telling"
+    scene = "scene"
+    scene_appearance = "scene_appearance"
+    session = "session"
+
+
+class SocialWebOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind40] = Field(..., title="Kinds")
+    layout: str = Field(..., title="Layout")
+    layout_seed: int = Field(..., title="Layout Seed")
+    theme_hint: str | None = Field(..., title="Theme Hint")
+    view: dict[str, Any] | None = Field(..., title="View")
+    standing_stat_id: UUID | None = Field(..., title="Standing Stat Id")
+    as_of_event: EntryStub | None
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    can_manage: bool = Field(..., title="Can Manage")
+    is_public: bool | None = Field(None, title="Is Public")
+
+
+class SocialWebSettings(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    layout: Layout | None = Field("circle", title="Layout")
+    layout_seed: conint(ge=0, le=2147483647) | None = Field(1, title="Layout Seed")
+    theme_hint: constr(pattern=r"^[a-z][a-z0-9-]{0,39}$") | None = Field(None, title="Theme Hint")
+    view: dict[str, Any] | None = Field(None, title="View")
+    standing_stat_id: UUID | None = Field(None, title="Standing Stat Id")
+    as_of_event: UUID | None = Field(None, title="As Of Event")
 
 
 class SplitAcknowledgement(BaseModel):
@@ -3390,6 +3473,13 @@ class ThroughPut(BaseModel):
     via: list[UUID] = Field(..., max_length=12, title="Via")
 
 
+class TypesPut(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type_ids: list[UUID] = Field(..., max_length=50, title="Type Ids")
+
+
 class UndeprecatedOut(BaseModel):
     undeprecated: bool = Field(..., title="Undeprecated")
 
@@ -3400,7 +3490,7 @@ class UnprovenKindOut(BaseModel):
     kinds: list[str] = Field(..., title="Kinds")
 
 
-class Kind40(StrEnum):
+class Kind42(StrEnum):
     entity = "entity"
     stat_group = "stat_group"
     stat_definition = "stat_definition"
@@ -3469,7 +3559,7 @@ class WhereaboutsOut(BaseModel):
     place: PlaceOut | None = None
 
 
-class Kind41(StrEnum):
+class Kind43(StrEnum):
     book = "book"
     edition = "edition"
     chapter = "chapter"
@@ -3482,7 +3572,7 @@ class Kind41(StrEnum):
 class WritingEntry(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
-    kind: Kind41 = Field(..., title="Kind")
+    kind: Kind43 = Field(..., title="Kind")
     book_id: UUID | None = Field(None, title="Book Id")
     parent_id: UUID | None = Field(None, title="Parent Id")
     scene_id: UUID | None = Field(None, title="Scene Id")
@@ -3504,7 +3594,7 @@ class YearPreview(BaseModel):
     segments: list[SegmentPreview] = Field(..., title="Segments")
 
 
-class Kind42(StrEnum):
+class Kind44(StrEnum):
     order = "order"
     causes = "causes"
 
@@ -3519,14 +3609,19 @@ class LorenzoApiRoutersEventOrderRelationshipOut(BaseModel):
     to_event_id: UUID = Field(..., title="To Event Id")
     from_name: str = Field(..., title="From Name")
     to_name: str = Field(..., title="To Name")
-    kind: Kind42 = Field(..., title="Kind")
+    kind: Kind44 = Field(..., title="Kind")
     is_shared: bool | None = Field(False, title="Is Shared")
     evidence: Evidence | None = Field("assertion", title="Evidence")
     being_entity_id: UUID | None = Field(None, title="Being Entity Id")
     being_name: str | None = Field(None, title="Being Name")
 
 
-class Kind43(StrEnum):
+class LorenzoApiRoutersFramesMemberOut(BaseModel):
+    entry: EntryStub
+    axis: str = Field(..., title="Axis")
+
+
+class Kind45(StrEnum):
     item = "item"
     item_instance = "item_instance"
     being = "being"
@@ -3538,6 +3633,7 @@ class Kind43(StrEnum):
     map = "map"
     connection = "connection"
     relationship = "relationship"
+    social_web = "social_web"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -3563,7 +3659,7 @@ class LorenzoApiRoutersRelationshipsRelationshipOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
-    kinds: list[Kind43] = Field(..., title="Kinds")
+    kinds: list[Kind45] = Field(..., title="Kinds")
     end_a: EntryStub
     end_b: EntryStub
     one_way: bool = Field(..., title="One Way")
@@ -3573,6 +3669,12 @@ class LorenzoApiRoutersRelationshipsRelationshipOut(BaseModel):
     starts_at: EntryStub | None = None
     ends_at: EntryStub | None = None
     as_of: AsOf | None = Field(None, title="As Of")
+
+
+class LorenzoApiRoutersSocialWebsMemberOut(BaseModel):
+    entry: EntryStub
+    x: float | None = Field(..., title="X")
+    y: float | None = Field(..., title="Y")
 
 
 class Problem(BaseModel):
@@ -4256,6 +4358,14 @@ class MeOut(BaseModel):
     capabilities: MeCapabilitiesOut
 
 
+class MembersWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    set: list[Placement] | None = Field(None, title="Set")
+    remove: list[UUID] | None = Field(None, title="Remove")
+
+
 class ObservanceCreate(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -4351,6 +4461,14 @@ class PageItemOut(BaseModel):
     pages: conint(ge=0) = Field(..., title="Pages")
 
 
+class PageMemberOut(BaseModel):
+    items: list[LorenzoApiRoutersFramesMemberOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
 class PageObservanceOut(BaseModel):
     items: list[ObservanceOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
@@ -4409,6 +4527,14 @@ class PageReleaseOut(BaseModel):
 
 class PageRepositoryEntityOut(BaseModel):
     items: list[RepositoryEntityOut] = Field(..., title="Items")
+    total: conint(ge=0) = Field(..., title="Total")
+    page: conint(ge=1) = Field(..., title="Page")
+    size: conint(ge=1) = Field(..., title="Size")
+    pages: conint(ge=0) = Field(..., title="Pages")
+
+
+class PageSocialWebOut(BaseModel):
+    items: list[SocialWebOut] = Field(..., title="Items")
     total: conint(ge=0) = Field(..., title="Total")
     page: conint(ge=1) = Field(..., title="Page")
     size: conint(ge=1) = Field(..., title="Size")
@@ -4600,6 +4726,31 @@ class SheetWeaponOut(BaseModel):
     stats: list[EntityStatValueOut] = Field(..., title="Stats")
 
 
+class SocialWebDetail(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    slug: str | None = Field(None, title="Slug")
+    kinds: list[Kind40] = Field(..., title="Kinds")
+    layout: str = Field(..., title="Layout")
+    layout_seed: int = Field(..., title="Layout Seed")
+    theme_hint: str | None = Field(..., title="Theme Hint")
+    view: dict[str, Any] | None = Field(..., title="View")
+    standing_stat_id: UUID | None = Field(..., title="Standing Stat Id")
+    as_of_event: EntryStub | None
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    can_manage: bool = Field(..., title="Can Manage")
+    is_public: bool | None = Field(None, title="Is Public")
+    members: list[LorenzoApiRoutersSocialWebsMemberOut] = Field(..., title="Members")
+    types: list[EntryStub] = Field(..., title="Types")
+
+
+class SocialWebGraph(BaseModel):
+    web: SocialWebOut
+    members: list[LorenzoApiRoutersSocialWebsMemberOut] = Field(..., title="Members")
+    edges: list[LorenzoApiRoutersRelationshipsRelationshipOut] = Field(..., title="Edges")
+    truncated: bool = Field(..., title="Truncated")
+
+
 class StatDefinitionCreate(BaseModel):
     name: str = Field(..., title="Name")
     stat_group_id: UUID = Field(..., title="Stat Group Id")
@@ -4679,7 +4830,7 @@ class ThroughOut(BaseModel):
 
 
 class UpdateActionIn(BaseModel):
-    kind: Kind40 = Field(..., title="Kind")
+    kind: Kind42 = Field(..., title="Kind")
     source_id: UUID = Field(..., title="Source Id")
     action: Action2 = Field(..., title="Action")
     keep_local: list[str] | None = Field(None, title="Keep Local")

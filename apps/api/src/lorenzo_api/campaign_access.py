@@ -137,6 +137,7 @@ async def entry_in_author_reach(
         Relationship,
         Scene,
         SceneTelling,
+        SocialWeb,
         StoryEvent,
         WritingBiography,
     )
@@ -158,6 +159,7 @@ async def entry_in_author_reach(
                 Map,
                 Connection,
                 Relationship,
+                SocialWeb,
                 CalendarPeriod,
                 StoryEvent,
                 CalendarObservance,

@@ -480,6 +480,13 @@ class StatScaleBreaksValuesError(ConflictProblem):
     title = "Existing values lie outside that scale"
 
 
+class InvalidSocialWebError(UnprocessableProblem):
+    """A SocialWeb the rules of ADR 0406 refuse: too many entries, an end that is a relationship,
+    a bad position or a view that names an entry."""
+
+    title = "That is not a valid social web"
+
+
 class InvalidRelationshipTypeStatError(UnprocessableProblem):
     """PATCH /tenants/{id} - a relationship-type stat is not a stat definition of this tenant, or
     is of the wrong type: a bool for directed, text for the two verbs (ADR 0400)."""

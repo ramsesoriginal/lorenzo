@@ -1001,6 +1001,55 @@ class _Applier:
                 )
             await s.flush()
             return True
+        if name == "social_web":
+            from lorenzo_api.models import SocialWeb, SocialWebEntry, SocialWebType
+
+            web = await s.get(SocialWeb, e)
+            if web is None or web.tenant_id != t:
+                self.skip(row, name, "The local entry is no longer a social web")
+                return False
+            up = change.upstream
+            web.layout = up["layout"]
+            web.layout_seed = up["layout_seed"]
+            web.theme_hint = up["theme_hint"]
+            web.view = up["view"]
+            web.standing_stat_id = (
+                self.resolve("stat_definition", up["standing_stat"])
+                if up["standing_stat"]
+                else None
+            )
+            web.as_of_event = (
+                self.resolve("entity", up["as_of_event"]) if up["as_of_event"] else None
+            )
+            # Members and types follow by name; one not copied here is left out (ADR 0406).
+            await s.execute(
+                delete(SocialWebEntry).where(
+                    SocialWebEntry.web_entity_id == e, SocialWebEntry.tenant_id == t
+                )
+            )
+            await s.execute(
+                delete(SocialWebType).where(
+                    SocialWebType.web_entity_id == e, SocialWebType.tenant_id == t
+                )
+            )
+            for member in up["members"]:
+                local_entry = self.resolve("entity", member["entry"])
+                if local_entry is not None and local_entry != e:
+                    s.add(
+                        SocialWebEntry(
+                            web_entity_id=e,
+                            entry_entity_id=local_entry,
+                            tenant_id=t,
+                            x=member["x"],
+                            y=member["y"],
+                        )
+                    )
+            for kind_name in dict.fromkeys(up["types"]):
+                local_kind = self.resolve("entity", kind_name)
+                if local_kind is not None:
+                    s.add(SocialWebType(web_entity_id=e, type_entity_id=local_kind, tenant_id=t))
+            await s.flush()
+            return True
         if name == "place":
             if await s.get(Entity, e) is None:
                 self.skip(row, name, "The local entry is gone")

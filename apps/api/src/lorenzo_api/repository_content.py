@@ -88,6 +88,9 @@ from lorenzo_api.models import (
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
     SceneTelling,
+    SocialWeb,
+    SocialWebEntry,
+    SocialWebType,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -109,6 +112,7 @@ KINDS = (
     "map",
     "connection",
     "relationship",
+    "social_web",
     "calendar_period",
     "event",
     "observance",
@@ -254,6 +258,13 @@ class Content:
     relationships: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     # relationship -> the relationships it is stated to hold through, in order (ADR 0402).
     relationship_through: dict[uuid.UUID, list[uuid.UUID]] = field(default_factory=dict)
+    # social web -> {layout, layout_seed, theme_hint, view, standing_stat, as_of_event} (ADR 0406);
+    # (web, entry) -> {x, y}; and the (web, type) pairs it limits its edges to.
+    social_webs: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
+    social_web_entries: dict[tuple[uuid.UUID, uuid.UUID], dict[str, Any]] = field(
+        default_factory=dict
+    )
+    social_web_types: set[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=set)
     # map -> its layers in order, each {information, calibration, opacity, reviewed}: `information`
     # an id as text, `reviewed` a hex fingerprint or none (ADR 0361).
     map_layers: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
@@ -466,6 +477,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         ("map", Map),
         ("connection", Connection),
         ("relationship", Relationship),
+        ("social_web", SocialWeb),
         ("calendar_period", CalendarPeriod),
         ("event", StoryEvent),
         ("observance", CalendarObservance),
@@ -835,6 +847,44 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             Relationship.starts_at,
             Relationship.ends_at,
             where=Relationship.tenant_id == t,
+        )
+    }
+    c.social_webs = {
+        entity: {
+            "layout": layout,
+            "layout_seed": seed,
+            "theme_hint": theme_hint,
+            "view": view,
+            "standing_stat": standing_stat,
+            "as_of_event": as_of_event,
+        }
+        for entity, layout, seed, theme_hint, view, standing_stat, as_of_event in await rows(
+            SocialWeb.entity_id,
+            SocialWeb.layout,
+            SocialWeb.layout_seed,
+            SocialWeb.theme_hint,
+            SocialWeb.view,
+            SocialWeb.standing_stat_id,
+            SocialWeb.as_of_event,
+            where=SocialWeb.tenant_id == t,
+        )
+    }
+    c.social_web_entries = {
+        (web, entry): {"x": x, "y": y}
+        for web, entry, x, y in await rows(
+            SocialWebEntry.web_entity_id,
+            SocialWebEntry.entry_entity_id,
+            SocialWebEntry.x,
+            SocialWebEntry.y,
+            where=SocialWebEntry.tenant_id == t,
+        )
+    }
+    c.social_web_types = {
+        (web, kind)
+        for web, kind in await rows(
+            SocialWebType.web_entity_id,
+            SocialWebType.type_entity_id,
+            where=SocialWebType.tenant_id == t,
         )
     }
     for held, via in await rows(
@@ -1207,6 +1257,45 @@ def entity_snapshot(
                 }
             }
             if entity_id in content.relationships
+            else {}
+        ),
+        **(
+            {
+                "social_web": {
+                    "layout": content.social_webs[entity_id]["layout"],
+                    "layout_seed": content.social_webs[entity_id]["layout_seed"],
+                    "theme_hint": content.social_webs[entity_id]["theme_hint"],
+                    "view": content.social_webs[entity_id]["view"],
+                    "standing_stat": (
+                        name("stat_definition", content.social_webs[entity_id]["standing_stat"])
+                        if content.social_webs[entity_id]["standing_stat"]
+                        else None
+                    ),
+                    "as_of_event": (
+                        name("entity", content.social_webs[entity_id]["as_of_event"])
+                        if content.social_webs[entity_id]["as_of_event"]
+                        else None
+                    ),
+                    "members": sorted(
+                        (
+                            {
+                                "entry": name("entity", entry),
+                                "x": placed["x"],
+                                "y": placed["y"],
+                            }
+                            for (web, entry), placed in content.social_web_entries.items()
+                            if web == entity_id
+                        ),
+                        key=lambda m: m["entry"],
+                    ),
+                    "types": sorted(
+                        name("entity", kind)
+                        for web, kind in content.social_web_types
+                        if web == entity_id
+                    ),
+                }
+            }
+            if entity_id in content.social_webs
             else {}
         ),
         **(

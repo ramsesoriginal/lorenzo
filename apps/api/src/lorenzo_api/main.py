@@ -81,6 +81,7 @@ from lorenzo_api.routers.repository_preview import (
     visitor_router as repository_preview_visitor_router,
 )
 from lorenzo_api.routers.repository_profiles import router as repository_profiles_router
+from lorenzo_api.routers.social_webs import router as social_webs_router
 from lorenzo_api.routers.stats import router as stats_router
 from lorenzo_api.routers.tenant_invites import router as tenant_invites_router
 from lorenzo_api.routers.tenants import router as tenants_router
@@ -193,6 +194,7 @@ def create_app() -> FastAPI:
     app.include_router(connections_router)
     app.include_router(relationship_bulk_router)
     app.include_router(relationship_through_router)
+    app.include_router(social_webs_router)
     app.include_router(relationships_router)
     app.include_router(distance_router)
     app.include_router(frames_router)

@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 35
+    assert rd.FORMAT == 36
     assert rd.encode(full_content())[0] == {
         **golden,
         "definitions": {
@@ -117,6 +117,9 @@ def test_version_one_is_read_as_it_was_written() -> None:
         "connections": {},
         "relationships": {},
         "relationship_through": {},
+        "social_webs": {},
+        "social_web_entries": [],
+        "social_web_types": [],
         "clocks": {},
         "clock_readings": [],
         "clock_relationships": [],
@@ -507,3 +510,41 @@ def test_version_thirty_four_has_no_relationship_limits() -> None:
     back = rd.READERS[34](old, files)
 
     assert back.relationships == content.relationships
+
+
+def test_version_thirty_five_has_no_social_webs() -> None:
+    """A repository written before social webs reads with none (ADR 0406)."""
+    document, files = rd.encode(full_content())
+    old = {
+        key: value
+        for key, value in document.items()
+        if key not in ("social_webs", "social_web_entries", "social_web_types")
+    }
+
+    back = rd.READERS[35](old, files)
+
+    assert (back.social_webs, back.social_web_entries, back.social_web_types) == ({}, {}, set())
+
+
+def test_social_webs_survive_a_round_trip() -> None:
+    web, member, kind, stat = (uuid.UUID(int=n) for n in (220, 221, 222, 223))
+    content = full_content()
+    content.social_webs = {
+        web: {
+            "layout": "manual",
+            "layout_seed": 7,
+            "theme_hint": "parchment",
+            "view": {"labels": True},
+            "standing_stat": stat,
+            "as_of_event": None,
+        }
+    }
+    content.social_web_entries = {(web, member): {"x": 1.5, "y": -2.0}}
+    content.social_web_types = {(web, kind)}
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(document, files)
+    assert back.social_webs == content.social_webs
+    assert back.social_web_entries == content.social_web_entries
+    assert back.social_web_types == content.social_web_types

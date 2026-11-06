@@ -83,6 +83,9 @@ from lorenzo_api.models import (
     RepositoryShowcase,
     Scene,
     SceneTelling,
+    SocialWeb,
+    SocialWebEntry,
+    SocialWebType,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -130,6 +133,7 @@ async def seed_every_content_table(
     road = entity("Fixture road")
     bond = entity("Fixture bond")
     second_bond = entity("Fixture second bond")
+    web = entity("Fixture web")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     await session.flush()
@@ -224,6 +228,28 @@ async def seed_every_content_table(
     bond_marker.starts_at = event.id
     bond_marker.ends_at = later_event.id
     await session.flush()
+    session.add(
+        SocialWeb(
+            entity_id=web.id,
+            tenant_id=tenant_id,
+            layout="manual",
+            layout_seed=3,
+            theme_hint=None,
+            view={"labels": True},
+            standing_stat_id=None,
+            as_of_event=event.id,
+        )
+    )
+    await session.flush()
+    session.add_all(
+        [
+            SocialWebEntry(
+                web_entity_id=web.id, entry_entity_id=place.id, tenant_id=tenant_id, x=1.0, y=2.0
+            ),
+            SocialWebEntry(web_entity_id=web.id, entry_entity_id=room.id, tenant_id=tenant_id),
+            SocialWebType(web_entity_id=web.id, type_entity_id=chart.id, tenant_id=tenant_id),
+        ]
+    )
     session.add_all(
         [
             EntityLocation(entity_id=calendar.id, location_entity_id=place.id, tenant_id=tenant_id),

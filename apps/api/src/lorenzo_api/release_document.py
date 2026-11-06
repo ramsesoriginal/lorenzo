@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 35
+FORMAT = 36
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -451,6 +451,26 @@ _CONTENT = _dataclass(
             )
         ),
         "relationship_through": _id_map(_ID_LIST),
+        "social_webs": _id_map(
+            _record(
+                {
+                    "layout": _PLAIN,
+                    "layout_seed": _PLAIN,
+                    "theme_hint": _PLAIN,
+                    "view": _PLAIN,
+                    "standing_stat": _optional(_ID),
+                    "as_of_event": _optional(_ID),
+                },
+                name="Content.social_webs",
+            )
+        ),
+        "social_web_entries": _keyed(
+            _record(
+                {"x": _optional(_FLOAT), "y": _optional(_FLOAT)},
+                name="Content.social_web_entries",
+            )
+        ),
+        "social_web_types": _pair_set(_ID, _ID),
         "location_parts": _id_map(
             _record({"parent": _ID, "ordinal": _PLAIN}, name="Content.location_parts")
         ),
@@ -685,6 +705,12 @@ def _read_v34(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v35(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v36(
+        {**document, "social_webs": {}, "social_web_entries": [], "social_web_types": []}, files
+    )
+
+
+def _read_v36(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -727,6 +753,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     33: _read_v33,
     34: _read_v34,
     35: _read_v35,
+    36: _read_v36,
 }
 
 

@@ -50,6 +50,7 @@ EntityKind = Literal[
     "map",
     "connection",
     "relationship",
+    "social_web",
     "calendar_period",
     "event",
     "observance",
@@ -355,6 +356,8 @@ def _kinds_out(entity: Entity) -> list[EntityKind]:
         kinds.append("connection")
     if entity.__dict__.get("relationship_marker") is not None:
         kinds.append("relationship")
+    if entity.__dict__.get("social_web_marker") is not None:
+        kinds.append("social_web")
     return kinds
 
 

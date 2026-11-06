@@ -87,6 +87,8 @@ from lorenzo_api.models import (
     Scene,
     SceneAppearance,
     SceneTelling,
+    SocialWebEntry,
+    SocialWebType,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -1073,6 +1075,58 @@ class _Planner:
                 )
             if len(kept) != len(chain):
                 drop("relationship_through", e, "a step of it was not copied")
+        # A SocialWeb carries its settings, the members and the types that were copied, and leaves a
+        # dropped member out with a note (ADR 0406).
+        for e, saved in c.social_webs.items():
+            if not copies("entity", e):
+                continue
+            standing = self.local["stat_definition"].get(saved["standing_stat"])
+            as_of = self._local(c, "entity", saved["as_of_event"]) if saved["as_of_event"] else None
+            self.rows["social_web"].append(
+                {
+                    "entity_id": self.local["entity"][e],
+                    "tenant_id": tenant_id,
+                    "layout": saved["layout"],
+                    "layout_seed": saved["layout_seed"],
+                    "theme_hint": saved["theme_hint"],
+                    "view": saved["view"],
+                    "standing_stat_id": standing,
+                    "as_of_event": as_of,
+                }
+            )
+            lost = False
+            for (owner, entry), held_at in c.social_web_entries.items():
+                if owner != e:
+                    continue
+                local_entry = self._local(c, "entity", entry)
+                if local_entry is None:
+                    lost = True
+                    continue
+                self.rows["social_web_entry"].append(
+                    {
+                        "web_entity_id": self.local["entity"][e],
+                        "entry_entity_id": local_entry,
+                        "tenant_id": tenant_id,
+                        "x": held_at["x"],
+                        "y": held_at["y"],
+                    }
+                )
+            for owner, type_entry in sorted(c.social_web_types, key=str):
+                if owner != e:
+                    continue
+                local_kind = self._local(c, "entity", type_entry)
+                if local_kind is None:
+                    lost = True
+                    continue
+                self.rows["social_web_type"].append(
+                    {
+                        "web_entity_id": self.local["entity"][e],
+                        "type_entity_id": local_kind,
+                        "tenant_id": tenant_id,
+                    }
+                )
+            if lost:
+                drop("social_web", e, "an entry or type of it was not copied")
         for source_id, settings in c.manuscript_contents.items():
             if copies("entity", source_id):
                 self.rows["manuscript_contents"].append(
@@ -2338,6 +2392,30 @@ async def forget_copy(
                 & RelationshipThrough.via_entity_id.not_in(entities),
                 RelationshipThrough.via_entity_id.in_(entities)
                 & RelationshipThrough.relationship_entity_id.not_in(entities),
+            ),
+        )
+        # A web that holds an entry copied here, or a copied web that holds one that was not (ADR
+        # 0406).
+        also["social_web_entry"] = await _count(
+            session,
+            SocialWebEntry,
+            SocialWebEntry.tenant_id == t,
+            or_(
+                SocialWebEntry.web_entity_id.in_(entities)
+                & SocialWebEntry.entry_entity_id.not_in(entities),
+                SocialWebEntry.entry_entity_id.in_(entities)
+                & SocialWebEntry.web_entity_id.not_in(entities),
+            ),
+        )
+        also["social_web_type"] = await _count(
+            session,
+            SocialWebType,
+            SocialWebType.tenant_id == t,
+            or_(
+                SocialWebType.web_entity_id.in_(entities)
+                & SocialWebType.type_entity_id.not_in(entities),
+                SocialWebType.type_entity_id.in_(entities)
+                & SocialWebType.web_entity_id.not_in(entities),
             ),
         )
         also["manuscript_placement"] = await _count(

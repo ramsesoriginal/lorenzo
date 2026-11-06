@@ -66,6 +66,7 @@ async def test_granting_publishing_browsing_and_removing(
             "Fixture road",
             "Fixture bond",
             "Fixture second bond",
+            "Fixture web",
             "Blade",
             "Chest",
             "Elminster",
