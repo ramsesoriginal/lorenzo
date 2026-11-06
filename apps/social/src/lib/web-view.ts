@@ -5,6 +5,7 @@ import {
   LAYOUT_NAMES,
   type LayoutName,
   LIMITS,
+  THEMES,
 } from '@lorenzo/graph-renderer';
 import { BRANDING_CSS_URL } from './config';
 import {
@@ -114,7 +115,7 @@ export async function mountWebs() {
       named.input.required = true;
       const layouts = select(
         'Layout',
-        LAYOUT_NAMES.filter((l) => l !== 'layered').map((l) => [l, l]),
+        LAYOUT_NAMES.map((l) => [l, l]),
         'circle',
       );
       const visible = field('Everyone in the library may see it', '', 'checkbox');
@@ -393,6 +394,18 @@ export async function mountWeb() {
         current,
       );
       const seeded = field('Seed', String(seed), 'number');
+      const themes = select(
+        'Theme',
+        [
+          ['', 'The web2019s own'],
+          ...Object.keys(THEMES).map((t): [string, string] => [
+            t,
+            t === 'family' ? 'Family tree' : 'Default',
+          ]),
+        ],
+        '',
+      );
+      themes.input.addEventListener('change', () => drawing?.setTheme(themes.input.value || null));
       const named = field('Show the labels', '', 'checkbox');
       named.input.checked = labels;
       layout.input.addEventListener('change', () => {
@@ -411,7 +424,7 @@ export async function mountWeb() {
         button('Zoom in', () => drawing?.zoomIn()),
         button('Zoom out', () => drawing?.zoomOut()),
       );
-      controls.body.append(layout.label, seeded.label, named.label, zoom);
+      controls.body.append(layout.label, seeded.label, themes.label, named.label, zoom);
       if (manage) {
         const state = { version };
         controls.body.append(
@@ -420,7 +433,7 @@ export async function mountWeb() {
               const saved = await saveSettings(tenant, id, state.version, {
                 layout: current,
                 layout_seed: seed,
-                theme_hint: web.theme_hint ?? null,
+                theme_hint: themes.input.value || web.theme_hint || null,
                 view: web.view ?? null,
                 standing_stat_id: web.standing_stat_id ?? null,
                 as_of_event: lens.asOf,

@@ -190,3 +190,49 @@ test('the date lens draws what holds, dots what is not known and lists the rest 
   await expect(page.getByText('As of The wedding.')).toHaveCount(0);
   expect(page.url()).not.toContain('as_of=');
 });
+
+test('a family tree is drawn in rows with right angles when the layered layout and theme are chosen', async ({
+  browser,
+}) => {
+  const w = await world();
+  const gran = await w.entry('Tomas Ashdown');
+  const mara = await w.entry('Mara Quill');
+  const wren = await w.entry('Wren Quill');
+  await ok(
+    w.gm.POST('/tenants/{tenant_id}/relationships', {
+      params: { path: w.path },
+      body: {
+        name: 'Tomas is the parent of Mara',
+        end_a: gran.id,
+        end_b: mara.id,
+        one_way: true,
+        is_public: true,
+      },
+    }),
+  );
+  await ok(
+    w.gm.POST('/tenants/{tenant_id}/relationships', {
+      params: { path: w.path },
+      body: {
+        name: 'Mara is the parent of Wren',
+        end_a: mara.id,
+        end_b: wren.id,
+        one_way: true,
+        is_public: true,
+      },
+    }),
+  );
+  const made = await webOf(w, 'The Quills', [gran.id, mara.id, wren.id]);
+  const page = await signedIn(browser, w.subject);
+  await page.goto(`/web/?tenant=${w.tenant.id}&id=${made.id}`);
+  const drawing = page.getByRole('group', { name: 'The Quills' });
+  await expect(drawing.getByRole('button', { name: 'Tomas Ashdown' })).toBeVisible();
+  await page.getByRole('combobox', { name: /^Layout/ }).selectOption('layered');
+  await page.getByRole('combobox', { name: /^Theme/ }).selectOption('family');
+  const y = async (name: string) =>
+    Number(await drawing.getByRole('button', { name }).locator('circle').getAttribute('cy'));
+  expect(await y('Tomas Ashdown')).toBeLessThan(await y('Mara Quill'));
+  expect(await y('Mara Quill')).toBeLessThan(await y('Wren Quill'));
+  const edge = drawing.locator('path.gr-edge').first();
+  expect(((await edge.getAttribute('d')) ?? '').match(/L/g)?.length).toBe(3);
+});

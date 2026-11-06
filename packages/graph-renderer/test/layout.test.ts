@@ -11,7 +11,7 @@ import {
 } from '../src';
 import { model, view } from './fixtures';
 
-const ENGINE_NAMES = ['circle', 'radial', 'stress', 'forceatlas2', 'manual'] as const;
+const ENGINE_NAMES = ['circle', 'radial', 'stress', 'forceatlas2', 'manual', 'layered'] as const;
 
 function shapes(scene: Scene, role: Primitive['role']) {
   return scene.primitives.filter((p) => p.role === role);

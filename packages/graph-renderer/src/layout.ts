@@ -45,6 +45,8 @@ export function layoutGraph(model: GraphModel, view: GraphView): LayoutGraph {
   const index = new Map(ids.map((id, i) => [id, i] as const));
   const seen = new Set<string>();
   const pairs: [number, number][] = [];
+  const arcs: [number, number][] = [];
+  const arcSeen = new Set<string>();
   const degree = ids.map(() => 0);
   for (const edge of model.edges) {
     const a = index.get(edge.a);
@@ -52,6 +54,10 @@ export function layoutGraph(model: GraphModel, view: GraphView): LayoutGraph {
     if (a === undefined || b === undefined || a === b) continue;
     degree[a] = (degree[a] as number) + 1;
     degree[b] = (degree[b] as number) + 1;
+    if (edge.directed && !arcSeen.has(`${a}:${b}`)) {
+      arcSeen.add(`${a}:${b}`);
+      arcs.push([a, b]);
+    }
     const key = a < b ? `${a}:${b}` : `${b}:${a}`;
     if (!seen.has(key)) {
       seen.add(key);
@@ -59,6 +65,7 @@ export function layoutGraph(model: GraphModel, view: GraphView): LayoutGraph {
     }
   }
   pairs.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  arcs.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
   const pins = new Map<number, Point>();
   for (const [id, point] of Object.entries(view.positions ?? {})) {
     const at = index.get(id);
@@ -71,7 +78,7 @@ export function layoutGraph(model: GraphModel, view: GraphView): LayoutGraph {
       if (d > (degree[focus as number] as number)) focus = i;
     });
   }
-  return { ids, pairs, pins, focus };
+  return { ids, pairs, arcs, pins, focus };
 }
 
 /** Where the engine puts every node, in abstract units, hand placements kept. */
@@ -237,23 +244,41 @@ export function layout(
     const cx = (from.x + to.x) / 2 - uy * bend;
     const cy = (from.y + to.y) / 2 + ux * bend;
     // Along the first and last part of the curve, outside the node discs.
-    const startX =
+    let startX =
       from.x +
       ((cx - from.x) / (Math.sqrt((cx - from.x) ** 2 + (cy - from.y) ** 2) || 1)) *
         theme.nodeRadius;
-    const startY =
+    let startY =
       from.y +
       ((cy - from.y) / (Math.sqrt((cx - from.x) ** 2 + (cy - from.y) ** 2) || 1)) *
         theme.nodeRadius;
     const tipLen = Math.sqrt((to.x - cx) ** 2 + (to.y - cy) ** 2) || 1;
     const tx = (to.x - cx) / tipLen;
     const ty = (to.y - cy) / tipLen;
-    const endX = to.x - tx * (theme.nodeRadius + 2);
-    const endY = to.y - ty * (theme.nodeRadius + 2);
+    let endX = to.x - tx * (theme.nodeRadius + 2);
+    let endY = to.y - ty * (theme.nodeRadius + 2);
     const straight = Math.abs(bend) < 0.01;
-    const d = straight
-      ? `M${round2(startX)} ${round2(startY)} L${round2(endX)} ${round2(endY)}`
-      : `M${round2(startX)} ${round2(startY)} Q${round2(cx)} ${round2(cy)} ${round2(endX)} ${round2(endY)}`;
+    // A family tree draws its ties with right angles, down from the one above to the one below.
+    const elbow =
+      theme.edgeShape === 'elbow' && straight && Math.abs(dy) > 2 * theme.nodeRadius + 4;
+    const down = dy >= 0 ? 1 : -1;
+    let tipX = tx;
+    let tipY = ty;
+    let midY = 0;
+    if (elbow) {
+      startX = from.x;
+      startY = from.y + down * theme.nodeRadius;
+      endX = to.x;
+      endY = to.y - down * (theme.nodeRadius + 2);
+      tipX = 0;
+      tipY = down;
+      midY = (from.y + to.y) / 2 + slot * theme.parallelGap;
+    }
+    const d = elbow
+      ? `M${round2(startX)} ${round2(startY)} L${round2(startX)} ${round2(midY)} L${round2(endX)} ${round2(midY)} L${round2(endX)} ${round2(endY)}`
+      : straight
+        ? `M${round2(startX)} ${round2(startY)} L${round2(endX)} ${round2(endY)}`
+        : `M${round2(startX)} ${round2(startY)} Q${round2(cx)} ${round2(cy)} ${round2(endX)} ${round2(endY)}`;
     let width = theme.edgeWidth;
     if (edge.value !== undefined && edge.scale) {
       const [low, high] = edge.scale;
@@ -278,10 +303,10 @@ export function layout(
     });
     if (edge.directed) {
       const s = theme.arrowSize;
-      const px = -ty;
-      const py = tx;
-      const bx = endX - tx * s;
-      const by = endY - ty * s;
+      const px = -tipY;
+      const py = tipX;
+      const bx = endX - tipX * s;
+      const by = endY - tipY * s;
       arrows.push({
         kind: 'path',
         id: `arrow:${edge.id}`,

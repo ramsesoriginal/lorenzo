@@ -95,6 +95,8 @@ export interface Theme {
   hullPadding: number;
   /** Characters of a node's name before it is cut with an ellipsis. */
   labelChars: number;
+  /** How an edge is drawn: straight, or with right angles (a family tree). */
+  edgeShape: 'straight' | 'elbow';
   /** Class names the stylesheet maps onto brand tokens. */
   classes: {
     node: string;
@@ -176,6 +178,8 @@ export interface LayoutGraph {
   ids: readonly string[];
   /** Undirected neighbour pairs by index into `ids`, each pair once, a < b. */
   pairs: readonly (readonly [number, number])[];
+  /** One-way ties by index into `ids`: `[from, to]`, each once. `layered` reads them as "above". */
+  arcs: readonly (readonly [number, number])[];
   /** Nodes with a hand position keep it. */
   pins: ReadonlyMap<number, Point>;
   /** The node `radial` grows from. */

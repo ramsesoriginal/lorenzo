@@ -5,6 +5,7 @@ import type { Theme } from '../types';
 export const defaultTheme: Theme = {
   name: 'default',
   nodeRadius: 16,
+  edgeShape: 'straight',
   iconSize: 18,
   fontSize: 12,
   edgeWidth: 1.5,

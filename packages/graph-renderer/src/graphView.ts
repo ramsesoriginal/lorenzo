@@ -42,6 +42,8 @@ export interface GraphViewHandle {
   setView(view: Partial<GraphView>): void;
   getView(): GraphView;
   getScene(): Scene;
+  /** The viewer's theme choice: it beats the web's hint, which beats the default. */
+  setTheme(theme: string | null): void;
   select(selection: Selection): void;
   centreOn(id: string): void;
   zoomIn(): void;
@@ -63,10 +65,11 @@ export function createGraphView(host: HTMLElement, options: GraphViewOptions): G
     height: host.clientHeight || DEFAULT_VIEW.height,
     ...options.view,
   };
-  let scene = layout(model, view, themeFor(options.theme, options.themeHint));
+  let themeChoice = options.theme ?? null;
+  let scene = layout(model, view, themeFor(themeChoice, options.themeHint));
 
   const redraw = () => {
-    scene = layout(model, view, themeFor(options.theme, options.themeHint));
+    scene = layout(model, view, themeFor(themeChoice, options.themeHint));
     paintSvg(scene, svg, {
       title: options.title,
       ...(options.iconBase === undefined ? {} : { iconBase: options.iconBase }),
@@ -176,6 +179,10 @@ export function createGraphView(host: HTMLElement, options: GraphViewOptions): G
     },
     getView: () => view,
     getScene: () => scene,
+    setTheme(next) {
+      themeChoice = next;
+      redraw();
+    },
     select,
     centreOn(id) {
       view = centred(scene, view, id);

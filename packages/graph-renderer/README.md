@@ -40,8 +40,8 @@ The host needs a definite size and the brand's `tokens.css`.
 
 A closed list in [`src/layouts.json`](src/layouts.json), checked against the API's list by a test on
 each side: `circle`, `radial` (rings by steps from a focus), `stress` (stress majorization),
-`forceatlas2`, `manual` (hand placements kept, the rest on a circle) and `layered` (a circle until
-its own slice). A hand placement pins a node in every layout. All are written here, deterministic by
+`forceatlas2`, `manual` (hand placements kept, the rest on a circle) and `layered` (the ranks of a family tree: parents above children, partners on one row, a fixed number of barycentre
+sweeps). A hand placement pins a node in every layout. All are written here, deterministic by
 an integer seeded generator, fixed iteration counts and only + - * / and square root; `sin` and `cos`
 are our own because `Math.sin` is approximated differently by implementations.
 
@@ -55,7 +55,7 @@ nodes and 2,000 edges (`LIMITS`).
 ## Themes
 
 A theme is a code module naming sizes and class names; `graph.css` maps the classes onto brand
-tokens, so there is no colour in the package. One default theme now.
+tokens, so there is no colour in the package. Two now: `default`, and `family` (right-angled ties for a family tree), chosen by the viewer, then the web's hint, then the default.
 
 ## Checks
 
