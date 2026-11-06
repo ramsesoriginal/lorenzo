@@ -49,6 +49,8 @@ from lorenzo_api.models import (
     ItemInstance,
     Location,
     Map,
+    Relationship,
+    SocialWeb,
     StoryEvent,
 )
 from lorenzo_api.models.manuscript import (
@@ -61,7 +63,9 @@ from lorenzo_api.models.manuscript import (
 from lorenzo_api.models.story_session import Scene, SceneAppearance, StorySession
 
 # The kinds a route may add or remove.
-Kind = Literal["item", "being", "fact", "event", "location", "map", "connection"]
+Kind = Literal[
+    "item", "being", "fact", "event", "location", "map", "connection", "relationship", "social_web"
+]
 
 # The combinations of kinds a repository may be published with, each as its kinds in the order
 # `entity_snapshot` writes them (alphabetical). A draft repository may hold any combination the
@@ -118,6 +122,10 @@ PUBLISHABLE_KIND_COMBINATIONS: frozenset[tuple[str, ...]] = frozenset(
         ("map", "scene"),
         # ADR 0363: a connection is its own kind and combines with none.
         ("connection",),
+        # ADR 0399: a relationship is its own kind and combines with none.
+        ("relationship",),
+        # ADR 0406: a SocialWeb is its own kind in this slice, as a relationship is.
+        ("social_web",),
     }
 )
 
@@ -167,6 +175,14 @@ async def create_entry(
     if "connection" in kinds:
         raise InvalidKindRequestError(
             detail="A connection joins two entries: make one with POST /connections."
+        )
+    if "relationship" in kinds:
+        raise InvalidKindRequestError(
+            detail="A relationship ties two entries: make one with POST /relationships."
+        )
+    if "social_web" in kinds:
+        raise InvalidKindRequestError(
+            detail="A social web is made with POST /social-webs, which sets its layout."
         )
     if "event" in kinds and set(kinds) - {"location", "map"} != {"event"}:
         raise InvalidKindRequestError(
@@ -269,6 +285,18 @@ async def add_kind(
         )
     if "connection" in existing_kinds:
         raise InvalidKindRequestError(detail="A connection is its own kind and has no other.")
+    if kind == "relationship":
+        raise InvalidKindRequestError(
+            detail="A relationship ties two entries: make one with POST /relationships."
+        )
+    if "relationship" in existing_kinds:
+        raise InvalidKindRequestError(detail="A relationship is its own kind and has no other.")
+    if kind == "social_web":
+        raise InvalidKindRequestError(
+            detail="A social web is made with POST /social-webs, which sets its layout."
+        )
+    if "social_web" in existing_kinds:
+        raise InvalidKindRequestError(detail="A social web is its own kind and has no other.")
     if kind not in ("location", "map") and existing_kinds & {
         "scene",
         "scene_appearance",
@@ -400,13 +428,19 @@ async def remove_kind(
                 detail=f"Entry {entity_id} is still a direct prototype of at least one "
                 "inventory item"
             )
-        marker: type[Item | Being | Fact | Location | Map | Connection] = Item
+        marker: type[
+            Item | Being | Fact | Location | Map | Connection | Relationship | SocialWeb
+        ] = Item
     elif kind == "location":
         marker = Location
     elif kind == "map":
         marker = Map
     elif kind == "connection":
         marker = Connection
+    elif kind == "relationship":
+        marker = Relationship
+    elif kind == "social_web":
+        marker = SocialWeb
     else:
         if await session.get(Character, entity_id) is not None:
             raise EntityKindInUseError(
@@ -414,7 +448,7 @@ async def remove_kind(
                 f"DELETE /tenants/{tenant_id}/characters/{entity_id} before it stops being a being"
             )
         marker = Being
-    if kind in ("location", "map", "connection"):
+    if kind in ("location", "map", "connection", "relationship", "social_web"):
         audience = await session.get(EntityAudience, entity_id)
         if audience is not None:
             if not audience.is_public:
@@ -481,6 +515,8 @@ async def kinds_of_entry(session: AsyncSession, entity_id: uuid.UUID) -> set[str
             ("location", Location),
             ("map", Map),
             ("connection", Connection),
+            ("relationship", Relationship),
+            ("social_web", SocialWeb),
             ("calendar_period", CalendarPeriod),
             ("observance", CalendarObservance),
             ("event", StoryEvent),
@@ -650,6 +686,8 @@ KIND_WORDS = {
     "location": "location",
     "map": "map",
     "connection": "connection",
+    "relationship": "relationship",
+    "social_web": "social web",
     "calendar_period": "calendar period",
     "event": "event",
     "observance": "observance",

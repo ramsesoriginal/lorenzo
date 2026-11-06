@@ -48,6 +48,8 @@ def stat(name="stress", sid=S):
         max_hint_id=None,
         min_hint_id=None,
         resolved_hint_id=None,
+        min_value=None,
+        max_value=None,
         created_at=STAMP,
         updated_at=STAMP,
     )

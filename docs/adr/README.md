@@ -421,3 +421,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0422 - Lorenzo Beings, redesigned](0422-beings-redesign.md) — rows, cards and side by side, Read and Play as modes with edit in place, steppers on the numbers with a history that says who
 - [0423 - Lorenzo Inventory, redesigned](0423-inventory-redesign.md) — the board kept and filling the page, a switcher for whose board, an item panel, ghost drag, and the GM features drawn
 - [0424 - Lorenzo Social, designed](0424-social-redesign.md) — webs with three views, a vertical bar of switches, standings as number plus bar plus mark, the date lens, and a matrix that edits in place
+- [0425 - Players write their own relationships](0425-players-write-their-own-relationships.md) — a player makes, changes and deletes relationships with a being they control, restricted to the being and the GMs, never widened; `can_edit` on a relationship

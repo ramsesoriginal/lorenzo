@@ -60,3 +60,15 @@ refused cell, the keyboard path through the matrix, and the phone width; axe in 
 ## Excluded
 
 Offline use, an installable shell, a native app, a matrix on a phone, and Bench's and Beings' adoption (slice 16).
+
+## Addendum: as built (2026-11-06)
+
+- The matrix edits whole-number (`int`) standings; a decimal standing is read, not written, because the JSON a browser
+  sends cannot tell 3.0 from 3 and the API does not coerce a number between types.
+- Row totals are shown for the focused row only, worded as what the reader sees.
+- The two kind icons for Relationship and Social web are in the atlas (`icon-kind-relationship`, `icon-kind-social-web`,
+  ADR 0391) and mark the rows of the relationship and web lists.
+- A player writes relationships with a being they control (ADR 0425): the relationship form is offered to every
+  participant, without the choice of opening it up.
+- The Beings relationships section and Bench's Relations pane (slice 16) read only and take the renderer's `radial`
+  layout.

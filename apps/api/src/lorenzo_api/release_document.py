@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 31
+FORMAT = 36
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -152,6 +152,10 @@ def _pair_set(first: _Codec, second: _Codec) -> _Codec:
 
 _ID_SET = _Codec(lambda s, f: sorted(str(v) for v in s), lambda s, f: {uuid.UUID(v) for v in s})
 _TEXT_SET = _Codec(lambda s, f: sorted(s), lambda s, f: set(s))
+# An ordered list of ids: a list, in the order it has (a chain, ADR 0402).
+_ID_LIST = _Codec(
+    lambda items, f: [str(v) for v in items], lambda items, f: [uuid.UUID(v) for v in items]
+)
 
 
 def _keyed(value: _Codec) -> _Codec:
@@ -350,6 +354,8 @@ _CONTENT = _dataclass(
                     "pin": _PLAIN,
                     "signed": _PLAIN,
                     "position": _PLAIN,
+                    "min_value": _optional(_FLOAT),
+                    "max_value": _optional(_FLOAT),
                     "hints": _record(
                         {
                             "max_hint": _optional(_ID),
@@ -432,6 +438,39 @@ _CONTENT = _dataclass(
                 name="Content.connections",
             )
         ),
+        "relationships": _id_map(
+            _record(
+                {
+                    "end_a": _ID,
+                    "end_b": _ID,
+                    "one_way": _optional(_PLAIN),
+                    "starts_at": _optional(_ID),
+                    "ends_at": _optional(_ID),
+                },
+                name="Content.relationships",
+            )
+        ),
+        "relationship_through": _id_map(_ID_LIST),
+        "social_webs": _id_map(
+            _record(
+                {
+                    "layout": _PLAIN,
+                    "layout_seed": _PLAIN,
+                    "theme_hint": _PLAIN,
+                    "view": _PLAIN,
+                    "standing_stat": _optional(_ID),
+                    "as_of_event": _optional(_ID),
+                },
+                name="Content.social_webs",
+            )
+        ),
+        "social_web_entries": _keyed(
+            _record(
+                {"x": _optional(_FLOAT), "y": _optional(_FLOAT)},
+                name="Content.social_web_entries",
+            )
+        ),
+        "social_web_types": _pair_set(_ID, _ID),
         "location_parts": _id_map(
             _record({"parent": _ID, "ordinal": _PLAIN}, name="Content.location_parts")
         ),
@@ -640,6 +679,38 @@ def _read_v30(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v31(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v32({**document, "relationships": {}}, files)
+
+
+def _read_v32(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 33 a stat definition had no scale (ADR 0403).
+    definitions = {
+        key: {"min_value": None, "max_value": None, **definition}
+        for key, definition in document["definitions"].items()
+    }
+    return _read_v33({**document, "definitions": definitions}, files)
+
+
+def _read_v33(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v34({**document, "relationship_through": {}}, files)
+
+
+def _read_v34(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 35 a relationship had no limits in time (ADR 0405).
+    relationships = {
+        key: {"starts_at": None, "ends_at": None, **relationship}
+        for key, relationship in document["relationships"].items()
+    }
+    return _read_v35({**document, "relationships": relationships}, files)
+
+
+def _read_v35(document: Document, files: Mapping[str, bytes]) -> Content:
+    return _read_v36(
+        {**document, "social_webs": {}, "social_web_entries": [], "social_web_types": []}, files
+    )
+
+
+def _read_v36(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -678,6 +749,11 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     29: _read_v29,
     30: _read_v30,
     31: _read_v31,
+    32: _read_v32,
+    33: _read_v33,
+    34: _read_v34,
+    35: _read_v35,
+    36: _read_v36,
 }
 
 

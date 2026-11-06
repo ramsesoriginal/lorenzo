@@ -16,6 +16,7 @@ import { getTenant } from '../../lib/tenants';
 import type { Character, EntityDetail } from '../../lib/types';
 import { renderBeingEvents } from '../BeingEvents/renderer';
 import { renderBeingNotes } from '../BeingNotes/renderer';
+import { renderBeingRelationships } from '../BeingRelationships/renderer';
 import { renderBeingView } from '../BeingView/renderer';
 import { renderDatasheet } from '../Datasheet/renderer';
 import { renderDeleteBeing } from '../DeleteBeing/renderer';
@@ -111,6 +112,9 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
   const view = renderBeingView(root, { renderer, tenantId });
   const people = renderPeople(required<HTMLElement>(root, '[data-people]'));
   const events = renderBeingEvents(required<HTMLElement>(root, '[data-being-events]'));
+  const relationships = renderBeingRelationships(
+    required<HTMLElement>(root, '[data-being-relationships]'),
+  );
   const inventory = renderInventorySummary(required<HTMLElement>(root, '[data-inventory]'));
   const description = renderDescriptionEdit({
     root: required<HTMLElement>(root, '[data-description-edit]'),
@@ -220,6 +224,7 @@ export function renderBeingPage(options: BeingPageOptions): RenderedBeingPage {
       void people.load(tenantId, character);
       void inventory.load(tenantId, tenantAddress, entityId);
       void events.load(tenantId, tenantAddress, entityId);
+      void relationships.load(tenantId, entityId, entity.name);
 
       // Who gets the writing controls: those who run a campaign or the library, and whoever plays
       // this being. A convenience only; the API decides every write.

@@ -397,7 +397,7 @@ slices below are proposed and each is scoped with the maintainer before it start
 | 11 | The matrix | 0408 | 3, 4, 8, 9 | the read window and the grid without editing |
 | 12 | The date lens and "as read by" in the app | 0405 | 6, 10 | the Event picker and the three states |
 | 13 | Types and standings screen and the starter repository | 0400 | 9 | the starter as content, reviewed with the maintainer |
-| 14 | Players write their own relationships | new | 2, 9 | the standing rule and the default audience |
+| 14 | Players write their own relationships | 0425 | 2, 9 | the standing rule and the default audience |
 | 15 | A layered engine and further themes | new | 7 | the engine, on family-tree fixtures |
 | 16 | Bench's Relations view and the Beings relationships slot take the package | new | 7, 9 | the consumer, per ADR 0098's second-consumer rule |
 

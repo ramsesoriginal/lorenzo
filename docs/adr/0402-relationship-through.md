@@ -44,3 +44,9 @@ and the same bytes as a chain without it; deleting a step's relationship; the li
 
 Any derived value, any inference of a type or direction, a required match of ends, and steps that are not
 relationships.
+
+## Addendum: as built (2026-11-06)
+
+A writer's `PUT .../through` replaces only what the writer reads: steps whose relationship the writer cannot see are
+kept at their step numbers, so replacing a chain never destroys a hidden step. The twelve-step cap counts them.
+`GET /relationship-problems` (writers only) lists a chain whose steps do not join its ends, when every step is visible.
