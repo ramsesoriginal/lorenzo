@@ -3,6 +3,7 @@
 // that arrives after that is dropped.
 
 import { showLorenzoScript } from '../../lib/lorenzoScript';
+import { getMe } from '../../lib/me';
 import { sayError } from '../../lib/statusLine';
 import { roleLabel } from '../../lib/studio';
 import { bindTabs } from '../../lib/tabs';
@@ -103,12 +104,15 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
       loading.hidden = false;
 
       try {
-        const data = await loadLibrary(root, tenant, me);
+        // Asked again each time: a seat, a character or a grant just changed is in it, and the
+        // cache is emptied by the change.
+        const current = await getMe();
+        const data = await loadLibrary(root, tenant, current);
 
         if (turn !== latest) return;
 
         showDescription(data.description);
-        fillLibrary(root, tenant, me, tenantHooks, data);
+        fillLibrary(root, tenant, current, tenantHooks, data);
       } catch (cause) {
         if (turn !== latest) return;
 
