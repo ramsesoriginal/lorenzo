@@ -11,6 +11,9 @@ export type NavItem = {
   needsLibrary?: boolean;
   // An id in the brand's icons.svg without the `icon-` prefix, for the phone's tab bar.
   icon?: string;
+  // The link stays hidden until the app says the person may have it (`shell.allow(requires)`): a page
+  // that has nothing for someone is not offered to them.
+  requires?: string;
 };
 
 /** The saved choice if there is one, otherwise what the system prefers. */

@@ -45,7 +45,7 @@ export const JOBS: { label: string; apps: AppId[] }[] = [
 ];
 
 /** What `GET /app-links` answers that the shell reads: the apps and their addresses. */
-export type AppRegistry = { apps: Record<string, { url?: string } | undefined> };
+export type AppRegistry = { apps: Record<string, { url?: string } | null | undefined> };
 
 export type JobApp = AppInfo & { id: AppId; url: string };
 export type Job = { label: string; apps: JobApp[] };

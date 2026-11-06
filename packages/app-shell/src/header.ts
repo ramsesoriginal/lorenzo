@@ -99,6 +99,8 @@ export type Shell = {
   libraries(choices: LibraryChoice[], current: string, onChange: (id: string) => void): void;
   /** The library the page is about, for the navigation links that belong to a library. */
   library(address: string | null): void;
+  /** Show the navigation links that need `requires` (a `NavItem.requires`): this person may have them. */
+  allow(requires: string): void;
   /** The line under the welcome heading: what is happening, or what went wrong. */
   status(text: string, tone?: StatusTone): void;
   /** Hide the welcome and show the page. */
@@ -198,7 +200,11 @@ export function bindShell(options: ShellOptions): Shell | null {
     ),
   ];
 
+  const allowed = new Set<string>();
+  let library: string | null = null;
+
   function mark(address: string | null) {
+    library = address;
     for (const link of links) {
       const path = link.dataset.path ?? '';
       const href = navHref(
@@ -206,7 +212,9 @@ export function bindShell(options: ShellOptions): Shell | null {
         address,
       );
 
-      link.hidden = href === null;
+      const requires = link.dataset.requires;
+
+      link.hidden = href === null || (requires !== undefined && !allowed.has(requires));
       if (href !== null) link.href = href;
 
       if (isCurrentPage(path, window.location.pathname)) link.setAttribute('aria-current', 'page');
@@ -409,6 +417,11 @@ export function bindShell(options: ShellOptions): Shell | null {
     },
 
     library: mark,
+
+    allow(requires) {
+      allowed.add(requires);
+      mark(library);
+    },
 
     status(text, tone = 'info') {
       if (!statusLine) return;
