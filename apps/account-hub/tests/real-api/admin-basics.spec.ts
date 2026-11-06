@@ -105,7 +105,7 @@ test('a player undoes a reused character; an owner link is never offered', async
   );
 
   const session = await signedInPage(browser, player.subject);
-  await session.page.goto('/campaigns');
+  await openLibrary(session.page, library);
   const zorro = seatFor(session.page, 'Zorro');
   const hood = seatFor(session.page, 'Hood');
   await expect(zorro).toContainText('Cael');

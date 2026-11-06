@@ -92,7 +92,7 @@ function nextStep(
       : { href: tenantHref(joined.tenant_id), label: 'Open it' };
   }
 
-  return { href: '/campaigns/', label: 'Your campaigns' };
+  return { href: tenantHref(joined.tenant_id), label: 'Open your campaign' };
 }
 
 // `root` is the <JoinInvite /> block. It shows itself once there is something to say; a failure that
