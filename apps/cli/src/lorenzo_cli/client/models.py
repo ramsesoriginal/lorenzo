@@ -1611,6 +1611,25 @@ class Role1(StrEnum):
     author = "author"
 
 
+class State5(StrEnum):
+    not_copied = "not_copied"
+    no_baseline = "no_baseline"
+    local_unavailable = "local_unavailable"
+    unchanged = "unchanged"
+    local = "local"
+    upstream = "upstream"
+    matching = "matching"
+    conflict = "conflict"
+
+
+class ManuscriptComparison(BaseModel):
+    state: State5 = Field(..., title="State")
+    repository_name: str | None = Field(None, title="Repository Name")
+    base: dict[str, Any] | None = Field(None, title="Base")
+    local: dict[str, Any] | None = Field(None, title="Local")
+    upstream: dict[str, Any] | None = Field(None, title="Upstream")
+
+
 class ManuscriptContentsOut(BaseModel):
     settings: ContentsSettings
     version: str = Field(..., title="Version")
@@ -2866,7 +2885,7 @@ class Kind36(StrEnum):
     stat_definition = "stat_definition"
 
 
-class State5(StrEnum):
+class State6(StrEnum):
     released = "released"
     edited = "edited"
 
@@ -3365,7 +3384,7 @@ class Week(BaseModel):
     weekday: conint(ge=0, le=99) | None = Field(0, title="Weekday")
 
 
-class State7(StrEnum):
+class State8(StrEnum):
     with_you = "with_you"
     stashed = "stashed"
     elsewhere = "elsewhere"
@@ -3373,7 +3392,7 @@ class State7(StrEnum):
 
 
 class WhereaboutsOut(BaseModel):
-    state: State7 = Field(..., title="State")
+    state: State8 = Field(..., title="State")
     place: PlaceOut | None = None
 
 
@@ -4365,7 +4384,7 @@ class RowChangeOut(BaseModel):
     local_id: UUID = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
     fields: list[FieldChangeOut] = Field(..., title="Fields")
-    state: State5 | None = Field(..., title="State")
+    state: State6 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
@@ -4374,7 +4393,7 @@ class RowRefOut(BaseModel):
     source_id: UUID = Field(..., title="Source Id")
     local_id: UUID | None = Field(..., title="Local Id")
     name: str = Field(..., title="Name")
-    state: State5 | None = Field(..., title="State")
+    state: State6 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 

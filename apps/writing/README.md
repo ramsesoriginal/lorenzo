@@ -147,3 +147,8 @@ Deployed at <https://lorenzo-writing.pages.dev/> on Cloudflare Pages; [the setup
 checks prose for full names of existing visible calendar periods. Review a match and explicitly
 set an empty Scene period. Ambiguous names use the manual Period lookup. Existing periods, relative
 dates and dates not yet created in a calendar are never filled or replaced automatically.
+
+**Repository comparison** ([ADR 0398](../../docs/adr/0398-copied-manuscript-comparison.md)) in Details
+compares saved direct manuscript bundles with their original copy and repository version.
+New copies retain a baseline; older copies explicitly report its absence. This read-only view
+excludes unsaved drafts and composition, and offers no apply action yet.
