@@ -4222,7 +4222,7 @@ export interface paths {
         /**
          * Delete Relationship
          * @description Deletes a relationship under `If-Match`: a writer's, or a player's own while they control an
-         *     end of it (ADR 0409).
+         *     end of it (ADR 0425).
          */
         delete: operations["delete_relationship"];
         options?: never;
