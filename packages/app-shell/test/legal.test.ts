@@ -130,7 +130,10 @@ describe('bindLegalLinksFromApi', () => {
 
     await bindLegalLinksFromApi('https://api.example/', fetcher as never, document);
 
-    expect(fetcher).toHaveBeenCalledWith('https://api.example/app-links', expect.anything());
+    expect(fetcher).toHaveBeenCalledWith(
+      'https://api.example/app-links',
+      expect.objectContaining({ referrerPolicy: 'no-referrer', credentials: 'omit' }),
+    );
     expect(holders(document).notice?.hidden).toBe(false);
   });
 

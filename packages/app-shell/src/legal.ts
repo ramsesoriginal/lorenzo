@@ -84,8 +84,12 @@ export async function bindLegalLinksFromApi(
   root: ParentNode = document,
 ): Promise<void> {
   try {
+    // No Referer and no credentials: the registry is public, and the page's address may hold a
+    // secret (an invite link, ADR 0092), which must never reach the API through this request.
     const response = await fetcher(`${apiBaseUrl.replace(/\/$/, '')}/app-links`, {
       headers: { Accept: 'application/json' },
+      referrerPolicy: 'no-referrer',
+      credentials: 'omit',
     });
 
     if (!response.ok) return;
