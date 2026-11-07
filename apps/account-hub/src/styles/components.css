@@ -509,3 +509,46 @@
 .notif-list > .notif-read strong {
   font-weight: 500;
 }
+
+/* Discover (AH5): the search and the filters in one row, the results as a grid of cards, and a
+   repository's page in two columns (what is inside, beside the copy). */
+.discover-search {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discover-grid > .discover-card,
+[data-preview-card] > .discover-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.storefront-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 52rem) {
+  .storefront-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The way to copy it comes before what is inside, on a phone. */
+  .storefront-side {
+    order: -1;
+  }
+}
