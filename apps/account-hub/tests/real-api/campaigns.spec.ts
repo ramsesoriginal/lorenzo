@@ -22,10 +22,13 @@ test('a GM with only a campaign grant sees each person at the table by name, and
   const library = await newLibrary(owner.api);
   const campaign = await newCampaign(owner.api, library.id, 'The Open Table');
   const gm = await newUser('gm');
+  const coGm = await newUser('co-gm');
   const pia = await newUser('pia');
   await ok(gm.api.PATCH('/me', { body: { display_name: 'Gwen GM' } }));
+  await ok(coGm.api.PATCH('/me', { body: { display_name: 'Cleo Co-GM' } }));
   await ok(pia.api.PATCH('/me', { body: { display_name: 'Pia Player' } }));
   await makeGm(owner.api, library.id, campaign.id, gm.me.id);
+  await makeGm(owner.api, library.id, campaign.id, coGm.me.id);
   const piaSeat = await addPlayer(owner.api, library.id, campaign.id, pia.me.id);
   await ok(
     pia.api.POST('/tenants/{tenant_id}/characters', {
@@ -42,6 +45,7 @@ test('a GM with only a campaign grant sees each person at the table by name, and
   await expect(card).toContainText('Cael');
   // Your own row says so.
   await expect(card).toContainText('Gwen GM (you)');
+  await expect(card).toContainText('Cleo Co-GM');
   // Running a campaign is not playing in it.
   await expect(card.locator('[data-seat]')).toHaveCount(0);
   await context.close();
