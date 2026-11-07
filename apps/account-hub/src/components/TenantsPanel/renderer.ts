@@ -3,32 +3,42 @@
 // Back and a reload all land where they were. Only the open one is loaded. A repository is run in
 // Studio (ADR 0202), so an address that names one, or asks to make one, goes there.
 
+import { pageState } from '@lorenzo/app-shell';
 import { onCacheRefreshed } from '../../lib/cache';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { isEditingIn } from '../../lib/editing';
+import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { say, sayError } from '../../lib/statusLine';
-import { STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
+import { roleLabel, STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
 import { cloneRoot, fromTemplate, requiredIn, rootElement } from '../../lib/template';
 import { canCreateTenants, isRepository, type TenantKind } from '../../lib/tenantKind';
-import { listMyTenants } from '../../lib/tenants';
+import { getTenant, listMyTenants, listTenantCampaigns } from '../../lib/tenants';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
 import { renderCreateTenant } from '../CreateTenant/renderer';
 import { renderTenant } from '../Tenant/renderer';
 
 type View =
+  | { type: 'index' }
   | { type: 'tenant'; tenant: TenantSummaryOut }
   | { type: 'new'; tenantKind: TenantKind }
-  | { type: 'empty' };
+  | { type: 'empty' }
+  // An address that names a library this person has no part in, or that is not there.
+  | { type: 'unavailable' };
 
 const required = requiredIn('Tenants panel');
 
 function keyOf(view: View): string {
   switch (view.type) {
+    case 'index':
+      return 'index';
     case 'tenant':
       return `tenant:${view.tenant.id}`;
     case 'new':
       return `new:${view.tenantKind}`;
     case 'empty':
       return 'empty';
+    case 'unavailable':
+      return 'unavailable';
   }
 }
 
@@ -42,7 +52,11 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   const notice = required<HTMLElement>(root, '[data-notice]');
   const createView = required<HTMLElement>(root, '[data-create]');
   const emptyView = required<HTMLElement>(root, '[data-empty]');
+  const unavailableView = required<HTMLElement>(root, '[data-unavailable]');
   const setup = required<HTMLElement>(root, '[data-setup]');
+  const index = required<HTMLElement>(root, '[data-index]');
+  const breadcrumb = required<HTMLElement>(root, '[data-breadcrumb]');
+  const newLibrary = document.querySelector<HTMLElement>('[data-new-library]');
 
   const mayCreate = canCreateTenants(me);
   const links = new Map<string, HTMLAnchorElement>();
@@ -67,6 +81,9 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
       params.set('new', 'library');
     }
 
+    // The address that was asked for stays, so a reload says the same.
+    if (view.type === 'unavailable') return `${window.location.pathname}${window.location.search}`;
+
     const query = params.toString();
 
     return query ? `${window.location.pathname}?${query}` : window.location.pathname;
@@ -90,6 +107,9 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     if (repository) window.location.replace(studioHref(repository.slug));
     else if (mayCreate && make === 'repository') window.location.replace(STUDIO_NEW_HREF);
 
+    // A name that is not one of theirs: not somewhere else, but a page that says so.
+    if (wanted && !repository) return { type: 'unavailable' };
+
     if (mayCreate && make === 'library') return { type: 'new', tenantKind: 'play' };
 
     return null;
@@ -99,6 +119,8 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   function defaultView(): View {
     const first = tenants[0];
 
+    // Several: all of them, to choose from. One: straight into it.
+    if (tenants.length >= 2) return { type: 'index' };
     if (first) return { type: 'tenant', tenant: first };
 
     return mayCreate ? { type: 'new', tenantKind: 'play' } : { type: 'empty' };
@@ -164,6 +186,42 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     if (view.type !== 'empty') librariesDetails.open = true;
   }
 
+  // A card for each library: its name and role at once, and its description and campaigns as they
+  // come (each from its own read, so a slow one holds up only itself).
+  function drawIndex() {
+    index.replaceChildren(
+      ...tenants.map((tenant) => {
+        const card = cloneRoot(root, '[data-card-template]');
+        const link = required<HTMLAnchorElement>(card, '[data-link]');
+        const description = required<HTMLElement>(card, '[data-description]');
+        const counts = required<HTMLElement>(card, '[data-counts]');
+
+        link.textContent = tenant.name;
+        link.href = urlFor({ type: 'tenant', tenant });
+        link.addEventListener('click', (event) => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+
+          event.preventDefault();
+          navigate({ type: 'tenant', tenant });
+        });
+        required<HTMLElement>(card, '[data-role]').textContent = roleLabel(tenant.role);
+
+        void getTenant(tenant.id).then(
+          ({ tenant: detail }) => showLorenzoScript(description, detail.description),
+          () => {},
+        );
+        void listTenantCampaigns(tenant.id).then(
+          (page) => {
+            counts.textContent = `${page.total} ${page.total === 1 ? 'campaign' : 'campaigns'}`;
+          },
+          () => {},
+        );
+
+        return card;
+      }),
+    );
+  }
+
   async function show(view: View) {
     // Only a change of selection opens a group, so reloading the open tenant after an edit does not
     // reopen one that was closed on purpose.
@@ -174,9 +232,28 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
     error.hidden = true;
     createView.hidden = view.type !== 'new';
     emptyView.hidden = view.type !== 'empty';
+    unavailableView.hidden = view.type !== 'unavailable';
+    index.hidden = view.type !== 'index';
+    // The way back to all of them, where there are several to go back to.
+    breadcrumb.hidden = view.type !== 'tenant' || tenants.length < 2;
+    if (view.type === 'tenant') {
+      required<HTMLElement>(breadcrumb, '[data-crumb]').textContent = view.tenant.name;
+    }
     setup.hidden = !mayCreate;
+    if (view.type === 'index') drawIndex();
 
     if (view.type !== 'tenant') tenantView.hide();
+
+    // The shell's page state for a page that is not there for this person, in its words.
+    if (view.type === 'unavailable' && unavailableView.childElementCount === 0) {
+      unavailableView.replaceChildren(
+        pageState(BRANDING_CSS_URL, {
+          art: 'no-access',
+          level: 2,
+          link: { label: 'Go to Home', href: '/' },
+        }),
+      );
+    }
 
     if (view.type === 'new') {
       const form = cloneRoot(root, '[data-create-template]') as HTMLFormElement;
@@ -202,11 +279,15 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
 
       await refresh();
       const open = openId ? tenants.find((t) => t.id === openId) : undefined;
+      // A library that was open and is gone (just left or deleted) is not "not available": the address
+      // named it a moment ago, so the person lands where they would without one.
       const next: View = open
         ? { type: 'tenant', tenant: open }
         : current.type === 'new' && mayCreate
           ? current
-          : (viewFromUrl() ?? defaultView());
+          : openId
+            ? defaultView()
+            : (viewFromUrl() ?? defaultView());
 
       window.history.replaceState(null, '', urlFor(next));
       await show(next);
@@ -257,6 +338,7 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
   }
 
   createUnavailable.hidden = mayCreate;
+  if (newLibrary) newLibrary.hidden = !mayCreate;
 
   await refresh();
 

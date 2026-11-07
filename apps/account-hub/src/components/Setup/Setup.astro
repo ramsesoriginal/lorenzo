@@ -88,7 +88,7 @@ import UserPicker from '../UserPicker/UserPicker.astro';
   <!-- The result: the links, each shown once, and where to go next. "Done" clears a link from the
        page; nothing keeps it (ADR 0171's panel does the same). -->
   <div data-result-phase hidden>
-    <h2>Your table is ready</h2>
+    <h2>Your library is ready</h2>
     <p data-summary></p>
     <p data-who></p>
     <div class="setup-link" data-gm-link hidden>
@@ -100,7 +100,6 @@ import UserPicker from '../UserPicker/UserPicker.astro';
       <div data-player-link-box></div>
     </div>
     <p>
-      <a href="/campaigns/">Your campaigns</a> ·
       <a href="/tenants/" data-library-link>
         Manage the library
       </a>

@@ -39,7 +39,7 @@ async function publicRepository() {
 }
 
 async function askForARelease(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await page.getByRole('button', { name: 'Publish a new release…' }).click();
   await expect(dialog(page).getByLabel('Label')).toBeVisible();

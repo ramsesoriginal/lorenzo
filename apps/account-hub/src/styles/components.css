@@ -319,3 +319,282 @@
 [data-credit] {
   min-width: 0;
 }
+
+/* /profile (ADR 0418, PT2, PT3): the form with a card beside it that shows how others see the person,
+   which stays in view while the form scrolls; on a tablet and a phone the card moves above the form. */
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--space-6);
+  align-items: start;
+}
+.profile-card {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+@container shell (max-width: 1100px) {
+  .profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+  .profile-card {
+    position: static;
+    order: -1;
+  }
+}
+
+/* Who sees a field, told in words with an icon, never by colour alone (ADR 0418). */
+.visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-secondary);
+}
+
+/* The colour to choose from: five, and a custom one. */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.colour-swatch {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 2px solid var(--border-control);
+  border-radius: 999px;
+  background: var(--swatch);
+  cursor: pointer;
+}
+.colour-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+@container shell (max-width: 720px) {
+  .colour-swatch {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* /tokens (ADR 0418, PT4): the one sentence that says what a token is, and the rows. A state is told
+   in words and an icon; a token not used for a long time is tinted and one that has ended is struck
+   through, which is never the only sign. */
+.callout .icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2h);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-muted);
+}
+.token-list {
+  padding: 0;
+  list-style: none;
+}
+.token-list > .token-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.token-name,
+.token-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.token-list > .token-row[data-tone="stale"] {
+  background: var(--warning-surface);
+}
+.token-list > .token-row[data-tone="expired"] {
+  color: var(--text-secondary);
+}
+.token-list > .token-row[data-tone="expired"] [data-name] {
+  text-decoration: line-through;
+}
+@container shell (max-width: 720px) {
+  .token-list > .token-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .token-list > .token-row .btn {
+    justify-self: stretch;
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* Home (ADR 0417, AH1): what needs the person and where they play beside what they run; the blocks
+   below hold Continue and the actions. One column below 1100px. */
+.home-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+@container shell (max-width: 1100px) {
+  .home-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* First run (ADR 0416, D27): the mascot beside the welcome and the two doors; one column on a phone. */
+.first-run {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: center;
+}
+.doors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+@container shell (max-width: 720px) {
+  .first-run {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+    justify-items: center;
+  }
+  .doors {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.doors h2 {
+  margin: 0;
+  font-size: var(--fs-sub);
+}
+
+/* /notifications: the count and the choices over a quiet list, an unread one marked by a dot and by a
+   word for a screen reader, never by colour alone. */
+.notif-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.notif-list > .notif {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2h);
+  padding: var(--space-2h) var(--space-3);
+}
+.notif-dot-slot {
+  flex: none;
+  width: 14px;
+  margin-top: 6px;
+}
+.notif-dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--focus-ring);
+}
+.notif-list > .notif-read strong {
+  font-weight: 500;
+}
+
+/* Discover (AH5): the search and the filters in one row, the results as a grid of cards, and a
+   repository's page in two columns (what is inside, beside the copy). */
+.discover-search {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.discover-grid > .discover-card,
+[data-preview-card] > .discover-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.storefront-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 52rem) {
+  .storefront-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The way to copy it comes before what is inside, on a phone. */
+  .storefront-side {
+    order: -1;
+  }
+}
+
+/* Joining (D27): the mascot above the moment that has a word to say, small and centred. */
+.join-mascot {
+  display: flex;
+  justify-content: center;
+}
+
+.join-mascot[hidden] {
+  display: none;
+}
+
+.join-mascot img {
+  max-width: 10rem;
+  height: auto;
+}
+
+/* A library's overview (the design's screen 05): three figures in a row, then what it draws on beside
+   what happened lately. */
+.library-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+}
+
+.library-stats[hidden],
+.library-columns[hidden] {
+  display: none;
+}
+
+.library-stat {
+  font-size: var(--text-title, 1.75rem);
+  line-height: 1.1;
+}
+
+.library-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 52rem) {
+  .library-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

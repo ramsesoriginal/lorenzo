@@ -4,11 +4,11 @@ import { tenantHref } from '../../lib/tenantKind';
 
 const required = requiredIn('Briefing');
 
-// One card for each campaign you play or run. The section is there when there is one, or when
-// you may set up a table, which is then offered beside it (ADR 0175).
-export function showTables(root: HTMLElement, cards: TableCard[], mayCreate: boolean): void {
-  const section = required<HTMLElement>(root, '[data-tables]');
-  const list = required<HTMLElement>(section, '[data-tables-list]');
+// One card for each campaign in a block ("Where you play" or "What you run", named by its selector).
+// The block is there only when it has one.
+export function showTables(root: HTMLElement, selector: string, cards: TableCard[]): void {
+  const section = required<HTMLElement>(root, selector);
+  const list = required<HTMLElement>(section, '[data-play-list], [data-run-list]');
 
   function renderTable(card: TableCard): HTMLElement {
     const fragment = fromTemplate(root, '[data-table-template]');
@@ -47,7 +47,5 @@ export function showTables(root: HTMLElement, cards: TableCard[], mayCreate: boo
   }
 
   list.replaceChildren(...cards.map(renderTable));
-  required<HTMLElement>(section, '[data-tables-empty]').hidden = cards.length > 0;
-  required<HTMLElement>(section, '[data-setup]').hidden = !mayCreate;
-  section.hidden = cards.length === 0 && !mayCreate;
+  section.hidden = cards.length === 0;
 }

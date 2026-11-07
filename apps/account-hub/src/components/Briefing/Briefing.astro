@@ -1,89 +1,101 @@
 ---
-// The home page of someone who belongs somewhere: what needs them, where they play and run,
-// the repositories they author, and what changed for their characters. Rendered by
-// renderBriefing; every section stays hidden until it has something to say.
+// The home page of someone who belongs somewhere (ADR 0417, AH1, AH6): in two columns, what needs
+// them and where they play on the left and what they run on the right, then where they were last and
+// what they might want to do. Rendered by renderBriefing; every part stays hidden until it has
+// something to say.
 import { BRANDING_CSS_URL } from '../../lib/config';
 ---
 
 <div class="stack" data-briefing hidden>
-  <h1 class="display" data-greeting>
-    Welcome back
-  </h1>
+  <div class="page-heading">
+    <h1 data-greeting>Welcome back</h1>
+  </div>
 
-  <section class="stack-tight" aria-labelledby="briefing-unread" data-unread hidden>
-    <div class="row">
-      <h2 id="briefing-unread" class="grow">
-        Unread notifications
-      </h2>
-      <a href="/notifications/">All notifications</a>
+  <div class="home-columns">
+    <div class="stack">
+      <section class="home-block" aria-labelledby="home-needs" data-needs hidden>
+        <h2 id="home-needs">Needs you</h2>
+        <ul class="list" data-needs-list></ul>
+        <div data-needs-empty hidden></div>
+        <p class="error-text" role="alert" data-error hidden></p>
+      </section>
+
+      <section class="home-block" aria-labelledby="home-play" data-play hidden>
+        <h2 id="home-play" class="row-tight">
+          <svg class="icon" aria-hidden="true">
+            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-campaign`}></use>
+          </svg>
+          Where you play
+        </h2>
+        <div class="stack-tight" data-play-list></div>
+        <p class="error-text" role="alert" data-error hidden></p>
+      </section>
+
+      <section class="home-block" aria-labelledby="briefing-changes" data-changes hidden>
+        <h2 id="briefing-changes">Recent changes</h2>
+        <p class="caption">To what your characters hold.</p>
+        <ul class="list" data-changes-list></ul>
+        <p class="error-text" role="alert" data-error hidden></p>
+      </section>
     </div>
-    <ul class="list" data-unread-list></ul>
-    <p class="error-text" role="alert" data-error hidden></p>
-  </section>
 
-  <section class="stack-tight" aria-labelledby="briefing-tables" data-tables hidden>
-    <div class="row">
-      <h2 id="briefing-tables" class="grow row-tight">
-        <svg class="icon" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-campaign`}></use>
-        </svg>
-        Your tables
-      </h2>
-      <a href="/campaigns/">All campaigns</a>
-      <a class="btn btn-secondary row-tight" href="/setup/" data-setup hidden>
-        <svg class="icon" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-add`}></use>
-        </svg>
-        Set up a table
-      </a>
+    <div class="stack">
+      <section class="home-block" aria-labelledby="home-run" data-run hidden>
+        <div class="row">
+          <h2 id="home-run" class="grow">
+            What you run
+          </h2>
+          <a href="/tenants/">Libraries</a>
+        </div>
+        <div class="stack-tight" data-run-list></div>
+        <p class="error-text" role="alert" data-error hidden></p>
+      </section>
+
+      <section class="home-block" aria-labelledby="briefing-repositories" data-repositories hidden>
+        <div class="row">
+          <h2 id="briefing-repositories" class="grow">
+            Your repositories
+          </h2>
+          <a href="/repositories/">Manage repositories</a>
+        </div>
+        <div class="stack-tight" data-repositories-list></div>
+        <p class="error-text" role="alert" data-error hidden></p>
+      </section>
     </div>
-    <p data-tables-empty hidden>
-      You don't play in or run a campaign yet.
-    </p>
-    <div class="grid" style="--grid-min: 280px" data-tables-list></div>
-    <p class="error-text" role="alert" data-error hidden></p>
-  </section>
+  </div>
 
-  <section class="stack-tight" aria-labelledby="briefing-repositories" data-repositories hidden>
-    <div class="row">
-      <h2 id="briefing-repositories" class="grow">
-        Your repositories
-      </h2>
-      <a href="/studio/">Manage repositories</a>
-    </div>
-    <div class="grid" style="--grid-min: 280px" data-repositories-list></div>
-    <p class="error-text" role="alert" data-error hidden></p>
-  </section>
+  <div class="home-grid">
+    <section class="home-block" aria-labelledby="home-continue" data-continue hidden>
+      <h2 id="home-continue">Continue</h2>
+      <ul class="list" data-continue-list></ul>
+    </section>
 
-  <section class="stack-tight" aria-labelledby="briefing-changes" data-changes hidden>
-    <h2 id="briefing-changes">Recent changes</h2>
-    <p class="caption">To what your characters hold.</p>
-    <ul class="list" data-changes-list></ul>
-    <p class="error-text" role="alert" data-error hidden></p>
-  </section>
+    <section class="home-block" aria-labelledby="home-actions">
+      <h2 id="home-actions">What do you want to do?</h2>
+      <ul class="list home-actions">
+        <li data-setup hidden>
+          <a href="/setup/">Set up a library</a>
+        </li>
+        <li>
+          <a href="/join/">Join with an invite link</a>
+        </li>
+        <li>
+          <a href="/device/">Connect a device</a>
+        </li>
+        <li>
+          <a href="/profile/">Change how others see you</a>
+        </li>
+        <li>
+          <a href="/tokens/">Look after your access tokens</a>
+        </li>
+      </ul>
+    </section>
+  </div>
 
-  <template data-notification-template>
-    <li class="row sticky-top">
-      <div class="tree grow">
-        <details>
-          <summary data-summary>
-            <span class="stack-tight grow">
-              <strong data-title></strong>
-              <span class="caption" data-when></span>
-            </span>
-            <svg class="icon tree-toggle" aria-hidden="true" data-chevron>
-              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
-            </svg>
-          </summary>
-          <p class="notification-body" data-body></p>
-        </details>
-      </div>
-      <button type="button" class="btn-secondary" data-mark-read>
-        <svg class="icon" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-select-item`}></use>
-        </svg>
-        Mark read
-      </button>
+  <template data-task-template>
+    <li class="row">
+      <span class="grow" data-text></span>
+      <a class="btn btn-secondary" data-action></a>
     </li>
   </template>
 
@@ -127,6 +139,12 @@ import { BRANDING_CSS_URL } from '../../lib/config';
     <li>
       <span class="grow" data-text></span>
       <span class="caption" data-where></span>
+    </li>
+  </template>
+
+  <template data-recent-template>
+    <li>
+      <a data-link></a>
     </li>
   </template>
 </div>

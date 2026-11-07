@@ -3,12 +3,13 @@
 // that arrives after that is dropped.
 
 import { showLorenzoScript } from '../../lib/lorenzoScript';
+import { getMe } from '../../lib/me';
 import { sayError } from '../../lib/statusLine';
 import { roleLabel } from '../../lib/studio';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
-import { renderTenantEdit } from '../TenantEdit/renderer';
+import { renderTenantSettings } from '../TenantEdit/settings';
 import type { TenantHooks } from './hooks';
 import { bindLeaveTenant } from './leaveTenant';
 import { fillLibrary, loadLibrary } from './library';
@@ -60,11 +61,16 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
 
     campaignList.replaceChildren();
     campaigns.hidden = true;
+    for (const part of root.querySelectorAll<HTMLElement>(
+      '[data-stats], [data-overview-columns], [data-overview-repositories], [data-overview-recent]',
+    )) {
+      part.hidden = true;
+    }
     showDescription('');
   }
 
   // The Edit button is this block's own, bound once for whichever tenant is shown.
-  const tenantEdit = renderTenantEdit(
+  const tenantEdit = renderTenantSettings(
     required<HTMLElement>(root, '[data-tenant-edit]'),
     tenantHooks.onRenamed,
   );
@@ -103,12 +109,15 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
       loading.hidden = false;
 
       try {
-        const data = await loadLibrary(root, tenant, me);
+        // Asked again each time: a seat, a character or a grant just changed is in it, and the
+        // cache is emptied by the change.
+        const current = await getMe();
+        const data = await loadLibrary(root, tenant, current);
 
         if (turn !== latest) return;
 
         showDescription(data.description);
-        fillLibrary(root, tenant, me, tenantHooks, data);
+        fillLibrary(root, tenant, current, tenantHooks, data);
       } catch (cause) {
         if (turn !== latest) return;
 

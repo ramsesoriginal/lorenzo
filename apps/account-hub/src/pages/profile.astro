@@ -1,160 +1,292 @@
 ---
 import DeleteAccount from '../components/DeleteAccount/DeleteAccount.astro';
-import PersonalTokens from '../components/PersonalTokens/PersonalTokens.astro';
 import Base from '../layouts/Base.astro';
 import { BRANDING_CSS_URL } from '../lib/config';
+import { SWATCHES } from '../lib/profileColour';
 import { PICTURE_ACCEPT } from '../lib/profilePicture';
 ---
 
-<Base title="Your profile — Lorenzo">
-  <h1 class="display">Your profile</h1>
+<Base title="Your profile — Lorenzo" template="form">
+  <div class="page-heading">
+    <h1>Your profile</h1>
+    <p class="page-sub">
+      How you appear to other people in Lorenzo. Each change saves as you make it.
+    </p>
+  </div>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
 
-  <form id="profile-form" class="card card-body stack" hidden>
-    <div class="row">
-      <img
-        id="picture-preview"
-        alt="Your profile picture"
-        width="192"
-        height="192"
-        class="card card-body squircle"
-      />
-      <span
-        id="picture-placeholder"
-        class="avatar-placeholder squircle"
-        style="--avatar-size: 192px"
-        role="img"
-        aria-label="No profile picture yet"
-        hidden
-      ></span>
-      <div class="field">
-        <label for="picture-input" class="field-label">
-          Change picture
-        </label>
-        <input
-          id="picture-input"
-          type="file"
-          accept={PICTURE_ACCEPT}
-          aria-describedby="picture-hint"
-        />
-        <p id="picture-hint" class="caption">
-          PNG, JPEG, WebP or GIF, up to 10 MB
-        </p>
-        <button id="picture-remove" type="button">
-          Remove picture
-        </button>
-      </div>
-      <p id="picture-status" role="status"></p>
-    </div>
+  <div id="profile-form" class="profile-layout" hidden>
+    <div class="profile-main">
+      <section class="form-section" aria-labelledby="sec-picture">
+        <div class="form-section-text">
+          <h2 id="sec-picture">Picture</h2>
+          <p class="visibility">
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-eye`}></use>
+            </svg>
+            Others see this
+          </p>
+        </div>
+        <div class="form-section-fields">
+          <div class="row">
+            <img
+              id="picture-preview"
+              alt="Your profile picture"
+              width="96"
+              height="96"
+              class="card card-body squircle"
+            />
+            <span
+              id="picture-placeholder"
+              class="avatar-placeholder squircle"
+              style="--avatar-size: 96px"
+              role="img"
+              aria-label="No profile picture yet"
+              hidden
+            ></span>
+            <div class="field">
+              <label for="picture-input" class="field-label">
+                Change picture
+              </label>
+              <input
+                id="picture-input"
+                type="file"
+                accept={PICTURE_ACCEPT}
+                aria-describedby="picture-hint"
+              />
+              <p id="picture-hint" class="caption">
+                PNG, JPEG, WebP or GIF, up to 10 MB
+              </p>
+              <button id="picture-remove" type="button" class="btn btn-secondary">
+                Remove picture
+              </button>
+            </div>
+          </div>
+          <p id="picture-status" class="status-text" role="status" hidden></p>
+        </div>
+      </section>
 
-    <div class="stack">
-      <div class="row">
-        <div class="field grow">
-          <span class="field-label">Email</span>
+      <section class="form-section" aria-labelledby="sec-names">
+        <div class="form-section-text">
+          <h2 id="sec-names">Names</h2>
+          <p class="visibility">
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-eye`}></use>
+            </svg>
+            Others see this
+          </p>
+        </div>
+        <div class="form-section-fields">
+          <div class="field">
+            <label for="nickname" class="field-label">
+              Nickname
+            </label>
+            <input
+              id="nickname"
+              name="nickname"
+              type="text"
+              class="text-input"
+              aria-describedby="nickname-hint nickname-status"
+              data-field="nickname"
+            />
+            <p id="nickname-hint" class="caption">
+              Unique across Lorenzo. People can find you by it, to invite you.
+            </p>
+            <p
+              id="nickname-status"
+              class="status-text"
+              role="status"
+              hidden
+              data-status="nickname"
+            ></p>
+          </div>
+          <div class="field">
+            <label for="display_name" class="field-label">
+              Display name
+            </label>
+            <input
+              id="display_name"
+              name="display_name"
+              type="text"
+              class="text-input"
+              aria-describedby="display-name-hint display_name-status"
+              data-field="display_name"
+            />
+            <p id="display-name-hint" class="caption">
+              What others see first. Without one, your nickname is shown.
+            </p>
+            <p
+              id="display_name-status"
+              class="status-text"
+              role="status"
+              hidden
+              data-status="display_name"
+            ></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section" aria-labelledby="sec-colour">
+        <div class="form-section-text">
+          <h2 id="sec-colour">Colour</h2>
+          <p class="visibility">
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-eye`}></use>
+            </svg>
+            Others see this
+          </p>
+        </div>
+        <div class="form-section-fields">
+          <div class="swatches" role="group" aria-label="Your colour">
+            {SWATCHES.map((swatch) => (
+              <button
+                type="button"
+                class="colour-swatch"
+                style={`--swatch: ${swatch.hex}`}
+                data-swatch={swatch.hex}
+                aria-pressed="false"
+                aria-label={swatch.name}
+                title={swatch.name}
+              ></button>
+            ))}
+            <button
+              type="button"
+              id="colour-custom"
+              class="btn btn-secondary"
+              aria-expanded="false"
+              aria-controls="colour-custom-field"
+            >
+              Custom…
+            </button>
+            <button id="color-clear" type="button" class="btn btn-secondary">
+              No colour
+            </button>
+          </div>
+          <div id="colour-custom-field" class="field" hidden>
+            <label for="user_color" class="field-label">
+              Custom colour
+            </label>
+            <input id="user_color" name="user_color" type="color" />
+          </div>
+          <p
+            id="user_color-status"
+            class="status-text"
+            role="status"
+            hidden
+            data-status="user_color"
+          ></p>
+        </div>
+      </section>
+
+      <section class="form-section" aria-labelledby="sec-private">
+        <div class="form-section-text">
+          <h2 id="sec-private">About you</h2>
+          <p class="visibility">
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-private`}></use>
+            </svg>
+            Only you and admins see this
+          </p>
+        </div>
+        <div class="form-section-fields">
+          <div class="field">
+            <label for="pronouns" class="field-label">
+              Pronouns
+            </label>
+            <input
+              id="pronouns"
+              name="pronouns"
+              type="text"
+              class="text-input"
+              aria-describedby="pronouns-status"
+              data-field="pronouns"
+            />
+            <p
+              id="pronouns-status"
+              class="status-text"
+              role="status"
+              hidden
+              data-status="pronouns"
+            ></p>
+          </div>
+          <div class="field bio-field">
+            <label for="bio" class="field-label">
+              Bio
+            </label>
+            <textarea
+              id="bio"
+              name="bio"
+              rows="4"
+              aria-describedby="bio-hint bio-status"
+              data-field="bio"
+            ></textarea>
+            <p id="bio-hint" class="caption">
+              Bold, italic, links, lists and quotes work here (LorenzoScript). Some places, such as
+              Discord, may show the marks as typed.
+            </p>
+            <p id="bio-status" class="status-text" role="status" hidden data-status="bio"></p>
+          </div>
+          <div class="field">
+            <label for="locales" class="field-label">
+              Languages
+            </label>
+            <input
+              id="locales"
+              name="locales"
+              type="text"
+              class="text-input"
+              aria-describedby="locales-hint locales-status"
+              data-field="locales"
+            />
+            <p id="locales-hint" class="caption">
+              Language codes such as en, de or en-GB, separated by commas.
+            </p>
+            <p
+              id="locales-status"
+              class="status-text"
+              role="status"
+              hidden
+              data-status="locales"
+            ></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section" aria-labelledby="sec-email">
+        <div class="form-section-text">
+          <h2 id="sec-email">Email</h2>
+          <p class="visibility">
+            <svg class="icon" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-private`}></use>
+            </svg>
+            Only you and admins see this
+          </p>
+        </div>
+        <div class="form-section-fields">
           <span id="email-value"></span>
           <p class="caption">
             It comes from your login. Change it in your login settings; the new address shows here
             after you next log in.
           </p>
+          <div>
+            <button id="login-settings" type="button" class="btn btn-secondary row-tight">
+              <svg class="icon" aria-hidden="true">
+                <use href={`${BRANDING_CSS_URL}/icons.svg#icon-settings`}></use>
+              </svg>
+              Manage your login
+            </button>
+          </div>
+          <p id="login-settings-status" class="status-text" role="status" hidden></p>
         </div>
-        <button id="login-settings" type="button" class="btn-secondary row-tight">
-          <svg class="icon" aria-hidden="true">
-            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-settings`}></use>
-          </svg>
-          Manage your login
-        </button>
-      </div>
-      <p id="login-settings-status" class="status-text" role="status" hidden></p>
+      </section>
     </div>
 
-    <section class="section stack">
-      <div class="grid">
-        <div class="field">
-          <label for="nickname" class="field-label">
-            Nickname
-          </label>
-          <input
-            id="nickname"
-            name="nickname"
-            type="text"
-            class="text-input"
-            aria-describedby="nickname-hint"
-          />
-          <p id="nickname-hint" class="caption">
-            Unique across Lorenzo. People can find you by it, to invite you.
-          </p>
-        </div>
-
-        <div class="field">
-          <label for="display_name" class="field-label">
-            Display name
-          </label>
-          <input
-            id="display_name"
-            name="display_name"
-            type="text"
-            class="text-input"
-            aria-describedby="display-name-hint"
-          />
-          <p id="display-name-hint" class="caption">
-            What others see first. Without one, your nickname is shown.
-          </p>
-        </div>
-
-        <div class="field">
-          <label for="pronouns" class="field-label">
-            Pronouns
-          </label>
-          <input id="pronouns" name="pronouns" type="text" class="text-input" />
-        </div>
-      </div>
-
-      <div class="field bio-field">
-        <label for="bio" class="field-label">
-          Bio
-        </label>
-        <textarea id="bio" name="bio" rows="4" aria-describedby="bio-hint"></textarea>
-        <p id="bio-hint" class="caption">
-          Bold, italic, links, lists and quotes work here (LorenzoScript). Some places, such as
-          Discord, may show the marks as typed.
-        </p>
-      </div>
-
-      <div class="row">
-        <div class="field">
-          <label for="locales" class="field-label">
-            Locales
-          </label>
-          <input
-            id="locales"
-            name="locales"
-            type="text"
-            class="text-input"
-            aria-describedby="locales-hint"
-          />
-          <p id="locales-hint" class="caption">
-            Language codes such as en, de or en-GB, separated by commas.
-          </p>
-        </div>
-
-        <div class="row-tight">
-          <div class="field">
-            <label for="user_color" class="field-label">
-              Color
-            </label>
-            <input id="user_color" name="user_color" type="color" />
-          </div>
-          <button id="color-clear" type="button">
-            Clear color
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <section class="stack-tight" aria-labelledby="preview-heading">
-      <h3 id="preview-heading">How others see you</h3>
+    <aside class="profile-card" aria-labelledby="preview-heading">
+      <h2 id="preview-heading" class="menu-label">
+        How others see you
+      </h2>
       <div id="preview" class="card card-body row">
         <img id="preview-picture" alt="" width="48" height="48" />
         <span
@@ -164,46 +296,31 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
           aria-hidden="true"
           hidden
         ></span>
-        <div class="stack-tight">
-          <strong id="preview-name"></strong>
-          <span id="preview-pronouns" class="caption" hidden></span>
-        </div>
+        <strong id="preview-name"></strong>
       </div>
-    </section>
-
-    <button id="save-button" type="submit">
-      Save
-    </button>
-    <p id="save-status" role="status"></p>
-  </form>
-
-  <PersonalTokens />
+      <p id="preview-note" class="caption"></p>
+    </aside>
+  </div>
 
   <DeleteAccount />
 
   <script>
     import { createEditor, type Tool } from '@lorenzo/lorenzoscript-editor';
     import { renderDeleteAccount } from '../components/DeleteAccount/renderer';
-    import { renderPersonalTokens } from '../components/PersonalTokens/renderer';
     import { deleteProfilePicture, updateProfile, uploadProfilePicture } from '../lib/profile';
     import { getMe } from '../lib/me';
     import { runPage } from '../lib/pageLoad';
     import { say, sayError } from '../lib/statusLine';
     import { requiredIn } from '../lib/template';
-    import {
-      avatarInitial,
-      localesToText,
-      nameForOthers,
-      normalizeLocales,
-      textOrNull,
-    } from '../lib/format';
+    import { avatarInitial, nameForOthers } from '../lib/format';
+    import { colourProblem, normalizeHex } from '../lib/profileColour';
+    import { FIELD_LABEL, fieldPatch, type ProfileField, typedValue } from '../lib/profileFields';
     import { pictureProblem } from '../lib/profilePicture';
-    import type { MeOut, ProfileUpdate } from '../lib/types';
+    import { currentShell } from '../lib/shell';
+    import type { MeOut } from '../lib/types';
     import { openLoginSettings } from '../lib/auth';
 
-    const form = document.getElementById('profile-form') as HTMLFormElement;
-    const saveButton = document.getElementById('save-button') as HTMLButtonElement;
-    const saveStatus = document.getElementById('save-status')!;
+    const form = document.getElementById('profile-form') as HTMLElement;
     const picturePreview = document.getElementById('picture-preview') as HTMLImageElement;
     const picturePlaceholder = document.getElementById('picture-placeholder')!;
     const pictureInput = document.getElementById('picture-input') as HTMLInputElement;
@@ -215,8 +332,7 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     const previewPicture = document.getElementById('preview-picture') as HTMLImageElement;
     const previewPlaceholder = document.getElementById('preview-placeholder')!;
     const previewName = document.getElementById('preview-name')!;
-    const previewPronouns = document.getElementById('preview-pronouns')!;
-    const personalTokens = requiredIn('Profile')<HTMLElement>(document, '[data-personal-tokens]');
+    const previewNote = document.getElementById('preview-note')!;
     const deleteAccount = requiredIn('Profile')<HTMLElement>(document, '[data-delete-account]');
 
     const nicknameEl = document.getElementById('nickname') as HTMLInputElement;
@@ -224,7 +340,21 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     const pronounsEl = document.getElementById('pronouns') as HTMLInputElement;
     const bioEl = document.getElementById('bio') as HTMLTextAreaElement;
     const localesEl = document.getElementById('locales') as HTMLInputElement;
-    const colorEl = document.getElementById('user_color') as HTMLInputElement;
+    const colourEl = document.getElementById('user_color') as HTMLInputElement;
+    const customButton = document.getElementById('colour-custom') as HTMLButtonElement;
+    const customField = document.getElementById('colour-custom-field') as HTMLElement;
+    const textFields: Record<
+      Exclude<ProfileField, 'user_color'>,
+      HTMLInputElement | HTMLTextAreaElement
+    > = {
+      nickname: nicknameEl,
+      display_name: displayNameEl,
+      pronouns: pronounsEl,
+      bio: bioEl,
+      locales: localesEl,
+    };
+    const statusOf = (field: ProfileField) =>
+      document.querySelector<HTMLElement>(`[data-status="${field}"]`)!;
 
     // A bio is LorenzoScript (RFC 0027), but only what Discord, which shows it too (loot-bot's
     // /introduce and /whoami), renders as well: no tables, footnotes or math. No entity links or
@@ -248,9 +378,9 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
     const bioEditor = createEditor({ textarea: bioEl, toolbar: BIO_TOOLBAR });
 
     let initial: MeOut | null = null;
-    // The color input can't itself represent "no color set" (it always holds a valid hex
-    // value), so the form's own color is tracked here: null is none.
-    let color: string | null = null;
+    // The colour input can't itself represent "no colour set" (it always holds a valid hex
+    // value), so the colour is tracked here: null is none.
+    let colour: string | null = null;
     // The picture sits at one address whatever it is, so after a change the browser is asked
     // for it afresh.
     let pictureVersion = '';
@@ -269,50 +399,42 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
       image.src = src;
     }
 
-    // What this form would change, as the API's own PATCH: only what differs from what it loaded.
-    function currentPatch(): ProfileUpdate {
-      const patch: ProfileUpdate = {};
-
-      if (!initial) return patch;
-
-      const nickname = textOrNull(nicknameEl.value);
-      if (nickname !== (initial.nickname ?? null)) patch.nickname = nickname;
-
-      const displayName = textOrNull(displayNameEl.value);
-      if (displayName !== (initial.display_name ?? null)) patch.display_name = displayName;
-
-      const pronouns = textOrNull(pronounsEl.value);
-      if (pronouns !== (initial.pronouns ?? null)) patch.pronouns = pronouns;
-
-      const bio = textOrNull(bioEl.value);
-      if (bio !== (initial.bio ?? null)) patch.bio = bio;
-
-      const locales = normalizeLocales(localesEl.value);
-      if (JSON.stringify(locales) !== JSON.stringify(initial.locales)) patch.locales = locales;
-
-      if (color !== (initial.user_color ?? null)) patch.user_color = color;
-
-      return patch;
-    }
-
-    // Everything on the page that follows what has been typed: the preview, the letter standing
-    // in for a picture, and whether there is anything to save.
+    // Everything on the page that follows what has been typed: the card that shows how others see
+    // this person (the picture, the name, the colour, and a line as a notification would say it),
+    // and the letter standing in for a picture. Pronouns, bio and languages are not in it: others
+    // do not see them.
     function onEdit() {
       const name = nameForOthers({
         display_name: displayNameEl.value,
         nickname: nicknameEl.value,
       });
-      const pronouns = pronounsEl.value.trim();
 
       previewName.textContent = name ?? 'No name yet';
-      previewPronouns.hidden = pronouns === '';
-      previewPronouns.textContent = pronouns;
-      preview.style.borderInlineStart = color ? `4px solid ${color}` : '';
+      previewNote.textContent = name ? `“${name} invited you to a campaign.”` : '';
+      preview.style.borderInlineStart = colour ? `4px solid ${colour}` : '';
 
       picturePlaceholder.textContent = avatarInitial(name);
       previewPlaceholder.textContent = avatarInitial(name);
+    }
 
-      saveButton.disabled = Object.keys(currentPatch()).length === 0;
+    function paintColour() {
+      const chosen = colour ? normalizeHex(colour) : null;
+      let swatch = false;
+
+      for (const button of document.querySelectorAll<HTMLButtonElement>('[data-swatch]')) {
+        const same = chosen !== null && normalizeHex(button.dataset.swatch ?? '') === chosen;
+
+        button.setAttribute('aria-pressed', String(same));
+        swatch ||= same;
+      }
+      colourEl.value = colour ?? '#000000';
+      // A colour that is none of the five is the custom one: its picker stays open.
+      if (colour && !swatch) setCustom(true);
+    }
+
+    function setCustom(open: boolean) {
+      customField.hidden = !open;
+      customButton.setAttribute('aria-expanded', String(open));
     }
 
     function populate(me: MeOut) {
@@ -322,9 +444,9 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
       bioEl.value = me.bio ?? '';
       // Setting the value doesn't tell the editor, whose preview follows what's typed.
       void bioEditor.refresh();
-      localesEl.value = localesToText(me.locales);
-      color = me.user_color ?? null;
-      colorEl.value = color ?? '#000000';
+      localesEl.value = typedValue(me, 'locales');
+      colour = me.user_color ?? null;
+      paintColour();
       emailValue.textContent = me.email ?? 'No email on your login.';
 
       const picture = `${me.picture_url}${pictureVersion}`;
@@ -334,22 +456,89 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
       onEdit();
     }
 
-    form.addEventListener('input', onEdit);
-
-    // Tags are tidied once the field is left: separated by commas, no repeats.
-    localesEl.addEventListener('change', () => {
-      localesEl.value = normalizeLocales(localesEl.value).join(', ');
+    // Put a field's input back to what it held (for Undo).
+    function setTyped(field: ProfileField, typed: string) {
+      if (field === 'user_color') {
+        colour = typed === '' ? null : typed;
+        paintColour();
+      } else {
+        textFields[field].value = typed;
+        if (field === 'bio') void bioEditor.refresh();
+      }
       onEdit();
-    });
+    }
 
-    colorEl.addEventListener('input', () => {
-      color = colorEl.value;
+    // Each field saves as it is changed (ADR 0412, ADR 0418): says "Saved." beside the field, and
+    // offers Undo, which puts back what it held. A refusal is shown beside the field as the API gave
+    // it, and what was typed stays.
+    async function saveField(field: ProfileField, typed: string, announce = true) {
+      if (!initial) return;
+
+      const patch = fieldPatch(initial, field, typed);
+
+      if (!patch) return;
+
+      const line = statusOf(field);
+      const before = typedValue(initial, field);
+
+      say(line, 'Saving…');
+      try {
+        const me = await updateProfile(patch);
+
+        initial = me;
+        say(line, 'Saved.');
+        if (field === 'locales') localesEl.value = typedValue(me, 'locales');
+        if (announce) {
+          currentShell()?.undoable({
+            title: `${FIELD_LABEL[field]} saved`,
+            undo: () => {
+              setTyped(field, before);
+              void saveField(field, before, false);
+            },
+          });
+        }
+      } catch (e) {
+        sayError(line, e);
+      }
+    }
+
+    for (const [field, element] of Object.entries(textFields) as [
+      Exclude<ProfileField, 'user_color'>,
+      HTMLInputElement | HTMLTextAreaElement,
+    ][]) {
+      element.addEventListener('input', onEdit);
+      element.addEventListener('change', () => void saveField(field, element.value));
+    }
+
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-swatch]')) {
+      button.addEventListener('click', () => {
+        colour = button.dataset.swatch ?? null;
+        say(statusOf('user_color'), '');
+        paintColour();
+        onEdit();
+        void saveField('user_color', colour ?? '');
+      });
+    }
+    customButton.addEventListener('click', () => setCustom(Boolean(customField.hidden)));
+    colourEl.addEventListener('change', () => {
+      const problem = colourProblem(colourEl.value);
+
+      if (problem) {
+        say(statusOf('user_color'), problem, true);
+
+        return;
+      }
+      colour = normalizeHex(colourEl.value);
+      paintColour();
       onEdit();
+      void saveField('user_color', colour ?? '');
     });
     document.getElementById('color-clear')?.addEventListener('click', () => {
-      color = null;
-      colorEl.value = '#000000';
+      colour = null;
+      say(statusOf('user_color'), '');
+      paintColour();
       onEdit();
+      void saveField('user_color', '');
     });
 
     loginSettings.addEventListener('click', async () => {
@@ -403,31 +592,12 @@ import { PICTURE_ACCEPT } from '../lib/profilePicture';
       }
     });
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-
-      const patch = currentPatch();
-
-      if (Object.keys(patch).length === 0) return;
-
-      say(saveStatus, 'Saving…');
-      try {
-        const me = await updateProfile(patch);
-        initial = me;
-        populate(me);
-        say(saveStatus, 'Saved.');
-      } catch (e) {
-        sayError(saveStatus, e);
-      }
-    });
-
     await runPage(async () => {
       const me = await getMe();
 
       initial = me;
       populate(me);
       form.hidden = false;
-      renderPersonalTokens(personalTokens);
       renderDeleteAccount(deleteAccount, me);
     });
   </script>

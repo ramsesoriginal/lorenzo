@@ -105,7 +105,7 @@ test('a player undoes a reused character; an owner link is never offered', async
   );
 
   const session = await signedInPage(browser, player.subject);
-  await session.page.goto('/campaigns');
+  await openLibrary(session.page, library);
   const zorro = seatFor(session.page, 'Zorro');
   const hood = seatFor(session.page, 'Hood');
   await expect(zorro).toContainText('Cael');
@@ -190,12 +190,16 @@ test('an organizer edits a library name and description, and sees the new name a
 
   const session = await signedInPage(browser, owner.subject);
   const card = await openLibrary(session.page, library);
-  await card.getByRole('button', { name: 'Edit library' }).click();
+  await card.getByRole('tab', { name: 'Settings' }).click();
   await expect(card.getByLabel('Description')).toHaveValue('The first draft.');
   const name = `Renamed ${crypto.randomUUID()}`;
   await card.getByLabel('Library name').fill(name);
   await card.getByLabel('Description').fill('A better one.');
-  await card.getByRole('button', { name: 'Save', exact: true }).click();
+  // Two changes wait in the save bar, and are saved from it.
+  await expect(session.page.getByRole('region', { name: 'Unsaved changes' })).toContainText(
+    '2 changes not saved',
+  );
+  await session.page.getByRole('button', { name: 'Save changes' }).click();
   await expect(card.locator('h2[data-name]')).toHaveText(name);
   const saved = await ok(
     owner.api.GET('/tenants/{tenant_id}', { params: { path: { tenant_id: library.id } } }),
@@ -206,9 +210,8 @@ test('an organizer edits a library name and description, and sees the new name a
 
   // A taken slug is the API's own sentence, not a body.
   const other = await newLibrary(owner.api);
-  await card.getByRole('button', { name: 'Edit library' }).click();
   await card.getByLabel('Library slug').fill(other.slug);
-  await card.getByRole('button', { name: 'Save', exact: true }).click();
+  await session.page.getByRole('button', { name: 'Save changes' }).click();
   const formStatus = card.locator('[data-form-status]');
   await expect(formStatus).not.toContainText('{');
   await expect(formStatus).toContainText(/already in use|taken/i);

@@ -10,6 +10,34 @@ import Preview from '../Preview/Preview.astro';
 <div class="stack" data-repositories-panel hidden>
   <p class="error-text" role="alert" data-error hidden></p>
 
+  <!-- The repositories this person works on (Studio), above the ones their libraries draw on. -->
+  <section class="stack" data-yours aria-labelledby="repositories-yours" hidden>
+    <div class="row">
+      <h2 id="repositories-yours" class="grow">
+        Your repositories
+      </h2>
+      <a class="btn btn-secondary" href="/repositories/?new=1" data-new-repository hidden>
+        New repository
+      </a>
+    </div>
+    <p class="caption" data-yours-empty hidden>
+      You do not work on a repository yet. The Owner of a repository can add you to it.
+    </p>
+    <p class="caption" data-create-closed hidden></p>
+    <ul class="list" data-yours-list></ul>
+  </section>
+
+  <template data-yours-item-template>
+    <li class="row">
+      <a class="grow" data-link></a>
+      <span class="pill" data-role></span>
+    </li>
+  </template>
+
+  <h2 data-used-heading hidden>
+    Used by your libraries
+  </h2>
+
   <p data-no-library hidden>
     Repositories are copied into a library, and you do not run one yet.
     <a href="/tenants/">Your libraries</a>
@@ -23,10 +51,7 @@ import Preview from '../Preview/Preview.astro';
   </div>
 
   <section class="stack" data-list-view hidden>
-    <p data-empty hidden>
-      No repository is offered to this library yet. The owner of a repository invites a library to
-      it; ask them to invite this one.
-    </p>
+    <div data-empty hidden></div>
     <p data-check-updates hidden>
       <a class="btn btn-secondary" href="/repositories/" data-link data-inbox-link>
         Check for updates
@@ -62,99 +87,116 @@ import Preview from '../Preview/Preview.astro';
       <p data-retired-message hidden></p>
     </div>
 
-    <p data-updates-actions hidden>
-      <a class="btn btn-primary" href="/repositories/" data-link data-updates-link>
-        Check for updates
-      </a>
-    </p>
+    <!-- Two parts, as the design draws a repository for one who uses it: what it is, and what a
+         library does with it. The second is the one open while there is something to do. -->
+    <div class="stack" data-detail-tabs>
+      <div class="tabs" role="tablist" aria-label="This repository">
+        <button type="button" class="tab" role="tab">
+          Overview
+        </button>
+        <button type="button" class="tab" role="tab">
+          Use in a library
+        </button>
+      </div>
 
-    <div class="stack-tight" data-actions hidden>
-      <p>
-        <a class="btn btn-primary" href="/repositories/" data-link data-copy-link>
-          Copy this repository
-        </a>
-      </p>
-      <p class="caption">
-        You see what it brings, and what it would clash with, before anything is copied.
-      </p>
+      <div class="stack" role="tabpanel">
+        <div class="ls-content" data-description hidden></div>
+
+        <section class="stack" data-inside-section hidden>
+          <h3>What is inside</h3>
+          <dl class="key-values" data-inside></dl>
+          <p data-inside-unknown hidden></p>
+          <p class="caption" data-attachments hidden></p>
+          <p class="caption">
+            Only names show until your library copies this repository: entries with their kinds and
+            parents, and stat groups with their stats. What its Owner has opened for a look is under
+            Look inside.
+          </p>
+        </section>
+
+        <!-- What its Owner opened for a look (ADR 0293): the featured entries, and any entry from the list below. -->
+        <Preview />
+
+        <details class="stack shelf-section" data-entries-section hidden>
+          <summary>
+            <svg class="icon tree-toggle" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+            </svg>
+            Entries
+          </summary>
+          <label class="field-label" for="shelf-entry-search">
+            Find an entry
+          </label>
+          <input id="shelf-entry-search" class="text-input" type="search" data-entry-search />
+          <ul class="list" data-entries></ul>
+          <p data-entries-empty hidden>
+            No entry matches.
+          </p>
+          <button type="button" class="btn btn-secondary" data-entries-more hidden>
+            Show more
+          </button>
+          <p class="error-text" role="alert" data-entries-error hidden></p>
+        </details>
+
+        <details class="stack shelf-section" data-stat-groups-section hidden>
+          <summary>
+            <svg class="icon tree-toggle" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+            </svg>
+            Stat groups
+          </summary>
+          <ul class="list" data-stat-groups></ul>
+          <p data-stat-groups-empty hidden>
+            It has no stat groups.
+          </p>
+          <p class="error-text" role="alert" data-stat-groups-error hidden></p>
+        </details>
+      </div>
+
+      <div class="stack" role="tabpanel">
+        <p data-updates-actions hidden>
+          <a class="btn btn-primary" href="/repositories/" data-link data-updates-link>
+            Check for updates
+          </a>
+        </p>
+
+        <div class="stack-tight" data-actions hidden>
+          <p>
+            <a class="btn btn-primary" href="/repositories/" data-link data-copy-link>
+              Copy this repository
+            </a>
+          </p>
+          <p class="caption">
+            You see what it brings, and what it would clash with, before anything is copied.
+          </p>
+        </div>
+        <details class="stack shelf-section" data-more hidden>
+          <summary>
+            <svg class="icon tree-toggle" aria-hidden="true">
+              <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+            </svg>
+            More
+          </summary>
+          <a class="shelf-link" href="/repositories/" data-link data-copy-again-link>
+            Copy again&hellip;
+          </a>
+        </details>
+
+        <section class="stack" data-built-on-section hidden>
+          <h3>Built on</h3>
+          <ul class="outline" aria-label="Built on" data-outline></ul>
+          <p data-built-on-none hidden>
+            It is not built on other repositories.
+          </p>
+        </section>
+
+        <section class="stack" data-history-section hidden>
+          <h3>Your library and this repository</h3>
+          <dl class="key-values" data-history></dl>
+          <p data-brought hidden></p>
+        </section>
+      </div>
     </div>
-    <details class="stack shelf-section" data-more hidden>
-      <summary>
-        <svg class="icon tree-toggle" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
-        </svg>
-        More
-      </summary>
-      <a class="shelf-link" href="/repositories/" data-link data-copy-again-link>
-        Copy again&hellip;
-      </a>
-    </details>
-
-    <div class="ls-content" data-description hidden></div>
-
-    <section class="stack" data-inside-section hidden>
-      <h3>What is inside</h3>
-      <dl class="key-values" data-inside></dl>
-      <p data-inside-unknown hidden></p>
-      <p class="caption" data-attachments hidden></p>
-      <p class="caption">
-        Only names show until your library copies this repository: entries with their kinds and
-        parents, and stat groups with their stats. What its Owner has opened for a look is under
-        Look inside.
-      </p>
-    </section>
-
-    <!-- What its Owner opened for a look (ADR 0293): the featured entries, and any entry from the list below. -->
-    <Preview />
-
-    <section class="stack" data-built-on-section hidden>
-      <h3>Built on</h3>
-      <ul class="outline" aria-label="Built on" data-outline></ul>
-      <p data-built-on-none hidden>
-        It is not built on other repositories.
-      </p>
-    </section>
-
-    <section class="stack" data-history-section hidden>
-      <h3>Your library and this repository</h3>
-      <dl class="key-values" data-history></dl>
-      <p data-brought hidden></p>
-    </section>
-
-    <details class="stack shelf-section" data-entries-section hidden>
-      <summary>
-        <svg class="icon tree-toggle" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
-        </svg>
-        Entries
-      </summary>
-      <label class="field-label" for="shelf-entry-search">
-        Find an entry
-      </label>
-      <input id="shelf-entry-search" class="text-input" type="search" data-entry-search />
-      <ul class="list" data-entries></ul>
-      <p data-entries-empty hidden>
-        No entry matches.
-      </p>
-      <button type="button" class="btn btn-secondary" data-entries-more hidden>
-        Show more
-      </button>
-      <p class="error-text" role="alert" data-entries-error hidden></p>
-    </details>
-
-    <details class="stack shelf-section" data-stat-groups-section hidden>
-      <summary>
-        <svg class="icon tree-toggle" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
-        </svg>
-        Stat groups
-      </summary>
-      <ul class="list" data-stat-groups></ul>
-      <p data-stat-groups-empty hidden>
-        It has no stat groups.
-      </p>
-      <p class="error-text" role="alert" data-stat-groups-error hidden></p>
-    </details>
   </article>
 
   <section class="stack" data-copy-view hidden>

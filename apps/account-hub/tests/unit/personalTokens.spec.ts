@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   codeFromSearch,
+  describeToken,
   neverUsed,
   normalizeUserCode,
   revokeTokenConfirmation,
   suggestedTokenName,
   TOKEN_EXPIRY_PRESETS,
   tokenExpiryFor,
+  tokenNameProblem,
   tokenState,
 } from '../../src/lib/personalTokens';
 
@@ -80,5 +82,74 @@ describe('the list', () => {
 
   it('asks before revoking, naming the token', () => {
     expect(revokeTokenConfirmation('Laptop')).toContain('"Laptop"');
+  });
+});
+
+describe('describeToken', () => {
+  const day = 24 * 60 * 60 * 1000;
+  const ago = (days: number) => new Date(NOW.getTime() - days * day).toISOString();
+  const ahead = (days: number) => new Date(NOW.getTime() + days * day).toISOString();
+  const token = (over: Record<string, unknown>) =>
+    ({
+      id: 't',
+      name: 'Laptop',
+      hint: 'ab12',
+      created_at: ago(10),
+      last_used_at: ago(2),
+      expires_at: null,
+      is_expired: false,
+      ...over,
+    }) as never;
+
+  it('says a recently used token that does not end is fine', () => {
+    const d = describeToken(token({}), NOW);
+
+    expect(d).toMatchObject({ tone: 'ok', icon: 'select-item', note: 'Never expires' });
+    expect(d.used).toMatch(/^Last used /);
+  });
+
+  it('says today for a token used in the last day', () => {
+    expect(describeToken(token({ last_used_at: ago(0.2) }), NOW).used).toBe('Last used today');
+  });
+
+  it('says when a token will end', () => {
+    expect(describeToken(token({ expires_at: ahead(4) }), NOW).note).toBe('Expires in 4 days');
+  });
+
+  it('calls out a token not used for 90 days, and says it still works', () => {
+    const d = describeToken(token({ last_used_at: ago(120) }), NOW);
+
+    expect(d).toMatchObject({ tone: 'stale', used: 'Not used for 120 days' });
+    expect(d.note).toContain('It still works. Revoke it if you no longer need it.');
+  });
+
+  it('says a token never used, and when it was made', () => {
+    const d = describeToken(token({ last_used_at: null }), NOW);
+
+    expect(d).toMatchObject({ tone: 'never', used: 'Never used' });
+    expect(d.note).toMatch(/^Made /);
+  });
+
+  it('says a token has ended, with a warning icon', () => {
+    const d = describeToken(token({ is_expired: true, expires_at: ago(21) }), NOW);
+
+    expect(d).toMatchObject({ tone: 'expired', icon: 'warning' });
+    expect(d.note).toBe('Expired 3 weeks ago');
+  });
+});
+
+describe('tokenNameProblem', () => {
+  it('asks for a name', () => {
+    expect(tokenNameProblem('')).toMatch(/name/);
+    expect(tokenNameProblem('   ')).toMatch(/name/);
+  });
+
+  it('refuses more than 80 characters in words, and takes 80', () => {
+    expect(tokenNameProblem('a'.repeat(80))).toBeNull();
+    expect(tokenNameProblem('a'.repeat(81))).toBe('A name can be at most 80 characters.');
+  });
+
+  it('counts characters, not bytes', () => {
+    expect(tokenNameProblem('é'.repeat(80))).toBeNull();
   });
 });

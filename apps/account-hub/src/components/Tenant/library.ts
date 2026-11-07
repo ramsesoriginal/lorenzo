@@ -11,7 +11,15 @@ import { distinctPeople } from '../../lib/deleting';
 import { type CampaignRole, campaignRoleFor, isTenantAdmin } from '../../lib/format';
 import { type LibraryReads, readLibrary } from '../../lib/libraryData';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
-import { rosterFromPlayers } from '../../lib/roster';
+import { rosterFromGms, rosterFromPlayers } from '../../lib/roster';
+import { loadSeatOwners } from '../../lib/seatOwners';
+import {
+  SHELF_STATE_LABEL,
+  SHELF_STATE_PILL,
+  shelfHref,
+  shelfState,
+  sortSubscriptions,
+} from '../../lib/shelf';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants } from '../../lib/tenantKind';
@@ -41,6 +49,7 @@ import { renderInvitePlayer } from '../InvitePlayer/renderer';
 import { renderMembershipAdmin } from '../MembershipAdmin/renderer';
 import { renderNotificationComposer } from '../NotificationComposer/renderer';
 import { renderPictureUpload } from '../PictureUpload/renderer';
+import { renderSeat } from '../Seat/renderer';
 import { renderTenantDelete } from '../TenantDelete/renderer';
 import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
 import type { TenantHooks } from './hooks';
@@ -52,6 +61,8 @@ const required = requiredIn('Tenant');
 export type LibraryData = LibraryReads & {
   // Bound to what it fetched but not in the page yet, for administrators.
   activity: HTMLElement | null;
+  // Who owns each character on the caller's seats here, for "Stop using here".
+  seatOwners: Map<string, string | null>;
 };
 
 // What you are in a campaign, as its row says: what it calls its game master (ADR 0294), Player or
@@ -72,7 +83,10 @@ export async function loadLibrary(
   tenant: TenantSummaryOut,
   me: MeOut,
 ): Promise<LibraryData> {
-  const reads = await readLibrary(tenant, me);
+  const [reads, seatOwners] = await Promise.all([
+    readLibrary(tenant, me),
+    loadSeatOwners(tenant.id, me),
+  ]);
   let activity: HTMLElement | null = null;
 
   if (isTenantAdmin(tenant)) {
@@ -89,7 +103,7 @@ export async function loadLibrary(
     );
   }
 
-  return { ...reads, activity };
+  return { ...reads, activity, seatOwners };
 }
 
 // One campaign of the library, from <Tenant />'s template, with the controls its caller may use.
@@ -109,10 +123,31 @@ function renderCampaign(
     required<HTMLElement>(item, '[data-campaign-description]'),
     data.descriptions.get(campaign.id) ?? '',
   );
-  required<HTMLElement>(item, '[data-campaign-meta]').textContent =
-    `${campaign.game_system} · ${roleLabel(role, campaign)}${campaign.secret ? ' · secret' : ''}`;
-
   const admin = isTenantAdmin(tenant);
+  // An administrator who is neither its GM nor a player in it runs it as an administrator.
+  const roleWord = admin && role === 'visible' ? 'Admin' : roleLabel(role, campaign);
+
+  required<HTMLElement>(item, '[data-campaign-meta]').textContent =
+    `${campaign.game_system} · ${roleWord}${campaign.secret ? ' · secret' : ''}`;
+
+  // Your own seat in it, if you hold one: your characters there, and leaving.
+  const seat = me.players.find((p) => p.tenant_id === tenant.id && p.campaign_id === campaign.id);
+
+  if (seat) {
+    const seatElement = cloneComponent(root, '[data-seat-template]');
+
+    renderSeat(seatElement, {
+      campaign,
+      libraryName: tenant.name,
+      player: seat,
+      me,
+      owners: data.seatOwners,
+      onChanged,
+      withinCampaign: true,
+    });
+    fillSlot(item, '[data-campaign-seat-slot]', seatElement);
+  }
+
   // can_manage_campaign's real two-way gate: a tenant admin, or this
   // specific campaign's own GM (RFC 0014) - not just one branch of it.
   const canManage = admin || role === 'gm';
@@ -125,10 +160,27 @@ function renderCampaign(
   // before this fix, breaking this whole page for them. A GM with no
   // Membership still manages the campaign (ADR 0170), and gets its
   // players from GET .../players instead, by user id: no names there.
+  const peopleHidden = data.peopleHidden.has(campaign.id);
   const players = canManage ? (data.playersByCampaign.get(campaign.id) ?? []) : null;
-  const shownRoster = data.roster ?? (players ? rosterFromPlayers(campaign.id, players) : null);
+  const shownRoster =
+    data.roster ??
+    (players
+      ? [
+          ...rosterFromGms(campaign.id, data.gmEntriesByCampaign.get(campaign.id) ?? []),
+          ...rosterFromPlayers(campaign.id, players),
+        ]
+      : null);
 
-  if (shownRoster) {
+  if (peopleHidden) {
+    // GET /me/managed still lists the campaign (that is the administrative axis), but its people
+    // are not theirs to see: said in place of the roster, not left as an empty one.
+    const note = document.createElement('p');
+
+    note.className = 'status-text';
+    note.dataset.peopleHidden = '';
+    note.textContent = "This campaign's people aren't shown to you.";
+    fillSlot(item, '[data-campaign-roster-slot]', note);
+  } else if (shownRoster) {
     const roster = cloneComponent(root, '[data-campaign-roster-template]');
 
     renderCampaignRoster(
@@ -136,6 +188,7 @@ function renderCampaign(
       campaign,
       shownRoster,
       players ? { tenant, players, onChanged } : undefined,
+      me.id,
     );
     fillSlot(item, '[data-campaign-roster-slot]', roster);
   }
@@ -209,6 +262,49 @@ function renderCampaign(
   return item;
 }
 
+// The overview, for an administrator: how big the library is, what it draws on, and (in the slot
+// the activity goes in) what happened lately.
+function fillOverview(root: HTMLElement, tenant: TenantSummaryOut, data: LibraryData): void {
+  required<HTMLElement>(root, '[data-stat-people]').textContent = String(
+    data.roster ? distinctPeople(data.roster) : 0,
+  );
+  required<HTMLElement>(root, '[data-stat-campaigns]').textContent = String(data.campaigns.length);
+  required<HTMLElement>(root, '[data-stat-repositories]').textContent = String(
+    data.subscriptions?.length ?? 0,
+  );
+  required<HTMLElement>(root, '[data-stats]').hidden = false;
+
+  const section = required<HTMLElement>(root, '[data-overview-repositories]');
+  const list = required<HTMLElement>(root, '[data-overview-repository-list]');
+  const none = required<HTMLElement>(root, '[data-overview-no-repositories]');
+
+  if (data.subscriptions) {
+    list.replaceChildren(
+      ...sortSubscriptions(data.subscriptions).map((subscription) => {
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        const pill = document.createElement('span');
+
+        item.className = 'row';
+        link.className = 'grow';
+        link.textContent = subscription.repository.name;
+        link.href = shelfHref(tenant.slug, subscription.repository.id);
+        pill.className = SHELF_STATE_PILL[shelfState(subscription)];
+        pill.textContent = SHELF_STATE_LABEL[shelfState(subscription)];
+        item.append(link, pill);
+
+        return item;
+      }),
+    );
+    none.hidden = data.subscriptions.length > 0;
+    required<HTMLAnchorElement>(root, '[data-all-repositories]').href = shelfHref(tenant.slug);
+    section.hidden = false;
+  }
+
+  required<HTMLElement>(root, '[data-overview-recent]').hidden = data.activity === null;
+  required<HTMLElement>(root, '[data-overview-columns]').hidden = false;
+}
+
 // Puts the library's pieces in <Tenant />'s slots, each only for those who may use it.
 export function fillLibrary(
   root: HTMLElement,
@@ -232,6 +328,8 @@ export function fillLibrary(
     });
     fillSlot(root, '[data-picture-slot]', picture);
   }
+
+  if (admin) fillOverview(root, tenant, data);
 
   required<HTMLElement>(root, '[data-campaigns]').hidden = false;
   required<HTMLElement>(root, '[data-no-campaigns]').hidden = data.campaigns.length > 0;

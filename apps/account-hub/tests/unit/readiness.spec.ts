@@ -58,7 +58,10 @@ describe('what a private repository lacks before it can be public', () => {
     expect(upstream).toHaveLength(2);
     expect(upstream[0]?.text).toContain('Core rules is private');
     // One the Owner owns links to its own page, to make it public.
-    expect(upstream[0]?.link?.target).toEqual({ kind: 'page', href: '/studio/?repository=u1' });
+    expect(upstream[0]?.link?.target).toEqual({
+      kind: 'page',
+      href: '/repositories/?repository=u1',
+    });
     // One they do not own says whom to ask and links to the tab.
     expect(upstream[1]?.text).toContain('ask its Owner');
     expect(upstream[1]?.link).toEqual({ label: 'Open Built on', target: { kind: 'built-on' } });

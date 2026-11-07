@@ -1,6 +1,6 @@
 // What a table calls its game master (ADR 0294): set in the campaign's settings, read wherever that
 // campaign appears, and "GM" wherever no one campaign is in play.
-import { expect, type Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { ok } from '../../../inventory-web/tests/e2e/support/api';
 import {
   AUTHGEAR_URL,
@@ -22,11 +22,6 @@ import {
 
 // What a person reads, with no literal GM in it.
 const LITERAL_GM = /\bGMs?\b/;
-
-// A campaign you run, found by the name it starts with.
-function runCampaign(page: Page, name: string) {
-  return page.locator('[data-run-list] > [data-run-campaign]').filter({ hasText: name });
-}
 
 test("a table's own word for its game master is read wherever its campaign appears", async ({
   browser,
@@ -93,22 +88,18 @@ test("a table's own word for its game master is read wherever its campaign appea
   // Nothing on its card is left saying GM.
   expect(await card.innerText()).not.toMatch(LITERAL_GM);
 
-  // The index of what you run: this campaign by its word, the other by the default.
-  await page.goto('/campaigns');
-  await expect(page.locator('#loading')).toBeHidden();
-  const zorroRow = runCampaign(page, 'Zorro');
-  await expect(zorroRow.locator('[data-meta]')).toContainText('Storyteller');
-  await expect(zorroRow.getByRole('heading', { name: 'Storytellers' })).toBeVisible();
-  expect(await zorroRow.innerText()).not.toMatch(LITERAL_GM);
-  const hoodRow = runCampaign(page, 'Hood');
-  await expect(hoodRow.locator('[data-meta]')).toContainText('GM');
-  await expect(hoodRow.getByRole('heading', { name: 'GMs' })).toBeVisible();
+  // The library's cards: this campaign by its word, the other by the default.
+  const cards = await openLibrary(page, library);
+  await expect(campaignCard(cards, 'Zorro').locator('[data-campaign-meta]')).toContainText(
+    'Storyteller',
+  );
+  await expect(campaignCard(cards, 'Hood').locator('[data-campaign-meta]')).toContainText('GM');
 
   // A repository has no campaign: its publish dialog still says GM only.
   const repository = await newRepository(owner.api, `Bestiary ${crypto.randomUUID().slice(0, 8)}`);
   await addItem(owner.api, repository.id, 'Owlbear');
   await page.evaluate(() => sessionStorage.clear());
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await page.getByRole('button', { name: 'Publish…', exact: true }).click();
   await expect(page.locator('[data-publish-dialog]')).toContainText(

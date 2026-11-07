@@ -951,3 +951,75 @@ describe('saving', () => {
     expect(host.children).toHaveLength(0);
   });
 });
+
+describe('gated links and a page with no welcome', () => {
+  async function renderGated(withWelcome: boolean) {
+    const container = await AstroContainer.create();
+
+    return container.renderToString(AppPage, {
+      props: {
+        title: 'T',
+        product: 'Account',
+        brandingUrl: 'https://brand.example',
+        themeKey: 'k',
+        path: 'apps/account-hub',
+        shell: 'web',
+        nav: [
+          { label: 'Home', href: '/' },
+          { label: 'Profile', href: '/profile/', requires: 'signed-in' },
+          { label: 'Repositories', href: '/repositories/', requires: 'library-admin' },
+        ],
+        ...(withWelcome ? { welcome: { title: 'T', text: 't', status: 's' } } : {}),
+      },
+      slots: { default: '<p>content</p>' },
+    });
+  }
+
+  const link = (path: string) =>
+    document.querySelector(`header a[data-path="${path}"]`) as HTMLAnchorElement;
+
+  it('hides a link that needs something until the app allows it, and only that one', async () => {
+    const shell = mount(await renderGated(true));
+
+    expect(link('/').hidden).toBe(false);
+    expect(link('/profile/').hidden).toBe(true);
+    expect(link('/repositories/').hidden).toBe(true);
+    shell.allow('signed-in');
+    expect(link('/profile/').hidden).toBe(false);
+    expect(link('/repositories/').hidden).toBe(true);
+    shell.allow('library-admin');
+    expect(link('/repositories/').hidden).toBe(false);
+  });
+
+  it('keeps a library link hidden when a gate opens, and shows it with a library', async () => {
+    const shell = mount(await renderGated(true));
+
+    shell.allow('signed-in');
+    shell.library('acme');
+    expect(link('/profile/').hidden).toBe(false);
+  });
+
+  it('shows the page at once when the app gives no welcome', async () => {
+    mount(await renderGated(false));
+
+    expect(document.querySelector('[data-welcome]')).toBeNull();
+    expect((document.querySelector('[data-page]') as HTMLElement).hidden).toBe(false);
+    expect(document.querySelector('[data-page]')?.textContent).toContain('content');
+  });
+
+  it('still hides the page behind the welcome when there is one', async () => {
+    mount(await renderGated(true));
+
+    expect((document.querySelector('[data-page]') as HTMLElement).hidden).toBe(true);
+  });
+});
+
+describe('a page state inside a page', () => {
+  it('uses an h2 when it stands inside a page that has its own heading', async () => {
+    const shell = mount(await render('web'));
+
+    shell.pageState({ art: 'device-connected', title: 'Connected', level: 2 });
+    expect(document.querySelector('.page-state h2')?.textContent).toBe('Connected');
+    expect(document.querySelector('.page-state h1')).toBeNull();
+  });
+});

@@ -73,7 +73,10 @@ test('a repository on the shelf shows its picture, asked for with the token', as
 
   await page.goto(`/repositories/?tenant=${library.slug}`);
 
-  const card = page.getByRole('listitem').filter({ hasText: `Armoury ${tag}` });
+  const card = page
+    .locator('[data-list-view]')
+    .getByRole('listitem')
+    .filter({ hasText: `Armoury ${tag}` });
 
   await expect(card.locator('[data-picture]')).toBeVisible();
   await expect(card.locator('[data-initial]')).toBeHidden();
@@ -101,7 +104,7 @@ test('a repository editor shows the picture and takes a new one, each fetched wi
   const { page, context } = await signedInPage(browser, owner.subject);
   const asked = watchPicture(page, repository.id);
 
-  await page.goto(`/studio/?repository=${repository.id}`);
+  await page.goto(`/repositories/?repository=${repository.id}`);
   await expect(page.getByRole('heading', { name: repository.name })).toBeVisible();
 
   const picture = page.locator('[data-picture-slot] [data-picture]');

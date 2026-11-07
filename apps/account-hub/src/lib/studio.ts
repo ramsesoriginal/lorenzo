@@ -4,15 +4,27 @@
 
 import type { TenantRole } from './types';
 
-// The address of Studio: the list, or one repository by its link name (slug) or id.
+// The address of a repository one works on (ADR 0428: Studio is part of /repositories now): the
+// list, or one repository by its link name (slug) or id. With no `tenant` in the address, the
+// page opens the workspace and not a library's shelf.
 export function studioHref(repository?: string): string {
-  if (!repository) return '/studio/';
+  if (!repository) return '/repositories/';
 
-  return `/studio/?${new URLSearchParams({ repository }).toString()}`;
+  return `/repositories/?${new URLSearchParams({ repository }).toString()}`;
 }
 
 // The address that opens the form for a new repository.
-export const STUDIO_NEW_HREF = '/studio/?new=1';
+export const STUDIO_NEW_HREF = '/repositories/?new=1';
+
+// Which half of /repositories an address asks for: the workspace of a repository one works on (a
+// repository, or the form for a new one, and no library), or the page of what libraries use.
+export function repositoriesMode(search: string): 'workspace' | 'shelf' {
+  const query = new URLSearchParams(search);
+
+  if (query.has('tenant')) return 'shelf';
+
+  return query.has('repository') || query.get('new') === '1' ? 'workspace' : 'shelf';
+}
 
 // What an address asks for: a repository, or the form that makes one. Either may be absent.
 export function readStudioLocation(search: string): {

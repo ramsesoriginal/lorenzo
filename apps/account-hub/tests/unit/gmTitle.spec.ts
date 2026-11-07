@@ -178,8 +178,6 @@ describe("a campaign's surface says no literal GM", () => {
   const surfaces = [
     'components/GmManagement/GmManagement.astro',
     'components/GmManagement/renderer.ts',
-    'components/RunCampaign/RunCampaign.astro',
-    'components/RunCampaign/renderer.ts',
     'components/InviteLinks/InviteLinks.astro',
     'components/InviteLinks/renderer.ts',
     'components/CampaignRoster/CampaignRoster.astro',
@@ -190,7 +188,6 @@ describe("a campaign's surface says no literal GM", () => {
     'components/DeleteAccount/DeleteAccount.astro',
     'components/DeleteAccount/renderer.ts',
     'components/Briefing/tables.ts',
-    'components/CampaignsPanel/renderer.ts',
     'lib/campaigns.ts',
   ];
 
@@ -224,7 +221,6 @@ describe('what has no one campaign still says GM', () => {
   it('a campaign that is not made yet, a stranger to every campaign and the empty page say GM', () => {
     expect(readSource('lib/setup.ts')).toContain('GM');
     expect(readSource('components/NewUser/NewUser.astro')).toMatch(LITERAL);
-    expect(readSource('components/BeingsPanel/BeingsPanel.astro')).toMatch(LITERAL);
     expect(readSource('components/Setup/Setup.astro')).toMatch(LITERAL);
   });
 });

@@ -19,16 +19,17 @@ export type BoundTabs = {
   // Goes back to the first tab, for a new set of panels.
   reset(): void;
   // Opens the tab at `index` (counting every tab, shown or not), as if it were pressed, and says
-  // whether it opened: not where its panel is empty, or where `canLeave` said no.
-  select(index: number): boolean;
+  // whether it opened: not where its panel is empty, or where `canLeave` said no. Where `canLeave`
+  // asks the person, the answer comes when they have answered.
+  select(index: number): boolean | Promise<boolean>;
   // Which tab is open.
   selected(): number;
 };
 
 export type TabsOptions = {
-  // Asked before the tab in use is left for another one pressed: false keeps it open. A tab chosen with
-  // `reset` is not asked.
-  canLeave?: (from: number, to: number) => boolean;
+  // Asked before the tab in use is left for another one pressed: false keeps it open. It may ask
+  // the person, in a dialog, and answer when they have. A tab chosen with `reset` is not asked.
+  canLeave?: (from: number, to: number) => boolean | Promise<boolean>;
 };
 
 function hasContent(panel: HTMLElement): boolean {
@@ -99,18 +100,33 @@ export function bindTabs(root: HTMLElement, options: TabsOptions = {}): BoundTab
     strip.hidden = available.filter(Boolean).length < 2;
   }
 
-  function mayLeaveFor(target: number): boolean {
-    return (
-      target === selected || options.canLeave === undefined || options.canLeave(selected, target)
-    );
+  function mayLeaveFor(target: number): boolean | Promise<boolean> {
+    if (target === selected || options.canLeave === undefined) return true;
+
+    return options.canLeave(selected, target);
+  }
+
+  // Goes to `target` where leaving is allowed: at once, or once the person has said so.
+  function leaveFor(target: number, go: () => void): void {
+    const allowed = mayLeaveFor(target);
+
+    if (typeof allowed === 'boolean') {
+      if (allowed) go();
+
+      return;
+    }
+
+    void allowed.then((yes) => {
+      if (yes) go();
+    });
   }
 
   tabs.forEach((tab, index) => {
     tab.addEventListener('click', () => {
-      if (!mayLeaveFor(index)) return;
-
-      wanted = index;
-      refresh();
+      leaveFor(index, () => {
+        wanted = index;
+        refresh();
+      });
     });
     tab.addEventListener('keydown', (event) => {
       // Only among the tabs that are there.
@@ -131,11 +147,11 @@ export function bindTabs(root: HTMLElement, options: TabsOptions = {}): BoundTab
 
       event.preventDefault();
 
-      if (!mayLeaveFor(target)) return;
-
-      wanted = target;
-      refresh();
-      tabs[target]?.focus();
+      leaveFor(target, () => {
+        wanted = target;
+        refresh();
+        tabs[target]?.focus();
+      });
     });
   });
 
@@ -148,12 +164,19 @@ export function bindTabs(root: HTMLElement, options: TabsOptions = {}): BoundTab
       refresh();
     },
     select(index) {
-      if (!open()[index] || !mayLeaveFor(index)) return false;
+      if (!open()[index]) return false;
 
-      wanted = index;
-      refresh();
+      const go = (): boolean => {
+        wanted = index;
+        refresh();
 
-      return true;
+        return true;
+      };
+      const allowed = mayLeaveFor(index);
+
+      if (typeof allowed === 'boolean') return allowed ? go() : false;
+
+      return allowed.then((yes) => (yes ? go() : false));
     },
     selected: () => selected,
   };

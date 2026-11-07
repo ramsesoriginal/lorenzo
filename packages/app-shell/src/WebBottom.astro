@@ -52,7 +52,9 @@ const { tabs, rest } = splitTabs(nav, 3);
         href={item.href}
         data-path={item.href}
         data-needs-library={item.needsLibrary ? '' : undefined}
-        hidden={item.needsLibrary}
+
+        data-requires={item.requires}
+        hidden={item.needsLibrary || Boolean(item.requires)}
       >
         {item.icon && (
           <svg class="icon" aria-hidden="true">
@@ -84,7 +86,9 @@ const { tabs, rest } = splitTabs(nav, 3);
               href={item.href}
               data-path={item.href}
               data-needs-library={item.needsLibrary ? '' : undefined}
-              hidden={item.needsLibrary}
+
+              data-requires={item.requires}
+              hidden={item.needsLibrary || Boolean(item.requires)}
             >
               {item.label}
             </a>

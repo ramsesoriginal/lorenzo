@@ -9,6 +9,9 @@ import Repository from '../Repository/Repository.astro';
 
 <div class="with-sidebar full-width" data-studio-panel hidden>
   <nav class="sidebar" aria-label="My repositories">
+    <p>
+      <a href="/repositories/">All repositories</a>
+    </p>
     <ul class="tree" data-list></ul>
     <p class="caption" data-create-unavailable hidden></p>
   </nav>
@@ -22,9 +25,7 @@ import Repository from '../Repository/Repository.astro';
 
     <div data-create hidden></div>
 
-    <p data-empty hidden>
-      You do not work on a repository yet. The Owner of a repository can add you to it.
-    </p>
+    <div data-empty hidden></div>
   </div>
 
   <template data-item-template>

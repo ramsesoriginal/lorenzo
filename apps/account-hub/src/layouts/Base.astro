@@ -1,28 +1,55 @@
 ---
-import SiteHead from '../components/SiteHead/SiteHead.astro';
-import SiteHeader from '../components/SiteHeader/SiteHeader.astro';
-import SiteFooter from '../components/SiteFooter/SiteFooter.astro';
+import AppPage from '@lorenzo/app-shell/AppPage.astro';
+import type { PageTemplate } from '@lorenzo/app-shell';
+import { BRANDING_CSS_URL, THEME_KEY } from '../lib/config';
+import '../styles/global.css';
 
 interface Props {
   title?: string;
+  // The page's template (ADR 0412), which sets the width of its container.
+  template?: PageTemplate;
 }
 
-const { title = 'Lorenzo - Account' } = Astro.props;
+const { title = 'Lorenzo - Account', template } = Astro.props;
 ---
 
-<!doctype html>
-<html lang="en">
-  <SiteHead title={title}>
-    <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->
-    <slot name="head" slot="head" />
-  </SiteHead>
-  <body>
-    <SiteHeader />
-    <main>
-      <div class="wrap">
-        <slot />
-      </div>
-    </main>
-    <SiteFooter />
-  </body>
-</html>
+<AppPage
+  title={title}
+  product="Account"
+  brandingUrl={BRANDING_CSS_URL}
+  themeKey={THEME_KEY}
+  shell="web"
+  template={template}
+  path="apps/account-hub"
+  nav={[
+    { label: 'Home', href: '/', icon: 'library' },
+    { label: 'Profile', href: '/profile/', requires: 'signed-in', icon: 'account' },
+    { label: 'Access tokens', href: '/tokens/', requires: 'signed-in' },
+    { label: 'Libraries', href: '/tenants/', requires: 'signed-in', icon: 'library' },
+    { label: 'Repositories', href: '/repositories/', requires: 'repositories' },
+    { label: 'Discover', href: '/discover/', requires: 'discover' },
+    { label: 'Set up a library', href: '/setup/', requires: 'create-tenant' },
+    {
+      label: 'Notifications',
+      href: '/notifications/',
+      requires: 'signed-in',
+      icon: 'notifications',
+    },
+  ]}
+>
+  <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->
+  <slot name="head" slot="head" />
+  <slot />
+</AppPage>
+
+<script>
+  import { bindLegalLinksFromApi } from '@lorenzo/app-shell/legal';
+  import { API_BASE_URL } from '../lib/config';
+  import { startShell } from '../lib/shell';
+
+  // The legal notice, the privacy policy and the support link in the shell's footer, when the
+  // deployment has them (ADR 0439).
+  void bindLegalLinksFromApi(API_BASE_URL);
+
+  await startShell();
+</script>

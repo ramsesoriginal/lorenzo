@@ -1,56 +1,80 @@
-<div class="new-user stack" data-new-user hidden>
-  <div class="row">
-    <div class="stack grow">
-      <h1 class="display">Welcome to Lorenzo</h1>
+---
+// What someone who belongs nowhere yet is offered (ADR 0416, D27): two doors, "I run a game" (set up a
+// library) and "I'm joining a game" (paste an invite link), with the mascot beside them. Rendered by
+// renderNewUser.
+import { BRANDING_CSS_URL } from '../../lib/config';
+---
 
-      <p class="lede stack">
-        You're not part of a library yet. A library is where a group keeps its campaigns and
-        characters.
-        <span data-can-create hidden>
-          Start a table of your own, or join one you've been invited to.
-        </span>
-        <span data-cannot-create>Ask your GM for an invite link to join theirs.</span>
-      </p>
-    </div>
-    <!-- Lazy, so someone with a table already (this block stays hidden) never downloads it. -->
+<div class="first-run" data-new-user hidden>
+  <!-- The mascot: the illustrators' image when it is there, the earlier one until then, and a quiet
+       placeholder with the words if neither loads. Lazy, so someone with a library already (this
+       block stays hidden) never downloads it. -->
+  <div class="page-state-art" data-art>
     <img
-      src="/brand/mascot_getting_started_web.png"
-      alt="Lorenzo holding out a welcoming hand, an open book with blank pages in the other"
+      alt="Lorenzo holding out a welcoming hand, an open atlas in the other"
       loading="lazy"
-      width="320"
+      width="300"
+      height="300"
+      data-art-image
+      data-art-src={`${BRANDING_CSS_URL}/mascots/ui_first-run-welcome.png`}
+      data-art-fallback="/brand/mascot_getting_started_web.png"
     />
   </div>
 
-  <div class="grid" style="--grid-min: 280px">
-    <section class="card card-body stack-tight" data-start-card hidden>
-      <h2>Start a table</h2>
-      <p>Make a library, a campaign in it, and the links for your players, in one go.</p>
-      <div>
-        <a class="btn btn-primary" href="/setup/">
-          Set up a table
-        </a>
-      </div>
-    </section>
+  <div class="stack">
+    <h1 class="display">Welcome to Lorenzo</h1>
+    <p class="lede">
+      Lorenzo keeps track of the worlds your games and stories happen in: where things are, who
+      knows what, and the notes that belong to each. How would you like to start?
+    </p>
 
-    <section class="card card-body stack-tight">
-      <h2>Join a table</h2>
-      <p>Paste the invite link you were sent, or just the code at the end of it.</p>
-      <form class="stack-tight" data-invite-form>
-        <label class="field">
-          <span class="field-label">Invite link or code</span>
-          <input
-            type="text"
-            class="text-input"
-            autocomplete="off"
-            spellcheck="false"
-            data-invite-input
-          />
-        </label>
+    <div class="doors">
+      <section class="card card-body stack-tight" aria-labelledby="door-run" data-start-card hidden>
+        <h2 id="door-run">I run a game</h2>
+        <p>
+          Set up a library for your group, a campaign and a link for your players. One short form.
+        </p>
         <div>
-          <button type="submit">Open invite</button>
+          <a class="btn btn-primary" href="/setup/">
+            Set up a library
+          </a>
         </div>
-        <p class="status-text error-text" role="alert" data-invite-error hidden></p>
-      </form>
-    </section>
+      </section>
+
+      <section class="card card-body stack-tight" aria-labelledby="door-join">
+        <h2 id="door-join">I’m joining a game</h2>
+        <p data-cannot-create>
+          Someone sent you an invite link. Open it, or paste it here. A GM can send you one.
+        </p>
+        <p data-can-create hidden>
+          Someone sent you an invite link. Open it, or paste it here.
+        </p>
+        <form class="stack-tight" data-invite-form>
+          <div class="row">
+            <label class="visually-hidden" for="first-run-link">
+              Invite link or code
+            </label>
+            <input
+              id="first-run-link"
+              type="text"
+              class="text-input grow"
+              placeholder="Paste the invite link"
+              autocomplete="off"
+              spellcheck="false"
+              data-invite-input
+            />
+            <button type="submit" class="btn btn-secondary">
+              Join
+            </button>
+          </div>
+          <p class="status-text error-text" role="alert" data-invite-error hidden></p>
+        </form>
+      </section>
+    </div>
+
+    <!-- Only where public repositories are on. -->
+    <p data-browse hidden>
+      Just looking around? <a href="/discover/">Browse public repositories</a>
+    </p>
   </div>
 </div>

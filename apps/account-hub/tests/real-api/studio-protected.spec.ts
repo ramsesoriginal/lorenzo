@@ -73,7 +73,7 @@ test('an Owner makes a repository protected, a repository built on it goes publi
 
   // Making it protected: the dialog says what it does, asks for no summary and no terms line, and
   // makes a release with the flip.
-  await page.goto(`/studio/?repository=${a.slug}`);
+  await page.goto(`/repositories/?repository=${a.slug}`);
   await expect(card(page).locator('[data-visibility-state]')).toHaveText('Private');
   await expect(card(page).getByRole('button', { name: 'Make protected…' })).toBeVisible();
   await card(page).getByRole('button', { name: 'Make protected…' }).click();
@@ -105,7 +105,7 @@ test('an Owner makes a repository protected, a repository built on it goes publi
     }),
   );
 
-  await page.goto(`/studio/?repository=${b.slug}`);
+  await page.goto(`/repositories/?repository=${b.slug}`);
   await card(page).getByRole('button', { name: 'Make public…' }).click();
   await expect(dialog(page)).toBeVisible();
   await expect(dialog(page).locator('[data-vis-blockers]')).toBeHidden();
@@ -162,11 +162,16 @@ test('an Owner makes a repository protected, a repository built on it goes publi
   // library's other repository is as ever.
   await guest.page.goto(`/repositories/?tenant=${library.slug}`);
 
-  const held = guest.page.getByRole('listitem').filter({ hasText: 'A protected repository' });
+  const held = guest.page
+    .locator('[data-list-view]')
+    .getByRole('listitem')
+    .filter({ hasText: 'A protected repository' });
 
   await expect(held).toBeVisible();
   await expect(held).toContainText('Protected');
-  await expect(guest.page.getByRole('listitem').filter({ hasText: b.name })).toBeVisible();
+  await expect(
+    guest.page.locator('[data-list-view]').getByRole('listitem').filter({ hasText: b.name }),
+  ).toBeVisible();
   expect(await held.innerText()).not.toContain(a.name);
   await held.getByRole('link', { name: 'A protected repository' }).click();
   await expect(guest.page.locator('[data-protected-note]')).toContainText(
@@ -194,7 +199,7 @@ test('an Owner of a protected repository says stay hidden, and a repository buil
   const ownerPage = await signedInPage(browser, owner.subject);
 
   // The terms card: Open to begin with, and the switches under the presets.
-  await ownerPage.page.goto(`/studio/?repository=${a.slug}`);
+  await ownerPage.page.goto(`/repositories/?repository=${a.slug}`);
   await ownerPage.page.getByRole('tab', { name: 'Profile' }).click();
 
   const terms = ownerPage.page.locator('[data-terms-card]');
@@ -231,7 +236,7 @@ test('an Owner of a protected repository says stay hidden, and a repository buil
   // the choice it does not have; what is left is include.
   const otherPage = await signedInPage(browser, other.subject);
 
-  await otherPage.page.goto(`/studio/?repository=${c.slug}`);
+  await otherPage.page.goto(`/repositories/?repository=${c.slug}`);
   await otherPage.page.getByRole('tab', { name: 'Built on' }).click();
 
   const row = otherPage.page.locator('[data-built-on-list] > li').filter({ hasText: 'Armoury' });
@@ -278,7 +283,7 @@ test('a protected repository with a public repository built on it says what stan
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${a.slug}`);
+  await page.goto(`/repositories/?repository=${a.slug}`);
   await card(page).getByRole('button', { name: 'Make private…' }).click();
   await expect(dialog(page)).toBeVisible();
   await expect(dialog(page).locator('[data-vis-blockers]')).toContainText(
@@ -286,7 +291,7 @@ test('a protected repository with a public repository built on it says what stan
   );
   await expect(
     dialog(page).getByRole('link', { name: `Open ${b.name} to make it private` }),
-  ).toHaveAttribute('href', `/studio/?repository=${b.id}`);
+  ).toHaveAttribute('href', `/repositories/?repository=${b.id}`);
   await expect(dialog(page).getByRole('button', { name: 'Make private' })).toBeDisabled();
   expect(await dialog(page).innerText()).not.toMatch(WORDS_NEVER_ON_SCREEN);
   await context.close();
@@ -306,7 +311,7 @@ test('on a phone, the card, the dialog and the terms are one column and everythi
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
 
-  await page.goto(`/studio/?repository=${a.slug}`);
+  await page.goto(`/repositories/?repository=${a.slug}`);
   await expect(card(page).getByRole('button', { name: 'Make protected…' })).toBeVisible();
   expect(
     (await card(page).getByRole('button', { name: 'Make protected…' }).boundingBox())?.height ?? 0,
@@ -345,7 +350,7 @@ test('on a phone, the card, the dialog and the terms are one column and everythi
       body: { actions: [] },
     }),
   );
-  await page.goto(`/studio/?repository=${b.slug}`);
+  await page.goto(`/repositories/?repository=${b.slug}`);
   await card(page).getByRole('button', { name: 'Make public…' }).click();
   await expect(dialog(page)).toBeVisible();
   for (const label of ['Keep separate and visible', 'Include in this repository']) {

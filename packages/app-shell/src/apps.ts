@@ -46,7 +46,8 @@ export const JOBS: { label: string; apps: AppId[] }[] = [
 
 /** What `GET /app-links` answers that the shell reads: the apps and their addresses. */
 export type AppRegistry = {
-  apps: Record<string, { url?: string } | undefined>;
+  // An app may be null in the registry (an app the deployment does not run).
+  apps: Record<string, { url?: string } | null | undefined>;
   // The legal links and the support address, when the deployment has them (ADR 0439).
   links?: Record<string, string | undefined>;
   support_url?: string | null;

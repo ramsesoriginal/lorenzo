@@ -1,5 +1,6 @@
-// Stepping down as a campaign's GM (ADR 0170). Asks first with window.confirm.
+// Stepping down as a campaign's GM (ADR 0170). Asks first with a dialog (askFirst).
 
+import { askFirst } from '../../lib/askFirst';
 import { stepDownConfirmation } from '../../lib/exits';
 import { say, sayError } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
@@ -26,7 +27,14 @@ export function bindStepDownAsGm(
   button.textContent = `Step down as ${campaign.gm_title}`;
 
   button.addEventListener('click', async () => {
-    if (!window.confirm(stepDownConfirmation(campaign.name, campaign.gm_title))) return;
+    if (
+      !(await askFirst(stepDownConfirmation(campaign.name, campaign.gm_title), {
+        confirm: 'Step down',
+        cancel: 'Stay',
+      }))
+    ) {
+      return;
+    }
 
     button.disabled = true;
     say(status, 'Stepping down…');

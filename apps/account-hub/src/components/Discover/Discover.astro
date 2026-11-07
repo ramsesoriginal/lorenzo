@@ -17,7 +17,7 @@ import DiscoverCard from './DiscoverCard.astro';
   </section>
 
   <section class="stack" data-list-view hidden>
-    <form class="stack" role="search" data-search novalidate>
+    <form class="discover-search" role="search" data-search novalidate>
       <div class="field">
         <label class="field-label" for="discover-word">
           Search
@@ -78,7 +78,7 @@ import DiscoverCard from './DiscoverCard.astro';
       </a>
     </p>
 
-    <ul class="list" data-results></ul>
+    <ul class="discover-grid" data-results></ul>
 
     <nav class="row" aria-label="Pages" data-pager hidden>
       <a class="btn btn-secondary" href="/discover/" data-link data-previous>
@@ -109,94 +109,101 @@ import DiscoverCard from './DiscoverCard.astro';
 
     <ul class="discover-tags" aria-label="Tags" data-tags></ul>
 
-    <div class="stack-tight">
-      <p>
-        <button
-          type="button"
-          class="btn btn-primary"
-          aria-expanded="false"
-          aria-controls="discover-copy"
-          data-copy-open
-        >
-          Copy to a library&hellip;
-        </button>
-      </p>
-      <div class="card card-body stack" id="discover-copy" data-copy hidden>
-        <p class="error-text" role="alert" data-copy-error hidden></p>
-        <p data-copy-none hidden>
-          Repositories are copied into a library, and you are not an Owner or an Organizer of one.
-          <a href="/tenants/">Your libraries</a>
+    <div class="storefront-columns">
+      <div class="stack storefront-main">
+        <div class="ls-content" data-description hidden></div>
+
+        <section class="stack" data-licence-section>
+          <h3>Licence</h3>
+          <p data-licence></p>
+        </section>
+
+        <!-- What it carries of other repositories, named with their licences (RFC 0051 H1, ADR 0431). -->
+        <section class="stack" data-includes-section hidden>
+          <h3>Includes</h3>
+          <ul class="stack-tight" data-includes></ul>
+        </section>
+
+        <section class="stack" data-credits-section hidden>
+          <h3>Credits</h3>
+          <ul class="stack-tight" data-credits></ul>
+        </section>
+
+        <!-- Where a report about this repository goes: only where the deployment sets an address (ADR 0299). -->
+        <p data-report-line hidden>
+          <a class="shelf-link" data-report></a>
         </p>
-        <div class="stack" data-copy-choose hidden>
-          <label class="field">
-            <span class="field-label">Copy into</span>
-            <select class="text-input" data-copy-library></select>
-          </label>
-          <p class="caption">
-            You see what it brings, and what it would clash with, before anything is copied.
+
+        <p class="error-text" role="alert" data-part-error hidden></p>
+
+        <section class="stack" data-release-section hidden>
+          <h3>Latest release</h3>
+          <p data-release></p>
+          <p class="discover-notes" data-release-notes hidden></p>
+          <details class="stack shelf-section" data-others-section hidden>
+            <summary>
+              <svg class="icon tree-toggle" aria-hidden="true">
+                <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
+              </svg>
+              <span data-others-title></span>
+            </summary>
+            <ul class="stack" data-others></ul>
+          </details>
+        </section>
+
+        <section class="stack" data-built-on-section hidden>
+          <h3>Built on</h3>
+          <ul class="stack-tight" data-built-on></ul>
+          <p data-built-on-none hidden>
+            It is not built on other repositories.
           </p>
-          <p>
-            <a class="btn btn-primary" href="/repositories/" data-copy-go>
-              Continue
-            </a>
-          </p>
-        </div>
+          <p class="caption" data-built-on-note hidden></p>
+        </section>
+
+        <!-- What a visitor may look at before copying (RFC 0038 §5, ADR 0293). -->
+        <Preview />
       </div>
+      <aside class="stack storefront-side" aria-labelledby="discover-copy-heading">
+        <h3 id="discover-copy-heading">Copy it into a library</h3>
+        <div class="stack-tight">
+          <p>
+            <button
+              type="button"
+              class="btn btn-primary"
+              aria-expanded="false"
+              aria-controls="discover-copy"
+              data-copy-open
+            >
+              Copy to a library&hellip;
+            </button>
+          </p>
+          <div class="card card-body stack" id="discover-copy" data-copy hidden>
+            <p class="error-text" role="alert" data-copy-error hidden></p>
+            <p data-copy-none hidden>
+              Repositories are copied into a library, and you are not an Owner or an Organizer of
+              one.
+              <a href="/tenants/">Your libraries</a>
+            </p>
+            <div class="stack" data-copy-choose hidden>
+              <label class="field">
+                <span class="field-label">Copy into</span>
+                <select class="text-input" data-copy-library></select>
+              </label>
+              <p class="caption">
+                You see what it brings, and what it would clash with, before anything is copied.
+              </p>
+              <p>
+                <a class="btn btn-primary" href="/repositories/" data-copy-go>
+                  Continue
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <dl class="key-values" data-facts></dl>
+      </aside>
     </div>
-
-    <dl class="key-values" data-facts></dl>
-
-    <div class="ls-content" data-description hidden></div>
-
-    <section class="stack" data-licence-section>
-      <h3>Licence</h3>
-      <p data-licence></p>
-    </section>
-
-    <!-- What it carries of other repositories, named with their licences (RFC 0051 H1, ADR 0431). -->
-    <section class="stack" data-includes-section hidden>
-      <h3>Includes</h3>
-      <ul class="stack-tight" data-includes></ul>
-    </section>
-
-    <section class="stack" data-credits-section hidden>
-      <h3>Credits</h3>
-      <ul class="stack-tight" data-credits></ul>
-    </section>
-
-    <!-- Where a report about this repository goes: only where the deployment sets an address (ADR 0299). -->
-    <p data-report-line hidden>
-      <a class="shelf-link" data-report></a>
-    </p>
-
-    <p class="error-text" role="alert" data-part-error hidden></p>
-
-    <section class="stack" data-release-section hidden>
-      <h3>Latest release</h3>
-      <p data-release></p>
-      <p class="discover-notes" data-release-notes hidden></p>
-      <details class="stack shelf-section" data-others-section hidden>
-        <summary>
-          <svg class="icon tree-toggle" aria-hidden="true">
-            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-expand`}></use>
-          </svg>
-          <span data-others-title></span>
-        </summary>
-        <ul class="stack" data-others></ul>
-      </details>
-    </section>
-
-    <section class="stack" data-built-on-section hidden>
-      <h3>Built on</h3>
-      <ul class="stack-tight" data-built-on></ul>
-      <p data-built-on-none hidden>
-        It is not built on other repositories.
-      </p>
-      <p class="caption" data-built-on-note hidden></p>
-    </section>
-
-    <!-- What a visitor may look at before copying (RFC 0038 §5, ADR 0293). -->
-    <Preview />
   </article>
 
   <p data-not-listed hidden></p>

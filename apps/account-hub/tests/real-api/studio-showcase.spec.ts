@@ -12,7 +12,7 @@ const featured = (page: Page) => card(page).locator('[data-featured-list] > li')
 const names = (page: Page) => featured(page).locator('[data-name]');
 
 async function overview(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 }
 

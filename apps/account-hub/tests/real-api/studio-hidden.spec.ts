@@ -70,7 +70,7 @@ test('an Owner keeps a protected repository separate and hidden, and a library t
   const { page, context } = await signedInPage(browser, owner.subject);
 
   // The Built on tab offers the third choice, with what it does.
-  await page.goto(`/studio/?repository=${b.slug}`);
+  await page.goto(`/repositories/?repository=${b.slug}`);
   await page.getByRole('tab', { name: 'Built on' }).click();
 
   const row = page.locator('[data-built-on-list] > li').filter({ hasText: a.name });
@@ -143,7 +143,7 @@ test('an Owner of a protected repository says it may not be hidden, and a reposi
   const { owner, a } = await world('nohide');
   const ownerPage = await signedInPage(browser, owner.subject);
 
-  await ownerPage.page.goto(`/studio/?repository=${a.slug}`);
+  await ownerPage.page.goto(`/repositories/?repository=${a.slug}`);
   await ownerPage.page.getByRole('tab', { name: 'Profile' }).click();
 
   const terms = ownerPage.page.locator('[data-terms-card]');
@@ -166,7 +166,7 @@ test('an Owner of a protected repository says it may not be hidden, and a reposi
 
   const otherPage = await signedInPage(browser, other.subject);
 
-  await otherPage.page.goto(`/studio/?repository=${c.slug}`);
+  await otherPage.page.goto(`/repositories/?repository=${c.slug}`);
   await otherPage.page.getByRole('tab', { name: 'Built on' }).click();
 
   const row = otherPage.page.locator('[data-built-on-list] > li').filter({ hasText: a.name });
@@ -189,7 +189,7 @@ test('on a phone, the three choices and the three switches are one column and ea
     viewport: { width: 375, height: 812 },
   });
 
-  await page.goto(`/studio/?repository=${b.slug}`);
+  await page.goto(`/repositories/?repository=${b.slug}`);
   await page.getByRole('tab', { name: 'Built on' }).click();
 
   const row = page.locator('[data-built-on-list] > li').filter({ hasText: a.name });
@@ -209,7 +209,7 @@ test('on a phone, the three choices and the three switches are one column and ea
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
 
-  await page.goto(`/studio/?repository=${a.slug}`);
+  await page.goto(`/repositories/?repository=${a.slug}`);
   await page.getByRole('tab', { name: 'Profile' }).click();
 
   const terms = page.locator('[data-terms-card]');

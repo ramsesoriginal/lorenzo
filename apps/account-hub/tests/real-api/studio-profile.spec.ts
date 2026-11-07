@@ -26,7 +26,7 @@ const problem = (page: Page, key: string) =>
 const creditRow = (page: Page, index: number) => page.locator('[data-credit]').nth(index);
 
 async function openProfile(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await page.getByRole('tab', { name: 'Profile' }).click();
   await expect(profilePanel(page)).toBeVisible();
@@ -575,9 +575,9 @@ test('a repository with no cover says what Discover shows, takes one after a loo
   expect(confirmations).toEqual([]);
   await cover(page).getByRole('button', { name: 'Remove the cover' }).click();
   await expect(cover(page).locator('[data-cover-status]')).toHaveText('The cover was removed.');
-  expect(confirmations).toEqual([
-    'Remove the cover? Discover will show the first letter of the repository’s name instead.',
-  ]);
+  expect(confirmations).toHaveLength(1);
+  expect(confirmations[0]).toContain('Remove the cover?');
+  expect(confirmations[0]).toContain('Discover will show the first letter');
   await expect(cover(page)).toContainText('No cover yet.');
   await expect(cover(page).locator('[data-cover-picture]')).toBeHidden();
   expect((await profileOf(owner.api, repository.id)).has_cover).toBe(false);
@@ -592,7 +592,7 @@ test('a refused cover keeps the picture to choose another, and a cancelled remov
 
   await setCover(owner.api, repository.id, BLUE);
 
-  const { page, context } = await signedInPage(browser, owner.subject);
+  const { page, context, answer } = await signedInPage(browser, owner.subject);
 
   await openProfile(page, repository.slug);
   await expect(cover(page).locator('[data-cover-picture]')).toBeVisible();
@@ -628,8 +628,7 @@ test('a refused cover keeps the picture to choose another, and a cancelled remov
 
   // A removal said no to keeps it.
   await cover(page).getByRole('button', { name: 'Cancel' }).click();
-  page.removeAllListeners('dialog');
-  page.once('dialog', (dialog) => void dialog.dismiss());
+  answer.yes = false;
   await cover(page).getByRole('button', { name: 'Remove the cover' }).click();
   await expect(cover(page).locator('[data-cover-picture]')).toBeVisible();
   expect((await profileOf(owner.api, repository.id)).has_cover).toBe(true);
@@ -718,7 +717,7 @@ test('before it can be public: what is missing, each a link that jumps to the fi
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 
   const list = page.locator('[data-readiness]');
@@ -782,7 +781,7 @@ test('before it can be public: what is missing, each a link that jumps to the fi
   await page.getByRole('tab', { name: 'Overview' }).click();
   await expect(
     list.getByRole('link', { name: `Open ${core.name} to make it public or protected` }),
-  ).toHaveAttribute('href', `/studio/?repository=${core.id}`);
+  ).toHaveAttribute('href', `/repositories/?repository=${core.id}`);
 
   // The flip's own rules stand: the dialog still lists what stands in the way.
   await page.locator('[data-visibility]').getByRole('button', { name: 'Make public…' }).click();
@@ -805,7 +804,7 @@ test('a repository with everything ready says so, and a public one has no list',
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
 
   const list = page.locator('[data-readiness]');
 
@@ -866,29 +865,23 @@ test('leaving the Profile tab with something unsaved asks first, and a saved one
   browser,
 }) => {
   const { owner, repository } = await world();
-  const { page, context, confirmations } = await signedInPage(browser, owner.subject);
+  const { page, context, confirmations, answer } = await signedInPage(browser, owner.subject);
 
   await openProfile(page, repository.slug);
 
   // Said no to: it stays, with what was typed.
   await summary(page).fill('Not saved yet.');
-  page.removeAllListeners('dialog');
-  page.once('dialog', (dialog) => {
-    confirmations.push(dialog.message());
-    void dialog.dismiss();
-  });
+  answer.yes = false;
   await page.getByRole('tab', { name: 'Overview' }).click();
-  expect(confirmations).toEqual([
+  await expect.poll(() => confirmations).toHaveLength(1);
+  expect(confirmations[0]).toContain(
     'You have unsaved changes to the profile. Leave without saving them?',
-  ]);
+  );
   await expect(page.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true');
   await expect(summary(page)).toHaveValue('Not saved yet.');
 
   // Said yes to: it leaves, and what was typed comes back when the tab is opened again.
-  page.once('dialog', (dialog) => {
-    confirmations.push(dialog.message());
-    void dialog.accept();
-  });
+  answer.yes = true;
   await page.getByRole('tab', { name: 'Overview' }).click();
   await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
     'aria-selected',
@@ -912,12 +905,9 @@ test('leaving the Profile tab with something unsaved asks first, and a saved one
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await page.getByRole('tab', { name: 'Profile' }).click();
   await summary(page).fill('Changed again.');
-  page.once('dialog', (dialog) => {
-    confirmations.push(dialog.message());
-    void dialog.dismiss();
-  });
+  answer.yes = false;
   await page.locator('[data-list]').getByRole('link', { name: second.name }).click();
-  expect(confirmations).toHaveLength(3);
+  await expect.poll(() => confirmations).toHaveLength(3);
   await expect(page.locator('h2[data-name]')).toHaveText(repository.name);
   await context.close();
 });

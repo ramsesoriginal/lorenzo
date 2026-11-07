@@ -1,0 +1,61 @@
+---
+import PersonalTokens from '../components/PersonalTokens/PersonalTokens.astro';
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Access tokens — Lorenzo" template="form">
+  <div class="page-heading">
+    <h1>Access tokens</h1>
+    <p class="page-sub">
+      How a program such as the <code>lorenzo</code> command line acts for you.
+    </p>
+  </div>
+
+  <p id="loading">Loading&hellip;</p>
+  <p id="load-error" class="error-text" hidden></p>
+
+  <PersonalTokens />
+
+  <section class="form-section" aria-labelledby="sec-connect">
+    <div class="form-section-text">
+      <h2 id="sec-connect">Connect a device</h2>
+      <p>
+        The device shows a code like <code>ABCD-EFGH</code>. Only enter a code you started yourself.
+      </p>
+    </div>
+    <div class="form-section-fields">
+      <form action="/device/" method="get" class="stack">
+        <div class="field">
+          <label for="device-code" class="field-label">
+            Code from your device
+          </label>
+          <input
+            id="device-code"
+            name="code"
+            type="text"
+            class="text-input"
+            autocomplete="off"
+            required
+          />
+        </div>
+        <div>
+          <button type="submit" class="btn btn-primary">
+            Continue
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    import { renderPersonalTokens } from '../components/PersonalTokens/renderer';
+    import { runPage } from '../lib/pageLoad';
+    import { requiredIn } from '../lib/template';
+
+    const tokens = requiredIn('Access tokens')<HTMLElement>(document, '[data-personal-tokens]');
+
+    await runPage(async () => {
+      renderPersonalTokens(tokens);
+    });
+  </script>
+</Base>

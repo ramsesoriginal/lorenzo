@@ -3,11 +3,16 @@ import DeviceConnect from '../components/DeviceConnect/DeviceConnect.astro';
 import Base from '../layouts/Base.astro';
 ---
 
-<Base title="Connect a device — Lorenzo">
+<Base title="Connect a device — Lorenzo" template="reading">
   <!-- The address carries a one-time code for a few minutes (ADR 0269); never send it on. -->
   <meta slot="head" name="referrer" content="no-referrer" />
 
-  <h1 class="display">Connect a device</h1>
+  <div class="page-heading">
+    <h1>Connect a device</h1>
+    <p class="page-sub">
+      Give a program such as the <code>lorenzo</code> command line access to your account.
+    </p>
+  </div>
 
   <p id="loading">Loading&hellip;</p>
   <p id="load-error" class="error-text" hidden></p>
@@ -15,7 +20,7 @@ import Base from '../layouts/Base.astro';
   <DeviceConnect />
 
   <p>
-    <a href="/profile/#personal-access-tokens">Your personal access tokens</a>
+    <a href="/tokens/">Your access tokens</a>
   </p>
 
   <script>
@@ -25,6 +30,9 @@ import Base from '../layouts/Base.astro';
 
     const connect = requiredIn('Device')<HTMLElement>(document, '[data-device-connect]');
 
-    await runPage(() => renderDeviceConnect(connect, window.location.search));
+    // The page is open to someone who has not logged in: it says so, and keeps the code.
+    await runPage(() => renderDeviceConnect(connect, window.location.search), {
+      needsLogin: false,
+    });
   </script>
 </Base>

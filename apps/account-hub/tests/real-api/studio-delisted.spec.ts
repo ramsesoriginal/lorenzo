@@ -21,7 +21,7 @@ const notice = (page: Page) => page.locator('[data-delisted]');
 const card = (page: Page) => page.locator('[data-visibility]');
 
 async function overview(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 }
 

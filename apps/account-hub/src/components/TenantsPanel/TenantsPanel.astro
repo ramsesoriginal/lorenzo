@@ -32,15 +32,29 @@ import Tenant from '../Tenant/Tenant.astro';
     <!-- What happened to the library that was just deleted (ADR 0267). -->
     <p class="status-text" role="status" data-notice hidden></p>
 
+    <!-- With two libraries or more and none open: a card for each (ADR 0417, AH7). -->
+    <div class="home-grid" data-index hidden></div>
+
+    <!-- Inside one: the way back to all of them. -->
+    <nav class="breadcrumb caption" aria-label="Breadcrumb" data-breadcrumb hidden>
+      <a href="/tenants/" data-all>
+        Libraries
+      </a>
+      <span aria-hidden="true"> / </span>
+      <span data-crumb></span>
+    </nav>
+
     <Tenant />
 
     <div data-create hidden></div>
+
+    <div data-unavailable hidden></div>
 
     <div class="stack-tight" data-empty hidden>
       <p>You don't belong to any library yet.</p>
       <div data-setup hidden>
         <a class="btn btn-primary" href="/setup/">
-          Set up a table
+          Set up a library
         </a>
       </div>
     </div>
@@ -50,6 +64,19 @@ import Tenant from '../Tenant/Tenant.astro';
     <li>
       <a data-link></a>
     </li>
+  </template>
+
+  <template data-card-template>
+    <article class="home-block" data-card>
+      <div class="row">
+        <h2 class="grow">
+          <a data-link></a>
+        </h2>
+        <span class="badge" data-role></span>
+      </div>
+      <div class="notification-body" data-description></div>
+      <p class="caption" data-counts></p>
+    </article>
   </template>
 
   <template data-create-template>

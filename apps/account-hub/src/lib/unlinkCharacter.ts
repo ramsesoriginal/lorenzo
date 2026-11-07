@@ -7,6 +7,7 @@
 // seat, where they stop using a character of another campaign.
 
 import { ownerLinkRefusal, unlinkCharacterConfirmation } from './adminCopy';
+import { askFirst } from './askFirst';
 import { getCharacter, unlinkCharacterFromPlayer } from './characters';
 import { say, sayError } from './statusLine';
 
@@ -36,9 +37,10 @@ export function bindUnlinkCharacter(
 
   button.addEventListener('click', async () => {
     if (
-      !window.confirm(
+      !(await askFirst(
         unlinkCharacterConfirmation(target.characterName, target.campaignName, target.playerName),
-      )
+        { confirm: 'Stop using it' },
+      ))
     ) {
       return;
     }
