@@ -40,6 +40,8 @@ test('a GM with only a campaign grant sees each person at the table by name, and
   await expect(card.locator('[data-campaign-meta]')).toContainText('GM');
   await expect(card).toContainText('Pia Player');
   await expect(card).toContainText('Cael');
+  // Your own row says so.
+  await expect(card).toContainText('Gwen GM (you)');
   // Running a campaign is not playing in it.
   await expect(card.locator('[data-seat]')).toHaveCount(0);
   await context.close();
@@ -90,6 +92,29 @@ test('the seat actions are create, rename and leave', async ({ browser }) => {
   await seat.getByRole('button', { name: 'Leave this campaign' }).click();
   expect(confirmations[0]).toContain('Leave "Hood"?');
   await expect.poll(async () => (await ok(player.api.GET('/me'))).players.length).toBe(0);
+  await context.close();
+});
+
+test('a library administrator who opted out of a campaign still sees it, runs it as Admin, and is told its people are not theirs to see', async ({
+  browser,
+}) => {
+  const owner = await newUser('owner', ['tenant_creator']);
+  const library = await newLibrary(owner.api);
+  const campaign = await newCampaign(owner.api, library.id, 'Secret Table');
+  await newCampaign(owner.api, library.id, 'Open Table');
+  await ok(
+    owner.api.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/admin-opt-out', {
+      params: { path: { tenant_id: library.id, campaign_id: campaign.id } },
+    }),
+  );
+
+  // The library opens, with the other campaign as usual, and this one says why it shows no people.
+  const { page, context } = await signedInPage(browser, owner.subject);
+  const cards = await openLibrary(page, library);
+  const secret = campaignCard(cards, 'Secret Table');
+  await expect(secret.locator('[data-campaign-meta]')).toContainText('Admin');
+  await expect(secret).toContainText("This campaign's people aren't shown to you.");
+  await expect(campaignCard(cards, 'Open Table')).toBeVisible();
   await context.close();
 });
 

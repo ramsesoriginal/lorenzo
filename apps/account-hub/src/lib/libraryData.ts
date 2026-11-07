@@ -29,7 +29,20 @@ export type LibraryReads = {
   roster: RosterEntry[] | null;
   gmsByCampaign: Map<string, string[]>;
   playersByCampaign: Map<string, PlayerSummaryOut[]>;
+  // Campaigns whose people the caller may not read: an administrator who opted out of playing in one
+  // still lists it (the administrative axis), but its people are not theirs to see.
+  peopleHidden: Set<string>;
 };
+
+// A read the API refuses with "no such campaign" (an administrator's opt-out): null, not a failure.
+async function orHidden<T>(read: Promise<T>): Promise<T | null> {
+  try {
+    return await read;
+  } catch (cause) {
+    if (cause instanceof ApiError && cause.status === 404) return null;
+    throw cause;
+  }
+}
 
 export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<LibraryReads> {
   const admin = isTenantAdmin(tenant);
@@ -59,8 +72,8 @@ export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<
 
   // Everything that needs the campaigns, at once: one round after the first, not three.
   const [gmLists, playerPages, details] = await Promise.all([
-    admin ? Promise.all(campaigns.map((c) => listCampaignGms(tenant.id, c.id))) : [],
-    Promise.all(managed.map((c) => listCampaignPlayers(tenant.id, c.id))),
+    admin ? Promise.all(campaigns.map((c) => orHidden(listCampaignGms(tenant.id, c.id)))) : [],
+    Promise.all(managed.map((c) => orHidden(listCampaignPlayers(tenant.id, c.id)))),
     // The list has no descriptions; each campaign's own read does.
     Promise.all(
       readable.map(async (c) => {
@@ -84,5 +97,6 @@ export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<
       campaigns.map((c, i) => [c.id, (gmLists[i] ?? []).map((g) => g.user_id)]),
     ),
     playersByCampaign: new Map(managed.map((c, i) => [c.id, playerPages[i]?.items ?? []])),
+    peopleHidden: new Set(managed.filter((_, i) => playerPages[i] === null).map((c) => c.id)),
   };
 }

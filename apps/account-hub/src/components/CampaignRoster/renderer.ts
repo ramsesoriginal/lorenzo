@@ -136,6 +136,7 @@ export function renderCampaignRoster(
   campaign: CampaignSummaryOut,
   roster: RosterEntry[],
   management?: RosterManagement,
+  meId?: string,
 ): void {
   const empty = required<HTMLElement>(root, '[data-empty]');
   const list = required<HTMLElement>(root, '[data-list]');
@@ -150,7 +151,8 @@ export function renderCampaignRoster(
     ...entries.map((entry) => {
       const row = fromTemplate(root, '[data-entry-template]');
 
-      required<HTMLElement>(row, '[data-name]').textContent = displayNameFor(entry);
+      required<HTMLElement>(row, '[data-name]').textContent =
+        entry.user_id === meId ? `${displayNameFor(entry)} (you)` : displayNameFor(entry);
       // A GM's badge says what this campaign calls its game master (ADR 0294).
       required<HTMLElement>(row, '[data-role]').textContent =
         entry.kind === 'gm' ? campaign.gm_title : entry.kind;

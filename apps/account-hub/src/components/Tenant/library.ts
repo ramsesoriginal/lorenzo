@@ -116,8 +116,12 @@ function renderCampaign(
     required<HTMLElement>(item, '[data-campaign-description]'),
     data.descriptions.get(campaign.id) ?? '',
   );
+  const admin = isTenantAdmin(tenant);
+  // An administrator who is neither its GM nor a player in it runs it as an administrator.
+  const roleWord = admin && role === 'visible' ? 'Admin' : roleLabel(role, campaign);
+
   required<HTMLElement>(item, '[data-campaign-meta]').textContent =
-    `${campaign.game_system} · ${roleLabel(role, campaign)}${campaign.secret ? ' · secret' : ''}`;
+    `${campaign.game_system} · ${roleWord}${campaign.secret ? ' · secret' : ''}`;
 
   // Your own seat in it, if you hold one: your characters there, and leaving.
   const seat = me.players.find((p) => p.tenant_id === tenant.id && p.campaign_id === campaign.id);
@@ -137,7 +141,6 @@ function renderCampaign(
     fillSlot(item, '[data-campaign-seat-slot]', seatElement);
   }
 
-  const admin = isTenantAdmin(tenant);
   // can_manage_campaign's real two-way gate: a tenant admin, or this
   // specific campaign's own GM (RFC 0014) - not just one branch of it.
   const canManage = admin || role === 'gm';
@@ -150,10 +153,20 @@ function renderCampaign(
   // before this fix, breaking this whole page for them. A GM with no
   // Membership still manages the campaign (ADR 0170), and gets its
   // players from GET .../players instead, by user id: no names there.
+  const peopleHidden = data.peopleHidden.has(campaign.id);
   const players = canManage ? (data.playersByCampaign.get(campaign.id) ?? []) : null;
   const shownRoster = data.roster ?? (players ? rosterFromPlayers(campaign.id, players) : null);
 
-  if (shownRoster) {
+  if (peopleHidden) {
+    // GET /me/managed still lists the campaign (that is the administrative axis), but its people
+    // are not theirs to see: said in place of the roster, not left as an empty one.
+    const note = document.createElement('p');
+
+    note.className = 'status-text';
+    note.dataset.peopleHidden = '';
+    note.textContent = "This campaign's people aren't shown to you.";
+    fillSlot(item, '[data-campaign-roster-slot]', note);
+  } else if (shownRoster) {
     const roster = cloneComponent(root, '[data-campaign-roster-template]');
 
     renderCampaignRoster(
@@ -161,6 +174,7 @@ function renderCampaign(
       campaign,
       shownRoster,
       players ? { tenant, players, onChanged } : undefined,
+      me.id,
     );
     fillSlot(item, '[data-campaign-roster-slot]', roster);
   }
