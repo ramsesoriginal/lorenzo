@@ -5,6 +5,7 @@
 // (ADR 0170).
 
 import { removePlayerConfirmation } from '../../lib/adminCopy';
+import { askFirst } from '../../lib/askFirst';
 import { displayNameFor } from '../../lib/format';
 import { playerIdForUser } from '../../lib/roster';
 import { say, sayError } from '../../lib/statusLine';
@@ -46,7 +47,11 @@ function bindPlayerControls(
   controls.hidden = false;
 
   removeButton.addEventListener('click', async () => {
-    if (!window.confirm(removePlayerConfirmation(name, campaign.name))) return;
+    if (
+      !(await askFirst(removePlayerConfirmation(name, campaign.name), { confirm: 'Remove player' }))
+    ) {
+      return;
+    }
 
     removeButton.disabled = true;
     say(status, 'Removing…');

@@ -40,7 +40,7 @@ test('a person approves the code in the address, names the token, and the device
 }) => {
   const person = await newUser('pat');
   const flow = await startDevice();
-  const session = await signedInPage(browser, person.subject);
+  const session = await signedInPage(browser, person.subject, {}, { autoConfirm: false });
   const { page } = session;
 
   await openDevice(page, `?code=${flow.user_code}`);

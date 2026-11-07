@@ -6,6 +6,7 @@
 
 import { LorenzoApiError } from '@lorenzo/api-client';
 import { renderReview } from '@lorenzo/repo-ui';
+import { askFirst } from '../../lib/askFirst';
 import { type Choice, choiceProblem, collisionKey } from '../../lib/copyWizard';
 import { describeError } from '../../lib/describeError';
 import { applyUpdates, getUpdates } from '../../lib/repositories';
@@ -197,7 +198,10 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
           ? hiddenBreakingOf(cause.problem)
           : null;
 
-      if (line !== null && window.confirm(hiddenConfirmation(line))) {
+      if (
+        line !== null &&
+        (await askFirst(hiddenConfirmation(line), { confirm: 'Apply anyway' }))
+      ) {
         acknowledge = { ...request, acknowledge_hidden_breaking: true };
       } else {
         sayError(rowStatus, cause);
@@ -264,8 +268,12 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
   }
 
   // A row a release called breaking is applied only after the notes are read and confirmed.
-  function confirmed(breaking: readonly BreakingNoteOut[] | undefined): boolean {
-    return !breaking || breaking.length === 0 || window.confirm(breakingConfirmation(breaking));
+  async function confirmed(breaking: readonly BreakingNoteOut[] | undefined): Promise<boolean> {
+    return (
+      !breaking ||
+      breaking.length === 0 ||
+      (await askFirst(breakingConfirmation(breaking), { confirm: 'Apply anyway' }))
+    );
   }
 
   function changeRow(mine: State, row: RowChangeOut): HTMLElement {
@@ -306,8 +314,8 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     refresh();
     // A row whose only change cannot be applied has nothing to press.
     apply.hidden = !described.appliable;
-    apply.addEventListener('click', () => {
-      if (!confirmed(row.breaking)) return;
+    apply.addEventListener('click', async () => {
+      if (!(await confirmed(row.breaking))) return;
 
       void run({ actions: [applyAction(row, choices, row.breaking.length > 0)] }, status);
     });
@@ -350,10 +358,10 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     }
 
     refresh();
-    add.addEventListener('click', () => {
+    add.addEventListener('click', async () => {
       const choice = collision ? choices.get(collisionKey(collision)) : undefined;
 
-      if (!confirmed(added.breaking)) return;
+      if (!(await confirmed(added.breaking))) return;
 
       void run(
         {

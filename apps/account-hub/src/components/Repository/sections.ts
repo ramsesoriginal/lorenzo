@@ -3,6 +3,7 @@
 // says its own failure in its own place, and is dropped if another repository was shown meanwhile.
 
 import { knownNames } from '../../lib/activityNames';
+import { askFirst } from '../../lib/askFirst';
 import { describeError } from '../../lib/describeError';
 import {
   breakingNote,
@@ -122,7 +123,8 @@ export function createUsing(root: HTMLElement, onChanged: () => void): Section {
         // Only an Owner stops an invitation, and only where there is one.
         stop.hidden = !(canChangePeople(repository.role) && row.granted_at !== null);
         stop.addEventListener('click', async () => {
-          if (!window.confirm(stopInvitingConfirmation(row.name))) return;
+          if (!(await askFirst(stopInvitingConfirmation(row.name), { confirm: 'Stop inviting' })))
+            return;
 
           stop.disabled = true;
           say(rowStatus, 'Stopping…');

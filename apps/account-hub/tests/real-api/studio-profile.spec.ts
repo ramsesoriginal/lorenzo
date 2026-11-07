@@ -575,9 +575,9 @@ test('a repository with no cover says what Discover shows, takes one after a loo
   expect(confirmations).toEqual([]);
   await cover(page).getByRole('button', { name: 'Remove the cover' }).click();
   await expect(cover(page).locator('[data-cover-status]')).toHaveText('The cover was removed.');
-  expect(confirmations).toEqual([
-    'Remove the cover? Discover will show the first letter of the repository’s name instead.',
-  ]);
+  expect(confirmations).toHaveLength(1);
+  expect(confirmations[0]).toContain('Remove the cover?');
+  expect(confirmations[0]).toContain('Discover will show the first letter');
   await expect(cover(page)).toContainText('No cover yet.');
   await expect(cover(page).locator('[data-cover-picture]')).toBeHidden();
   expect((await profileOf(owner.api, repository.id)).has_cover).toBe(false);
@@ -592,7 +592,7 @@ test('a refused cover keeps the picture to choose another, and a cancelled remov
 
   await setCover(owner.api, repository.id, BLUE);
 
-  const { page, context } = await signedInPage(browser, owner.subject);
+  const { page, context, answer } = await signedInPage(browser, owner.subject);
 
   await openProfile(page, repository.slug);
   await expect(cover(page).locator('[data-cover-picture]')).toBeVisible();
@@ -628,8 +628,7 @@ test('a refused cover keeps the picture to choose another, and a cancelled remov
 
   // A removal said no to keeps it.
   await cover(page).getByRole('button', { name: 'Cancel' }).click();
-  page.removeAllListeners('dialog');
-  page.once('dialog', (dialog) => void dialog.dismiss());
+  answer.yes = false;
   await cover(page).getByRole('button', { name: 'Remove the cover' }).click();
   await expect(cover(page).locator('[data-cover-picture]')).toBeVisible();
   expect((await profileOf(owner.api, repository.id)).has_cover).toBe(true);

@@ -18,23 +18,42 @@ export async function signIn(page: Page, context: BrowserContext, subject: strin
 }
 
 /**
- * A new browser context signed in as `subject`, answering every window.confirm with "OK" and
- * keeping what each one asked.
+ * A new browser context signed in as `subject`, answering every window.confirm, and every
+ * confirmation dialog of the shell that asks for no typing, with "yes", and keeping what each one
+ * asked. A spec that drives such a dialog itself passes `autoConfirm: false`.
  */
 export async function signedInPage(
   browser: Browser,
   subject: string,
   options: Parameters<Browser['newContext']>[0] = {},
+  { autoConfirm = true }: { autoConfirm?: boolean } = {},
 ) {
   const context = await browser.newContext(options);
   const page = await context.newPage();
   const confirmations: string[] = [];
+  // What the next confirmation is answered: true is "yes". A spec that wants to say no sets it.
+  const answer = { yes: true };
   page.on('dialog', (dialog) => {
     confirmations.push(dialog.message());
     void dialog.accept();
   });
+  if (autoConfirm) {
+    await page.addLocatorHandler(
+      page
+        .getByRole('dialog')
+        .filter({ has: page.locator('.btn-danger') })
+        .filter({ hasNot: page.locator('input') }),
+      async (dialog) => {
+        confirmations.push(await dialog.innerText());
+        await (answer.yes
+          ? dialog.locator('.btn-danger')
+          : dialog.getByRole('button').first()
+        ).click();
+      },
+    );
+  }
   await signIn(page, context, subject);
-  return { context, page, confirmations };
+  return { context, page, confirmations, answer };
 }
 
 /** A person registered with the fake Authgear and provisioned in the API. */
