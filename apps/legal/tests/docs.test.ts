@@ -63,6 +63,15 @@ describe('what the operator profile changes', () => {
     expect(noticeDoc(given).sections.map((s) => s.id)).toContain('tax');
   });
 
+  it('describes the Gravatar lookup only for a deployment that makes it', () => {
+    const on = JSON.stringify(policyDoc(profile));
+    expect(on).toContain('Gravatar');
+    const off = JSON.stringify(
+      policyDoc(parseProfile({ ...SAMPLE_PROFILE, gravatarLookup: false }, true)),
+    );
+    expect(off).not.toContain('Gravatar');
+  });
+
   it('puts the operator and every provider into the policy', () => {
     const text = JSON.stringify(policyDoc(profile));
     expect(text).toContain('Sample Operator');

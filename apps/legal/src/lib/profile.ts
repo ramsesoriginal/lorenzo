@@ -39,6 +39,11 @@ export type LegalProfile = {
   supervisoryAuthority: { name: string; url: string };
   providers: Provider[];
   retention: { logs: Bi; backups: Bi; activityLog: Bi };
+  /**
+   * Whether this deployment's API makes the one-time Gravatar lookup (GRAVATAR_LOOKUP_ENABLED, ADR 0439).
+   * Stated, never assumed, so the policy cannot describe a request the deployment does not make.
+   */
+  gravatarLookup: boolean;
   /** A support link the policy names as a link out, or null. */
   support: { name: string; url: string } | null;
 };
@@ -84,6 +89,14 @@ function date(value: unknown, path: string, problems: Problems): string {
   const found = text(value, path, problems);
   if (found && !DATE.test(found)) problems.add(path, 'must be a date, YYYY-MM-DD');
   return found;
+}
+
+function lookup(value: unknown, path: string, problems: Problems): boolean {
+  if (typeof value !== 'boolean') {
+    problems.add(path, 'must be true or false (does the API make the one-time Gravatar lookup?)');
+    return false;
+  }
+  return value;
 }
 
 function taxId(value: unknown, path: string, problems: Problems): TaxId {
@@ -146,6 +159,7 @@ export function parseProfile(raw: unknown, sample = false): LegalProfile {
       backups: bi(retention.backups, 'retention.backups', problems),
       activityLog: bi(retention.activityLog, 'retention.activityLog', problems),
     },
+    gravatarLookup: lookup(root.gravatarLookup, 'gravatarLookup', problems),
     support: support
       ? {
           name: text(support.name, 'support.name', problems),
