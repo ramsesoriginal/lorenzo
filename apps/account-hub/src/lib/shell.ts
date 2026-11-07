@@ -114,7 +114,9 @@ function rememberThisPage(): void {
 
     window.localStorage.setItem(
       RECENT_KEY,
-      JSON.stringify(rememberPage(recent, { href: path, title: pageTitle(document.title) })),
+      JSON.stringify(
+        rememberPage(recent, { href: path, title: pageTitle(document.title), at: Date.now() }),
+      ),
     );
   } catch {
     // Private browsing: Continue simply remembers nothing.
@@ -167,6 +169,17 @@ export async function startShell(): Promise<void> {
     const info = await getUserInfo();
 
     shell.account({ state: 'signed-in', label: info.email ?? info.sub });
+    // The name goes over the address in the account menu; without it the menu says the address alone.
+    void getMe().then(
+      (me) => {
+        const name = me.display_name ?? me.nickname;
+
+        if (name) shell.account({ state: 'signed-in', label: info.email ?? info.sub, name });
+      },
+      () => {},
+    );
+    // The hub reads from the API on every page, so what it shows is as of now.
+    shell.statusBar({ sync: 'synced', syncedAt: new Date() });
   } catch (cause) {
     const line = document.createElement('span');
 

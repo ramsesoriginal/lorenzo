@@ -21,20 +21,17 @@ const { title = 'Lorenzo - Account', template } = Astro.props;
   shell="web"
   template={template}
   path="apps/account-hub"
+  icon="account"
   nav={[
-    { label: 'Home', href: '/', icon: 'library' },
-    { label: 'Profile', href: '/profile/', requires: 'signed-in', icon: 'account' },
-    { label: 'Access tokens', href: '/tokens/', requires: 'signed-in' },
+    { label: 'Home', href: '/', icon: 'account' },
     { label: 'Libraries', href: '/tenants/', requires: 'signed-in', icon: 'library' },
-    { label: 'Repositories', href: '/repositories/', requires: 'repositories' },
-    { label: 'Discover', href: '/discover/', requires: 'discover' },
-    { label: 'Set up a library', href: '/setup/', requires: 'create-tenant' },
     {
-      label: 'Notifications',
-      href: '/notifications/',
-      requires: 'signed-in',
-      icon: 'notifications',
+      label: 'Repositories',
+      href: '/repositories/',
+      requires: 'repositories',
+      icon: 'kind-repository',
     },
+    { label: 'Discover', href: '/discover/', requires: 'discover', icon: 'discover' },
   ]}
 >
   <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->

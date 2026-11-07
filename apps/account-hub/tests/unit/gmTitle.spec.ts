@@ -187,7 +187,9 @@ describe("a campaign's surface says no literal GM", () => {
     'components/Tenant/stepDownAsGm.ts',
     'components/DeleteAccount/DeleteAccount.astro',
     'components/DeleteAccount/renderer.ts',
-    'components/Briefing/tables.ts',
+    'components/Briefing/play.ts',
+    'components/Briefing/run.ts',
+    'lib/home.ts',
     'lib/campaigns.ts',
   ];
 

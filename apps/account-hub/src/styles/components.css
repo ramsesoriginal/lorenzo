@@ -439,11 +439,11 @@
   }
 }
 
-/* Home (ADR 0417, AH1): what needs the person and where they play beside what they run; the blocks
-   below hold Continue and the actions. One column below 1100px. */
+/* Home (ADR 0417, AH1, screen 01): what needs the person and where they play beside what they run,
+   then Continue and the apps. One column below 1100px. */
 .home-columns {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
@@ -451,6 +451,142 @@
   .home-columns {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2h);
+}
+.home-section > h2,
+.home-head h2 {
+  margin: 0;
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.home-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.home-head a {
+  font-size: var(--fs-meta);
+}
+
+/* A card of rows, a hairline between them. */
+.home-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+.home-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2h);
+  padding: var(--space-2h) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.home-row:first-child {
+  border-top: 0;
+}
+.home-row > .icon {
+  align-self: flex-start;
+  margin-top: 3px;
+  color: var(--text-secondary);
+}
+.home-row-text {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  min-width: 0;
+}
+/* A role beside a name: an outline, not a status (the brand's pills are for state). */
+.home-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-meta);
+}
+.home-row-text b {
+  font-weight: 500;
+}
+.home-row-link {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.home-row-link:hover b {
+  text-decoration: underline;
+}
+.home-row .btn {
+  flex: none;
+}
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.home-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Continue and the apps: cards in a grid that gives way with the width. */
+.home-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-tiles--apps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@container shell (max-width: 1100px) {
+  .home-tiles--apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container shell (max-width: 720px) {
+  .home-tiles,
+  .home-tiles--apps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.home-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 100%;
+  padding: var(--space-3);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.home-tile:hover {
+  background: var(--fill-soft);
+}
+.home-tile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2h);
+}
+.home-tile-title {
+  font-weight: 600;
+}
+.home-tile-icon {
+  display: inline-flex;
+  color: var(--text-secondary);
 }
 
 /* First run (ADR 0416, D27): the mascot beside the welcome and the two doors; one column on a phone. */

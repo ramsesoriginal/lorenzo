@@ -1,15 +1,19 @@
 // The home page of someone who belongs somewhere. Each section asks for what it needs and shows
 // itself when it has it, so a slow or failed answer holds up or hides only its own section.
 
+import { getAppLinks } from '@lorenzo/api-client';
 import { type RunRow, runRows, seatsIn, type TableCard, tableCards } from '../../lib/campaigns';
 import { listMyChanges } from '../../lib/changes';
-import { RECENT_KEY } from '../../lib/config';
+import { API_BASE_URL, RECENT_KEY } from '../../lib/config';
 import {
+  homeSubtitle,
   linkTasks,
   needsYou,
   orderTasks,
   parseRecent,
   playerTasks,
+  type RepositoryFacts,
+  runItems,
   splitTables,
   type Task,
   updateTasks,
@@ -17,18 +21,26 @@ import {
 import { listInvites } from '../../lib/invites';
 import { getManaged } from '../../lib/me';
 import { listLibraryRepositories } from '../../lib/repositories';
+import { currentShell } from '../../lib/shell';
 import { sayError } from '../../lib/statusLine';
-import { studioHref } from '../../lib/studio';
+import { roleLabel, STUDIO_NEW_HREF, studioHref } from '../../lib/studio';
 import { requiredIn } from '../../lib/template';
 import { listTenantInvites } from '../../lib/tenantInvites';
 import { canCreateTenants, isRepository, publishedLabel } from '../../lib/tenantKind';
-import { getTenant, listActivityLog, listMyTenants, listTenantCampaigns } from '../../lib/tenants';
+import {
+  getTenant,
+  listActivityLog,
+  listMyTenants,
+  listTenantCampaigns,
+  listTenantRoster,
+} from '../../lib/tenants';
 import type { InviteOut, ManagedScopeOut, MeOut, TenantSummaryOut } from '../../lib/types';
+import { showApps } from './apps';
 import { showChanges } from './changes';
 import { showNeeds } from './needs';
+import { type PlaySeat, showPlay } from './play';
 import { showRecent } from './recent';
-import { type RepositoryCard, showRepositories } from './repositories';
-import { showTables } from './tables';
+import { showRun } from './run';
 
 const CHANGES_SHOWN = 5;
 
@@ -57,12 +69,12 @@ async function loadTables(
 
 // A repository's published state isn't in the list, only in its own read (ADR 0118); where that
 // can't be read, the card goes without it.
-function loadRepositories(tenants: TenantSummaryOut[]): Promise<RepositoryCard[]> {
+function loadRepositories(tenants: TenantSummaryOut[]): Promise<RepositoryFacts[]> {
   return Promise.all(
     tenants.filter(isRepository).map(async (tenant) => ({
       name: tenant.name,
       slug: tenant.slug,
-      role: tenant.role,
+      role: roleLabel(tenant.role),
       status: await getTenant(tenant.id).then(
         ({ tenant: detail }) => publishedLabel(detail.published_at),
         () => null,
@@ -97,7 +109,7 @@ async function loadTasks(
     );
   const campaignLinks = rows.map(async (row) =>
     linkTasks(
-      { label: row.campaignName, slug: row.tenantSlug },
+      { label: row.campaignName, slug: row.tenantSlug, place: row.tenantName },
       await listInvites(row.tenantId, row.campaignId).catch(none),
       now,
     ),
@@ -110,7 +122,10 @@ async function loadTasks(
         new Map(
           rows
             .filter((row) => row.tenantId === library.id)
-            .map((row) => [row.campaignId, { name: row.campaignName, slug: row.tenantSlug }]),
+            .map((row) => [
+              row.campaignId,
+              { name: row.campaignName, slug: row.tenantSlug, place: row.tenantName },
+            ]),
         ),
         now,
       ),
@@ -128,61 +143,144 @@ async function loadTasks(
 export async function renderBriefing(root: HTMLElement, me: MeOut): Promise<void> {
   const name = me.display_name ?? me.nickname;
 
-  required<HTMLElement>(root, '[data-greeting]').textContent = name
-    ? `Welcome back, ${name}.`
-    : 'Welcome back.';
+  required<HTMLElement>(root, '[data-subtitle]').textContent = name ?? '';
   root.hidden = false;
 
   const tenants = listMyTenants();
   const managed = getManaged();
   const changes = listMyChanges(CHANGES_SHOWN);
   const repositories = tenants.then((page) => loadRepositories(page.items));
+  const mayCreate = canCreateTenants(me);
 
   // A section whose answer fails says so in its own place and leaves the rest alone.
-  function section(selector: string, work: () => Promise<void>): Promise<void> {
-    return work().catch((cause) => {
+  async function section(selector: string, work: () => Promise<void>): Promise<void> {
+    try {
+      await work();
+    } catch (cause) {
       const element = required<HTMLElement>(root, selector);
       const error = required<HTMLElement>(element, '[data-error]');
 
       element.hidden = false;
       sayError(error, cause);
-    });
+    }
   }
 
   const characterNames = new Map(
     me.players.flatMap((player) => player.characters).map((c) => [c.entity_id, c.name]),
   );
 
-  required<HTMLElement>(root, '[data-setup]').hidden = !canCreateTenants(me);
   showRecent(root, parseRecent(window.localStorage.getItem(RECENT_KEY)));
+  void getAppLinks(API_BASE_URL).then(
+    (registry) => showApps(root, registry),
+    () => {},
+  );
+
+  // What waits for the person, which the subtitle counts and the status bar says, and which libraries
+  // have an update announced, which "What you run" says beside them.
+  const needs = (async () => {
+    const [tenantPage, managedScope, drafts] = await Promise.all([tenants, managed, repositories]);
+    const [updates, links, players] = await loadTasks(
+      tenantPage.items,
+      runRows(managedScope),
+      Date.now(),
+    );
+    const tasks = orderTasks(
+      updates ?? [],
+      links ?? [],
+      players ?? [],
+      needsYou(drafts, studioHref),
+    );
+
+    return { tasks, waiting: new Set((updates ?? []).map((task) => task.id.split(':')[1] ?? '')) };
+  })();
 
   await Promise.all([
     section('[data-play]', async () => {
       const [tenantPage, managedScope] = await Promise.all([tenants, managed]);
-      const split = splitTables(await loadTables(me, tenantPage.items, managedScope));
+      const cards = splitTables(await loadTables(me, tenantPage.items, managedScope)).play;
+      const seats: PlaySeat[] = cards.flatMap((card) => {
+        const seat = me.players.find((player) => player.campaign_id === card.campaignId);
 
-      showTables(root, '[data-play]', split.play);
-      showTables(root, '[data-run]', split.run);
+        return seat ? [{ card, playerId: seat.id }] : [];
+      });
+
+      showPlay(root, seats, () => void renderBriefing(root, me));
     }),
-    section('[data-repositories]', async () => {
-      showRepositories(root, await repositories);
-    }),
-    section('[data-needs]', async () => {
-      const [tenantPage, managedScope, drafts] = await Promise.all([
+    section('[data-run]', async () => {
+      const [tenantPage, managedScope, facts, { waiting }] = await Promise.all([
         tenants,
         managed,
         repositories,
+        needs,
       ]);
-      const [updates, links, players] = await loadTasks(
-        tenantPage.items,
-        runRows(managedScope),
-        Date.now(),
+      const rows = runRows(managedScope);
+      const libraries = tenantPage.items
+        .filter((tenant) => !isRepository(tenant))
+        .map((tenant) => ({
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          role: tenant.role,
+          admin: tenant.role === 'owner' || tenant.role === 'orga',
+        }));
+      const looked = libraries.filter(
+        (library) =>
+          ['owner', 'orga', 'author'].includes(library.role) ||
+          rows.some((row) => row.tenantId === library.id),
       );
+      const counts = async (read: (id: string) => Promise<{ total: number }>, ids: string[]) =>
+        new Map(
+          (
+            await Promise.all(
+              ids.map(
+                async (id) =>
+                  [
+                    id,
+                    await read(id).then(
+                      (page) => page.total,
+                      () => undefined,
+                    ),
+                  ] as const,
+              ),
+            )
+          ).flatMap(([id, total]) => (total === undefined ? [] : [[id, total] as const])),
+        );
+      const [campaignCounts, peopleCounts] = await Promise.all([
+        counts(
+          listTenantCampaigns,
+          looked.map((library) => library.id),
+        ),
+        counts(
+          listTenantRoster,
+          looked.filter((library) => library.admin).map((library) => library.id),
+        ),
+      ]);
 
-      showNeeds(
+      showRun(
         root,
-        orderTasks(updates ?? [], links ?? [], players ?? [], needsYou(drafts, studioHref)),
+        runItems({
+          libraries: looked,
+          rows,
+          campaignCounts,
+          peopleCounts,
+          updatesWaiting: waiting,
+          repositories: facts,
+          repositoryHref: studioHref,
+          roleText: roleLabel,
+        }),
+        { createLibrary: mayCreate, createRepository: mayCreate },
       );
+      required<HTMLAnchorElement>(root, '[data-new-repository]').href = STUDIO_NEW_HREF;
+    }),
+    section('[data-needs]', async () => {
+      const { tasks } = await needs;
+
+      showNeeds(root, tasks);
+      required<HTMLElement>(root, '[data-subtitle]').textContent = homeSubtitle(
+        name ?? null,
+        tasks.length,
+      );
+      currentShell()?.statusBar({ meta: tasks.length > 0 ? `${tasks.length} need you` : null });
     }),
     section('[data-changes]', async () => {
       // Without the libraries' names, a change just doesn't say which one.

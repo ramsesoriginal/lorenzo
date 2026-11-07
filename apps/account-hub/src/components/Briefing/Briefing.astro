@@ -1,150 +1,147 @@
 ---
-// The home page of someone who belongs somewhere (ADR 0417, AH1, AH6): in two columns, what needs
-// them and where they play on the left and what they run on the right, then where they were last and
-// what they might want to do. Rendered by renderBriefing; every part stays hidden until it has
-// something to say.
+// The home page of someone who belongs somewhere (ADR 0417, AH1, AH6, screen 01): "Needs you" and
+// "Where you play" on the left, "What you run" on the right, then the blocks every Home shares,
+// "Continue" and "What do you want to do?". Rendered by renderBriefing; every part stays hidden
+// until it has something to say.
 import { BRANDING_CSS_URL } from '../../lib/config';
+
+const icons = `${BRANDING_CSS_URL}/icons.svg`;
 ---
 
 <div class="stack" data-briefing hidden>
   <div class="page-heading">
-    <h1 data-greeting>Welcome back</h1>
+    <h1>Home</h1>
+    <p class="page-sub" data-subtitle></p>
   </div>
 
   <div class="home-columns">
     <div class="stack">
-      <section class="home-block" aria-labelledby="home-needs" data-needs hidden>
+      <section class="home-section" aria-labelledby="home-needs" data-needs hidden>
         <h2 id="home-needs">Needs you</h2>
-        <ul class="list" data-needs-list></ul>
-        <div data-needs-empty hidden></div>
+        <div class="home-card">
+          <ul class="home-rows" data-needs-list></ul>
+          <div data-needs-empty hidden></div>
+        </div>
         <p class="error-text" role="alert" data-error hidden></p>
       </section>
 
-      <section class="home-block" aria-labelledby="home-play" data-play hidden>
-        <h2 id="home-play" class="row-tight">
-          <svg class="icon" aria-hidden="true">
-            <use href={`${BRANDING_CSS_URL}/icons.svg#icon-campaign`}></use>
-          </svg>
-          Where you play
-        </h2>
-        <div class="stack-tight" data-play-list></div>
+      <section class="home-section" aria-labelledby="home-play" data-play hidden>
+        <div class="home-head">
+          <h2 id="home-play">Where you play</h2>
+          <a href="/join/">Join with an invite link</a>
+        </div>
+        <div class="home-card">
+          <ul class="home-rows" data-play-list></ul>
+        </div>
         <p class="error-text" role="alert" data-error hidden></p>
       </section>
 
-      <section class="home-block" aria-labelledby="briefing-changes" data-changes hidden>
+      <section class="home-section" aria-labelledby="briefing-changes" data-changes hidden>
         <h2 id="briefing-changes">Recent changes</h2>
         <p class="caption">To what your characters hold.</p>
-        <ul class="list" data-changes-list></ul>
+        <div class="home-card">
+          <ul class="home-rows" data-changes-list></ul>
+        </div>
         <p class="error-text" role="alert" data-error hidden></p>
       </section>
     </div>
 
     <div class="stack">
-      <section class="home-block" aria-labelledby="home-run" data-run hidden>
-        <div class="row">
-          <h2 id="home-run" class="grow">
-            What you run
-          </h2>
-          <a href="/tenants/">Libraries</a>
+      <section class="home-section" aria-labelledby="home-run" data-run hidden>
+        <h2 id="home-run">What you run</h2>
+        <div class="home-card">
+          <ul class="home-rows" data-run-list></ul>
         </div>
-        <div class="stack-tight" data-run-list></div>
-        <p class="error-text" role="alert" data-error hidden></p>
-      </section>
-
-      <section class="home-block" aria-labelledby="briefing-repositories" data-repositories hidden>
-        <div class="row">
-          <h2 id="briefing-repositories" class="grow">
-            Your repositories
-          </h2>
-          <a href="/repositories/">Manage repositories</a>
+        <div class="home-actions" data-run-actions>
+          <a class="btn btn-secondary" href="/setup/" data-setup hidden>
+            <svg class="icon" aria-hidden="true">
+              <use href={`${icons}#icon-add`}></use>
+            </svg>
+            Set up a library
+          </a>
+          <a class="btn btn-secondary" href="/studio/?new=repository" data-new-repository hidden>
+            <svg class="icon" aria-hidden="true">
+              <use href={`${icons}#icon-add`}></use>
+            </svg>
+            Create a repository
+          </a>
         </div>
-        <div class="stack-tight" data-repositories-list></div>
         <p class="error-text" role="alert" data-error hidden></p>
       </section>
     </div>
   </div>
 
-  <div class="home-grid">
-    <section class="home-block" aria-labelledby="home-continue" data-continue hidden>
-      <h2 id="home-continue">Continue</h2>
-      <ul class="list" data-continue-list></ul>
-    </section>
+  <section class="home-section" aria-labelledby="home-continue" data-continue hidden>
+    <h2 id="home-continue">Continue</h2>
+    <ul class="home-tiles" data-continue-list></ul>
+  </section>
 
-    <section class="home-block" aria-labelledby="home-actions">
-      <h2 id="home-actions">What do you want to do?</h2>
-      <ul class="list home-actions">
-        <li data-setup hidden>
-          <a href="/setup/">Set up a library</a>
-        </li>
-        <li>
-          <a href="/join/">Join with an invite link</a>
-        </li>
-        <li>
-          <a href="/device/">Connect a device</a>
-        </li>
-        <li>
-          <a href="/profile/">Change how others see you</a>
-        </li>
-        <li>
-          <a href="/tokens/">Look after your access tokens</a>
-        </li>
-      </ul>
-    </section>
-  </div>
+  <section class="home-section" aria-labelledby="home-actions" data-apps hidden>
+    <h2 id="home-actions">What do you want to do?</h2>
+    <ul class="home-tiles home-tiles--apps" data-apps-list></ul>
+  </section>
 
   <template data-task-template>
-    <li class="row">
-      <span class="grow" data-text></span>
+    <li class="home-row">
+      <svg class="icon" aria-hidden="true">
+        <use data-icon></use>
+      </svg>
+      <div class="home-row-text">
+        <b data-text></b>
+        <span class="caption" data-meta></span>
+      </div>
       <a class="btn btn-secondary" data-action></a>
     </li>
   </template>
 
-  <template data-table-template>
-    <article class="card card-body stack-tight">
-      <div class="row">
-        <h3 class="grow" data-name></h3>
-        <span class="row-tight" data-roles></span>
-      </div>
-      <p class="caption">
-        <a data-library></a>
-        <span data-system></span>
-      </p>
-      <p data-characters hidden></p>
-      <span class="badge-visibility" data-secret hidden>
-        <svg class="icon" aria-hidden="true">
-          <use href={`${BRANDING_CSS_URL}/icons.svg#icon-private`}></use>
-        </svg>
-        Secret
-      </span>
-    </article>
-  </template>
-
-  <template data-role-template>
-    <span class="badge"></span>
-  </template>
-
-  <template data-repository-template>
-    <article class="card card-body stack-tight">
-      <div class="row">
-        <h3 class="grow">
-          <a data-link data-name></a>
-        </h3>
-        <span class="badge" data-role></span>
-      </div>
-      <p class="caption" data-status></p>
-    </article>
-  </template>
-
-  <template data-change-template>
-    <li>
-      <span class="grow" data-text></span>
-      <span class="caption" data-where></span>
+  <template data-play-template>
+    <li class="home-row">
+      <a class="home-row-text home-row-link" data-link>
+        <b data-name></b>
+        <span class="caption" data-meta></span>
+      </a>
+      <button type="button" class="btn btn-secondary" data-leave>
+        Leave
+      </button>
     </li>
   </template>
 
-  <template data-recent-template>
+  <template data-run-template>
+    <li class="home-row">
+      <a class="home-row-text home-row-link" data-link>
+        <b data-name></b>
+        <span class="caption" data-meta></span>
+      </a>
+      <span class="state-chip" data-chip hidden>
+        <svg class="icon" aria-hidden="true">
+          <use data-chip-icon></use>
+        </svg>
+        <span data-chip-text></span>
+      </span>
+      <span class="home-chip" data-role hidden></span>
+    </li>
+  </template>
+
+  <template data-tile-template>
     <li>
-      <a data-link></a>
+      <a class="card home-tile" data-link>
+        <span class="home-tile-head">
+          <span class="home-tile-icon" data-tile-icon hidden>
+            <svg class="icon" aria-hidden="true">
+              <use data-icon></use>
+            </svg>
+          </span>
+          <b class="home-tile-title" data-title></b>
+        </span>
+        <span class="caption" data-meta></span>
+      </a>
+    </li>
+  </template>
+
+  <template data-change-template>
+    <li class="home-row">
+      <span class="home-row-text" data-text></span>
+      <span class="caption" data-where></span>
     </li>
   </template>
 </div>
