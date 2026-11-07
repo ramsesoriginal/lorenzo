@@ -395,6 +395,13 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0390 - Renaming a stat and an enum value](0390-renaming-a-stat-and-an-enum-value.md) — slice K6 of [RFC 0041](../rfcs/0041-entity-kinds-and-author-freedom.md): `PATCH` a stat definition's `name` (409 when taken, refused for the stats the API reads by name) and an enum value's `value` and `sort_order`, a rename rewriting `entity_stat.value_text` and a comparison formula's `true_value`/`false_value` in one transaction, `enum_options` with ids, a value a formula returns counts as in use; no change to the snapshot, so a library still sees an enum rename as an addition and a refused removal
 - [0391 - The icon atlas grows to every UI](0391-the-icon-atlas-grows-to-every-ui.md) — 72 more symbols from Tabler 3.50.0: view and theme, the editor toolbar, maps, writing, repositories, the kinds still without an icon, and the states ADR 0274 left out (conflict, LIVE, only on this device)
 - [0392 - Bench: the second icon pass](0392-bench-the-second-icon-pass.md) — text stand-ins become atlas icons, one shared formatting toolbar over texts, honest sync states, appearance and sign-in icons
+
+- [0393 - Personal writing timer](0393-personal-writing-timer.md)
+- [0394 - Personal net-new writing-session goals](0394-personal-net-new-writing-session-goals.md)
+- [0395 - Reviewed Being references from Scene prose](0395-reviewed-being-references.md)
+- [0396 - Reviewed links for selected manuscript names](0396-reviewed-manuscript-links.md)
+- [0397 - Reviewed Scene periods from manuscript prose](0397-reviewed-scene-periods.md)
+- [0398 - Comparing copied manuscript bundles](0398-copied-manuscript-comparison.md)
 - [0399 - Relationships: the kind and its two ends](0399-relationships-the-kind-and-its-two-ends.md) — slice 1 of [RFC 0049](../rfcs/0049-lorenzo-social-relationships-and-social-webs.md): a second kind, `relationship`, in the shape of a connection (two ends of any kind, `one_way`) so that a friendship never becomes a road to the router or a link on a Map; read only with both ends, the rule in the shared entry visibility so every read applies it, no uniqueness on a pair, its own limit
 - [0400 - Relationship types, standings and direction](0400-relationship-kinds-standings-and-direction.md) — a type is a prototype, a standing is a stat on the relationship (inherited, adjusted by a sum formula), direction is the type's (two one-way relationships or one two-way), pairwise only, the bulk write, and the words as an opt-in starter repository
 - [0401 - Groups and relationships](0401-groups-and-relationships.md) — membership stays `group_member`; a relationship to a group adds a role or a standing and grants nothing; a pantheon is a group and Concordance a standing; nesting is a relationship
@@ -424,4 +431,9 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0425 - Players write their own relationships](0425-players-write-their-own-relationships.md) — a player makes, changes and deletes relationships with a being they control, restricted to the being and the GMs, never widened; `can_edit` on a relationship
 - [0426 - The web shell grows in app-shell, opt-in](0426-the-web-shell-grows-in-app-shell-opt-in.md) — the web shell is built in `@lorenzo/app-shell` behind `shell="web"`, so each app moves over in its own slice; the bell appears only when an app supplies it; the apps come from the registry; tests render the real `AppPage` in jsdom
 - [0427 - Page templates, states and saving in app-shell](0427-page-templates-states-and-saving-in-app-shell.md) — the brand holds the look and app-shell the behaviour: a `template` prop on `AppPage`, built region and page states with the mascots, reads that retry and writes that do not, and an explicit save bar or an autosave indicator chosen by the page
+- [0429 - Explicit repository text updates for standalone drafts](0429-standalone-draft-repository-updates.md)
+- [0430 - Repository text updates for placed leaf Chapters](0430-placed-chapter-text-updates.md)
 - [0433 - The account hub keeps its own read cache](0433-the-account-hub-keeps-its-own-read-cache.md) — the hub is multi-page, so memory alone would empty on every click; it keeps `lib/cache.ts` and `lib/prefetch.ts` as a deliberate exception to ADR 0325, with an opt-in `sessionStorage` mode in `read-cache` recorded as a possible later addition
+- [0435 - Repository text updates for nested leaf Chapters](0435-nested-chapter-text-updates.md)
+- [0436 - Repository text updates for Chapters with subchapters](0436-parent-chapter-text-updates.md)
+- [0438 - Atomic manuscript repository updates](0438-atomic-manuscript-repository-updates.md)
