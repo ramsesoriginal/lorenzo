@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import ColumnElement, exists, or_, select, text, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,10 +16,27 @@ from lorenzo_api.models import (
     EntityAudience,
     EntityKnowledge,
     Relationship,
+    RepositoryCopyLinkEntity,
+    Tenant,
 )
 
 if TYPE_CHECKING:
     from lorenzo_api.information_visibility import InformationVisibility
+
+
+def shown_clause(
+    vis: InformationVisibility,
+    entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
+) -> ColumnElement[bool]:
+    """Whether the entry is not hidden by the repository it came with (ADR 0437): the copy link of
+    a row the library hides says so. Nobody is let past it, an Owner or an Author included, which is
+    why it is not an audience: those are the library's own and are bypassed by its administrators.
+    A tenant that hides nothing (`vis.hides_entries`) asks nothing."""
+    if not vis.hides_entries:
+        return true()
+    return ~exists().where(
+        RepositoryCopyLinkEntity.entity_id == entity_id, RepositoryCopyLinkEntity.hidden.is_(True)
+    )
 
 
 def _own_visible_entry_clause(
@@ -27,7 +44,7 @@ def _own_visible_entry_clause(
     entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
 ) -> ColumnElement[bool]:
     if vis.is_admin or vis.author_sees_all:
-        return true()
+        return shown_clause(vis, entity_id)
     recipients = []
     if vis.player_ids:
         recipients.append(entity_id_among(EntityKnowledge.knower_player_id, vis.player_ids))
@@ -51,7 +68,9 @@ def _own_visible_entry_clause(
         allowed.append(
             exists().where(EntityKnowledge.entity_id == EntityAudience.entity_id, or_(*recipients))
         )
-    return ~exists().where(EntityAudience.entity_id == entity_id, ~or_(*allowed))
+    return shown_clause(vis, entity_id) & ~exists().where(
+        EntityAudience.entity_id == entity_id, ~or_(*allowed)
+    )
 
 
 def visible_entry_clause(
@@ -62,7 +81,7 @@ def visible_entry_clause(
     0399), so the rule is here, in the clause every entry read applies, and no read has to
     remember it. An end is never itself a relationship, so the ends are tested by the gate alone
     and the clause does not recurse."""
-    if vis.is_admin or vis.author_sees_all:
+    if (vis.is_admin or vis.author_sees_all) and not vis.hides_entries:
         return true()
     tie = aliased(Relationship)
     return _entry_gate(vis, entity_id) & ~exists().where(
@@ -75,12 +94,13 @@ def _entry_gate(
     vis: InformationVisibility,
     entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
 ) -> ColumnElement[bool]:
-    if vis.is_admin or vis.author_sees_all:
+    privileged = vis.is_admin or vis.author_sees_all
+    if privileged and not vis.hides_entries:
         return true()
     period = aliased(CalendarPeriod)
     observance = aliased(CalendarObservance)
     own = _own_visible_entry_clause(vis, entity_id)
-    if vis.session_entry_ids:
+    if vis.session_entry_ids and not privileged:
         own = own & (
             ~entity_id_among(entity_id, vis.session_entry_ids)
             | entity_id_among(entity_id, vis.session_reader_ids)
@@ -120,6 +140,10 @@ async def require_visible_entry(
     key = (tenant_id, entity_id, user_id)
     if key in checked:
         return
+    if await hidden_by_source(session, tenant_id=tenant_id, entity_id=entity_id):
+        from lorenzo_api.exceptions import EntityNotFoundError
+
+        raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
     from lorenzo_api.models import SceneAppearance, StorySession
 
     planning_cache = session.info.setdefault("planning_entry_checks", {})
@@ -158,3 +182,76 @@ async def require_visible_entry(
     if entity_id in vis.hidden_entry_ids:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
     checked.add(key)
+
+
+async def hides_entries(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
+    """Whether the tenant hides any entry (`tenant.hides_entries`, ADR 0437). The tenant row is the
+    one the request already holds, so this is not a statement."""
+    tenant = await session.get(Tenant, tenant_id)
+    return bool(tenant is not None and tenant.hides_entries)
+
+
+async def hidden_by_source(
+    session: AsyncSession, *, tenant_id: uuid.UUID, entity_id: uuid.UUID
+) -> bool:
+    """Whether the entry is hidden by the repository it came with, for everyone (ADR 0437). The
+    engines that write what a library hides (the copy, the update and the removal of a copy) are the
+    only readers that may see it: they set `session.info["sees_hidden"]` for their own reads."""
+    if session.info.get("sees_hidden") or not await hides_entries(session, tenant_id):
+        return False
+    return bool(
+        await session.scalar(
+            select(
+                exists().where(
+                    RepositoryCopyLinkEntity.tenant_id == tenant_id,
+                    RepositoryCopyLinkEntity.entity_id == entity_id,
+                    RepositoryCopyLinkEntity.hidden.is_(True),
+                )
+            )
+        )
+    )
+
+
+async def hidden_by_source_ids(session: AsyncSession, tenant_id: uuid.UUID) -> frozenset[uuid.UUID]:
+    """The entries the tenant hides (ADR 0437), and the relationships that tie one of them: a
+    relationship is read only with both its ends (ADR 0399). The other ties of a hidden entry are
+    found by the gate itself, which asks of an entry whether what it hangs on is hidden."""
+    hidden = frozenset(
+        entity_id
+        for entity_id in await session.scalars(
+            select(RepositoryCopyLinkEntity.entity_id).where(
+                RepositoryCopyLinkEntity.tenant_id == tenant_id,
+                RepositoryCopyLinkEntity.hidden.is_(True),
+                RepositoryCopyLinkEntity.entity_id.is_not(None),
+            )
+        )
+        if entity_id is not None
+    )
+    if not hidden:
+        return hidden
+    tied = frozenset(
+        await session.scalars(
+            select(Relationship.entity_id).where(
+                Relationship.tenant_id == tenant_id,
+                or_(Relationship.end_a.in_(hidden), Relationship.end_b.in_(hidden)),
+            )
+        )
+    )
+    return hidden | tied
+
+
+async def unhidden(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    entity_id: ColumnElement[Any] | InstrumentedAttribute[Any],
+) -> ColumnElement[bool]:
+    """The clause for a read of one kind of entry that has no audience gate of its own (the typed
+    lists: items, beings, characters, groups, item instances): the entry is not hidden by the
+    repository it came with (ADR 0437). `true()` for a tenant that hides nothing."""
+    if not await hides_entries(session, tenant_id):
+        return true()
+    return ~exists().where(
+        RepositoryCopyLinkEntity.tenant_id == tenant_id,
+        RepositoryCopyLinkEntity.entity_id == entity_id,
+        RepositoryCopyLinkEntity.hidden.is_(True),
+    )

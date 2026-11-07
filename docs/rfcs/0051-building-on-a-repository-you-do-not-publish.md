@@ -126,6 +126,25 @@ Owner goes on authoring on top of it and taking A's updates; only the published 
 choice, the include option in Studio's built-on card and in the Make public dialog, attribution on the storefront,
 the breaking-change rule, tests (API, hub real-API, 375px).
 
+*Built as [ADR 0431](../adr/0431-including-a-repository-in-the-release-of-one-built-on-it.md).* The RFC stays the
+spec; where the build differs, it says so here:
+
+- **Terms.** H1 builds the one switch, *may be included*, and stores nothing for a default: null is the default for
+  the repository's visibility (private no, public yes) and an Owner's value wins. The other two switches and the
+  presets come with H3 and H4; `inclusion` allows `show` and `include` only until H4 widens it.
+- **The breaking rule** is a second list beside the detector's, not a reason of it: a new reason would change a
+  response enum of the contract, which the contract's diff calls breaking. `inclusion_changes` is each repository
+  whose choice differs from what the current public release recorded (`repository_profile.release_sources`); a
+  publish with any, like one with detector hits, needs `acknowledge_breaking`, and the release is marked breaking.
+- **Consent is asked once, when the choice is set**, and not again when a release is made (the maintainer's
+  decision). A's Owner changing its terms later affects only choices made afterwards, not an existing choice and
+  not the release of the repository that already made it.
+- **Attribution** is taken from a snapshot of A's name and licence written into the release (and kept on the
+  profile for the storefront), not read from A's profile, which may be private.
+- **The choice is read** from the list of repositories a repository copied, the flip check and the Owner's list of
+  who copied it; the library's dependencies read (ADR 0198) is unchanged and has no step for an included
+  repository.
+
 ### H2. Public but unlisted
 
 A flag on the profile, `listed`, true by default and settable by an Owner of a public repository. Discover and its
@@ -135,6 +154,13 @@ summary, terms line, release, quotas, cooldown, delist, retire. Studio's visibil
 It stands alone and is the smallest of the four.
 
 *Slice H2:* the column, the condition, the toggle, the storefront's "not listed" note for its Owners, tests.
+
+*Built as [ADR 0432](../adr/0432-a-public-repository-that-is-not-listed.md).* The RFC stays the spec; where the build differs, it says so here:
+
+- **The flag is tied to the visibility** by a check (`listed OR visibility = 'public'`): not listed is a fact about a public repository only. `listed: false` is refused for a repository that is not public (`409 repository-not-public`), and `make_private` sets it back to listed. H3's flip from public to protected has to do the same.
+- **The storefront is read through the gated read**, not through `discover_read`: the storefront opens for any public repository and the policy says only what is listed. `discover_read` gains `listed`, so the listing cannot read an unlisted profile even if its query forgot the condition.
+- **The visibility card** has the switch "Listed on Discover" with a link "Open its page", the address an Owner shares; it is not offered while the repository is off Discover for another reason. The Make public dialog does not offer it (a repository is made public listed).
+- The page that says a repository cannot be opened no longer says "not listed".
 
 ### H3. Protected (show)
 
@@ -170,6 +196,16 @@ did), the flips, the stack rule, the copy plan, the read at read time, Studio's 
 Shelf's pill, tests across every reader and every state (visitor, library through a public repository, library
 with an invitation, member, operator; protected, public, private, retired, delisted).
 
+*Built as [ADR 0434](../adr/0434-a-protected-repository.md).* The RFC stays the spec; where the build differs, it says so here:
+
+- **The gate is one SQL function**, `repository_reached_through_another(a)`, called by the gate, by the profile's own read policy and by the policy of the grant a library writes. The repository a reader goes through is named by the read itself (`reading_repository(..., via=...)`) and never ambient. The function can read only `tenant` and the tenant's own grant rows without recursing, so two facts of the profile of a public repository (what its current release was built on and did not include, and that it is public) are kept on `tenant`, beside `delisted_at`, and written wherever the profile's release record or visibility change; a test holds them to the profile, and holds the function, the gate and the policy to a Python statement of the rule on every combination of what it reads.
+- **A `protected` grant is not a grant.** It is how a library lists what it holds through another repository and never lets it read anything alone; the access is checked each time, so it ends with the last repository that lists it, and making a repository private or protected deletes the rows its libraries wrote for what it listed. A narrow update policy lets a repository's side turn its libraries' `public` rows into `protected` ones and back when it flips between the two.
+- **`409 repository-protected` is for a library.** The one head a protected repository has is a repository of its own that its Owner invited, which is how building on it takes the grant its Owner gives; an invited library reads it as a private repository and still cannot copy it, and a library that holds nothing of it gets the `404` of a repository that is not there. Nothing a library holds through another names the repository: it reads "A protected repository" (RFC default 2).
+- **The flips** are `PUT .../protected` (a private repository with its first release, no summary or terms line; a public one without a release, with the acknowledgement of the libraries that lose its updates alone), `PUT .../public` (from protected, with a release of its own) and `DELETE .../public` (from either). `built_on_not_public` keeps its name and its error type and answers "not reached"; `public_dependents` counts public and protected dependents from the facts above.
+- **Terms.** `may_be_shown` is a nullable boolean like `may_be_included`; only a protected repository can say no, so what an Owner said while it was protected reads as true while it is not (`409 repository-not-protected` for the write). `inclusion = show` is refused with `409 repository-not-showable` when the terms forbid it, when the choice is set and not again when a release is made (the maintainer's decision, as for include), and an Owner of A is not held to it. A protected repository is included by default, as a public one is.
+- **A repository that copied a public A releases on when A becomes protected** (the maintainer's decision), with no invitation: its own `protected` grant row for A, on a source that is published and not delisted, makes the stack rule count A as reached and the skew gate compare A's current release (`tenant.current_release_id`) with the one it took, so a release A makes after it was protected needs an invitation to take. Nothing is opened to it: it reads nothing of A (`repository_reach.held_protected` reads its own row and A's `tenant` row), so there is no new function, policy or column.
+- **The contract** gains the value `protected` on the response `visibility`; the diff reports it as an added enum value, accepted in `openapi-breaking-accepted.txt` as earlier additions of a value are.
+
 ### H4. Hide A's items
 
 `inclusion = hide` marks the rows a library holds from A as hidden for that library: left out of entry lists,
@@ -196,6 +232,48 @@ inheritance, effective values, formulas and the updates that touch them.
 *Slice H4:* the spike, the flag and its derivation, the read filter, the inbox and provenance wording, the exports,
 every client that lists entries (Bench, Beings, Sessions, Maps, Calendars, Social, Writing, Inventory, the CLI),
 tests per client.
+
+*Spike findings* (written into [ADR 0437](../adr/0437-hiding-the-entries-of-a-repository-built-on-another.md)):
+
+- **Hiding rides on the gate of the entry audiences, not on their rows.** Every read of an entry already asks one
+  gate ([ADR 0305](../adr/0305-facts-and-entry-audiences.md): `visible_entry_clause`, `hidden_entry_ids`,
+  `require_visible_entry`), so it gains one input. The audience *rows* cannot carry it: an audience is the library's
+  own fact about its entry, copied with it and edited by its members, and an Owner, an Organizer and an Author are
+  let past every audience, where a hidden entry has to stay hidden for them.
+- **Everything still resolves through a hidden entry.** The effective-stat views read the tables and never the
+  gate; the prototype edge is a row nobody filters; and the provenance already answers "a source the reader may not
+  see" with a null source, which the API now says as `from_hidden`. The texts too (the maintainer's decision): the
+  descriptions and pictures of a hidden entry are inherited by the entries below it as a visible prototype's are, and
+  the entry is not named.
+- **The gate is not the one place.** The typed lists (items, beings, characters, item instances, knowledge) never
+  applied it, and an administrator was never filtered by it. Both are closed (a typed clause, and one guard in the two
+  dependencies every tenant route goes through for any route with an entry in its path), and a sweep of every `GET`
+  route proves it.
+
+*Built as [ADR 0437](../adr/0437-hiding-the-entries-of-a-repository-built-on-another.md).* The RFC stays the spec;
+where the build differs, it says so here:
+
+- **The flag is derived from the library's own records**, not set at copy and at update from another repository: each
+  copy record keeps what the release it last took brings separate (`carries`), and the flag on each entry's copy link
+  and `tenant.hides_entries` are derived from them after every copy, update and removal. *Show wins* is that rule:
+  hidden only while at least one repository the library holds hides the entry's repository and none shows it, and a
+  repository the library copied for itself is always shown. Only a library hides (a repository's copy of A is the
+  rows its own release is built from), and stat groups and definitions are not hidden.
+- **`may_be_hidden`** is the third switch of A's terms, on by default for every visibility, and only a protected
+  repository can say no (`409 repository-not-hidable` for the choice, `409 repository-not-protected` for the term);
+  "Stay hidden" keeps its meaning (included and hidden on, shown off).
+- **The update of a hidden repository names no entry**: its changes are `hidden` counts and a label, taken with the
+  rest when the update is applied, with one acknowledgement line (`acknowledge_hidden_breaking`) for breaking ones;
+  the release it names has its rows scrubbed. A hidden entry the repository dropped is removed when nothing visible
+  uses it, and kept (hidden) when something does.
+- **Provenance** is `from_hidden` beside the null `from_entity`, which a client says as "a hidden entry", on stat
+  values and on inherited descriptions and pictures. The texts are given by asking the audiences alone
+  (`can_see_inherited`), not the source's hide; the bytes of an inherited picture are read while an entry the reader
+  can see inherits from the hidden one.
+- **Consent is asked once, when the choice is set** (`409 repository-not-hidable`), and not again when a release is
+  made (the maintainer's decision, as for include and show).
+- **B's own page** (browse, preview, entry count) leaves out what its release carries hidden.
+- **The contract** gains the value `hide` where responses name the choice; the diff reports it as an added enum value, accepted in `openapi-breaking-accepted.txt`.
 
 ### Combinations
 
@@ -240,10 +318,10 @@ tenant, grant, subscription, flatten or source.
 
 | Slice | What | Needs | Touches |
 | --- | --- | --- | --- |
-| H1 | Include A in B at release; A's terms; the choice column; attribution | RFC 0037 R5 to R8, ADR 0385 | api, hub |
-| H2 | Public but unlisted | RFC 0038 D3 | api, hub |
-| H3 | Protected: the value, the flips, the stack rule, the gate, the copy plan | H1 (terms, the choice), ADR 0287, ADR 0289 | api, hub |
-| H4 | Hide A's items | H3, the spike | api, hub, bench, beings, sessions, maps, calendars, social, writing, inventory, cli |
+| H1 | Include A in B at release; A's terms; the choice column; attribution. **Built**, [ADR 0431](../adr/0431-including-a-repository-in-the-release-of-one-built-on-it.md) | RFC 0037 R5 to R8, ADR 0385 | api, hub |
+| H2 | Public but unlisted. **Built**, [ADR 0432](../adr/0432-a-public-repository-that-is-not-listed.md) | RFC 0038 D3 | api, hub |
+| H3 | Protected: the value, the flips, the stack rule, the gate, the copy plan. **Built**, [ADR 0434](../adr/0434-a-protected-repository.md) | H1 (terms, the choice), ADR 0287, ADR 0289 | api, hub |
+| H4 | Hide A's items. **Built**, [ADR 0437](../adr/0437-hiding-the-entries-of-a-repository-built-on-another.md) | H3, the spike | api, hub, beings |
 
 H1 and H2 are independent of each other and of the rest. H1 alone answers "B public without A public" when A's
 Owner agrees. H3 adds shared identity and updates from A. H4 is optional and is decided after H3 has been used.

@@ -99,7 +99,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 36
+    assert rd.FORMAT == 37
     assert rd.encode(full_content())[0] == {
         **golden,
         "definitions": {
@@ -107,6 +107,7 @@ def test_version_one_is_read_as_it_was_written() -> None:
             for key, definition in golden["definitions"].items()
         },
         "calendars": {},
+        "sources": {},
         "location_parts": {},
         "entity_locations": {},
         "frames": {},
@@ -548,3 +549,47 @@ def test_social_webs_survive_a_round_trip() -> None:
     assert back.social_webs == content.social_webs
     assert back.social_web_entries == content.social_web_entries
     assert back.social_web_types == content.social_web_types
+
+
+def test_version_thirty_six_has_no_sources() -> None:
+    """A release written before a repository could include one it is built on says nothing of how
+    it carried what it was built on (ADR 0431)."""
+    document, files = rd.encode(full_content())
+    old = {key: value for key, value in document.items() if key != "sources"}
+
+    back = rd.READERS[36](old, files)
+
+    assert back.sources == {}
+    assert differences(full_content(), back) == []
+
+
+def test_sources_survive_a_round_trip() -> None:
+    included, shown = uuid.UUID(int=240), uuid.UUID(int=241)
+    content = full_content()
+    content.sources = {
+        included: {
+            "inclusion": "include",
+            "name": "Armoury",
+            "licence": {
+                "label": "CC BY 4.0",
+                "url": "https://creativecommons.org/licenses/by/4.0/",
+            },
+        },
+        shown: {"inclusion": "show", "name": "Rules", "licence": {"label": "OGL", "url": None}},
+    }
+
+    document, files = rd.encode(content)
+
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+    assert differences(content, back) == []
+    assert back.sources == content.sources
+
+
+def test_a_source_with_a_field_the_format_does_not_write_is_refused() -> None:
+    content = full_content()
+    content.sources = {
+        uuid.UUID(int=240): {"inclusion": "include", "name": "A", "licence": None, "x": 1}
+    }
+
+    with pytest.raises(rd.ContentFieldNotSerialisedError):
+        rd.encode(content)
