@@ -38,19 +38,33 @@ export async function signedInPage(
     void dialog.accept();
   });
   if (autoConfirm) {
-    await page.addLocatorHandler(
-      page
-        .getByRole('dialog')
-        .filter({ has: page.locator('.btn-danger') })
-        .filter({ hasNot: page.locator('input') }),
-      async (dialog) => {
-        confirmations.push(await dialog.innerText());
-        await (answer.yes
-          ? dialog.locator('.btn-danger')
-          : dialog.getByRole('button').first()
-        ).click();
-      },
-    );
+    // The shell's confirmation dialogs that ask for no typing are answered in the page, the moment
+    // they appear, so a spec that reads `confirmations` right after its click finds the question.
+    await page.exposeFunction('__confirmAnswer', (text: string) => {
+      confirmations.push(text);
+
+      return answer.yes;
+    });
+    await page.addInitScript(() => {
+      const answered = new WeakSet<Element>();
+      const look = () => {
+        for (const dialog of document.querySelectorAll('dialog, [role="dialog"]')) {
+          const danger = dialog.querySelector<HTMLElement>('.btn-danger');
+
+          if (answered.has(dialog) || !danger || dialog.querySelector('input')) continue;
+
+          answered.add(dialog);
+          const buttons = dialog.querySelectorAll<HTMLElement>('button');
+          const text = (dialog as HTMLElement).innerText || dialog.textContent || '';
+
+          void (window as unknown as { __confirmAnswer(text: string): Promise<boolean> })
+            .__confirmAnswer(text)
+            .then((yes) => (yes ? danger : buttons[0])?.click());
+        }
+      };
+
+      new MutationObserver(look).observe(document, { childList: true, subtree: true });
+    });
   }
   await signIn(page, context, subject);
   return { context, page, confirmations, answer };
