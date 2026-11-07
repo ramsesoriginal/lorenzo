@@ -126,6 +126,12 @@ import ReleaseComposer from './ReleaseComposer.astro';
           </p>
           <div class="row">
             <button type="button" class="btn btn-secondary" data-visibility-button></button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-visibility-button-alt
+              hidden
+            ></button>
           </div>
           <p class="caption" data-visibility-note hidden></p>
           <!-- Whether Discover lists it (RFC 0051 H2, ADR 0432): an Owner's, for a public repository, saved at once. -->
@@ -420,12 +426,21 @@ import ReleaseComposer from './ReleaseComposer.astro';
       <div class="card card-body stack" id="profile-terms" tabindex="-1" data-terms-card hidden>
         <h4 data-terms-heading></h4>
         <p class="caption" data-terms-intro></p>
+        <fieldset class="stack-tight" data-terms-presets>
+          <legend class="caption" data-terms-presets-legend></legend>
+        </fieldset>
         <label class="field-row">
           <input type="checkbox" data-terms-include />
           <span data-terms-include-label></span>
         </label>
         <p class="caption" data-terms-include-help></p>
         <p class="caption" data-terms-line></p>
+        <label class="field-row">
+          <input type="checkbox" data-terms-shown />
+          <span data-terms-shown-label></span>
+        </label>
+        <p class="caption" data-terms-shown-help></p>
+        <p class="caption" data-terms-shown-line></p>
         <p class="caption" data-terms-owner-only hidden></p>
         <p class="status-text" role="status" data-terms-status hidden></p>
       </div>
@@ -541,7 +556,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
     </form>
   </dialog>
 
-  <!-- What making it public or private will do, said before it does it (ADR 0290). -->
+  <!-- What making it public, protected or private will do, said before it does it (ADR 0290, ADR 0433). -->
   <dialog aria-labelledby="visibility-dialog-title" data-visibility-dialog>
     <form method="dialog" class="stack" data-visibility-form>
       <h3 id="visibility-dialog-title" data-vis-title></h3>
@@ -561,7 +576,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
         <ul class="stack" data-vis-built-on-list></ul>
       </div>
 
-      <!-- Making it public: what it says of itself, what people may look at, and the release. -->
+      <!-- Making it public: what it says of itself and what people may look at. -->
       <div class="stack" data-vis-public hidden>
         <label class="field">
           <span class="field-label">Summary</span>
@@ -572,8 +587,13 @@ import ReleaseComposer from './ReleaseComposer.astro';
         <fieldset data-vis-preview>
           <legend data-vis-preview-legend></legend>
         </fieldset>
-        <ReleaseComposer />
+      </div>
 
+      <!-- Making it public or protected (a private repository): the release. -->
+      <ReleaseComposer />
+
+      <!-- Making it public: the terms line an Owner agrees to (RFC 0038 section 6, ADR 0299). -->
+      <div class="stack" data-vis-public-terms hidden>
         <!-- The terms line an Owner agrees to (RFC 0038 section 6, ADR 0299). -->
         <label class="field-row" data-vis-terms-row>
           <input type="checkbox" data-vis-terms />

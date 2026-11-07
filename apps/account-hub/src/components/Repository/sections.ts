@@ -4,7 +4,12 @@
 
 import { knownNames } from '../../lib/activityNames';
 import { describeError } from '../../lib/describeError';
-import { breakingNote, notOfferedReason, offeredChoices } from '../../lib/inclusion';
+import {
+  breakingNote,
+  notOfferedReason,
+  notShowableReason,
+  offeredChoices,
+} from '../../lib/inclusion';
 import {
   breakingLines,
   countsLines,
@@ -251,8 +256,15 @@ export function createBuiltOn(root: HTMLElement): Section {
                   sourceId: row.id,
                   name: row.name,
                   inclusion: row.inclusion,
-                  offered: offeredChoices(row.includable, row.inclusion),
-                  notOffered: notOfferedReason(row.name, row.includable),
+                  offered: offeredChoices(row.includable, row.inclusion, row.showable),
+                  notOffered:
+                    [
+                      notOfferedReason(row.name, row.includable),
+                      notShowableReason(row.name, row.showable),
+                    ]
+                      .filter((reason): reason is string => reason !== null)
+                      .join(' ') || null,
+                  protected: row.protected,
                   note: breakingNote({ inclusion_in_release: row.inclusionInRelease }),
                   editable: repository.role === 'owner',
                 }),

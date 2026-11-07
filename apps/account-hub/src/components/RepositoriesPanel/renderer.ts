@@ -32,6 +32,8 @@ import {
   kindLabel,
   type OutlineNode,
   outlineOf,
+  PROTECTED_NOTE,
+  PROTECTED_PILL,
   parentsLine,
   readShelfLocation,
   SHELF_STATE_EXPLANATION,
@@ -158,6 +160,8 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     initial: required<HTMLElement>(detailView, '[data-initial]'),
     name: required<HTMLElement>(detailView, '[data-name]'),
     state: required<HTMLElement>(detailView, '[data-state]'),
+    protectedPill: required<HTMLElement>(detailView, '[data-protected-pill]'),
+    protectedNote: required<HTMLElement>(detailView, '[data-protected-note]'),
     explanation: required<HTMLElement>(detailView, '[data-explanation]'),
     retired: required<HTMLElement>(detailView, '[data-retired]'),
     retiredPill: required<HTMLElement>(detailView, '[data-retired-pill]'),
@@ -238,6 +242,12 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
           repository.description,
         );
         stateElement(required<HTMLElement>(card, '[data-state]'), shelfState(subscription));
+
+        // Held through a public repository built on it (RFC 0051 H3, ADR 0433): a pill, and no name.
+        const protectedBox = required<HTMLElement>(card, '[data-protected-card]');
+
+        protectedBox.hidden = !subscription.protected;
+        required<HTMLElement>(card, '[data-protected-pill]').textContent = PROTECTED_PILL;
 
         // Retired by its Owner (ADR 0384): said on the card, with the Owner's words.
         const retired = retiredHere(subscription.deprecated, subscription.copied_at !== null);
@@ -390,8 +400,11 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     const { repository } = subscription;
     const state = shelfState(subscription);
     // Only a repository that is offered and published can be looked inside.
+    // A protected repository held through another is not looked inside: it is read only as a step of
+    // the copy of the repository that brings it (ADR 0433).
+    const through = subscription.protected === true;
     const canLookInside =
-      state === 'not-copied' || state === 'copied' || state === 'update-announced';
+      !through && (state === 'not-copied' || state === 'copied' || state === 'update-announced');
     const plan = canLookInside ? await getCopyPlan(library.id, repository.id) : null;
 
     if (turn !== latest) return;
@@ -414,6 +427,10 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     showPicture(detail.picture, detail.initial, repository);
     detail.name.textContent = repository.name;
     stateElement(detail.state, state);
+    detail.protectedPill.hidden = !through;
+    detail.protectedPill.textContent = PROTECTED_PILL;
+    detail.protectedNote.hidden = !through;
+    detail.protectedNote.textContent = PROTECTED_NOTE;
     // Retired by its Owner (ADR 0384): the library keeps what it copied and its updates, cannot copy
     // it again, and reads the Owner's words. A library that never copied it is told only that.
     const retired = retiredHere(subscription.deprecated, subscription.copied_at !== null);
@@ -434,9 +451,9 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     detail.updatesLink.href = updatesHref(library.slug, repository.id);
 
     // Copying: a first copy of what is offered and not yet copied, another of what is copied.
-    detail.actions.hidden = state !== 'not-copied' || retired !== null;
+    detail.actions.hidden = state !== 'not-copied' || retired !== null || through;
     detail.copyLink.href = shelfHref(library.slug, repository.id, 'new');
-    detail.more.hidden = subscription.copied_at === null || retired !== null;
+    detail.more.hidden = subscription.copied_at === null || retired !== null || through;
     detail.more.open = false;
     detail.copyAgainLink.href = shelfHref(library.slug, repository.id, 'again');
     showLorenzoScript(detail.description, repository.description);

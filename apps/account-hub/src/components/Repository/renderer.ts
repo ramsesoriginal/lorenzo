@@ -115,7 +115,7 @@ export function renderRepository(
   const publishControls = createPublishControls(root, hooks.onChanged);
   // Private or public is a change of the same kind: the page reads the repository again after it.
   const visibility = createVisibilityControls(root, hooks.onChanged, (kind, check, repository) => {
-    publishControls.markPublic(kind === 'public');
+    publishControls.markPublic(kind !== 'private');
     void readiness.paint(repository, check);
   });
   // What is still missing before it can be public, each a link to where it is fixed (ADR 0385).

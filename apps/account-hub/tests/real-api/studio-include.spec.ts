@@ -96,9 +96,7 @@ test('an Owner includes a private repository, makes the repository public, and a
   await page.goto(`/studio/?repository=${b.slug}`);
   await page.locator('[data-visibility]').getByRole('button', { name: 'Make public…' }).click();
   await expect(dialog(page)).toBeVisible();
-  await expect(dialog(page).locator('[data-vis-blockers]')).toContainText(
-    `${a.name} is not public.`,
-  );
+  await expect(dialog(page).locator('[data-vis-blockers]')).toContainText(`${a.name} is private.`);
   await expect(dialog(page).locator('[data-vis-blockers]')).toContainText(
     'Or include it in this repository, below.',
   );
@@ -286,7 +284,12 @@ test('an Owner changes what repositories built on a repository may do with it, a
         owner.api.GET('/tenants/{tenant_id}/profile', { params: { path: { tenant_id: a.id } } }),
       )
     ).terms,
-  ).toEqual({ may_be_included: true, is_default: false });
+  ).toEqual({
+    may_be_included: true,
+    is_default: false,
+    may_be_shown: true,
+    may_be_shown_is_default: true,
+  });
 
   // An Author reads it and cannot change it.
   const author = await newUser('terms-author');

@@ -81,6 +81,13 @@ export function shelfState(subscription: SubscriptionOut): ShelfState {
   return published > last ? 'update-announced' : 'copied';
 }
 
+// A repository the library holds through a public repository built on it (RFC 0051 H3, ADR 0433): it
+// has no name here, cannot be copied on its own, and is read only while the library holds one that
+// lists it.
+export const PROTECTED_PILL = 'Protected';
+export const PROTECTED_NOTE =
+  'Your library holds this repository through a public repository built on it. It cannot be copied on its own, and its updates come for as long as your library holds a repository built on it.';
+
 export const SHELF_STATE_LABEL: Record<ShelfState, string> = {
   'not-copied': 'Not copied yet',
   copied: 'Copied',
@@ -126,7 +133,13 @@ export function dayOf(timestamp: string): string {
   return timestamp.slice(0, 10);
 }
 
-export type OutlineState = 'this' | 'copied' | 'invited' | 'not-invited' | 'not-published';
+export type OutlineState =
+  | 'this'
+  | 'copied'
+  | 'invited'
+  | 'protected'
+  | 'not-invited'
+  | 'not-published';
 
 export type OutlineNode = {
   repositoryId: string;
@@ -141,6 +154,7 @@ const OUTLINE_LABEL: Record<OutlineState, string> = {
   this: 'This repository',
   copied: 'Copied',
   invited: 'Invited, not copied',
+  protected: 'Protected, comes with this repository',
   'not-invited': 'Not invited',
   'not-published': 'Not published',
 };
@@ -163,6 +177,8 @@ function outlineNode(step: CopyStepOut, state: OutlineState): OutlineNode {
 
 function stepState(step: CopyStepOut): OutlineState {
   if (step.already_copied) return 'copied';
+  // A protected repository is read as a step of this copy, with no invitation (ADR 0433).
+  if (step.protected && step.published) return 'protected';
   if (!step.granted) return 'not-invited';
   if (!step.published) return 'not-published';
 
@@ -201,9 +217,15 @@ export function countsKnown(plan: CopyPlanOut, repositoryId: string): boolean {
 
   if (!target || target.already_copied) return false;
 
-  return plan.steps.every(
-    (step) => step.already_copied || (step.published && (step.granted || step.public)),
-  );
+  return plan.steps.every((step) => step.already_copied || stepReadable(step));
+}
+
+// Whether the library can read it as a step of this copy: published, and it holds an invitation, or it is
+// public, or it is protected and comes with the repository being copied (ADR 0433).
+export function stepReadable(
+  step: Pick<CopyStepOut, 'published' | 'granted' | 'public' | 'protected'>,
+): boolean {
+  return step.published && (step.granted || step.public || step.protected === true);
 }
 
 export type InsideCount = { label: string; value: number };

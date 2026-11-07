@@ -33,6 +33,8 @@ function source(overrides: Partial<BuiltOnSourceOut> = {}): BuiltOnSourceOut {
     inclusion: 'show',
     includable: { allowed: true, by: 'owner' },
     in_release: null,
+    protected: false,
+    may_be_shown: true,
     ...overrides,
   };
 }
