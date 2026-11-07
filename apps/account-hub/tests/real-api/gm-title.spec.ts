@@ -1,6 +1,6 @@
 // What a table calls its game master (ADR 0294): set in the campaign's settings, read wherever that
 // campaign appears, and "GM" wherever no one campaign is in play.
-import { expect, type Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { ok } from '../../../inventory-web/tests/e2e/support/api';
 import {
   AUTHGEAR_URL,

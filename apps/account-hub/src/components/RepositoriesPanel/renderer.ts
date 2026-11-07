@@ -6,7 +6,9 @@
 // `&updates=1` (with or without a repository, for its updates or the library's inbox); all are
 // plain links, so they can be opened, shared and gone back to.
 
+import { pageState } from '@lorenzo/app-shell';
 import { onCacheRefreshed } from '../../lib/cache';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { copyTargets } from '../../lib/discover';
 import { getStorefront } from '../../lib/discoverApi';
 import { isEditingIn } from '../../lib/editing';
@@ -264,6 +266,20 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
       }),
     );
     empty.hidden = subscriptions.length > 0;
+    // Nothing offered to this library: a page state with the mascot, in words either way.
+    empty.replaceChildren(
+      ...(subscriptions.length === 0
+        ? [
+            pageState(BRANDING_CSS_URL, {
+              art: 'empty-entries',
+              level: 2,
+              title: 'No repository offered yet',
+              text: 'No repository is offered to this library yet. The owner of a repository invites a library to it; ask them to invite this one.',
+              alt: 'An empty shelf',
+            }),
+          ]
+        : []),
+    );
     // The inbox checks every copy, so it is offered where there is one.
     checkUpdates.hidden = !subscriptions.some((s) => s.copied_at !== null);
     inboxLink.href = updatesHref(library.slug);
