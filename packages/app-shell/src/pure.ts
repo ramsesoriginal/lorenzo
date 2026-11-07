@@ -49,16 +49,29 @@ export function isCurrentPage(href: string, pathname: string): boolean {
   return normal(href) === normal(pathname);
 }
 
-/** The real date and time for the status bar, e.g. "Thu 6 Nov, 09:41", in the reader's language. */
+/** The locale the clock is written in: the page's language, and for plain English the day-first form the design draws. */
+export function clockLocale(lang: string | null | undefined): string | undefined {
+  const tag = (lang ?? '').trim();
+
+  if (tag === '') return undefined;
+
+  return tag.toLowerCase() === 'en' ? 'en-GB' : tag;
+}
+
+/** The real date and time for the status bar, e.g. "Wed 4 November at 20:59", in the reader's language. */
 export function clockText(now: Date, locale?: string): string {
-  const day = new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     day: 'numeric',
-    month: 'short',
+    month: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(now);
-  const time = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(now);
+}
 
-  return `${day}, ${time}`;
+/** The time of day alone, "19:40", for "Synced 19:40". */
+export function timeText(at: Date, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(at);
 }
 
 /**

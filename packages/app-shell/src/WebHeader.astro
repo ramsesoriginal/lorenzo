@@ -10,13 +10,17 @@ interface Props {
   product: string;
   brandingUrl: string;
   nav?: NavItem[];
+  // The app's icon, beside its name (D29): an icon of the brand's sprite, "account".
+  icon?: string;
 }
 
-const { product, brandingUrl, nav = [] } = Astro.props;
+const { product, brandingUrl, nav = [], icon } = Astro.props;
 const icons = `${brandingUrl}/icons.svg`;
 ---
 
-<header class="shell-header" data-site-header data-shell data-sprite={icons}>
+<!-- One row (the mark, the app, its links, then the global controls) until the library switcher is
+     shown: with several libraries it is two tiers and the wordmark sits beside the switcher (D29). -->
+<header class="shell-header" data-site-header data-shell data-tiers="one" data-sprite={icons}>
   <div class="shell-bar">
     <a class="brand brand--compact" href="/" aria-label={`Lorenzo ${product}, home`}>
       <img
@@ -95,7 +99,14 @@ const icons = `${brandingUrl}/icons.svg`;
     </button>
   </div>
   <div class="shell-apps">
-    <span class="prod">{product}</span>
+    <span class="prod">
+      {icon && (
+        <svg class="icon" aria-hidden="true">
+          <use href={`${icons}#icon-${icon}`}></use>
+        </svg>
+      )}
+      {product}
+    </span>
     {nav.length > 0 && (
       <nav aria-label="Pages">
         {nav.map((item) => (

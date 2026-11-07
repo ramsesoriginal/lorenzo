@@ -7,7 +7,7 @@ import { bindLegalLinks } from './legal';
 import { type MenuItem, openMenu } from './menu';
 import type { PaletteItem } from './palette';
 import { mountPalette, type PaletteUi, type PaletteUiOptions } from './palette-ui';
-import { clockText, initials, isCurrentPage, navHref } from './pure';
+import { clockLocale, clockText, initials, isCurrentPage, navHref, timeText } from './pure';
 import { changesText, createSaveBar, type SaveBar, type SaveBarHandlers } from './save-bar';
 import { readSingleKeys, writeSingleKeys } from './settings';
 import { mountShortcuts } from './shortcuts-ui';
@@ -18,7 +18,7 @@ import { createToasts, type ToastHandle, type ToastOptions } from './toast';
 export type AccountState =
   | { state: 'checking' }
   | { state: 'signed-out' }
-  | { state: 'signed-in'; label?: string }
+  | { state: 'signed-in'; label?: string; name?: string }
   | { state: 'error'; message: string };
 
 export type LibraryChoice = { id: string; name: string };
@@ -111,8 +111,11 @@ export type Shell = {
 
   /** The state strip: a message that needs attention, or null for none (it closes to nothing). */
   strip(state: StripState | null): void;
-  /** The status bar: the sync state and the app's own meta (a word count, the carried weight). */
-  statusBar(parts: { sync?: SyncState; meta?: string | null }): void;
+  /**
+   * The status bar: the sync state ("Synced 19:40", with `syncedAt`) and the app's own meta (a word
+   * count, the carried weight).
+   */
+  statusBar(parts: { sync?: SyncState; meta?: string | null; syncedAt?: Date }): void;
   /** The apps sheet, from the app registry: every deployed app by job, the current one marked. */
   apps(registry: AppRegistry): void;
   /** The notifications bell, shown only when an app has somewhere to send it. */
@@ -145,6 +148,19 @@ export type Shell = {
 
 function find<T extends HTMLElement>(root: ParentNode, selector: string): T | null {
   return root.querySelector<T>(selector);
+}
+
+/** An icon of the sprite, drawn the way the markup draws one. */
+function svgIcon(sprite: string, name: string, extra = ''): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+
+  svg.setAttribute('class', extra ? `icon ${extra}` : 'icon');
+  svg.setAttribute('aria-hidden', 'true');
+  use.setAttribute('href', `${sprite}#icon-${name}`);
+  svg.append(use);
+
+  return svg;
 }
 
 function setHidden(element: HTMLElement | null, hidden: boolean) {
@@ -235,11 +251,59 @@ export function bindShell(options: ShellOptions): Shell | null {
 
   if (sheet) {
     fadeOnDismiss(sheet);
-    for (const opener of document.querySelectorAll('[data-shell-open-sheet]')) {
-      opener.addEventListener('click', () => openDialog(sheet));
+
+    const openers = [...document.querySelectorAll<HTMLElement>('[data-shell-open-sheet]')];
+    // Above the phone the sheet is a panel docked over the status bar, which stays visible and keeps the
+    // page undimmed (D18); on a phone it is a modal sheet with a grip.
+    const docked = () => !(window.matchMedia?.('(max-width: 720px)').matches ?? false);
+    let opener: HTMLElement | null = null;
+    const setExpanded = (open: boolean) => {
+      for (const button of openers) button.setAttribute('aria-expanded', String(open));
+    };
+    const close = () => {
+      closeDialog(sheet);
+      setExpanded(false);
+      opener?.focus();
+    };
+
+    for (const button of openers) {
+      button.addEventListener('click', () => {
+        if (sheet.open && sheet.hasAttribute('data-docked')) {
+          close();
+
+          return;
+        }
+
+        opener = button;
+        sheet.removeAttribute('data-closing');
+
+        if (docked()) {
+          sheet.setAttribute('data-docked', '');
+          if (!sheet.open) sheet.show();
+          sheet.querySelector<HTMLElement>('a[href]:not([hidden])')?.focus();
+        } else {
+          sheet.removeAttribute('data-docked');
+          openDialog(sheet);
+        }
+
+        setExpanded(true);
+      });
     }
+
     sheet.addEventListener('click', (event) => {
       if ((event.target as HTMLElement).closest('a')) closeDialog(sheet);
+    });
+    sheet.addEventListener('close', () => setExpanded(false));
+    // A docked panel is not modal: Escape and a press outside it close it, as for a modal.
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && sheet.open && sheet.hasAttribute('data-docked')) close();
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (!sheet.open || !sheet.hasAttribute('data-docked')) return;
+
+      const target = event.target as Node;
+
+      if (!sheet.contains(target) && !openers.some((button) => button.contains(target))) close();
     });
   }
 
@@ -297,20 +361,27 @@ export function bindShell(options: ShellOptions): Shell | null {
 
   const accountButton = find<HTMLButtonElement>(root, '[data-shell-account-button]');
   let accountLabel: string | undefined;
+  let accountName: string | undefined;
+  let unread = 0;
 
   accountButton?.addEventListener('click', () => {
     if (accountButton.getAttribute('aria-expanded') === 'true') return;
 
     const themeToggle = find<HTMLButtonElement>(root, '[data-theme-toggle]');
     const at = (path: string) => (hub ? new URL(path, hub).href : undefined);
-    const hubLink = (label: string, icon: string, path: string): MenuItem[] => {
+    const hubLink = (label: string, icon: string, path: string, badge?: string): MenuItem[] => {
       const href = at(path);
 
-      return href ? [{ label, icon, href }] : [];
+      return href ? [{ label, icon, href, ...(badge ? { badge } : {}) }] : [];
     };
     const items: MenuItem[] = [
       ...hubLink('Profile', 'account', 'profile/'),
-      ...hubLink('Notifications', 'notifications', 'notifications/'),
+      ...hubLink(
+        'Notifications',
+        'notifications',
+        'notifications/',
+        unread > 0 ? String(unread) : undefined,
+      ),
       ...hubLink('Libraries and people', 'library', 'tenants/'),
       ...hubLink('Access tokens and devices', 'token', 'tokens/'),
       { separator: true },
@@ -350,18 +421,28 @@ export function bindShell(options: ShellOptions): Shell | null {
     openMenu(accountButton, items, {
       label: 'Account',
       sprite,
-      ...(accountLabel ? { head: accountLabel } : {}),
+      ...(accountName
+        ? { head: { title: accountName, ...(accountLabel ? { text: accountLabel } : {}) } }
+        : accountLabel
+          ? { head: accountLabel }
+          : {}),
     });
   });
 
   const clock = find<HTMLTimeElement>(document, '[data-shell-clock]');
 
   if (clock) {
+    const footClock = find<HTMLTimeElement>(document, '[data-shell-foot-clock]');
     const tick = () => {
       const now = new Date();
+      const text = clockText(now, clockLocale(document.documentElement.lang));
 
-      clock.textContent = clockText(now);
+      clock.textContent = text;
       clock.dateTime = now.toISOString();
+      if (footClock) {
+        footClock.textContent = text;
+        footClock.dateTime = now.toISOString();
+      }
     };
 
     tick();
@@ -386,6 +467,7 @@ export function bindShell(options: ShellOptions): Shell | null {
       }
       if (state.state === 'signed-in') {
         accountLabel = state.label;
+        accountName = state.name;
         const letters = find<HTMLElement>(root, '[data-shell-initials]');
 
         if (letters) letters.textContent = initials(state.label);
@@ -415,6 +497,8 @@ export function bindShell(options: ShellOptions): Shell | null {
       );
       select.addEventListener('change', () => onChange(select.value));
       group.hidden = false;
+      // Several libraries: two tiers, with the wordmark beside the switcher (D29).
+      root.dataset.tiers = 'two';
     },
 
     library: mark,
@@ -475,7 +559,11 @@ export function bindShell(options: ShellOptions): Shell | null {
           sync.dataset.kind = parts.sync;
           setIcon(find(sync, '[data-shell-sync-icon]'), SYNC_ICON[parts.sync]);
           const text = find<HTMLElement>(sync, '[data-shell-sync-text]');
-          if (text) text.textContent = SYNC_TEXT[parts.sync];
+          if (text) {
+            text.textContent = parts.syncedAt
+              ? `${SYNC_TEXT[parts.sync]} ${timeText(parts.syncedAt, clockLocale(document.documentElement.lang))}`
+              : SYNC_TEXT[parts.sync];
+          }
         }
       }
 
@@ -512,8 +600,19 @@ export function bindShell(options: ShellOptions): Shell | null {
               link.href = app.url;
               link.dataset.app = app.id;
               link.title = app.description;
-              if (sameOrigin(app.url)) link.setAttribute('aria-current', 'page');
-              link.textContent = app.name;
+              link.append(svgIcon(sprite, app.icon));
+
+              const name = document.createElement('span');
+
+              name.className = 'grow';
+              name.textContent = app.name;
+              link.append(name);
+
+              // The app the person is in is marked, in words for a screen reader and with a check.
+              if (sameOrigin(app.url)) {
+                link.setAttribute('aria-current', 'page');
+                link.append(svgIcon(sprite, 'select-item', 'check'));
+              }
 
               return link;
             }),
@@ -726,6 +825,7 @@ export function bindShell(options: ShellOptions): Shell | null {
       if (!bell) return;
 
       bell.hidden = info === null;
+      unread = info?.count ?? 0;
       if (!info) return;
 
       bell.href = info.href;

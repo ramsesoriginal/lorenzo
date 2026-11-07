@@ -35,6 +35,7 @@ export {
 } from './palette';
 export type { NavItem, Theme } from './pure';
 export {
+  clockLocale,
   clockText,
   initials,
   initialTheme,

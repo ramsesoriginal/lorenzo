@@ -662,6 +662,22 @@ dialog h3 {
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.menu-head-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.menu-head-text {
+  font-size: var(--fs-meta);
+  color: var(--text-secondary);
+}
+
+.menu-badge {
+  font-weight: 600;
+  font-size: var(--fs-meta);
+  color: var(--text-primary);
+}
+
 .menu-label {
   padding: 8px 10px 4px;
   font-size: var(--fs-micro);
@@ -670,6 +686,7 @@ dialog h3 {
 }
 
 .menu-item {
+  text-decoration: none;
   display: flex;
   align-items: center;
   gap: var(--space-2h);
@@ -1898,6 +1915,94 @@ fieldset:disabled {
   transform: scaleX(1);
 }
 
+/* The wordmark is the design's size (28px high, D29), and the spark alone stands for it in one row. */
+.shell-header .brand-mark {
+  width: auto;
+  height: 28px;
+}
+
+.shell-header[data-tiers="one"] .brand-mark {
+  display: none;
+}
+
+.shell-header[data-tiers="one"] .brand-spark {
+  display: block;
+}
+
+.shell-apps .prod {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* One library, nothing to switch (D29): one row, the mark, the app, its links, then the global
+   controls. The two bars are laid out as one by ordering what is in them. */
+.shell-header[data-tiers="one"] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-2h);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.shell-header[data-tiers="one"] .shell-bar,
+.shell-header[data-tiers="one"] .shell-apps {
+  display: contents;
+}
+
+.shell-header[data-tiers="one"] .shell-bar > * {
+  order: 4;
+}
+
+.shell-header[data-tiers="one"] .shell-bar > .brand {
+  order: 0;
+}
+
+.shell-header[data-tiers="one"] .shell-bar > .grow {
+  order: 3;
+  flex: 1;
+}
+
+.shell-header[data-tiers="one"] .shell-apps .prod {
+  order: 1;
+  margin-inline: var(--space-1) var(--space-2h);
+  align-self: center;
+}
+
+.shell-header[data-tiers="one"] .shell-apps nav {
+  order: 2;
+  align-self: stretch;
+}
+
+.shell-header[data-tiers="one"] .shell-apps .tab {
+  min-height: 52px;
+}
+
+.shell-header[data-tiers="one"] .shell-strip {
+  order: 9;
+  flex-basis: 100%;
+  margin-inline: calc(var(--space-4) * -1);
+}
+
+@container shell (max-width: 960px) {
+  .shell-header[data-tiers="one"] .shell-field-btn.palette-btn {
+    width: var(--hit, 36px);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .shell-header[data-tiers="one"] .shell-field-btn.palette-btn > span,
+  .shell-header[data-tiers="one"] .shell-field-btn.palette-btn kbd {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 /* State strip: shown only when something needs attention, and then it grows open. */
 .shell-strip {
   display: grid;
@@ -2049,7 +2154,8 @@ fieldset:disabled {
   background: var(--text-primary);
 }
 
-/* Apps drawer: every app by job, the legal links, the version. A sheet from the status bar. */
+/* Apps drawer: every app by job, the legal links, the version (D18). Above the phone it is a panel
+   docked over the status bar, as wide as the window; the page stays undimmed and the bar stays visible. */
 .shell-drawer {
   padding: var(--space-4);
   background: var(--surface-canvas);
@@ -2058,14 +2164,27 @@ fieldset:disabled {
 
 .shell-drawer .cols {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
-  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-4) var(--space-5);
 }
 
-.shell-drawer .apps {
+/* The jobs are columns of the same grid as About. */
+.shell-drawer .cols > .apps {
+  display: contents;
+}
+
+.shell-drawer .more {
+  margin-bottom: var(--space-4);
+}
+
+.shell-drawer .more .apps {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0 var(--space-4);
+}
+
+.shell-drawer .menu-label {
+  padding-inline: 0;
 }
 
 .shell-drawer a.l {
@@ -2082,12 +2201,24 @@ fieldset:disabled {
   text-decoration: underline;
 }
 
+.shell-drawer a.l .check {
+  color: var(--text-secondary);
+}
+
 .shell-drawer .foot {
   margin-top: var(--space-3);
   padding-top: var(--space-2h);
   border-top: 1px solid var(--border-subtle);
   font-size: var(--fs-meta);
   color: var(--text-tertiary);
+}
+
+.shell-status .chevron {
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.shell-status [aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
 }
 
 /* The palette: a dialog with a search field, scope buttons, grouped options and a key hint. */
@@ -2254,9 +2385,23 @@ dialog.palette:not([open]) {
 /* The shell's bars follow the width of the .shell-container they sit in (layout.css), not the
    window, so the same markup works in a full page and in a pane. A dialog is the window's. */
 @container shell (max-width: 720px) {
-  .shell-apps,
+  .shell-header:not([data-tiers="one"]) .shell-apps,
   .only-wide {
     display: none;
+  }
+
+  /* One row on a phone: the mark and the app's name, its links are the tab bar. */
+  .shell-header[data-tiers="one"] .shell-apps nav {
+    display: none;
+  }
+
+  .shell-header[data-tiers="one"] {
+    padding: 4px var(--space-3);
+    min-height: 52px;
+  }
+
+  .shell-header[data-tiers="one"] .shell-apps .prod {
+    margin-inline-start: 0;
   }
 
   .shell-tabbar {
@@ -2276,12 +2421,9 @@ dialog.palette:not([open]) {
     display: none;
   }
 
-  .shell-drawer .cols {
+  .shell-drawer .cols,
+  .shell-drawer .more .apps {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .shell-drawer .apps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2792,9 +2934,9 @@ dialog.palette:not([open]) {
   }
 }
 
-/* The sheet that "Apps and about" (the status bar) and "More" (the phone's tab bar) open: the apps by
-   job, the legal links and the version. A bottom sheet at every width; above the phone it is as wide
-   as the window and as tall as its content. */
+/* The sheet that "Apps and about" (the status bar) and "More" (the phone's tab bar) open. On a phone a
+   modal bottom sheet, as tall as its content; above it, a docked panel (`data-docked`) over the status
+   bar, which is not modal and so does not dim the page. */
 dialog.shell-sheet {
   position: fixed;
   inset: auto 0 0 0;
@@ -2816,6 +2958,19 @@ dialog.shell-sheet .shell-drawer {
 dialog.shell-sheet .sheet-grip {
   display: block;
   margin-top: var(--space-3);
+}
+
+dialog.shell-sheet[data-docked] {
+  inset: auto 0 var(--shell-status-height, 33px) 0;
+  border-radius: 0;
+  border-width: 1px 0;
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+
+dialog.shell-sheet[data-docked] .sheet-grip,
+dialog.shell-sheet[data-docked] .more {
+  display: none;
 }
 
 .shell-drawer a.l[aria-current="page"] {

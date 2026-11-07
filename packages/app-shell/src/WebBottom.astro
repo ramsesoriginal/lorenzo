@@ -8,6 +8,8 @@ import type { NavItem } from './pure';
 // and the sheet that "Apps and about" and "More" open. The sheet is filled by bindShell from the
 // app registry.
 interface Props {
+  // The product, for the line at the foot of the sheet: "Lorenzo Account 0.12.0 · ..."
+  product: string;
   brandingUrl: string;
   nav?: NavItem[];
   // Where its source is in the repository: "apps/calendars"
@@ -19,7 +21,7 @@ interface Props {
   lang?: Lang;
 }
 
-const { brandingUrl, nav = [], path, version, legal, lang = 'en' } = Astro.props;
+const { product, brandingUrl, nav = [], path, version, legal, lang = 'en' } = Astro.props;
 const icons = `${brandingUrl}/icons.svg`;
 const { tabs, rest } = splitTabs(nav, 3);
 ---
@@ -42,8 +44,12 @@ const { tabs, rest } = splitTabs(nav, 3);
       class="btn btn-secondary only-wide"
       data-shell-open-sheet
       aria-haspopup="dialog"
+      aria-expanded="false"
     >
       Apps and about
+      <svg class="icon chevron" aria-hidden="true">
+        <use href={`${icons}#icon-expand`}></use>
+      </svg>
     </button>
   </div>
   <nav class="shell-tabbar" aria-label="Pages" data-shell-tabbar>
@@ -77,7 +83,7 @@ const { tabs, rest } = splitTabs(nav, 3);
   <div class="sheet-grip" aria-hidden="true"></div>
   <div class="shell-drawer">
     {rest.length > 0 && (
-      <>
+      <div class="more">
         <div class="menu-label">More pages</div>
         <div class="apps" data-shell-more>
           {rest.map((item) => (
@@ -90,15 +96,20 @@ const { tabs, rest } = splitTabs(nav, 3);
               data-requires={item.requires}
               hidden={item.needsLibrary || Boolean(item.requires)}
             >
+              {item.icon && (
+                <svg class="icon" aria-hidden="true">
+                  <use href={`${icons}#icon-${item.icon}`}></use>
+                </svg>
+              )}
               {item.label}
             </a>
           ))}
         </div>
-      </>
+      </div>
     )}
     <div class="cols">
       <div class="apps" data-shell-apps></div>
-      <div>
+      <div class="about">
         <div class="menu-label">About</div>
         <LegalLinks lang={lang} notice={legal?.notice} privacy={legal?.privacy} />
         <a class="l" href={`https://github.com/ramsesoriginal/lorenzo/tree/main/${path}`}>
@@ -106,6 +117,8 @@ const { tabs, rest } = splitTabs(nav, 3);
         </a>
       </div>
     </div>
-    <div class="foot">Lorenzo{version ? ` ${version}` : ''}</div>
+    <div class="foot">
+      Lorenzo {product}{version ? ` ${version}` : ''} · licensed AGPL-3.0 · <time data-shell-foot-clock></time>
+    </div>
   </div>
 </dialog>
