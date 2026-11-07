@@ -35,7 +35,7 @@ __all__ = [
 
 Visibility = Literal["private", "protected", "public"]
 # What a response says of it: declared extensible, so that a visibility added later is not a break
-# of the contract (ADR 0433: `protected` was the first), and clients read the three they know.
+# of the contract (ADR 0434: `protected` was the first), and clients read the three they know.
 VisibilityOut = Annotated[
     str,
     Field(json_schema_extra={"x-extensible-enum": ["private", "protected", "public"]}),
@@ -145,7 +145,7 @@ class TermsIn(BaseModel):
     on it may do with it. `may_be_included` is whether one may include it in its own release;
     `null` takes the default for the repository's visibility back (a private repository: no, a
     public or protected one: yes). `may_be_shown` is whether one may keep it separate and visible
-    (ADR 0433): `false` only for a protected repository (`409 repository-not-protected`), `null` is
+    (ADR 0434): `false` only for a protected repository (`409 repository-not-protected`), `null` is
     the default again, which is yes."""
 
     model_config = ConfigDict(extra="forbid")
@@ -293,7 +293,7 @@ class TermsOut(BaseModel):
 
     may_be_included: bool
     is_default: bool
-    # Whether a repository built on it may keep it separate and visible (ADR 0433), and whether its
+    # Whether a repository built on it may keep it separate and visible (ADR 0434), and whether its
     # Owner has said nothing of it. Only a protected repository can say no.
     may_be_shown: bool = True
     may_be_shown_is_default: bool = True

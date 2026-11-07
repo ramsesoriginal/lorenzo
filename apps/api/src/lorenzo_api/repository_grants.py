@@ -136,7 +136,7 @@ async def subscribe_to_public(
     that a library copied it, with no name, no person and nothing to tell which (ADR 0299, RFC
     0038 section 6); the library's own log keeps its own record. Returns the ids written.
 
-    `protected_ids` are the protected repositories the copy of `via` brought in (ADR 0433): each
+    `protected_ids` are the protected repositories the copy of `via` brought in (ADR 0434): each
     gets a row of `source = protected`, written inside the read of that repository through `via`,
     which is where the database lets the library see that it is reached. That row lets the library
     list what it holds and nothing else: it reads the repository again only through a public

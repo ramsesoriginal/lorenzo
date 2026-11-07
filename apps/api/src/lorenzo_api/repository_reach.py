@@ -1,4 +1,4 @@
-"""What a repository's current release reaches - ADR 0433, RFC 0051 H3.
+"""What a repository's current release reaches - ADR 0434, RFC 0051 H3.
 
 A library reads a protected repository only through a public repository whose current release
 lists it. The database says so in one function (`repository_reached_through_another`, revision
@@ -32,7 +32,7 @@ __all__ = [
 
 # What a repository kept for a library that holds it through another is called to everybody who
 # does not own it or was not invited to it: no public view names a protected repository
-# (ADR 0433, RFC 0051 default 2).
+# (ADR 0434, RFC 0051 default 2).
 PROTECTED_NAME = "A protected repository"
 
 

@@ -1,4 +1,4 @@
-"""ADR 0433: the protected case of the gate, in the database, as the restricted app role with RLS in
+"""ADR 0434: the protected case of the gate, in the database, as the restricted app role with RLS in
 force. One function, `repository_reached_through_another(a)`, says whether the request has gone
 through a public repository whose current release lists the protected one; the gate
 (`repository_read_tenant_id()`), the profile's own `repository_read` and the insert policy of

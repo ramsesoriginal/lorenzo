@@ -599,7 +599,7 @@ def _is_public_copy(tenant_id: uuid.UUID) -> Any:
     """The libraries that copied it by themselves, from Discover: a grant they gave themselves,
     or a copy and no grant that the repository's log never names (its public grants are
     revoked when it goes private, and the copies stay). One that holds a protected repository
-    through a repository built on it is counted the same way (ADR 0433)."""
+    through a repository built on it is counted the same way (ADR 0434)."""
     return or_(
         RepositorySubscription.source.in_(("public", "protected")),
         and_(
@@ -910,7 +910,7 @@ async def list_repositories(
                 repository=RepositorySummaryOut(
                     id=repository_id,
                     # Nothing a library reads names a protected repository it holds through another
-                    # (ADR 0433): not its name, its address or its description.
+                    # (ADR 0434): not its name, its address or its description.
                     name=(
                         PROTECTED_NAME
                         if through_another
@@ -1505,7 +1505,7 @@ async def copy_repository(
     await apply_plan(session, plan, user_id=user.id)
     # A public repository is not granted to the library that copies it, so the copy grants it, and
     # every public repository it is built on, to the library, as its own (ADR 0287). A protected
-    # one it is built on is listed in the same way, as `protected` (ADR 0433): the row lets the
+    # one it is built on is listed in the same way, as `protected` (ADR 0434): the row lets the
     # library list it and never reads it alone.
     await subscribe_to_public(
         session,

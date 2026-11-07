@@ -1,5 +1,5 @@
 // What repositories built on this one may use it for, on the Profile tab (RFC 0051 H1 and H3, ADR 0431
-// and ADR 0433): a card with the two presets, "Open" and "Stay hidden", and the switches under them,
+// and ADR 0434): a card with the two presets, "Open" and "Stay hidden", and the switches under them,
 // "May be included" and "May be shown". Every member reads it; an Owner changes it, and it is saved when
 // it is changed, not with the profile's Save: it is a decision of its own, and nothing about the rest of
 // the profile is waiting on it. "May be shown" can be turned off only while the repository is protected;

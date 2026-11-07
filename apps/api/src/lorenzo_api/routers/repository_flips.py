@@ -134,7 +134,7 @@ async def make_repository_protected(
     background_tasks: BackgroundTasks,
     body: MakeProtectedRequest | None = None,
 ) -> MadeProtectedOut:
-    """Makes the repository protected (ADR 0433, RFC 0051 H3): a private one with its first
+    """Makes the repository protected (ADR 0434, RFC 0051 H3): a private one with its first
     release, together or not at all, as `PUT .../public` does; a public one without a release,
     leaving Discover and every visitor's read. A protected repository is read by a library only as a
     step of the copy of a public repository built on it. Needs every repository it is built on
@@ -181,7 +181,7 @@ async def make_repository_public(
 ) -> PublishedOut:
     """Makes the repository public and makes its first public release, together or not at all
     (ADR 0289): the release, its document and its notice are those of `PUT .../published`. A
-    protected repository is made public the same way (ADR 0433).
+    protected repository is made public the same way (ADR 0434).
     Needs a summary, given here or already on the profile (`422
     public-repository-summary-required`), every repository it is built on public (`409
     built-on-not-public`) and up to date (`409 built-on-behind`), and says what a visitor may

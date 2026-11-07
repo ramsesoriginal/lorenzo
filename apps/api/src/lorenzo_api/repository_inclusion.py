@@ -134,7 +134,7 @@ async def includable(session: AsyncSession, source_id: uuid.UUID, user_id: uuid.
 @dataclass(frozen=True)
 class Showable:
     """Whether a user may keep a repository separate and visible, and why: they own it, or its
-    terms allow it (ADR 0433). Only a protected repository can forbid it."""
+    terms allow it (ADR 0434). Only a protected repository can forbid it."""
 
     allowed: bool
     by: Literal["owner", "terms"] | None = None
@@ -178,7 +178,7 @@ async def refuse_unless_showable(
     session: AsyncSession, repository_id: uuid.UUID, user_id: uuid.UUID
 ) -> None:
     """`409 repository-not-showable`, naming each one, when the repository keeps separate and
-    visible a source whose terms forbid it and the user is not an Owner of it (ADR 0433). Checked
+    visible a source whose terms forbid it and the user is not an Owner of it (ADR 0434). Checked
     when a release is made, as `refuse_unless_includable` is: A may have said "stay hidden" since
     the choice was made, and a repository that copied it before has `show` until it chooses."""
     refused: list[dict[str, str]] = []
@@ -249,7 +249,7 @@ async def set_inclusion(
     """Sets how the repository carries `source_id`, which it must have copied
     (`RepositoryNotCopiedError`). `include` needs the user to be allowed to include it
     (`409 repository-not-includable`); `show` needs it to be allowed too, which only a protected
-    repository's terms can forbid (`409 repository-not-showable`, ADR 0433). Flushes; the caller
+    repository's terms can forbid (`409 repository-not-showable`, ADR 0434). Flushes; the caller
     records it and commits."""
     copy = await session.get(RepositoryCopy, (repository_id, source_id))
     if copy is None:

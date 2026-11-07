@@ -8,7 +8,7 @@ table in REPOSITORY_CONTENT_TABLES checks through the database function
 request, and every query that relies on RLS alone to scope itself, never
 sees a repository's rows.
 
-A protected repository (ADR 0433) is read a second way, and only through the repository whose copy
+A protected repository (ADR 0434) is read a second way, and only through the repository whose copy
 the reader is making or holds: `reading_repository(..., via=...)` also sets
 `app.repository_via`, and the database function `repository_reached_through_another()` says
 whether that repository, a public one whose current release lists this one, lets the reader in.
@@ -52,7 +52,7 @@ async def reading_repository(
     actually allowed - a grant to the current tenant, and published - so
     a route can answer 404 rather than show an empty repository.
 
-    `via` is the repository the reader is going through to reach a protected one (ADR 0433): the
+    `via` is the repository the reader is going through to reach a protected one (ADR 0434): the
     public repository whose copy it is making or holds. It lets in nothing else: a repository that
     is not protected is read as it always was, and a protected one only when `via` is a public,
     published repository whose current release lists it.
@@ -85,7 +85,7 @@ async def reaching_repositories(
 ) -> list[uuid.UUID]:
     """The repositories the current tenant holds a grant to whose current release lists
     `repository_tenant_id`, public ones, by id: the ones it can go through to read it if it is
-    protected (ADR 0433). The database is asked again before anything is read."""
+    protected (ADR 0434). The database is asked again before anything is read."""
     tenant = (
         await session.execute(
             text("SELECT NULLIF(current_setting('app.tenant_id', true), '')::uuid")
@@ -122,7 +122,7 @@ async def reading_repository_held(
 ) -> AsyncIterator[bool]:
     """`reading_repository` for a reader that holds the repository (or is built on it): through
     the grant it has to it, if it has one, and otherwise through each public repository it holds
-    whose current release lists it, until the database lets it in (ADR 0433). Yields whether it
+    whose current release lists it, until the database lets it in (ADR 0434). Yields whether it
     was allowed. What a protected repository is to a library that never reads it any other way:
     its updates, the skew gate and the list of what it holds."""
     async with reading_repository(session, repository_tenant_id) as allowed:

@@ -30,7 +30,7 @@ export type InclusionChoice = {
   notOffered: string | null;
   // Said once a release carried it: changing it makes a breaking release.
   note: string | null;
-  // The repository is protected: what keeping it separate means says so (ADR 0433).
+  // The repository is protected: what keeping it separate means says so (ADR 0434).
   protected?: boolean;
   // Only an Owner chooses.
   editable: boolean;

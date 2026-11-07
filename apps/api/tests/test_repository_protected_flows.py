@@ -1,4 +1,4 @@
-"""ADR 0433: what the flips of a protected repository do to what libraries hold, and what its Owner
+"""ADR 0434: what the flips of a protected repository do to what libraries hold, and what its Owner
 sees of them. The world is the one of test_repository_protected.
 """
 

@@ -1,4 +1,4 @@
-"""ADR 0433, RFC 0051 H3: a protected repository.
+"""ADR 0434, RFC 0051 H3: a protected repository.
 
 A is the Armoury of the release tests, made protected by its Owner. B is a bridge that copied it
 and is made public over it, which the stack rule allows because a protected repository is reached.

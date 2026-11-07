@@ -1,4 +1,4 @@
-"""The flips between private, protected and public - ADR 0290, ADR 0433, RFC 0038 section 7."""
+"""The flips between private, protected and public - ADR 0290, ADR 0434, RFC 0038 section 7."""
 
 import uuid
 from typing import Annotated
@@ -62,7 +62,7 @@ class MakePublicRequest(PublishRequest):
 
 
 class MakeProtectedRequest(PublishRequest):
-    """`PUT .../protected` (ADR 0433): the first release of a private repository made protected,
+    """`PUT .../protected` (ADR 0434): the first release of a private repository made protected,
     as `PUT .../published` makes one (`label`, `notes`, `breaking`, `acknowledge_breaking`). A
     protected repository needs no summary and no terms line: nothing says what it is to anybody
     who does not hold it. `acknowledge_revokes` is for a public repository made protected: the
@@ -96,7 +96,7 @@ class BuiltOnSourceOut(BaseModel):
     inclusion: InclusionName
     includable: IncludableOut
     in_release: InclusionName | None
-    # It is protected (ADR 0433): a library reads it only as a step of the copy of a public
+    # It is protected (ADR 0434): a library reads it only as a step of the copy of a public
     # repository built on it. `public` and `protected` are both false for a source this repository
     # cannot read just now.
     protected: bool = False
@@ -153,7 +153,7 @@ class MadePrivateOut(BaseModel):
 
 
 class MadeProtectedOut(BaseModel):
-    """`PUT .../protected` (ADR 0433): the release made with the flip for a private repository (none
+    """`PUT .../protected` (ADR 0434): the release made with the flip for a private repository (none
     for a public one, which has its releases already) and how many grants libraries had given
     themselves while it was public, which are `protected` ones now."""
 

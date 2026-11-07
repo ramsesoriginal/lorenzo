@@ -98,7 +98,7 @@ def release_notice(
     publishes: the release's label in the title, its notes (cut) and a line when it
     is breaking in the body. The first publish keeps its own words, and adds the
     notes if there are any. `flipped` says the repository was made public by this release (or
-    protected, with `protected`, ADR 0433), and what that means for a library that already reads
+    protected, with `protected`, ADR 0434), and what that means for a library that already reads
     it."""
     said = [cut(release.notes)] if release.notes else []
     if release.breaking:

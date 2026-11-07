@@ -1,4 +1,4 @@
-"""A repository can be protected (ADR 0433, RFC 0051 H3)
+"""A repository can be protected (ADR 0434, RFC 0051 H3)
 
 `repository_profile.visibility` gains `protected`: a repository that has a profile and a release
 document like a public one, is on no listing, and is read by a library only as a step of the copy

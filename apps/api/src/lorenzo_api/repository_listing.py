@@ -30,7 +30,7 @@ async def set_listing_facts(
     For the release of a repository read through its document (public or protected), which is the
     one a library reads, also how it carries each repository it is built on (ADR 0431): the
     storefront names what it includes from that, and a later release compares its choices with it.
-    Then what the repository now reaches (`repository_reach.sync_reach`, ADR 0433)."""
+    Then what the repository now reaches (`repository_reach.sync_reach`, ADR 0434)."""
     profile = await profile_of(session, repository_id)
     profile.release_label = release.label
     profile.released_at = release.created_at

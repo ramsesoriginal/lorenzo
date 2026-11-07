@@ -117,7 +117,7 @@ class InclusionOut(BaseModel):
     includable: IncludableOut
     inclusion_in_release: InclusionName | None
     breaking_next_release: bool
-    # Whether the caller may keep it separate and visible and why (ADR 0433): only the terms of a
+    # Whether the caller may keep it separate and visible and why (ADR 0434): only the terms of a
     # protected repository can say no, and an Owner of it is always allowed.
     showable: IncludableOut | None = None
 
@@ -432,9 +432,9 @@ class SubscriptionOut(BaseModel):
     inclusion: InclusionName | None = None
     includable: IncludableOut | None = None
     inclusion_in_release: InclusionName | None = None
-    # As `includable`, for keeping it separate and visible (ADR 0433).
+    # As `includable`, for keeping it separate and visible (ADR 0434).
     showable: IncludableOut | None = None
-    # The library holds it through a repository built on it, not by an invitation (ADR 0433): the
+    # The library holds it through a repository built on it, not by an invitation (ADR 0434): the
     # repository is named "A protected repository" and cannot be copied on its own.
     protected: bool = False
 
@@ -465,7 +465,7 @@ class RepositoryDependencyOut(BaseModel):
     # It is public, so the library can copy it with no invitation (ADR 0287).
     public: bool
     # It is protected: the library reads it only as a step of this copy, and it is not named
-    # (ADR 0433).
+    # (ADR 0434).
     protected: bool = False
 
 
@@ -565,7 +565,7 @@ class CopyStepOut(BaseModel):
     public: bool
     already_copied: bool
     # Readable because it is protected and the copy goes through a repository that lists it (ADR
-    # 0433); named "A protected repository" unless the library was invited to it.
+    # 0434); named "A protected repository" unless the library was invited to it.
     protected: bool = False
     entities: int
     stat_groups: int

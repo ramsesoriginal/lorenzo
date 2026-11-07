@@ -45,7 +45,7 @@ export function offeredChoices(
     if (choice === current) return true;
     if (choice === 'include') return includable?.allowed === true;
 
-    // `show` is offered unless the repository's terms forbid it (RFC 0051 H3, ADR 0433).
+    // `show` is offered unless the repository's terms forbid it (RFC 0051 H3, ADR 0434).
     return showable?.allowed !== false;
   });
 }
@@ -75,7 +75,7 @@ export function notOfferedReason(
 }
 
 // Why "Keep separate and visible" is not offered, or null where it is: the Owner of a protected repository
-// can ask that what is built on it does not show it (RFC 0051 H3, ADR 0433), and then only include is
+// can ask that what is built on it does not show it (RFC 0051 H3, ADR 0434), and then only include is
 // left, unless this user is one of its Owners.
 export function notShowableReason(
   name: string,
@@ -145,7 +145,7 @@ export const TERMS_SHOWN_LABEL = 'May be shown';
 export const TERMS_SHOWN_HELP =
   'A repository built on this one may keep it separate and visible: a library that copies that repository reads the entries of this one as a repository of its own.';
 // Only a protected repository can ask that what is built on it does not show it: a public one is
-// copied by anybody, and a private one is read by the people its Owner invites (ADR 0433).
+// copied by anybody, and a private one is read by the people its Owner invites (ADR 0434).
 export const TERMS_SHOWN_ONLY_PROTECTED =
   'Only a protected repository can say no to this. Make it protected first.';
 
@@ -280,7 +280,7 @@ export type BuiltOnChoice = {
   id: string;
   name: string;
   state: string;
-  // A protected repository: a library reads it as a step of the copy of this one (ADR 0433).
+  // A protected repository: a library reads it as a step of the copy of this one (ADR 0434).
   protected: boolean;
   inclusion: Inclusion;
   offered: readonly Inclusion[];

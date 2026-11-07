@@ -108,7 +108,7 @@ async def list_public_repository_dependencies(
 ) -> list[PublicDependencyOut]:
     """The repositories a public repository is built on, dependencies first, as `copy-plan`
     orders them, and whether each is public. Copying the repository in one action needs every one
-    of them to be (ADR 0287), or protected (ADR 0433): a protected one is a step of the copy and is
+    of them to be (ADR 0287), or protected (ADR 0434): a protected one is a step of the copy and is
     named in no public view, so it is not here, and neither is a repository this one cannot read
     for a visitor, which could only be a private one."""
     steps = [

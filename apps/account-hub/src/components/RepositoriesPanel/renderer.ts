@@ -243,7 +243,7 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
         );
         stateElement(required<HTMLElement>(card, '[data-state]'), shelfState(subscription));
 
-        // Held through a public repository built on it (RFC 0051 H3, ADR 0433): a pill, and no name.
+        // Held through a public repository built on it (RFC 0051 H3, ADR 0434): a pill, and no name.
         const protectedBox = required<HTMLElement>(card, '[data-protected-card]');
 
         protectedBox.hidden = !subscription.protected;
@@ -401,7 +401,7 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     const state = shelfState(subscription);
     // Only a repository that is offered and published can be looked inside.
     // A protected repository held through another is not looked inside: it is read only as a step of
-    // the copy of the repository that brings it (ADR 0433).
+    // the copy of the repository that brings it (ADR 0434).
     const through = subscription.protected === true;
     const canLookInside =
       !through && (state === 'not-copied' || state === 'copied' || state === 'update-announced');

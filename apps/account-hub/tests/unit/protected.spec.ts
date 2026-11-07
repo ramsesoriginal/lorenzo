@@ -54,7 +54,7 @@ function check(overrides: Partial<FlipCheckOut> = {}): FlipCheckOut {
 
 const form = { label: '', notes: '', breaking: false, acknowledged: false };
 
-describe('the card of a protected repository (RFC 0051 H3, ADR 0433)', () => {
+describe('the card of a protected repository (RFC 0051 H3, ADR 0434)', () => {
   it('is on a card of its own, with the way to public and the way to private', () => {
     const card = visibilityCard(check({ visibility: 'protected' }), 'owner');
 

@@ -59,7 +59,7 @@ class Upstream:
 
 
 # What a library reads through a release document and not through the rows: a public repository,
-# and a protected one (ADR 0433), which has a first release made as it is made protected.
+# and a protected one (ADR 0434), which has a first release made as it is made protected.
 DOCUMENT_VISIBILITIES = ("public", "protected")
 
 

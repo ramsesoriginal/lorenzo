@@ -81,7 +81,7 @@ export function shelfState(subscription: SubscriptionOut): ShelfState {
   return published > last ? 'update-announced' : 'copied';
 }
 
-// A repository the library holds through a public repository built on it (RFC 0051 H3, ADR 0433): it
+// A repository the library holds through a public repository built on it (RFC 0051 H3, ADR 0434): it
 // has no name here, cannot be copied on its own, and is read only while the library holds one that
 // lists it.
 export const PROTECTED_PILL = 'Protected';
@@ -177,7 +177,7 @@ function outlineNode(step: CopyStepOut, state: OutlineState): OutlineNode {
 
 function stepState(step: CopyStepOut): OutlineState {
   if (step.already_copied) return 'copied';
-  // A protected repository is read as a step of this copy, with no invitation (ADR 0433).
+  // A protected repository is read as a step of this copy, with no invitation (ADR 0434).
   if (step.protected && step.published) return 'protected';
   if (!step.granted) return 'not-invited';
   if (!step.published) return 'not-published';
@@ -221,7 +221,7 @@ export function countsKnown(plan: CopyPlanOut, repositoryId: string): boolean {
 }
 
 // Whether the library can read it as a step of this copy: published, and it holds an invitation, or it is
-// public, or it is protected and comes with the repository being copied (ADR 0433).
+// public, or it is protected and comes with the repository being copied (ADR 0434).
 export function stepReadable(
   step: Pick<CopyStepOut, 'published' | 'granted' | 'public' | 'protected'>,
 ): boolean {

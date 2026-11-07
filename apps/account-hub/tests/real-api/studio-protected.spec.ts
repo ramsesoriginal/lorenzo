@@ -11,7 +11,7 @@ import {
   signedInPage,
 } from './support';
 
-// ADR 0433, RFC 0051 H3: a protected repository. The launcher sets PUBLIC_REPOSITORIES_ENABLED for
+// ADR 0434, RFC 0051 H3: a protected repository. The launcher sets PUBLIC_REPOSITORIES_ENABLED for
 // this suite (playwright.real-api.config.ts). Every test works in names of its own (a tag in each),
 // since the listing is the whole deployment's.
 

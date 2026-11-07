@@ -21,7 +21,7 @@ class RepositoryProfile(Base):
 
     `visibility` is `private`, `protected` or `public` and `preview` is `off`, `showcase` or
     `public` (RFC 0038 §5); the profile route refuses a flip of the first (it has its own routes,
-    ADR 0289 and ADR 0433) and those refuse it while PUBLIC_REPOSITORIES_ENABLED is off (ADR 0290),
+    ADR 0289 and ADR 0434) and those refuse it while PUBLIC_REPOSITORIES_ENABLED is off (ADR 0290),
     the database does not. `credits` is a list of `{name, role, url}`.
     `cover_picture_id` is a row of the same blob table the other profile pictures use
     (ADR 0056), deleted with the cover.
@@ -82,7 +82,7 @@ class RepositoryProfile(Base):
     # is the default for the repository's visibility (`repository_terms.may_be_included`); a
     # value the Owner chose wins.
     may_be_included: Mapped[bool | None]
-    # A second term (ADR 0433): whether a repository built on this one may show it, that is, keep it
+    # A second term (ADR 0434): whether a repository built on this one may show it, that is, keep it
     # a separate repository its libraries read and see. Null is the default for the visibility;
     # only a protected repository can say no (`repository_terms`).
     may_be_shown: Mapped[bool | None]

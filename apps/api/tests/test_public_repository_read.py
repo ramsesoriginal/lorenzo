@@ -346,7 +346,7 @@ async def test_a_stack_with_a_private_repository_copies_nothing_and_grants_nothi
         base = f"/tenants/{table}/repositories/{stack.bridge}"
 
         # A visitor reads the public steps only: a repository that is not public is named in no
-        # public view (ADR 0433), the protected ones among them.
+        # public view (ADR 0434), the protected ones among them.
         dependencies = (await gm.get(f"/repositories/{stack.bridge}/dependencies")).json()
         assert [(d["name"], d["public"]) for d in dependencies] == [("Common Equipment", True)]
 

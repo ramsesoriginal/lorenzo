@@ -1723,7 +1723,7 @@ async def apply_updates(
     await _attach(session, updates, tenant_id, local, attachments, result)
 
     # A repository held only through another is not named in anything the library reads, so its
-    # name is left as the copy recorded it (ADR 0433).
+    # name is left as the copy recorded it (ADR 0434).
     held = await session.get(RepositorySubscription, (repository_id, tenant_id))
     values: dict[str, Any] = {
         "synced_at": datetime.now(UTC),

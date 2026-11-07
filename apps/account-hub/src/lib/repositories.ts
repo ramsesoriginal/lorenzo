@@ -361,7 +361,7 @@ export async function makePublic(repositoryId: string, body: MakePublicRequest):
   );
 }
 
-// Makes it protected (ADR 0433): a private repository with its first release, in one step; a public one
+// Makes it protected (ADR 0434): a private repository with its first release, in one step; a public one
 // without a release, leaving Discover. A library reads it only as a step of the copy of a public
 // repository built on it. Refused, with the number of libraries that copied it by themselves, until
 // the body says `acknowledge_revokes`. An Owner's.

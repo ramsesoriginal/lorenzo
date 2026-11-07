@@ -195,7 +195,7 @@ did), the flips, the stack rule, the copy plan, the read at read time, Studio's 
 Shelf's pill, tests across every reader and every state (visitor, library through a public repository, library
 with an invitation, member, operator; protected, public, private, retired, delisted).
 
-*Built as [ADR 0433](../adr/0433-a-protected-repository.md).* The RFC stays the spec; where the build differs, it says so here:
+*Built as [ADR 0434](../adr/0434-a-protected-repository.md).* The RFC stays the spec; where the build differs, it says so here:
 
 - **The gate is one SQL function**, `repository_reached_through_another(a)`, called by the gate, by the profile's own read policy and by the policy of the grant a library writes. The repository a reader goes through is named by the read itself (`reading_repository(..., via=...)`) and never ambient. The function can read only `tenant` and the tenant's own grant rows without recursing, so two facts of the profile of a public repository (what its current release was built on and did not include, and that it is public) are kept on `tenant`, beside `delisted_at`, and written wherever the profile's release record or visibility change; a test holds them to the profile, and holds the function, the gate and the policy to a Python statement of the rule on every combination of what it reads.
 - **A `protected` grant is not a grant.** It is how a library lists what it holds through another repository and never lets it read anything alone; the access is checked each time, so it ends with the last repository that lists it, and making a repository private or protected deletes the rows its libraries wrote for what it listed. A narrow update policy lets a repository's side turn its libraries' `public` rows into `protected` ones and back when it flips between the two.
@@ -276,7 +276,7 @@ tenant, grant, subscription, flatten or source.
 | --- | --- | --- | --- |
 | H1 | Include A in B at release; A's terms; the choice column; attribution. **Built**, [ADR 0431](../adr/0431-including-a-repository-in-the-release-of-one-built-on-it.md) | RFC 0037 R5 to R8, ADR 0385 | api, hub |
 | H2 | Public but unlisted. **Built**, [ADR 0432](../adr/0432-a-public-repository-that-is-not-listed.md) | RFC 0038 D3 | api, hub |
-| H3 | Protected: the value, the flips, the stack rule, the gate, the copy plan. **Built**, [ADR 0433](../adr/0433-a-protected-repository.md) | H1 (terms, the choice), ADR 0287, ADR 0289 | api, hub |
+| H3 | Protected: the value, the flips, the stack rule, the gate, the copy plan. **Built**, [ADR 0434](../adr/0434-a-protected-repository.md) | H1 (terms, the choice), ADR 0287, ADR 0289 | api, hub |
 | H4 | Hide A's items | H3, the spike | api, hub, bench, beings, sessions, maps, calendars, social, writing, inventory, cli |
 
 H1 and H2 are independent of each other and of the rest. H1 alone answers "B public without A public" when A's

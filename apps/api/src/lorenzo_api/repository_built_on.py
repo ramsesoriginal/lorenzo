@@ -9,7 +9,7 @@ repositories are built on this one (`public_dependents`, a rule of making it pri
 the other repository through the gated read, as any tenant does, so what it learns of one it cannot
 read is that it cannot.
 
-*Reached* (ADR 0433) is what the stack rule asks of a source: public, protected, or included.
+*Reached* (ADR 0434) is what the stack rule asks of a source: public, protected, or included.
 A library that copies a repository gets the repositories it is built on as steps, and a protected
 one is read as a step of that copy and nowhere else, so it can stay protected; a private one cannot
 be granted to a library by an Owner who never saw it, so it has to be included.
@@ -91,7 +91,7 @@ async def built_on_behind(session: AsyncSession, repository_id: uuid.UUID) -> li
     (a copy from before releases took none), or that cannot be read. Empty when this repository
     is built on nothing. Both directions count: a repository authored against an older or a
     newer state than the one it is built on gives a library rows ADR 0120 drops. A protected one
-    is read through the public repository this one holds that lists it (ADR 0433)."""
+    is read through the public repository this one holds that lists it (ADR 0434)."""
     found: list[Behind] = []
     for copy, name in await _copies(session, repository_id):
         upstream = copy.repository_tenant_id
@@ -118,7 +118,7 @@ async def built_on_not_public(
     """The repositories this one is built on that cannot be reached, each with whether `user_id`
     owns it (so they can be offered to make it public): the ones that stop this repository being
     made public or protected. A source is reached when it is public or protected and this
-    repository can read it (ADR 0433), or when this repository includes it, since its release
+    repository can read it (ADR 0434), or when this repository includes it, since its release
     carries it as its own rows (ADR 0431); whether the user may include it is the release's
     question, asked when the release is made. A source it cannot read counts as not reached."""
     found: list[dict[str, Any]] = []
@@ -145,7 +145,7 @@ async def public_dependents(
     """The public or protected, published repositories built on this one, which making it private
     would leave without a dependency a library can copy. Read through the repository's own side
     of the copy records (ADR 0204: the owner reads who copied it) and the facts each one keeps on
-    its `tenant` row of what its current release is built on (ADR 0433). `owned` says whether
+    its `tenant` row of what its current release is built on (ADR 0434). `owned` says whether
     `user_id` owns the dependent, so a dialog can link to it. A dependent whose current release
     carries this repository included has no dependency on it for a library to copy, so making this
     one private leaves it as it is, and it is not here (ADR 0431): what a release carries is what
@@ -164,7 +164,7 @@ async def built_on_sources(
     session: AsyncSession, repository_id: uuid.UUID, user_id: uuid.UUID
 ) -> list[dict[str, Any]]:
     """Each repository this one is built on, as the Owner sees it before making this one public
-    (ADR 0431, ADR 0433): whether it is public or protected, whether `user_id` owns it, how this
+    (ADR 0431, ADR 0434): whether it is public or protected, whether `user_id` owns it, how this
     repository carries it (`inclusion`), whether the user may include it and why (`include_by`:
     they own it, or its terms allow it), whether they may keep it separate and visible and why
     (`show_by`), and how the current public release carried it (`in_release`, null where there is

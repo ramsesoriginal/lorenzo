@@ -414,7 +414,7 @@ async def test_a_repository_a_public_one_is_built_on_cannot_be_made_private(
     stack = await _stack(raw_client, fake_jwks_server)
     try:
         await set_visibility([stack.equipment, stack.rules, stack.bridge], "public")
-        # Their releases are what a public repository is built on (ADR 0433): the bridge takes the
+        # Their releases are what a public repository is built on (ADR 0434): the bridge takes the
         # new releases of the two it is built on and publishes.
         await publish_stack(stack)
 

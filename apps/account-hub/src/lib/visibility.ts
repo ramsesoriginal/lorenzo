@@ -27,7 +27,7 @@ import type {
   TenantRole,
 } from './types';
 
-// What a repository is (ADR 0433): the API declares the set extensible, so the hub says the three it knows.
+// What a repository is (ADR 0434): the API declares the set extensible, so the hub says the three it knows.
 export type Visibility = 'private' | 'protected' | 'public';
 // What the card can start: the three flips.
 export type FlipMode = 'public' | 'protected' | 'private';
@@ -441,7 +441,7 @@ export function madePrivateDone(revoked: number): string {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The "Make protected" dialog (RFC 0051 H3, ADR 0433). A private repository is made protected with
+// The "Make protected" dialog (RFC 0051 H3, ADR 0434). A private repository is made protected with
 // its first release, as it is made public: the same label and notes. A public one stays as it is,
 // with no release, and leaves Discover. No summary and no terms line are asked: nothing says what a
 // protected repository is to anybody who does not hold it.

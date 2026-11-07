@@ -1,4 +1,4 @@
-"""Flips between private, protected and public - ADR 0289, ADR 0433, RFC 0037 §6, RFC 0038 §7,
+"""Flips between private, protected and public - ADR 0289, ADR 0434, RFC 0037 §6, RFC 0038 §7,
 RFC 0051.
 
 The rules that must hold when a repository's visibility changes, as functions of a session. The
@@ -141,7 +141,7 @@ async def make_protected(
     body: PublishRequest,
     acknowledge_revokes: bool,
 ) -> MadeProtected:
-    """Makes the repository protected (ADR 0433). A private one is made protected with its first
+    """Makes the repository protected (ADR 0434). A private one is made protected with its first
     release, together or not at all, as a public one is (`publish_release`): a library reads a
     protected repository through its release document. `409 built-on-not-public` naming each
     repository it is built on that cannot be reached (a protected repository's own sources follow
@@ -202,7 +202,7 @@ async def make_protected(
     turned = await _turn_grants(session, repository.id, source="public", to="protected")
     profile.visibility = "protected"
     # Not listed is a fact about a public repository only (the profile's check): the flip puts it
-    # back, and a protected repository is on no listing whatever it says (ADR 0432, ADR 0433).
+    # back, and a protected repository is on no listing whatever it says (ADR 0432, ADR 0434).
     profile.listed = True
     profile.updated_by = user_id
     await session.flush()
@@ -275,7 +275,7 @@ async def make_private(
     A protected repository is made private the same way, and the `protected` rows libraries wrote
     for it go with it (there is no public repository left that lists it, or it could not be made
     private). The libraries that held a protected repository through this one, if it was public,
-    lose that path (`revoke_protected_through`, ADR 0433)."""
+    lose that path (`revoke_protected_through`, ADR 0434)."""
     await lock_repository(session, repository.id)
     profile = await profile_of(session, repository.id)
     if profile.visibility == "private":
@@ -315,7 +315,7 @@ async def make_private(
     profile.listed = True
     profile.updated_by = user_id
     await session.flush()
-    # It no longer lets libraries read the protected repositories its release lists (ADR 0433).
+    # It no longer lets libraries read the protected repositories its release lists (ADR 0434).
     await sync_reach(session, repository.id)
     await revoke_protected_through(session, repository.id, over)
     await record_activity(

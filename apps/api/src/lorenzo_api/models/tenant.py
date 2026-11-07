@@ -137,7 +137,7 @@ class Tenant(Base):
     # same reason: the gate and the policies read this row.
     deprecated_at: Mapped[datetime | None]
     deprecated_message: Mapped[str | None]
-    # ADR 0433: what the current release of a public or protected repository was built on and did
+    # ADR 0434: what the current release of a public or protected repository was built on and did
     # not include, and whether the repository is public: the two facts the gate needs of the
     # repository a library goes through to read a protected one, kept here because no policy hides
     # this row and a policy on the profile cannot read the profile. Written by

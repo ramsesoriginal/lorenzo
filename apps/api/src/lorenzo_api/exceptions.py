@@ -1093,7 +1093,7 @@ class RepositoryNotIncludableError(ConflictProblem):
 
 class RepositoryNotShowableError(ConflictProblem):
     """Keeping a repository separate and visible (`inclusion = show`) when its terms forbid it and
-    the user is not an Owner of it - ADR 0433, RFC 0051 H3. Carries `repositories`: each one that
+    the user is not an Owner of it - ADR 0434, RFC 0051 H3. Carries `repositories`: each one that
     cannot be shown, by id and name. Only a protected repository can say no: a repository anyone
     can copy cannot forbid show."""
 
@@ -1101,7 +1101,7 @@ class RepositoryNotShowableError(ConflictProblem):
 
 
 class RepositoryProtectedError(ConflictProblem):
-    """Copying, or planning the copy of, a protected repository on its own - ADR 0433, RFC 0051
+    """Copying, or planning the copy of, a protected repository on its own - ADR 0434, RFC 0051
     H3. A protected repository comes with the public repositories built on it and is copied as a
     step of one of them, never alone."""
 
@@ -1110,14 +1110,14 @@ class RepositoryProtectedError(ConflictProblem):
 
 class RepositoryNotProtectedError(ConflictProblem):
     """Saying a repository may not be shown (`terms.may_be_shown: false`) while it is not
-    protected - ADR 0433, RFC 0051 H3. Only a protected repository can stay hidden: a private one
+    protected - ADR 0434, RFC 0051 H3. Only a protected repository can stay hidden: a private one
     is read by invitation and a public one by anybody."""
 
     title = "This repository is not protected"
 
 
 class RepositoryAlreadyProtectedError(ConflictProblem):
-    """Making a protected repository protected - ADR 0433."""
+    """Making a protected repository protected - ADR 0434."""
 
     title = "This repository is already protected"
 
