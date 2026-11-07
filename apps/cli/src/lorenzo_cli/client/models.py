@@ -259,16 +259,6 @@ class BuiltOnPublicOut(BaseModel):
     owned: bool = Field(..., title="Owned")
 
 
-class Inclusion(StrEnum):
-    show = "show"
-    include = "include"
-
-
-class InRelease(StrEnum):
-    show = "show"
-    include = "include"
-
-
 class BulkAddPrototypeRequest(BaseModel):
     prototype_id: UUID = Field(..., title="Prototype Id")
     item_ids: list[UUID] = Field(..., title="Item Ids")
@@ -1237,6 +1227,14 @@ class GroupUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
 
 
+class HiddenChangesOut(BaseModel):
+    changed: int = Field(..., title="Changed")
+    added: int = Field(..., title="Added")
+    removed: int = Field(..., title="Removed")
+    breaking: int = Field(..., title="Breaking")
+    label: str = Field(..., title="Label")
+
+
 class By(StrEnum):
     owner = "owner"
     terms = "terms"
@@ -1247,21 +1245,17 @@ class IncludableOut(BaseModel):
     by: By | None = Field(None, title="By")
 
 
-class Before(StrEnum):
-    show = "show"
-    include = "include"
-
-
-class After(StrEnum):
-    show = "show"
-    include = "include"
-
-
 class InclusionChangeOut(BaseModel):
     repository_id: UUID = Field(..., title="Repository Id")
     name: str = Field(..., title="Name")
-    before: Before = Field(..., title="Before")
-    after: After = Field(..., title="After")
+    before: str = Field(..., title="Before")
+    after: str = Field(..., title="After")
+
+
+class Inclusion(StrEnum):
+    show = "show"
+    include = "include"
+    hide = "hide"
 
 
 class InclusionIn(BaseModel):
@@ -1271,19 +1265,15 @@ class InclusionIn(BaseModel):
     inclusion: Inclusion = Field(..., title="Inclusion")
 
 
-class InclusionInRelease(StrEnum):
-    show = "show"
-    include = "include"
-
-
 class InclusionOut(BaseModel):
     repository_id: UUID = Field(..., title="Repository Id")
     name: str = Field(..., title="Name")
-    inclusion: Inclusion = Field(..., title="Inclusion")
+    inclusion: str = Field(..., title="Inclusion")
     includable: IncludableOut
-    inclusion_in_release: InclusionInRelease | None = Field(..., title="Inclusion In Release")
+    inclusion_in_release: str | None = Field(..., title="Inclusion In Release")
     breaking_next_release: bool = Field(..., title="Breaking Next Release")
     showable: IncludableOut | None = None
+    hidable: IncludableOut | None = None
 
 
 class InformationAudience(BaseModel):
@@ -3527,7 +3517,7 @@ class SubscriberOut(BaseModel):
     copied_at: AwareDatetime | None = Field(..., title="Copied At")
     synced_at: AwareDatetime | None = Field(..., title="Synced At")
     synced_release: ReleaseRefOut | None
-    inclusion: Inclusion | None = Field(None, title="Inclusion")
+    inclusion: str | None = Field(None, title="Inclusion")
 
 
 class SubscribersSummaryOut(BaseModel):
@@ -3544,10 +3534,11 @@ class SubscriptionOut(BaseModel):
     synced_release: ReleaseRefOut | None
     current_release: ReleaseRefOut | None
     deprecated: DeprecatedNoticeOut | None = None
-    inclusion: Inclusion | None = Field(None, title="Inclusion")
+    inclusion: str | None = Field(None, title="Inclusion")
     includable: IncludableOut | None = None
-    inclusion_in_release: InclusionInRelease | None = Field(None, title="Inclusion In Release")
+    inclusion_in_release: str | None = Field(None, title="Inclusion In Release")
     showable: IncludableOut | None = None
+    hidable: IncludableOut | None = None
     protected: bool | None = Field(False, title="Protected")
 
 
@@ -3658,6 +3649,7 @@ class TermsIn(BaseModel):
     )
     may_be_included: bool | None = Field(None, title="May Be Included")
     may_be_shown: bool | None = Field(None, title="May Be Shown")
+    may_be_hidden: bool | None = Field(None, title="May Be Hidden")
 
 
 class TermsOut(BaseModel):
@@ -3665,6 +3657,8 @@ class TermsOut(BaseModel):
     is_default: bool = Field(..., title="Is Default")
     may_be_shown: bool | None = Field(True, title="May Be Shown")
     may_be_shown_is_default: bool | None = Field(True, title="May Be Shown Is Default")
+    may_be_hidden: bool | None = Field(True, title="May Be Hidden")
+    may_be_hidden_is_default: bool | None = Field(True, title="May Be Hidden Is Default")
 
 
 class UndeprecatedOut(BaseModel):
@@ -3822,6 +3816,7 @@ class ApplyUpdatesOut(BaseModel):
     attachments_added: int = Field(..., title="Attachments Added")
     attachments_detached: int = Field(..., title="Attachments Detached")
     not_applied: list[NotAppliedOut] = Field(..., title="Not Applied")
+    hidden: HiddenChangesOut | None = None
 
 
 class AttachmentActionIn(BaseModel):
@@ -3849,12 +3844,14 @@ class BuiltOnSourceOut(BaseModel):
     name: str = Field(..., title="Name")
     public: bool = Field(..., title="Public")
     owned: bool = Field(..., title="Owned")
-    inclusion: Inclusion = Field(..., title="Inclusion")
+    inclusion: str = Field(..., title="Inclusion")
     includable: IncludableOut
-    in_release: InRelease | None = Field(..., title="In Release")
+    in_release: str | None = Field(..., title="In Release")
     protected: bool | None = Field(False, title="Protected")
     showable: IncludableOut | None = None
     may_be_shown: bool | None = Field(True, title="May Be Shown")
+    hidable: IncludableOut | None = None
+    may_be_hidden: bool | None = Field(True, title="May Be Hidden")
 
 
 class BulkMembershipResultItem(BaseModel):
@@ -4147,6 +4144,7 @@ class EffectiveStatOut(BaseModel):
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
+    from_hidden: bool | None = Field(None, title="From Hidden")
     computed: bool = Field(..., title="Computed")
 
 
@@ -4155,6 +4153,7 @@ class EntityStatValueOut(BaseModel):
     value: int | str | float | bool = Field(..., title="Value")
     own: bool = Field(..., title="Own")
     from_entity: EntitySummary | None = None
+    from_hidden: bool | None = Field(None, title="From Hidden")
     computed: bool | None = Field(False, title="Computed")
 
 
@@ -5000,6 +4999,7 @@ class ApplyUpdatesRequest(BaseModel):
     actions: list[UpdateActionIn] = Field(..., title="Actions")
     attachments: list[AttachmentActionIn] | None = Field(None, title="Attachments")
     dry_run: bool | None = Field(None, title="Dry Run")
+    acknowledge_hidden_breaking: bool | None = Field(None, title="Acknowledge Hidden Breaking")
 
 
 class AttachmentAddedOut(BaseModel):
@@ -5320,6 +5320,7 @@ class StatExplanationOut(BaseModel):
     own: bool = Field(..., title="Own")
     computed: bool = Field(..., title="Computed")
     from_entity: EntitySummary | None
+    from_hidden: bool | None = Field(None, title="From Hidden")
     formula: (
         LinearFormulaBodyOutput
         | ComparisonFormulaBodyOutput
@@ -5344,6 +5345,7 @@ class UpdatesOut(BaseModel):
     )
     names: dict[str, str] = Field(..., title="Names")
     release: ReleaseOut | None
+    hidden: HiddenChangesOut | None = None
 
 
 class ControlledColumnOut(BaseModel):
