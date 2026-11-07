@@ -16,8 +16,10 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from _author_world import add_member
 from _fake_jwks import FakeJwksServer
 from _hidden_world import H, Rich, rich_world, world
+from _repository_actors import Actor, make_actor
 from fastapi.routing import APIRoute
 from httpx import AsyncClient
 
@@ -52,7 +54,9 @@ def _get_routes() -> list[str]:
     return sorted(paths)
 
 
-def _fill(path: str, library: uuid.UUID, entry: uuid.UUID) -> str | None:
+def _fill(
+    path: str, library: uuid.UUID, entry: uuid.UUID, repository: uuid.UUID | None = None
+) -> str | None:
     """The path with the tenant and every other parameter filled: an id for each `*_id` (an
     entry's, whatever the route calls it), the slug of Longsword for a slug. A parameter of
     another kind has no value here and the route is left to its own tests."""
@@ -60,6 +64,8 @@ def _fill(path: str, library: uuid.UUID, entry: uuid.UUID) -> str | None:
     for param in re.findall(r"\{(\w+)\}", url):
         if param == "slug":
             url = url.replace("{slug}", "longsword")
+        elif param == "repository_id" and repository is not None:
+            url = url.replace("{repository_id}", str(repository))
         elif param.endswith("_id"):
             url = url.replace("{" + param + "}", str(entry))
         else:
@@ -72,14 +78,20 @@ def _leaks(text: str, hidden: dict[str, uuid.UUID]) -> list[str]:
     return found + [name for name, entity_id in hidden.items() if str(entity_id) in text]
 
 
-async def _sweep(h: H | Rich, entry: uuid.UUID, label: str) -> dict[str, Any]:
+async def _sweep(
+    h: H | Rich,
+    entry: uuid.UUID,
+    label: str,
+    reader: Actor | None = None,
+    repository: uuid.UUID | None = None,
+) -> dict[str, Any]:
     leaks: dict[str, Any] = {}
     asked = 0
     for path in _get_routes():
-        url = _fill(path, h.library, entry)
+        url = _fill(path, h.library, entry, repository)
         if url is None:
             continue
-        response = await h.reader.get(url, params={"size": 100})
+        response = await (reader or h.reader).get(url, params={"size": 100})
         asked += 1
         if response.status_code == 200:
             found = _leaks(response.text, h.hidden)
@@ -89,11 +101,16 @@ async def _sweep(h: H | Rich, entry: uuid.UUID, label: str) -> dict[str, Any]:
     return leaks
 
 
-async def _all(h: H | Rich) -> None:
-    assert await _sweep(h, uuid.uuid4(), "nothing") == {}
+async def _all(h: H, reader: Actor | None = None) -> None:
+    assert await _sweep(h, uuid.uuid4(), "nothing", reader) == {}
     for name, entity_id in sorted(h.hidden.items()):
-        assert await _sweep(h, entity_id, name) == {}, name
-    assert await _sweep(h, h.visible, "the visible one") == {}
+        assert await _sweep(h, entity_id, name, reader) == {}, name
+    assert await _sweep(h, h.visible, "the visible one", reader) == {}
+    # The repositories the library holds: A (which it holds through B) and B, each asked with a
+    # hidden entry and the visible one, as the entry of its browse and its preview.
+    for repository in (h.a, h.b):
+        for entry in (h.hidden["Longsword"], h.visible):
+            assert await _sweep(h, entry, "a repository", reader, repository) == {}, repository
 
 
 async def test_no_read_of_a_library_names_a_hidden_entry_or_answers_for_it(
@@ -102,6 +119,34 @@ async def test_no_read_of_a_library_names_a_hidden_entry_or_answers_for_it(
     h = await world(raw_client, fake_jwks_server)
     try:
         await _all(h)
+    finally:
+        await h.done()
+
+
+async def test_nor_does_a_read_of_an_author_or_an_organizer_of_the_library(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    h = await world(raw_client, fake_jwks_server)
+    try:
+        for role in ("author", "orga"):
+            person = await make_actor(raw_client, fake_jwks_server, role, roles=())
+            h.w.actors.append(person)
+            await add_member(h.reader, h.library, person, role)
+            assert await _sweep(h, h.hidden["Longsword"], role, person) == {}, role
+            assert await _sweep(h, h.visible, role, person) == {}, role
+    finally:
+        await h.done()
+
+
+async def test_the_sweep_finds_what_it_looks_for_when_nothing_is_hidden(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """The same world with the source shown: every read the sweep asks names its entries, so the
+    sweep has the power the other tests rely on."""
+    h = await world(raw_client, fake_jwks_server, choice="show")
+    try:
+        found = await _sweep(h, h.hidden["Longsword"], "shown")
+        assert "/tenants/{tenant_id}/items" in found and "/tenants/{tenant_id}/entities" in found
     finally:
         await h.done()
 
@@ -119,5 +164,7 @@ async def test_the_same_holds_for_every_kind_of_entry(
         for name, entity_id in hidden.items():
             assert await _sweep(r, entity_id, name) == {}, name
         assert await _sweep(r, r.visible, "the visible one") == {}
+        for repository in (r.a, r.b):
+            assert await _sweep(r, r.visible, "a repository", None, repository) == {}, repository
     finally:
         await r.done()

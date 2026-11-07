@@ -68,7 +68,9 @@ def _own_visible_entry_clause(
         allowed.append(
             exists().where(EntityKnowledge.entity_id == EntityAudience.entity_id, or_(*recipients))
         )
-    return ~exists().where(EntityAudience.entity_id == entity_id, ~or_(*allowed))
+    return shown_clause(vis, entity_id) & ~exists().where(
+        EntityAudience.entity_id == entity_id, ~or_(*allowed)
+    )
 
 
 def visible_entry_clause(

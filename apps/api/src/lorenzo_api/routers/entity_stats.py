@@ -694,7 +694,9 @@ async def explain_entity_stat(
         from_entity=None
         if own or not visibility.can_see_entry(winner.source_entity_id)
         else EntitySummary.from_entity(winner.source_entity),
-        from_hidden=not own and not visibility.can_see_entry(winner.source_entity_id),
+        from_hidden=(
+            True if not own and not visibility.can_see_entry(winner.source_entity_id) else None
+        ),
         formula=None if formula is None else formula_body_of(formula),
         inputs=[]
         if formula is None or isinstance(formula, ContentsFormula)

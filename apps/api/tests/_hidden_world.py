@@ -79,11 +79,11 @@ async def world(
     base = await release_world(raw_client, jwks)
     if protected:
         assert (await protect(base.author, base.repository, label="p1")).status_code == 200
-    b, ids = await _bridge(base, "Bridge")
-    w = W(base, b, ids)
-    if not protected:
+    else:
         made = await _make_public(base.author, base.repository)
         assert made.status_code == 200, made.text
+    b, ids = await _bridge(base, "Bridge")
+    w = W(base, b, ids)
     chosen = await choose(base.author, b, base.repository, choice)
     assert chosen.status_code == 200, chosen.text
     made = await _make_public(base.author, b)

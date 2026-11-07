@@ -51,6 +51,8 @@ _DEFAULTS = {
         "is_default": True,
         "may_be_shown": True,
         "may_be_shown_is_default": True,
+        "may_be_hidden": True,
+        "may_be_hidden_is_default": True,
     },
 }
 
@@ -225,6 +227,8 @@ async def test_an_owner_sets_the_whole_profile_and_it_is_kept_tidy(
                 "is_default": True,
                 "may_be_shown": True,
                 "may_be_shown_is_default": True,
+                "may_be_hidden": True,
+                "may_be_hidden_is_default": True,
             },
         }
         assert _without_stamp(patched.json()) == expected

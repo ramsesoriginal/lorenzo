@@ -13,7 +13,7 @@ conflict is never resolved without being named.
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
@@ -109,6 +109,7 @@ from lorenzo_api.repository_hiding import (
     hidden_label,
     hidden_sources,
     refresh_hidden,
+    scrub_rows,
     unused_hidden_entries,
 )
 from lorenzo_api.repository_releases import ReleaseRef
@@ -588,6 +589,12 @@ async def _hide(session: AsyncSession, updates: Updates, tenant_id: uuid.UUID) -
         return origin in held or origins.get(origin) in hidden_repositories
 
     if updates.repository_id in hidden_repositories:
+        if updates.release is not None:
+            updates.release = replace(
+                updates.release,
+                breaking_rows=scrub_rows(updates.release.breaking_rows),
+                warning_rows=scrub_rows(updates.release.warning_rows),
+            )
         hidden = HiddenChanges()
         hidden.changed_rows = [r for r in updates.changed if r.kind == "entity"]
         hidden.removed_rows = [r for r in updates.removed if r.kind == "entity"]

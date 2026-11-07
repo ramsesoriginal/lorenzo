@@ -212,8 +212,8 @@ class EntityStatValueOut(BaseModel):
     # prototype the value (or its formula) comes from. Null when `own`.
     from_entity: EntitySummary | None = None
     # Inherited from an entry the caller may not see (a hidden entry, ADR 0435): `from_entity` is
-    # null and this says why.
-    from_hidden: bool = False
+    # null and this says why: true there, null otherwise.
+    from_hidden: bool | None = None
     # ADR 0276: a formula produced the value, held by this entity or inherited.
     computed: bool = False
 
@@ -290,8 +290,10 @@ def _stats_out(entity: Entity, visibility: InformationReader) -> list[EntityStat
                 else EntitySummary.from_entity(stat.source_entity)
             ),
             from_hidden=(
-                stat.source_entity_id != entity.id
+                True
+                if stat.source_entity_id != entity.id
                 and not visibility.can_see_entry(stat.source_entity_id)
+                else None
             ),
             computed=stat.computed_entity_id is not None,
         )

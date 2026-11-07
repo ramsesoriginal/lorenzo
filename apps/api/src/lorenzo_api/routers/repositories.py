@@ -1082,6 +1082,9 @@ async def list_repository_contributions(
             .outerjoin(target, (target.id == local) & (target.tenant_id == tenant_id))
             .where(model.tenant_id == tenant_id, model.source_tenant_id == repository_id)
         )
+        if row_kind == "entity":
+            # What the library hides is not named (ADR 0435).
+            stmt = stmt.where(RepositoryCopyLinkEntity.hidden.is_(False))
         for row in await session.execute(stmt):
             rows.append(
                 ContributionOut(

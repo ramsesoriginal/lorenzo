@@ -224,6 +224,7 @@ async def test_finding_and_applying_updates(
             "attachments_added": 0,
             "attachments_detached": 0,
             "not_applied": [],
+            "hidden": None,
         }
 
         local = await _local(world)

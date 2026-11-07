@@ -53,6 +53,7 @@ __all__ = [
     "hidden_label",
     "hidden_sources",
     "refresh_hidden",
+    "scrub_rows",
     "unused_hidden_entries",
 ]
 
@@ -135,6 +136,24 @@ async def refresh_hidden(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
         tenant.hides_entries = now
         await session.flush()
     return now
+
+
+def scrub_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The rows a release called breaking or warned of, with the entries a library hides not named:
+    an entry (or a parent attached to one) is "a hidden entry" and its detail says so (ADR 0435).
+    The release is a repository's account of itself and names what it changed; the library that
+    holds it hidden is not told which."""
+    return [
+        {
+            **row,
+            "name": HIDDEN_ENTRY,
+            "detail": f"{HIDDEN_ENTRY.capitalize()} changed in a way that breaks libraries that "
+            "copied it.",
+        }
+        if row.get("kind") in ("entity", "attachment")
+        else row
+        for row in rows
+    ]
 
 
 def hidden_label(count: int) -> str:
@@ -230,4 +249,3 @@ async def unused_hidden_entries(
             )
         )
     return candidates - used
-
