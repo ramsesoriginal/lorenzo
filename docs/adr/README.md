@@ -436,3 +436,4 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0433 - The account hub keeps its own read cache](0433-the-account-hub-keeps-its-own-read-cache.md) — the hub is multi-page, so memory alone would empty on every click; it keeps `lib/cache.ts` and `lib/prefetch.ts` as a deliberate exception to ADR 0325, with an opt-in `sessionStorage` mode in `read-cache` recorded as a possible later addition
 - [0435 - Repository text updates for nested leaf Chapters](0435-nested-chapter-text-updates.md)
 - [0436 - Repository text updates for Chapters with subchapters](0436-parent-chapter-text-updates.md)
+- [0438 - Atomic manuscript repository updates](0438-atomic-manuscript-repository-updates.md)
