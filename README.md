@@ -53,7 +53,7 @@ This repository is the monorepo for the whole project: a multi-tenant REST API (
 The shape is one API, several kinds of client, and shared code:
 
 - **The API**, [`apps/api`](apps/api): the source of truth, on Google Cloud Run. It also says where the apps live (`GET /app-links`, [ADR 0273](docs/adr/0273-app-links-registry.md)).
-- **Static web apps** for items, accounts, beings, calendars, sessions, writing and maps, and **Bench**, the authoring app: Astro and plain TypeScript, no component framework, all deployed to Cloudflare Pages through its Git integration.
+- **Static web apps** for items, accounts, beings, calendars, sessions, writing and maps, **Bench**, the authoring app, and the legal pages ([ADR 0439](docs/adr/0439-legal-notice-and-privacy-policy.md)): Astro and plain TypeScript, no component framework, all deployed to Cloudflare Pages through its Git integration.
 - **A Discord bot**, on Google Cloud Run, and **the `lorenzo` command line** for bulk work and scripts.
 - **Mobile apps** for Android and iOS, installed locally.
 - **Shared packages**: the typed API client, the brand CSS, LorenzoScript and its editor, the calendar and map engines, and the other code more than one app uses.

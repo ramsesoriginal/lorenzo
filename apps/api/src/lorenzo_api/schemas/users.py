@@ -58,7 +58,7 @@ class MeOut(BaseModel):
     # existing - the same "hand back the URL, let the resource itself
     # 404/redirect" precedent PayloadPictureOut.url already established
     # (ADR 0020) - GET /users/{id}/picture (ADR 0056) resolves to the
-    # uploaded picture, a Gravatar redirect, or 404, entirely on its own.
+    # uploaded picture (or the copy kept once from Gravatar, ADR 0439), or 404, on its own.
     picture_url: str
     memberships: list[MembershipOut]
     players: list[MePlayerOut]

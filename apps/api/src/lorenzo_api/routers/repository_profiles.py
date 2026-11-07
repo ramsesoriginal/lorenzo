@@ -21,6 +21,8 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     ProfilePictureNotFoundError,
     RepositoryNotFoundError,
+    RepositoryNotProtectedError,
+    RepositoryNotPublicError,
     VisibilityHasItsOwnRouteError,
 )
 from lorenzo_api.models import ProfilePicture, RepositoryProfile, Tenant
@@ -45,7 +47,18 @@ from lorenzo_api.schemas.repository_profiles import (
 router = APIRouter(prefix="/tenants/{tenant_id}", tags=["repositories"])
 
 # What a PATCH may change, in the order the activity log names it.
-_FIELDS = ("visibility", "preview", "summary", "licence", "credits", "tags", "system", "languages")
+_FIELDS = (
+    "visibility",
+    "listed",
+    "preview",
+    "summary",
+    "licence",
+    "credits",
+    "tags",
+    "system",
+    "languages",
+    "terms",
+)
 
 
 def _not_found(tenant_id: uuid.UUID, repository_id: uuid.UUID) -> RepositoryNotFoundError:
@@ -85,7 +98,10 @@ async def update_profile(
     """An Owner changes what the profile says; only the fields named are touched. A `visibility`
     other than the repository's own is refused, in the same request as everything else in it (so
     nothing is kept): a flip makes a release, tells libraries and revokes grants, so it is `PUT`
-    and `DELETE` on `/public` (ADR 0290)."""
+    and `DELETE` on `/public` (ADR 0290).
+    `listed: false` leaves a public repository off Discover and `true` puts it back (ADR 0432): its
+    storefront and its address work either way. For a repository that is not public it is `409
+    repository-not-public`."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
     repository = await _require_repository(session, tenant_id)
     profile = await profile_of(session, tenant_id)
@@ -95,7 +111,29 @@ async def update_profile(
             "a release, tells the libraries and, going private, revokes the access they gave "
             "themselves."
         )
+    if body.listed is False and profile.visibility != "public":
+        raise RepositoryNotPublicError(
+            detail="Only a public repository can be left off Discover: a private one is not on it."
+        )
+    if (
+        body.terms is not None
+        and (body.terms.may_be_shown is False or body.terms.may_be_hidden is False)
+        and profile.visibility != "protected"
+    ):
+        raise RepositoryNotProtectedError(
+            detail="Only a protected repository can ask that what is built on it does not show it "
+            "or does not hide it: a private one is read by the people its Owner invites, and a "
+            "public one by anybody."
+        )
     changed = [name for name in _FIELDS if name in body.model_fields_set]
+    # `listed` is changed by what it says: a repository that is listed and is told so is unchanged.
+    if "listed" in changed and body.listed == profile.listed:
+        changed.remove("listed")
+    # `terms` is changed by what it says: an empty one says nothing (ADR 0431).
+    if body.terms is not None and not (
+        {"may_be_included", "may_be_shown", "may_be_hidden"} & body.terms.model_fields_set
+    ):
+        changed.remove("terms")
     for name in changed:
         value = getattr(body, name)
         if name == "licence":
@@ -103,6 +141,13 @@ async def update_profile(
             profile.licence_url = value.url if value else None
         elif name == "credits":
             profile.credits = [credit.model_dump() for credit in value]
+        elif name == "terms":
+            if "may_be_included" in value.model_fields_set:
+                profile.may_be_included = value.may_be_included
+            if "may_be_shown" in value.model_fields_set:
+                profile.may_be_shown = value.may_be_shown
+            if "may_be_hidden" in value.model_fields_set:
+                profile.may_be_hidden = value.may_be_hidden
         else:
             setattr(profile, name, value)
     if changed:

@@ -31,19 +31,33 @@ from lorenzo_api.release_fanout import drain_after_response
 from lorenzo_api.repository_built_on import (
     built_on_behind,
     built_on_not_public,
+    built_on_sources,
     public_dependents,
 )
 from lorenzo_api.repository_delisting import delisted_out, refuse_if_delisted
 from lorenzo_api.repository_deprecation import deprecated_out, refuse_if_deprecated
-from lorenzo_api.repository_flips import count_public_grants, make_private, make_public
+from lorenzo_api.repository_flips import (
+    count_public_grants,
+    make_private,
+    make_protected,
+    make_public,
+)
 from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishers import publishers_of
 from lorenzo_api.routers.repositories import _authored, _require_owner, _require_repository
-from lorenzo_api.schemas.repositories import BuiltOnBehindOut, PublishedOut, PublishRequest
+from lorenzo_api.schemas.repositories import (
+    BuiltOnBehindOut,
+    IncludableOut,
+    PublishedOut,
+    PublishRequest,
+)
 from lorenzo_api.schemas.repository_flips import (
     BuiltOnPublicOut,
+    BuiltOnSourceOut,
     FlipCheckOut,
     MadePrivateOut,
+    MadeProtectedOut,
+    MakeProtectedRequest,
     MakePublicRequest,
     PublicDependentOut,
 )
@@ -77,12 +91,30 @@ async def check_flip(
     behind = await built_on_behind(session, tenant_id)
     return FlipCheckOut(
         available=get_settings().public_repositories_enabled,
-        visibility="public" if profile.visibility == "public" else "private",
+        visibility=profile.visibility,
+        listed=profile.listed,
         has_summary=bool(profile.summary.strip()),
         built_on_not_public=[
             BuiltOnPublicOut(**r) for r in await built_on_not_public(session, tenant_id, user.id)
         ],
         built_on_behind=[BuiltOnBehindOut.model_validate(b.as_json()) for b in behind],
+        built_on=[
+            BuiltOnSourceOut(
+                id=uuid.UUID(s["id"]),
+                name=s["name"],
+                public=s["public"],
+                owned=s["owned"],
+                inclusion=s["inclusion"],
+                includable=IncludableOut(allowed=s["includable"], by=s["include_by"]),
+                in_release=s["in_release"],
+                protected=s["protected"],
+                showable=IncludableOut(allowed=s["showable"], by=s["show_by"]),
+                may_be_shown=s["may_be_shown"],
+                hidable=IncludableOut(allowed=s["hidable"], by=s["hide_by"]),
+                may_be_hidden=s["may_be_hidden"],
+            )
+            for s in await built_on_sources(session, tenant_id, user.id)
+        ],
         public_dependents=[
             PublicDependentOut(**d) for d in await public_dependents(session, tenant_id, user.id)
         ],
@@ -96,6 +128,51 @@ async def check_flip(
     )
 
 
+@router.put("/protected")
+async def make_repository_protected(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    session: SessionDep,
+    user: CurrentUser,
+    background_tasks: BackgroundTasks,
+    body: MakeProtectedRequest | None = None,
+) -> MadeProtectedOut:
+    """Makes the repository protected (ADR 0434, RFC 0051 H3): a private one with its first
+    release, together or not at all, as `PUT .../public` does; a public one without a release,
+    leaving Discover and every visitor's read. A protected repository is read by a library only as a
+    step of the copy of a public repository built on it. Needs every repository it is built on
+    public, protected or included (`409 built-on-not-public`) and up to date (`409
+    built-on-behind`). `409 public-copies-would-be-cut-off` with the number of libraries that copied
+    a public repository by themselves until `acknowledge_revokes` says the Owner has been told. No
+    summary and no terms line are asked. Owner only; `422 public-repositories-not-available` while
+    the deployment does not accept public repositories."""
+    await _require_owner(session, tenant_id=tenant_id, user=user)
+    tenant = await _require_repository(session, tenant_id)
+    if not get_settings().public_repositories_enabled:
+        raise PublicRepositoriesNotAvailableError(
+            detail="Protected repositories are not available yet. This repository stays private."
+        )
+    body = body or MakeProtectedRequest()
+    made = await make_protected(
+        session,
+        repository=tenant,
+        user_id=user.id,
+        body=PublishRequest(
+            label=body.label,
+            notes=body.notes,
+            breaking=body.breaking,
+            acknowledge_breaking=body.acknowledge_breaking,
+        ),
+        acknowledge_revokes=body.acknowledge_revokes,
+    )
+    release_out = (
+        _authored(made.published.release, current=True, kept=True) if made.published else None
+    )
+    await session.commit()
+    drain_after_response(background_tasks, session)
+    await set_tenant_rls_context(session, tenant_id)
+    return MadeProtectedOut(release=release_out, turned=made.turned)
+
+
 @router.put("/public")
 async def make_repository_public(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
@@ -105,7 +182,8 @@ async def make_repository_public(
     body: MakePublicRequest | None = None,
 ) -> PublishedOut:
     """Makes the repository public and makes its first public release, together or not at all
-    (ADR 0289): the release, its document and its notice are those of `PUT .../published`.
+    (ADR 0289): the release, its document and its notice are those of `PUT .../published`. A
+    protected repository is made public the same way (ADR 0434).
     Needs a summary, given here or already on the profile (`422
     public-repository-summary-required`), every repository it is built on public (`409
     built-on-not-public`) and up to date (`409 built-on-behind`), and says what a visitor may

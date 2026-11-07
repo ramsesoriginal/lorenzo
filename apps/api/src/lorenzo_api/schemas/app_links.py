@@ -15,6 +15,8 @@ class AppsOut(BaseModel):
     writing: AppOut | None = None
     maps: AppOut | None = None
     social: AppOut | None = None
+    # Only where the deployment has set LEGAL_URL (ADR 0439); there is no default.
+    legal: AppOut | None = None
 
 
 class AppLinksOut(BaseModel):
@@ -22,3 +24,5 @@ class AppLinksOut(BaseModel):
 
     apps: AppsOut
     links: dict[str, str]
+    # A support link (SUPPORT_URL, ADR 0439), null when the deployment has none.
+    support_url: str | None = None

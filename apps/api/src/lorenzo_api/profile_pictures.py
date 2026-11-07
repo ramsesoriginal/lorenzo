@@ -7,7 +7,6 @@ shaping, no commit (matching routers/item_instances.py's own
 calls one of these, then commits itself.
 """
 
-import hashlib
 import uuid
 
 from fastapi import UploadFile
@@ -122,15 +121,3 @@ async def delete_campaign_profile_picture(session: AsyncSession, *, campaign_id:
     link = await session.get(CampaignProfilePicture, campaign_id)
     if link is not None:
         await session.delete(await session.get_one(ProfilePicture, link.profile_picture_id))
-
-
-def gravatar_url(email: str, *, size: int = 200) -> str:
-    """See ADR 0056. `d=mp` ("mystery person") means this always resolves
-    to *something* even for an email that never registered with Gravatar -
-    the only real fallback failure is a user with no email at all.
-    """
-    # Gravatar's lookup key, not a security use - their API accepts either
-    # MD5 or SHA256 of the trimmed, lowercased email; SHA256 avoids relying
-    # on a broken hash even for a non-cryptographic lookup.
-    email_hash = hashlib.sha256(email.strip().lower().encode()).hexdigest()
-    return f"https://www.gravatar.com/avatar/{email_hash}?d=mp&s={size}"

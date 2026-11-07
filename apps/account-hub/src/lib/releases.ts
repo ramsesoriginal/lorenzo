@@ -144,11 +144,10 @@ export type ComposerForm = {
 };
 
 // Why the form cannot be sent yet, or null. A label is free text and may be left blank (it is then
-// the release's number); a breaking change must be acknowledged.
-export function composerProblem(
-  form: ComposerForm,
-  hits: readonly BreakingRowOut[],
-): string | null {
+// the release's number); a breaking change must be acknowledged. `hits` is everything that breaks:
+// the rows the preview names and, since a repository can carry another as its own (ADR 0431), the
+// repositories it now carries differently from its last public release.
+export function composerProblem(form: ComposerForm, hits: readonly unknown[]): string | null {
   if (form.label.trim().length > LABEL_MAX) return `A label is at most ${LABEL_MAX} characters.`;
   if (form.notes.trim().length > NOTES_MAX) return `Notes are at most ${NOTES_MAX} characters.`;
   if (hits.length > 0 && !form.acknowledged) {
@@ -159,7 +158,7 @@ export function composerProblem(
 }
 
 // The body of a publish, from the form: what is left blank is left out, so the API's defaults apply.
-export function publishBody(form: ComposerForm, hits: readonly BreakingRowOut[]): PublishRequest {
+export function publishBody(form: ComposerForm, hits: readonly unknown[]): PublishRequest {
   return {
     ...(form.label.trim() ? { label: form.label.trim() } : {}),
     ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),

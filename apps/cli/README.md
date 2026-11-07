@@ -498,3 +498,7 @@ Do not delete the calendar. Preview again with the same source key, file and not
 using `--dry-run`; unchanged units are already imported. Reimports do not duplicate them.
 Notes are attached to their dates; look in the source year and month rather than the
 calendar entry's own Information. Imported audiences remain restricted unless explicitly chosen.
+
+## Legal notice and privacy policy
+
+`lorenzo legal` prints where the legal notice and the privacy policy of the Lorenzo you use are (and its support link, if it has one), by asking the API's public registry. It needs no login, and nothing about any operator is built into the command ([ADR 0439](../../docs/adr/0439-legal-notice-and-privacy-policy.md)). `--json` prints them as JSON. A command-line login stores its credentials in a file only your user can read; the privacy policy describes this.
