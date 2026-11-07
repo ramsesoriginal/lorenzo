@@ -655,29 +655,25 @@ async def test_another_owners_repository_is_included_only_with_its_terms(
         assert allowed.json()["includable"] == {"allowed": True, "by": "terms"}
         assert (await _make_public(owner_b, b)).status_code == 200
 
-        # The terms change afterwards: the next release is refused, naming A, and keeps nothing.
+        # Consent is asked once, when the choice is set. The terms change afterwards: the
+        # choice stands and the next release is made, without a word of A's terms (ADR 0431).
         assert (
             await base.author.patch(
                 f"/tenants/{base.repository}/profile", json={"terms": {"may_be_included": False}}
             )
         ).status_code == 200
-        async with admin_session_factory() as session:
-            before = await session.scalar(
-                select(func.count())
-                .select_from(RepositoryRelease)
-                .where(RepositoryRelease.tenant_id == b)
-            )
-        again = await owner_b.put(f"/tenants/{b}/published", json={"label": "1.1"})
-        assert again.status_code == 409
-        assert again.json()["type"] == "repository-not-includable"
-        assert [r["name"] for r in again.json()["repositories"]] == ["Armoury"]
-        async with admin_session_factory() as session:
-            after = await session.scalar(
-                select(func.count())
-                .select_from(RepositoryRelease)
-                .where(RepositoryRelease.tenant_id == b)
-            )
-        assert after == before
+        made = await owner_b.put(f"/tenants/{b}/published", json={"label": "1.1"})
+        assert made.status_code == 200, made.text
+        listed = (await owner_b.get(f"/tenants/{b}/repositories")).json()["items"]
+        assert [(r["inclusion"], r["includable"]["allowed"]) for r in listed] == [
+            ("include", False)
+        ]
+        # The choice made afterwards is a different matter: it is refused, for a change back too.
+        shown = await _include(owner_b, b, base.repository, "show")
+        assert shown.status_code == 200
+        refused_again = await _include(owner_b, b, base.repository)
+        assert refused_again.status_code == 409
+        assert refused_again.json()["type"] == "repository-not-includable"
     finally:
         await w.done()
 
@@ -961,6 +957,44 @@ async def test_making_an_earlier_release_current_is_breaking_when_it_carried_a_s
         await w.done()
 
 
+async def test_terms_taken_back_do_not_stop_an_earlier_release_being_made_current(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """Consent is asked once, when the choice is set: moving to a release that carried A included
+    is not refused because A's Owner has since turned the terms off (ADR 0431)."""
+    base = await release_world(raw_client, fake_jwks_server)
+    assert (await _make_public(base.author, base.repository)).status_code == 200
+    owner_b = await make_actor(raw_client, fake_jwks_server, "owner-b")
+    b, _ = await _bridge(base, "Other Bridge", owner=owner_b, invite=False)
+    w = W(base, b, {}, [], [owner_b])
+    try:
+        assert (await _include(owner_b, b, base.repository)).status_code == 200
+        assert (await _make_public(owner_b, b, label="1.0")).status_code == 200  # includes A
+        assert (await _include(owner_b, b, base.repository, "show")).status_code == 200
+        shown = await owner_b.put(
+            f"/tenants/{b}/published", json={"label": "2.0", "acknowledge_breaking": True}
+        )
+        assert shown.status_code == 200, shown.text
+        assert (
+            await base.author.patch(
+                f"/tenants/{base.repository}/profile", json={"terms": {"may_be_included": False}}
+            )
+        ).status_code == 200
+        notes = (await owner_b.get(f"/tenants/{b}/releases")).json()["items"]
+        first = next(r for r in notes if r["label"] == "1.0")
+        moved = await owner_b.put(
+            f"/tenants/{b}/releases/{first['id']}/current", json={"acknowledge_breaking": True}
+        )
+        assert moved.status_code == 200, moved.text
+        async with admin_session_factory() as session:
+            profile = await session.get_one(RepositoryProfile, b)
+            assert [(s["name"], s["inclusion"]) for s in profile.release_sources or []] == [
+                ("Armoury", "include")
+            ]
+    finally:
+        await w.done()
+
+
 # --- Attribution --------------------------------------------------------------------------------
 
 
@@ -1032,8 +1066,8 @@ async def test_a_public_repository_of_another_owner_is_included_by_default_and_m
 ) -> None:
     """A is public and not B's Owner's. Nobody said anything about its terms, so they are the
     default of a public repository: it may be included. B's release carries it, so A's Owner makes
-    A private without B in the way, a library that took B keeps reading it, and A's Owner saying no
-    changes the next release of B and nothing a library holds."""
+    A private without B in the way, a library that took B keeps reading it, and B releases again
+    after: its choice was made once, with A's yes, and A's terms are not asked again."""
     base = await release_world(raw_client, fake_jwks_server)
     assert (await _make_public(base.author, base.repository)).status_code == 200
     owner_b = await make_actor(raw_client, fake_jwks_server, "owner-b")
@@ -1073,18 +1107,10 @@ async def test_a_public_repository_of_another_owner_is_included_by_default_and_m
         assert [r["readable"] for r in unreadable.json()["repositories"]] == [False]
         invited = await base.author.put(f"/tenants/{base.repository}/subscribers/{b}")
         assert invited.status_code == 201, invited.text
-        # A is private now, so its terms are the default of a private repository again, and an
-        # Owner of B who is not one of A's can no longer release it included.
+        # A is private now, so its terms are the default of a private repository again, and B's
+        # Owner is not one of A's: the choice B made while A was public stands, and the release
+        # is made without asking A's terms again.
         again = await owner_b.put(f"/tenants/{b}/published", json={"label": "1.1"})
-        assert again.status_code == 409
-        assert again.json()["type"] == "repository-not-includable"
-        assert (
-            await base.author.patch(
-                f"/tenants/{base.repository}/profile", json={"terms": {"may_be_included": True}}
-            )
-        ).status_code == 200
-        assert (
-            await owner_b.put(f"/tenants/{b}/published", json={"label": "1.1"})
-        ).status_code == 200
+        assert again.status_code == 200, again.text
     finally:
         await w.done()

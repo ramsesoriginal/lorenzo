@@ -119,8 +119,8 @@ async def built_on_not_public(
     owns it (so they can be offered to make it public): the ones that stop this repository being
     made public or protected. A source is reached when it is public or protected and this
     repository can read it (ADR 0434), or when this repository includes it, since its release
-    carries it as its own rows (ADR 0431); whether the user may include it is the release's
-    question, asked when the release is made. A source it cannot read counts as not reached."""
+    carries it as its own rows (ADR 0431); whether the user may include it is asked once, when
+    the choice is set (`set_inclusion`). A source it cannot read counts as not reached."""
     found: list[dict[str, Any]] = []
     for copy, name in await _copies(session, repository_id):
         if copy.inclusion == "include":

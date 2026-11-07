@@ -51,7 +51,6 @@ __all__ = [
     "recorded_inclusions",
     "includable",
     "inclusion_changes",
-    "refuse_unless_includable",
     "refuse_unless_showable",
     "release_sources_of",
     "set_inclusion",
@@ -150,28 +149,6 @@ async def showable(session: AsyncSession, source_id: uuid.UUID, user_id: uuid.UU
         if not readable or terms_of(await session.get(RepositoryProfile, source_id)).may_be_shown:
             return Showable(True, "terms")
     return Showable(False)
-
-
-async def refuse_unless_includable(
-    session: AsyncSession, repository_id: uuid.UUID, user_id: uuid.UUID
-) -> None:
-    """`409 repository-not-includable`, naming each one, when the repository includes a source the
-    user may not include. Checked when a release is made (the terms may have changed since the
-    choice was made, and the user making the release is not always the one who chose)."""
-    refused: list[dict[str, str]] = []
-    for source in await sources_of(session, repository_id):
-        if (
-            source.inclusion == "include"
-            and not (await includable(session, source.repository_id, user_id)).allowed
-        ):
-            refused.append({"id": str(source.repository_id), "name": source.name})
-    if refused:
-        raise RepositoryNotIncludableError(
-            detail="Including this in a release needs a yes from its Owner: an Owner of it, or "
-            "terms of its own that allow it. Not allowed for: "
-            + ", ".join(r["name"] for r in refused),
-            repositories=refused,
-        )
 
 
 async def refuse_unless_showable(
