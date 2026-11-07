@@ -279,11 +279,15 @@ export async function renderTenantsPanel(root: HTMLElement, me: MeOut): Promise<
 
       await refresh();
       const open = openId ? tenants.find((t) => t.id === openId) : undefined;
+      // A library that was open and is gone (just left or deleted) is not "not available": the address
+      // named it a moment ago, so the person lands where they would without one.
       const next: View = open
         ? { type: 'tenant', tenant: open }
         : current.type === 'new' && mayCreate
           ? current
-          : (viewFromUrl() ?? defaultView());
+          : openId
+            ? defaultView()
+            : (viewFromUrl() ?? defaultView());
 
       window.history.replaceState(null, '', urlFor(next));
       await show(next);
