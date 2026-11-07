@@ -147,7 +147,7 @@ class Tenant(Base):
         ARRAY(UUID(as_uuid=True)), server_default=text("'{}'::uuid[]")
     )
     released_public: Mapped[bool] = mapped_column(server_default=text("false"))
-    # ADR 0436: whether any copy link of the tenant is hidden (`repository_copy_link_entity`).
+    # ADR 0437: whether any copy link of the tenant is hidden (`repository_copy_link_entity`).
     # Read by the gate every read of an entry applies, so that a tenant that hides nothing pays
     # nothing; written by `repository_hiding.refresh_hidden`, which derives both.
     hides_entries: Mapped[bool] = mapped_column(server_default=text("false"))

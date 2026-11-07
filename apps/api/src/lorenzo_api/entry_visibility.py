@@ -28,7 +28,7 @@ def shown_clause(
     vis: InformationVisibility,
     entity_id: ColumnElement[uuid.UUID] | InstrumentedAttribute[uuid.UUID],
 ) -> ColumnElement[bool]:
-    """Whether the entry is not hidden by the repository it came with (ADR 0436): the copy link of
+    """Whether the entry is not hidden by the repository it came with (ADR 0437): the copy link of
     a row the library hides says so. Nobody is let past it, an Owner or an Author included, which is
     why it is not an audience: those are the library's own and are bypassed by its administrators.
     A tenant that hides nothing (`vis.hides_entries`) asks nothing."""
@@ -185,7 +185,7 @@ async def require_visible_entry(
 
 
 async def hides_entries(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
-    """Whether the tenant hides any entry (`tenant.hides_entries`, ADR 0436). The tenant row is the
+    """Whether the tenant hides any entry (`tenant.hides_entries`, ADR 0437). The tenant row is the
     one the request already holds, so this is not a statement."""
     tenant = await session.get(Tenant, tenant_id)
     return bool(tenant is not None and tenant.hides_entries)
@@ -194,7 +194,7 @@ async def hides_entries(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
 async def hidden_by_source(
     session: AsyncSession, *, tenant_id: uuid.UUID, entity_id: uuid.UUID
 ) -> bool:
-    """Whether the entry is hidden by the repository it came with, for everyone (ADR 0436). The
+    """Whether the entry is hidden by the repository it came with, for everyone (ADR 0437). The
     engines that write what a library hides (the copy, the update and the removal of a copy) are the
     only readers that may see it: they set `session.info["sees_hidden"]` for their own reads."""
     if session.info.get("sees_hidden") or not await hides_entries(session, tenant_id):
@@ -213,7 +213,7 @@ async def hidden_by_source(
 
 
 async def hidden_by_source_ids(session: AsyncSession, tenant_id: uuid.UUID) -> frozenset[uuid.UUID]:
-    """The entries the tenant hides (ADR 0436), and the relationships that tie one of them: a
+    """The entries the tenant hides (ADR 0437), and the relationships that tie one of them: a
     relationship is read only with both its ends (ADR 0399). The other ties of a hidden entry are
     found by the gate itself, which asks of an entry whether what it hangs on is hidden."""
     hidden = frozenset(
@@ -247,7 +247,7 @@ async def unhidden(
 ) -> ColumnElement[bool]:
     """The clause for a read of one kind of entry that has no audience gate of its own (the typed
     lists: items, beings, characters, groups, item instances): the entry is not hidden by the
-    repository it came with (ADR 0436). `true()` for a tenant that hides nothing."""
+    repository it came with (ADR 0437). `true()` for a tenant that hides nothing."""
     if not await hides_entries(session, tenant_id):
         return true()
     return ~exists().where(

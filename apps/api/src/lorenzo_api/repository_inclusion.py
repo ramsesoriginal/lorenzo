@@ -174,7 +174,7 @@ async def showable(session: AsyncSession, source_id: uuid.UUID, user_id: uuid.UU
 @dataclass(frozen=True)
 class Hidable:
     """Whether a user may keep a repository separate and hidden, and why: they own it, or its terms
-    allow it (ADR 0436). Only a protected repository can forbid it."""
+    allow it (ADR 0437). Only a protected repository can forbid it."""
 
     allowed: bool
     by: Literal["owner", "terms"] | None = None
@@ -218,7 +218,7 @@ async def refuse_unless_hidable(
     session: AsyncSession, repository_id: uuid.UUID, user_id: uuid.UUID
 ) -> None:
     """`409 repository-not-hidable`, naming each one, when the repository keeps separate and hidden
-    a source whose terms forbid it and the user is not an Owner of it (ADR 0436). Checked when a
+    a source whose terms forbid it and the user is not an Owner of it (ADR 0437). Checked when a
     release is made, as the other two are: the terms may have changed since the choice."""
     refused: list[dict[str, str]] = []
     for source in await sources_of(session, repository_id):

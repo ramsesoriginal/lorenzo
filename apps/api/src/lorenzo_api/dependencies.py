@@ -623,7 +623,7 @@ async def get_entity_or_404(
 
 
 async def refuse_hidden_entries(request: Request, session: AsyncSession, tenant: Tenant) -> None:
-    """`404` for a route whose path names an entry the tenant hides (ADR 0436), for everyone: an
+    """`404` for a route whose path names an entry the tenant hides (ADR 0437), for everyone: an
     entry is addressed by an id in the path (`entity_id`, `being_id`, `location_id`, ...) and
     nothing a library hides is read or written by its address. One place for every route under
     `/tenants/{tenant_id}`, so a route added later cannot forget it. A tenant that hides nothing

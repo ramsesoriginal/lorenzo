@@ -17,7 +17,7 @@ class EffectiveStatOut(BaseModel):
     value: int | str | float | bool
     own: bool
     from_entity: EntitySummary | None = None
-    # Inherited from an entry the caller may not see (a hidden entry, ADR 0436): `from_entity` is
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0437): `from_entity` is
     # null and this says why (true there, null otherwise), so a client can say "a hidden entry".
     from_hidden: bool | None = None
     computed: bool

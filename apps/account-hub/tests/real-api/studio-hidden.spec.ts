@@ -11,7 +11,7 @@ import {
   signedInPage,
 } from './support';
 
-// ADR 0436, RFC 0051 H4: a repository built on another hides its entries from the libraries that copy
+// ADR 0437, RFC 0051 H4: a repository built on another hides its entries from the libraries that copy
 // it. The launcher sets PUBLIC_REPOSITORIES_ENABLED for this suite (playwright.real-api.config.ts).
 // Every test works in names of its own (a tag in each), since the listing is the whole deployment's.
 

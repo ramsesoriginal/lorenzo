@@ -147,7 +147,7 @@ class TermsIn(BaseModel):
     public or protected one: yes). `may_be_shown` is whether one may keep it separate and visible
     (ADR 0434): `false` only for a protected repository (`409 repository-not-protected`), `null` is
     the default again, which is yes. `may_be_hidden` is the same for keeping it separate and hidden
-    (ADR 0436)."""
+    (ADR 0437)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -299,7 +299,7 @@ class TermsOut(BaseModel):
     # Owner has said nothing of it. Only a protected repository can say no.
     may_be_shown: bool = True
     may_be_shown_is_default: bool = True
-    # Whether a repository built on it may keep it separate and hidden (ADR 0436), and whether its
+    # Whether a repository built on it may keep it separate and hidden (ADR 0437), and whether its
     # Owner has said nothing of it. Only a protected repository can say no.
     may_be_hidden: bool = True
     may_be_hidden_is_default: bool = True

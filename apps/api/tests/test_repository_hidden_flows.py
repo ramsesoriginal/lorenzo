@@ -1,4 +1,4 @@
-"""ADR 0436, RFC 0051 H4: what a library holds of a source it hides, and how that follows what it
+"""ADR 0437, RFC 0051 H4: what a library holds of a source it hides, and how that follows what it
 copies and updates. The world is the one of `_hidden_world`; every flip, release, copy and update
 goes through the HTTP API, and what a library holds is read from the database where the test says
 so.

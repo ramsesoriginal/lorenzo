@@ -253,7 +253,7 @@ class Updates:
     upstream: Content | None = None
     local: Content | None = None
     # What the update does to the entries this library hides, as counts: the rows themselves are
-    # not in `changed`, `removed` or `added` (ADR 0436). None where it hides nothing of them.
+    # not in `changed`, `removed` or `added` (ADR 0437). None where it hides nothing of them.
     hidden: HiddenChanges | None = None
 
 
@@ -556,7 +556,7 @@ def _mark(updates: Updates, stored: dict[Key, Any] | None) -> None:
 
 async def _hide(session: AsyncSession, updates: Updates, tenant_id: uuid.UUID) -> None:
     """Takes what an update does to the entries the library hides out of the lists a library reads
-    and counts it (ADR 0436): the entries of a repository the library hides are not named, so their
+    and counts it (ADR 0437): the entries of a repository the library hides are not named, so their
     changes, additions and removals are `updates.hidden`, which `apply_updates` applies with the
     rest; and the name of a hidden entry that a visible row mentions (a parent it has, say) is
     "a hidden entry". Only a library hides."""
@@ -739,7 +739,7 @@ class ApplyResult:
     attachments_added: int = 0
     attachments_detached: int = 0
     not_applied: list[NotApplied] = field(default_factory=list)
-    # What was taken of the entries the library hides, as counts (ADR 0436).
+    # What was taken of the entries the library hides, as counts (ADR 0437).
     hidden: HiddenChanges | None = None
 
 
@@ -1771,7 +1771,7 @@ async def apply_updates(
     if hidden is not None:
         # What the library hides is taken with the rest, since it cannot be named to be chosen: a
         # conflict is the repository's, a collision of a slug leaves the entry without one, and a
-        # breaking change among them is acknowledged as one line (ADR 0436).
+        # breaking change among them is acknowledged as one line (ADR 0437).
         if hidden.breaking and not acknowledge_hidden_breaking:
             raise UpdateNeedsConfirmationError(
                 detail="A release since this library last updated called some changes to hidden "
@@ -1863,7 +1863,7 @@ async def apply_updates(
     values: dict[str, Any] = {
         "synced_at": datetime.now(UTC),
         "synced_release_id": updates.release.id if updates.release else None,
-        # What the release just taken brings separate and hidden (ADR 0436), kept beside the
+        # What the release just taken brings separate and hidden (ADR 0437), kept beside the
         # mark of a repository the library copied for itself.
         "carries": carries_of(
             updates.upstream,
@@ -2038,7 +2038,7 @@ async def _add(
 
 async def _drop_hidden(session: AsyncSession, tenant_id: uuid.UUID, hidden: HiddenChanges) -> None:
     """Removes the hidden entries the repository no longer brings, when nothing visible uses them
-    (ADR 0436, RFC 0051 default 4): a library cannot delete a hidden entry, and one nobody can see
+    (ADR 0437, RFC 0051 default 4): a library cannot delete a hidden entry, and one nobody can see
     must not stay for ever. One something visible still uses stays, hidden, until that lets go.
     Each is removed on its own, in a savepoint, and one the database refuses to remove (a manuscript
     or a telling that hangs on it) stays."""

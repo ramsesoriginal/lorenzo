@@ -33,7 +33,7 @@ export type InclusionChoice = {
   note: string | null;
   // The repository is protected: what keeping it separate means says so (ADR 0434).
   protected?: boolean;
-  // The repository is public: hiding it only tidies the libraries that copy this one (ADR 0436).
+  // The repository is public: hiding it only tidies the libraries that copy this one (ADR 0437).
   public?: boolean;
   // Only an Owner chooses.
   editable: boolean;

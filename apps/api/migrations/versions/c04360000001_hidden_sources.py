@@ -1,4 +1,4 @@
-"""A repository built on another can hide its entries from the libraries that copy it (ADR 0436,
+"""A repository built on another can hide its entries from the libraries that copy it (ADR 0437,
 RFC 0051 H4)
 
 `repository_copy.inclusion` gains `hide`: a repository carries a source separate, and the entries

@@ -211,7 +211,7 @@ class EntityStatValueOut(BaseModel):
     # ADR 0276: where the winning row is held, when it is not this entity: the
     # prototype the value (or its formula) comes from. Null when `own`.
     from_entity: EntitySummary | None = None
-    # Inherited from an entry the caller may not see (a hidden entry, ADR 0436): `from_entity` is
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0437): `from_entity` is
     # null and this says why: true there, null otherwise.
     from_hidden: bool | None = None
     # ADR 0276: a formula produced the value, held by this entity or inherited.

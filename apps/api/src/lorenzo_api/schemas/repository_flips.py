@@ -105,7 +105,7 @@ class BuiltOnSourceOut(BaseModel):
     # that says no leaves `include` as the way to carry it, unless the caller owns it.
     showable: IncludableOut | None = None
     may_be_shown: bool = True
-    # As `showable` and `may_be_shown`, for keeping it separate and hidden (ADR 0436).
+    # As `showable` and `may_be_shown`, for keeping it separate and hidden (ADR 0437).
     hidable: IncludableOut | None = None
     may_be_hidden: bool = True
 

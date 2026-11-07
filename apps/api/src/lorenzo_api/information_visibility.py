@@ -113,7 +113,7 @@ class InformationVisibility:
     user_id: uuid.UUID | None = None
     session_entry_ids: frozenset[uuid.UUID] = frozenset()
     session_reader_ids: frozenset[uuid.UUID] = frozenset()
-    # Whether the tenant hides any entry from everyone (ADR 0436): the gate then asks of every entry
+    # Whether the tenant hides any entry from everyone (ADR 0437): the gate then asks of every entry
     # whether the repository it came with hides it, and an administrator is not let past it.
     hides_entries: bool = False
 
@@ -285,7 +285,7 @@ async def resolve_information_reader(
 
     rows = list(information)
     ids = set(entry_ids) | {row.entity_id for row in rows}
-    # A tenant that hides entries lets nobody past the gate, so nothing is skipped (ADR 0436).
+    # A tenant that hides entries lets nobody past the gate, so nothing is skipped (ADR 0437).
     hiding = await hides_entries(session, tenant_id)
     gated = hiding or (
         bool(ids)
@@ -636,6 +636,6 @@ async def resolve_information_visibility(
         )
     if hides:
         # What the repository an entry came with hides is hidden from everyone, and the ties that
-        # reach a hidden end are hidden with it (ADR 0436; ADR 0399 for a relationship).
+        # reach a hidden end are hidden with it (ADR 0437; ADR 0399 for a relationship).
         hidden |= await hidden_by_source_ids(session, tenant_id)
     return replace(vis, hidden_entry_ids=hidden)

@@ -122,7 +122,7 @@ export type BuiltOn = {
   // Whether it may be kept separate and visible, which only the terms of a protected repository can
   // forbid (ADR 0434), and whether it is protected.
   showable: IncludableOut | null;
-  // And separate and hidden, which only the terms of a protected repository can forbid (ADR 0436).
+  // And separate and hidden, which only the terms of a protected repository can forbid (ADR 0437).
   hidable: IncludableOut | null;
   protected: boolean;
   inclusionInRelease: Inclusion | null;

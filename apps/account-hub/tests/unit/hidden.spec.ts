@@ -51,7 +51,7 @@ function source(overrides: Partial<BuiltOnSourceOut> = {}): BuiltOnSourceOut {
   };
 }
 
-describe('hiding a repository built on (RFC 0051 H4, ADR 0436)', () => {
+describe('hiding a repository built on (RFC 0051 H4, ADR 0437)', () => {
   it('is a third choice, in the words of the RFC', () => {
     expect(INCLUSION_CHOICES).toEqual(['show', 'hide', 'include']);
     expect(INCLUSION_LABEL.hide).toBe('Keep separate and hidden');

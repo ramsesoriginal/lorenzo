@@ -10839,7 +10839,7 @@ export interface components {
         /**
          * HiddenChangesOut
          * @description What an update does to the entries this library hides, as counts and a plain label, never
-         *     names (ADR 0436): `label` reads "3 changes to hidden entries". They are taken with the rest of
+         *     names (ADR 0437): `label` reads "3 changes to hidden entries". They are taken with the rest of
          *     the update; `breaking` is how many a release since the library last updated called breaking,
          *     which `acknowledge_hidden_breaking` takes as one line.
          */
@@ -17035,7 +17035,7 @@ export interface components {
          *     public or protected one: yes). `may_be_shown` is whether one may keep it separate and visible
          *     (ADR 0434): `false` only for a protected repository (`409 repository-not-protected`), `null` is
          *     the default again, which is yes. `may_be_hidden` is the same for keeping it separate and hidden
-         *     (ADR 0436).
+         *     (ADR 0437).
          */
         TermsIn: {
             /** May Be Included */
