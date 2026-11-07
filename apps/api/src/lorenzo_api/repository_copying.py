@@ -188,7 +188,7 @@ class Step:
     # records as taken (ADR 0207, 0286).
     release_id: uuid.UUID | None = None
     # The repository the copy is of: its entries are brought for itself, and never hidden by what
-    # another repository says of it (ADR 0435).
+    # another repository says of it (ADR 0436).
     head: bool = False
     entities: int = 0
     stat_groups: int = 0

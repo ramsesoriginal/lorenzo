@@ -1,4 +1,4 @@
-"""ADR 0435, RFC 0051 H4: the choice `hide`, A's third term, and what a release records of it.
+"""ADR 0436, RFC 0051 H4: the choice `hide`, A's third term, and what a release records of it.
 
 A is the Armoury of the release tests, protected (or public, where the test says so); B is a bridge
 built on it. Everything goes through the HTTP API; the database is read where the test says so.

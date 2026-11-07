@@ -20,7 +20,7 @@ import type {
   TermsOut,
 } from './types';
 
-// The three ways a repository carries one it is built on (RFC 0051, ADR 0431, ADR 0435). The API names the
+// The three ways a repository carries one it is built on (RFC 0051, ADR 0431, ADR 0436). The API names the
 // value as an extensible enum, so a word added later reads as null here and never as a guess.
 export type Inclusion = 'show' | 'include' | 'hide';
 
@@ -52,7 +52,7 @@ export function offeredChoices(
   return INCLUSION_CHOICES.filter((choice) => {
     if (choice === current) return true;
     if (choice === 'include') return includable?.allowed === true;
-    // `hide` is offered where the API says it may be (RFC 0051 H4, ADR 0435): a reply that says nothing
+    // `hide` is offered where the API says it may be (RFC 0051 H4, ADR 0436): a reply that says nothing
     // of it is an older one, and offers what it knows.
     if (choice === 'hide') return hidable?.allowed === true;
 
@@ -111,7 +111,7 @@ export function notShowableReason(
 }
 
 // Why "Keep separate and hidden" is not offered, or null where it is: the Owner of a protected repository
-// can ask that what is built on it is not hidden (RFC 0051 H4, ADR 0435), and then it is kept visible or
+// can ask that what is built on it is not hidden (RFC 0051 H4, ADR 0436), and then it is kept visible or
 // included, unless this user is one of its Owners.
 export function notHidableReason(
   name: string,

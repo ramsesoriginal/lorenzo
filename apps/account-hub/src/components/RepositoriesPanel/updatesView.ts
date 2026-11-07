@@ -191,7 +191,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
       if (turn !== latest) return;
 
       // Changes to hidden entries a release called breaking are taken with the rest, and are
-      // acknowledged as the one line the API names them by (RFC 0051 H4, ADR 0435).
+      // acknowledged as the one line the API names them by (RFC 0051 H4, ADR 0436).
       const line =
         cause instanceof LorenzoApiError && cause.problemType === 'update-needs-confirmation'
           ? hiddenBreakingOf(cause.problem)

@@ -96,7 +96,7 @@ def _blank_is_none(value: str | None) -> str | None:
 # How a repository carries one it is built on when it releases (ADR 0431, RFC 0051).
 InclusionName = Literal["show", "include", "hide"]
 # What a response says of it: declared extensible, so that a way of carrying a repository
-# added later is not a break of the contract (ADR 0435: `hide` was the third), and clients read
+# added later is not a break of the contract (ADR 0436: `hide` was the third), and clients read
 # the three they know.
 InclusionNameOut = Annotated[
     str, Field(json_schema_extra={"x-extensible-enum": ["show", "include", "hide"]})
@@ -135,7 +135,7 @@ class InclusionOut(BaseModel):
     # Whether the caller may keep it separate and visible and why (ADR 0434): only the terms of a
     # protected repository can say no, and an Owner of it is always allowed.
     showable: IncludableOut | None = None
-    # As `showable`, for keeping it separate and hidden (ADR 0435).
+    # As `showable`, for keeping it separate and hidden (ADR 0436).
     hidable: IncludableOut | None = None
 
 
@@ -449,7 +449,7 @@ class SubscriptionOut(BaseModel):
     inclusion: InclusionNameOut | None = None
     includable: IncludableOut | None = None
     inclusion_in_release: InclusionNameOut | None = None
-    # As `includable`, for keeping it separate and visible (ADR 0434) and hidden (ADR 0435).
+    # As `includable`, for keeping it separate and visible (ADR 0434) and hidden (ADR 0436).
     showable: IncludableOut | None = None
     hidable: IncludableOut | None = None
     # The library holds it through a repository built on it, not by an invitation (ADR 0434): the
@@ -728,7 +728,7 @@ class AttachmentAddedOut(AttachmentChangeOut):
 
 class HiddenChangesOut(BaseModel):
     """What an update does to the entries this library hides, as counts and a plain label, never
-    names (ADR 0435): `label` reads "3 changes to hidden entries". They are taken with the rest of
+    names (ADR 0436): `label` reads "3 changes to hidden entries". They are taken with the rest of
     the update; `breaking` is how many a release since the library last updated called breaking,
     which `acknowledge_hidden_breaking` takes as one line."""
 
@@ -765,7 +765,7 @@ class UpdatesOut(BaseModel):
     # against it.
     release: ReleaseOut | None
     # What it does to the entries this library hides, which none of the lists above name (ADR
-    # 0435); null where there is nothing.
+    # 0436); null where there is nothing.
     hidden: HiddenChangesOut | None = None
 
 
@@ -819,7 +819,7 @@ class ApplyUpdatesRequest(BaseModel):
     actions: list[UpdateActionIn]
     attachments: list[AttachmentActionIn] | None = None
     dry_run: bool | None = None
-    # Takes the breaking changes to hidden entries as one line (ADR 0435): they are applied with
+    # Takes the breaking changes to hidden entries as one line (ADR 0436): they are applied with
     # the rest and not named, so they are acknowledged together. Without it an update with any is
     # refused with `409 update-needs-confirmation`.
     acknowledge_hidden_breaking: bool | None = None
@@ -849,5 +849,5 @@ class ApplyUpdatesOut(BaseModel):
     attachments_added: int
     attachments_detached: int
     not_applied: list[NotAppliedOut]
-    # The changes to hidden entries taken with the rest, as counts (ADR 0435).
+    # The changes to hidden entries taken with the rest, as counts (ADR 0436).
     hidden: HiddenChangesOut | None = None

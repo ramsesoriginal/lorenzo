@@ -86,7 +86,7 @@ class RepositoryProfile(Base):
     # a separate repository its libraries read and see. Null is the default for the visibility;
     # only a protected repository can say no (`repository_terms`).
     may_be_shown: Mapped[bool | None]
-    # The third term (ADR 0435): whether a repository built on this one may hide it, so that its
+    # The third term (ADR 0436): whether a repository built on this one may hide it, so that its
     # entries are hidden in the libraries that hold them through that repository. Null is the
     # default for the visibility; only a protected repository can say no (`repository_terms`).
     may_be_hidden: Mapped[bool | None]

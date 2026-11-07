@@ -47,7 +47,7 @@ async def list_knowledge(
             Knowledge.tenant_id == tenant_id,
             Information.tenant_id == tenant_id,
             await unhidden(session, tenant_id, Information.entity_id),
-            # A knower the library hides is not named either (ADR 0435).
+            # A knower the library hides is not named either (ADR 0436).
             or_(
                 Knowledge.knower_entity_id.is_(None),
                 await unhidden(session, tenant_id, Knowledge.knower_entity_id),

@@ -54,7 +54,7 @@ export type Tag = {
 const NUMBER_TYPES = new Set(['int', 'float']);
 
 // Where an inherited value comes from, in words: the entry it is held by, or "a hidden entry" where the
-// library hides it (RFC 0051 H4, ADR 0435), so that a value that comes from somewhere says so.
+// library hides it (RFC 0051 H4, ADR 0436), so that a value that comes from somewhere says so.
 export const HIDDEN_ENTRY = 'a hidden entry';
 
 function sourceOf(stat: Pick<StatValue, 'from_entity' | 'from_hidden'> | undefined): string | null {

@@ -1,4 +1,4 @@
-"""The world of the tests of ADR 0435, RFC 0051 H4: a source whose entries a library hides.
+"""The world of the tests of ADR 0436, RFC 0051 H4: a source whose entries a library hides.
 
 A is the Armoury of the release tests (Longsword with Strength and the formula Damage, Dagger whose
 parent is Longsword, Orc), protected by its Owner. B is a bridge built on it that carries it

@@ -396,7 +396,7 @@ export async function makePrivate(
 
 // How this repository carries one it is built on when it releases (ADR 0431): `include` makes its
 // entries this repository's own in the release, `show` keeps it a repository of its own and `hide` one whose
-// entries the libraries hold and do not see (ADR 0435). An Owner's; `include` is refused (`409
+// entries the libraries hold and do not see (ADR 0436). An Owner's; `include` is refused (`409
 // repository-not-includable`) unless the Owner may include it, as `show` and `hide` are by its terms. The
 // answer says whether the next release is breaking for it.
 export async function setInclusion(

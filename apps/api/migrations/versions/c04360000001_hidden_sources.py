@@ -1,4 +1,4 @@
-"""A repository built on another can hide its entries from the libraries that copy it (ADR 0435,
+"""A repository built on another can hide its entries from the libraries that copy it (ADR 0436,
 RFC 0051 H4)
 
 `repository_copy.inclusion` gains `hide`: a repository carries a source separate, and the entries
@@ -20,7 +20,7 @@ of the source are hidden in the libraries that hold them through it.
 
 No policy and no table: the three columns sit in rows the existing policies govern.
 
-Revision ID: c04350000001
+Revision ID: c04360000001
 Revises: c04330000001
 Create Date: 2026-11-07 18:00:00.000000
 
@@ -32,7 +32,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "c04350000001"
+revision: str = "c04360000001"
 down_revision: str | None = "c04330000001"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None

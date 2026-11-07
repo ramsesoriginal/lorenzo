@@ -3,7 +3,7 @@
 // "May be included" and "May be shown". Every member reads it; an Owner changes it, and it is saved when
 // it is changed, not with the profile's Save: it is a decision of its own, and nothing about the rest of
 // the profile is waiting on it. "May be shown" can be turned off only while the repository is protected;
-// the card says so where it is not. The third switch, "May be hidden" (RFC 0051 H4, ADR 0435), is the same
+// the card says so where it is not. The third switch, "May be hidden" (RFC 0051 H4, ADR 0436), is the same
 // under the same presets. The words are lib/inclusion.ts's.
 
 import { describeError } from '../../lib/describeError';

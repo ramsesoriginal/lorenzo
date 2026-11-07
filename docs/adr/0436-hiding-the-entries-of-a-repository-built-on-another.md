@@ -1,4 +1,4 @@
-# 0435 - Hiding the entries of a repository built on another
+# 0436 - Hiding the entries of a repository built on another
 
 Status: accepted. Slice H4 of [RFC 0051](../rfcs/0051-building-on-a-repository-you-do-not-publish.md), tracked in #1066. Builds on [ADR 0431](0431-including-a-repository-in-the-release-of-one-built-on-it.md) (the choice, A's terms and what a release records of how it carried a source), [ADR 0434](0434-a-protected-repository.md) (a protected repository, `may_be_shown` and the presets), [ADR 0120](0120-bridge-repositories-and-dependency-manifests.md) (every copy link names an origin), [ADR 0121](0121-repository-updates-and-re-sync.md) (the update engine), [ADR 0305](0305-facts-and-entry-audiences.md) (the entry gate every read of an entry applies), [ADR 0276](0276-where-a-stat-value-comes-from.md) (where a stat value comes from) and [ADR 0299](0299-what-a-public-repository-says-about-its-publisher-and-hides-about-its-libraries.md) (what a public repository hides about its libraries). The choices marked *default* are the answers the maintainer gave to the RFC's open questions or the smallest ones; each is listed as a question at the end.
 

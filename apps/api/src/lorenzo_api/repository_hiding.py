@@ -1,4 +1,4 @@
-"""Hiding the entries of a repository built on another - ADR 0435, RFC 0051 (H4).
+"""Hiding the entries of a repository built on another - ADR 0436, RFC 0051 (H4).
 
 A repository B built on A may carry A *hidden* (`inclusion = hide`, `repository_inclusion`): a
 library that copies B holds A's entries and cannot see them, while the entries that are B's own
@@ -140,7 +140,7 @@ async def refresh_hidden(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
 
 def scrub_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The rows a release called breaking or warned of, with the entries a library hides not named:
-    an entry (or a parent attached to one) is "a hidden entry" and its detail says so (ADR 0435).
+    an entry (or a parent attached to one) is "a hidden entry" and its detail says so (ADR 0436).
     The release is a repository's account of itself and names what it changed; the library that
     holds it hidden is not told which."""
     return [

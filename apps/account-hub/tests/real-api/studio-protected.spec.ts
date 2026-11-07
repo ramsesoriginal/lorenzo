@@ -222,8 +222,9 @@ test('an Owner of a protected repository says stay hidden, and a repository buil
     is_default: false,
     may_be_shown: false,
     may_be_shown_is_default: false,
+    // A preset says all three switches, so the third is no longer left to the default.
     may_be_hidden: true,
-    may_be_hidden_is_default: true,
+    may_be_hidden_is_default: false,
   });
 
   // The other repository's Built on card keeps what it has chosen, and says why it is not offered

@@ -330,7 +330,7 @@ export type UpdateCounts = {
   removed: number;
   conflicts: number;
   parents: number;
-  // Changes to the entries the library hides (RFC 0051 H4, ADR 0435): counted and never named, and taken
+  // Changes to the entries the library hides (RFC 0051 H4, ADR 0436): counted and never named, and taken
   // with the rest.
   hidden: number;
 };
@@ -409,7 +409,7 @@ export type CleanSelection = {
   actions: UpdateActionIn[];
   changed: number;
   added: number;
-  // What an update does to the entries the library hides: taken with the rest, never chosen (ADR 0435).
+  // What an update does to the entries the library hides: taken with the rest, never chosen (ADR 0436).
   hidden: number;
   // What it leaves for a decision of its own.
   left: {

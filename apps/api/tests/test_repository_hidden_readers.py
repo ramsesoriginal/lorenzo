@@ -1,4 +1,4 @@
-"""ADR 0435: every read a library has leaves a hidden entry out, whoever asks.
+"""ADR 0436: every read a library has leaves a hidden entry out, whoever asks.
 
 The sweep asks every `GET` route under `/tenants/{tenant_id}` of a library that hides the entries
 of A, once as itself, once with each id in the path being a hidden entry and once with each being

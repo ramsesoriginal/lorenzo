@@ -231,7 +231,7 @@ inheritance, effective values, formulas and the updates that touch them.
 every client that lists entries (Bench, Beings, Sessions, Maps, Calendars, Social, Writing, Inventory, the CLI),
 tests per client.
 
-*Spike findings* (written into [ADR 0435](../adr/0435-hiding-the-entries-of-a-repository-built-on-another.md)):
+*Spike findings* (written into [ADR 0436](../adr/0436-hiding-the-entries-of-a-repository-built-on-another.md)):
 
 - **Hiding rides on the gate of the entry audiences, not on their rows.** Every read of an entry already asks one
   gate ([ADR 0305](../adr/0305-facts-and-entry-audiences.md): `visible_entry_clause`, `hidden_entry_ids`,
@@ -247,7 +247,7 @@ tests per client.
   dependencies every tenant route goes through for any route with an entry in its path), and a sweep of every `GET`
   route proves it.
 
-*Built as [ADR 0435](../adr/0435-hiding-the-entries-of-a-repository-built-on-another.md).* The RFC stays the spec;
+*Built as [ADR 0436](../adr/0436-hiding-the-entries-of-a-repository-built-on-another.md).* The RFC stays the spec;
 where the build differs, it says so here:
 
 - **The flag is derived from the library's own records**, not set at copy and at update from another repository: each
@@ -313,7 +313,7 @@ tenant, grant, subscription, flatten or source.
 | H1 | Include A in B at release; A's terms; the choice column; attribution. **Built**, [ADR 0431](../adr/0431-including-a-repository-in-the-release-of-one-built-on-it.md) | RFC 0037 R5 to R8, ADR 0385 | api, hub |
 | H2 | Public but unlisted. **Built**, [ADR 0432](../adr/0432-a-public-repository-that-is-not-listed.md) | RFC 0038 D3 | api, hub |
 | H3 | Protected: the value, the flips, the stack rule, the gate, the copy plan. **Built**, [ADR 0434](../adr/0434-a-protected-repository.md) | H1 (terms, the choice), ADR 0287, ADR 0289 | api, hub |
-| H4 | Hide A's items. **Built**, [ADR 0435](../adr/0435-hiding-the-entries-of-a-repository-built-on-another.md) | H3, the spike | api, hub, beings |
+| H4 | Hide A's items. **Built**, [ADR 0436](../adr/0436-hiding-the-entries-of-a-repository-built-on-another.md) | H3, the spike | api, hub, beings |
 
 H1 and H2 are independent of each other and of the rest. H1 alone answers "B public without A public" when A's
 Owner agrees. H3 adds shared identity and updates from A. H4 is optional and is decided after H3 has been used.

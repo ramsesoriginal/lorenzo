@@ -1083,7 +1083,7 @@ async def list_repository_contributions(
             .where(model.tenant_id == tenant_id, model.source_tenant_id == repository_id)
         )
         if row_kind == "entity":
-            # What the library hides is not named (ADR 0435).
+            # What the library hides is not named (ADR 0436).
             stmt = stmt.where(RepositoryCopyLinkEntity.hidden.is_(False))
         for row in await session.execute(stmt):
             rows.append(
@@ -1623,7 +1623,7 @@ def _attachment_change_out(a: AttachmentRef) -> AttachmentChangeOut:
 
 def _hidden_out(hidden: HiddenChanges | None) -> HiddenChangesOut | None:
     """What an update does to hidden entries, as counts and the label that stands for them: no
-    entry is named (ADR 0435)."""
+    entry is named (ADR 0436)."""
     if hidden is None or hidden.label is None:
         return None
     return HiddenChangesOut(

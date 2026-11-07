@@ -221,7 +221,7 @@ class StatExplanationOut(BaseModel):
     own: bool
     computed: bool
     from_entity: EntitySummary | None
-    # Inherited from an entry the caller may not see (a hidden entry, ADR 0435): true, else null.
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0436): true, else null.
     from_hidden: bool | None = None
     formula: FormulaBody | None
     inputs: list[PreviewInputOut]
