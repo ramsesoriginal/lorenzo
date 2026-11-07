@@ -14,6 +14,7 @@ import {
 } from './tenants';
 import type {
   CampaignSummaryOut,
+  GmOut,
   MeOut,
   PlayerSummaryOut,
   RosterEntry,
@@ -30,6 +31,8 @@ export type LibraryReads = {
   // Null where the caller isn't an administrator: it isn't fetched at all.
   roster: RosterEntry[] | null;
   gmsByCampaign: Map<string, string[]>;
+  // The same GMs with their names, for the campaigns the caller manages.
+  gmEntriesByCampaign: Map<string, GmOut[]>;
   playersByCampaign: Map<string, PlayerSummaryOut[]>;
   // Campaigns whose people the caller may not read: an administrator who opted out of playing in one
   // still lists it (the administrative axis), but its people are not theirs to see.
@@ -79,7 +82,8 @@ export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<
 
   // Everything that needs the campaigns, at once: one round after the first, not three.
   const [gmLists, playerPages, details] = await Promise.all([
-    admin ? Promise.all(campaigns.map((c) => orHidden(listCampaignGms(tenant.id, c.id)))) : [],
+    // Everyone who manages a campaign sees its GMs by name, a GM with no library membership too.
+    Promise.all(managed.map((c) => orHidden(listCampaignGms(tenant.id, c.id)))),
     Promise.all(managed.map((c) => orHidden(listCampaignPlayers(tenant.id, c.id)))),
     // The list has no descriptions; each campaign's own read does.
     Promise.all(
@@ -100,9 +104,8 @@ export async function readLibrary(tenant: TenantSummaryOut, me: MeOut): Promise<
     descriptions: new Map(details.flatMap((c) => (c ? [[c.id, c.description] as const] : []))),
     campaigns,
     roster: rosterPage?.items ?? null,
-    gmsByCampaign: new Map(
-      campaigns.map((c, i) => [c.id, (gmLists[i] ?? []).map((g) => g.user_id)]),
-    ),
+    gmsByCampaign: new Map(managed.map((c, i) => [c.id, (gmLists[i] ?? []).map((g) => g.user_id)])),
+    gmEntriesByCampaign: new Map(managed.map((c, i) => [c.id, gmLists[i] ?? []])),
     playersByCampaign: new Map(managed.map((c, i) => [c.id, playerPages[i]?.items ?? []])),
     subscriptions: offered ?? null,
     peopleHidden: new Set(managed.filter((_, i) => playerPages[i] === null).map((c) => c.id)),
