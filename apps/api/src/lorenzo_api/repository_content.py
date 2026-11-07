@@ -280,6 +280,11 @@ class Content:
     entry_audiences: dict[uuid.UUID, bool] = field(default_factory=dict)
     entry_knowledge: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     fact_about: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    # How a release of a public repository carries each repository it is built on (ADR 0431):
+    # origin repository -> {inclusion, name, licence}, where `licence` is `{label, url}` or none.
+    # Written only by the release builder, from the repository's copy records; a `Content` loaded
+    # for any other purpose has none.
+    sources: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     links: Links = field(default_factory=Links)
 
     def origin(self, kind: str, local_id: uuid.UUID) -> uuid.UUID:
@@ -309,7 +314,10 @@ async def load_links(session: AsyncSession, tenant_id: uuid.UUID) -> Links:
         columns = [local, model.source_id, model.source_tenant_id, model.snapshot]
         if mode_col is not None:
             columns.append(mode_col)
-        for row in await session.execute(select(*columns).where(model.tenant_id == tenant_id)):
+        # In the order of the source: the maps are read twice (a document and the rows) and are
+        # compared in order (ADR 0214), which a scan of the table does not promise.
+        stmt = select(*columns).where(model.tenant_id == tenant_id).order_by(model.source_id)
+        for row in await session.execute(stmt):
             local_id, source_id, source_tenant, snapshot = row[0], row[1], row[2], row[3]
             links.origin_tenant[source_id] = source_tenant
             links.snapshots[source_id] = snapshot
@@ -1393,8 +1401,23 @@ def stat_definition_snapshot(
     }
 
 
+def hidden_by_source(content: Content, entity_id: uuid.UUID) -> bool:
+    """Whether the document carries the entry hidden (ADR 0437): it is a copy of a row of a
+    repository the release carries `hide`. A document of a repository that hides nothing, and
+    content loaded live, record no sources, so no entry of them is."""
+    origin = content.links.entity.get(entity_id)
+    if origin is None or not content.sources:
+        return False
+    tenant = content.links.origin_tenant.get(origin)
+    source = content.sources.get(tenant) if tenant is not None else None
+    return source is not None and source["inclusion"] == "hide"
+
+
 def public_entry(content: Content, entity_id: uuid.UUID) -> bool:
-    if not content.entry_audiences.get(entity_id, True):
+    """Whether a visitor of the repository may be shown the entry at all: its audience is Everyone
+    and the release does not carry it hidden (ADR 0437), so what a repository hides from the
+    libraries that copy it is not on its storefront, its preview or its counts either."""
+    if hidden_by_source(content, entity_id) or not content.entry_audiences.get(entity_id, True):
         return False
     period = content.calendar_periods.get(entity_id) or content.observances.get(entity_id)
     return period is None or content.entry_audiences.get(period["calendar"], True)

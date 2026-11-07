@@ -43,6 +43,7 @@ function subscription(overrides: {
     synced_release: null,
     current_release: null,
     contributed: null,
+    protected: false,
   };
 }
 
@@ -53,6 +54,7 @@ function step(
     granted: true,
     published: true,
     public: false,
+    protected: false,
     already_copied: false,
     entities: 0,
     stat_groups: 0,

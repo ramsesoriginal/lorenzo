@@ -4,6 +4,7 @@
 // a button says so; "apply all clean" is checked first and shown as a receipt. The choices (which
 // conflict to keep, how to settle a name clash, what was skipped) live in the page, in `state`.
 
+import { LorenzoApiError } from '@lorenzo/api-client';
 import { renderReview } from '@lorenzo/repo-ui';
 import { type Choice, choiceProblem, collisionKey } from '../../lib/copyWizard';
 import { describeError } from '../../lib/describeError';
@@ -42,6 +43,8 @@ import {
   describeRow,
   detachAction,
   groupUpdates,
+  hiddenBreakingOf,
+  hiddenConfirmation,
   NEVER_BY_ITSELF,
   NOT_COMPARED_NOTE,
   notAppliedSentence,
@@ -168,6 +171,8 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     rowStatus.className = 'status-text';
     rowStatus.textContent = 'Applying…';
 
+    let acknowledge: ApplyUpdatesRequest | null = null;
+
     try {
       const outcome = await applyUpdates(mine.library.id, mine.subscription.repository.id, request);
       const fresh = await getUpdates(mine.library.id, mine.subscription.repository.id, {
@@ -185,10 +190,23 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
     } catch (cause) {
       if (turn !== latest) return;
 
-      sayError(rowStatus, cause);
+      // Changes to hidden entries a release called breaking are taken with the rest, and are
+      // acknowledged as the one line the API names them by (RFC 0051 H4, ADR 0437).
+      const line =
+        cause instanceof LorenzoApiError && cause.problemType === 'update-needs-confirmation'
+          ? hiddenBreakingOf(cause.problem)
+          : null;
+
+      if (line !== null && window.confirm(hiddenConfirmation(line))) {
+        acknowledge = { ...request, acknowledge_hidden_breaking: true };
+      } else {
+        sayError(rowStatus, cause);
+      }
     } finally {
       if (turn === latest) setBusy(false);
     }
+
+    if (acknowledge) await run(acknowledge, rowStatus);
   }
 
   function emptyUpdates(from: UpdatesOut): UpdatesOut {
@@ -201,6 +219,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
       attachments_added: [],
       attachments_removed: [],
       attachments_deleted_locally: [],
+      hidden: null,
     };
   }
 
@@ -466,7 +485,7 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
 
     const selection = cleanSelection(updates, skipped);
 
-    bulk.hidden = selection.actions.length === 0;
+    bulk.hidden = selection.actions.length === 0 && selection.hidden === 0;
     bulkSentence.textContent = cleanSentence(selection);
 
     const blocks: HTMLElement[] = [];
@@ -605,6 +624,9 @@ export function createUpdatesView(panel: HTMLElement, view: HTMLElement): Update
         const outcome = await applyUpdates(mine.library.id, mine.subscription.repository.id, {
           actions: selection.actions,
           dry_run: true,
+          // A check changes nothing, so what a release called breaking among the hidden entries is not
+          // asked about here: it is, when the update is made.
+          acknowledge_hidden_breaking: true,
         });
 
         if (turn !== latest) return;

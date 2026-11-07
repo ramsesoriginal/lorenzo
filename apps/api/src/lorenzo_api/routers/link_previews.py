@@ -51,10 +51,12 @@ router = APIRouter(
 def _main_picture_url(
     sources: list[Entity], request: Request, visibility: InformationVisibility
 ) -> str | None:
-    """The first main picture the caller may see, the entry's own before an ancestor's."""
-    for entity in sources:
+    """The first main picture the caller may see, the entry's own before an ancestor's (which an
+    entry the repository it came with hides still gives, ADR 0437)."""
+    for index, entity in enumerate(sources):
+        can_see = visibility.can_see if index == 0 else visibility.can_see_inherited
         for info in entity.information:
-            if info.type != "main_picture" or not visibility.can_see(info):
+            if info.type != "main_picture" or not can_see(info):
                 continue
             for payload in info.payloads:
                 if payload.picture is not None:
@@ -69,8 +71,8 @@ def _main_picture_url(
 def _excerpt(
     sources: list[Entity], template: PreviewTemplate, visibility: InformationVisibility
 ) -> str:
-    for entity in sources:
-        for content, _locale in description_pairs(entity, visibility):
+    for index, entity in enumerate(sources):
+        for content, _locale in description_pairs(entity, visibility, inherited=index > 0):
             text = excerpt_of(content, template.excerpt_chars)
             if text:
                 return text

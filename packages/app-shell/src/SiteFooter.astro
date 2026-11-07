@@ -1,12 +1,16 @@
 ---
+import LegalLinks from './LegalLinks.astro';
+import type { Lang } from './legal';
+
 interface Props {
   // "Lorenzo Calendars"
   app: string;
   // Where its source is in the repository: "apps/calendars"
   path: string;
+  lang?: Lang;
 }
 
-const { app, path } = Astro.props;
+const { app, path, lang = 'en' } = Astro.props;
 ---
 
 <footer>
@@ -15,5 +19,6 @@ const { app, path } = Astro.props;
     <a href={`https://github.com/ramsesoriginal/lorenzo/tree/main/${path}`}>
       <code>{path}</code>
     </a>
+    <LegalLinks lang={lang} layout="inline" />
   </div>
 </footer>

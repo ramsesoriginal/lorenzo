@@ -102,6 +102,7 @@ import DiscoverCard from './DiscoverCard.astro';
 
     <header class="stack-tight">
       <h2 data-name></h2>
+      <p class="caption" role="status" data-unlisted-note hidden></p>
       <p class="lede" data-summary></p>
       <p class="campaign-meta" data-published-by hidden></p>
     </header>
@@ -150,6 +151,12 @@ import DiscoverCard from './DiscoverCard.astro';
     <section class="stack" data-licence-section>
       <h3>Licence</h3>
       <p data-licence></p>
+    </section>
+
+    <!-- What it carries of other repositories, named with their licences (RFC 0051 H1, ADR 0431). -->
+    <section class="stack" data-includes-section hidden>
+      <h3>Includes</h3>
+      <ul class="stack-tight" data-includes></ul>
     </section>
 
     <section class="stack" data-credits-section hidden>

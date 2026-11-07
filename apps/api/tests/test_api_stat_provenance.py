@@ -187,6 +187,7 @@ async def test_explaining_a_stored_value(client: AsyncClient, test_user_id: uuid
         "own": True,
         "computed": False,
         "from_entity": None,
+        "from_hidden": None,
         "formula": None,
         "inputs": [],
         "contents": None,

@@ -36,6 +36,7 @@ Every other app is built on top of `apps/api`, so start the API first. Each web 
 | [`apps/writing`](../../apps/writing) | `mise run //apps/writing:dev` | port 4327 |
 | [`apps/maps`](../../apps/maps) | `mise run //apps/maps:dev` | port 4328 |
 | [`apps/social`](../../apps/social) | `mise run //apps/social:dev` | port 4329 |
+| [`apps/legal`](../../apps/legal) | `mise run //apps/legal:dev` | port 4330 (a sample profile) |
 | [`apps/bench`](../../apps/bench) | `mise run //apps/bench:dev` | no fixed port (see below) |
 | [`apps/loot-bot`](../../apps/loot-bot) | `mise run //apps/loot-bot:dev` | port 8090 (`LOOT_BOT_HTTP_PORT`), where Discord's interactions endpoint is served |
 
