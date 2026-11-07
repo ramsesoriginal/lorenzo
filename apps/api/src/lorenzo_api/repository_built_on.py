@@ -17,8 +17,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import is_tenant_owner
-from lorenzo_api.models import RepositoryCopy, Tenant, TenantKind
+from lorenzo_api.models import RepositoryCopy, RepositoryProfile, Tenant, TenantKind
 from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_inclusion import includable, included_by, recorded_inclusions
 from lorenzo_api.repository_releases import ReleaseRef, current_release, releases_named
 from lorenzo_api.repository_upstream import is_public
 
@@ -26,6 +27,7 @@ __all__ = [
     "Behind",
     "built_on_behind",
     "built_on_not_public",
+    "built_on_sources",
     "public_dependents",
 ]
 
@@ -102,9 +104,13 @@ async def built_on_not_public(
 ) -> list[dict[str, Any]]:
     """The repositories this one is built on that are not public and published, each with whether
     `user_id` owns it (so they can be offered to make it public): the ones that stop this
-    repository being made public."""
+    repository being made public. One this repository includes is not a dependency of it, since
+    its release carries it as its own rows (ADR 0431), so it is not here; whether the user may
+    include it is asked once, when the choice is set (`set_inclusion`)."""
     found: list[dict[str, Any]] = []
     for copy, name in await _copies(session, repository_id):
+        if copy.inclusion == "include":
+            continue
         upstream = copy.repository_tenant_id
         async with reading_repository(session, upstream) as readable:
             public = readable and await is_public(session, upstream)
@@ -125,7 +131,10 @@ async def public_dependents(
     """The public, published repositories built on this one, which making it private would leave
     without a dependency a library can copy. Read through the repository's own side of the copy
     records (ADR 0204: the owner reads who copied it). `owned` says whether
-    `user_id` owns the dependent, so a dialog can link to it."""
+    `user_id` owns the dependent, so a dialog can link to it. A dependent whose current release
+    carries this repository included has no dependency on it for a library to copy, so making this
+    one private leaves it as it is, and it is not here (ADR 0431): what a release carries is what
+    its profile recorded of it, not the choice the dependent has made since."""
     rows = await session.execute(
         select(RepositoryCopy.tenant_id, Tenant.name)
         .join(Tenant, Tenant.id == RepositoryCopy.tenant_id)
@@ -139,9 +148,47 @@ async def public_dependents(
     for dependent, name in rows.all():
         async with reading_repository(session, dependent) as readable:
             public = readable and await is_public(session, dependent)
-        if public:
+            carried = await session.get(RepositoryProfile, dependent) if public else None
+        if public and not _included(carried, repository_id):
             owned = user_id is not None and await is_tenant_owner(
                 session, tenant_id=dependent, user_id=user_id
             )
             found.append({"id": str(dependent), "name": name, "owned": owned})
+    return found
+
+
+def _included(profile: RepositoryProfile | None, repository_id: uuid.UUID) -> bool:
+    """Whether the release a profile records as current carries `repository_id` included."""
+    if profile is None:
+        return False
+    return any(s["id"] == str(repository_id) for s in included_by(profile.release_sources))
+
+
+async def built_on_sources(
+    session: AsyncSession, repository_id: uuid.UUID, user_id: uuid.UUID
+) -> list[dict[str, Any]]:
+    """Each repository this one is built on, as the Owner sees it before making this one public
+    (ADR 0431): whether it is public, whether `user_id` owns it, how this repository carries it
+    (`inclusion`), whether the user may include it and why (`include_by`: they own it, or its terms
+    allow it), and how the current public release carried it (`in_release`, null where there is
+    none or it was built on later). In the order of the manifest's names."""
+    recorded = recorded_inclusions(await session.get(RepositoryProfile, repository_id))
+    found: list[dict[str, Any]] = []
+    for copy, name in await _copies(session, repository_id):
+        upstream = copy.repository_tenant_id
+        async with reading_repository(session, upstream) as readable:
+            public = readable and await is_public(session, upstream)
+        can = await includable(session, upstream, user_id)
+        found.append(
+            {
+                "id": str(upstream),
+                "name": name,
+                "public": public,
+                "owned": await is_tenant_owner(session, tenant_id=upstream, user_id=user_id),
+                "inclusion": copy.inclusion,
+                "includable": can.allowed,
+                "include_by": can.by,
+                "in_release": recorded.get(str(upstream)),
+            }
+        )
     return found

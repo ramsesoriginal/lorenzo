@@ -5,6 +5,7 @@
 // refusal, since a refusal means something changed.
 
 import { ApiError } from '../../lib/apiError';
+import { BUILT_ON_CHOICES_TITLE, type BuiltOnChoice, builtOnChoices } from '../../lib/inclusion';
 import {
   flipCheck,
   getReleasePreview,
@@ -46,6 +47,7 @@ import {
   visibilityCard,
 } from '../../lib/visibility';
 import { createComposer } from './composer';
+import { createInclusionChoice } from './inclusion';
 import { bindSummaryField } from './summaryField';
 
 const required = requiredIn('Repository');
@@ -87,6 +89,8 @@ export function createVisibilityControls(
   const warningsBox = required<HTMLElement>(dialog, '[data-vis-warnings]');
   const warningList = required<HTMLElement>(dialog, '[data-vis-warning-list]');
   const lines = required<HTMLElement>(dialog, '[data-vis-lines]');
+  const builtOnBox = required<HTMLElement>(dialog, '[data-vis-built-on]');
+  const builtOnList = required<HTMLElement>(dialog, '[data-vis-built-on-list]');
   const publicFields = required<HTMLElement>(dialog, '[data-vis-public]');
   // The same field, bound by the same helper, as the Profile tab's (ADR 0385).
   const summary = bindSummaryField({
@@ -105,6 +109,7 @@ export function createVisibilityControls(
   const composer = createComposer(dialog);
 
   required<HTMLElement>(card, '[data-visibility-heading]').textContent = VISIBILITY_HEADING;
+  required<HTMLElement>(dialog, '[data-vis-built-on-title]').textContent = BUILT_ON_CHOICES_TITLE;
   required<HTMLElement>(dialog, '[data-vis-preview-legend]').textContent = PREVIEW_LEGEND;
   required<HTMLElement>(dialog, '[data-vis-terms-text]').textContent = TERMS_LINE;
 
@@ -157,6 +162,38 @@ export function createVisibilityControls(
     return li;
   }
 
+  // One repository this one is built on, with the choice of how it is carried (ADR 0431): choosing
+  // saves it, and the dialog reads what stands in the way again.
+  function builtOnItem(row: BuiltOnChoice, repository: TenantSummaryOut): HTMLElement {
+    const li = document.createElement('li');
+    const head = document.createElement('div');
+    const name = document.createElement('strong');
+    const pill = document.createElement('span');
+
+    head.className = 'row';
+    name.textContent = row.name;
+    pill.className = row.state === 'Public' ? 'pill pill-success' : 'pill';
+    pill.textContent = row.state;
+    head.append(name, pill);
+    li.className = 'stack-tight';
+    li.append(
+      head,
+      createInclusionChoice({
+        repositoryId: repository.id,
+        sourceId: row.id,
+        name: row.name,
+        inclusion: row.inclusion,
+        offered: row.offered,
+        notOffered: row.notOffered,
+        note: row.note,
+        editable: true,
+        onSaved: () => void reread(repository),
+      }),
+    );
+
+    return li;
+  }
+
   function chosenPreview(): PreviewChoice {
     for (const choice of PREVIEW_CHOICES) if (radios[choice.value]?.checked) return choice.value;
 
@@ -184,6 +221,14 @@ export function createVisibilityControls(
 
     if (mode === 'public') {
       title.textContent = makePublicTitle(name);
+
+      const choices = builtOnChoices(read.built_on);
+      const repository = shown;
+
+      builtOnList.replaceChildren(
+        ...(repository ? choices.map((row) => builtOnItem(row, repository)) : []),
+      );
+      builtOnBox.hidden = choices.length === 0 || repository === null;
       lines.replaceChildren(...makePublicLines(read, name).map(item));
       warningList.replaceChildren(...makePublicWarnings().map(item));
       warningsBox.hidden = false;
@@ -195,6 +240,8 @@ export function createVisibilityControls(
       const acknowledgement = privateAcknowledgement(read);
 
       title.textContent = makePrivateTitle(name);
+      builtOnList.replaceChildren();
+      builtOnBox.hidden = true;
       lines.replaceChildren(...(blockers.length > 0 ? [] : makePrivateLines(read)).map(item));
       warningList.replaceChildren();
       warningsBox.hidden = true;

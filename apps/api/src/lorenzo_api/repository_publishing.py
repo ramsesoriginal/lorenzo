@@ -134,12 +134,13 @@ async def publish_release(
                 + ", ".join(b.name for b in behind),
                 repositories=[b.as_json() for b in behind],
             )
-    if assessed.hits and not body.acknowledge_breaking:
+    if (assessed.hits or assessed.inclusion_changes) and not body.acknowledge_breaking:
         raise ReleaseHasBreakingChangesError(
-            detail=f"{len(assessed.hits)} of the changes in this release break what libraries "
-            "built on this repository hold. Look at them, then publish again, saying you "
-            "acknowledge it.",
+            detail=f"{len(assessed.hits) + len(assessed.inclusion_changes)} of the changes in this "
+            "release break what libraries built on this repository hold. Look at them, then "
+            "publish again, saying you acknowledge it.",
             breaking_rows=[b.as_json() for b in assessed.hits],
+            inclusion_changes=[c.as_json() for c in assessed.inclusion_changes],
         )
     release = await make_release(
         session,
@@ -147,7 +148,7 @@ async def publish_release(
         user_id=user_id,
         label=body.label,
         notes=body.notes,
-        breaking=body.breaking or bool(assessed.hits),
+        breaking=body.breaking or bool(assessed.hits) or bool(assessed.inclusion_changes),
         digest=assessed.digest,
         counts=assessed.counts,
         breaking_rows=[b.as_json() for b in assessed.hits],
@@ -161,7 +162,9 @@ async def publish_release(
             session, tenant_id=tenant_id, release_id=release.id, content=assessed.content
         )
     await set_current_release(session, repository, release.id)
-    await set_listing_facts(session, tenant_id, release=release, content=assessed.content)
+    await set_listing_facts(
+        session, tenant_id, release=release, content=assessed.content, public=public
+    )
     if public:
         await prune_release_documents(
             session,

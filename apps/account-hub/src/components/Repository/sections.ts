@@ -4,6 +4,7 @@
 
 import { knownNames } from '../../lib/activityNames';
 import { describeError } from '../../lib/describeError';
+import { breakingNote, notOfferedReason, offeredChoices } from '../../lib/inclusion';
 import {
   breakingLines,
   countsLines,
@@ -48,6 +49,7 @@ import {
 } from '../../lib/using';
 import { renderActivityLog } from '../ActivityLog/renderer';
 import { renderTenantInviteLinks } from '../TenantInviteLinks/renderer';
+import { createInclusionChoice } from './inclusion';
 
 const required = requiredIn('Repository');
 
@@ -240,6 +242,22 @@ export function createBuiltOn(root: HTMLElement): Section {
             state.textContent = SHELF_STATE_LABEL[row.state];
             review.hidden = !row.checkable;
             review.href = updatesHref(repository.slug, row.id);
+
+            // A repository that copied this one chooses how it carries it (RFC 0051 H1, ADR 0431).
+            if (row.inclusion !== null) {
+              required<HTMLElement>(item, '[data-built-on-body]').append(
+                createInclusionChoice({
+                  repositoryId: repository.id,
+                  sourceId: row.id,
+                  name: row.name,
+                  inclusion: row.inclusion,
+                  offered: offeredChoices(row.includable, row.inclusion),
+                  notOffered: notOfferedReason(row.name, row.includable),
+                  note: breakingNote({ inclusion_in_release: row.inclusionInRelease }),
+                  editable: repository.role === 'owner',
+                }),
+              );
+            }
 
             return item;
           }),

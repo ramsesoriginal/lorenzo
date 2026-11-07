@@ -19,7 +19,6 @@ import { type ComposerForm, composerProblem, publishBody } from './releases';
 import { RETIRED_CANNOT_BE_MADE_PUBLIC, RETIRED_PUBLIC_NOTE } from './retiring';
 import { studioHref } from './studio';
 import type {
-  BreakingRowOut,
   FlipCheckOut,
   MakePublicRequest,
   PublisherOut,
@@ -102,24 +101,30 @@ export type Blocker = {
   link?: { href: string; label: string };
 };
 
-// A repository this one is built on, and what it needs before this one can be public.
+// A repository this one is built on, and what it needs before this one can be public. Where this one
+// may include it (RFC 0051, ADR 0431), it is offered as the other way: the choice is in the list
+// below.
 export function publicBlockers(
-  check: Pick<FlipCheckOut, 'built_on_not_public' | 'built_on_behind'>,
+  check: Pick<FlipCheckOut, 'built_on_not_public' | 'built_on_behind'> &
+    Partial<Pick<FlipCheckOut, 'built_on'>>,
 ): Blocker[] {
   const blockers: Blocker[] = [];
 
   for (const upstream of check.built_on_not_public) {
+    const mayInclude = check.built_on?.find((row) => row.id === upstream.id)?.includable.allowed;
+    const instead = mayInclude ? ' Or include it in this repository, below.' : '';
+
     blockers.push(
       upstream.owned
         ? {
-            text: `${upstream.name} is not public. This repository is built on it, and a library that copies this one gets it too, so it has to be public first.`,
+            text: `${upstream.name} is not public. This repository is built on it, and a library that copies this one gets it too, so it has to be public first.${instead}`,
             link: {
               href: studioHref(upstream.id),
               label: `Open ${upstream.name} to make it public`,
             },
           }
         : {
-            text: `${upstream.name} is not public. This repository is built on it, so it has to be public first: ask its Owner to make it public.`,
+            text: `${upstream.name} is not public. This repository is built on it, so it has to be public first: ask its Owner to make it public.${instead}`,
           },
     );
   }
@@ -259,10 +264,7 @@ export function summaryCount(summary: string): string {
 
 // Why the form cannot be sent yet, or null: the summary first, then the terms, then what a release
 // asks.
-export function makePublicProblem(
-  form: MakePublicForm,
-  hits: readonly BreakingRowOut[],
-): string | null {
+export function makePublicProblem(form: MakePublicForm, hits: readonly unknown[]): string | null {
   return (
     summaryProblem(form.summary) ??
     (form.terms ? null : TERMS_PROBLEM) ??
@@ -272,10 +274,7 @@ export function makePublicProblem(
 
 // The body of `PUT .../public`: what a publish sends, the summary, the choice of preview and the
 // terms line agreed to.
-export function makePublicBody(
-  form: MakePublicForm,
-  hits: readonly BreakingRowOut[],
-): MakePublicRequest {
+export function makePublicBody(form: MakePublicForm, hits: readonly unknown[]): MakePublicRequest {
   return {
     ...publishBody(form, hits),
     summary: oneLine(form.summary),
@@ -357,6 +356,7 @@ export function madePrivateDone(revoked: number): string {
 const CHANGED_UNDER_IT = new Set([
   'built-on-not-public',
   'built-on-behind',
+  'repository-not-includable',
   'public-repositories-built-on-it',
   'public-copies-would-be-cut-off',
   'repository-already-public',

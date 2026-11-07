@@ -58,6 +58,7 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositoryProfile,
     RepositoryRelease,
     RepositorySubscription,
     StatDefinition,
@@ -89,6 +90,7 @@ from lorenzo_api.repository_grants import (
     notify_tenant_admins,
     subscribe_to_public,
 )
+from lorenzo_api.repository_inclusion import includable, recorded_inclusions, set_inclusion
 from lorenzo_api.repository_preview import preview_of, read_content, rules_for, showcase_ids
 from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishing import publish_release
@@ -133,6 +135,11 @@ from lorenzo_api.schemas.repositories import (
     DroppedOut,
     EntityKindName,
     FieldChangeOut,
+    IncludableOut,
+    InclusionChangeOut,
+    InclusionIn,
+    InclusionName,
+    InclusionOut,
     MakeCurrentRequest,
     NotAppliedOut,
     PreviousCopyOut,
@@ -320,6 +327,9 @@ async def preview_release(
             for b in behind
         ],
         built_on_blocks_publish=bool(behind) and await is_public(session, tenant_id),
+        inclusion_changes=[
+            InclusionChangeOut.model_validate(c.as_json()) for c in assessed.inclusion_changes
+        ],
     )
 
 
@@ -487,6 +497,11 @@ def _row_names(rows: Sequence[Row]) -> list[RowNameOut]:
     ]
 
 
+def _inclusion(value: str | None) -> InclusionName | None:
+    """A stored choice as the API names it (the database check allows only these two)."""
+    return cast("InclusionName | None", value)
+
+
 def _release_ref(release: ReleaseRef | None) -> ReleaseRefOut | None:
     if release is None:
         return None
@@ -510,6 +525,7 @@ def _subscriber_out(
         synced_release=_release_ref(
             releases.get(copy.synced_release_id) if copy and copy.synced_release_id else None
         ),
+        inclusion=_inclusion(copy.inclusion) if copy else None,
     )
 
 
@@ -813,10 +829,13 @@ async def list_repositories(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
     session: SessionDep,
     params: ParamsDep,
+    user: CurrentUser,
 ) -> Page[SubscriptionOut]:
     """Every repository granted to this tenant, published or not, and
     every one it has copied, granted or not (ADR 0118, 0119), with what
-    each copy contributed. For any of its members."""
+    each copy contributed. For any of its members. For a repository that has copied others, each
+    also says how it carries the copy when it releases, whether the caller may include it, and how
+    its current public release carried it (ADR 0431)."""
     grants = {
         s.repository_tenant_id: s
         for s in await session.scalars(
@@ -836,6 +855,10 @@ async def list_repositories(
         r.id: r for r in await session.scalars(select(Tenant).where(Tenant.id.in_(ids)))
     }
     counts = await _contribution_counts(session, tenant_id)
+    own = await session.get(Tenant, tenant_id)
+    recorded: dict[str, str] = {}
+    if own is not None and own.kind is TenantKind.REPOSITORY:
+        recorded = recorded_inclusions(await session.get(RepositoryProfile, tenant_id))
     synced: dict[uuid.UUID, ReleaseRef] = {}
     current: dict[uuid.UUID, ReleaseRef] = {}
     for repository_id, offered in repositories.items():
@@ -863,6 +886,11 @@ async def list_repositories(
             repositories.get(repository_id),
             grants.get(repository_id),
             copies.get(repository_id),
+        )
+        can = (
+            await includable(session, repository_id, user.id)
+            if copy is not None and own is not None and own.kind is TenantKind.REPOSITORY
+            else None
         )
         rows.append(
             SubscriptionOut(
@@ -905,10 +933,67 @@ async def list_repositories(
                     if repository and repository.delisted_at is None
                     else None
                 ),
+                inclusion=_inclusion(copy.inclusion) if can is not None and copy else None,
+                includable=IncludableOut(allowed=can.allowed, by=can.by) if can else None,
+                inclusion_in_release=_inclusion(recorded.get(str(repository_id))),
             )
         )
     rows.sort(key=lambda r: (r.repository.name, str(r.repository.id)))
     return cast(Page[SubscriptionOut], paginate(rows, params))
+
+
+@router.put("/repositories/{repository_id}/inclusion")
+async def set_repository_inclusion(
+    tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
+    repository_id: uuid.UUID,
+    body: InclusionIn,
+    session: SessionDep,
+    user: CurrentUser,
+) -> InclusionOut:
+    """How this repository carries one it is built on when it releases (ADR 0431, RFC 0051): `show`
+    leaves it a repository of its own beside this one, `include` makes its rows this repository's
+    own in the release document, so a library never needs to read it. The Owner of this repository
+    chooses, for each one it has copied; `include` is `409 repository-not-includable` unless the
+    user is an Owner of that repository or its terms allow it, and `409 repository-not-copied` for
+    one this repository has not copied. Changing it after the repository's first public release is
+    allowed, and makes the next release breaking: the answer says so (`breaking_next_release`).
+    Saying what it already is changes nothing. `409` for a play tenant."""
+    await _require_owner(session, tenant_id=tenant_id, user=user)
+    await _require_repository(session, tenant_id)
+    before = await session.get(RepositoryCopy, (tenant_id, repository_id))
+    was = before.inclusion if before is not None else None
+    copy = await set_inclusion(
+        session,
+        repository_id=tenant_id,
+        source_id=repository_id,
+        inclusion=body.inclusion,
+        user_id=user.id,
+    )
+    if was != copy.inclusion:
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="repository.inclusion_set",
+            target_type="tenant",
+            target_id=repository_id,
+            detail=f"inclusion={copy.inclusion}",
+        )
+    recorded = recorded_inclusions(await session.get(RepositoryProfile, tenant_id)).get(
+        str(repository_id)
+    )
+    can = await includable(session, repository_id, user.id)
+    source = await session.get(Tenant, repository_id)
+    out = InclusionOut(
+        repository_id=repository_id,
+        name=source.name if source is not None else copy.repository_name,
+        inclusion=cast("InclusionName", copy.inclusion),
+        includable=IncludableOut(allowed=can.allowed, by=can.by),
+        inclusion_in_release=_inclusion(recorded),
+        breaking_next_release=recorded is not None and recorded != copy.inclusion,
+    )
+    await session.commit()
+    return out
 
 
 @router.get("/repositories/{repository_id}/contributions")

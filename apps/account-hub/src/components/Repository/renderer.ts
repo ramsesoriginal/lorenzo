@@ -38,6 +38,7 @@ import { createReadiness } from './readiness';
 import { createRetiredControls } from './retired';
 import { createActivity, createBuiltOn, createReleases, createUsing } from './sections';
 import { createShowcaseControls } from './showcase';
+import { createTermsCard } from './terms';
 import { createViewAs } from './viewAs';
 import { createVisibilityControls } from './visibility';
 
@@ -137,6 +138,8 @@ export function renderRepository(
   const releases = createReleases(root);
   const using = createUsing(root, () => undefined);
   const builtOn = createBuiltOn(root);
+  // What repositories built on this one may use it for (ADR 0431), on the Profile tab.
+  const terms = createTermsCard(root);
   const activity = createActivity(root);
   let lastId: string | null = null;
 
@@ -189,6 +192,7 @@ export function renderRepository(
     visibility.clear();
     readiness.clear();
     profile.clear(keepDraft);
+    terms.clear();
     delisted.clear();
     retired.clear();
     showcase.clear();
@@ -335,6 +339,7 @@ export function renderRepository(
 
         await Promise.all([
           profile.load(repository, isCurrent),
+          terms.load(repository, isCurrent),
           releases.load(repository, isCurrent, roster?.items ?? null),
           // Who copied it and the activity are the people who run it's to read; an Author's tabs are
           // the ones the API serves them.

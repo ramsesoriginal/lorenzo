@@ -1465,10 +1465,39 @@ export interface paths {
          * List Repositories
          * @description Every repository granted to this tenant, published or not, and
          *     every one it has copied, granted or not (ADR 0118, 0119), with what
-         *     each copy contributed. For any of its members.
+         *     each copy contributed. For any of its members. For a repository that has copied others, each
+         *     also says how it carries the copy when it releases, whether the caller may include it, and how
+         *     its current public release carried it (ADR 0431).
          */
         get: operations["list_repositories"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/repositories/{repository_id}/inclusion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Repository Inclusion
+         * @description How this repository carries one it is built on when it releases (ADR 0431, RFC 0051): `show`
+         *     leaves it a repository of its own beside this one, `include` makes its rows this repository's
+         *     own in the release document, so a library never needs to read it. The Owner of this repository
+         *     chooses, for each one it has copied; `include` is `409 repository-not-includable` unless the
+         *     user is an Owner of that repository or its terms allow it, and `409 repository-not-copied` for
+         *     one this repository has not copied. Changing it after the repository's first public release is
+         *     allowed, and makes the next release breaking: the answer says so (`breaking_next_release`).
+         *     Saying what it already is changes nothing. `409` for a play tenant.
+         */
+        put: operations["set_repository_inclusion"];
         post?: never;
         delete?: never;
         options?: never;
@@ -7842,6 +7871,36 @@ export interface components {
             owned: boolean;
         };
         /**
+         * BuiltOnSourceOut
+         * @description A repository this one is built on, as its Owner sees it before making this one public (ADR
+         *     0431): whether it is public, whether the caller owns it, how this repository carries it
+         *     (`inclusion`), whether the caller may include it and why (`includable`), and how the current
+         *     public release carried it (`in_release`, null when none did or it was built on later). A
+         *     private one that is not included stops this repository being made public; one that is
+         *     included does not, and says so.
+         */
+        BuiltOnSourceOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Public */
+            public: boolean;
+            /** Owned */
+            owned: boolean;
+            /**
+             * Inclusion
+             * @enum {string}
+             */
+            inclusion: "show" | "include";
+            includable: components["schemas"]["IncludableOut"];
+            /** In Release */
+            in_release: ("show" | "include") | null;
+        };
+        /**
          * BulkAddPrototypeRequest
          * @description POST /items/bulk-add-prototype body - see ADR 0073. Adds
          *     prototype_id to every listed item's direct prototype set; an item that
@@ -10459,6 +10518,8 @@ export interface components {
             built_on_not_public: components["schemas"]["BuiltOnPublicOut"][];
             /** Built On Behind */
             built_on_behind: components["schemas"]["BuiltOnBehindOut"][];
+            /** Built On */
+            built_on: components["schemas"]["BuiltOnSourceOut"][];
             /** Public Dependents */
             public_dependents: components["schemas"]["PublicDependentOut"][];
             /** Public Libraries */
@@ -10726,6 +10787,89 @@ export interface components {
              * @default false
              */
             is_public: boolean;
+        };
+        /**
+         * IncludableOut
+         * @description Whether a user may include a repository in one they own (ADR 0431): they own it
+         *     (`by = owner`), or its terms allow it (`by = terms`).
+         */
+        IncludableOut: {
+            /** Allowed */
+            allowed: boolean;
+            /** By */
+            by?: ("owner" | "terms") | null;
+        };
+        /**
+         * IncludedSourceOut
+         * @description A repository the current public release includes in its own rows (ADR 0431), by the name and
+         *     the licence it had when the release was made: a snapshot, so a visitor never has to read it,
+         *     and it may be private. The storefront says "Includes content from {name}, {licence}".
+         */
+        IncludedSourceOut: {
+            /** Name */
+            name: string;
+            licence: components["schemas"]["LicenceOut"] | null;
+        };
+        /**
+         * InclusionChangeOut
+         * @description A repository a release would carry differently from the last public one (ADR 0431).
+         */
+        InclusionChangeOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Before
+             * @enum {string}
+             */
+            before: "show" | "include";
+            /**
+             * After
+             * @enum {string}
+             */
+            after: "show" | "include";
+        };
+        /**
+         * InclusionIn
+         * @description `PUT .../repositories/{repository_id}/inclusion` (ADR 0431): how this repository carries the
+         *     one it is built on when it releases. `include` makes its rows this repository's own in the
+         *     release document; `show` leaves it a repository of its own.
+         */
+        InclusionIn: {
+            /**
+             * Inclusion
+             * @enum {string}
+             */
+            inclusion: "show" | "include";
+        };
+        /**
+         * InclusionOut
+         * @description The choice as it stands: `inclusion`, whether the caller may include it, how the current
+         *     public release carried it, and whether the next release is breaking for it (a change from what
+         *     that release recorded: rows libraries hold change origin).
+         */
+        InclusionOut: {
+            /**
+             * Repository Id
+             * Format: uuid
+             */
+            repository_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Inclusion
+             * @enum {string}
+             */
+            inclusion: "show" | "include";
+            includable: components["schemas"]["IncludableOut"];
+            /** Inclusion In Release */
+            inclusion_in_release: ("show" | "include") | null;
+            /** Breaking Next Release */
+            breaking_next_release: boolean;
         };
         /**
          * InformationAudience
@@ -12186,8 +12330,14 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Includes
+             * @default []
+             */
+            includes: components["schemas"]["IncludedSourceOut"][];
             delisted?: components["schemas"]["DelistedOut"] | null;
             deprecated?: components["schemas"]["DeprecatedOut"] | null;
+            terms: components["schemas"]["TermsOut"];
         };
         /**
          * MembershipCreate
@@ -15053,6 +15203,11 @@ export interface components {
             built_on_behind: components["schemas"]["BuiltOnBehindOut"][];
             /** Built On Blocks Publish */
             built_on_blocks_publish: boolean;
+            /**
+             * Inclusion Changes
+             * @default []
+             */
+            inclusion_changes: components["schemas"]["InclusionChangeOut"][];
         };
         /**
          * ReleaseRefOut
@@ -15174,6 +15329,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Includes
+             * @default []
+             */
+            includes: components["schemas"]["IncludedSourceOut"][];
         };
         /**
          * RepositoryProfileUpdate
@@ -15198,6 +15358,7 @@ export interface components {
             system?: string | null;
             /** Languages */
             languages?: string[] | null;
+            terms?: components["schemas"]["TermsIn"] | null;
         };
         /** RepositoryStatDefinitionOut */
         RepositoryStatDefinitionOut: {
@@ -16443,6 +16604,8 @@ export interface components {
             /** Synced At */
             synced_at: string | null;
             synced_release: components["schemas"]["ReleaseRefOut"] | null;
+            /** Inclusion */
+            inclusion?: ("show" | "include") | null;
         };
         /**
          * SubscribersSummaryOut
@@ -16478,6 +16641,11 @@ export interface components {
             synced_release: components["schemas"]["ReleaseRefOut"] | null;
             current_release: components["schemas"]["ReleaseRefOut"] | null;
             deprecated?: components["schemas"]["DeprecatedNoticeOut"] | null;
+            /** Inclusion */
+            inclusion?: ("show" | "include") | null;
+            includable?: components["schemas"]["IncludableOut"] | null;
+            /** Inclusion In Release */
+            inclusion_in_release?: ("show" | "include") | null;
         };
         /**
          * SumFormulaBody
@@ -16721,6 +16889,29 @@ export interface components {
             relationship_reads_as_stat_id?: string | null;
             /** Relationship Reads As Back Stat Id */
             relationship_reads_as_back_stat_id?: string | null;
+        };
+        /**
+         * TermsIn
+         * @description A repository's terms, as an Owner sets them (ADR 0431, RFC 0051): what a repository built
+         *     on it may do with it. `may_be_included` is whether one may include it in its own release;
+         *     `null` takes the default for the repository's visibility back (a private repository: no, a
+         *     public one: yes).
+         */
+        TermsIn: {
+            /** May Be Included */
+            may_be_included?: boolean | null;
+        };
+        /**
+         * TermsOut
+         * @description A repository's terms as they stand (ADR 0431), read by its own members: what a repository
+         *     built on it may do with it. `is_default` is true while its Owner has said nothing, so that
+         *     `may_be_included` follows the repository's visibility.
+         */
+        TermsOut: {
+            /** May Be Included */
+            may_be_included: boolean;
+            /** Is Default */
+            is_default: boolean;
         };
         /**
          * UndeprecatedOut
@@ -22488,6 +22679,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_SubscriptionOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    set_repository_inclusion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repository_id: string;
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InclusionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InclusionOut"];
                 };
             };
             /** @description Validation Error */

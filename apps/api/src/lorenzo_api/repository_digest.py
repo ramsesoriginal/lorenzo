@@ -25,6 +25,7 @@ from lorenzo_api.entity_kinds import unpublishable_entries
 from lorenzo_api.models import (
     Payload,
     PayloadDescription,
+    RepositoryProfile,
     RepositoryRelease,
     RepositoryReleasedRow,
 )
@@ -38,6 +39,7 @@ from lorenzo_api.repository_content import (
     stat_definition_snapshot,
     stat_group_snapshot,
 )
+from lorenzo_api.repository_inclusion import InclusionChange, flatten, inclusion_changes, sources_of
 from lorenzo_api.repository_releases import ReleaseRef, current_release, releases_as_refs
 
 # A row's key: its kind, its origin id, and an attachment's parent (None for every other kind).
@@ -493,17 +495,42 @@ class Assessment:
     warnings: list[Breaking]
     descriptions_edited: int | None
     counts: dict[str, Any]
+    # The repositories this one is built on that a release now would carry differently from the way
+    # the last public release did (ADR 0431): they are breaking, and are acknowledged as the rows
+    # of `hits` are.
+    inclusion_changes: list[InclusionChange]
     # The entries whose combination of kinds no round-trip matrix covers (ADR 0217): a publish is
     # refused while there are any.
     unproven_kinds: list[dict[str, Any]]
 
 
-async def assess(session: AsyncSession, repository_id: uuid.UUID) -> Assessment:
+async def assess(
+    session: AsyncSession, repository_id: uuid.UUID, *, flat: bool | None = None
+) -> Assessment:
     """Loads the repository once and compares it with the rows of its latest release, if that
     release has a digest: without one (no release yet, or one made before digests) everything
     counts as added, nothing is breaking and nothing matches. Reads only the repository's own
-    rows, as one of its members."""
+    rows, as one of its members, and each repository it is built on through the gated read, for
+    its name and licence.
+
+    A public repository is read by libraries through its release document, which carries the
+    repositories it chose to include as its own rows (ADR 0431), so what is assessed is that
+    document's content: `flat` says so, and by default it is whether the repository is public.
+    The digest, the rows and the detector are all made from it, as the document is, so a library
+    and the Owner see the same rows. A private repository is read live, whole, and none of its
+    sources is flattened."""
     content = await load_content(session, repository_id)
+    profile = await session.get(RepositoryProfile, repository_id)
+    if flat is None:
+        flat = profile is not None and profile.visibility == "public"
+    changes: list[InclusionChange] = []
+    if flat:
+        sources = await sources_of(session, repository_id)
+        content.sources = {s.repository_id: s.record() for s in sources}
+        flatten(content, {s.repository_id for s in sources if s.inclusion == "include"})
+        changes = inclusion_changes(
+            profile.release_sources if profile is not None else None, content.sources
+        )
     live = live_rows(content)
     release = await current_release(session, repository_id)
     baseline = release is not None and release.digest is not None
@@ -528,6 +555,7 @@ async def assess(session: AsyncSession, repository_id: uuid.UUID) -> Assessment:
         warnings=warnings,
         descriptions_edited=edited,
         counts=counts_of(comparison, edited or 0),
+        inclusion_changes=changes,
         unproven_kinds=unpublishable_entries(
             (row.row_id, row.name, row.facts.get("kinds") or [])
             for row in live.values()

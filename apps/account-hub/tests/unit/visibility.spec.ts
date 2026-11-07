@@ -34,6 +34,7 @@ function check(overrides: Partial<FlipCheckOut> = {}): FlipCheckOut {
     has_summary: false,
     built_on_not_public: [],
     built_on_behind: [],
+    built_on: [],
     public_dependents: [],
     public_libraries: 0,
     invited_libraries: 0,
@@ -231,6 +232,82 @@ describe('what stands in the way of making it public', () => {
 
     expect(blocker?.text).toContain('Take the new release of Bridge first: open Built on.');
     expect(blocker?.text).toContain('took release 1.0, and the latest is 1.1');
+  });
+
+  it('offers including it, instead, where the user may include a repository that is not public', () => {
+    const [owned, notOwned] = publicBlockers(
+      check({
+        built_on_not_public: [
+          { id: 'core-id', name: 'Core', owned: true },
+          { id: 'other-id', name: 'Other', owned: false },
+        ],
+        built_on: [
+          {
+            id: 'core-id',
+            name: 'Core',
+            public: false,
+            owned: true,
+            inclusion: 'show',
+            includable: { allowed: true, by: 'owner' },
+            in_release: null,
+          },
+          {
+            id: 'other-id',
+            name: 'Other',
+            public: false,
+            owned: false,
+            inclusion: 'show',
+            includable: { allowed: false, by: null },
+            in_release: null,
+          },
+        ],
+      }),
+    );
+
+    expect(owned?.text).toMatch(/public first\. Or include it in this repository, below\.$/);
+    expect(notOwned?.text).not.toContain('include');
+    expect(notOwned?.text).toMatch(/make it public\.$/);
+  });
+
+  it('is nothing for one that is included, whether or not its terms still allow it', () => {
+    const base = {
+      public: false,
+      owned: false,
+      in_release: null,
+    } as const;
+
+    expect(
+      publicBlockers(
+        check({
+          built_on: [
+            {
+              ...base,
+              id: 'a',
+              name: 'Core',
+              inclusion: 'include',
+              includable: { allowed: true, by: 'terms' },
+            },
+          ],
+        }),
+      ),
+    ).toEqual([]);
+
+    // Consent is asked once, when the choice is set: terms taken back afterwards do not stop the release.
+    expect(
+      publicBlockers(
+        check({
+          built_on: [
+            {
+              ...base,
+              id: 'a',
+              name: 'Core',
+              inclusion: 'include',
+              includable: { allowed: false, by: null },
+            },
+          ],
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it('says it without the releases when one cannot be named', () => {
@@ -468,6 +545,7 @@ describe('a refusal that changes what the dialog says', () => {
     expect(changedUnderTheDialog('public-copies-would-be-cut-off')).toBe(true);
     expect(changedUnderTheDialog('repository-delisted')).toBe(true);
     expect(changedUnderTheDialog('repository-deprecated')).toBe(true);
+    expect(changedUnderTheDialog('repository-not-includable')).toBe(true);
     expect(changedUnderTheDialog('public-repository-summary-required')).toBe(false);
     expect(changedUnderTheDialog(undefined)).toBe(false);
   });

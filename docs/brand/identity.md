@@ -1491,6 +1491,10 @@ for repositories only, so the two relations never share a phrase.
 | **Update** | A change in the repository since you copied. It is New, Changed, Removed upstream, or in Conflict (you changed it too). | Sync |
 | **Name clash** | A name already in use when copying. The choices read Keep both, Use the existing one, Leave it out. | Collision, merge, skip |
 | **Built on** | One repository builds on another | Bridge, depends on, draws on |
+| **Include in this repository** | How a repository built on another carries it: the other's entries become this repository's own when a release is made, and a library that copies it never needs the other. The API calls this `include`. | Flatten, merge, absorb |
+| **Keep separate and visible** | How a repository built on another carries it by default: the other stays a repository of its own, and a library that copies this one is given it too. The API calls this `show`. | Link, reference |
+| **May be included** | The switch of a repository's Owner: whether a repository built on it may include it. Under "How repositories built on this one may use it". | Allow flattening, share |
+| **Includes content from** | The line of a repository's page that names what it includes, with its licence. | Based on, derived from |
 | **Check first** | Try a copy or an update without changing anything | Dry run |
 
 An attachment (a parent that a repository adds to something a library copied) has

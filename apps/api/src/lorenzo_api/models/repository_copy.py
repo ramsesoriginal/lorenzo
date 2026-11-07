@@ -25,6 +25,9 @@ class RepositoryCopy(Base):
     foreign key: the repository is another tenant's, and may go."""
 
     __tablename__ = "repository_copy"
+    __table_args__ = (
+        CheckConstraint("inclusion IN ('show', 'include')", name="repository_copy_inclusion"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = _tenant_pk()
     repository_tenant_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
@@ -39,6 +42,11 @@ class RepositoryCopy(Base):
     # applied updates (ADR 0207): a plain id, like `repository_tenant_id`, since the
     # release is the repository's row. Null for a copy made before there was a ledger.
     synced_release_id: Mapped[uuid.UUID | None]
+    # How this repository carries the one it copied when a release of it is made (ADR 0431,
+    # RFC 0051): `show` leaves it a repository of its own that libraries are given beside this
+    # one, `include` makes its rows this repository's own in the release document. Only a
+    # repository has a use for it; a library's is always `show`.
+    inclusion: Mapped[str] = mapped_column(server_default=text("'show'"))
 
 
 class _CopyLink:

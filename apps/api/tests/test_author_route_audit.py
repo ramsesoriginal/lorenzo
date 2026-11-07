@@ -132,6 +132,8 @@ OWNER = {
     ("PUT", T + "/releases/{release_id}/current"),
     ("PUT", T + "/subscribers/{subscriber_tenant_id}"),
     ("DELETE", T + "/subscribers/{subscriber_tenant_id}"),
+    # How it carries a repository it is built on (ADR 0431).
+    ("PUT", REPOSITORY + "/inclusion"),
     ("DELETE", REPOSITORY),
     # An Owner's invite links (ADR 0220): made, listed and revoked.
     ("POST", T + "/invites"),
@@ -209,6 +211,7 @@ _BODIES: dict[tuple[str, str], object] = {
     ("POST", T + "/invites"): {"kind": "tenant_role", "role": "author"},
     ("PUT", T + "/showcase"): {"entity_ids": []},
     ("PATCH", T + "/profile"): {"summary": "x"},
+    ("PUT", REPOSITORY + "/inclusion"): {"inclusion": "show"},
 }
 
 

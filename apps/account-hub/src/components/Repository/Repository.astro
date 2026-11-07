@@ -403,6 +403,21 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <dl class="key-values" data-preview-facts></dl>
         </section>
       </section>
+
+      <!-- What repositories built on this one may do with it (ADR 0431): an Owner decides, every member
+           reads. Beside the profile and not in it: it is saved when it is changed, not with Save. -->
+      <div class="card card-body stack" id="profile-terms" tabindex="-1" data-terms-card hidden>
+        <h4 data-terms-heading></h4>
+        <p class="caption" data-terms-intro></p>
+        <label class="field-row">
+          <input type="checkbox" data-terms-include />
+          <span data-terms-include-label></span>
+        </label>
+        <p class="caption" data-terms-include-help></p>
+        <p class="caption" data-terms-line></p>
+        <p class="caption" data-terms-owner-only hidden></p>
+        <p class="status-text" role="status" data-terms-status hidden></p>
+      </div>
     </div>
 
     <div class="stack" role="tabpanel">
@@ -528,6 +543,12 @@ import ReleaseComposer from './ReleaseComposer.astro';
         <ul class="stack-tight" data-vis-warning-list></ul>
       </div>
       <ul class="stack-tight" data-vis-lines></ul>
+
+      <!-- Making it public: how it carries each repository it is built on (ADR 0431). -->
+      <div class="stack" data-vis-built-on hidden>
+        <strong data-vis-built-on-title></strong>
+        <ul class="stack" data-vis-built-on-list></ul>
+      </div>
 
       <!-- Making it public: what it says of itself, what people may look at, and the release. -->
       <div class="stack" data-vis-public hidden>
@@ -725,7 +746,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
   </template>
   <template data-built-on-template>
     <li class="row">
-      <div class="grow stack-tight">
+      <div class="grow stack-tight" data-built-on-body>
         <a class="shelf-link" href="/repositories/" data-name></a>
         <span class="campaign-meta" data-line></span>
         <span class="campaign-meta" data-updates></span>

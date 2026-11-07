@@ -66,6 +66,7 @@ const preview = (over: Partial<ReleasePreviewOut> = {}): ReleasePreviewOut => ({
   libraries_told: 2,
   built_on_behind: [],
   built_on_blocks_publish: false,
+  inclusion_changes: [],
   ...over,
 });
 
@@ -209,6 +210,18 @@ describe('breaking', () => {
     expect(composerProblem({ ...form, acknowledged: true }, [hit()])).toBeNull();
     expect(composerProblem(form, [])).toBeNull();
     expect(ACKNOWLEDGE_TEXT).toMatch(/break libraries/);
+  });
+
+  it('cannot be sent until it is acknowledged, whether a row or a repository carried differently breaks it', () => {
+    const form = { label: '', notes: '', breaking: false, acknowledged: false };
+    const change = { repository_id: 'a', name: 'Armoury', before: 'show', after: 'include' };
+
+    expect(composerProblem(form, [change])).toMatch(/breaks things/);
+    expect(composerProblem({ ...form, acknowledged: true }, [change])).toBeNull();
+    expect(publishBody({ ...form, acknowledged: true }, [change])).toEqual({
+      breaking: true,
+      acknowledge_breaking: true,
+    });
   });
 
   it('holds a label and notes to their limits', () => {

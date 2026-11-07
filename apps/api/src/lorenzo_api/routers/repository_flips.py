@@ -31,6 +31,7 @@ from lorenzo_api.release_fanout import drain_after_response
 from lorenzo_api.repository_built_on import (
     built_on_behind,
     built_on_not_public,
+    built_on_sources,
     public_dependents,
 )
 from lorenzo_api.repository_delisting import delisted_out, refuse_if_delisted
@@ -39,9 +40,15 @@ from lorenzo_api.repository_flips import count_public_grants, make_private, make
 from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishers import publishers_of
 from lorenzo_api.routers.repositories import _authored, _require_owner, _require_repository
-from lorenzo_api.schemas.repositories import BuiltOnBehindOut, PublishedOut, PublishRequest
+from lorenzo_api.schemas.repositories import (
+    BuiltOnBehindOut,
+    IncludableOut,
+    PublishedOut,
+    PublishRequest,
+)
 from lorenzo_api.schemas.repository_flips import (
     BuiltOnPublicOut,
+    BuiltOnSourceOut,
     FlipCheckOut,
     MadePrivateOut,
     MakePublicRequest,
@@ -83,6 +90,18 @@ async def check_flip(
             BuiltOnPublicOut(**r) for r in await built_on_not_public(session, tenant_id, user.id)
         ],
         built_on_behind=[BuiltOnBehindOut.model_validate(b.as_json()) for b in behind],
+        built_on=[
+            BuiltOnSourceOut(
+                id=uuid.UUID(s["id"]),
+                name=s["name"],
+                public=s["public"],
+                owned=s["owned"],
+                inclusion=s["inclusion"],
+                includable=IncludableOut(allowed=s["includable"], by=s["include_by"]),
+                in_release=s["in_release"],
+            )
+            for s in await built_on_sources(session, tenant_id, user.id)
+        ],
         public_dependents=[
             PublicDependentOut(**d) for d in await public_dependents(session, tenant_id, user.id)
         ],

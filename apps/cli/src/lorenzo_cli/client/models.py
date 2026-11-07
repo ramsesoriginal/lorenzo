@@ -259,6 +259,16 @@ class BuiltOnPublicOut(BaseModel):
     owned: bool = Field(..., title="Owned")
 
 
+class Inclusion(StrEnum):
+    show = "show"
+    include = "include"
+
+
+class InRelease(StrEnum):
+    show = "show"
+    include = "include"
+
+
 class BulkAddPrototypeRequest(BaseModel):
     prototype_id: UUID = Field(..., title="Prototype Id")
     item_ids: list[UUID] = Field(..., title="Item Ids")
@@ -1232,6 +1242,54 @@ class GroupUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
 
 
+class By(StrEnum):
+    owner = "owner"
+    terms = "terms"
+
+
+class IncludableOut(BaseModel):
+    allowed: bool = Field(..., title="Allowed")
+    by: By | None = Field(None, title="By")
+
+
+class Before(StrEnum):
+    show = "show"
+    include = "include"
+
+
+class After(StrEnum):
+    show = "show"
+    include = "include"
+
+
+class InclusionChangeOut(BaseModel):
+    repository_id: UUID = Field(..., title="Repository Id")
+    name: str = Field(..., title="Name")
+    before: Before = Field(..., title="Before")
+    after: After = Field(..., title="After")
+
+
+class InclusionIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    inclusion: Inclusion = Field(..., title="Inclusion")
+
+
+class InclusionInRelease(StrEnum):
+    show = "show"
+    include = "include"
+
+
+class InclusionOut(BaseModel):
+    repository_id: UUID = Field(..., title="Repository Id")
+    name: str = Field(..., title="Name")
+    inclusion: Inclusion = Field(..., title="Inclusion")
+    includable: IncludableOut
+    inclusion_in_release: InclusionInRelease | None = Field(..., title="Inclusion In Release")
+    breaking_next_release: bool = Field(..., title="Breaking Next Release")
+
+
 class InformationAudience(BaseModel):
     is_public: bool = Field(..., title="Is Public")
     shared_with_participants: bool | None = Field(None, title="Shared With Participants")
@@ -1704,21 +1762,6 @@ class MePlayerOut(BaseModel):
 class MemberOut(BaseModel):
     entry: EntryStub
     axis: str = Field(..., title="Axis")
-
-
-class MemberProfileOut(BaseModel):
-    visibility: Visibility1 = Field(..., title="Visibility")
-    preview: Preview = Field(..., title="Preview")
-    summary: str = Field(..., title="Summary")
-    licence: LicenceOut | None
-    credits: list[CreditOut] = Field(..., title="Credits")
-    tags: list[str] = Field(..., title="Tags")
-    system: str | None = Field(..., title="System")
-    languages: list[str] = Field(..., title="Languages")
-    has_cover: bool = Field(..., title="Has Cover")
-    updated_at: AwareDatetime = Field(..., title="Updated At")
-    delisted: DelistedOut | None = None
-    deprecated: DeprecatedOut | None = None
 
 
 class MembershipCreate(BaseModel):
@@ -2936,33 +2979,6 @@ class RepositoryEntityOut(BaseModel):
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
-class RepositoryProfileOut(BaseModel):
-    visibility: Visibility1 = Field(..., title="Visibility")
-    preview: Preview = Field(..., title="Preview")
-    summary: str = Field(..., title="Summary")
-    licence: LicenceOut | None
-    credits: list[CreditOut] = Field(..., title="Credits")
-    tags: list[str] = Field(..., title="Tags")
-    system: str | None = Field(..., title="System")
-    languages: list[str] = Field(..., title="Languages")
-    has_cover: bool = Field(..., title="Has Cover")
-    updated_at: AwareDatetime = Field(..., title="Updated At")
-
-
-class RepositoryProfileUpdate(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    visibility: Visibility1 | None = Field(None, title="Visibility")
-    preview: Preview | None = Field(None, title="Preview")
-    summary: constr(max_length=2000) | None = Field(None, title="Summary")
-    licence: LicenceIn | None = None
-    credits: list[CreditIn] | None = Field(None, title="Credits")
-    tags: list[str] | None = Field(None, title="Tags")
-    system: constr(max_length=2000) | None = Field(None, title="System")
-    languages: list[str] | None = Field(None, title="Languages")
-
-
 class RepositorySummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -3500,6 +3516,7 @@ class SubscriberOut(BaseModel):
     copied_at: AwareDatetime | None = Field(..., title="Copied At")
     synced_at: AwareDatetime | None = Field(..., title="Synced At")
     synced_release: ReleaseRefOut | None
+    inclusion: Inclusion | None = Field(None, title="Inclusion")
 
 
 class SubscribersSummaryOut(BaseModel):
@@ -3516,6 +3533,9 @@ class SubscriptionOut(BaseModel):
     synced_release: ReleaseRefOut | None
     current_release: ReleaseRefOut | None
     deprecated: DeprecatedNoticeOut | None = None
+    inclusion: Inclusion | None = Field(None, title="Inclusion")
+    includable: IncludableOut | None = None
+    inclusion_in_release: InclusionInRelease | None = Field(None, title="Inclusion In Release")
 
 
 class SumTermBodyInput(BaseModel):
@@ -3617,6 +3637,18 @@ class TenantUpdate(BaseModel):
     relationship_reads_as_back_stat_id: UUID | None = Field(
         None, title="Relationship Reads As Back Stat Id"
     )
+
+
+class TermsIn(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    may_be_included: bool | None = Field(None, title="May Be Included")
+
+
+class TermsOut(BaseModel):
+    may_be_included: bool = Field(..., title="May Be Included")
+    is_default: bool = Field(..., title="Is Default")
 
 
 class UndeprecatedOut(BaseModel):
@@ -3794,6 +3826,16 @@ class BuiltOnBehindOut(BaseModel):
     taken: ReleaseRefOut | None
     current: ReleaseRefOut | None
     readable: bool = Field(..., title="Readable")
+
+
+class BuiltOnSourceOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    public: bool = Field(..., title="Public")
+    owned: bool = Field(..., title="Owned")
+    inclusion: Inclusion = Field(..., title="Inclusion")
+    includable: IncludableOut
+    in_release: InRelease | None = Field(..., title="In Release")
 
 
 class BulkMembershipResultItem(BaseModel):
@@ -4124,6 +4166,7 @@ class FlipCheckOut(BaseModel):
     has_summary: bool = Field(..., title="Has Summary")
     built_on_not_public: list[BuiltOnPublicOut] = Field(..., title="Built On Not Public")
     built_on_behind: list[BuiltOnBehindOut] = Field(..., title="Built On Behind")
+    built_on: list[BuiltOnSourceOut] = Field(..., title="Built On")
     public_dependents: list[PublicDependentOut] = Field(..., title="Public Dependents")
     public_libraries: int = Field(..., title="Public Libraries")
     invited_libraries: int = Field(..., title="Invited Libraries")
@@ -4153,6 +4196,11 @@ class HubCreate(BaseModel):
     spokes: list[Spoke] = Field(..., max_length=50, min_length=1, title="Spokes")
     prototypes: list[UUID] | None = Field(None, max_length=20, title="Prototypes")
     is_public: bool | None = Field(False, title="Is Public")
+
+
+class IncludedSourceOut(BaseModel):
+    name: str = Field(..., title="Name")
+    licence: LicenceOut | None
 
 
 class Payloads(
@@ -4385,6 +4433,23 @@ class MeOut(BaseModel):
     players: list[MePlayerOut] = Field(..., title="Players")
     campaign_gm_grants: list[CampaignSummaryOut] = Field(..., title="Campaign Gm Grants")
     capabilities: MeCapabilitiesOut
+
+
+class MemberProfileOut(BaseModel):
+    visibility: Visibility1 = Field(..., title="Visibility")
+    preview: Preview = Field(..., title="Preview")
+    summary: str = Field(..., title="Summary")
+    licence: LicenceOut | None
+    credits: list[CreditOut] = Field(..., title="Credits")
+    tags: list[str] = Field(..., title="Tags")
+    system: str | None = Field(..., title="System")
+    languages: list[str] = Field(..., title="Languages")
+    has_cover: bool = Field(..., title="Has Cover")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    includes: list[IncludedSourceOut] | None = Field([], title="Includes", validate_default=True)
+    delisted: DelistedOut | None = None
+    deprecated: DeprecatedOut | None = None
+    terms: TermsOut
 
 
 class ObservanceCreate(BaseModel):
@@ -4698,6 +4763,38 @@ class ReleasePreviewOut(BaseModel):
     libraries_told: int = Field(..., title="Libraries Told")
     built_on_behind: list[BuiltOnBehindOut] = Field(..., title="Built On Behind")
     built_on_blocks_publish: bool = Field(..., title="Built On Blocks Publish")
+    inclusion_changes: list[InclusionChangeOut] | None = Field(
+        [], title="Inclusion Changes", validate_default=True
+    )
+
+
+class RepositoryProfileOut(BaseModel):
+    visibility: Visibility1 = Field(..., title="Visibility")
+    preview: Preview = Field(..., title="Preview")
+    summary: str = Field(..., title="Summary")
+    licence: LicenceOut | None
+    credits: list[CreditOut] = Field(..., title="Credits")
+    tags: list[str] = Field(..., title="Tags")
+    system: str | None = Field(..., title="System")
+    languages: list[str] = Field(..., title="Languages")
+    has_cover: bool = Field(..., title="Has Cover")
+    updated_at: AwareDatetime = Field(..., title="Updated At")
+    includes: list[IncludedSourceOut] | None = Field([], title="Includes", validate_default=True)
+
+
+class RepositoryProfileUpdate(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    visibility: Visibility1 | None = Field(None, title="Visibility")
+    preview: Preview | None = Field(None, title="Preview")
+    summary: constr(max_length=2000) | None = Field(None, title="Summary")
+    licence: LicenceIn | None = None
+    credits: list[CreditIn] | None = Field(None, title="Credits")
+    tags: list[str] | None = Field(None, title="Tags")
+    system: constr(max_length=2000) | None = Field(None, title="System")
+    languages: list[str] | None = Field(None, title="Languages")
+    terms: TermsIn | None = None
 
 
 class RepositoryStatDefinitionOut(BaseModel):

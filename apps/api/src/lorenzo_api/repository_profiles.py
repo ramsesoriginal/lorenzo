@@ -8,13 +8,16 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.models import ProfilePicture, RepositoryProfile
+from lorenzo_api.repository_inclusion import included_by, terms_of
 from lorenzo_api.schemas.repository_profiles import (
     CreditOut,
     DelistedOut,
     DeprecatedOut,
+    IncludedSourceOut,
     LicenceOut,
     MemberProfileOut,
     RepositoryProfileOut,
+    TermsOut,
 )
 
 __all__ = [
@@ -70,6 +73,17 @@ def profile_out(
         languages=list(profile.languages),
         has_cover=profile.cover_picture_id is not None,
         updated_at=profile.updated_at,
+        includes=[
+            IncludedSourceOut(
+                name=s["name"],
+                licence=(
+                    LicenceOut(label=s["licence_label"], url=s["licence_url"])
+                    if s["licence_label"] is not None
+                    else None
+                ),
+            )
+            for s in included_by(profile.release_sources)
+        ],
     )
 
 
@@ -82,7 +96,13 @@ def member_profile_out(
     """What the repository's own members read: the profile, and what they are told of it being off
     Discover (ADR 0303) and of its Owner having retired it (ADR 0384), which no other reader is."""
     return MemberProfileOut(
-        **profile_out(profile).model_dump(), delisted=delisted, deprecated=deprecated
+        **profile_out(profile).model_dump(),
+        delisted=delisted,
+        deprecated=deprecated,
+        terms=TermsOut(
+            may_be_included=terms_of(profile).may_be_included,
+            is_default=profile.may_be_included is None,
+        ),
     )
 
 
