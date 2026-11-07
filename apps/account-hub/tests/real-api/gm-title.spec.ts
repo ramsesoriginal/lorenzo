@@ -99,7 +99,7 @@ test("a table's own word for its game master is read wherever its campaign appea
   const repository = await newRepository(owner.api, `Bestiary ${crypto.randomUUID().slice(0, 8)}`);
   await addItem(owner.api, repository.id, 'Owlbear');
   await page.evaluate(() => sessionStorage.clear());
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await page.getByRole('button', { name: 'Publish…', exact: true }).click();
   await expect(page.locator('[data-publish-dialog]')).toContainText(

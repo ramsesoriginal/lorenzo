@@ -16,13 +16,14 @@ import Preview from '../Preview/Preview.astro';
       <h2 id="repositories-yours" class="grow">
         Your repositories
       </h2>
-      <a class="btn btn-secondary" href="/studio/?new=1" data-new-repository hidden>
+      <a class="btn btn-secondary" href="/repositories/?new=1" data-new-repository hidden>
         New repository
       </a>
     </div>
     <p class="caption" data-yours-empty hidden>
       You do not work on a repository yet. The Owner of a repository can add you to it.
     </p>
+    <p class="caption" data-create-closed hidden></p>
     <ul class="list" data-yours-list></ul>
   </section>
 

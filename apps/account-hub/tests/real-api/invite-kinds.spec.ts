@@ -112,7 +112,7 @@ test('a pasted code on the join page opens the link and joins an Organizer of a 
   );
   await expect(page.getByRole('link', { name: 'Open it' })).toHaveAttribute(
     'href',
-    `/studio/?repository=${repository.id}`,
+    `/repositories/?repository=${repository.id}`,
   );
   const me = await ok(lena.api.GET('/me'));
   expect(me.memberships.map((m) => m.role)).toEqual(['orga']);

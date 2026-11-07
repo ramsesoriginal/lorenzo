@@ -25,7 +25,7 @@ const notice = (page: Page) => page.locator('[data-retired]').first();
 const card = (page: Page) => page.locator('[data-retire]');
 
 async function overview(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 }
 

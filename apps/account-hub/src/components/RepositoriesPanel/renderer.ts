@@ -51,7 +51,7 @@ import {
   updatesHref,
 } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
-import { roleLabel, studioHref } from '../../lib/studio';
+import { CREATE_NOT_OPEN, roleLabel, studioHref } from '../../lib/studio';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { canCreateTenants, isRepository } from '../../lib/tenantKind';
 import { listMyTenants, tenantPictureUrl } from '../../lib/tenants';
@@ -208,7 +208,7 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
   // cards that open Studio. Shown with the list of this page, not with a repository's or a copy.
   const worksOn = mine.items.filter(isRepository).sort((a, b) => byName(a.name, b.name));
   const mayMake = canCreateTenants(me);
-  const showYours = worksOn.length > 0 || mayMake;
+  const showYours = worksOn.length > 0 || mayMake || libraries.length === 0;
 
   yoursList.replaceChildren(
     ...worksOn.map((repository) => {
@@ -223,6 +223,8 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     }),
   );
   yoursEmpty.hidden = worksOn.length > 0;
+  required<HTMLElement>(root, '[data-create-closed]').hidden = mayMake;
+  required<HTMLElement>(root, '[data-create-closed]').textContent = CREATE_NOT_OPEN;
   newRepository.hidden = !mayMake;
 
   // Whether that group (and the heading of the ones below it) is shown: only on this page's list.

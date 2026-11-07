@@ -58,7 +58,7 @@ async function usingWorld() {
 }
 
 async function openTab(page: Page, repositorySlug: string, tab: string) {
-  await page.goto(`/studio/?repository=${repositorySlug}`);
+  await page.goto(`/repositories/?repository=${repositorySlug}`);
   await page.getByRole('tab', { name: tab }).click();
 }
 
@@ -207,7 +207,7 @@ test('Built on: what a repository copies from, with its updates waiting, and the
   );
 
   // And the repositories offered to it are Shelf's list for it.
-  await page.goto(`/studio/?repository=${bridge.slug}`);
+  await page.goto(`/repositories/?repository=${bridge.slug}`);
   await page.getByRole('tab', { name: 'Built on' }).click();
   await page.getByRole('link', { name: 'Repositories offered to this one' }).click();
   await expect(page).toHaveURL(new RegExp(`tenant=${bridge.slug}`));

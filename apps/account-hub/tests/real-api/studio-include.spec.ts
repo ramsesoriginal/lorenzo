@@ -76,7 +76,7 @@ test('an Owner includes a private repository, makes the repository public, and a
   const { page, context } = await signedInPage(browser, owner.subject);
 
   // The Built on tab says how each repository is carried, with what each choice does.
-  await page.goto(`/studio/?repository=${b.slug}`);
+  await page.goto(`/repositories/?repository=${b.slug}`);
   await page.getByRole('tab', { name: 'Built on' }).click();
 
   const row = page.locator('[data-built-on-list] > li').filter({ hasText: a.name });
@@ -93,7 +93,7 @@ test('an Owner includes a private repository, makes the repository public, and a
 
   // Making it public: it is built on a private repository, so the dialog says so, and offers to
   // include it instead, in a list with the choice for each.
-  await page.goto(`/studio/?repository=${b.slug}`);
+  await page.goto(`/repositories/?repository=${b.slug}`);
   await page.locator('[data-visibility]').getByRole('button', { name: 'Make public…' }).click();
   await expect(dialog(page)).toBeVisible();
   await expect(dialog(page).locator('[data-vis-blockers]')).toContainText(`${a.name} is private.`);
@@ -204,7 +204,7 @@ test('a repository that is not allowed to include another is not offered it, and
   const c = await bridgeOf(other.api, a, `Other ${tag}`, owner.api);
   const { page, context } = await signedInPage(browser, other.subject);
 
-  await page.goto(`/studio/?repository=${c.slug}`);
+  await page.goto(`/repositories/?repository=${c.slug}`);
   await page.getByRole('tab', { name: 'Built on' }).click();
 
   const row = page.locator('[data-built-on-list] > li').filter({ hasText: a.name });
@@ -233,7 +233,7 @@ test('a repository that is not allowed to include another is not offered it, and
 
   const again = await signedInPage(browser, other.subject);
 
-  await again.page.goto(`/studio/?repository=${c.slug}`);
+  await again.page.goto(`/repositories/?repository=${c.slug}`);
   await again.page.getByRole('tab', { name: 'Built on' }).click();
 
   const offered = again.page.locator('[data-built-on-list] > li').filter({ hasText: a.name });
@@ -264,7 +264,7 @@ test('an Owner changes what repositories built on a repository may do with it, a
   const { owner, a } = await world('terms');
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${a.slug}`);
+  await page.goto(`/repositories/?repository=${a.slug}`);
   await page.getByRole('tab', { name: 'Profile' }).click();
 
   const card = page.locator('[data-terms-card]');
@@ -305,7 +305,7 @@ test('an Owner changes what repositories built on a repository may do with it, a
 
   const reader = await signedInPage(browser, author.subject);
 
-  await reader.page.goto(`/studio/?repository=${a.slug}`);
+  await reader.page.goto(`/repositories/?repository=${a.slug}`);
   await reader.page.getByRole('tab', { name: 'Profile' }).click();
   await expect(reader.page.locator('[data-terms-card]')).toContainText('You allowed it.');
   await expect(
@@ -332,7 +332,7 @@ test('on a phone, the choice and the dialog are one column and everything presse
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
 
-  await page.goto(`/studio/?repository=${b.slug}`);
+  await page.goto(`/repositories/?repository=${b.slug}`);
   await page.getByRole('tab', { name: 'Built on' }).click();
 
   const row = page.locator('[data-built-on-list] > li').filter({ hasText: a.name });
@@ -352,7 +352,7 @@ test('on a phone, the choice and the dialog are one column and everything presse
   ).toBeGreaterThanOrEqual(44);
   expect(await noScroll()).toBeLessThanOrEqual(0);
 
-  await page.goto(`/studio/?repository=${b.slug}`);
+  await page.goto(`/repositories/?repository=${b.slug}`);
   await page.locator('[data-visibility]').getByRole('button', { name: 'Make public…' }).click();
   await expect(dialog(page)).toBeVisible();
 

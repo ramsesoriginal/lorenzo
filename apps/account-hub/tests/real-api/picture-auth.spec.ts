@@ -104,7 +104,7 @@ test('a repository editor shows the picture and takes a new one, each fetched wi
   const { page, context } = await signedInPage(browser, owner.subject);
   const asked = watchPicture(page, repository.id);
 
-  await page.goto(`/studio/?repository=${repository.id}`);
+  await page.goto(`/repositories/?repository=${repository.id}`);
   await expect(page.getByRole('heading', { name: repository.name })).toBeVisible();
 
   const picture = page.locator('[data-picture-slot] [data-picture]');

@@ -65,7 +65,7 @@ test('an Owner leaves a public repository off Discover and a library still opens
   );
 
   // Studio's visibility card has the switch, on, with what it means.
-  await studio.page.goto(`/studio/?repository=${repository.slug}`);
+  await studio.page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(card(studio.page).locator('[data-visibility-state]')).toHaveText('Public');
   await expect(listedBox(studio.page)).toBeChecked();
   await expect(card(studio.page).locator('[data-visibility-listed-help]')).toContainText(
@@ -155,7 +155,7 @@ test('an Owner leaves a public repository off Discover and a library still opens
   expect(items.items.map((item) => item.title)).toEqual(['Owlbear']);
 
   // Turned on again: found again, and the note is gone.
-  await studio.page.goto(`/studio/?repository=${repository.slug}`);
+  await studio.page.goto(`/repositories/?repository=${repository.slug}`);
   await listedBox(studio.page).check();
   await expect(card(studio.page).locator('[data-visibility-status]')).toHaveText('Saved.');
   await expect(card(studio.page).locator('[data-visibility-listed-help]')).toContainText(
@@ -198,14 +198,14 @@ test('a private repository has no such switch, and an Author is not offered it',
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${draft.slug}`);
+  await page.goto(`/repositories/?repository=${draft.slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await expect(page.locator('[data-visibility-listed]')).toBeHidden();
 
   // An Author reads the repository and has no card at all.
   const reader = await signedInPage(browser, author.subject);
 
-  await reader.page.goto(`/studio/?repository=${repository.slug}`);
+  await reader.page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(reader.page.locator('[data-overview] [data-state]')).toBeVisible();
   await expect(card(reader.page)).toBeHidden();
   const forbidden = await author.api.PATCH('/tenants/{tenant_id}/profile', {
@@ -240,7 +240,7 @@ test('on a phone, the switch is one column, big enough to press, and the note do
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(listedBox(page)).toBeVisible();
   expect(
     (

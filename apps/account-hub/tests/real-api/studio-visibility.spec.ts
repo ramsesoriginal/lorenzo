@@ -23,7 +23,7 @@ const terms = (page: Page) =>
   dialog(page).getByRole('checkbox', { name: /^I have the right to publish this repository./ });
 
 async function overview(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 }
 
@@ -271,7 +271,7 @@ test('a repository built on a private one is blocked, in words, with a way on', 
     name: `Open ${core.name} to make it public or protected`,
   });
 
-  await expect(link).toHaveAttribute('href', `/studio/?repository=${core.id}`);
+  await expect(link).toHaveAttribute('href', `/repositories/?repository=${core.id}`);
   await expect(dialog(page).getByRole('link')).toHaveCount(1);
 
   // Nothing can be sent while anything stands in the way.
@@ -455,7 +455,7 @@ test('a repository that public ones are built on cannot be made private, and the
   await expect(dialog(page).getByRole('link')).toHaveCount(1);
   await expect(
     dialog(page).getByRole('link', { name: `Open ${bridge.name} to make it private` }),
-  ).toHaveAttribute('href', `/studio/?repository=${bridge.id}`);
+  ).toHaveAttribute('href', `/repositories/?repository=${bridge.id}`);
   await expect(
     dialog(page).getByRole('button', { name: 'Make private', exact: true }),
   ).toBeDisabled();

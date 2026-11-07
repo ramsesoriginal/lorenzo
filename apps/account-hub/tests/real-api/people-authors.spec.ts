@@ -28,7 +28,7 @@ async function repositoryWorld() {
 }
 
 async function openPeople(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await page.getByRole('tab', { name: 'People' }).click();
 
   return page.locator('[data-people]');
@@ -196,7 +196,7 @@ test('an Owner makes a library link on the Libraries using it tab', async ({ bro
   const { owner, repository } = await repositoryWorld();
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('tab', { name: 'Libraries using it' }).click();
   const links = page.locator('[data-library-links-slot] [data-tenant-invite-links]');
 

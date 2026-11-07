@@ -169,7 +169,7 @@ test('a repository other libraries draw on is refused in words, and goes once th
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('tab', { name: 'People' }).click();
 
   const section = page.locator('[data-repository]');

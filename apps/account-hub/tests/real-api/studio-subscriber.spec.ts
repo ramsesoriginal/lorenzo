@@ -33,7 +33,7 @@ test('an Owner views a repository as a subscriber: a Test library is made once a
   const { owner, repository, testName } = await world();
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.getByText('You have no Test library for this repository yet.')).toBeVisible();
   await page.getByRole('button', { name: 'View as a subscriber' }).click();
 
@@ -47,7 +47,7 @@ test('an Owner views a repository as a subscriber: a Test library is made once a
   if (!library) return;
 
   // Going again opens the same one and makes no second.
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.getByText('invited and has not copied')).toBeVisible();
   await page.getByRole('button', { name: 'View as a subscriber' }).click();
   await expect(page).toHaveURL(new RegExp(`tenant=${library.slug}`));
@@ -61,7 +61,7 @@ test('Reset copies the repository into the Test library again, and Remove delete
   const { owner, repository, testName } = await world();
   const { page, context, confirmations } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('button', { name: 'View as a subscriber' }).click();
   await expect(page).toHaveURL(/\/repositories\//);
 
@@ -79,7 +79,7 @@ test('Reset copies the repository into the Test library again, and Remove delete
 
   // The repository moves on; the Test library resets to it.
   await addItem(owner.api, repository.id, 'Griffon');
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.getByText('Your Test library has copied this repository.')).toBeVisible();
   await page.getByRole('button', { name: 'Reset the Test library' }).click();
   await expect(page.locator('[data-subscriber-status]')).toHaveText(
@@ -107,7 +107,7 @@ test('a Test library that could not be invited is not left behind', async ({ bro
       ? route.fulfill({ status: 500, contentType: 'application/problem+json', body: '{}' })
       : route.continue(),
   );
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('button', { name: 'View as a subscriber' }).click();
 
   await expect(page.locator('[data-subscriber-status]')).toHaveClass(/error-text/);
@@ -132,14 +132,14 @@ test('a draft repository, and an Organizer, are not offered a Test library', asy
 
   const owner = await signedInPage(browser, draft.owner.subject);
 
-  await owner.page.goto(`/studio/?repository=${draft.repository.slug}`);
+  await owner.page.goto(`/repositories/?repository=${draft.repository.slug}`);
   await expect(owner.page.getByText('Publish this repository first')).toBeVisible();
   await expect(owner.page.getByRole('button', { name: 'View as a subscriber' })).toBeHidden();
   await owner.context.close();
 
   const orga = await signedInPage(browser, organizer.subject);
 
-  await orga.page.goto(`/studio/?repository=${published.repository.slug}`);
+  await orga.page.goto(`/repositories/?repository=${published.repository.slug}`);
   await expect(orga.page.getByText('Only an Owner can set up a Test library.')).toBeVisible();
   await expect(orga.page.getByRole('button', { name: 'View as a subscriber' })).toBeHidden();
   await orga.context.close();

@@ -26,6 +26,7 @@ import { getManaged, getMe } from '../../lib/me';
 import { fetchPictureUrl } from '../../lib/pictureFetch';
 import { browserSessionStorage } from '../../lib/returnPath';
 import { say, sayError } from '../../lib/statusLine';
+import { studioHref } from '../../lib/studio';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants, tenantHref } from '../../lib/tenantKind';
 import { getCampaign } from '../../lib/tenants';
@@ -88,7 +89,7 @@ function nextStep(
 
   if (preview.kind === 'tenant_role') {
     return preview.tenant_kind === 'repository'
-      ? { href: `/studio/?repository=${encodeURIComponent(joined.tenant_id)}`, label: 'Open it' }
+      ? { href: studioHref(joined.tenant_id), label: 'Open it' }
       : { href: tenantHref(joined.tenant_id), label: 'Open it' };
   }
 

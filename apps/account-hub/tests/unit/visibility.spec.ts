@@ -217,7 +217,7 @@ describe('what stands in the way of making it public', () => {
 
     expect(owned?.text).toContain('Core is private');
     expect(owned?.link).toEqual({
-      href: '/studio/?repository=core-id',
+      href: '/repositories/?repository=core-id',
       label: 'Open Core to make it public or protected',
     });
     expect(notOwned?.text).toContain('Other is private');
@@ -526,7 +526,7 @@ describe('the Make private dialog', () => {
     ]);
     // A link to the Studio page of one the Owner owns, and none for the other.
     expect(blockers[0]?.link).toEqual({
-      href: '/studio/?repository=a',
+      href: '/repositories/?repository=a',
       label: 'Open Dragons to make it private',
     });
     expect(blockers[1]?.link).toBeUndefined();

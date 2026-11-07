@@ -26,7 +26,7 @@ const problem = (page: Page, key: string) =>
 const creditRow = (page: Page, index: number) => page.locator('[data-credit]').nth(index);
 
 async function openProfile(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await page.getByRole('tab', { name: 'Profile' }).click();
   await expect(profilePanel(page)).toBeVisible();
@@ -718,7 +718,7 @@ test('before it can be public: what is missing, each a link that jumps to the fi
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 
   const list = page.locator('[data-readiness]');
@@ -782,7 +782,7 @@ test('before it can be public: what is missing, each a link that jumps to the fi
   await page.getByRole('tab', { name: 'Overview' }).click();
   await expect(
     list.getByRole('link', { name: `Open ${core.name} to make it public or protected` }),
-  ).toHaveAttribute('href', `/studio/?repository=${core.id}`);
+  ).toHaveAttribute('href', `/repositories/?repository=${core.id}`);
 
   // The flip's own rules stand: the dialog still lists what stands in the way.
   await page.locator('[data-visibility]').getByRole('button', { name: 'Make public…' }).click();
@@ -805,7 +805,7 @@ test('a repository with everything ready says so, and a public one has no list',
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
 
   const list = page.locator('[data-readiness]');
 

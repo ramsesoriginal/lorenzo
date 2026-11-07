@@ -67,7 +67,7 @@ test('Libraries using it names the invited and counts the ones that copied it by
   const { owner, repository, invited, secret } = await world();
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('tab', { name: 'Libraries using it' }).click();
 
   const rows = page.locator('[data-using-list] > li');
@@ -117,14 +117,14 @@ test('Libraries using it says one number for several, and nothing when there are
 
   const { page, context } = await signedInPage(browser, owner.subject);
 
-  await page.goto(`/studio/?repository=${repository.slug}`);
+  await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('tab', { name: 'Libraries using it' }).click();
   await expect(page.locator('[data-using-public]')).toHaveText(
     '2 libraries copied it by themselves from Discover. Their names are not shown: you see how many, not which.',
   );
 
   // A repository that nobody copied by itself has no such line.
-  await page.goto(`/studio/?repository=${quiet.slug}`);
+  await page.goto(`/repositories/?repository=${quiet.slug}`);
   await expect(page.getByRole('heading', { name: quiet.name })).toBeVisible();
   await page.getByRole('tab', { name: 'Libraries using it' }).click();
   await expect(page.locator('[data-using-summary]')).toContainText('Nothing is using this');

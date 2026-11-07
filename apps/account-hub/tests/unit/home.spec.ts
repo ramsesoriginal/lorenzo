@@ -17,7 +17,7 @@ describe('splitTables', () => {
 });
 
 describe('needsYou', () => {
-  const href = (slug: string) => `/studio/?repository=${slug}`;
+  const href = (slug: string) => `/repositories/?repository=${slug}`;
 
   it('is a task for each repository still a draft, and none for the rest', () => {
     const tasks = needsYou(
@@ -34,7 +34,7 @@ describe('needsYou', () => {
         id: 'draft:orla',
         text: 'Orla is still a draft.',
         action: 'Open it',
-        href: '/studio/?repository=orla',
+        href: '/repositories/?repository=orla',
       },
     ]);
   });

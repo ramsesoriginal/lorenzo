@@ -46,7 +46,7 @@ async function releaseWorld() {
 const dialog = (page: Page) => page.locator('[data-publish-dialog]');
 
 async function overview(page: Page, slug: string) {
-  await page.goto(`/studio/?repository=${slug}`);
+  await page.goto(`/repositories/?repository=${slug}`);
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
 }
 
