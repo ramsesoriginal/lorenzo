@@ -119,11 +119,9 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
       <!-- Settings: its name and description, its picture, leaving it, deleting it. -->
       <div class="stack" role="tabpanel">
         <div class="stack" data-tenant-edit hidden>
-          <h3>General</h3>
-          <div class="row" data-body>
-            <button type="button" data-edit hidden>
-              Edit <span data-noun></span>
-            </button>
+          <div class="stack-tight">
+            <h3>General</h3>
+            <p class="caption">The name and description people see.</p>
           </div>
           <span class="status-text" role="status" data-edit-status hidden></span>
         </div>

@@ -9,7 +9,7 @@ import { roleLabel } from '../../lib/studio';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
 import type { MeOut, TenantOut, TenantSummaryOut } from '../../lib/types';
-import { renderTenantEdit } from '../TenantEdit/renderer';
+import { renderTenantSettings } from '../TenantEdit/settings';
 import type { TenantHooks } from './hooks';
 import { bindLeaveTenant } from './leaveTenant';
 import { fillLibrary, loadLibrary } from './library';
@@ -70,7 +70,7 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
   }
 
   // The Edit button is this block's own, bound once for whichever tenant is shown.
-  const tenantEdit = renderTenantEdit(
+  const tenantEdit = renderTenantSettings(
     required<HTMLElement>(root, '[data-tenant-edit]'),
     tenantHooks.onRenamed,
   );
