@@ -1856,7 +1856,7 @@ export interface paths {
         get?: never;
         /**
          * Make Repository Protected
-         * @description Makes the repository protected (ADR 0433, RFC 0051 H3): a private one with its first
+         * @description Makes the repository protected (ADR 0434, RFC 0051 H3): a private one with its first
          *     release, together or not at all, as `PUT .../public` does; a public one without a release,
          *     leaving Discover and every visitor's read. A protected repository is read by a library only as a
          *     step of the copy of a public repository built on it. Needs every repository it is built on
@@ -1886,7 +1886,7 @@ export interface paths {
          * Make Repository Public
          * @description Makes the repository public and makes its first public release, together or not at all
          *     (ADR 0289): the release, its document and its notice are those of `PUT .../published`. A
-         *     protected repository is made public the same way (ADR 0433).
+         *     protected repository is made public the same way (ADR 0434).
          *     Needs a summary, given here or already on the profile (`422
          *     public-repository-summary-required`), every repository it is built on public (`409
          *     built-on-not-public`) and up to date (`409 built-on-behind`), and says what a visitor may
@@ -2055,7 +2055,7 @@ export interface paths {
          * List Public Repository Dependencies
          * @description The repositories a public repository is built on, dependencies first, as `copy-plan`
          *     orders them, and whether each is public. Copying the repository in one action needs every one
-         *     of them to be (ADR 0287), or protected (ADR 0433): a protected one is a step of the copy and is
+         *     of them to be (ADR 0287), or protected (ADR 0434): a protected one is a step of the copy and is
          *     named in no public view, so it is not here, and neither is a repository this one cannot read
          *     for a visitor, which could only be a private one.
          */
@@ -11982,7 +11982,7 @@ export interface components {
         };
         /**
          * MadeProtectedOut
-         * @description `PUT .../protected` (ADR 0433): the release made with the flip for a private repository (none
+         * @description `PUT .../protected` (ADR 0434): the release made with the flip for a private repository (none
          *     for a public one, which has its releases already) and how many grants libraries had given
          *     themselves while it was public, which are `protected` ones now.
          */
@@ -12006,7 +12006,7 @@ export interface components {
         };
         /**
          * MakeProtectedRequest
-         * @description `PUT .../protected` (ADR 0433): the first release of a private repository made protected,
+         * @description `PUT .../protected` (ADR 0434): the first release of a private repository made protected,
          *     as `PUT .../published` makes one (`label`, `notes`, `breaking`, `acknowledge_breaking`). A
          *     protected repository needs no summary and no terms line: nothing says what it is to anybody
          *     who does not hold it. `acknowledge_revokes` is for a public repository made protected: the
@@ -17009,7 +17009,7 @@ export interface components {
          *     on it may do with it. `may_be_included` is whether one may include it in its own release;
          *     `null` takes the default for the repository's visibility back (a private repository: no, a
          *     public or protected one: yes). `may_be_shown` is whether one may keep it separate and visible
-         *     (ADR 0433): `false` only for a protected repository (`409 repository-not-protected`), `null` is
+         *     (ADR 0434): `false` only for a protected repository (`409 repository-not-protected`), `null` is
          *     the default again, which is yes.
          */
         TermsIn: {
