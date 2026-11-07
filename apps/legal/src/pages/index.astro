@@ -1,0 +1,26 @@
+---
+import Legal from '../layouts/Legal.astro';
+import { pageFor, PATHS } from '../lib/site';
+
+const page = pageFor('notice', 'en');
+---
+
+<Legal
+  lang="en"
+  title="Legal pages"
+  profile={page.profile}
+  changed={page.changed}
+  other={PATHS.de.notice}
+  notice={PATHS.en.notice}
+  policy={PATHS.en.policy}
+>
+  <ul>
+    <li>
+      <a href={PATHS.de.notice}>Impressum</a> · <a href={PATHS.en.notice}>Legal notice</a>
+    </li>
+    <li>
+      <a href={PATHS.de.policy}>Datenschutzerklärung</a> ·
+      <a href={PATHS.en.policy}>Privacy policy</a>
+    </li>
+  </ul>
+</Legal>

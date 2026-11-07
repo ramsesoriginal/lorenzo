@@ -105,6 +105,10 @@
       "release-type": "node",
       "component": "maps"
     },
+    "apps/legal": {
+      "release-type": "node",
+      "component": "legal"
+    },
     "apps/social": {
       "release-type": "node",
       "component": "social"
