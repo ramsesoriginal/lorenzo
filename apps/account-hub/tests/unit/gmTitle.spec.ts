@@ -221,7 +221,6 @@ describe('what has no one campaign still says GM', () => {
   it('a campaign that is not made yet, a stranger to every campaign and the empty page say GM', () => {
     expect(readSource('lib/setup.ts')).toContain('GM');
     expect(readSource('components/NewUser/NewUser.astro')).toMatch(LITERAL);
-    expect(readSource('components/BeingsPanel/BeingsPanel.astro')).toMatch(LITERAL);
     expect(readSource('components/Setup/Setup.astro')).toMatch(LITERAL);
   });
 });

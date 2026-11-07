@@ -31,7 +31,7 @@ repo root:
 | `/notifications` | Your notifications |
 | `/tenants` | Your libraries and their campaigns, People and invite links |
 | `/campaigns` | Where you play and where you run |
-| `/beings` | Each library's beings, linking to Lorenzo Beings |
+| `/beings` | Forwards to Lorenzo Beings, which has its own app |
 | `/setup` | Start a table in one form |
 | `/join` | Accept an invite link |
 | `/repositories`, `/studio`, `/discover` | Shelf, Studio and Discover, below |

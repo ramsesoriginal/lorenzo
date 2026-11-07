@@ -35,11 +35,7 @@ export async function allowedPages(): Promise<string[]> {
 
   if (mayCreate) allowed.push('create-tenant');
 
-  // /beings lists the beings of a repository, or of a library where you GM a campaign.
-  const gms = me.status === 'fulfilled' && me.value.campaign_gm_grants.length > 0;
   const inRepository = tenants.status === 'fulfilled' && tenants.value.items.some(isRepository);
-
-  if (gms || inRepository) allowed.push('beings');
 
   // Shelf is where a library's owners and organizers see the repositories it may copy from.
   const libraryAdmin =

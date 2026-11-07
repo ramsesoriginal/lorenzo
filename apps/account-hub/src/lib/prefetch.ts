@@ -10,7 +10,7 @@ import { listNotifications } from './notifications';
 import { listLibraryRepositories } from './repositories';
 import { repositoriesMode } from './studio';
 import { isRepository } from './tenantKind';
-import { getTenant, listMyTenants, listTenantCampaigns, listTenantRoster } from './tenants';
+import { getTenant, listMyTenants, listTenantRoster } from './tenants';
 import type { MeOut, TenantSummaryOut } from './types';
 
 // One library, as opening it asks for it.
@@ -55,13 +55,6 @@ const WARMERS: Record<string, (params: URLSearchParams) => Promise<unknown>> = {
     const library = libraries.find((l) => l.slug === wanted || l.id === wanted) ?? libraries[0];
 
     if (library) await listLibraryRepositories(library.id);
-  },
-  '/beings/': async () => {
-    const [, tenants] = await Promise.all([getMe(), listMyTenants()]);
-
-    await Promise.all(
-      tenants.items.filter((t) => !isRepository(t)).map((t) => listTenantCampaigns(t.id)),
-    );
   },
 };
 
