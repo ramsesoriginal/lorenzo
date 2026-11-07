@@ -11,7 +11,7 @@ import { distinctPeople } from '../../lib/deleting';
 import { type CampaignRole, campaignRoleFor, isTenantAdmin } from '../../lib/format';
 import { type LibraryReads, readLibrary } from '../../lib/libraryData';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
-import { rosterFromPlayers } from '../../lib/roster';
+import { rosterFromGms, rosterFromPlayers } from '../../lib/roster';
 import { loadSeatOwners } from '../../lib/seatOwners';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
@@ -155,7 +155,14 @@ function renderCampaign(
   // players from GET .../players instead, by user id: no names there.
   const peopleHidden = data.peopleHidden.has(campaign.id);
   const players = canManage ? (data.playersByCampaign.get(campaign.id) ?? []) : null;
-  const shownRoster = data.roster ?? (players ? rosterFromPlayers(campaign.id, players) : null);
+  const shownRoster =
+    data.roster ??
+    (players
+      ? [
+          ...rosterFromGms(campaign.id, data.gmEntriesByCampaign.get(campaign.id) ?? []),
+          ...rosterFromPlayers(campaign.id, players),
+        ]
+      : null);
 
   if (peopleHidden) {
     // GET /me/managed still lists the campaign (that is the administrative axis), but its people
