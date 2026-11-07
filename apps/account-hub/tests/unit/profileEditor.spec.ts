@@ -49,6 +49,7 @@ function profile(overrides: Partial<MemberProfileOut> = {}): MemberProfileOut {
     languages: [],
     has_cover: false,
     updated_at: '2026-11-03T10:00:00Z',
+    listed: true,
     includes: [],
     terms: { may_be_included: false, is_default: true },
     ...overrides,

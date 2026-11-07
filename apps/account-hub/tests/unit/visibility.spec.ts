@@ -4,6 +4,11 @@ import { RETIRED_CANNOT_BE_MADE_PUBLIC, RETIRED_PUBLIC_NOTE } from '../../src/li
 import type { FlipCheckOut } from '../../src/lib/types';
 import {
   changedUnderTheDialog,
+  LISTED_LABEL,
+  LISTED_PAGE_LINK,
+  listedHelp,
+  listedPatch,
+  listedSwitch,
   madePrivateDone,
   makePrivateLines,
   makePrivateProblem,
@@ -32,6 +37,7 @@ function check(overrides: Partial<FlipCheckOut> = {}): FlipCheckOut {
     available: true,
     visibility: 'private',
     has_summary: false,
+    listed: true,
     built_on_not_public: [],
     built_on_behind: [],
     built_on: [],
@@ -94,6 +100,10 @@ function words(): string {
     ...PREVIEW_CHOICES.map((choice) => choice.label),
     DELISTED_CANNOT_BE_MADE_PUBLIC,
     DELISTED_PUBLIC_NOTE,
+    LISTED_LABEL,
+    LISTED_PAGE_LINK,
+    listedHelp(true),
+    listedHelp(false),
   ].join('\n');
 }
 
@@ -548,5 +558,56 @@ describe('a refusal that changes what the dialog says', () => {
     expect(changedUnderTheDialog('repository-not-includable')).toBe(true);
     expect(changedUnderTheDialog('public-repository-summary-required')).toBe(false);
     expect(changedUnderTheDialog(undefined)).toBe(false);
+  });
+});
+
+describe('the switch for being on Discover (RFC 0051 H2)', () => {
+  it('is on the card of a public repository, on while it is listed', () => {
+    const card = visibilityCard(check({ visibility: 'public', listed: true }), 'owner');
+
+    expect(card?.listed).toEqual({
+      checked: true,
+      label: 'Listed on Discover',
+      help: listedHelp(true),
+    });
+  });
+
+  it('is off, and says what stays, while the Owner has left it off', () => {
+    const card = visibilityCard(check({ visibility: 'public', listed: false }), 'owner');
+
+    expect(card?.listed?.checked).toBe(false);
+    expect(card?.listed?.help).toMatch(/not on Discover/);
+    expect(card?.listed?.help).toMatch(/address/);
+    expect(card?.listed).toEqual(listedSwitch(false));
+  });
+
+  it('is not on the card of a private repository, which is on no listing', () => {
+    expect(visibilityCard(check({ listed: true }), 'owner')?.listed).toBeNull();
+    expect(
+      visibilityCard(check({ available: true, visibility: 'private' }), 'owner')?.listed,
+    ).toBeNull();
+  });
+
+  it('is not offered where the platform or the Owner already took the repository off Discover', () => {
+    const delisted = { reason: 'It copies another publisher', at: '2026-10-15T09:00:00Z' };
+    const deprecated = { message: null, at: '2026-11-03T09:00:00Z' };
+
+    expect(visibilityCard(check({ visibility: 'public', delisted }), 'owner')?.listed).toBeNull();
+    expect(visibilityCard(check({ visibility: 'public', deprecated }), 'owner')?.listed).toBeNull();
+  });
+
+  it('is only an Owner’s', () => {
+    expect(visibilityCard(check({ visibility: 'public' }), 'orga')).toBeNull();
+    expect(visibilityCard(check({ visibility: 'public' }), 'author')).toBeNull();
+  });
+
+  it('sends what it says, and its words are the RFC’s', () => {
+    expect(listedPatch(false)).toEqual({ listed: false });
+    expect(listedPatch(true)).toEqual({ listed: true });
+    expect(LISTED_LABEL).toBe('Listed on Discover');
+    expect(LISTED_PAGE_LINK).toBe('Open its page');
+    expect(`${listedHelp(true)} ${listedHelp(false)}`).not.toMatch(
+      /tenant|grant|subscri|flatten|source/i,
+    );
   });
 });

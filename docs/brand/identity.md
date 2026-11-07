@@ -1495,6 +1495,7 @@ for repositories only, so the two relations never share a phrase.
 | **Keep separate and visible** | How a repository built on another carries it by default: the other stays a repository of its own, and a library that copies this one is given it too. The API calls this `show`. | Link, reference |
 | **May be included** | The switch of a repository's Owner: whether a repository built on it may include it. Under "How repositories built on this one may use it". | Allow flattening, share |
 | **Includes content from** | The line of a repository's page that names what it includes, with its licence. | Based on, derived from |
+| **Listed on Discover** | The switch of a public repository's Owner: whether Discover shows it. Off, it is still public: its page and its address work, and a library can copy it. The API calls this `listed`. | Visible, searchable, hidden, private |
 | **Check first** | Try a copy or an update without changing anything | Dry run |
 
 An attachment (a parent that a repository adds to something a library copied) has

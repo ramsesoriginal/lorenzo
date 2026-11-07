@@ -51,6 +51,7 @@ def profile_out(
         visibility="private",
         preview="showcase",
         summary="",
+        listed=True,
         credits=[],
         tags=[],
         languages=[],
@@ -60,6 +61,7 @@ def profile_out(
         visibility=profile.visibility,
         preview=profile.preview,
         summary=profile.summary,
+        listed=profile.listed,
         licence=(
             LicenceOut(label=profile.licence_label, url=profile.licence_url)
             if profile.licence_label is not None

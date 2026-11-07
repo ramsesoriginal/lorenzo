@@ -18,6 +18,7 @@ import {
   releaseGroups,
   releaseHeading,
   reportHref,
+  unlistedNote,
 } from '../../lib/discover';
 import { getStorefront, listPublicDependencies, listPublicReleases } from '../../lib/discoverApi';
 import { includesLines } from '../../lib/inclusion';
@@ -33,7 +34,7 @@ import { showCover } from './cover';
 const required = requiredIn('Storefront');
 
 export type Storefront = {
-  // Paints a repository's page. Resolves to false when it is not listed, and shows nothing, for
+  // Paints a repository's page. Resolves to false when it cannot be opened, and shows nothing, for
   // the page to say so.
   show(repositoryId: string, isCurrent: () => boolean): Promise<boolean>;
 };
@@ -64,6 +65,7 @@ function externalLink(url: string, text: string): HTMLAnchorElement {
 export function createStorefront(root: HTMLElement, view: HTMLElement): Storefront {
   const cover = required<HTMLImageElement>(view, '[data-cover]');
   const name = required<HTMLElement>(view, '[data-name]');
+  const unlistedLine = required<HTMLElement>(view, '[data-unlisted-note]');
   const summary = required<HTMLElement>(view, '[data-summary]');
   const publishedBy = required<HTMLElement>(view, '[data-published-by]');
   const tags = required<HTMLElement>(view, '[data-tags]');
@@ -254,6 +256,25 @@ export function createStorefront(root: HTMLElement, view: HTMLElement): Storefro
 
       showCover(cover, null, item, isCurrent);
       name.textContent = item.name;
+
+      // Its Owners are told it is not on Discover; nobody else is told anything. Read after the page is
+      // drawn, since it needs the person's libraries and repositories and must not hold the page up.
+      unlistedLine.hidden = true;
+
+      if (!profile.listed) {
+        void listMyTenants()
+          .then((tenants) => {
+            const note = unlistedNote(profile, tenants.items, item.id);
+
+            if (!isCurrent() || note === null) return;
+
+            unlistedLine.textContent = note;
+            unlistedLine.hidden = false;
+          })
+          .catch(() => {
+            // A note that cannot be read is not shown; the page does not depend on it.
+          });
+      }
       summary.textContent = item.summary;
       summary.hidden = item.summary === '';
 

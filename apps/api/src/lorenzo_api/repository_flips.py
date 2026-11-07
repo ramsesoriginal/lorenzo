@@ -146,6 +146,9 @@ async def make_private(
         )
     )
     profile.visibility = "private"
+    # Not listed is a fact about a public repository only (the profile's check): it starts listed
+    # again if it is made public again (ADR 0432).
+    profile.listed = True
     profile.updated_by = user_id
     await session.flush()
     await record_activity(

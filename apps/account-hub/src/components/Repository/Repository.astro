@@ -128,6 +128,17 @@ import ReleaseComposer from './ReleaseComposer.astro';
             <button type="button" class="btn btn-secondary" data-visibility-button></button>
           </div>
           <p class="caption" data-visibility-note hidden></p>
+          <!-- Whether Discover lists it (RFC 0051 H2, ADR 0432): an Owner's, for a public repository, saved at once. -->
+          <div class="stack-tight" data-visibility-listed hidden>
+            <label class="field-row">
+              <input type="checkbox" data-visibility-listed-input />
+              <span data-visibility-listed-label></span>
+            </label>
+            <p class="caption" data-visibility-listed-help></p>
+            <p>
+              <a class="shelf-link" data-visibility-listed-link></a>
+            </p>
+          </div>
           <p class="status-text" role="status" data-visibility-status hidden></p>
         </div>
         <!-- What is still missing before it can be public, each with a link to where to fix it (ADR 0385): an Owner's, beside the switch. -->

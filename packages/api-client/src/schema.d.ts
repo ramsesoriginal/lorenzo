@@ -1744,6 +1744,9 @@ export interface paths {
          *     other than the repository's own is refused, in the same request as everything else in it (so
          *     nothing is kept): a flip makes a release, tells libraries and revokes grants, so it is `PUT`
          *     and `DELETE` on `/public` (ADR 0290).
+         *     `listed: false` leaves a public repository off Discover and `true` puts it back (ADR 0432): its
+         *     storefront and its address work either way. For a repository that is not public it is `409
+         *     repository-not-public`.
          */
         patch: operations["update_profile"];
         trace?: never;
@@ -2198,8 +2201,9 @@ export interface paths {
          *     `released`, never by popularity. `q` is a case-insensitive part of the name, the summary or a
          *     tag; `tag`, `system` and `language` narrow it exactly. A page is at most 50 repositories (a
          *     bigger `size` is that), and a listing goes at most 1000 deep: `422 discover-too-deep`, narrow
-         *     it. Listed are repositories that are public, published and have a release. Each says who
-         *     published it, by its Owners' accounts (`publishers`, ADR 0299).
+         *     it. Listed are repositories that are public, published and have a release, and whose Owner has
+         *     not turned listing off (`listed`, ADR 0432). Each says who published it, by its Owners'
+         *     accounts (`publishers`, ADR 0299).
          */
         get: operations["list_public_repositories"];
         put?: never;
@@ -2240,11 +2244,12 @@ export interface paths {
         };
         /**
          * Get Storefront
-         * @description A listed repository's page: its listing entry (with who published it, by its Owners'
+         * @description A public repository's page: its listing entry (with who published it, by its Owners'
          *     accounts), its long description, its profile and, where the deployment sets a report address,
-         *     a `mailto:` for the Report link.
-         *     `404` for one that is not listed (private, a draft, or with no release), the same as for one
-         *     that does not exist.
+         *     a `mailto:` for the Report link. Any signed-in user who has the address opens it, whether
+         *     Discover lists the repository or its Owner left it off the listing (ADR 0432).
+         *     `404` for one that is not public (private, a draft, or with no release), retired or delisted,
+         *     the same as for one that does not exist.
          */
         get: operations["get_storefront"];
         put?: never;
@@ -10514,6 +10519,11 @@ export interface components {
             visibility: "private" | "public";
             /** Has Summary */
             has_summary: boolean;
+            /**
+             * Listed
+             * @default true
+             */
+            listed: boolean;
             /** Built On Not Public */
             built_on_not_public: components["schemas"]["BuiltOnPublicOut"][];
             /** Built On Behind */
@@ -12330,6 +12340,11 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Listed
+             * @default true
+             */
+            listed: boolean;
             /**
              * Includes
              * @default []
@@ -15330,6 +15345,11 @@ export interface components {
              */
             updated_at: string;
             /**
+             * Listed
+             * @default true
+             */
+            listed: boolean;
+            /**
              * Includes
              * @default []
              */
@@ -15347,6 +15367,8 @@ export interface components {
             visibility?: ("private" | "public") | null;
             /** Preview */
             preview?: ("off" | "showcase" | "public") | null;
+            /** Listed */
+            listed?: boolean | null;
             /** Summary */
             summary?: string | null;
             licence?: components["schemas"]["LicenceIn"] | null;

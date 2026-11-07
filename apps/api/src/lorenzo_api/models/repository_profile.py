@@ -32,6 +32,7 @@ class RepositoryProfile(Base):
         CheckConstraint(
             "visibility IN ('private', 'public')", name="repository_profile_visibility"
         ),
+        CheckConstraint("listed OR visibility = 'public'", name="repository_profile_listed"),
         CheckConstraint(
             "preview IN ('off', 'showcase', 'public')", name="repository_profile_preview"
         ),
@@ -55,6 +56,11 @@ class RepositoryProfile(Base):
     )
     visibility: Mapped[str] = mapped_column(server_default=text("'private'"))
     preview: Mapped[str] = mapped_column(server_default=text("'showcase'"))
+    # Whether Discover lists the repository while it is public (ADR 0432, RFC 0051 H2): an Owner of
+    # a public repository may turn it off, and the flips turn it back on when the repository stops
+    # being public (the check ties the two). An unlisted repository is public and copyable by its
+    # address in every other way.
+    listed: Mapped[bool] = mapped_column(server_default=text("true"))
     summary: Mapped[str] = mapped_column(server_default=text("''"))
     licence_label: Mapped[str | None]
     licence_url: Mapped[str | None]
