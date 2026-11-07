@@ -6,6 +6,7 @@
 
 import { ApiError } from '../../lib/apiError';
 import { isAuthConfigured, isAuthenticated, login } from '../../lib/auth';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import { GM_WORDS, type GmWords, gmWords } from '../../lib/gmTitle';
 import {
   DEAD_LINK_MESSAGE,
@@ -100,6 +101,7 @@ function nextStep(
 // is not a dead link rejects, for the page to show.
 export async function renderJoinInvite(root: HTMLElement): Promise<void> {
   const dead = required<HTMLElement>(root, '[data-dead]');
+  const mascot = required<HTMLElement>(root, '[data-mascot]');
   const invite = required<HTMLElement>(root, '[data-invite]');
   const picture = required<HTMLImageElement>(root, '[data-picture]');
   const name = required<HTMLElement>(root, '[data-campaign]');
@@ -154,8 +156,20 @@ export async function renderJoinInvite(root: HTMLElement): Promise<void> {
     window.location.assign(result.href);
   });
 
+  // The mascot beside a moment, or nothing where the picture is not there yet.
+  function showMascot(art: string): void {
+    const picture = document.createElement('img');
+
+    picture.alt = '';
+    picture.src = `${BRANDING_CSS_URL}/mascots/ui_${art}.png`;
+    picture.addEventListener('error', () => mascot.replaceChildren());
+    mascot.replaceChildren(picture);
+    mascot.hidden = false;
+  }
+
   function showDeadLink(): void {
     forgetInviteToken(storage);
+    showMascot('page-not-found');
     invite.hidden = true;
     dead.textContent = DEAD_LINK_MESSAGE;
     dead.hidden = false;
@@ -217,6 +231,7 @@ export async function renderJoinInvite(root: HTMLElement): Promise<void> {
         const joined = await redeemInvite(currentToken, chosen?.id);
 
         forgetInviteToken(storage);
+        showMascot('caught-up');
         say(status, joinedMessageFor(preview, joined, chosen?.name ?? '', await gmWordsOf(joined)));
         joinButton.hidden = true;
         library.disabled = true;

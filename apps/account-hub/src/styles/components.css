@@ -552,3 +552,18 @@
     order: -1;
   }
 }
+
+/* Joining (D27): the mascot above the moment that has a word to say, small and centred. */
+.join-mascot {
+  display: flex;
+  justify-content: center;
+}
+
+.join-mascot[hidden] {
+  display: none;
+}
+
+.join-mascot img {
+  max-width: 10rem;
+  height: auto;
+}
