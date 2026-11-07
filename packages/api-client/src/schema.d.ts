@@ -10570,8 +10570,11 @@ export interface components {
         FlipCheckOut: {
             /** Available */
             available: boolean;
-            /** Visibility */
-            visibility: string;
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "protected" | "public";
             /** Has Summary */
             has_summary: boolean;
             /**
@@ -12419,8 +12422,11 @@ export interface components {
          *     they cannot read a delisted repository.
          */
         MemberProfileOut: {
-            /** Visibility */
-            visibility: string;
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "protected" | "public";
             /**
              * Preview
              * @enum {string}
@@ -15425,8 +15431,11 @@ export interface components {
          *     picture is `GET .../profile/cover`).
          */
         RepositoryProfileOut: {
-            /** Visibility */
-            visibility: string;
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "private" | "protected" | "public";
             /**
              * Preview
              * @enum {string}

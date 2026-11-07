@@ -18,7 +18,7 @@ from lorenzo_api.schemas.repository_profiles import (
     DelistedOut,
     DeprecatedOut,
     Preview,
-    VisibilityOut,
+    Visibility,
     _words,
 )
 
@@ -127,7 +127,7 @@ class FlipCheckOut(BaseModel):
     `invited_libraries`, which it invited and keeps)."""
 
     available: bool
-    visibility: VisibilityOut
+    visibility: Visibility
     has_summary: bool
     # Whether Discover lists it while it is public (ADR 0432); true for a repository that is not.
     listed: bool = True

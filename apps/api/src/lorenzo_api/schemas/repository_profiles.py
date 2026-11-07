@@ -30,16 +30,9 @@ __all__ = [
     "RepositoryProfileUpdate",
     "TermsIn",
     "TermsOut",
-    "VisibilityOut",
 ]
 
 Visibility = Literal["private", "protected", "public"]
-# What a response says of it: declared extensible, so that a visibility added later is not a break
-# of the contract (ADR 0434: `protected` was the first), and clients read the three they know.
-VisibilityOut = Annotated[
-    str,
-    Field(json_schema_extra={"x-extensible-enum": ["private", "protected", "public"]}),
-]
 Preview = Literal["off", "showcase", "public"]
 
 SUMMARY_MAX = 280
@@ -309,7 +302,7 @@ class RepositoryProfileOut(BaseModel):
     """A repository's profile: what the Owner says of it, and whether it has a cover (the
     picture is `GET .../profile/cover`)."""
 
-    visibility: VisibilityOut
+    visibility: Visibility
     preview: Preview
     summary: str
     licence: LicenceOut | None

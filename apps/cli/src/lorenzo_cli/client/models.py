@@ -1158,6 +1158,12 @@ class FieldChangeOut(BaseModel):
     removed: list[Any] | None = Field(..., title="Removed")
 
 
+class Visibility1(StrEnum):
+    private = "private"
+    protected = "protected"
+    public = "public"
+
+
 class FrameAxisOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     axis: str = Field(..., title="Axis")
@@ -2974,12 +2980,6 @@ class RepositoryEntityOut(BaseModel):
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
 
 
-class Visibility1(StrEnum):
-    private = "private"
-    protected = "protected"
-    public = "public"
-
-
 class RepositorySummaryOut(BaseModel):
     id: UUID = Field(..., title="Id")
     name: str = Field(..., title="Name")
@@ -4181,7 +4181,7 @@ class EventComparison(BaseModel):
 
 class FlipCheckOut(BaseModel):
     available: bool = Field(..., title="Available")
-    visibility: str = Field(..., title="Visibility")
+    visibility: Visibility1 = Field(..., title="Visibility")
     has_summary: bool = Field(..., title="Has Summary")
     listed: bool | None = Field(True, title="Listed")
     built_on_not_public: list[BuiltOnPublicOut] = Field(..., title="Built On Not Public")
@@ -4456,7 +4456,7 @@ class MeOut(BaseModel):
 
 
 class MemberProfileOut(BaseModel):
-    visibility: str = Field(..., title="Visibility")
+    visibility: Visibility1 = Field(..., title="Visibility")
     preview: Preview = Field(..., title="Preview")
     summary: str = Field(..., title="Summary")
     licence: LicenceOut | None
@@ -4790,7 +4790,7 @@ class ReleasePreviewOut(BaseModel):
 
 
 class RepositoryProfileOut(BaseModel):
-    visibility: str = Field(..., title="Visibility")
+    visibility: Visibility1 = Field(..., title="Visibility")
     preview: Preview = Field(..., title="Preview")
     summary: str = Field(..., title="Summary")
     licence: LicenceOut | None
