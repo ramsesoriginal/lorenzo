@@ -13,6 +13,7 @@ test('owner edits a slug, cancels, sees collision and invalid input, and cannot 
   const taken = await ok(api.POST('/tenants', { body: { name: `Taken ${crypto.randomUUID()}` } }));
   await signIn(page, context, subject);
   const card = await openLibrary(page, tenant);
+  await card.getByRole('tab', { name: 'Settings' }).click();
   await card.getByRole('button', { name: 'Edit library' }).click();
   const input = card.getByLabel('Library slug');
   await expect(input).toHaveValue(tenant.slug);
@@ -104,6 +105,7 @@ test('organizers can edit, campaign participants cannot', async ({ browser }) =>
       await expect(page.locator('[data-tenants-panel]')).toContainText(tenant.name);
       await expect(page.locator('h2[data-name]')).toHaveText(tenant.name);
       if (role === 'orga') {
+        await page.getByRole('tab', { name: 'Settings' }).click();
         await page.getByRole('button', { name: 'Edit library' }).click();
         const slug = `orga-${crypto.randomUUID()}`;
         await page.getByLabel('Library slug').fill(slug);
