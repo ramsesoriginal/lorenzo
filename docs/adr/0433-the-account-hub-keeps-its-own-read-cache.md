@@ -4,7 +4,7 @@ Status: accepted, decided with the maintainer on 2026-11-07. Builds on [ADR 0325
 
 ## Context
 
-Calendars, Maps, Sessions and Social read through `@lorenzo/read-cache`: a cache in front of `fetch`, scoped to the viewer, bounded, with a prefetch queue and a link-intent binder. The account hub does not. It has an older pair, `lib/cache.ts` (a keyed stale-while-revalidate store wrapped around each call as `cached(key, fn)`) and `lib/prefetch.ts` (the hover warmers per page). The question was whether the web redesign ([ADR 0428](0428-the-account-hub-moves-into-the-web-shell.md)) should move the hub onto the package.
+Calendars, Maps, Sessions and Social read through `@lorenzo/read-cache`: a cache in front of `fetch`, scoped to the viewer, bounded, with a prefetch queue and a link-intent binder. The account hub does not. It has an older pair, `lib/cache.ts` (a keyed stale-while-revalidate store wrapped around each call as `cached(key, fn)`) and `lib/prefetch.ts` (the hover warmers per page). The question was whether the web redesign (ADR 0428) should move the hub onto the package.
 
 The two differ in a way that decides it. The other apps are single-page: a navigation stays in one document, so memory is enough. The hub is a set of separate pages, and **every click is a full page load**, which empties memory. The hub's cache therefore mirrors what it holds into `sessionStorage`, so the next page can paint from it at once, and its hover warmers fill that storage before the click.
 
