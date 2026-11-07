@@ -32,7 +32,7 @@ from lorenzo_api.repository_inclusion import (
     showable,
     terms_of,
 )
-from lorenzo_api.repository_reach import dependents_over
+from lorenzo_api.repository_reach import dependents_over, held_protected
 from lorenzo_api.repository_releases import ReleaseRef, current_release, releases_named
 from lorenzo_api.repository_upstream import DOCUMENT_VISIBILITIES, visibility_of
 
@@ -92,13 +92,21 @@ async def built_on_behind(session: AsyncSession, repository_id: uuid.UUID) -> li
     (a copy from before releases took none), or that cannot be read. Empty when this repository
     is built on nothing. Both directions count: a repository authored against an older or a
     newer state than the one it is built on gives a library rows ADR 0120 drops. A protected one
-    is read through the public repository this one holds that lists it (ADR 0434)."""
+    is read through the public repository this one holds that lists it (ADR 0434); one it cannot
+    read that it holds a copy of is compared by the release `tenant` says is current
+    (`held_protected`), so a repository that copied a public repository goes on releasing when it
+    becomes protected."""
     found: list[Behind] = []
     for copy, name in await _copies(session, repository_id):
         upstream = copy.repository_tenant_id
         async with reading_repository_held(session, upstream) as readable:
             if not readable:
-                found.append(Behind(upstream, name, None, None, readable=False))
+                # A source it cannot read but holds a copy of, protected since (ADR 0434): what
+                # it took is current while the source has made no release since. One it cannot
+                # take is behind, and so is one it holds no copy of.
+                held = await held_protected(session, repository_id, upstream)
+                if held is None or held[0] != copy.synced_release_id:
+                    found.append(Behind(upstream, name, None, None, readable=False))
                 continue
             current = await current_release(session, upstream)
             taken = (
@@ -120,8 +128,10 @@ async def built_on_not_public(
     owns it (so they can be offered to make it public): the ones that stop this repository being
     made public or protected. A source is reached when it is public or protected and this
     repository can read it (ADR 0434), or when this repository includes it, since its release
-    carries it as its own rows (ADR 0431); whether the user may include it is the release's
-    question, asked when the release is made. A source it cannot read counts as not reached."""
+    carries it as its own rows (ADR 0431); whether the user may include it is asked once, when
+    the choice is set (`set_inclusion`), or when it holds a copy of it that it cannot read now
+    because it is protected since (`held_protected`). Any other source it cannot read counts as
+    not reached."""
     found: list[dict[str, Any]] = []
     for copy, name in await _copies(session, repository_id):
         if copy.inclusion == "include":
@@ -129,6 +139,11 @@ async def built_on_not_public(
         upstream = copy.repository_tenant_id
         async with reading_repository_held(session, upstream) as readable:
             reached = readable and await visibility_of(session, upstream) in DOCUMENT_VISIBILITIES
+        # A copy it holds of a repository that is protected since, which it cannot read now, is
+        # reached too (ADR 0434): the copy was taken while it could, and its release lists it.
+        reached = reached or (
+            not readable and await held_protected(session, repository_id, upstream) is not None
+        )
         if not reached:
             found.append(
                 {
@@ -177,6 +192,8 @@ async def built_on_sources(
         async with reading_repository_held(session, upstream) as readable:
             visibility = await visibility_of(session, upstream) if readable else None
             terms = terms_of(await session.get(RepositoryProfile, upstream)) if readable else None
+        if not readable and await held_protected(session, repository_id, upstream) is not None:
+            visibility = "protected"
         can = await includable(session, upstream, user_id)
         may_show = await showable(session, upstream, user_id)
         may_hide = await hidable(session, upstream, user_id)

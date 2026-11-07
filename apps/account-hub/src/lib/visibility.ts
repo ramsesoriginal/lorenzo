@@ -205,16 +205,6 @@ export function publicBlockers(
     );
   }
 
-  // Included, and no longer allowed (its Owner took the yes back, or someone else chose it): the release
-  // would publish what this user may not.
-  for (const upstream of check.built_on ?? []) {
-    if (upstream.inclusion === 'include' && !upstream.includable.allowed) {
-      blockers.push({
-        text: `${upstream.name} is included in this repository, and you may not include it: its Owner has not allowed it, and you are not one of its Owners. Keep it separate below, or ask its Owner to turn on “May be included”.`,
-      });
-    }
-  }
-
   for (const upstream of check.built_on_behind) {
     const place =
       upstream.taken && upstream.current

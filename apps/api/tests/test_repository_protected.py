@@ -17,8 +17,18 @@ from _fake_jwks import FakeJwksServer
 from _release_world import release_world
 from _repository_actors import Actor, make_actor
 from httpx import AsyncClient
-from sqlalchemy import func, select, update
-from test_repository_include import W, _bridge, _copy, _entries, _include, _library, _make_public
+from sqlalchemy import delete, func, select, update
+from test_repository_include import (
+    LICENCE,
+    W,
+    _bridge,
+    _copy,
+    _document,
+    _entries,
+    _include,
+    _library,
+    _make_public,
+)
 
 from lorenzo_api.config import get_settings
 from lorenzo_api.models import (
@@ -745,15 +755,17 @@ async def test_a_repository_that_says_stay_hidden_leaves_include_for_the_ones_bu
         [source] = check["built_on"]
         assert source["showable"] == {"allowed": False, "by": None}
         assert source["includable"]["allowed"] is True and source["may_be_shown"] is False
-        # B shows it, which is what it has until it chooses: a public release of it is refused,
-        # whatever was chosen before the terms changed.
+        # B shows it, which is what it has until it chooses: consent is asked once, when the choice
+        # is set, so a release is not refused for a choice made before the terms changed (and A's
+        # Owner turning the terms off does not touch the release of the repository that chose).
         released = await _make_public(owner_b, b)
-        assert released.status_code == 409
-        assert released.json()["type"] == "repository-not-showable"
-        # Include is the way, and A's terms allow it.
+        assert released.status_code == 200, released.text
+        # Include is the way for a choice made now, and A's terms allow it; show is refused again.
         assert (await owner_b.put(url, json={"inclusion": "include"})).status_code == 200
         assert (await owner_b.put(url, json={"inclusion": "show"})).status_code == 409
-        made = await _make_public(owner_b, b)
+        made = await owner_b.put(
+            f"/tenants/{b}/published", json={"label": "1.1", "acknowledge_breaking": True}
+        )
         assert made.status_code == 200, made.text
 
         # A's Owner is not held to what A said of others: it may keep its own A shown.
@@ -829,7 +841,217 @@ async def test_a_protected_repository_may_be_included_by_default_and_not_when_it
                 f"/tenants/{base.repository}/profile", json={"terms": {"may_be_included": False}}
             )
         ).status_code == 200
-        refused = await _make_public(owner_b, b)
+        # Consent is asked once, when the choice is set: the release of B is made, and only a
+        # choice made afterwards is refused.
+        made = await _make_public(owner_b, b)
+        assert made.status_code == 200, made.text
+        url = f"/tenants/{b}/repositories/{base.repository}/inclusion"
+        assert (await owner_b.put(url, json={"inclusion": "show"})).status_code == 200
+        refused = await owner_b.put(url, json={"inclusion": "include"})
         assert refused.status_code == 409 and refused.json()["type"] == "repository-not-includable"
     finally:
         await base.done()
+
+
+# --- A repository built on a public one releases on after it becomes protected ------------------
+
+
+async def _built_on_public(raw_client: AsyncClient, jwks: FakeJwksServer, *, public_b: bool) -> W:
+    """A is public (its Owner is B's too, who never invited B: B holds the public grant a copy of
+    a public repository writes), B is a bridge that copied it, and public over it when
+    `public_b`."""
+    base = await release_world(raw_client, jwks)
+    assert (await _make_public(base.author, base.repository)).status_code == 200
+    b, ids = await _bridge(base, "Bridge", invite=False)
+    w = W(base, b, ids)
+    if public_b:
+        assert (await _make_public(base.author, b)).status_code == 200
+    return w
+
+
+async def test_a_public_repository_built_on_a_public_one_releases_on_when_that_becomes_protected(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """The maintainer's decision on ADR 0434's question: B copied A while A was public, so it
+    holds a copy; A's Owner makes A protected and B can still release, with no invitation. Nothing
+    of A is opened to B for any other purpose, and a library that copies B reaches A through it."""
+    w = await _built_on_public(raw_client, fake_jwks_server, public_b=True)
+    try:
+        cut = await _protect(w.author, w.a, acknowledge_revokes=True)
+        assert cut.status_code == 200, cut.text
+        assert await _subscription(w.b, w.a) == "protected"
+
+        # B reads nothing of A: not its content, not its profile.
+        assert (
+            await w.author.get(f"/tenants/{w.b}/repositories/{w.a}/entities")
+        ).status_code == 404
+        assert (await w.author.get(f"/tenants/{w.b}/repositories/{w.a}/profile")).status_code == 404
+        # And the gates say B is where it was: nothing behind, nothing unreached.
+        check = (await w.author.get(f"/tenants/{w.b}/flip-check")).json()
+        assert check["built_on_behind"] == [] and check["built_on_not_public"] == []
+        [source] = check["built_on"]
+        assert (source["protected"], source["public"], source["name"]) == (True, False, "Armoury")
+
+        released = await w.author.put(f"/tenants/{w.b}/published", json={"label": "1.1"})
+        assert released.status_code == 200, released.text
+        async with admin_session_factory() as session:
+            tenant = await session.get_one(Tenant, w.b)
+            assert tenant.released_public is True and tenant.released_over == [w.a]
+            assert (await session.get_one(RepositoryProfile, w.b)).release_sources == [
+                {
+                    "id": str(w.a),
+                    "name": "Armoury",
+                    "inclusion": "show",
+                    "licence_label": None,
+                    "licence_url": None,
+                }
+            ]
+        # B reads nothing of A still.
+        assert (
+            await w.author.get(f"/tenants/{w.b}/repositories/{w.a}/entities")
+        ).status_code == 404
+
+        # A library that copies B gets A as a step of it, not named; one that holds nothing of B
+        # reads nothing of A, and a visitor reads nothing at all.
+        reader, library = await _library(raw_client, fake_jwks_server, w)
+        plan = (await reader.get(f"/tenants/{library}/repositories/{w.b}/copy-plan")).json()
+        assert [(s["name"], s["protected"]) for s in plan["steps"]] == [
+            (PROTECTED_NAME, True),
+            ("Bridge", False),
+        ]
+        assert (await _copy(reader, library, w.b)).status_code == 201
+        assert await _entries(reader, library) == ["Bridge Blade", "Dagger", "Longsword", "Orc"]
+        other, other_library = await _library(raw_client, fake_jwks_server, w, "Other")
+        assert (
+            await other.get(f"/tenants/{other_library}/repositories/{w.a}/entities")
+        ).status_code == 404
+        assert (
+            await other.get(f"/tenants/{other_library}/repositories/{w.a}/copy-plan")
+        ).status_code == 404
+        visitor = await _visitor(raw_client, fake_jwks_server, w)
+        assert set(await _closed(visitor, _alone(w.a))) == {404}
+    finally:
+        await w.done()
+
+
+@pytest.mark.parametrize("flip", ["public", "protected"])
+async def test_a_private_repository_built_on_a_public_one_makes_its_first_release_when_protected(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer, flip: str
+) -> None:
+    """B has no public release yet: the stack rule and the skew gate hold for it the same way, for
+    a public first release and for a protected one."""
+    w = await _built_on_public(raw_client, fake_jwks_server, public_b=False)
+    try:
+        assert (await _protect(w.author, w.a, acknowledge_revokes=True)).status_code == 200
+        check = (await w.author.get(f"/tenants/{w.b}/flip-check")).json()
+        assert check["built_on_behind"] == [] and check["built_on_not_public"] == []
+        made = (
+            await _make_public(w.author, w.b) if flip == "public" else await _protect(w.author, w.b)
+        )
+        assert made.status_code == 200, made.text
+        assert made.json()["release"] is not None
+    finally:
+        await w.done()
+
+
+async def test_a_release_of_the_protected_repository_made_later_needs_an_invitation_to_take(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """The copy B holds is of the release it took. A release A makes after it is protected is one
+    B cannot read, so B is behind until A's Owner invites it."""
+    w = await _built_on_public(raw_client, fake_jwks_server, public_b=True)
+    try:
+        assert (await _protect(w.author, w.a, acknowledge_revokes=True)).status_code == 200
+        async with admin_session_factory() as session:
+            spear = Entity(tenant_id=w.a, name="Spear")
+            session.add(spear)
+            await session.flush()
+            session.add(Item(entity_id=spear.id, tenant_id=w.a))
+            await session.commit()
+            spear_id = spear.id
+        await w.base.publish(label="2.0")
+
+        refused = await w.author.put(f"/tenants/{w.b}/published", json={"label": "1.1"})
+        assert refused.status_code == 409 and refused.json()["type"] == "built-on-behind"
+        assert [r["readable"] for r in refused.json()["repositories"]] == [False]
+        assert (await w.author.get(f"/tenants/{w.b}/repositories/{w.a}/updates")).status_code == 404
+
+        invited = await w.author.put(f"/tenants/{w.a}/subscribers/{w.b}")
+        assert invited.status_code in (200, 201), invited.text
+        taken = await w.author.post(
+            f"/tenants/{w.b}/repositories/{w.a}/updates",
+            json={"actions": [{"kind": "entity", "source_id": str(spear_id), "action": "add"}]},
+        )
+        assert taken.status_code == 200, taken.text
+        assert (
+            await w.author.put(f"/tenants/{w.b}/published", json={"label": "1.1"})
+        ).status_code == 200
+    finally:
+        await w.done()
+
+
+async def test_a_delisted_protected_repository_stops_a_repository_that_holds_a_copy_of_it(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    w = await _built_on_public(raw_client, fake_jwks_server, public_b=True)
+    try:
+        assert (await _protect(w.author, w.a, acknowledge_revokes=True)).status_code == 200
+        await _delist(w.a, on=True)
+        refused = await w.author.put(f"/tenants/{w.b}/published", json={"label": "1.1"})
+        assert refused.status_code == 409 and refused.json()["type"] == "built-on-behind"
+        await _delist(w.a, on=False)
+        assert (
+            await w.author.put(f"/tenants/{w.b}/published", json={"label": "1.1"})
+        ).status_code == 200
+    finally:
+        await w.done()
+
+
+async def test_a_repository_that_holds_no_grant_row_for_it_gets_nothing_from_the_copy(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """The row is the repository's own and is what says it took the copy while it could read A: a
+    repository whose rows are gone (A's Owner took its invitation back) has a copy and no way to
+    release over it."""
+    base = await release_world(raw_client, fake_jwks_server)
+    try:
+        assert (await _protect(base.author, base.repository, label="p")).status_code == 200
+        b, _ = await _bridge(base, "Bridge")
+        base.tenants.append(b)
+        async with admin_session_factory() as session:
+            await session.execute(
+                delete(RepositorySubscription).where(
+                    RepositorySubscription.subscriber_tenant_id == b
+                )
+            )
+            await session.commit()
+        refused = await _make_public(base.author, b)
+        assert refused.status_code == 409
+        assert refused.json()["type"] == "built-on-not-public"
+        check = (await base.author.get(f"/tenants/{b}/flip-check")).json()
+        assert [s["name"] for s in check["built_on_not_public"]] == ["Armoury"]
+    finally:
+        await base.done()
+
+
+async def test_an_included_source_keeps_the_licence_its_release_recorded_when_it_is_protected(
+    raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
+) -> None:
+    """B includes the public A, released with A's licence; A becomes protected and B cannot read
+    its profile any more: the next release carries the licence the last one recorded."""
+    w = await _built_on_public(raw_client, fake_jwks_server, public_b=False)
+    try:
+        assert (
+            await w.author.patch(f"/tenants/{w.a}/profile", json={"licence": LICENCE})
+        ).status_code == 200
+        assert (await _include(w.author, w.b, w.a)).status_code == 200
+        assert (await _make_public(w.author, w.b)).status_code == 200
+        assert (await _protect(w.author, w.a, acknowledge_revokes=True)).status_code == 200
+        released = await w.author.put(f"/tenants/{w.b}/published", json={"label": "1.1"})
+        assert released.status_code == 200, released.text
+        assert (await _document(w.b)).sources[w.a]["licence"] == LICENCE
+        async with admin_session_factory() as session:
+            [record] = (await session.get_one(RepositoryProfile, w.b)).release_sources or []
+            assert (record["inclusion"], record["licence_label"]) == ("include", "CC BY 4.0")
+    finally:
+        await w.done()

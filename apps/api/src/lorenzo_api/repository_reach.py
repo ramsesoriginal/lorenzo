@@ -24,6 +24,7 @@ from lorenzo_api.models import RepositoryCopy, RepositoryProfile, RepositorySubs
 __all__ = [
     "PROTECTED_NAME",
     "dependents_over",
+    "held_protected",
     "holders_of",
     "reach_of",
     "revoke_protected_through",
@@ -79,6 +80,41 @@ async def sync_reach(session: AsyncSession, repository_id: uuid.UUID) -> None:
         tenant.released_over = over
         tenant.released_public = public
         await session.flush()
+
+
+async def held_protected(
+    session: AsyncSession, repository_id: uuid.UUID, source_id: uuid.UUID
+) -> tuple[uuid.UUID | None] | None:
+    """Whether the repository holds a copy of `source_id` that it took while the source was
+    readable to it, and the source is protected now: the repository's own `protected` grant row
+    for it (written when a library or repository copies a public repository that brings a
+    protected one, and when a public repository is made protected, ADR 0434) on a source that is
+    published and not delisted. Returns `(its current release id,)`, or None when it holds no such
+    copy.
+
+    This is what lets a repository that copied a public A go on releasing once A is protected
+    (ADR 0434, the maintainer's decision), with no invitation and no new way to read A: the answer
+    comes from the repository's own row and from the source's `tenant` row, which every tenant
+    reads, and the gates that ask it (`built_on_behind`, `built_on_not_public`) learn nothing of
+    the source's profile or content. Nothing here is a read of the source, so the three places
+    that say who may read a repository are unchanged, and an unrelated library, a visitor, or this
+    repository for any other purpose still reads nothing of it. The release gate still compares
+    the source's current release with the one taken: a release made after it went protected is one
+    the repository cannot take without an invitation, and it is behind until it has one."""
+    row = (
+        await session.execute(
+            select(Tenant.current_release_id)
+            .join(RepositorySubscription, RepositorySubscription.repository_tenant_id == Tenant.id)
+            .where(
+                RepositorySubscription.subscriber_tenant_id == repository_id,
+                RepositorySubscription.repository_tenant_id == source_id,
+                RepositorySubscription.source == "protected",
+                Tenant.published_at.is_not(None),
+                Tenant.delisted_at.is_(None),
+            )
+        )
+    ).first()
+    return None if row is None else (row[0],)
 
 
 async def dependents_over(
