@@ -1,0 +1,120 @@
+# 0435 - Hiding the entries of a repository built on another
+
+Status: accepted. Slice H4 of [RFC 0051](../rfcs/0051-building-on-a-repository-you-do-not-publish.md), tracked in #1066. Builds on [ADR 0431](0431-including-a-repository-in-the-release-of-one-built-on-it.md) (the choice, A's terms and what a release records of how it carried a source), [ADR 0434](0434-a-protected-repository.md) (a protected repository, `may_be_shown` and the presets), [ADR 0120](0120-bridge-repositories-and-dependency-manifests.md) (every copy link names an origin), [ADR 0121](0121-repository-updates-and-re-sync.md) (the update engine), [ADR 0305](0305-facts-and-entry-audiences.md) (the entry gate every read of an entry applies), [ADR 0276](0276-where-a-stat-value-comes-from.md) (where a stat value comes from) and [ADR 0299](0299-what-a-public-repository-says-about-its-publisher-and-hides-about-its-libraries.md) (what a public repository hides about its libraries). The choices marked *default* are the answers the maintainer gave to the RFC's open questions or the smallest ones; each is listed as a question at the end.
+
+## Context
+
+[RFC 0051](../rfcs/0051-building-on-a-repository-you-do-not-publish.md) lets a repository B carry a source A three ways: include it ([ADR 0431](0431-including-a-repository-in-the-release-of-one-built-on-it.md)), keep it separate and visible, or **keep it separate and hidden**. A hidden source is still copied: a library that copies B holds A's entries, cannot see them, and the entries of B that inherit from them go on resolving through them. This slice builds the third way. It is last of the four because it touches every read of an entry.
+
+## The spike
+
+The RFC asked whether hiding rides on the entry audiences of [RFC 0044](../rfcs/0044-facts-audiences-and-information-bundles.md), and whether the effective-stat views, the prototype edge and the provenance of [ADR 0276](0276-where-a-stat-value-comes-from.md) still resolve through a hidden entry. A throwaway test (kept as `tests/test_repository_hidden.py`) and a read of every route answered both.
+
+- **It rides on the gate, not on the audience rows.** Every read of an entry already asks one gate, [ADR 0305](0305-facts-and-entry-audiences.md): `visible_entry_clause` for a list, `hidden_entry_ids` and `can_see_entry` for what a read has loaded, `require_visible_entry` for one entry by its address (`get_entity_or_404`). That is where a hidden entry has to be asked, so the gate gains one input and nothing else changes. The **audience rows** cannot carry it, for two reasons found by the spike: an audience is the library's own fact about its entry (copied with the row, edited by the library's members, deleted when it is set back to the default), and an Owner, an Organizer and an Author of a library are let past every audience (`is_admin`, `author_sees_all`). Hidden has to hold for the Owner and cannot be a thing a member edits.
+- **Everything still resolves.** The effective-stat views read the tables and never the gate, so a value, a formula and a `contents` formula resolve through a hidden entry; the prototype edge is a row nobody filters; and the provenance already says "a source the reader may not see" with `from_entity: null` when `can_see_entry` is false, which a hidden entry now is. Tests: a visible entry inherits `Strength` 10 and the formula `Damage` 6 from a hidden Longsword, in its own read, in the page of effective values, in the explanation and in the item's read.
+- **What does not resolve: the texts.** The information of a hidden entry (a description, a picture) is not read through to the entries below it, as it is not for an entry an audience hides: `can_see` is false of every row of a hidden entry. RFC 0051 says "an inherited value reads as before"; a value is a stat, and this is a *default*, asked below.
+- **The gate is not the one place.** The typed lists (`items`, `beings`, `characters`, `item-instances` and its four lists, `knowledge`) never applied it, since they predate it and an administrator was never filtered. Every other route that lists entries already applies `visible_entry_clause` (the entities, locations, maps, connections, relationships, social webs, calendars, clocks, events, sessions, scenes, writing). So there are two ways in and both are closed (below), and a sweep of every `GET` route under `/tenants/{tenant_id}` proves it.
+
+## Decision
+
+### The choice, and A's third term
+
+`repository_copy.inclusion` allows `hide` ([ADR 0431](0431-including-a-repository-in-the-release-of-one-built-on-it.md)); the request accepts it, the answers name it with an extensible enum (`InclusionNameOut`, `x-extensible-enum`) so that the contract has no break, as H3 did for `visibility`. `repository_profile.may_be_hidden` is A's third term, a nullable boolean like the other two: **on by default for every visibility, and only a protected repository can say no** (`PATCH .../profile` with `terms.may_be_hidden: false` is `409 repository-not-protected` for any other, a public one is copied by anybody so hiding it only tidies one library). `hide` follows `show` and `include`: asked when the choice is set (`PUT .../inclusion` is `409 repository-not-hidable`, naming the repository, unless the user is an Owner of it or its terms allow it) and again when a release is made, for the user making it. The API offers it as `hidable` (`allowed`, `by`) beside `includable` and `showable` on the list of what a repository copied, on the answer of the choice and in the flip check (with `may_be_hidden`). The screen's presets keep their two names and set all three switches: **Open** is all three on, **Stay hidden** is included and hidden on and shown off; a repository that says no to hiding is neither.
+
+A release records `hide` for a source in `Content.sources` exactly as it records the other two (`inclusion` is plain text in the document, so the format does not change: [ADR 0431](0431-including-a-repository-in-the-release-of-one-built-on-it.md)); `repository_profile.release_sources` keeps it, and **changing between any two of the three after the first public release is a breaking release** by the second list of ADR 0431 (`inclusion_changes`, `acknowledge_breaking`). A hidden source is carried separate, so it is a dependency for the stack rule (it has to be public or protected, which hiding does not change), the skew gate and `public_dependents`, and it is in `tenant.released_over`. Hiding applies to what a **release document** carries (a public or protected repository): a private repository is read live, whole, and records no sources, so nothing it says hides anything.
+
+### The flag, where it lives and how it is derived
+
+`repository_copy_link_entity.hidden` is the flag on the copy link of each entry, as the RFC says, and it is **derived, never set by a request**. The library keeps one more fact, `repository_copy.carries`: for each repository it holds, what the release it last took brings separate, `{<source>: "show" | "hide"}`, taken from the release's `Content.sources` (a source it includes is its own rows and brings nothing separate), plus the repository's own id as `show` where the library copied it for itself (the head of the copy). `repository_hiding.refresh_hidden` derives every flag from the records, after every copy, every update and every removal of a copy, and nothing in it reads another repository:
+
+- **Show wins.** The entries of a repository are hidden in a library only while at least one repository it holds hides it and none shows it. A library that copied C (which shows A) as well as B (which hides it) sees A; so does one that copied A itself, first or last (RFC 0051, "Combinations"; the copy of a public A alone is the way a library un-hides it).
+- **Only a library hides.** A repository's copy of A is the rows its own release is built from and its Owner authors on top of it, so it is never hidden from its members; the choice it makes for its own release is its Owner's, within A's terms. So the entry limit of ADR 0298, which is for repositories only, is not touched, and RFC default 7 (hidden rows do not count) holds with nothing to do.
+- **What a library held before this slice is never hidden by it.** The migration writes each existing record as carrying itself, `show`.
+- **Stat groups and definitions are not hidden.** They are a library's vocabulary: they carry the values of visible entries and appear on them. *Default.*
+- `tenant.hides_entries` says whether any link of the tenant is hidden, so that the gate asks its one extra question only there: a tenant that hides nothing pays nothing, and the column is read from the tenant row every request already holds.
+
+### The gate
+
+One input is added to the gate of [ADR 0305](0305-facts-and-entry-audiences.md), and nobody is let past it, an Owner and an Author included (`shown_clause`, `visible_entry_clause`, `_entry_gate`: the early returns for an administrator stay for a tenant that hides nothing and no longer hold for one that does; `resolve_information_visibility` and `resolve_information_reader` skip nothing for it; `hidden_entry_ids` takes the hidden entries and the relationships that tie one; `require_visible_entry`, which `get_entity_or_404` calls, refuses a hidden entry with the `404` of an entry that is not there). The gate's own propagation hides what hangs on a hidden entry (an appearance in a hidden scene, a period of a hidden calendar, a relationship with a hidden end).
+
+The two ways round it are closed:
+
+- **Every route with an entry's id in its path.** `get_tenant_context` and `get_tenant_or_404`, the two dependencies every route under `/tenants/{tenant_id}` goes through, refuse a path that names an entry the tenant hides (`refuse_hidden_entries`: `404`, for reads and writes, for everyone). One place, so a route added later cannot forget it. This is also what makes a hidden entry **read-only**: it cannot be read, so it cannot be changed or deleted by its address.
+- **The typed lists** (`items`, `beings`, `characters`, `item-instances` and its lists, `knowledge`) ask `unhidden` (`entry_visibility`), the same question as a clause.
+
+And the engines that write what a library hides read it as they must: the copy and update engines load content directly and the derivation reads the records, so none of them goes through the gate.
+
+### What a library sees of a hidden ancestor
+
+An inherited value reads as before with `from_entity: null`, and now with **`from_hidden: true`** on the entry's stat (`EntityStatValueOut`), on the page of effective values and on the explanation: "inherited from an entry the reader may not see", which a client says as **"a hidden entry"** (Beings' tile reads "From a hidden entry"). The same flag is true of an entry an audience hides, which is the same thing for the reader. The prototypes an entry lists, its children, its containment and its ties leave out a hidden entry, as for any entry the reader may not see.
+
+### Updates
+
+An update is one repository's: the library asks A, not B. The update of a repository whose entries the library hides **names no entry**: its changed, added and removed entries are not in the lists, they are `hidden` on the answer (`HiddenChangesOut`: `changed`, `added`, `removed`, `breaking`, `label`, the label "3 changes to hidden entries"), and the release it names has its breaking and warning rows with the entries scrubbed ("a hidden entry"). A visible row that mentions a hidden entry (a parent it gained) names it "a hidden entry" in `names` and in the attachments. A stat group or a definition of the same repository is listed as ever.
+
+Applying takes the hidden changes **with the rest** whatever the actions say: a changed entry takes the repository's value for every field (a conflict is the repository's, since the library cannot have edited what it cannot see), an added entry is copied with its slug left out where it would clash, and the release is taken. **A breaking change among them is acknowledged as one line**: the apply is `409 update-needs-confirmation` with one `unconfirmed` entry of kind `hidden` ("1 change to a hidden entry") until `acknowledge_hidden_breaking` says so; a dry run asks nothing, since it changes nothing. After the apply the record's `carries` is read from the release just taken, and the flags are derived again (so a release of B that stops hiding A shows it once taken).
+
+**Deletes** (RFC default 4). A library cannot delete a hidden entry (above). An entry the repository removed is **removed with the update that drops it** when nothing visible uses it, by `unused_hidden_entries`: no visible entry has it as a parent, a container, an owner, a group, a place or an end of a relationship, and no map places a visible entry on it; each is removed on its own in a savepoint, and one the database refuses (a manuscript that hangs on it) stays. One something visible uses stays, hidden, and is counted again at the next update until what uses it lets go (a visible entry that kept a hidden parent still has it).
+
+### What a visitor reads of the repository that hides
+
+B's browse, preview, entry count and storefront leave out what its release carries hidden (`public_entry` knows `hidden_by_source`): the entries of A are in the libraries' copies and not on B's page, so the page does not give away what the libraries are not shown. What B's own members read of their tenant is unchanged.
+
+### The contract
+
+Additive, with one declaration: the responses name the choice with `x-extensible-enum` (`show`, `include`, `hide`) where they said `enum`, and the request keeps its `Literal`. New: `hidable` and `may_be_hidden` (the profile's terms, the list of what a repository copied, the answer of the choice, the flip check and its sources), `terms.may_be_hidden` on the request, `from_hidden` on the three stat reads, `hidden` on the updates and on the result of applying them, `acknowledge_hidden_breaking` on applying, the error `repository-not-hidable`. One migration: `hide` in the check of `repository_copy.inclusion`, `repository_copy.carries`, `repository_copy_link_entity.hidden` and its partial index, `tenant.hides_entries`, `repository_profile.may_be_hidden`. No policy, no table, so `copyable_tables.py` needs no line.
+
+### In the hub
+
+All in the existing files; the screens never say tenant, grant, subscription, flatten or source.
+
+- **Studio, Built on, and the Make public dialog.** The third choice, **Keep separate and hidden**, offered where `hidable` says so, with what it does ("*Armoury* stays a repository of its own, and a library that copies this repository holds its entries and does not see them: they are not listed, searched or opened, and the entries of this repository still inherit from them. It is a way to tidy, not a secret: what they give this repository’s entries reaches the library as values."; for a public one "Anyone can copy it, so hiding it only tidies the libraries that copy this repository."), and where it is not offered the words ("You cannot keep *name* separate and hidden here: its Owner has asked that what is built on it is not hidden. Keep it separate and visible instead, or ask its Owner."). A change after a release carries the breaking note and a line in the composer's list.
+- **Studio, Profile.** The terms card has the third switch, **May be hidden** (only a protected repository can turn it off, and the card says so), under the two presets; a preset sets all three.
+- **The updates of a library.** "3 changes to hidden entries" in the summary of the repository's updates, in the line of the inbox and in what "Apply all clean" says it takes, and the one-line confirmation when a release called any of them breaking. Applying with only hidden changes works.
+- **Beings.** A stat inherited from a hidden entry reads "From a hidden entry".
+- **Bench** edits nothing: it authors repositories, which never hide, and its conflict wording is about a write that lost to another, not about an update's rows.
+- **A phone.** One column, every choice and switch a row of 44 pixels.
+- [Identity §14.3](../brand/identity.md#143-terminology) gains the rows the screens use.
+
+## The RFC's open questions, as settled for this slice
+
+- Question 4. **Hidden rows nothing visible uses are removed with the update that drops them**; one something visible uses stays.
+- Question 5. **Hiding rides on the gate of the entry audiences, not on their rows** (the spike, above).
+- Question 7. **Hidden rows do not count** toward an entry limit: a library has none and a repository never hides.
+- Questions 1, 2, 3, 6 and 8 are H1 and H3's, and `hide` follows them: **three switches, two presets**, and a source that is hidden is not named to a library that holds it through another (H3) and never in a release's rows; **no re-targeting**; **changing the choice before the first public release is free**, after it breaking; **a default is stored as nothing**.
+
+## Not built
+
+- Hiding a repository's copy from its own members: only a library hides.
+- Hiding stat groups and definitions.
+- `GET /me/changes` (what happened to the things a character carries, across every library) is a cross-library read with no library behind it, so it does not ask the gate: a hidden item that a character carries is named in it. A hidden entry is not carried in practice, since nothing a library can see puts one in a character's hands.
+- A command-line command: `lorenzo api PUT /tenants/<id>/repositories/<a>/inclusion --data '{"inclusion": "hide"}'` does it, and every read of the CLI is an API read that the gate has already filtered.
+- Texts of a hidden entry inherited into the entries below it (above).
+- A notice to the Owner of A when a repository hides it: the dependents list names the choice ([ADR 0204](0204-the-owner-sees-who-copied-a-repository.md)).
+
+## What the tests pin
+
+- The sweep: every `GET` route under `/tenants/{tenant_id}` (about 130) asked of a library that hides a source, as its Owner, an Author and an Organizer, as itself, with a hidden entry's id in every `*_id` and slug of the path, with the visible entry that inherits from it, and with each repository it holds; none names a hidden entry or its id; and a library that shows the source is asked the same, so the sweep finds what it looks for. In two worlds: the Armoury of the release tests, and a repository with a row in every content table (every kind of entry).
+- A hidden entry is read-only by its address (ten writes, `404`); inheritance, values, formulas, the page of effective values, the explanation and the item read resolve through it with `from_hidden`; an entry the library made itself with a hidden parent reads the same.
+- Show wins in both orders and with the source copied for itself, and a library that copied only the repository that hides it hides; the flag and `tenant.hides_entries` follow the records; the derivation as a pure function.
+- The update: counts and a label, no name anywhere in the answer, the one-line acknowledgement (`409` without it, nothing changed), the hidden changes taken with the rest, the new entry hidden, the removed one gone and the one a visible entry uses kept, a visible row that mentions a hidden entry naming it "a hidden entry".
+- The choice and the terms: kept, listed, recorded in the release, a visitor's browse, preview and count leaving it out, `hidable` and the refusal naming the repository, an Owner of A exempt, the release asking again, only a protected repository saying no, the default, a public source hidden (cosmetic) and a private one still not reached, changing it after a release breaking (and back).
+- In the hub, unit: the words, what is offered and why not, the presets, the terms line, the lines of a breaking change, the counts and the receipt and the confirmation of an update, the Owner's line; in Beings, the provenance. Against the real API: an Owner hides a protected repository in Studio, a library that copies the repository holds its entries and sees none, an update of the source is "1 change to a hidden entry" and is taken with "Apply all clean"; a repository that says it may not be hidden is not offered the choice; and at 375 pixels each choice and switch is 44 pixels high and nothing scrolls sideways.
+
+## Questions for the maintainer
+
+- Should a **repository built on one that hides A** (B2 copies B) see A's entries as its members, as built (only a library hides), or should hiding reach it, which would hide from the Owner what the next release carries?
+- Are the **texts** of a hidden entry (descriptions, pictures) meant to be inherited into the entries below it? They are not, as for an entry an audience hides; RFC 0051 says an inherited *value* reads as before.
+- Is **hiding allowed for every visibility with only a protected repository able to say no** (as `may_be_shown`) the reading of the RFC's defaults? The brief read "hidden on for protected only"; this takes it as "a no counts for protected only".
+- Should **a hidden entry something visible still uses** stay for good and be counted at every update, as built, or be detached from its repository and kept as the library's own, which shows it?
+- Should **GET /me/changes** be filtered for a hidden entry, which needs a gate that works across libraries?
+- Should **stat groups and definitions** of a hidden repository be hidden too, which would hide the vocabulary of the visible entries?
+
+## Consequences
+
+- A repository can be published over a source whose entries it does not want its libraries to browse, without the source being private or included: the libraries hold the entries, resolve through them and take their updates, and see counts where they would have seen names.
+- Hiding is a filter, not secrecy, as the RFC says and the screen says: what a hidden entry gives the entries below it reaches the library as values, and the rows live in the library's own tenant.
+- The gate every read of an entry asks is now unconditional for a tenant that hides, which the three sweeps hold; a route added later is caught by the path guard (by address) and by the sweep (in a list).
+- A library derives what it hides from its own records, so the flag is true after any copy, update or removal without reading another repository, and a repository's choice reaches a library at its next update, as every change of a repository does.
+
+Closes #1066
