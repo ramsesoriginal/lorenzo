@@ -269,7 +269,7 @@ describe('what stands in the way of making it public', () => {
     expect(notOwned?.text).toMatch(/make it public\.$/);
   });
 
-  it('is nothing for one that is included, and says so for one that is included and not allowed', () => {
+  it('is nothing for one that is included, whether or not its terms still allow it', () => {
     const base = {
       public: false,
       owned: false,
@@ -292,25 +292,22 @@ describe('what stands in the way of making it public', () => {
       ),
     ).toEqual([]);
 
-    const [blocker] = publicBlockers(
-      check({
-        built_on: [
-          {
-            ...base,
-            id: 'a',
-            name: 'Core',
-            inclusion: 'include',
-            includable: { allowed: false, by: null },
-          },
-        ],
-      }),
-    );
-
-    expect(blocker?.text).toContain(
-      'Core is included in this repository, and you may not include it',
-    );
-    expect(blocker?.text).toContain('turn on “May be included”');
-    expect(blocker?.text).not.toMatch(/tenant|grant|subscri|flatten|source/i);
+    // Consent is asked once, when the choice is set: terms taken back afterwards do not stop the release.
+    expect(
+      publicBlockers(
+        check({
+          built_on: [
+            {
+              ...base,
+              id: 'a',
+              name: 'Core',
+              inclusion: 'include',
+              includable: { allowed: false, by: null },
+            },
+          ],
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it('says it without the releases when one cannot be named', () => {

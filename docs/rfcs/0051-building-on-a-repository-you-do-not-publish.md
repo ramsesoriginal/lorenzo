@@ -136,8 +136,9 @@ spec; where the build differs, it says so here:
   response enum of the contract, which the contract's diff calls breaking. `inclusion_changes` is each repository
   whose choice differs from what the current public release recorded (`repository_profile.release_sources`); a
   publish with any, like one with detector hits, needs `acknowledge_breaking`, and the release is marked breaking.
-- **Consent is asked again when a release is made**, for the user making it, as well as when the choice is set:
-  the terms may have changed, and the user who releases is not always the one who chose.
+- **Consent is asked once, when the choice is set**, and not again when a release is made (the maintainer's
+  decision). A's Owner changing its terms later affects only choices made afterwards, not an existing choice and
+  not the release of the repository that already made it.
 - **Attribution** is taken from a snapshot of A's name and licence written into the release (and kept on the
   profile for the storefront), not read from A's profile, which may be private.
 - **The choice is read** from the list of repositories a repository copied, the flip check and the Owner's list of
