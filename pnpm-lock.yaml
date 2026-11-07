@@ -177,6 +177,9 @@ importers:
       '@lorenzo/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@lorenzo/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
@@ -223,6 +226,9 @@ importers:
       '@lorenzo/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@lorenzo/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
@@ -284,6 +290,9 @@ importers:
       '@lorenzo/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@lorenzo/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand
@@ -403,6 +412,9 @@ importers:
       '@lorenzo/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@lorenzo/app-shell':
+        specifier: workspace:*
+        version: link:../../packages/app-shell
       '@lorenzo/brand':
         specifier: workspace:*
         version: link:../../packages/brand

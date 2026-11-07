@@ -45,6 +45,9 @@ export function legalLinks(registry: LegalRegistry, lang: Lang): LegalLinks {
 
 const KINDS = ['notice', 'privacy', 'support'] as const;
 
+// The registry last bound, so links drawn later (a status bar that redraws itself) can be filled.
+let last: LegalRegistry | null = null;
+
 /**
  * Fills the legal and support links of the page from a registry: each `[data-shell-link]` holder
  * is shown, with its anchor's address set, when the registry has that link, and hidden otherwise.
@@ -54,6 +57,8 @@ export function bindLegalLinks(registry: LegalRegistry, root: ParentNode = docum
   const owner = 'documentElement' in root ? (root as Document) : (root as Element).ownerDocument;
   const lang = langOf(owner?.documentElement.lang);
   const found = legalLinks(registry, lang);
+
+  last = registry;
 
   for (const kind of KINDS) {
     for (const holder of root.querySelectorAll<HTMLElement>(`[data-shell-link="${kind}"]`)) {
@@ -94,4 +99,29 @@ export async function bindLegalLinksFromApi(
   } catch {
     // The links stay hidden.
   }
+}
+
+/**
+ * The three link holders as DOM, for a page that draws its own bar (Bench's status bar) and so
+ * cannot use `LegalLinks.astro`. Hidden until `bindLegalLinks` or `rebindLegalLinks` fills them.
+ */
+export function legalHolders(lang: Lang): HTMLElement[] {
+  const labels = LEGAL_LABELS[lang];
+
+  return KINDS.map((kind) => {
+    const holder = document.createElement('span');
+    const anchor = document.createElement('a');
+
+    holder.dataset.shellLink = kind;
+    holder.hidden = true;
+    anchor.textContent = labels[kind];
+    holder.append(anchor);
+
+    return holder;
+  });
+}
+
+/** Fills links drawn after the registry was read, from the last registry bound. */
+export function rebindLegalLinks(root: ParentNode = document): void {
+  if (last) bindLegalLinks(last, root);
 }
