@@ -28,7 +28,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entity_access import prototype_descendants_cte
 from lorenzo_api.entity_parents import replace_parents
-from lorenzo_api.entry_visibility import visible_entry_clause
+from lorenzo_api.entry_visibility import unhidden, visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     ClientIdUnavailableError,
@@ -225,6 +225,7 @@ async def list_items(
         .join(Entity, Entity.id == VItem.entity_id)
         .where(VItem.tenant_id == tenant_id)
         .options(*_ITEM_OPTIONS)
+        .where(await unhidden(session, tenant_id, VItem.entity_id))
         .order_by(Entity.name, VItem.entity_id)
     )
     if not await _is_member(session, tenant_id=tenant_id, user=user):

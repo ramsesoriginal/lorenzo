@@ -187,6 +187,7 @@ export function gridBlock(options: {
     read,
     describe,
     note(extent: BBox) {
+      // biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: describe is this app's own helper, not Playwright's
       count.textContent = describe(extent);
     },
     onChange(run: () => void) {

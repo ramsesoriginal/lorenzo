@@ -248,11 +248,25 @@ async def test_a_being_inherits_stats_through_its_new_parents(
     assert await stats() == []
     await _put(client, tenant_id, grunt, [race])
     assert await stats() == [
-        {"name": "hp", "value": 30, "own": False, "from_entity": ANY, "computed": False}
+        {
+            "name": "hp",
+            "value": 30,
+            "own": False,
+            "from_entity": ANY,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
     await _put(client, tenant_id, grunt, [other_race])
     assert await stats() == [
-        {"name": "hp", "value": 12, "own": False, "from_entity": ANY, "computed": False}
+        {
+            "name": "hp",
+            "value": 12,
+            "own": False,
+            "from_entity": ANY,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
     await _put(client, tenant_id, grunt, [])
     assert await stats() == []
@@ -282,7 +296,14 @@ async def test_a_value_the_entry_holds_itself_stays_when_parents_change(
     await _put(client, tenant_id, grunt, [])
     detail = await client.get(f"/tenants/{tenant_id}/entities/{grunt}")
     assert detail.json()["stats"] == [
-        {"name": "hp", "value": 99, "own": True, "from_entity": None, "computed": False}
+        {
+            "name": "hp",
+            "value": 99,
+            "own": True,
+            "from_entity": None,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
     await delete_tenant(tenant_id)
 

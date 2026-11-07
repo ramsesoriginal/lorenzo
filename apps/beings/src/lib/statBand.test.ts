@@ -52,6 +52,14 @@ describe('bandOf', () => {
     expect(group?.tiles[0]).toMatchObject({ own: false, computed: true, from: 'Dwarf' });
   });
 
+  it('says a value comes from a hidden entry where the library hides its source', () => {
+    const [group] = bandOf(defined, {
+      stats: [stat('strength', 17, { own: false, from_hidden: true })],
+    } as never);
+
+    expect(group?.tiles[0]).toMatchObject({ own: false, from: 'a hidden entry' });
+  });
+
   it('keeps a stat of a definition it cannot see, in a group of no name', () => {
     const groups = bandOf([], { stats: [stat('luck', 3)] });
 
@@ -134,6 +142,14 @@ describe('tagsOf', () => {
     entry(definition('prone', 'bool', { adjustable_in_play: true }), 'tags'),
     entry(definition('is_flag', 'bool'), 'other'),
   ];
+
+  it('says an inherited tag comes from a hidden entry too', () => {
+    const tags = tagsOf(library, {
+      stats: [stat('is_undead', true, { own: false, from_hidden: true })],
+    } as never);
+
+    expect(tags.find((tag) => tag.name === 'is_undead')?.from).toBe('a hidden entry');
+  });
 
   it('lists the tags of the tags group with what each is on the being', () => {
     const tags = tagsOf(library, {

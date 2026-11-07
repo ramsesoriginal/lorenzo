@@ -52,6 +52,12 @@ const envSchema = z.object({
     (v) => (v === "" ? undefined : v),
     z.string().email().optional(),
   ),
+
+  // Where the legal notice and the privacy policy are served (ADR 0439), the same address the
+  // API's LEGAL_URL has. Optional, no default: unset (or empty, as an unset GitHub Actions
+  // variable arrives) means `/help` links nothing, so a deployment never links another operator's
+  // notice. Read here and not from the API, because `/help` must work when nothing else is up.
+  LEGAL_URL: z.preprocess((v) => (v === "" ? undefined : v), z.string().url().optional()),
 });
 
 export type Config = Readonly<{
@@ -76,6 +82,8 @@ export type Config = Readonly<{
    * its OIDC token must carry (Cloud Scheduler defaults the audience to the
    * job's own URL) - derived from the public base URL so the two can't drift. */
   notificationDeliveryUrl: string;
+  /** The legal pages' address without a trailing slash; `undefined` = none are linked (ADR 0439). */
+  legalUrl?: string | undefined;
 }>;
 
 let cached: Config | undefined;
@@ -114,6 +122,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     publicBaseUrl: e.LOOT_BOT_PUBLIC_BASE_URL,
     authCallbackUrl: new URL("/auth/callback", e.LOOT_BOT_PUBLIC_BASE_URL).toString(),
     notificationSchedulerServiceAccount: e.NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT,
+    legalUrl: e.LEGAL_URL?.replace(/\/+$/, ""),
     notificationDeliveryUrl: new URL(
       "/internal/deliver-notifications",
       e.LOOT_BOT_PUBLIC_BASE_URL,
