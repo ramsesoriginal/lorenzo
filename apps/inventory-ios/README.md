@@ -37,3 +37,7 @@ Public macOS CI runs native contract, encryption, session, image-orientation and
 The dependency-free Python generator creates an ignored Xcode project from Sources/Resources/UITests. Windows/Linux can run Python project/contract checks; native tests need Xcode. The app owns dev/lint/test/build, API/brand dependency declarations, a consumed-contract snapshot, independent version.txt/release-please entry and Swift dependency discovery.
 
 CryptoKit AES-GCM uses fresh nonces and a random device-only Keychain key; the token also stays in Keychain. Ciphertext has file protection and backup exclusion. No paid entitlement or access group. Session generations fence responses, including same-token reconnections; cache epochs fence revocations. No telemetry, remote fonts, WebView, credential logging or redirects with bearer tokens. Pictures use authenticated payload-ID routes. Copied media becomes bounded orientation-correct JPEGs without changing originals. Font licenses are bundled in Resources.
+
+## Privacy
+
+This iPhone app keeps encrypted local copies of what you have downloaded until you sign out or the sign-in ends; the privacy policy of the Lorenzo you connect to describes this. Where that policy is: run `lorenzo legal` against the same API, or read `GET /app-links` on it (`links.legal_privacy_en`, `links.legal_privacy_de`). A link inside the app is not built yet ([ADR 0439](../../docs/adr/0439-legal-notice-and-privacy-policy.md)).
