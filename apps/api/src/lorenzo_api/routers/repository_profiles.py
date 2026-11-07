@@ -21,6 +21,7 @@ from lorenzo_api.dependencies import (
 from lorenzo_api.exceptions import (
     ProfilePictureNotFoundError,
     RepositoryNotFoundError,
+    RepositoryNotProtectedError,
     RepositoryNotPublicError,
     VisibilityHasItsOwnRouteError,
 )
@@ -114,12 +115,23 @@ async def update_profile(
         raise RepositoryNotPublicError(
             detail="Only a public repository can be left off Discover: a private one is not on it."
         )
+    if (
+        body.terms is not None
+        and body.terms.may_be_shown is False
+        and profile.visibility != "protected"
+    ):
+        raise RepositoryNotProtectedError(
+            detail="Only a protected repository can ask that what is built on it does not show it: "
+            "a private one is read by the people its Owner invites, and a public one by anybody."
+        )
     changed = [name for name in _FIELDS if name in body.model_fields_set]
     # `listed` is changed by what it says: a repository that is listed and is told so is unchanged.
     if "listed" in changed and body.listed == profile.listed:
         changed.remove("listed")
     # `terms` is changed by what it says: an empty one says nothing (ADR 0431).
-    if body.terms is not None and "may_be_included" not in body.terms.model_fields_set:
+    if body.terms is not None and not (
+        {"may_be_included", "may_be_shown"} & body.terms.model_fields_set
+    ):
         changed.remove("terms")
     for name in changed:
         value = getattr(body, name)
@@ -129,7 +141,10 @@ async def update_profile(
         elif name == "credits":
             profile.credits = [credit.model_dump() for credit in value]
         elif name == "terms":
-            profile.may_be_included = value.may_be_included
+            if "may_be_included" in value.model_fields_set:
+                profile.may_be_included = value.may_be_included
+            if "may_be_shown" in value.model_fields_set:
+                profile.may_be_shown = value.may_be_shown
         else:
             setattr(profile, name, value)
     if changed:

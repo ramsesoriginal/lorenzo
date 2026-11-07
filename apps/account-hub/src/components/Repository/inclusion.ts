@@ -30,6 +30,8 @@ export type InclusionChoice = {
   notOffered: string | null;
   // Said once a release carried it: changing it makes a breaking release.
   note: string | null;
+  // The repository is protected: what keeping it separate means says so (ADR 0434).
+  protected?: boolean;
   // Only an Owner chooses.
   editable: boolean;
   // Called with what the API answered after a choice was saved; `failed` after one was refused.
@@ -83,7 +85,7 @@ export function createInclusionChoice(options: InclusionChoice): HTMLFieldSetEle
   }
 
   effect.dataset.inclusionEffect = '';
-  effect.textContent = inclusionEffect(chosen, options.name);
+  effect.textContent = inclusionEffect(chosen, options.name, options.protected === true);
   refusal.dataset.inclusionNotOffered = '';
   refusal.textContent = options.notOffered ?? '';
   refusal.hidden = options.notOffered === null;
@@ -108,7 +110,7 @@ export function createInclusionChoice(options: InclusionChoice): HTMLFieldSetEle
           const answer = await setInclusion(options.repositoryId, options.sourceId, choice);
 
           chosen = answer.inclusion;
-          effect.textContent = inclusionEffect(chosen, options.name);
+          effect.textContent = inclusionEffect(chosen, options.name, options.protected === true);
           note.textContent = BREAKING_NOTE;
           note.hidden = answer.inclusion_in_release === null;
           say(status, inclusionSaved(answer));

@@ -118,6 +118,10 @@ export type BuiltOn = {
   // whether its Owner may include it, and how the current public release carried it (ADR 0431).
   inclusion: Inclusion | null;
   includable: IncludableOut | null;
+  // Whether it may be kept separate and visible, which only the terms of a protected repository can
+  // forbid (ADR 0434), and whether it is protected.
+  showable: IncludableOut | null;
+  protected: boolean;
   inclusionInRelease: Inclusion | null;
 };
 
@@ -147,6 +151,8 @@ export function builtOn(subscriptions: readonly SubscriptionOut[]): BuiltOn[] {
         line: parts.length === 0 ? '' : `${parts.join(', ')}.`,
         inclusion: subscription.copied_at !== null ? (subscription.inclusion ?? null) : null,
         includable: subscription.includable ?? null,
+        showable: subscription.showable ?? null,
+        protected: subscription.protected === true,
         inclusionInRelease: subscription.inclusion_in_release ?? null,
       };
     })

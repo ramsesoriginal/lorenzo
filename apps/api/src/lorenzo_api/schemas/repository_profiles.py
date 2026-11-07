@@ -32,7 +32,7 @@ __all__ = [
     "TermsOut",
 ]
 
-Visibility = Literal["private", "public"]
+Visibility = Literal["private", "protected", "public"]
 Preview = Literal["off", "showcase", "public"]
 
 SUMMARY_MAX = 280
@@ -137,11 +137,14 @@ class TermsIn(BaseModel):
     """A repository's terms, as an Owner sets them (ADR 0431, RFC 0051): what a repository built
     on it may do with it. `may_be_included` is whether one may include it in its own release;
     `null` takes the default for the repository's visibility back (a private repository: no, a
-    public one: yes)."""
+    public or protected one: yes). `may_be_shown` is whether one may keep it separate and visible
+    (ADR 0434): `false` only for a protected repository (`409 repository-not-protected`), `null` is
+    the default again, which is yes."""
 
     model_config = ConfigDict(extra="forbid")
 
     may_be_included: bool | None = None
+    may_be_shown: bool | None = None
 
 
 class RepositoryProfileUpdate(BaseModel):
@@ -283,6 +286,10 @@ class TermsOut(BaseModel):
 
     may_be_included: bool
     is_default: bool
+    # Whether a repository built on it may keep it separate and visible (ADR 0434), and whether its
+    # Owner has said nothing of it. Only a protected repository can say no.
+    may_be_shown: bool = True
+    may_be_shown_is_default: bool = True
 
 
 class RepositoryProfileOut(BaseModel):

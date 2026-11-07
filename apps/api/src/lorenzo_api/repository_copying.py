@@ -42,6 +42,7 @@ from lorenzo_api.exceptions import (
     RepositoryCopyNeedsChoicesError,
     RepositoryCopyNeedsGrantsError,
     RepositoryNotFoundError,
+    RepositoryProtectedError,
 )
 from lorenzo_api.frames import AXES
 from lorenzo_api.models import (
@@ -112,7 +113,8 @@ from lorenzo_api.repository_content import (
     stat_group_snapshot,
 )
 from lorenzo_api.repository_deprecation import copy_refusal
-from lorenzo_api.repository_upstream import is_public, load_upstream, upstream_copies
+from lorenzo_api.repository_reach import PROTECTED_NAME
+from lorenzo_api.repository_upstream import load_upstream, upstream_copies, visibility_of
 from lorenzo_api.svg_lint import SvgRefused, check_svg
 
 CollisionKind = Literal["stat_group", "stat_definition", "slug"]
@@ -169,6 +171,13 @@ class Step:
     already_copied: bool
     # Readable without a grant, because the repository is public (ADR 0287).
     public: bool = False
+    # Readable because the repository is protected and the copy goes through a public repository
+    # whose current release lists it, or the library was invited to it (ADR 0434). Its name is not
+    # given to a library that was not invited: no view of a library names a protected repository.
+    protected: bool = False
+    # Whether the library holds a grant row of any source to it, `protected` included: what a copy
+    # that writes its own grant must not write twice. `granted` is a grant that reads it alone.
+    held: bool = False
     # Retired by its Owner (ADR 0384): a library that holds it keeps it and its updates, and cannot
     # copy it again, nor take it in as a dependency it has not copied.
     deprecated: bool = False
@@ -188,8 +197,9 @@ class Step:
     @property
     def readable(self) -> bool:
         """Whether the copying tenant may read it: it is published, and the tenant holds a grant
-        or it is public (ADR 0287)."""
-        return self.published and (self.granted or self.public)
+        or it is public (ADR 0287), or it is protected and the copy goes through a repository that
+        lists it (ADR 0434)."""
+        return self.published and (self.granted or self.public or self.protected)
 
 
 LOOP_REASON = "it would make a prototype loop here"
@@ -234,13 +244,20 @@ async def _step(
     tenant_id: uuid.UUID | None,
     repository_id: uuid.UUID,
     copied: set[uuid.UUID],
+    via: uuid.UUID | None = None,
 ) -> Step:
-    """One repository as `tenant_id` stands with it (a user with no library: `None`)."""
+    """One repository as `tenant_id` stands with it (a user with no library: `None`). `via` is the
+    repository the copy goes through, the head of the manifest: a protected repository is readable
+    through it and through nothing else but an invitation (ADR 0434)."""
     repository = await session.get(Tenant, repository_id)
-    granted = (
-        tenant_id is not None
-        and (await session.get(RepositorySubscription, (repository_id, tenant_id))) is not None
+    row = (
+        await session.get(RepositorySubscription, (repository_id, tenant_id))
+        if tenant_id is not None
+        else None
     )
+    # A protected row is how a library lists what it holds through another repository; it never
+    # reads anything alone, so it is not a grant (ADR 0434).
+    granted = row is not None and row.source != "protected"
     # A delisted repository reads as unpublished to everyone but its own members (ADR 0303).
     published = bool(
         repository
@@ -248,20 +265,53 @@ async def _step(
         and repository.published_at is not None
         and repository.delisted_at is None
     )
-    public = False
+    visibility = None
     if published:
-        async with reading_repository(session, repository_id) as readable:
-            public = readable and await is_public(session, repository_id)
+        async with reading_repository(
+            session, repository_id, via=via if tenant_id is not None else None
+        ) as readable:
+            if readable:
+                visibility = await visibility_of(session, repository_id)
+    protected = visibility == "protected"
     return Step(
         repository_id=repository_id,
-        name=repository.name if repository else "",
+        # Nothing a library reads names a protected repository it was not invited to.
+        name=(
+            PROTECTED_NAME if protected and not granted else repository.name if repository else ""
+        ),
         granted=granted,
         published=published,
         already_copied=repository_id in copied,
-        public=public,
+        public=visibility == "public",
+        protected=protected,
+        held=row is not None,
         deprecated=bool(repository and repository.deprecated_at is not None),
         deprecated_message=repository.deprecated_message if repository else None,
     )
+
+
+def _protected_alone() -> RepositoryProtectedError:
+    return RepositoryProtectedError(
+        detail="This repository is protected: it comes with the repositories built on it and is "
+        "not copied on its own. Copy one of those, or build a repository of your own on it with "
+        "its Owner's invitation."
+    )
+
+
+async def _holds_protected(
+    session: AsyncSession, tenant_id: uuid.UUID | None, repository_id: uuid.UUID
+) -> bool:
+    """Whether the tenant holds the repository through another: the row it wrote for itself when
+    it copied a repository that brings it (ADR 0434)."""
+    if tenant_id is None:
+        return False
+    row = await session.get(RepositorySubscription, (repository_id, tenant_id))
+    return row is not None and row.source == "protected"
+
+
+async def _is_repository(session: AsyncSession, tenant_id: uuid.UUID) -> bool:
+    tenant = await session.get(Tenant, tenant_id)
+    return tenant is not None and tenant.kind is TenantKind.REPOSITORY
 
 
 async def _copied_by(session: AsyncSession, tenant_id: uuid.UUID) -> set[uuid.UUID]:
@@ -274,10 +324,12 @@ async def _copied_by(session: AsyncSession, tenant_id: uuid.UUID) -> set[uuid.UU
     )
 
 
-async def _dependencies(session: AsyncSession, repository_id: uuid.UUID) -> set[uuid.UUID] | None:
+async def _dependencies(
+    session: AsyncSession, repository_id: uuid.UUID, via: uuid.UUID | None = None
+) -> set[uuid.UUID] | None:
     """The repositories `repository_id` has copied, read through the gated
-    read; None if this tenant can't read it."""
-    async with reading_repository(session, repository_id) as allowed:
+    read; None if this tenant can't read it. `via` as for `_step`."""
+    async with reading_repository(session, repository_id, via=via) as allowed:
         if not allowed:
             return None
         return await upstream_copies(session, repository_id)
@@ -294,17 +346,27 @@ async def manifest(
     copied = await _copied_by(session, tenant_id) if tenant_id is not None else set()
     top = await _step(session, tenant_id, repository_id, copied)
     if not top.readable:
+        # A library that holds a repository only through another is told it is protected and
+        # copied with the repository that brings it (ADR 0434); anybody else, that it is not there.
+        if await _holds_protected(session, tenant_id, repository_id):
+            raise _protected_alone()
         raise RepositoryNotFoundError(
             detail=f"No published repository {repository_id} is granted to tenant {tenant_id}"
             if tenant_id is not None
             else f"No public repository {repository_id}"
         )
+    # Every other step is read through the head: a protected one is readable through it and
+    # through nothing else but an invitation (ADR 0434).
     deps = (await _dependencies(session, repository_id) or set()) - {tenant_id, repository_id}
-    steps = {d: await _step(session, tenant_id, d, copied) for d in deps}
+    steps = {d: await _step(session, tenant_id, d, copied, via=repository_id) for d in deps}
     # Order the dependencies among themselves by what each one copied.
     edges: dict[uuid.UUID, set[uuid.UUID]] = {}
     for d, step in steps.items():
-        edges[d] = ((await _dependencies(session, d) or set()) & deps) if step.readable else set()
+        edges[d] = (
+            ((await _dependencies(session, d, via=repository_id) or set()) & deps)
+            if step.readable
+            else set()
+        )
     ordered: list[uuid.UUID] = []
     state: dict[uuid.UUID, int] = {}
 
@@ -1622,6 +1684,10 @@ async def plan_copy(
     # included. Only a step the library can read gets here with its words: for any other the
     # manifest has answered `404`, or the plan says it is missing (ADR 0384).
     top = steps[-1]
+    # A protected repository is a step of a copy and never its head, for a library: only a
+    # repository of its own, which its Owner invited, is built on it (ADR 0434).
+    if top.protected and not await _is_repository(session, tenant_id):
+        raise _protected_alone()
     if top.deprecated and top.readable:
         raise copy_refusal(top.name, top.deprecated_message)
     if not top.already_copied:
@@ -1635,7 +1701,9 @@ async def plan_copy(
     planner = _Planner(tenant_id, user_id, links, {(r.kind, r.source_id): r for r in resolutions})
     await planner.load_local_names(session)
     for step in plan.to_copy:
-        async with reading_repository(session, step.repository_id) as allowed:
+        # Every step but the head is read through the head, as the manifest read it (ADR 0434).
+        via = None if step is steps[-1] else steps[-1].repository_id
+        async with reading_repository(session, step.repository_id, via=via) as allowed:
             assert allowed  # manifest already checked grant and publication
             upstream = await load_upstream(session, step.repository_id)
             step.content = upstream.content

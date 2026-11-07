@@ -71,7 +71,7 @@ from lorenzo_api.release_document_store import (
     kept_documents,
 )
 from lorenzo_api.release_fanout import announce, drain_after_response
-from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_access import reading_repository, reading_repository_held
 from lorenzo_api.repository_built_on import built_on_behind
 from lorenzo_api.repository_content import attachments_of, load_attachment_content
 from lorenzo_api.repository_copying import (
@@ -90,10 +90,16 @@ from lorenzo_api.repository_grants import (
     notify_tenant_admins,
     subscribe_to_public,
 )
-from lorenzo_api.repository_inclusion import includable, recorded_inclusions, set_inclusion
+from lorenzo_api.repository_inclusion import (
+    includable,
+    recorded_inclusions,
+    set_inclusion,
+    showable,
+)
 from lorenzo_api.repository_preview import preview_of, read_content, rules_for, showcase_ids
 from lorenzo_api.repository_profiles import profile_of
 from lorenzo_api.repository_publishing import publish_release
+from lorenzo_api.repository_reach import PROTECTED_NAME
 from lorenzo_api.repository_releases import (
     ReleaseRef,
     current_notice,
@@ -112,7 +118,7 @@ from lorenzo_api.repository_updates import (
 )
 from lorenzo_api.repository_upstream import (
     entity_rows,
-    is_public,
+    reads_through_release,
     stat_group_rows,
 )
 from lorenzo_api.schemas.repositories import (
@@ -261,7 +267,7 @@ async def unpublish_repository(
     §6)."""
     await _require_owner(session, tenant_id=tenant_id, user=user)
     tenant = await _require_repository(session, tenant_id)
-    if await is_public(session, tenant_id):
+    if await reads_through_release(session, tenant_id):
         raise PublicRepositoryCannotBeUnpublishedError(
             detail="Make this repository private first: unpublishing it would cut off every "
             "library that reads it without telling you how many."
@@ -326,7 +332,7 @@ async def preview_release(
             )
             for b in behind
         ],
-        built_on_blocks_publish=bool(behind) and await is_public(session, tenant_id),
+        built_on_blocks_publish=bool(behind) and await reads_through_release(session, tenant_id),
         inclusion_changes=[
             InclusionChangeOut.model_validate(c.as_json()) for c in assessed.inclusion_changes
         ],
@@ -592,9 +598,10 @@ def _is_named(tenant_id: uuid.UUID) -> Any:
 def _is_public_copy(tenant_id: uuid.UUID) -> Any:
     """The libraries that copied it by themselves, from Discover: a grant they gave themselves,
     or a copy and no grant that the repository's log never names (its public grants are
-    revoked when it goes private, and the copies stay)."""
+    revoked when it goes private, and the copies stay). One that holds a protected repository
+    through a repository built on it is counted the same way (ADR 0434)."""
     return or_(
-        RepositorySubscription.source == "public",
+        RepositorySubscription.source.in_(("public", "protected")),
         and_(
             RepositorySubscription.subscriber_tenant_id.is_(None),
             RepositoryCopy.tenant_id.is_not(None),
@@ -702,7 +709,7 @@ async def grant_repository(
     if subscriber is None:
         raise TenantNotFoundError(detail=f"No tenant with id {subscriber_tenant_id}")
     subscription = await session.get(RepositorySubscription, (tenant_id, subscriber_tenant_id))
-    if subscription is not None and subscription.source == "public":
+    if subscription is not None and subscription.source in ("public", "protected"):
         await session.delete(subscription)
         await session.flush()
     elif subscription is not None:
@@ -870,7 +877,7 @@ async def list_repositories(
             continue
         # What a library may read of a repository's releases it reads through the gated
         # read: an invitation withdrawn, or a repository back in draft, leaves it none.
-        async with reading_repository(session, repository_id) as allowed:
+        async with reading_repository_held(session, repository_id) as allowed:
             if not allowed:
                 continue
             if read := await current_release(session, repository_id):
@@ -892,13 +899,29 @@ async def list_repositories(
             if copy is not None and own is not None and own.kind is TenantKind.REPOSITORY
             else None
         )
+        may_show = (
+            await showable(session, repository_id, user.id)
+            if copy is not None and own is not None and own.kind is TenantKind.REPOSITORY
+            else None
+        )
+        through_another = grant is not None and grant.source == "protected"
         rows.append(
             SubscriptionOut(
                 repository=RepositorySummaryOut(
                     id=repository_id,
-                    name=repository.name if repository else (copy.repository_name if copy else ""),
-                    slug=repository.slug if repository else "",
-                    description=repository.description if repository else "",
+                    # Nothing a library reads names a protected repository it holds through another
+                    # (ADR 0434): not its name, its address or its description.
+                    name=(
+                        PROTECTED_NAME
+                        if through_another
+                        else repository.name
+                        if repository
+                        else (copy.repository_name if copy else "")
+                    ),
+                    slug="" if through_another or not repository else repository.slug,
+                    description=(
+                        "" if through_another or not repository else repository.description
+                    ),
                     # A delisted repository reads as unpublished to the libraries (ADR 0303).
                     published_at=(
                         repository.published_at
@@ -935,7 +958,11 @@ async def list_repositories(
                 ),
                 inclusion=_inclusion(copy.inclusion) if can is not None and copy else None,
                 includable=IncludableOut(allowed=can.allowed, by=can.by) if can else None,
+                showable=IncludableOut(allowed=may_show.allowed, by=may_show.by)
+                if may_show
+                else None,
                 inclusion_in_release=_inclusion(recorded.get(str(repository_id))),
+                protected=through_another,
             )
         )
     rows.sort(key=lambda r: (r.repository.name, str(r.repository.id)))
@@ -983,14 +1010,23 @@ async def set_repository_inclusion(
         str(repository_id)
     )
     can = await includable(session, repository_id, user.id)
+    may_show = await showable(session, repository_id, user.id)
     source = await session.get(Tenant, repository_id)
+    held = await session.get(RepositorySubscription, (repository_id, tenant_id))
     out = InclusionOut(
         repository_id=repository_id,
-        name=source.name if source is not None else copy.repository_name,
+        name=(
+            PROTECTED_NAME
+            if held is not None and held.source == "protected"
+            else source.name
+            if source is not None
+            else copy.repository_name
+        ),
         inclusion=cast("InclusionName", copy.inclusion),
         includable=IncludableOut(allowed=can.allowed, by=can.by),
         inclusion_in_release=_inclusion(recorded),
         breaking_next_release=recorded is not None and recorded != copy.inclusion,
+        showable=IncludableOut(allowed=may_show.allowed, by=may_show.by),
     )
     await session.commit()
     return out
@@ -1145,7 +1181,7 @@ async def entities_page(
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
             raise not_found()
-        if await is_public(session, repository_id):
+        if await reads_through_release(session, repository_id):
             rules = rules_for(await preview_of(session, repository_id), holder=holder)
             content = await read_content(session, repository_id)
             rows = entity_rows(content, q, public_only=True)
@@ -1252,7 +1288,7 @@ async def stat_groups_of(
     async with reading_repository(session, repository_id) as allowed:
         if not allowed:
             raise not_found()
-        if await is_public(session, repository_id):
+        if await reads_through_release(session, repository_id):
             rules = rules_for(await preview_of(session, repository_id), holder=holder)
             if rules.names != "all":
                 return []
@@ -1354,6 +1390,7 @@ async def list_repository_dependencies(
             copied=step.already_copied,
             published=step.published,
             public=step.public,
+            protected=step.protected,
         )
         for step in steps
         # One whose tenant is gone has nothing to ask, invite or copy.
@@ -1371,6 +1408,7 @@ def _step_out(step: Step, *, event_order_visible: bool = False) -> CopyStepOut:
         granted=step.granted,
         published=step.published,
         public=step.public,
+        protected=step.protected,
         already_copied=step.already_copied,
         entities=step.entities,
         stat_groups=step.stat_groups,
@@ -1466,11 +1504,15 @@ async def copy_repository(
     )
     await apply_plan(session, plan, user_id=user.id)
     # A public repository is not granted to the library that copies it, so the copy grants it, and
-    # every public repository it is built on, to the library, as its own (ADR 0287).
+    # every public repository it is built on, to the library, as its own (ADR 0287). A protected
+    # one it is built on is listed in the same way, as `protected` (ADR 0434): the row lets the
+    # library list it and never reads it alone.
     await subscribe_to_public(
         session,
         tenant_id=tenant_id,
-        repository_ids=[s.repository_id for s in plan.to_copy if s.public and not s.granted],
+        repository_ids=[s.repository_id for s in plan.to_copy if s.public and not s.held],
+        protected_ids=[s.repository_id for s in plan.to_copy if s.protected and not s.held],
+        via=repository_id,
         user_id=user.id,
     )
     if dry_run:

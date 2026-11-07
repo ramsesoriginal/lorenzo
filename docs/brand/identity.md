@@ -1496,6 +1496,12 @@ for repositories only, so the two relations never share a phrase.
 | **May be included** | The switch of a repository's Owner: whether a repository built on it may include it. Under "How repositories built on this one may use it". | Allow flattening, share |
 | **Includes content from** | The line of a repository's page that names what it includes, with its licence. | Based on, derived from |
 | **Listed on Discover** | The switch of a public repository's Owner: whether Discover shows it. Off, it is still public: its page and its address work, and a library can copy it. The API calls this `listed`. | Visible, searchable, hidden, private |
+| **Protected** | A repository that is on no listing and that no library copies on its own: a library gets it with a public repository built on it, and reads it for as long as it holds one. The API calls this `protected`. | Hidden, unlisted, secret, internal |
+| **A protected repository** | What a library calls a protected repository it holds through another: it is never named to it. | The name of the repository, its address |
+| **How repositories built on this one may use it** | The card of a repository's Owner with the presets and the switches that say what a repository built on it may do with it. | Permissions, licence, sharing |
+| **Open** | The preset: a repository built on this one may include it or keep it separate and visible. | Public, free |
+| **Stay hidden** | The preset: a repository built on this one may include it, and may not keep it separate and visible. Only a protected repository can ask for it. | Sealed, locked, private |
+| **May be shown** | The switch of a protected repository's Owner: whether a repository built on it may keep it separate and visible. | Allow link, expose |
 | **Check first** | Try a copy or an update without changing anything | Dry run |
 
 An attachment (a parent that a repository adds to something a library copied) has

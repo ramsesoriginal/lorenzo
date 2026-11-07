@@ -1,24 +1,36 @@
-// What repositories built on this one may use it for, on the Profile tab (RFC 0051 H1, ADR 0431): a
-// card with the one switch, "May be included". Every member reads it; an Owner changes it, and it is
-// saved when it is changed, not with the profile's Save: it is a decision of its own, and nothing about
-// the rest of the profile is waiting on it. The words are lib/inclusion.ts's.
+// What repositories built on this one may use it for, on the Profile tab (RFC 0051 H1 and H3, ADR 0431
+// and ADR 0434): a card with the two presets, "Open" and "Stay hidden", and the switches under them,
+// "May be included" and "May be shown". Every member reads it; an Owner changes it, and it is saved when
+// it is changed, not with the profile's Save: it is a decision of its own, and nothing about the rest of
+// the profile is waiting on it. "May be shown" can be turned off only while the repository is protected;
+// the card says so where it is not. The words are lib/inclusion.ts's. H4 adds the third switch, "May be
+// hidden", under the same presets.
 
 import { describeError } from '../../lib/describeError';
 import {
+  presetOf,
+  presetPatch,
   TERMS_HEADING,
   TERMS_INCLUDE_HELP,
   TERMS_INCLUDE_LABEL,
   TERMS_INTRO,
+  TERMS_PRESET_LEGEND,
+  TERMS_PRESETS,
   TERMS_SAVED,
   TERMS_SAVING,
+  TERMS_SHOWN_HELP,
+  TERMS_SHOWN_LABEL,
+  type TermsPreset,
   termsLine,
   termsPatch,
+  termsShownLine,
+  termsShownPatch,
 } from '../../lib/inclusion';
 import { ONLY_AN_OWNER } from '../../lib/profileEditor';
 import { getRepositoryProfile, updateRepositoryProfile } from '../../lib/repositories';
 import { say } from '../../lib/statusLine';
 import { requiredIn } from '../../lib/template';
-import type { TenantSummaryOut, TermsOut } from '../../lib/types';
+import type { MemberProfileOut, TenantSummaryOut, TermsOut } from '../../lib/types';
 
 const required = requiredIn('Repository');
 
@@ -31,7 +43,10 @@ export type TermsCard = {
 export function createTermsCard(root: HTMLElement): TermsCard {
   const card = required<HTMLElement>(root, '[data-terms-card]');
   const include = required<HTMLInputElement>(card, '[data-terms-include]');
+  const shown = required<HTMLInputElement>(card, '[data-terms-shown]');
   const line = required<HTMLElement>(card, '[data-terms-line]');
+  const shownLine = required<HTMLElement>(card, '[data-terms-shown-line]');
+  const presets = required<HTMLElement>(card, '[data-terms-presets]');
   const ownerOnly = required<HTMLElement>(card, '[data-terms-owner-only]');
   const status = required<HTMLElement>(card, '[data-terms-status]');
 
@@ -39,62 +54,136 @@ export function createTermsCard(root: HTMLElement): TermsCard {
   required<HTMLElement>(card, '[data-terms-intro]').textContent = TERMS_INTRO;
   required<HTMLElement>(card, '[data-terms-include-label]').textContent = TERMS_INCLUDE_LABEL;
   required<HTMLElement>(card, '[data-terms-include-help]').textContent = TERMS_INCLUDE_HELP;
+  required<HTMLElement>(card, '[data-terms-shown-label]').textContent = TERMS_SHOWN_LABEL;
+  required<HTMLElement>(card, '[data-terms-shown-help]').textContent = TERMS_SHOWN_HELP;
+  required<HTMLElement>(card, '[data-terms-presets-legend]').textContent = TERMS_PRESET_LEGEND;
   ownerOnly.textContent = ONLY_AN_OWNER;
 
-  let shown: TenantSummaryOut | null = null;
+  // The two presets, as a radio group built here, each with what it says.
+  const radios = new Map<TermsPreset, HTMLInputElement>();
 
-  function paint(terms: TermsOut): void {
-    include.checked = terms.may_be_included;
-    line.textContent = termsLine(terms);
+  for (const preset of TERMS_PRESETS) {
+    const row = document.createElement('label');
+    const radio = document.createElement('input');
+    const text = document.createElement('span');
+
+    row.className = 'field-row';
+    radio.type = 'radio';
+    radio.name = 'terms-preset';
+    radio.value = preset.id;
+    radio.dataset.termsPreset = preset.id;
+    text.textContent = `${preset.label}: ${preset.help}`;
+    row.append(radio, text);
+    presets.append(row);
+    radios.set(preset.id, radio);
   }
 
-  include.addEventListener('change', () => {
-    const repository = shown;
+  let repositoryShown: TenantSummaryOut | null = null;
+  let visibility = 'private';
+  let current: TermsOut | null = null;
+
+  function lock(locked: boolean): void {
+    const owner = repositoryShown?.role === 'owner';
+    // Only a protected repository can ask not to be shown: the switch and its preset wait for it.
+    const mayHide = visibility === 'protected';
+
+    include.disabled = locked || !owner;
+    shown.disabled = locked || !owner || !mayHide;
+    for (const [id, radio] of radios) {
+      radio.disabled = locked || !owner || (id === 'stay-hidden' && !mayHide);
+    }
+  }
+
+  function paint(terms: TermsOut): void {
+    current = terms;
+    include.checked = terms.may_be_included;
+    line.textContent = termsLine(terms, visibility);
+    shown.checked = terms.may_be_shown;
+    shownLine.textContent = termsShownLine(terms, visibility);
+
+    const preset = presetOf(terms, visibility);
+
+    for (const [id, radio] of radios) radio.checked = id === preset;
+  }
+
+  // One change, saved at once: what the API answered is what the card says after.
+  function save(patch: Parameters<typeof updateRepositoryProfile>[1], undo: () => void): void {
+    const repository = repositoryShown;
 
     if (repository?.role !== 'owner') return;
 
-    const wanted = include.checked;
-
-    include.disabled = true;
+    lock(true);
     say(status, TERMS_SAVING);
 
     void (async () => {
       try {
-        const profile = await updateRepositoryProfile(repository.id, termsPatch(wanted));
+        const profile = await updateRepositoryProfile(repository.id, patch);
 
-        if (shown !== repository) return;
+        if (repositoryShown !== repository) return;
 
         paint(profile.terms);
         say(status, TERMS_SAVED);
       } catch (cause) {
-        if (shown !== repository) return;
+        if (repositoryShown !== repository) return;
 
-        include.checked = !wanted;
+        undo();
         say(status, describeError(cause), true);
       } finally {
-        include.disabled = shown !== repository || repository.role !== 'owner';
+        if (repositoryShown === repository) lock(false);
       }
     })();
+  }
+
+  include.addEventListener('change', () => {
+    const wanted = include.checked;
+
+    save(termsPatch(wanted), () => {
+      include.checked = !wanted;
+    });
   });
+
+  shown.addEventListener('change', () => {
+    const wanted = shown.checked;
+
+    save(termsShownPatch(wanted), () => {
+      shown.checked = !wanted;
+    });
+  });
+
+  for (const [id, radio] of radios) {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+
+      const before = current;
+
+      save(presetPatch(id), () => {
+        if (before) paint(before);
+      });
+    });
+  }
 
   return {
     clear() {
-      shown = null;
+      repositoryShown = null;
+      current = null;
       card.hidden = true;
       say(status, '');
     },
 
     async load(repository, isCurrent) {
-      shown = repository;
+      repositoryShown = repository;
       card.hidden = true;
 
       try {
-        const profile = await getRepositoryProfile(repository.id, { fresh: true });
+        const profile: MemberProfileOut = await getRepositoryProfile(repository.id, {
+          fresh: true,
+        });
 
-        if (!isCurrent() || shown !== repository) return;
+        if (!isCurrent() || repositoryShown !== repository) return;
 
+        visibility = profile.visibility;
         paint(profile.terms);
-        include.disabled = repository.role !== 'owner';
+        lock(false);
         ownerOnly.hidden = repository.role === 'owner';
         card.hidden = false;
       } catch {

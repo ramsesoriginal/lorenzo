@@ -46,7 +46,12 @@ _DEFAULTS = {
     # Nothing included before a public release, and nobody has said what may be done with it:
     # a private repository's terms are the default, which does not allow inclusion (ADR 0431).
     "includes": [],
-    "terms": {"may_be_included": False, "is_default": True},
+    "terms": {
+        "may_be_included": False,
+        "is_default": True,
+        "may_be_shown": True,
+        "may_be_shown_is_default": True,
+    },
 }
 
 
@@ -215,7 +220,12 @@ async def test_an_owner_sets_the_whole_profile_and_it_is_kept_tidy(
             "delisted": None,
             "deprecated": None,
             "includes": [],
-            "terms": {"may_be_included": False, "is_default": True},
+            "terms": {
+                "may_be_included": False,
+                "is_default": True,
+                "may_be_shown": True,
+                "may_be_shown_is_default": True,
+            },
         }
         assert _without_stamp(patched.json()) == expected
         assert _without_stamp(await _profile(owner, faerun)) == expected

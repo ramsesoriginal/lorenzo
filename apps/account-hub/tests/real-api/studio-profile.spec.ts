@@ -731,9 +731,9 @@ test('before it can be public: what is missing, each a link that jumps to the fi
   await expect(list).toContainText(
     'A cover is not required, but it is the first thing people see.',
   );
-  await expect(list).toContainText(`${theirs.name} is not public.`);
-  await expect(list).toContainText(`${core.name} is not public.`);
-  await expect(list).toContainText('ask its Owner to make it public');
+  await expect(list).toContainText(`${theirs.name} is private.`);
+  await expect(list).toContainText(`${core.name} is private.`);
+  await expect(list).toContainText('ask its Owner to make it one of them');
   await expect(list).toContainText(
     'The Make public dialog checks it again before it changes anything.',
   );
@@ -781,12 +781,12 @@ test('before it can be public: what is missing, each a link that jumps to the fi
   );
   await page.getByRole('tab', { name: 'Overview' }).click();
   await expect(
-    list.getByRole('link', { name: `Open ${core.name} to make it public` }),
+    list.getByRole('link', { name: `Open ${core.name} to make it public or protected` }),
   ).toHaveAttribute('href', `/studio/?repository=${core.id}`);
 
   // The flip's own rules stand: the dialog still lists what stands in the way.
   await page.locator('[data-visibility]').getByRole('button', { name: 'Make public…' }).click();
-  await expect(page.locator('[data-vis-blockers]')).toContainText(`${theirs.name} is not public.`);
+  await expect(page.locator('[data-vis-blockers]')).toContainText(`${theirs.name} is private.`);
   await context.close();
 });
 

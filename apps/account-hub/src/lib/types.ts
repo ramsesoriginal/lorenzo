@@ -60,12 +60,14 @@ export type BreakingRowOut = Schema<'BreakingRowOut'>;
 export type BreakingNoteOut = Schema<'BreakingNoteOut'>;
 export type PublishRequest = Schema<'PublishRequest'>;
 
-// Private and public (RFC 0038, ADR 0290).
+// Private, protected and public (RFC 0038, RFC 0051 H3, ADR 0290, ADR 0434).
 export type FlipCheckOut = Schema<'FlipCheckOut'>;
 export type PublisherOut = Schema<'PublisherOut'>;
 export type SubscribersSummaryOut = Schema<'SubscribersSummaryOut'>;
 export type MakePublicRequest = Schema<'MakePublicRequest'>;
 export type MadePrivateOut = Schema<'MadePrivateOut'>;
+export type MadeProtectedOut = Schema<'MadeProtectedOut'>;
+export type MakeProtectedRequest = Schema<'MakeProtectedRequest'>;
 export type RepositoryProfileOut = Schema<'RepositoryProfileOut'>;
 export type MemberProfileOut = Schema<'MemberProfileOut'>;
 export type RepositoryProfileUpdate = Schema<'RepositoryProfileUpdate'>;

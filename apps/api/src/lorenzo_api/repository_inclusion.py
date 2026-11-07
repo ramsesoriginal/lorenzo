@@ -27,9 +27,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.campaign_access import is_tenant_owner
-from lorenzo_api.exceptions import RepositoryNotCopiedError, RepositoryNotIncludableError
+from lorenzo_api.exceptions import (
+    RepositoryNotCopiedError,
+    RepositoryNotIncludableError,
+    RepositoryNotShowableError,
+)
 from lorenzo_api.models import RepositoryCopy, RepositoryProfile, Tenant
-from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_access import reading_repository_held
 from lorenzo_api.repository_content import Content
 
 __all__ = [
@@ -37,9 +41,11 @@ __all__ = [
     "Includable",
     "Inclusion",
     "InclusionChange",
+    "Showable",
     "Source",
     "Terms",
     "default_may_be_included",
+    "default_may_be_shown",
     "flatten",
     "included_by",
     "recorded_inclusions",
@@ -47,6 +53,7 @@ __all__ = [
     "inclusion_changes",
     "release_sources_of",
     "set_inclusion",
+    "showable",
     "sources_of",
     "terms_of",
 ]
@@ -60,25 +67,44 @@ INCLUSIONS: tuple[Inclusion, ...] = ("show", "include")
 
 @dataclass(frozen=True)
 class Terms:
-    """What a repository built on this one may do with it. H1 has the one switch."""
+    """What a repository built on this one may do with it: include it in its own release (H1) and
+    keep it separate and visible (H3). H4 adds the third switch, hide."""
 
     may_be_included: bool
+    may_be_shown: bool = True
 
 
 def default_may_be_included(visibility: str) -> bool:
     """What an Owner who said nothing allows: a public repository can be included, since anyone
-    can copy it anyway and so, to the same effect, hold its rows; a private one cannot, which
-    makes inclusion available to its Owners only (RFC 0051, the decided defaults)."""
-    return visibility == "public"
+    can copy it anyway and so, to the same effect, hold its rows, and so can a protected one, which
+    libraries hold through the repositories built on it; a private one cannot, which makes
+    inclusion available to its Owners only (RFC 0051, the decided defaults)."""
+    return visibility in ("public", "protected")
+
+
+def default_may_be_shown(visibility: str) -> bool:
+    """What an Owner who said nothing allows: a repository built on it may keep it separate and
+    visible, whatever its visibility (RFC 0051, the decided defaults)."""
+    return True
 
 
 def terms_of(profile: RepositoryProfile | None) -> Terms:
     """A repository's terms as they stand: an Owner's own value where there is one, else the
-    default for its visibility. A repository with no profile row is private, with no terms said."""
+    default for its visibility. A repository with no profile row is private, with no terms said.
+
+    Only a protected repository can say no to being shown: anyone can copy a public one and a
+    private one is read by the invitation of its Owner, so what an Owner said while it was
+    protected waits for the next time it is."""
     visibility = profile.visibility if profile is not None else "private"
     explicit = profile.may_be_included if profile is not None else None
+    shown = profile.may_be_shown if profile is not None else None
     return Terms(
-        may_be_included=default_may_be_included(visibility) if explicit is None else explicit
+        may_be_included=default_may_be_included(visibility) if explicit is None else explicit,
+        may_be_shown=(
+            shown
+            if shown is not None and visibility == "protected"
+            else default_may_be_shown(visibility)
+        ),
     )
 
 
@@ -97,10 +123,31 @@ async def includable(session: AsyncSession, source_id: uuid.UUID, user_id: uuid.
     repository is not that yes."""
     if await is_tenant_owner(session, tenant_id=source_id, user_id=user_id):
         return Includable(True, "owner")
-    async with reading_repository(session, source_id) as readable:
+    async with reading_repository_held(session, source_id) as readable:
         if readable and terms_of(await session.get(RepositoryProfile, source_id)).may_be_included:
             return Includable(True, "terms")
     return Includable(False)
+
+
+@dataclass(frozen=True)
+class Showable:
+    """Whether a user may keep a repository separate and visible, and why: they own it, or its
+    terms allow it (ADR 0434). Only a protected repository can forbid it."""
+
+    allowed: bool
+    by: Literal["owner", "terms"] | None = None
+
+
+async def showable(session: AsyncSession, source_id: uuid.UUID, user_id: uuid.UUID) -> Showable:
+    """Whether `user_id` may keep the repository `source_id` separate and visible in a repository
+    they own: they own it, or its terms allow it. A repository that cannot be read just now is not
+    refused here: the skew gate says so when it matters."""
+    if await is_tenant_owner(session, tenant_id=source_id, user_id=user_id):
+        return Showable(True, "owner")
+    async with reading_repository_held(session, source_id) as readable:
+        if not readable or terms_of(await session.get(RepositoryProfile, source_id)).may_be_shown:
+            return Showable(True, "terms")
+    return Showable(False)
 
 
 # --- The choice and the record of it -----------------------------------------------------------
@@ -125,7 +172,10 @@ class Source:
 
 async def sources_of(session: AsyncSession, repository_id: uuid.UUID) -> list[Source]:
     """Every repository this one has copied, by name, with the choice made for it and the
-    snapshot a release records: its name, and its licence if its profile can be read."""
+    snapshot a release records: its name, and its licence if its profile can be read (or, for a
+    source that cannot be read now, the one the current release recorded)."""
+    own = await session.get(RepositoryProfile, repository_id)
+    own_record = (own.release_sources if own else None) or []
     rows = await session.execute(
         select(RepositoryCopy, Tenant.name)
         .join(Tenant, Tenant.id == RepositoryCopy.repository_tenant_id)
@@ -135,11 +185,19 @@ async def sources_of(session: AsyncSession, repository_id: uuid.UUID) -> list[So
     found: list[Source] = []
     for copy, name in rows.all():
         licence: dict[str, Any] | None = None
-        async with reading_repository(session, copy.repository_tenant_id) as readable:
+        async with reading_repository_held(session, copy.repository_tenant_id) as readable:
             if readable:
                 profile = await session.get(RepositoryProfile, copy.repository_tenant_id)
                 if profile is not None and profile.licence_label is not None:
                     licence = {"label": profile.licence_label, "url": profile.licence_url}
+        if not readable:
+            # A source it holds but cannot read now (protected since, ADR 0434): what its current
+            # release recorded of the licence stands until it can be read again.
+            record = next(
+                (s for s in own_record if s["id"] == str(copy.repository_tenant_id)), None
+            )
+            if record is not None and record.get("licence_label") is not None:
+                licence = {"label": record["licence_label"], "url": record.get("licence_url")}
         found.append(Source(copy.repository_tenant_id, name, copy.inclusion, licence, readable))
     return found
 
@@ -154,11 +212,19 @@ async def set_inclusion(
 ) -> RepositoryCopy:
     """Sets how the repository carries `source_id`, which it must have copied
     (`RepositoryNotCopiedError`). `include` needs the user to be allowed to include it
-    (`409 repository-not-includable`); `show` is always allowed. Flushes; the caller records it
-    and commits."""
+    (`409 repository-not-includable`); `show` needs it to be allowed too, which only a protected
+    repository's terms can forbid (`409 repository-not-showable`, ADR 0434). Flushes; the caller
+    records it and commits."""
     copy = await session.get(RepositoryCopy, (repository_id, source_id))
     if copy is None:
         raise RepositoryNotCopiedError(detail=f"Copy repository {source_id} first")
+    if inclusion == "show" and not (await showable(session, source_id, user_id)).allowed:
+        name = copy.repository_name or str(source_id)
+        raise RepositoryNotShowableError(
+            detail=f"{name} cannot be kept separate and visible here: its Owner has asked that "
+            "what is built on it does not show it. Include it instead, or ask its Owner.",
+            repositories=[{"id": str(source_id), "name": name}],
+        )
     if inclusion == "include" and not (await includable(session, source_id, user_id)).allowed:
         name = copy.repository_name or str(source_id)
         raise RepositoryNotIncludableError(

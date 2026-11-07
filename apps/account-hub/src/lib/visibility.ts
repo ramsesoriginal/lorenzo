@@ -20,13 +20,17 @@ import { RETIRED_CANNOT_BE_MADE_PUBLIC, RETIRED_PUBLIC_NOTE } from './retiring';
 import { studioHref } from './studio';
 import type {
   FlipCheckOut,
+  MakeProtectedRequest,
   MakePublicRequest,
   PublisherOut,
   RepositoryProfileOut,
   TenantRole,
 } from './types';
 
-export type Visibility = FlipCheckOut['visibility'];
+// What a repository is (ADR 0434): the API declares the set extensible, so the hub says the three it knows.
+export type Visibility = 'private' | 'protected' | 'public';
+// What the card can start: the three flips.
+export type FlipMode = 'public' | 'protected' | 'private';
 export type PreviewChoice = RepositoryProfileOut['preview'];
 
 export const SUMMARY_MAX = 280;
@@ -40,11 +44,21 @@ function libraries(count: number): string {
 
 export const VISIBILITY_HEADING = 'Who can find it';
 
+export const PROTECTED_LABEL = 'Protected';
+export const PROTECTED_SENTENCE =
+  'Not on Discover, and not copied on its own. A library gets it with a public repository built on it, and keeps reading it only as long as it holds one. The libraries you invite read it as they read any repository.';
+
+export type VisibilityAction = { mode: FlipMode; label: string; disabled: boolean };
+
 export type VisibilityCard = {
   visibility: Visibility;
   label: string;
   sentence: string;
   button: string;
+  // What the button starts, and the second button where there is one: a repository can go to either
+  // of the other two (RFC 0051 H3).
+  mode: FlipMode;
+  alt: VisibilityAction | null;
   // A button that cannot be pressed, with the reason (while the platform's operators have the
   // repository off Discover it cannot be made public), and a sentence to read beside it.
   disabled: boolean;
@@ -67,6 +81,8 @@ export function visibilityCard(
 ): VisibilityCard | null {
   if (role !== 'owner' || check === null) return null;
 
+  const closed = Boolean(check.delisted || check.deprecated);
+
   if (check.visibility === 'public') {
     return {
       visibility: 'public',
@@ -74,9 +90,30 @@ export function visibilityCard(
       sentence:
         'Anyone signed in to Lorenzo can copy it into a library and take its updates, as well as the libraries you invited.',
       button: 'Make private…',
+      mode: 'private',
+      // Refused while it is off Discover or retired, as making it public is: it would publish what is closed.
+      alt: closed ? null : { mode: 'protected', label: 'Make protected…', disabled: false },
       disabled: false,
       note: check.delisted ? DELISTED_PUBLIC_NOTE : check.deprecated ? RETIRED_PUBLIC_NOTE : null,
       listed: check.delisted || check.deprecated ? null : listedSwitch(check.listed),
+    };
+  }
+
+  if (check.visibility === 'protected') {
+    return {
+      visibility: 'protected',
+      label: PROTECTED_LABEL,
+      sentence: PROTECTED_SENTENCE,
+      button: 'Make public…',
+      mode: 'public',
+      alt: { mode: 'private', label: 'Make private…', disabled: false },
+      disabled: closed,
+      note: check.delisted
+        ? DELISTED_CANNOT_BE_MADE_PUBLIC
+        : check.deprecated
+          ? RETIRED_CANNOT_BE_MADE_PUBLIC
+          : null,
+      listed: null,
     };
   }
 
@@ -88,9 +125,11 @@ export function visibilityCard(
     sentence:
       'Only the people who work on it and the libraries you invite can see it. Nobody else can find it or copy it.',
     button: 'Make public…',
+    mode: 'public',
+    alt: { mode: 'protected', label: 'Make protected…', disabled: closed },
     // Refused by the API (409 repository-delisted, 409 repository-deprecated): the button says so
     // before it is pressed, and the operators' word comes first where both hold.
-    disabled: Boolean(check.delisted || check.deprecated),
+    disabled: closed,
     note: check.delisted
       ? DELISTED_CANNOT_BE_MADE_PUBLIC
       : check.deprecated
@@ -154,14 +193,14 @@ export function publicBlockers(
     blockers.push(
       upstream.owned
         ? {
-            text: `${upstream.name} is not public. This repository is built on it, and a library that copies this one gets it too, so it has to be public first.${instead}`,
+            text: `${upstream.name} is private. This repository is built on it, and a library that copies this one gets it too, so it has to be public or protected first.${instead}`,
             link: {
               href: studioHref(upstream.id),
-              label: `Open ${upstream.name} to make it public`,
+              label: `Open ${upstream.name} to make it public or protected`,
             },
           }
         : {
-            text: `${upstream.name} is not public. This repository is built on it, so it has to be public first: ask its Owner to make it public.${instead}`,
+            text: `${upstream.name} is private. This repository is built on it, so it has to be public or protected first: ask its Owner to make it one of them.${instead}`,
           },
     );
   }
@@ -187,19 +226,20 @@ export function privateBlockers(check: FlipCheckOut): Blocker[] {
   return check.public_dependents.map((dependent) =>
     dependent.owned
       ? {
-          text: `${dependent.name} is public and built on this repository. Make it private first, so that what it is built on can still be copied.`,
+          text: `${dependent.name} is built on this repository and others can copy it. Make it private first, or have it include this repository, so that what it is built on can still be copied.`,
           link: {
             href: studioHref(dependent.id),
             label: `Open ${dependent.name} to make it private`,
           },
         }
       : {
-          text: `${dependent.name} is public and built on this repository. It has to be private first, so that what it is built on can still be copied: ask its Owner to make it private.`,
+          text: `${dependent.name} is built on this repository and others can copy it. It has to be private, or include this repository, first, so that what it is built on can still be copied: ask its Owner.`,
         },
   );
 }
 
 export const PRIVATE_BLOCKERS_TITLE = 'Before you can make it private';
+export const PROTECTED_BLOCKERS_TITLE = 'Before you can make it protected';
 
 // ---------------------------------------------------------------------------------------------
 // The "Make public" dialog.
@@ -334,7 +374,9 @@ export function makePrivateLines(check: FlipCheckOut): string[] {
   const invited = check.invited_libraries;
   const lines = [
     copied === 0
-      ? 'No library copied it by itself while it was public, so none loses anything.'
+      ? check.visibility === 'protected'
+        ? 'No library copied it by itself while it was public. No public repository is built on it that shows it, so no library reads it through one: none loses anything.'
+        : 'No library copied it by itself while it was public, so none loses anything.'
       : `${libraries(copied)} copied it while it was public: ${copied === 1 ? 'it keeps' : 'they keep'} what ${copied === 1 ? 'it' : 'they'} copied and ${copied === 1 ? 'loses' : 'lose'} its updates. The Owners and Organizers of ${copied === 1 ? 'that library are' : 'those libraries are'} told.`,
   ];
 
@@ -388,15 +430,115 @@ export function madePrivateDone(revoked: number): string {
     : `Private again. ${libraries(revoked)} lost its updates and ${revoked === 1 ? 'keeps what it' : 'keep what they'} copied.`;
 }
 
+// ---------------------------------------------------------------------------------------------
+// The "Make protected" dialog (RFC 0051 H3, ADR 0434). A private repository is made protected with
+// its first release, as it is made public: the same label and notes. A public one stays as it is,
+// with no release, and leaves Discover. No summary and no terms line are asked: nothing says what a
+// protected repository is to anybody who does not hold it.
+
+export function makeProtectedTitle(name: string): string {
+  return `Make ${name} protected`;
+}
+
+export const MAKE_PROTECTED_CONFIRM_PRIVATE = 'Make protected and publish release';
+export const MAKE_PROTECTED_CONFIRM_PUBLIC = 'Make protected';
+
+export function makeProtectedConfirm(visibility: Visibility): string {
+  return visibility === 'public' ? MAKE_PROTECTED_CONFIRM_PUBLIC : MAKE_PROTECTED_CONFIRM_PRIVATE;
+}
+
+export const MAKE_PROTECTED_DONE = 'Protected. A release was published.';
+export const MADE_PROTECTED_FROM_PUBLIC = 'Protected. It is off Discover.';
+
+// What will happen, in order.
+export function makeProtectedLines(
+  check: Pick<FlipCheckOut, 'visibility' | 'invited_libraries' | 'public_libraries'>,
+  name: string,
+): string[] {
+  const lines =
+    check.visibility === 'public'
+      ? [
+          `${name} leaves Discover, and nobody who is not invited can open its page, find it or copy it on its own. It is still read from its releases.`,
+          'A library that holds a public repository built on it keeps reading it through that repository. A library that copied it by itself keeps what it copied.',
+        ]
+      : [
+          `Making ${name} protected publishes a release of it, with the label and notes below. It is not on Discover, nobody finds it, and nobody copies it on its own.`,
+          'A library that copies a public repository built on it gets it with that repository, and keeps reading it for as long as it holds one. Repositories you invite can be built on it, as before.',
+          'A protected repository is read from its releases: what you edit between two releases is not seen by a library until you publish the next one.',
+        ];
+
+  if (check.visibility !== 'public' && check.invited_libraries > 0) {
+    lines.push(
+      `${libraries(check.invited_libraries)} ${check.invited_libraries === 1 ? 'has' : 'have'} an invitation and ${check.invited_libraries === 1 ? 'is' : 'are'} told when you publish.`,
+    );
+  }
+
+  return lines;
+}
+
+export function makeProtectedWarnings(): string[] {
+  return [
+    'The text of an entry is copied along with it, and that includes text marked GM only: whoever copies a public repository built on this one gets it, and the Owners and Organizers of their library can read it. Players never see it. Mark what you want to keep back as GM only, or take it out, before you make it protected.',
+    'Libraries that copy it keep their copies, whatever you do to this repository later.',
+  ];
+}
+
+// What an Owner says they understand when libraries that copied it by themselves would lose its
+// updates: only asked of a public repository that has any.
+export function protectedAcknowledgement(
+  check: Pick<FlipCheckOut, 'visibility' | 'public_libraries'>,
+): string | null {
+  if (check.visibility !== 'public' || check.public_libraries === 0) return null;
+
+  const copied = check.public_libraries;
+
+  return `I understand that ${libraries(copied)} will get the updates of this repository only through a public repository built on it that ${copied === 1 ? 'it holds' : 'they hold'}, and keep what ${copied === 1 ? 'it' : 'they'} copied.`;
+}
+
+// Why the form cannot be sent yet, or null: what a release asks (for a private repository), then the
+// acknowledgement where there are libraries to tell.
+export function makeProtectedProblem(
+  form: ComposerForm,
+  hits: readonly unknown[],
+  check: Pick<FlipCheckOut, 'visibility' | 'public_libraries'>,
+  acknowledged: boolean,
+): string | null {
+  if (check.visibility === 'public') {
+    return protectedAcknowledgement(check) !== null && !acknowledged
+      ? 'Libraries lose its updates alone. Say you understand, to make it protected.'
+      : null;
+  }
+
+  return composerProblem(form, hits);
+}
+
+// The body of `PUT .../protected`: a release as a publish sends it, and the acknowledgement.
+export function makeProtectedBody(
+  form: ComposerForm,
+  hits: readonly unknown[],
+  check: Pick<FlipCheckOut, 'visibility' | 'public_libraries'>,
+  acknowledged: boolean,
+): MakeProtectedRequest {
+  return {
+    // A public repository has its releases already: only the acknowledgement is sent.
+    ...(check.visibility === 'public'
+      ? { breaking: false, acknowledge_breaking: false }
+      : publishBody(form, hits)),
+    acknowledge_revokes: protectedAcknowledgement(check) !== null && acknowledged,
+  };
+}
+
 // The refusals that mean something changed under the dialog: what it says is read again, and the
 // dialog stays open with what is true now.
 const CHANGED_UNDER_IT = new Set([
   'built-on-not-public',
   'built-on-behind',
   'repository-not-includable',
+  'repository-not-showable',
   'public-repositories-built-on-it',
   'public-copies-would-be-cut-off',
   'repository-already-public',
+  'repository-already-protected',
   'repository-already-private',
   'repository-delisted',
   'repository-deprecated',

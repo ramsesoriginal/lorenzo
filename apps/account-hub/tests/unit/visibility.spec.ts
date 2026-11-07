@@ -215,13 +215,13 @@ describe('what stands in the way of making it public', () => {
       }),
     );
 
-    expect(owned?.text).toContain('Core is not public');
+    expect(owned?.text).toContain('Core is private');
     expect(owned?.link).toEqual({
       href: '/studio/?repository=core-id',
-      label: 'Open Core to make it public',
+      label: 'Open Core to make it public or protected',
     });
-    expect(notOwned?.text).toContain('Other is not public');
-    expect(notOwned?.text).toContain('ask its Owner to make it public');
+    expect(notOwned?.text).toContain('Other is private');
+    expect(notOwned?.text).toContain('ask its Owner to make it one of them');
     expect(notOwned?.link).toBeUndefined();
   });
 
@@ -260,6 +260,8 @@ describe('what stands in the way of making it public', () => {
             inclusion: 'show',
             includable: { allowed: true, by: 'owner' },
             in_release: null,
+            protected: false,
+            may_be_shown: true,
           },
           {
             id: 'other-id',
@@ -269,14 +271,18 @@ describe('what stands in the way of making it public', () => {
             inclusion: 'show',
             includable: { allowed: false, by: null },
             in_release: null,
+            protected: false,
+            may_be_shown: true,
           },
         ],
       }),
     );
 
-    expect(owned?.text).toMatch(/public first\. Or include it in this repository, below\.$/);
+    expect(owned?.text).toMatch(
+      /public or protected first. Or include it in this repository, below.$/,
+    );
     expect(notOwned?.text).not.toContain('include');
-    expect(notOwned?.text).toMatch(/make it public\.$/);
+    expect(notOwned?.text).toMatch(/make it one of them.$/);
   });
 
   it('is nothing for one that is included, whether or not its terms still allow it', () => {
@@ -284,6 +290,8 @@ describe('what stands in the way of making it public', () => {
       public: false,
       owned: false,
       in_release: null,
+      protected: false,
+      may_be_shown: true,
     } as const;
 
     expect(
@@ -510,8 +518,8 @@ describe('the Make private dialog', () => {
     );
 
     expect(blockers.map((blocker) => blocker.text)).toEqual([
-      'Dragons is public and built on this repository. Make it private first, so that what it is built on can still be copied.',
-      'Giants is public and built on this repository. It has to be private first, so that what it is built on can still be copied: ask its Owner to make it private.',
+      'Dragons is built on this repository and others can copy it. Make it private first, or have it include this repository, so that what it is built on can still be copied.',
+      'Giants is built on this repository and others can copy it. It has to be private, or include this repository, first, so that what it is built on can still be copied: ask its Owner.',
     ]);
     // A link to the Studio page of one the Owner owns, and none for the other.
     expect(blockers[0]?.link).toEqual({
