@@ -49,6 +49,10 @@ export type LegalProfile = {
 };
 
 const PLACEHOLDER = /^\s*(todo|tbd|tba|xxx+|changeme|placeholder|fixme|\.\.\.|<[^>]*>)\s*$/i;
+// A word that marks text still to be written, anywhere in a value: "FILL: the region".
+const UNFINISHED = /\b(FILL|TODO|TBD|FIXME|CHANGEME)\b/;
+/** What an operator writes after a best guess, so that it stays visible until it is checked. */
+export const UNVERIFIED_MARK = '[unverified]';
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 class Problems {
@@ -64,7 +68,7 @@ function text(value: unknown, path: string, problems: Problems): string {
     problems.add(path, 'is required');
     return '';
   }
-  if (PLACEHOLDER.test(value)) {
+  if (PLACEHOLDER.test(value) || UNFINISHED.test(value)) {
     problems.add(path, `still holds a placeholder (${JSON.stringify(value)})`);
   }
   return value.trim();
@@ -192,6 +196,19 @@ export function parseProfile(raw: unknown, sample = false): LegalProfile {
   return profile;
 }
 
+/** The paths of the values that still carry the unverified mark. */
+export function unverifiedPaths(value: unknown, path = ''): string[] {
+  if (typeof value === 'string') return value.includes(UNVERIFIED_MARK) ? [path] : [];
+  if (Array.isArray(value))
+    return value.flatMap((item, i) => unverifiedPaths(item, `${path}[${i}]`));
+  if (value && typeof value === 'object') {
+    return Object.entries(value).flatMap(([key, item]) =>
+      unverifiedPaths(item, path ? `${path}.${key}` : key),
+    );
+  }
+  return [];
+}
+
 /**
  * The profile of this build. `LEGAL_PROFILE` is JSON; `LEGAL_PROFILE_SAMPLE=1` selects the
  * sample, which every page marks as such. With neither, the build fails.
@@ -210,7 +227,15 @@ export function loadProfile(
         `The legal pages cannot be built: LEGAL_PROFILE is not JSON (${(error as Error).message}).`,
       );
     }
-    return parseProfile(parsed);
+    const profile = parseProfile(parsed);
+    const guesses = unverifiedPaths(parsed);
+
+    if (guesses.length > 0) {
+      console.warn(
+        `The legal pages are built with ${guesses.length} value(s) marked ${UNVERIFIED_MARK}, so they are still guesses:\n- ${guesses.join('\n- ')}`,
+      );
+    }
+    return profile;
   }
   if (env.LEGAL_PROFILE_SAMPLE === '1') return parseProfile(sampleProfile, true);
   throw new Error(
