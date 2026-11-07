@@ -88,6 +88,7 @@ class AppsOut(BaseModel):
     writing: AppOut | None = None
     maps: AppOut | None = None
     social: AppOut | None = None
+    legal: AppOut | None = None
 
 
 class AtIn(BaseModel):
@@ -3831,6 +3832,7 @@ class Annotation(BaseModel):
 class AppLinksOut(BaseModel):
     apps: AppsOut
     links: dict[str, str] = Field(..., title="Links")
+    support_url: str | None = Field(None, title="Support Url")
 
 
 class ApplyUpdatesOut(BaseModel):

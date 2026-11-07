@@ -104,3 +104,9 @@ All unverified; none is an assertion.
 - The API loses a redirect and gains one outbound call per new account and a migration (`gravatar_checked_at`). People without an upload no longer get an automatic avatar unless they had a Gravatar at sign-up.
 - A new app, `apps/legal`, needs the steps of [adding-an-app.md](../guides/adding-an-app.md): `mise.toml`, CI, release-please, an `app:legal` label and an entry in [apps/README.md](../../apps/README.md).
 - Nothing in this decision declares any deployment compliant. The texts stay drafts until `reviewed_on` is set.
+
+## Addendum: how the avatar copy and the registry behave
+
+- The lookup runs only when the email is first cached, and that is its one attempt. A failure leaves `gravatar_checked_at` empty and is not retried, because nothing asks again (ADR 0075 caches the email once); the account can upload a picture. A definite answer, a picture or none, sets the marker.
+- A deployment can turn the lookup off with `GRAVATAR_LOOKUP_ENABLED=false`. `GRAVATAR_BASE_URL` (default `https://www.gravatar.com`) is the address it asks.
+- `GET /app-links` leaves `apps.legal` and `support_url` out when they are not set, instead of sending `null`.

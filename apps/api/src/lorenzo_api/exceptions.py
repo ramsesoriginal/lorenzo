@@ -661,8 +661,8 @@ class PreconditionFailedError(StatusProblem):
 
 
 class ProfilePictureNotFoundError(NotFoundProblem):
-    """GET .../picture - no uploaded picture and, for a user, no email to
-    fall back to a Gravatar with either. See ADR 0056.
+    """GET .../picture - no picture was uploaded, and for a user none was kept from the one-time
+    Gravatar lookup either (ADR 0439). See ADR 0056.
     """
 
     title = "Profile picture not found"
