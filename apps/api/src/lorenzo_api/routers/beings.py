@@ -24,6 +24,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entity_access import entity_id_among
 from lorenzo_api.entity_kinds import require_deletable
+from lorenzo_api.entry_visibility import unhidden
 from lorenzo_api.etag import check_if_match
 from lorenzo_api.exceptions import EntityNotFoundError, TenantNotFoundError
 from lorenzo_api.information_visibility import (
@@ -93,7 +94,7 @@ async def list_beings(
     stmt = (
         select(Being)
         .join(Entity, Entity.id == Being.entity_id)
-        .where(Being.tenant_id == tenant_id)
+        .where(Being.tenant_id == tenant_id, await unhidden(session, tenant_id, Being.entity_id))
         .options(selectinload(Being.entity), selectinload(Being.character))
         .order_by(Entity.name, Being.entity_id)
     )

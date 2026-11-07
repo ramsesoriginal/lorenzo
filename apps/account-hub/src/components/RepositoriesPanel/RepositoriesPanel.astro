@@ -47,9 +47,11 @@ import Preview from '../Preview/Preview.astro';
       <span class="avatar-placeholder repository-initial" aria-hidden="true" data-initial></span>
       <h2 class="grow" data-name></h2>
       <span data-state></span>
+      <span class="pill" data-protected-pill hidden></span>
     </header>
 
     <p data-explanation></p>
+    <p data-protected-note hidden></p>
 
     <!-- Retired by its Owner (ADR 0384): what the library keeps, and what the Owner said. -->
     <div class="stack-tight" role="status" data-retired hidden>
@@ -496,6 +498,9 @@ import Preview from '../Preview/Preview.astro';
       <div class="grow stack-tight">
         <a class="shelf-link" href="/repositories/" data-link></a>
         <span class="campaign-meta" data-description></span>
+        <span class="row" data-protected-card hidden>
+          <span class="pill" data-protected-pill></span>
+        </span>
         <span class="row" data-retired hidden>
           <span class="pill pill-warning" data-retired-pill></span>
           <span class="campaign-meta" data-retired-message></span>

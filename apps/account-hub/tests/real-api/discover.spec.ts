@@ -272,7 +272,7 @@ test('a private repository, a draft and a repository that is not there are not f
   for (const id of [hidden.id, draft.id, crypto.randomUUID(), 'not-an-id']) {
     await page.goto(`/discover/?repository=${id}`);
     await expect(page.locator('[data-not-listed]')).toHaveText(
-      'This repository is not listed. It may be private, it may not have a release yet, or it may not exist.',
+      'This repository cannot be opened. It may be private, it may not have a release yet, it may have been retired, or it may not exist.',
     );
     await expect(storefront(page)).toBeHidden();
   }

@@ -1,0 +1,32 @@
+---
+import { LEGAL_LABELS, type Lang } from './legal';
+
+// The legal notice, the privacy policy and the support link (ADR 0439), hidden until the registry
+// names them (`bindLegalLinks`, fed by `GET /app-links`). A static address given by the app is
+// shown at once and left alone.
+interface Props {
+  lang?: Lang;
+  // 'list' draws one link per line, for the apps sheet; 'inline' draws them in a line, for a footer.
+  layout?: 'list' | 'inline';
+  notice?: string;
+  privacy?: string;
+}
+
+const { lang = 'en', layout = 'list', notice, privacy } = Astro.props;
+const labels = LEGAL_LABELS[lang];
+const items = [
+  { kind: 'notice', label: labels.notice, href: notice },
+  { kind: 'privacy', label: labels.privacy, href: privacy },
+  { kind: 'support', label: labels.support, href: undefined },
+];
+const Holder = layout === 'inline' ? 'span' : 'div';
+---
+
+{items.map((item) => (
+  <Holder data-shell-link={item.kind} data-static={item.href ? '' : undefined} hidden={!item.href}>
+    {layout === 'inline' && <span aria-hidden="true"> &middot; </span>}
+    <a class={layout === 'list' ? 'l' : undefined} href={item.href}>
+      {item.label}
+    </a>
+  </Holder>
+))}

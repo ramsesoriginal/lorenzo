@@ -22,14 +22,17 @@ __all__ = [
     "DelistedOut",
     "DeprecatedNoticeOut",
     "DeprecatedOut",
+    "IncludedSourceOut",
     "LicenceIn",
     "LicenceOut",
     "MemberProfileOut",
     "RepositoryProfileOut",
     "RepositoryProfileUpdate",
+    "TermsIn",
+    "TermsOut",
 ]
 
-Visibility = Literal["private", "public"]
+Visibility = Literal["private", "protected", "public"]
 Preview = Literal["off", "showcase", "public"]
 
 SUMMARY_MAX = 280
@@ -130,6 +133,22 @@ class CreditOut(BaseModel):
     url: str | None
 
 
+class TermsIn(BaseModel):
+    """A repository's terms, as an Owner sets them (ADR 0431, RFC 0051): what a repository built
+    on it may do with it. `may_be_included` is whether one may include it in its own release;
+    `null` takes the default for the repository's visibility back (a private repository: no, a
+    public or protected one: yes). `may_be_shown` is whether one may keep it separate and visible
+    (ADR 0434): `false` only for a protected repository (`409 repository-not-protected`), `null` is
+    the default again, which is yes. `may_be_hidden` is the same for keeping it separate and hidden
+    (ADR 0437)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    may_be_included: bool | None = None
+    may_be_shown: bool | None = None
+    may_be_hidden: bool | None = None
+
+
 class RepositoryProfileUpdate(BaseModel):
     """`PATCH .../profile`. Every field is optional and a field left out is unchanged; `null`
     clears the licence and the system, `[]` clears a list. An unknown field is refused. What
@@ -140,12 +159,18 @@ class RepositoryProfileUpdate(BaseModel):
 
     visibility: Visibility | None = None
     preview: Preview | None = None
+    # Whether Discover lists the repository (ADR 0432): `false` only for a public repository (`409
+    # repository-not-public` otherwise); `true` is what a repository is by default.
+    listed: bool | None = None
     summary: Annotated[str, Field(max_length=2000)] | None = None
     licence: LicenceIn | None = None
     credits: Annotated[list[CreditIn], Field(max_length=CREDITS_MAX)] | None = None
     tags: Annotated[list[str], Field(max_length=100)] | None = None
     system: Annotated[str, Field(max_length=2000)] | None = None
     languages: Annotated[list[str], Field(max_length=100)] | None = None
+    # Its terms (ADR 0431): a field left out is unchanged; the one inside says what it says, and
+    # `{"may_be_included": null}` is the default again.
+    terms: TermsIn | None = None
 
     @field_validator("summary")
     @classmethod
@@ -203,7 +228,16 @@ class RepositoryProfileUpdate(BaseModel):
 
     @model_validator(mode="after")
     def _only_a_licence_and_a_system_are_cleared_by_null(self) -> Self:
-        for name in ("visibility", "preview", "summary", "credits", "tags", "languages"):
+        for name in (
+            "visibility",
+            "listed",
+            "preview",
+            "summary",
+            "credits",
+            "tags",
+            "languages",
+            "terms",
+        ):
             if name in self.model_fields_set and getattr(self, name) is None:
                 raise ValueError(f"{name} can't be null; leave it out to keep it")
         return self
@@ -238,6 +272,32 @@ class DelistedOut(BaseModel):
     at: datetime
 
 
+class IncludedSourceOut(BaseModel):
+    """A repository the current public release includes in its own rows (ADR 0431), by the name and
+    the licence it had when the release was made: a snapshot, so a visitor never has to read it,
+    and it may be private. The storefront says "Includes content from {name}, {licence}"."""
+
+    name: str
+    licence: LicenceOut | None
+
+
+class TermsOut(BaseModel):
+    """A repository's terms as they stand (ADR 0431), read by its own members: what a repository
+    built on it may do with it. `is_default` is true while its Owner has said nothing, so that
+    `may_be_included` follows the repository's visibility."""
+
+    may_be_included: bool
+    is_default: bool
+    # Whether a repository built on it may keep it separate and visible (ADR 0434), and whether its
+    # Owner has said nothing of it. Only a protected repository can say no.
+    may_be_shown: bool = True
+    may_be_shown_is_default: bool = True
+    # Whether a repository built on it may keep it separate and hidden (ADR 0437), and whether its
+    # Owner has said nothing of it. Only a protected repository can say no.
+    may_be_hidden: bool = True
+    may_be_hidden_is_default: bool = True
+
+
 class RepositoryProfileOut(BaseModel):
     """A repository's profile: what the Owner says of it, and whether it has a cover (the
     picture is `GET .../profile/cover`)."""
@@ -252,6 +312,12 @@ class RepositoryProfileOut(BaseModel):
     languages: list[str]
     has_cover: bool
     updated_at: datetime
+    # Whether Discover lists it while it is public (ADR 0432): true unless its Owner left it off. A
+    # repository that is not public is on no listing, and reads true here.
+    listed: bool = True
+    # What the current public release includes, named with its licence: empty for a repository
+    # that includes nothing, and before its first public release (ADR 0431).
+    includes: list[IncludedSourceOut] = []
 
 
 class MemberProfileOut(RepositoryProfileOut):
@@ -264,3 +330,5 @@ class MemberProfileOut(RepositoryProfileOut):
     delisted: DelistedOut | None = None
     # Set while the Owner has the repository retired (ADR 0384); `null` otherwise.
     deprecated: DeprecatedOut | None = None
+    # Its terms (ADR 0431): what a repository built on it may do with it.
+    terms: TermsOut

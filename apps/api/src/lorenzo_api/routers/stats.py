@@ -88,10 +88,10 @@ async def _vocabulary_gate(
     numbers a table may change, units, order, pins - to draw a being for the player of it, who
     has no membership. Not a participant is the same 404 as ever."""
     if request.method == "GET":
-        await get_tenant_or_404(tenant_id, session, user)
+        await get_tenant_or_404(tenant_id, session, user, request)
         await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     else:
-        await get_tenant_context(tenant_id, session, user)
+        await get_tenant_context(tenant_id, session, user, request)
 
 
 router = APIRouter(

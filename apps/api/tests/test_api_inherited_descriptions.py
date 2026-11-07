@@ -229,12 +229,33 @@ async def test_a_stat_says_whether_it_is_the_entitys_own(
     back = await client.delete(f"{url}/tags/{magical_id}")
 
     assert inherited == [
-        {"name": "is_magical", "value": True, "own": False, "from_entity": ANY, "computed": False}
+        {
+            "name": "is_magical",
+            "value": True,
+            "own": False,
+            "from_entity": ANY,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
     assert off.json()["stats"] == [
-        {"name": "is_magical", "value": False, "own": True, "from_entity": None, "computed": False}
+        {
+            "name": "is_magical",
+            "value": False,
+            "own": True,
+            "from_entity": None,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
     assert back.json()["stats"] == [
-        {"name": "is_magical", "value": True, "own": False, "from_entity": ANY, "computed": False}
+        {
+            "name": "is_magical",
+            "value": True,
+            "own": False,
+            "from_entity": ANY,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
     await delete_tenant(tenant_id)

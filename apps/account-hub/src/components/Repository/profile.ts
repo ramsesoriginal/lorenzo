@@ -9,6 +9,7 @@
 import { ApiError } from '../../lib/apiError';
 import { getFacets } from '../../lib/discoverApi';
 import { avatarInitial } from '../../lib/format';
+import { includesFacts } from '../../lib/inclusion';
 import {
   addLanguages,
   addTags,
@@ -463,7 +464,9 @@ export function createProfileEditor(
 
     previewCardList.replaceChildren(card);
 
-    const facts = previewFacts(shownDraft, locales);
+    // What it says it includes comes from the release that was made, not from the form: a snapshot
+    // of the names and licences as they were then (ADR 0431).
+    const facts = [...previewFacts(shownDraft, locales), ...includesFacts(saved?.includes)];
 
     previewFactList.replaceChildren(
       ...facts.flatMap((fact) => {

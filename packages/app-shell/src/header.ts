@@ -3,6 +3,7 @@ import { type Autosave, createAutosave } from './autosave';
 import { type ConfirmOptions, confirmDialog } from './confirm';
 import { closeDialog, fadeOnDismiss, openDialog } from './dialog';
 import { createKeymap, GO_KEYS, goChord, type KeyInput } from './keys';
+import { bindLegalLinks } from './legal';
 import { type MenuItem, openMenu } from './menu';
 import type { PaletteItem } from './palette';
 import { mountPalette, type PaletteUi, type PaletteUiOptions } from './palette-ui';
@@ -490,6 +491,7 @@ export function bindShell(options: ShellOptions): Shell | null {
 
     apps(next) {
       registry = next;
+      bindLegalLinks(next);
       const host = find<HTMLElement>(document, '[data-shell-apps]');
 
       if (!host) return;
