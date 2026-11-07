@@ -63,7 +63,7 @@ test('Reset copies the repository into the Test library again, and Remove delete
 
   await page.goto(`/repositories/?repository=${repository.slug}`);
   await page.getByRole('button', { name: 'View as a subscriber' }).click();
-  await expect(page).toHaveURL(/\/repositories\//);
+  await expect(page).toHaveURL(/\/repositories\/\?tenant=/);
 
   const library = await libraryNamed(owner.api, testName);
 
