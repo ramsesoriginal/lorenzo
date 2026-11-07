@@ -52,6 +52,7 @@ import {
 } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
 import { CREATE_NOT_OPEN, roleLabel, studioHref } from '../../lib/studio';
+import { bindTabs } from '../../lib/tabs';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { canCreateTenants, isRepository } from '../../lib/tenantKind';
 import { listMyTenants, tenantPictureUrl } from '../../lib/tenants';
@@ -150,6 +151,8 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
   const updatesView = createUpdatesView(root, updatesViewElement);
   const inboxViewElement = required<HTMLElement>(root, '[data-inbox-view]');
   const inbox = createInbox(root, inboxViewElement);
+  // Overview, and Use in a library, for one repository (the design's two tabs for one who uses it).
+  const detailTabs = bindTabs(required<HTMLElement>(detailView, '[data-detail-tabs]'));
   const yoursSection = required<HTMLElement>(root, '[data-yours]');
   const yoursList = required<HTMLElement>(root, '[data-yours-list]');
   const yoursEmpty = required<HTMLElement>(root, '[data-yours-empty]');
@@ -699,6 +702,13 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
       landing(false);
       listView.hidden = true;
       detailView.hidden = false;
+
+      // It opens where something is to be done (copy it, check it for updates), else on what it is.
+      const toDo = !detail.updatesActions.hidden || !detail.actions.hidden || !detail.more.hidden;
+
+      detailTabs.reset();
+      detailTabs.refresh();
+      detailTabs.select(toDo ? 1 : 0);
     } else {
       shown = null;
       paintCards(library, subscriptions);

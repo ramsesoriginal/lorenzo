@@ -7,6 +7,7 @@ import {
   newRepository,
   newUser,
   publish,
+  showOverview,
   signedInPage,
 } from './support';
 
@@ -99,6 +100,7 @@ test('a library admin sees what is offered, what a repository holds and what it 
   await expect(outline).toContainText(/Ask the owner of Core rules \S+ to invite your library\./);
 
   // Entries and stat groups are read when their sections are opened.
+  await showOverview(page);
   await page.locator('#content').getByText('Entries', { exact: true }).click();
   const entry = page.locator('[data-entries] > li').filter({ hasText: 'Flaming Longsword' });
   await expect(entry).toBeVisible();

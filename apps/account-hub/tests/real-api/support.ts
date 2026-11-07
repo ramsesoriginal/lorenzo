@@ -102,6 +102,17 @@ export async function openLibrary(page: Page, library: { slug: string; name: str
   return article;
 }
 
+/**
+ * A repository's page on the Shelf opens on "Use in a library" while there is something to do (copy
+ * it, check it for updates), else on its Overview: this opens the Overview, for a spec that reads
+ * what is inside, its entries or its look.
+ */
+export async function showOverview(page: Page) {
+  const overview = page.getByRole('tab', { name: 'Overview' });
+
+  if ((await overview.count()) > 0) await overview.click();
+}
+
 /** A campaign's card in an open library, found by its name. */
 export function campaignCard(library: Locator, name: string) {
   return library
