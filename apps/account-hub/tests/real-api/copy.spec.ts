@@ -421,7 +421,7 @@ test('a repository the library has no invitation to is not copied from an addres
   const { page, context } = await signedInPage(browser, owner.subject);
 
   await page.goto(wizardAddress(stranger, repository));
-  await expect(page.getByRole('heading', { name: 'Repositories' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Repositories', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copy now' })).toHaveCount(0);
   await expect(page.locator('[data-copy-view]')).toBeHidden();
   await context.close();

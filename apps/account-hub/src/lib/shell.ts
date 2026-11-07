@@ -42,16 +42,21 @@ export async function allowedPages(): Promise<string[]> {
   if (gms || inRepository) allowed.push('beings');
 
   // Shelf is where a library's owners and organizers see the repositories it may copy from.
-  if (
+  const libraryAdmin =
     tenants.status === 'fulfilled' &&
-    tenants.value.items.some((tenant) => !isRepository(tenant) && isTenantAdmin(tenant))
-  ) {
-    allowed.push('library-admin');
-  }
+    tenants.value.items.some((tenant) => !isRepository(tenant) && isTenantAdmin(tenant));
+
+  if (libraryAdmin) allowed.push('library-admin');
 
   // Studio is where a repository is run: for anyone who works on one, and for an account that may
   // make one (ADR 0175).
-  if (inRepository || mayCreate) allowed.push('repository-work');
+  const repositoryWork = inRepository || mayCreate;
+
+  if (repositoryWork) allowed.push('repository-work');
+
+  // One Repositories area for either (ADR 0428): the ones a person works on, and the ones their
+  // libraries draw on.
+  if (libraryAdmin || repositoryWork) allowed.push('repositories');
 
   // Discover is where public repositories are found, for a deployment that accepts them (ADR 0290,
   // ADR 0292): the facets say so, and where they do not come there is no link.

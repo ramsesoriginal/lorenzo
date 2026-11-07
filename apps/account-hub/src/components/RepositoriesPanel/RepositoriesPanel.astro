@@ -10,6 +10,33 @@ import Preview from '../Preview/Preview.astro';
 <div class="stack" data-repositories-panel hidden>
   <p class="error-text" role="alert" data-error hidden></p>
 
+  <!-- The repositories this person works on (Studio), above the ones their libraries draw on. -->
+  <section class="stack" data-yours aria-labelledby="repositories-yours" hidden>
+    <div class="row">
+      <h2 id="repositories-yours" class="grow">
+        Your repositories
+      </h2>
+      <a class="btn btn-secondary" href="/studio/?new=1" data-new-repository hidden>
+        New repository
+      </a>
+    </div>
+    <p class="caption" data-yours-empty hidden>
+      You do not work on a repository yet. The Owner of a repository can add you to it.
+    </p>
+    <ul class="list" data-yours-list></ul>
+  </section>
+
+  <template data-yours-item-template>
+    <li class="row">
+      <a class="grow" data-link></a>
+      <span class="pill" data-role></span>
+    </li>
+  </template>
+
+  <h2 data-used-heading hidden>
+    Used by your libraries
+  </h2>
+
   <p data-no-library hidden>
     Repositories are copied into a library, and you do not run one yet.
     <a href="/tenants/">Your libraries</a>

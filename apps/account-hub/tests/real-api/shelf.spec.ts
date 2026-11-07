@@ -60,13 +60,21 @@ test('a library admin sees what is offered, what a repository holds and what it 
   await page.goto(`/repositories/?tenant=${library.slug}`);
 
   // The list: each repository with its state in words.
-  const bridgeCard = page.getByRole('listitem').filter({ hasText: 'Faerûn campaign' });
+  const bridgeCard = page
+    .locator('[data-list-view]')
+    .getByRole('listitem')
+    .filter({ hasText: 'Faerûn campaign' });
   await expect(bridgeCard).toContainText('Not copied yet');
-  await expect(page.getByRole('listitem').filter({ hasText: 'Unfinished setting' })).toContainText(
-    'Not published',
-  );
+  await expect(
+    page
+      .locator('[data-list-view]')
+      .getByRole('listitem')
+      .filter({ hasText: 'Unfinished setting' }),
+  ).toContainText('Not published');
   // The core is not on offer to this library, so it is not here.
-  await expect(page.getByRole('link', { name: 'Core rules' })).toHaveCount(0);
+  await expect(
+    page.locator('[data-list-view]').getByRole('link', { name: 'Core rules' }),
+  ).toHaveCount(0);
 
   // A repository's page, by a plain click that keeps the address true.
   await bridgeCard.getByRole('link', { name: 'Faerûn campaign' }).click();
@@ -127,9 +135,9 @@ test('a library that copied a repository, and one that lost its invitation, say 
   // Someone who runs two libraries chooses one; the address follows.
   await page.locator('#content').getByLabel('Library').selectOption({ label: second.name });
   await expect(page).toHaveURL(new RegExp(`tenant=${second.slug}`));
-  await expect(page.getByRole('listitem').filter({ hasText: 'Core rules' })).toContainText(
-    'Copied',
-  );
+  await expect(
+    page.locator('[data-list-view]').getByRole('listitem').filter({ hasText: 'Core rules' }),
+  ).toContainText('Copied');
 
   // The invitation is withdrawn: what was copied stays, and the page says so.
   await ok(
@@ -138,7 +146,10 @@ test('a library that copied a repository, and one that lost its invitation, say 
     }),
   );
   await page.reload();
-  const card = page.getByRole('listitem').filter({ hasText: 'Core rules' });
+  const card = page
+    .locator('[data-list-view]')
+    .getByRole('listitem')
+    .filter({ hasText: 'Core rules' });
   await expect(card).toContainText('No longer offered');
   await card.getByRole('link', { name: 'Core rules' }).click();
   await expect(page.getByText('What you copied stays yours')).toBeVisible();

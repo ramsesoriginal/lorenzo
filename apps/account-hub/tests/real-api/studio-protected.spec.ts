@@ -162,11 +162,16 @@ test('an Owner makes a repository protected, a repository built on it goes publi
   // library's other repository is as ever.
   await guest.page.goto(`/repositories/?tenant=${library.slug}`);
 
-  const held = guest.page.getByRole('listitem').filter({ hasText: 'A protected repository' });
+  const held = guest.page
+    .locator('[data-list-view]')
+    .getByRole('listitem')
+    .filter({ hasText: 'A protected repository' });
 
   await expect(held).toBeVisible();
   await expect(held).toContainText('Protected');
-  await expect(guest.page.getByRole('listitem').filter({ hasText: b.name })).toBeVisible();
+  await expect(
+    guest.page.locator('[data-list-view]').getByRole('listitem').filter({ hasText: b.name }),
+  ).toBeVisible();
   expect(await held.innerText()).not.toContain(a.name);
   await held.getByRole('link', { name: 'A protected repository' }).click();
   await expect(guest.page.locator('[data-protected-note]')).toContainText(

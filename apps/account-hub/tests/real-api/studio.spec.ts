@@ -31,8 +31,10 @@ test('an account that may create makes a repository, which opens on its Overview
   const maker = await newUser('maker', ['tenant_creator']);
   const { page, context } = await signedInPage(browser, maker.subject);
 
-  // Studio is in the header for someone who may make one, and opens on the form.
-  await page.getByRole('banner').getByRole('link', { name: 'My repositories' }).click();
+  // Repositories is in the header for someone who may make one; its first group offers the form.
+  await page.getByRole('banner').getByRole('link', { name: 'Repositories', exact: true }).click();
+  await expect(page).toHaveURL(/\/repositories\/?$/);
+  await page.locator('[data-yours]').getByRole('link', { name: 'New repository' }).click();
   await expect(page).toHaveURL(/\/studio\/\?new=1/);
   await expect(page.getByRole('heading', { name: 'Create a repository' })).toBeVisible();
 
@@ -70,9 +72,9 @@ test('an account that may not create, and works on nothing, is told so and offer
   const plain = await newUser('plain');
   const { page, context } = await signedInPage(browser, plain.subject);
 
-  await expect(page.getByRole('banner').getByRole('link', { name: 'My repositories' })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole('banner').getByRole('link', { name: 'Repositories', exact: true }),
+  ).toHaveCount(0);
   await page.goto('/studio/');
   await expect(page.getByText('You do not work on a repository yet.')).toBeVisible();
   await expect(
