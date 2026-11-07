@@ -19,6 +19,8 @@ export type {
 export { bindShell } from './header';
 export type { KeyInput } from './keys';
 export { createKeymap, GO_KEYS, goChord } from './keys';
+export type { Lang, LegalLinks, LegalRegistry } from './legal';
+export { bindLegalLinks, bindLegalLinksFromApi, LEGAL_LABELS, langOf, legalLinks } from './legal';
 export type { MenuItem } from './menu';
 export { openMenu, placeMenu } from './menu';
 export type { PaletteItem, PaletteScope, Section } from './palette';

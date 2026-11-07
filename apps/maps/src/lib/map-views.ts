@@ -515,6 +515,7 @@ export async function mountMap() {
         for (const [key, button] of buttons)
           button.setAttribute('aria-pressed', String(key === entryId));
         const row = entryId ? rows.find((r) => r.id === entryId) : undefined;
+        // biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: describe is this app's own helper, not Playwright's
         if (row) void describe(tenant, row, panel, pinCell(row), waysOf(row.id));
         else noSelection();
         centre.hidden = !row;
@@ -690,6 +691,7 @@ export async function mountMap() {
         if (selected && !rows.some((r) => r.id === selected)) select(null);
         else if (selected) {
           const row = rows.find((r) => r.id === selected);
+          // biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: describe is this app's own helper, not Playwright's
           if (row) void describe(tenant, row, panel, pinCell(row), waysOf(row.id));
         }
       };

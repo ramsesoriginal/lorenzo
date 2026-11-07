@@ -4,6 +4,7 @@ import json
 from uuid import UUID
 
 import httpx
+from plain import plain
 from test_cli_self_service import ASHFANG, ROPE, TENANT, World, item, page, run
 
 STAMP = "2026-10-15T00:00:00Z"
@@ -94,3 +95,65 @@ def test_stat_numbers_do_not_lose_precision() -> None:
 
     assert formatted(123456789) == "123456789"
     assert formatted(1.23456789) == "1.23456789"
+
+
+LONGSWORD = {
+    "id": "00000000-0000-0000-0000-0000000000aa",
+    "name": "Longsword",
+    "slug": "longsword",
+    "kinds": ["item"],
+}
+
+
+def described(*texts: dict) -> ReadWorld:
+    """A rope whose read gives these descriptions, as the API sends them."""
+    world = ReadWorld()
+    found = item(ROPE, "Rope")
+    found["descriptions"] = [{"locale": "en", **text} for text in texts]
+    world.catalog = [found]
+    return world
+
+
+def shown(tmp_path, world: ReadWorld) -> str:
+    result = run(world, tmp_path, "item", "show", "Rope", "-t", "table-one")
+    assert result.exit_code == 0, result.output
+    return plain(result.stdout)
+
+
+def test_a_description_of_a_hidden_entry_is_inherited_and_not_named(tmp_path):
+    world = described({"content": "A coil of rope.", "from_entity": None, "from_hidden": True})
+    text = shown(tmp_path, world)
+    assert "Description · from a hidden entry · en" in text
+    assert "A coil of rope." in text
+    assert "Description · en" not in text
+
+
+def test_a_description_with_no_source_flag_is_still_the_entrys_own(tmp_path):
+    for flag in ({}, {"from_hidden": None}, {"from_hidden": False}):
+        world = described({"content": "A coil of rope.", "from_entity": None, **flag})
+        text = shown(tmp_path, world)
+        assert "Description · en" in text
+        assert "hidden" not in text
+
+
+def test_a_named_inherited_description_is_still_named(tmp_path):
+    world = described({"content": "A blade.", "from_entity": LONGSWORD})
+    assert "Description · from Longsword · en" in shown(tmp_path, world)
+
+
+def test_own_and_hidden_descriptions_read_apart(tmp_path):
+    world = described(
+        {"content": "Mine.", "from_entity": None},
+        {"content": "Theirs.", "from_entity": None, "from_hidden": True},
+    )
+    text = shown(tmp_path, world)
+    assert "Description · en Mine." in text
+    assert "Description · from a hidden entry · en Theirs." in text
+
+
+def test_the_json_read_keeps_the_flag(tmp_path):
+    world = described({"content": "x", "from_entity": None, "from_hidden": True})
+    result = run(world, tmp_path, "item", "show", "Rope", "-t", "table-one", "--json")
+    body = json.loads(result.stdout)
+    assert body["item"]["descriptions"][0]["from_hidden"] is True
+    assert body["item"]["descriptions"][0]["from_entity"] is None
