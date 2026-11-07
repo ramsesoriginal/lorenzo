@@ -129,9 +129,9 @@ test('stopping an invitation says what it does first, tells the library, and lea
   await openTab(page, repository.slug, 'Libraries using it');
   await row(page, copied.name).getByRole('button', { name: 'Stop inviting' }).click();
 
-  expect(confirmations[0]).toContain(`Stop inviting “${copied.name}”?`);
+  await expect.poll(() => confirmations[0]).toContain(`Stop inviting “${copied.name}”?`);
   expect(confirmations[0]).toContain('What it copied stays with it');
-  expect(confirmations[0].toLowerCase()).not.toContain('tenant');
+  expect(confirmations[0]?.toLowerCase()).not.toContain('tenant');
 
   // It is still listed, as one that keeps its copy.
   await expect(row(page, copied.name)).toContainText('Not invited any more');
