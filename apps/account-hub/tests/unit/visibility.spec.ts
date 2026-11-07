@@ -4,6 +4,11 @@ import { RETIRED_CANNOT_BE_MADE_PUBLIC, RETIRED_PUBLIC_NOTE } from '../../src/li
 import type { FlipCheckOut } from '../../src/lib/types';
 import {
   changedUnderTheDialog,
+  LISTED_LABEL,
+  LISTED_PAGE_LINK,
+  listedHelp,
+  listedPatch,
+  listedSwitch,
   madePrivateDone,
   makePrivateLines,
   makePrivateProblem,
@@ -32,8 +37,10 @@ function check(overrides: Partial<FlipCheckOut> = {}): FlipCheckOut {
     available: true,
     visibility: 'private',
     has_summary: false,
+    listed: true,
     built_on_not_public: [],
     built_on_behind: [],
+    built_on: [],
     public_dependents: [],
     public_libraries: 0,
     invited_libraries: 0,
@@ -93,6 +100,10 @@ function words(): string {
     ...PREVIEW_CHOICES.map((choice) => choice.label),
     DELISTED_CANNOT_BE_MADE_PUBLIC,
     DELISTED_PUBLIC_NOTE,
+    LISTED_LABEL,
+    LISTED_PAGE_LINK,
+    listedHelp(true),
+    listedHelp(false),
   ].join('\n');
 }
 
@@ -204,13 +215,13 @@ describe('what stands in the way of making it public', () => {
       }),
     );
 
-    expect(owned?.text).toContain('Core is not public');
+    expect(owned?.text).toContain('Core is private');
     expect(owned?.link).toEqual({
       href: '/studio/?repository=core-id',
-      label: 'Open Core to make it public',
+      label: 'Open Core to make it public or protected',
     });
-    expect(notOwned?.text).toContain('Other is not public');
-    expect(notOwned?.text).toContain('ask its Owner to make it public');
+    expect(notOwned?.text).toContain('Other is private');
+    expect(notOwned?.text).toContain('ask its Owner to make it one of them');
     expect(notOwned?.link).toBeUndefined();
   });
 
@@ -231,6 +242,93 @@ describe('what stands in the way of making it public', () => {
 
     expect(blocker?.text).toContain('Take the new release of Bridge first: open Built on.');
     expect(blocker?.text).toContain('took release 1.0, and the latest is 1.1');
+  });
+
+  it('offers including it, instead, where the user may include a repository that is not public', () => {
+    const [owned, notOwned] = publicBlockers(
+      check({
+        built_on_not_public: [
+          { id: 'core-id', name: 'Core', owned: true },
+          { id: 'other-id', name: 'Other', owned: false },
+        ],
+        built_on: [
+          {
+            id: 'core-id',
+            name: 'Core',
+            public: false,
+            owned: true,
+            inclusion: 'show',
+            includable: { allowed: true, by: 'owner' },
+            in_release: null,
+            protected: false,
+            may_be_shown: true,
+            may_be_hidden: true,
+          },
+          {
+            id: 'other-id',
+            name: 'Other',
+            public: false,
+            owned: false,
+            inclusion: 'show',
+            includable: { allowed: false, by: null },
+            in_release: null,
+            protected: false,
+            may_be_shown: true,
+            may_be_hidden: true,
+          },
+        ],
+      }),
+    );
+
+    expect(owned?.text).toMatch(
+      /public or protected first. Or include it in this repository, below.$/,
+    );
+    expect(notOwned?.text).not.toContain('include');
+    expect(notOwned?.text).toMatch(/make it one of them.$/);
+  });
+
+  it('is nothing for one that is included, whether or not its terms still allow it', () => {
+    const base = {
+      public: false,
+      owned: false,
+      in_release: null,
+      protected: false,
+      may_be_shown: true,
+      may_be_hidden: true,
+    } as const;
+
+    expect(
+      publicBlockers(
+        check({
+          built_on: [
+            {
+              ...base,
+              id: 'a',
+              name: 'Core',
+              inclusion: 'include',
+              includable: { allowed: true, by: 'terms' },
+            },
+          ],
+        }),
+      ),
+    ).toEqual([]);
+
+    // Consent is asked once, when the choice is set: terms taken back afterwards do not stop the release.
+    expect(
+      publicBlockers(
+        check({
+          built_on: [
+            {
+              ...base,
+              id: 'a',
+              name: 'Core',
+              inclusion: 'include',
+              includable: { allowed: false, by: null },
+            },
+          ],
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it('says it without the releases when one cannot be named', () => {
@@ -423,8 +521,8 @@ describe('the Make private dialog', () => {
     );
 
     expect(blockers.map((blocker) => blocker.text)).toEqual([
-      'Dragons is public and built on this repository. Make it private first, so that what it is built on can still be copied.',
-      'Giants is public and built on this repository. It has to be private first, so that what it is built on can still be copied: ask its Owner to make it private.',
+      'Dragons is built on this repository and others can copy it. Make it private first, or have it include this repository, so that what it is built on can still be copied.',
+      'Giants is built on this repository and others can copy it. It has to be private, or include this repository, first, so that what it is built on can still be copied: ask its Owner.',
     ]);
     // A link to the Studio page of one the Owner owns, and none for the other.
     expect(blockers[0]?.link).toEqual({
@@ -468,7 +566,59 @@ describe('a refusal that changes what the dialog says', () => {
     expect(changedUnderTheDialog('public-copies-would-be-cut-off')).toBe(true);
     expect(changedUnderTheDialog('repository-delisted')).toBe(true);
     expect(changedUnderTheDialog('repository-deprecated')).toBe(true);
+    expect(changedUnderTheDialog('repository-not-includable')).toBe(true);
     expect(changedUnderTheDialog('public-repository-summary-required')).toBe(false);
     expect(changedUnderTheDialog(undefined)).toBe(false);
+  });
+});
+
+describe('the switch for being on Discover (RFC 0051 H2)', () => {
+  it('is on the card of a public repository, on while it is listed', () => {
+    const card = visibilityCard(check({ visibility: 'public', listed: true }), 'owner');
+
+    expect(card?.listed).toEqual({
+      checked: true,
+      label: 'Listed on Discover',
+      help: listedHelp(true),
+    });
+  });
+
+  it('is off, and says what stays, while the Owner has left it off', () => {
+    const card = visibilityCard(check({ visibility: 'public', listed: false }), 'owner');
+
+    expect(card?.listed?.checked).toBe(false);
+    expect(card?.listed?.help).toMatch(/not on Discover/);
+    expect(card?.listed?.help).toMatch(/address/);
+    expect(card?.listed).toEqual(listedSwitch(false));
+  });
+
+  it('is not on the card of a private repository, which is on no listing', () => {
+    expect(visibilityCard(check({ listed: true }), 'owner')?.listed).toBeNull();
+    expect(
+      visibilityCard(check({ available: true, visibility: 'private' }), 'owner')?.listed,
+    ).toBeNull();
+  });
+
+  it('is not offered where the platform or the Owner already took the repository off Discover', () => {
+    const delisted = { reason: 'It copies another publisher', at: '2026-10-15T09:00:00Z' };
+    const deprecated = { message: null, at: '2026-11-03T09:00:00Z' };
+
+    expect(visibilityCard(check({ visibility: 'public', delisted }), 'owner')?.listed).toBeNull();
+    expect(visibilityCard(check({ visibility: 'public', deprecated }), 'owner')?.listed).toBeNull();
+  });
+
+  it('is only an Owner’s', () => {
+    expect(visibilityCard(check({ visibility: 'public' }), 'orga')).toBeNull();
+    expect(visibilityCard(check({ visibility: 'public' }), 'author')).toBeNull();
+  });
+
+  it('sends what it says, and its words are the RFC’s', () => {
+    expect(listedPatch(false)).toEqual({ listed: false });
+    expect(listedPatch(true)).toEqual({ listed: true });
+    expect(LISTED_LABEL).toBe('Listed on Discover');
+    expect(LISTED_PAGE_LINK).toBe('Open its page');
+    expect(`${listedHelp(true)} ${listedHelp(false)}`).not.toMatch(
+      /tenant|grant|subscri|flatten|source/i,
+    );
   });
 });

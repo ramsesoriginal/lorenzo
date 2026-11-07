@@ -382,7 +382,14 @@ describe('the groups and what they count', () => {
   it('counts them, and says them in words', () => {
     const counts = countUpdates(all);
 
-    expect(counts).toEqual({ changed: 1, new: 2, removed: 1, conflicts: 1, parents: 1 });
+    expect(counts).toEqual({
+      changed: 1,
+      new: 2,
+      removed: 1,
+      conflicts: 1,
+      parents: 1,
+      hidden: 0,
+    });
     expect(todo(counts)).toBe(6);
     expect(countsSentence(counts)).toBe(
       '1 changed, 2 new, 1 removed upstream, 1 conflict, 1 parent added or removed',
