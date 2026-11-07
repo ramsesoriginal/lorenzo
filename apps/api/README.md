@@ -173,6 +173,10 @@ Book, Edition, anchor and position still match on both sides
 older connected copies and dependent structural changes remain comparison-only.
 
 Nested leaf Chapters also accept text updates when every copied ancestor edge to the Edition
-still matches ([ADR 0431](../../docs/adr/0431-nested-chapter-text-updates.md)). New nested copies
-retain this full path; moving an ancestor invalidates review. Parent Chapters and structural
-updates remain comparison-only.
+still matches ([ADR 0435](../../docs/adr/0435-nested-chapter-text-updates.md)). New nested copies
+retain this full path; moving an ancestor invalidates review. Structural updates remain comparison-only.
+
+Chapters with subchapters may accept their own text updates when the copied direct child edges
+also remain unchanged ([ADR 0436](../../docs/adr/0436-parent-chapter-text-updates.md)). Child prose
+and placements are never changed by accepting a parent update. Older parent copies without this
+context, tellings and structural changes remain comparison-only.

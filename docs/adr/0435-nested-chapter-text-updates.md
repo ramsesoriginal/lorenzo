@@ -1,4 +1,4 @@
-# 0431 - Repository text updates for nested leaf Chapters
+# 0435 - Repository text updates for nested leaf Chapters
 
 RFC 0047 W9d extends ADR 0430 and retains the structural locks and reviewer boundaries of ADR 0344.
 
@@ -30,3 +30,8 @@ Exercise nested private/live and public/released copies with payload anchors, st
 ancestor edits, remapped paths, missing legacy contexts, cycles and dependencies. Preserve direct
 Chapter/standalone regressions. Verify nested acceptance, reload and continuous Edition reading in
 the browser, including unsaved protection, session credit and phone accessibility.
+
+## History
+
+Renumbered from 0431 on 2026-11-07 after the parallel RFC 0051 implementation also
+claimed 0431. Numbers 0432-0434 were already recorded or reserved. The decision is unchanged.

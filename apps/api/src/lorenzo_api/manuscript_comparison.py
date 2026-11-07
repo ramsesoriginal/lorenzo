@@ -58,7 +58,7 @@ def copy_baselines(
     for payload_id, payload in content.payloads.items():
         if payload.information_id in grouped:
             grouped[payload.information_id].payloads[payload_id] = payload
-    contexts = chapter_contexts(content)
+    contexts = chapter_contexts(content, entries={row.entity_id for row in manuscripts.values()})
     result = {}
     for info_id, row in manuscripts.items():
         value = bundle(grouped[info_id], row.entity_id)
@@ -133,9 +133,12 @@ def update_reason(
 
 
 def chapter_contexts(
-    content: Content, identities: dict[str, str] | None = None
+    content: Content,
+    identities: dict[str, str] | None = None,
+    *,
+    entries: set[uuid.UUID] | None = None,
 ) -> dict[uuid.UUID, dict[str, Any]]:
-    """Leaf placement paths, using source identities and iterative ancestor traversal."""
+    """Chapter paths and direct child edges, in the source identity namespace."""
 
     def identity(value: uuid.UUID | None) -> str | None:
         if value is None:
@@ -151,10 +154,23 @@ def chapter_contexts(
     dependent.update(content.manuscript_redirects)
     for row in content.manuscript_redirects.values():
         dependent.update((row["destination"], row["child"]))
-    parents = {row["parent"] for row in content.manuscript_placements.values()}
+    children: dict[uuid.UUID, list[dict[str, Any]]] = {}
+    unsupported_parents = set()
+    for child, row in content.manuscript_placements.items():
+        children.setdefault(row["parent"], []).append(
+            {
+                "chapter": identity(child),
+                "before": identity(row["before"]),
+                "position": row["position"],
+            }
+        )
+        if content.kinds.get(child) != {"chapter"} or child in dependent:
+            unsupported_parents.add(row["parent"])
+
+    dependent.update(unsupported_parents)
     result = {}
-    for chapter in content.manuscript_placements:
-        if content.kinds.get(chapter) != {"chapter"} or chapter in parents:
+    for chapter in content.manuscript_placements if entries is None else entries:
+        if content.kinds.get(chapter) != {"chapter"}:
             continue
         path = []
         seen = set()
@@ -194,4 +210,6 @@ def chapter_contexts(
         }
         if len(path) > 1:
             result[chapter]["path"] = path
+        if chapter in children:
+            result[chapter]["children"] = sorted(children[chapter], key=lambda row: row["chapter"])
     return result
