@@ -77,7 +77,7 @@ The screen's two presets set both switches: **Open** (included on, shown on) and
 
 ### The contract
 
-Additive, with one declaration: `RepositoryProfileOut.visibility` and `FlipCheckOut.visibility` are declared with `x-extensible-enum` (`private`, `protected`, `public`) and not `enum`, since adding a value to a response enum is a break of the contract by the diff's own rules and the set is meant to grow; the request keeps its `Literal`. New: `PUT /tenants/{id}/protected` (request and answer), the errors `repository-protected`, `repository-not-showable`, `repository-not-protected` and `repository-already-protected`, `terms.may_be_shown` on the request and the member's read, `showable` and `protected` and `may_be_shown` on the reads named above, `protected` on the dependency and the copy step, and the profile's flip check naming the visibility. A visitor's list of what a public repository is built on leaves a repository that is not public out, since that list is a public view and a protected repository is named in none.
+Additive, with one accepted finding: the response `visibility` of the profile reads and the flip check gains the value `protected`, which the diff reports as an added enum value on each of them, and which is accepted in `openapi-breaking-accepted.txt` as the earlier additions of an enum value are (ADR 0399, ADR 0406). New: `PUT /tenants/{id}/protected` (request and answer), the errors `repository-protected`, `repository-not-showable`, `repository-not-protected` and `repository-already-protected`, `terms.may_be_shown` on the request and the member's read, `showable` and `protected` and `may_be_shown` on the reads named above, `protected` on the dependency and the copy step, and the profile's flip check naming the visibility. A visitor's list of what a public repository is built on leaves a repository that is not public out, since that list is a public view and a protected repository is named in none.
 
 ### In the hub
 
@@ -124,7 +124,7 @@ All in the existing files; the screens never say tenant, grant, subscription, fl
 - Should a **protected repository need the terms line** the way a public one does (it publishes content to libraries that copy a repository built on it, and the line says publishing cannot be recalled)? It does not, as the RFC says only the flip to public does.
 - Should **public to protected** keep the libraries' access that does not depend on another repository (it cuts it off, with the acknowledgement and a notice), or refuse while any library copied it by itself?
 - A repository built on A is **left unable to release** when A becomes protected and it holds nothing else that lists A, until A's Owner invites it. Is that the right place to put it, or should the flip refuse?
-- The **response `visibility` is an extensible enum**, so the contract has no break. Is that preferred to accepting the break, which versions the API's major?
+- The response `visibility` gains a value, and the diff reports it as an added enum value: it is accepted in `openapi-breaking-accepted.txt`, as earlier additions are. Is that right, or should the response declare an extensible enum, which the diff does not accept either when it replaces a closed one?
 
 ## Consequences
 
