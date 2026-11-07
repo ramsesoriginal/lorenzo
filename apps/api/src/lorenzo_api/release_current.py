@@ -112,5 +112,7 @@ async def make_release_current(
 
     await replace_stored_rows(session, repository.id, rows.values())
     await set_current_release(session, repository, release.id)
-    await set_listing_facts(session, repository.id, release=release, content=content, public=True)
+    await set_listing_facts(
+        session, repository.id, release=release, content=content, documented=True
+    )
     return MadeCurrent(release, True, current.id if current else None, hits, warnings)

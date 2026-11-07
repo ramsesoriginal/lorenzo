@@ -60,6 +60,7 @@ from lorenzo_api.models import (
     RepositoryCopyLinkEntity,
     RepositoryCopyLinkStatDefinition,
     RepositoryCopyLinkStatGroup,
+    RepositorySubscription,
     StatDefinition,
     StatDefinitionEnumValue,
     StatGroup,
@@ -68,7 +69,7 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.models.calendar import Calendar
 from lorenzo_api.models.fact import EntityAudience, Fact
-from lorenzo_api.repository_access import reading_repository
+from lorenzo_api.repository_access import reading_repository_held
 from lorenzo_api.repository_content import (
     Content,
     Namer,
@@ -421,7 +422,7 @@ async def compute_updates(
     copy = await session.get(RepositoryCopy, (tenant_id, repository_id))
     if copy is None:
         raise RepositoryNotCopiedError(detail=f"Copy repository {repository_id} first")
-    async with reading_repository(session, repository_id) as allowed:
+    async with reading_repository_held(session, repository_id) as allowed:
         if not allowed:
             raise RepositoryNotFoundError(
                 detail=f"No published repository {repository_id} is granted to tenant {tenant_id}"
@@ -1721,17 +1722,22 @@ async def apply_updates(
 
     await _attach(session, updates, tenant_id, local, attachments, result)
 
+    # A repository held only through another is not named in anything the library reads, so its
+    # name is left as the copy recorded it (ADR 0433).
+    held = await session.get(RepositorySubscription, (repository_id, tenant_id))
+    values: dict[str, Any] = {
+        "synced_at": datetime.now(UTC),
+        "synced_release_id": updates.release.id if updates.release else None,
+    }
+    if held is None or held.source != "protected":
+        values["repository_name"] = (await session.get_one(Tenant, repository_id)).name
     await session.execute(
         update(RepositoryCopy)
         .where(
             RepositoryCopy.tenant_id == tenant_id,
             RepositoryCopy.repository_tenant_id == repository_id,
         )
-        .values(
-            synced_at=datetime.now(UTC),
-            synced_release_id=updates.release.id if updates.release else None,
-            repository_name=(await session.get_one(Tenant, repository_id)).name,
-        )
+        .values(**values)
     )
     await check_formula_cycles(session, tenant_id)
     await record_activity(

@@ -534,6 +534,7 @@ async def test_the_choice_is_on_the_copy_record_and_listed(
             "includable": {"allowed": True, "by": "owner"},
             "inclusion_in_release": None,
             "breaking_next_release": False,
+            "showable": {"allowed": True, "by": "owner"},
         }
         listed = (await w.author.get(f"/tenants/{w.b}/repositories")).json()["items"]
         assert listed[0]["inclusion"] == "include"
@@ -622,7 +623,12 @@ async def test_another_owners_repository_is_included_only_with_its_terms(
 
         # A's terms: its Owner's to say, members read them, nobody else does.
         terms = (await base.author.get(f"/tenants/{base.repository}/profile")).json()["terms"]
-        assert terms == {"may_be_included": False, "is_default": True}
+        assert terms == {
+            "may_be_included": False,
+            "is_default": True,
+            "may_be_shown": True,
+            "may_be_shown_is_default": True,
+        }
         assert (
             "terms"
             not in (
@@ -640,6 +646,8 @@ async def test_another_owners_repository_is_included_only_with_its_terms(
         assert said.status_code == 200 and said.json()["terms"] == {
             "may_be_included": True,
             "is_default": False,
+            "may_be_shown": True,
+            "may_be_shown_is_default": True,
         }
 
         allowed = await _include(owner_b, b, base.repository)
@@ -685,27 +693,46 @@ async def test_the_terms_follow_the_visibility_until_an_owner_says_otherwise(
         assert (await base.author.get(url)).json()["terms"] == {
             "may_be_included": False,
             "is_default": True,
+            "may_be_shown": True,
+            "may_be_shown_is_default": True,
         }
         assert (await _make_public(base.author, base.repository)).status_code == 200
         assert (await base.author.get(url)).json()["terms"] == {
             "may_be_included": True,
             "is_default": True,
+            "may_be_shown": True,
+            "may_be_shown_is_default": True,
         }
         # An Owner's value wins, in both directions, and null is the default again.
         off = await base.author.patch(url, json={"terms": {"may_be_included": False}})
-        assert off.json()["terms"] == {"may_be_included": False, "is_default": False}
+        assert off.json()["terms"] == {
+            "may_be_included": False,
+            "is_default": False,
+            "may_be_shown": True,
+            "may_be_shown_is_default": True,
+        }
         # An empty `terms` says nothing; nothing but a boolean or null is a value.
         same = await base.author.patch(url, json={"terms": {}})
-        assert same.json()["terms"] == {"may_be_included": False, "is_default": False}
+        assert same.json()["terms"] == {
+            "may_be_included": False,
+            "is_default": False,
+            "may_be_shown": True,
+            "may_be_shown_is_default": True,
+        }
         assert (await base.author.patch(url, json={"terms": None})).status_code == 422
         assert (
             await base.author.patch(url, json={"terms": {"may_be_included": "maybe"}})
         ).status_code == 422
         assert (
-            await base.author.patch(url, json={"terms": {"may_be_shown": True}})
+            await base.author.patch(url, json={"terms": {"may_be_hidden": True}})
         ).status_code == 422
         back = await base.author.patch(url, json={"terms": {"may_be_included": None}})
-        assert back.json()["terms"] == {"may_be_included": True, "is_default": True}
+        assert back.json()["terms"] == {
+            "may_be_included": True,
+            "is_default": True,
+            "may_be_shown": True,
+            "may_be_shown_is_default": True,
+        }
         private = await base.author.delete(
             f"/tenants/{base.repository}/public", params={"acknowledge_revokes": "true"}
         )
@@ -713,6 +740,8 @@ async def test_the_terms_follow_the_visibility_until_an_owner_says_otherwise(
         assert (await base.author.get(url)).json()["terms"] == {
             "may_be_included": False,
             "is_default": True,
+            "may_be_shown": True,
+            "may_be_shown_is_default": True,
         }
     finally:
         await cleanup([base.table, base.repository], [base.author, base.gm])

@@ -1168,11 +1168,6 @@ class FieldChangeOut(BaseModel):
     removed: list[Any] | None = Field(..., title="Removed")
 
 
-class Visibility1(StrEnum):
-    private = "private"
-    public = "public"
-
-
 class FrameAxisOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     axis: str = Field(..., title="Axis")
@@ -1288,6 +1283,7 @@ class InclusionOut(BaseModel):
     includable: IncludableOut
     inclusion_in_release: InclusionInRelease | None = Field(..., title="Inclusion In Release")
     breaking_next_release: bool = Field(..., title="Breaking Next Release")
+    showable: IncludableOut | None = None
 
 
 class InformationAudience(BaseModel):
@@ -1648,6 +1644,14 @@ class MadePrivateOut(BaseModel):
 
 class MakeCurrentRequest(BaseModel):
     acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
+
+
+class MakeProtectedRequest(BaseModel):
+    label: constr(min_length=1, max_length=80) | None = Field(None, title="Label")
+    notes: constr(max_length=4000) | None = Field(None, title="Notes")
+    breaking: bool | None = Field(False, title="Breaking")
+    acknowledge_breaking: bool | None = Field(False, title="Acknowledge Breaking")
+    acknowledge_revokes: bool | None = Field(False, title="Acknowledge Revokes")
 
 
 class Preview(StrEnum):
@@ -2958,6 +2962,7 @@ class RepositoryDependencyOut(BaseModel):
     copied: bool = Field(..., title="Copied")
     published: bool = Field(..., title="Published")
     public: bool = Field(..., title="Public")
+    protected: bool | None = Field(False, title="Protected")
 
 
 class Kind34(StrEnum):
@@ -2977,6 +2982,12 @@ class RepositoryEntityOut(BaseModel):
     name: str = Field(..., title="Name")
     kinds: list[Kind34] = Field(..., title="Kinds")
     prototype_ids: list[UUID] = Field(..., title="Prototype Ids")
+
+
+class Visibility1(StrEnum):
+    private = "private"
+    protected = "protected"
+    public = "public"
 
 
 class RepositorySummaryOut(BaseModel):
@@ -3536,6 +3547,8 @@ class SubscriptionOut(BaseModel):
     inclusion: Inclusion | None = Field(None, title="Inclusion")
     includable: IncludableOut | None = None
     inclusion_in_release: InclusionInRelease | None = Field(None, title="Inclusion In Release")
+    showable: IncludableOut | None = None
+    protected: bool | None = Field(False, title="Protected")
 
 
 class SumTermBodyInput(BaseModel):
@@ -3644,11 +3657,14 @@ class TermsIn(BaseModel):
         extra="forbid",
     )
     may_be_included: bool | None = Field(None, title="May Be Included")
+    may_be_shown: bool | None = Field(None, title="May Be Shown")
 
 
 class TermsOut(BaseModel):
     may_be_included: bool = Field(..., title="May Be Included")
     is_default: bool = Field(..., title="Is Default")
+    may_be_shown: bool | None = Field(True, title="May Be Shown")
+    may_be_shown_is_default: bool | None = Field(True, title="May Be Shown Is Default")
 
 
 class UndeprecatedOut(BaseModel):
@@ -3836,6 +3852,9 @@ class BuiltOnSourceOut(BaseModel):
     inclusion: Inclusion = Field(..., title="Inclusion")
     includable: IncludableOut
     in_release: InRelease | None = Field(..., title="In Release")
+    protected: bool | None = Field(False, title="Protected")
+    showable: IncludableOut | None = None
+    may_be_shown: bool | None = Field(True, title="May Be Shown")
 
 
 class BulkMembershipResultItem(BaseModel):
@@ -4073,6 +4092,7 @@ class CopyStepOut(BaseModel):
     published: bool = Field(..., title="Published")
     public: bool = Field(..., title="Public")
     already_copied: bool = Field(..., title="Already Copied")
+    protected: bool | None = Field(False, title="Protected")
     entities: int = Field(..., title="Entities")
     stat_groups: int = Field(..., title="Stat Groups")
     stat_definitions: int = Field(..., title="Stat Definitions")
@@ -4162,7 +4182,7 @@ class EventComparison(BaseModel):
 
 class FlipCheckOut(BaseModel):
     available: bool = Field(..., title="Available")
-    visibility: Visibility1 = Field(..., title="Visibility")
+    visibility: str = Field(..., title="Visibility")
     has_summary: bool = Field(..., title="Has Summary")
     listed: bool | None = Field(True, title="Listed")
     built_on_not_public: list[BuiltOnPublicOut] = Field(..., title="Built On Not Public")
@@ -4437,7 +4457,7 @@ class MeOut(BaseModel):
 
 
 class MemberProfileOut(BaseModel):
-    visibility: Visibility1 = Field(..., title="Visibility")
+    visibility: str = Field(..., title="Visibility")
     preview: Preview = Field(..., title="Preview")
     summary: str = Field(..., title="Summary")
     licence: LicenceOut | None
@@ -4771,7 +4791,7 @@ class ReleasePreviewOut(BaseModel):
 
 
 class RepositoryProfileOut(BaseModel):
-    visibility: Visibility1 = Field(..., title="Visibility")
+    visibility: str = Field(..., title="Visibility")
     preview: Preview = Field(..., title="Preview")
     summary: str = Field(..., title="Summary")
     licence: LicenceOut | None
@@ -5179,6 +5199,11 @@ class HeldGroupOut(BaseModel):
     path: list[EntitySummary] = Field(..., title="Path")
     carried: bool = Field(..., title="Carried")
     item_instances: list[ItemInstanceOut] = Field(..., title="Item Instances")
+
+
+class MadeProtectedOut(BaseModel):
+    release: ReleaseAuthoredOut | None
+    turned: int = Field(..., title="Turned")
 
 
 class ManagedScopeOut(BaseModel):

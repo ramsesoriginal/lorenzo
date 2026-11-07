@@ -1846,6 +1846,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/protected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make Repository Protected
+         * @description Makes the repository protected (ADR 0433, RFC 0051 H3): a private one with its first
+         *     release, together or not at all, as `PUT .../public` does; a public one without a release,
+         *     leaving Discover and every visitor's read. A protected repository is read by a library only as a
+         *     step of the copy of a public repository built on it. Needs every repository it is built on
+         *     public, protected or included (`409 built-on-not-public`) and up to date (`409
+         *     built-on-behind`). `409 public-copies-would-be-cut-off` with the number of libraries that copied
+         *     a public repository by themselves until `acknowledge_revokes` says the Owner has been told. No
+         *     summary and no terms line are asked. Owner only; `422 public-repositories-not-available` while
+         *     the deployment does not accept public repositories.
+         */
+        put: operations["make_repository_protected"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/public": {
         parameters: {
             query?: never;
@@ -1857,7 +1885,8 @@ export interface paths {
         /**
          * Make Repository Public
          * @description Makes the repository public and makes its first public release, together or not at all
-         *     (ADR 0289): the release, its document and its notice are those of `PUT .../published`.
+         *     (ADR 0289): the release, its document and its notice are those of `PUT .../published`. A
+         *     protected repository is made public the same way (ADR 0433).
          *     Needs a summary, given here or already on the profile (`422
          *     public-repository-summary-required`), every repository it is built on public (`409
          *     built-on-not-public`) and up to date (`409 built-on-behind`), and says what a visitor may
@@ -2026,7 +2055,9 @@ export interface paths {
          * List Public Repository Dependencies
          * @description The repositories a public repository is built on, dependencies first, as `copy-plan`
          *     orders them, and whether each is public. Copying the repository in one action needs every one
-         *     of them to be (ADR 0287).
+         *     of them to be (ADR 0287), or protected (ADR 0433): a protected one is a step of the copy and is
+         *     named in no public view, so it is not here, and neither is a repository this one cannot read
+         *     for a visitor, which could only be a private one.
          */
         get: operations["list_public_repository_dependencies"];
         put?: never;
@@ -7861,8 +7892,9 @@ export interface components {
         };
         /**
          * BuiltOnPublicOut
-         * @description A repository this one is built on that is not public, and whether the caller owns it (so
-         *     the dialog can offer to make it public first).
+         * @description A repository this one is built on that cannot be reached (it is neither public nor
+         *     protected, and is not included), and whether the caller owns it (so the dialog can offer to
+         *     make it public first).
          */
         BuiltOnPublicOut: {
             /**
@@ -7904,6 +7936,17 @@ export interface components {
             includable: components["schemas"]["IncludableOut"];
             /** In Release */
             in_release: ("show" | "include") | null;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
+            showable?: components["schemas"]["IncludableOut"] | null;
+            /**
+             * May Be Shown
+             * @default true
+             */
+            may_be_shown: boolean;
         };
         /**
          * BulkAddPrototypeRequest
@@ -9484,6 +9527,11 @@ export interface components {
             public: boolean;
             /** Already Copied */
             already_copied: boolean;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
             /** Entities */
             entities: number;
             /** Stat Groups */
@@ -10512,11 +10560,8 @@ export interface components {
         FlipCheckOut: {
             /** Available */
             available: boolean;
-            /**
-             * Visibility
-             * @enum {string}
-             */
-            visibility: "private" | "public";
+            /** Visibility */
+            visibility: string;
             /** Has Summary */
             has_summary: boolean;
             /**
@@ -10880,6 +10925,7 @@ export interface components {
             inclusion_in_release: ("show" | "include") | null;
             /** Breaking Next Release */
             breaking_next_release: boolean;
+            showable?: components["schemas"]["IncludableOut"] | null;
         };
         /**
          * InformationAudience
@@ -11935,6 +11981,17 @@ export interface components {
             revoked: number;
         };
         /**
+         * MadeProtectedOut
+         * @description `PUT .../protected` (ADR 0433): the release made with the flip for a private repository (none
+         *     for a public one, which has its releases already) and how many grants libraries had given
+         *     themselves while it was public, which are `protected` ones now.
+         */
+        MadeProtectedOut: {
+            release: components["schemas"]["ReleaseAuthoredOut"] | null;
+            /** Turned */
+            turned: number;
+        };
+        /**
          * MakeCurrentRequest
          * @description `PUT .../releases/{release_id}/current` (ADR 0288): `acknowledge_breaking` says the author
          *     has looked at the rows listed in the `409` that said the move would break what libraries on
@@ -11946,6 +12003,35 @@ export interface components {
              * @default false
              */
             acknowledge_breaking: boolean;
+        };
+        /**
+         * MakeProtectedRequest
+         * @description `PUT .../protected` (ADR 0433): the first release of a private repository made protected,
+         *     as `PUT .../published` makes one (`label`, `notes`, `breaking`, `acknowledge_breaking`). A
+         *     protected repository needs no summary and no terms line: nothing says what it is to anybody
+         *     who does not hold it. `acknowledge_revokes` is for a public repository made protected: the
+         *     libraries that copied it by themselves are told what they lose, as for going private.
+         */
+        MakeProtectedRequest: {
+            /** Label */
+            label?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Breaking
+             * @default false
+             */
+            breaking: boolean;
+            /**
+             * Acknowledge Breaking
+             * @default false
+             */
+            acknowledge_breaking: boolean;
+            /**
+             * Acknowledge Revokes
+             * @default false
+             */
+            acknowledge_revokes: boolean;
         };
         /**
          * MakePublicRequest
@@ -12312,11 +12398,8 @@ export interface components {
          *     they cannot read a delisted repository.
          */
         MemberProfileOut: {
-            /**
-             * Visibility
-             * @enum {string}
-             */
-            visibility: "private" | "public";
+            /** Visibility */
+            visibility: string;
             /**
              * Preview
              * @enum {string}
@@ -14487,7 +14570,7 @@ export interface components {
         };
         /**
          * PublicDependentOut
-         * @description A public repository built on this one, and whether the caller owns it.
+         * @description A public or protected repository built on this one, and whether the caller owns it.
          */
         PublicDependentOut: {
             /**
@@ -15291,6 +15374,11 @@ export interface components {
             published: boolean;
             /** Public */
             public: boolean;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
         };
         /**
          * RepositoryEntityOut
@@ -15316,11 +15404,8 @@ export interface components {
          *     picture is `GET .../profile/cover`).
          */
         RepositoryProfileOut: {
-            /**
-             * Visibility
-             * @enum {string}
-             */
-            visibility: "private" | "public";
+            /** Visibility */
+            visibility: string;
             /**
              * Preview
              * @enum {string}
@@ -15364,7 +15449,7 @@ export interface components {
          */
         RepositoryProfileUpdate: {
             /** Visibility */
-            visibility?: ("private" | "public") | null;
+            visibility?: ("private" | "protected" | "public") | null;
             /** Preview */
             preview?: ("off" | "showcase" | "public") | null;
             /** Listed */
@@ -16668,6 +16753,12 @@ export interface components {
             includable?: components["schemas"]["IncludableOut"] | null;
             /** Inclusion In Release */
             inclusion_in_release?: ("show" | "include") | null;
+            showable?: components["schemas"]["IncludableOut"] | null;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
         };
         /**
          * SumFormulaBody
@@ -16917,11 +17008,15 @@ export interface components {
          * @description A repository's terms, as an Owner sets them (ADR 0431, RFC 0051): what a repository built
          *     on it may do with it. `may_be_included` is whether one may include it in its own release;
          *     `null` takes the default for the repository's visibility back (a private repository: no, a
-         *     public one: yes).
+         *     public or protected one: yes). `may_be_shown` is whether one may keep it separate and visible
+         *     (ADR 0433): `false` only for a protected repository (`409 repository-not-protected`), `null` is
+         *     the default again, which is yes.
          */
         TermsIn: {
             /** May Be Included */
             may_be_included?: boolean | null;
+            /** May Be Shown */
+            may_be_shown?: boolean | null;
         };
         /**
          * TermsOut
@@ -16934,6 +17029,16 @@ export interface components {
             may_be_included: boolean;
             /** Is Default */
             is_default: boolean;
+            /**
+             * May Be Shown
+             * @default true
+             */
+            may_be_shown: boolean;
+            /**
+             * May Be Shown Is Default
+             * @default true
+             */
+            may_be_shown_is_default: boolean;
         };
         /**
          * UndeprecatedOut
@@ -23974,6 +24079,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FlipCheckOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    make_repository_protected: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MakeProtectedRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MadeProtectedOut"];
                 };
             };
             /** @description Validation Error */

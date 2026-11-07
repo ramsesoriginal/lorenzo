@@ -123,6 +123,7 @@ OWNER = {
     ("PUT", T + "/published"),
     ("GET", T + "/flip-check"),
     ("PUT", T + "/public"),
+    ("PUT", T + "/protected"),
     ("PUT", T + "/showcase"),
     ("DELETE", T + "/public"),
     ("PUT", T + "/deprecation"),

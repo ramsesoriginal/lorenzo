@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, Enum, ForeignKey, ForeignKeyConstraint, text
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, CreatedAt, CreatedBy, UpdatedAt, UpdatedBy, UuidPk
@@ -136,6 +137,16 @@ class Tenant(Base):
     # same reason: the gate and the policies read this row.
     deprecated_at: Mapped[datetime | None]
     deprecated_message: Mapped[str | None]
+    # ADR 0433: what the current release of a public or protected repository was built on and did
+    # not include, and whether the repository is public: the two facts the gate needs of the
+    # repository a library goes through to read a protected one, kept here because no policy hides
+    # this row and a policy on the profile cannot read the profile. Written by
+    # `repository_reach.sync_reach` whenever the profile's `release_sources` or `visibility`
+    # change; empty while it is private.
+    released_over: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default=text("'{}'::uuid[]")
+    )
+    released_public: Mapped[bool] = mapped_column(server_default=text("false"))
     # ADR 0288: the release a library reads of a repository, set by a publish and by "make release
     # current"; null for a play tenant and for a repository that has made none.
     current_release_id: Mapped[uuid.UUID | None]

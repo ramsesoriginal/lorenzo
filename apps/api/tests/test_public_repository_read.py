@@ -345,11 +345,10 @@ async def test_a_stack_with_a_private_repository_copies_nothing_and_grants_nothi
         await publish_stack(stack)
         base = f"/tenants/{table}/repositories/{stack.bridge}"
 
+        # A visitor reads the public steps only: a repository that is not public is named in no
+        # public view (ADR 0433), the protected ones among them.
         dependencies = (await gm.get(f"/repositories/{stack.bridge}/dependencies")).json()
-        assert [(d["name"], d["public"]) for d in dependencies] == [
-            ("Common Equipment", True),
-            ("D&D 5e", False),
-        ]
+        assert [(d["name"], d["public"]) for d in dependencies] == [("Common Equipment", True)]
 
         refused = await gm.post(f"{base}/copy", json={})
         assert refused.status_code == 409, refused.text

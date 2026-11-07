@@ -41,6 +41,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.repository_inclusion import InclusionChange, flatten, inclusion_changes, sources_of
 from lorenzo_api.repository_releases import ReleaseRef, current_release, releases_as_refs
+from lorenzo_api.repository_upstream import DOCUMENT_VISIBILITIES
 
 # A row's key: its kind, its origin id, and an attachment's parent (None for every other kind).
 Key = tuple[str, uuid.UUID, uuid.UUID | None]
@@ -522,7 +523,7 @@ async def assess(
     content = await load_content(session, repository_id)
     profile = await session.get(RepositoryProfile, repository_id)
     if flat is None:
-        flat = profile is not None and profile.visibility == "public"
+        flat = profile is not None and profile.visibility in DOCUMENT_VISIBILITIES
     changes: list[InclusionChange] = []
     if flat:
         sources = await sources_of(session, repository_id)
