@@ -34,4 +34,5 @@ A check of the built shell against the design found it two-tier and wordmark-fir
 - **The status bar can say when it last synced** (`statusBar({ sync, syncedAt })`, "Synced 19:40") and writes the date as the design does, "Wed 4 November at 20:59".
 - **The account menu** shows a name over the address, and the unread count beside Notifications.
 
-Not in this step: the Appearance dialog of ADR 0416 (density and a system choice of theme); the theme is still a toggle.
+- **Appearance** (D22, ADR 0416, screen 33) is the account menu's "Appearance…": a dialog for the theme (System, Light or Dark; the system's follows the window), the density of lists and tables (Comfortable, Compact or Dense: row height only, never the type, and not offered on a phone or a coarse pointer) and motion (System or Reduced). Each is applied at once and kept on the device (`lorenzo:density`, `lorenzo:motion` and the app's theme key), and applied again before first paint. D22 wants the choice in the account, which needs an API for a person's preferences that does not exist yet (ADR 0411): the dialog says it is remembered on this device. The `G T` key still flips between light and dark.
+- **The page's end is not under the sticky bars:** what is scrolled into view stops above the status bar and the phone's tab bar.

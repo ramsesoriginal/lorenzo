@@ -421,17 +421,20 @@ body:has(.full-width) {
 
 /* Density changes only a row's height and padding, never type (D22). Dense is for a fine
    pointer; on a phone or a coarse pointer every level is at least 44px and none is offered. */
-.shell-app[data-density="compact"] {
+.shell-app[data-density="compact"],
+html[data-density="compact"] .shell-app {
   --row-h: 36px;
 }
 
-.shell-app[data-density="dense"] {
+.shell-app[data-density="dense"],
+html[data-density="dense"] .shell-app {
   --row-h: 28px;
 }
 
 @container shell (max-width: 720px) {
   .shell-app,
-  .shell-app[data-density] {
+  .shell-app[data-density],
+  html[data-density] .shell-app {
     --space-1: 2px;
     --space-2: 4px;
     --space-3: 8px;
@@ -447,7 +450,8 @@ body:has(.full-width) {
 
 @media (pointer: coarse) {
   .shell-app,
-  .shell-app[data-density] {
+  .shell-app[data-density],
+  html[data-density] .shell-app {
     --hit: var(--target-min);
     --row-h: 64px;
   }

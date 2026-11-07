@@ -1,16 +1,16 @@
 ---
 import AppPage from '@lorenzo/app-shell/AppPage.astro';
-import type { PageTemplate } from '@lorenzo/app-shell';
 import { BRANDING_CSS_URL, THEME_KEY } from '../lib/config';
 import '../styles/global.css';
 
 interface Props {
   title?: string;
-  // The page's template (ADR 0412), which sets the width of its container.
-  template?: PageTemplate;
 }
 
-const { title = 'Lorenzo - Account', template } = Astro.props;
+const { title = 'Lorenzo - Account' } = Astro.props;
+// Every page of the hub has the one width, the shell's page container: it follows the width it is
+// given (a window, a pane, a phone) and the page's parts adapt to that, not to what is in them.
+const PAGE = 'list-detail';
 ---
 
 <AppPage
@@ -19,7 +19,7 @@ const { title = 'Lorenzo - Account', template } = Astro.props;
   brandingUrl={BRANDING_CSS_URL}
   themeKey={THEME_KEY}
   shell="web"
-  template={template}
+  template={PAGE}
   path="apps/account-hub"
   icon="account"
   nav={[

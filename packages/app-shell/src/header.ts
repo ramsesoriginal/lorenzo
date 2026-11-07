@@ -1,3 +1,5 @@
+import { applyAppearance } from './appearance';
+import { mountAppearance } from './appearance-ui';
 import { APP_INFO, type AppRegistry, appsByJob } from './apps';
 import { type Autosave, createAutosave } from './autosave';
 import { type ConfirmOptions, confirmDialog } from './confirm';
@@ -205,6 +207,7 @@ export function bindShell(options: ShellOptions): Shell | null {
   if (!root) return null;
 
   bindThemeToggle(root, options.themeKey);
+  applyAppearance(options.themeKey);
   find(root, '[data-login]')?.addEventListener('click', () => options.onLogin());
   find(root, '[data-logout]')?.addEventListener('click', () => options.onLogout());
 
@@ -311,9 +314,17 @@ export function bindShell(options: ShellOptions): Shell | null {
   let palette: PaletteUi | null = null;
   let hub: string | null = null;
   let shortcutsUi: { open(): void } | null = null;
+  let appearanceUi: { open(): void } | null = null;
   const sprite = root.dataset.sprite ?? '';
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
   const paletteKeys = mac ? '⌘ K' : 'Ctrl K';
+
+  // The Appearance dialog, made when first needed, by the account menu.
+  function appearance(): { open(): void } {
+    appearanceUi ??= mountAppearance(options.themeKey);
+
+    return appearanceUi;
+  }
 
   // The list `?` opens; made when first needed, by the palette's keys or the account menu.
   function shortcuts(): { open(): void } {
@@ -367,7 +378,6 @@ export function bindShell(options: ShellOptions): Shell | null {
   accountButton?.addEventListener('click', () => {
     if (accountButton.getAttribute('aria-expanded') === 'true') return;
 
-    const themeToggle = find<HTMLButtonElement>(root, '[data-theme-toggle]');
     const at = (path: string) => (hub ? new URL(path, hub).href : undefined);
     const hubLink = (label: string, icon: string, path: string, badge?: string): MenuItem[] => {
       const href = at(path);
@@ -385,12 +395,7 @@ export function bindShell(options: ShellOptions): Shell | null {
       ...hubLink('Libraries and people', 'library', 'tenants/'),
       ...hubLink('Access tokens and devices', 'token', 'tokens/'),
       { separator: true },
-      {
-        label: themeToggle?.textContent?.trim() || 'Change theme',
-        icon: 'theme-system',
-        keys: 'G T',
-        run: () => themeToggle?.click(),
-      },
+      { label: 'Appearance…', icon: 'theme-system', run: () => appearance().open() },
       { label: 'Keyboard shortcuts', icon: 'command', keys: '?', run: () => shortcuts().open() },
       { separator: true },
       {

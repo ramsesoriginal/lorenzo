@@ -23,6 +23,29 @@ export function initialTheme(saved: string | null, prefersDark: boolean): Theme 
   return prefersDark ? 'dark' : 'light';
 }
 
+/** What a person chose for the theme: one of the two, or the system's (nothing saved). */
+export type ThemeChoice = 'system' | 'light' | 'dark';
+
+export function themeChoiceOf(saved: string | null): ThemeChoice {
+  return saved === 'light' || saved === 'dark' ? saved : 'system';
+}
+
+/** How tall a row is, and how much room around it (D22): never the type's size. */
+export type Density = 'comfortable' | 'compact' | 'dense';
+
+export const DENSITIES: Density[] = ['comfortable', 'compact', 'dense'];
+
+export function densityOf(saved: string | null): Density {
+  return saved === 'compact' || saved === 'dense' ? saved : 'comfortable';
+}
+
+/** Motion: the system's wish (reduced motion or not), or reduced whatever the system says. */
+export type Motion = 'system' | 'reduced';
+
+export function motionOf(saved: string | null): Motion {
+  return saved === 'reduced' ? 'reduced' : 'system';
+}
+
 export function otherTheme(theme: Theme): Theme {
   return theme === 'dark' ? 'light' : 'dark';
 }

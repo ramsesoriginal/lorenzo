@@ -2213,6 +2213,15 @@ fieldset:disabled {
   color: var(--text-tertiary);
 }
 
+/* The Appearance dialog: a few choices, each a row of the segmented control under its label. */
+dialog.appearance {
+  width: min(480px, calc(100% - 24px));
+}
+
+dialog.appearance .field-label {
+  margin-top: var(--space-2);
+}
+
 .shell-status .chevron {
   transition: transform var(--dur-fast) var(--ease);
 }

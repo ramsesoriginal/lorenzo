@@ -9,8 +9,8 @@ import {
   signedInPage,
 } from './support';
 
-// Home as drawn (AH1, AH6, screen 01) and the pages' widths (D21): every page in the shell's own
-// container for its template, never wider and never narrower than it says.
+// Home as drawn (AH1, AH6, screen 01) and the pages' width: every page in the shell's one page
+// container, which follows the window or pane it is in.
 
 test('Home is "Home" with who it is and what needs them, then what they run, play and may open', async ({
   browser,
@@ -111,7 +111,9 @@ test('the header has the four places of the design, and the rest are behind the 
   await context.close();
 });
 
-test('every page is as wide as its template says, at a desktop width', async ({ browser }) => {
+test('every page is the one width, which is the container’s, at a desktop width', async ({
+  browser,
+}) => {
   const owner = await newUser('owner', ['tenant_creator']);
 
   await newLibrary(owner.api);
@@ -119,24 +121,23 @@ test('every page is as wide as its template says, at a desktop width', async ({ 
   const { page, context } = await signedInPage(browser, owner.subject, {
     viewport: { width: 1440, height: 900 },
   });
-  // Home and the list pages 1120, forms 1040, reading 680 (D21), each less the page's own padding.
-  const pages: [string, number][] = [
-    ['/', 1120],
-    ['/tenants/', 1120],
-    ['/repositories/', 1120],
-    ['/setup/', 1040],
-    ['/profile/', 1040],
-    ['/tokens/', 1040],
-    ['/notifications/', 680],
-  ];
 
-  for (const [path, width] of pages) {
+  // Not a width for the content of a page: Home, the lists, the forms and the reading pages alike.
+  for (const path of [
+    '/',
+    '/tenants/',
+    '/repositories/',
+    '/setup/',
+    '/profile/',
+    '/tokens/',
+    '/notifications/',
+  ]) {
     await page.goto(path);
     await expect(page.locator('[data-account-signed-in]')).toBeVisible();
 
     const box = await page.locator('#content > .shell-page').boundingBox();
 
-    expect(box?.width, path).toBe(width);
+    expect(box?.width, path).toBe(1120);
     // Nothing in it breaks out of it: the page does not scroll sideways.
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -144,5 +145,19 @@ test('every page is as wide as its template says, at a desktop width', async ({ 
 
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
+
+  // A window narrower than that gives the page what it has, less its gutters, and it still fits.
+  await page.setViewportSize({ width: 900, height: 900 });
+  await page.goto('/profile/');
+
+  const narrow = (await page.locator('#content > .shell-page').boundingBox())?.width ?? 0;
+
+  expect(narrow).toBeGreaterThan(800);
+  expect(narrow).toBeLessThanOrEqual(900);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
   await context.close();
 });

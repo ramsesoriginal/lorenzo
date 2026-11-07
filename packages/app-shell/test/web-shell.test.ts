@@ -758,7 +758,7 @@ describe('the account menu', () => {
       'Notifications',
       'Libraries and people',
       'Access tokens and devices',
-      'Dark theme',
+      'Appearance…',
       'Keyboard shortcuts',
       'Sign out',
     ]);
@@ -778,6 +778,121 @@ describe('the account menu', () => {
     expect(document.querySelector('.menu-head-text')?.textContent).toBe('mara.quill@example.com');
     expect(items()[1]?.querySelector('.menu-badge')?.textContent).toBe('3');
     expect(items()[0]?.querySelector('.menu-badge')).toBeNull();
+  });
+
+  describe('Appearance', () => {
+    async function open(beforeOpening?: () => void) {
+      const { button } = await signedIn();
+
+      beforeOpening?.();
+
+      button.click();
+      items()
+        .find((item) => item.textContent?.includes('Appearance'))
+        ?.click();
+      vi.advanceTimersByTime(10);
+
+      const dialog = document.querySelector('dialog.appearance') as HTMLDialogElement;
+      const choose = (group: string, label: string) =>
+        (
+          [
+            ...dialog.querySelectorAll<HTMLElement>(
+              `[role="radiogroup"][aria-label="${group}"] button`,
+            ),
+          ].find((b) => b.textContent === label) as HTMLElement
+        ).click();
+
+      return { dialog, choose };
+    }
+
+    it('opens from the account menu, with the theme, the density and motion, each with its choices', async () => {
+      const { dialog } = await open();
+
+      expect(dialog.hasAttribute('open')).toBe(true);
+      expect(dialog.querySelector('h2')?.textContent).toBe('Appearance');
+      expect(
+        [...dialog.querySelectorAll('[role="radiogroup"]')].map((group) => [
+          group.getAttribute('aria-label'),
+          [...group.querySelectorAll('button')].map((b) => b.textContent),
+          group.querySelector('[aria-checked="true"]')?.textContent,
+        ]),
+      ).toEqual([
+        ['Theme', ['System', 'Light', 'Dark'], 'System'],
+        ['Density of lists and tables', ['Comfortable', 'Compact', 'Dense'], 'Comfortable'],
+        ['Motion', ['System', 'Reduced'], 'System'],
+      ]);
+    });
+
+    it('applies and keeps a theme at once, and the system’s again when asked', async () => {
+      const { choose } = await open();
+
+      choose('Theme', 'Dark');
+      expect(document.documentElement.dataset.theme).toBe('dark');
+      expect(window.localStorage.getItem('test:theme')).toBe('dark');
+      choose('Theme', 'Light');
+      expect(document.documentElement.dataset.theme).toBe('light');
+      choose('Theme', 'System');
+      expect(window.localStorage.getItem('test:theme')).toBeNull();
+      // The test window prefers light.
+      expect(document.documentElement.dataset.theme).toBe('light');
+    });
+
+    it('applies and keeps a density and motion, and Comfortable and System are what is not kept', async () => {
+      const { choose } = await open();
+
+      choose('Density of lists and tables', 'Dense');
+      expect(document.documentElement.dataset.density).toBe('dense');
+      expect(window.localStorage.getItem('lorenzo:density')).toBe('dense');
+      choose('Density of lists and tables', 'Comfortable');
+      expect(document.documentElement.dataset.density).toBeUndefined();
+      expect(window.localStorage.getItem('lorenzo:density')).toBeNull();
+
+      choose('Motion', 'Reduced');
+      expect(document.documentElement.dataset.motion).toBe('reduced');
+      expect(window.localStorage.getItem('lorenzo:motion')).toBe('reduced');
+      choose('Motion', 'System');
+      expect(document.documentElement.dataset.motion).toBeUndefined();
+      expect(window.localStorage.getItem('lorenzo:motion')).toBeNull();
+    });
+
+    it('shows what was kept the next time, and a page starts with it', async () => {
+      const { dialog } = await open(() =>
+        window.localStorage.setItem('lorenzo:density', 'compact'),
+      );
+
+      expect(
+        dialog.querySelector('[aria-label="Density of lists and tables"] [aria-checked="true"]')
+          ?.textContent,
+      ).toBe('Compact');
+    });
+
+    it('moves between the choices with the arrow keys', async () => {
+      const { dialog } = await open();
+      const system = [
+        ...dialog.querySelectorAll<HTMLElement>('[aria-label="Theme"] button'),
+      ][0] as HTMLElement;
+
+      system.dispatchEvent(
+        new dom.window.KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(window.localStorage.getItem('test:theme')).toBe('light');
+      expect(dialog.querySelector('[aria-label="Theme"] [aria-checked="true"]')?.textContent).toBe(
+        'Light',
+      );
+    });
+
+    it('does not offer density on a phone, where every row is big enough already', async () => {
+      phone = true;
+
+      const { dialog } = await open();
+
+      expect(dialog.querySelector('[aria-label="Density of lists and tables"]')).toBeNull();
+      expect(dialog.querySelector('[aria-label="Theme"]')).not.toBeNull();
+    });
   });
 
   it('moves with the arrows, closes on Escape and gives focus back', async () => {

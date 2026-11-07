@@ -25,6 +25,16 @@
   }
 }
 
+/* The same, chosen in Appearance whatever the system says (D22). */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Routine loading (§17.9) - ordinary interface mechanics                 */
 /* ---------------------------------------------------------------------- */
