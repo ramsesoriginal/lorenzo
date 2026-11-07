@@ -113,6 +113,9 @@ class InformationVisibility:
     user_id: uuid.UUID | None = None
     session_entry_ids: frozenset[uuid.UUID] = frozenset()
     session_reader_ids: frozenset[uuid.UUID] = frozenset()
+    # Whether the tenant hides any entry from everyone (ADR 0435): the gate then asks of every entry
+    # whether the repository it came with hides it, and an administrator is not let past it.
+    hides_entries: bool = False
 
     def can_see_entry(self, entity_id: uuid.UUID) -> bool:
         return entity_id not in self.hidden_entry_ids
@@ -197,7 +200,11 @@ def visible_information_clause(vis: InformationVisibility) -> ColumnElement[bool
     parity test enforces over a fixed matrix of callers and rows.
     """
     if vis.is_admin or vis.author_sees_all:
-        return true()
+        if not vis.hides_entries:
+            return true()
+        from lorenzo_api.entry_visibility import visible_entry_clause
+
+        return visible_entry_clause(vis, Information.entity_id)
     knower_matches = []
     if vis.player_ids:
         knower_matches.append(Knowledge.knower_player_id.in_(vis.player_ids))
@@ -274,9 +281,13 @@ async def resolve_information_reader(
 
     The rows are those whose `can_see` the caller will ask: an item's own and its ancestors'.
     """
+    from lorenzo_api.entry_visibility import hides_entries
+
     rows = list(information)
     ids = set(entry_ids) | {row.entity_id for row in rows}
-    gated = (
+    # A tenant that hides entries lets nobody past the gate, so nothing is skipped (ADR 0435).
+    hiding = await hides_entries(session, tenant_id)
+    gated = hiding or (
         bool(ids)
         and await session.scalar(
             select(EntityAudience.entity_id)
@@ -292,7 +303,7 @@ async def resolve_information_reader(
     if not gated and all(row.is_public for row in rows):
         return SEES_EVERYTHING
     tier = await _administrative_tier(session, user_id=user_id, tenant_id=tenant_id)
-    if tier[1]:
+    if tier[1] and not hiding:
         return SEES_EVERYTHING
     return await resolve_information_visibility(
         session, user_id=user_id, tenant_id=tenant_id, tier=tier
@@ -603,11 +614,19 @@ async def resolve_information_visibility(
 
     from sqlalchemy.orm import aliased
 
-    from lorenzo_api.entry_visibility import visible_entry_clause
+    from lorenzo_api.entry_visibility import (
+        hidden_by_source_ids,
+        hides_entries,
+        visible_entry_clause,
+    )
 
+    hides = await hides_entries(session, tenant_id)
+    if hides:
+        vis = replace(vis, hides_entries=True)
     gates = aliased(EntityAudience)
-    hidden = (
-        frozenset(
+    hidden: frozenset[uuid.UUID] = frozenset()
+    if hides or not (vis.is_admin or vis.author_sees_all):
+        hidden = frozenset(
             await session.scalars(
                 select(gates.entity_id).where(
                     gates.tenant_id == tenant_id,
@@ -615,7 +634,8 @@ async def resolve_information_visibility(
                 )
             )
         )
-        if not (vis.is_admin or vis.author_sees_all)
-        else frozenset()
-    )
+    if hides:
+        # What the repository an entry came with hides is hidden from everyone, and the ties that
+        # reach a hidden end are hidden with it (ADR 0435; ADR 0399 for a relationship).
+        hidden |= await hidden_by_source_ids(session, tenant_id)
     return replace(vis, hidden_entry_ids=hidden)

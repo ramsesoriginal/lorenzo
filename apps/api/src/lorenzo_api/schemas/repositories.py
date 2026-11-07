@@ -3,7 +3,14 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from lorenzo_api.models import StatValueType
 from lorenzo_api.schemas.repository_profiles import DeprecatedNoticeOut
@@ -14,6 +21,7 @@ __all__ = [
     "InclusionChangeOut",
     "InclusionIn",
     "InclusionName",
+    "InclusionNameOut",
     "InclusionOut",
     "AttachmentActionIn",
     "AttachmentActionName",
@@ -42,6 +50,7 @@ __all__ = [
     "RowChangeOut",
     "RowRefOut",
     "UpdateActionIn",
+    "HiddenChangesOut",
     "UpdatesOut",
     "CollisionOut",
     "CopyOut",
@@ -85,7 +94,13 @@ def _blank_is_none(value: str | None) -> str | None:
 
 
 # How a repository carries one it is built on when it releases (ADR 0431, RFC 0051).
-InclusionName = Literal["show", "include"]
+InclusionName = Literal["show", "include", "hide"]
+# What a response says of it: declared extensible, so that a way of carrying a repository
+# added later is not a break of the contract (ADR 0435: `hide` was the third), and clients read
+# the three they know.
+InclusionNameOut = Annotated[
+    str, Field(json_schema_extra={"x-extensible-enum": ["show", "include", "hide"]})
+]
 
 
 class IncludableOut(BaseModel):
@@ -113,13 +128,15 @@ class InclusionOut(BaseModel):
 
     repository_id: uuid.UUID
     name: str
-    inclusion: InclusionName
+    inclusion: InclusionNameOut
     includable: IncludableOut
-    inclusion_in_release: InclusionName | None
+    inclusion_in_release: InclusionNameOut | None
     breaking_next_release: bool
     # Whether the caller may keep it separate and visible and why (ADR 0434): only the terms of a
     # protected repository can say no, and an Owner of it is always allowed.
     showable: IncludableOut | None = None
+    # As `showable`, for keeping it separate and hidden (ADR 0435).
+    hidable: IncludableOut | None = None
 
 
 class InclusionChangeOut(BaseModel):
@@ -127,8 +144,8 @@ class InclusionChangeOut(BaseModel):
 
     repository_id: uuid.UUID
     name: str
-    before: InclusionName
-    after: InclusionName
+    before: InclusionNameOut
+    after: InclusionNameOut
 
 
 ReleasedKindName = Literal["entity", "stat_group", "stat_definition", "attachment"]
@@ -370,7 +387,7 @@ class SubscriberOut(BaseModel):
     synced_release: ReleaseRefOut | None
     # How it carries this repository when it releases, if it copied it (ADR 0431): a library's is
     # always `show`. Null before it copies. The Owner of the repository reads who chose what.
-    inclusion: InclusionName | None = None
+    inclusion: InclusionNameOut | None = None
 
 
 class SubscribersSummaryOut(BaseModel):
@@ -429,11 +446,12 @@ class SubscriptionOut(BaseModel):
     # (`inclusion`), whether the caller may include it and why (`includable`), and how its current
     # public release carried it (`inclusion_in_release`, null when none did or it was built on
     # later). All null for a library, and for a repository that has not copied this one.
-    inclusion: InclusionName | None = None
+    inclusion: InclusionNameOut | None = None
     includable: IncludableOut | None = None
-    inclusion_in_release: InclusionName | None = None
-    # As `includable`, for keeping it separate and visible (ADR 0434).
+    inclusion_in_release: InclusionNameOut | None = None
+    # As `includable`, for keeping it separate and visible (ADR 0434) and hidden (ADR 0435).
     showable: IncludableOut | None = None
+    hidable: IncludableOut | None = None
     # The library holds it through a repository built on it, not by an invitation (ADR 0434): the
     # repository is named "A protected repository" and cannot be copied on its own.
     protected: bool = False
@@ -708,6 +726,19 @@ class AttachmentAddedOut(AttachmentChangeOut):
     reason: str | None
 
 
+class HiddenChangesOut(BaseModel):
+    """What an update does to the entries this library hides, as counts and a plain label, never
+    names (ADR 0435): `label` reads "3 changes to hidden entries". They are taken with the rest of
+    the update; `breaking` is how many a release since the library last updated called breaking,
+    which `acknowledge_hidden_breaking` takes as one line."""
+
+    changed: int
+    added: int
+    removed: int
+    breaking: int
+    label: str
+
+
 class UpdatesOut(BaseModel):
     """`GET .../repositories/{id}/updates` - ADR 0121. `removed` rows are
     gone upstream and only ever detached, never deleted here;
@@ -733,6 +764,9 @@ class UpdatesOut(BaseModel):
     # The repository's latest release (ADR 0208), null before its first; the `state` of a row is
     # against it.
     release: ReleaseOut | None
+    # What it does to the entries this library hides, which none of the lists above name (ADR
+    # 0435); null where there is nothing.
+    hidden: HiddenChangesOut | None = None
 
 
 class UpdateResolutionIn(BaseModel):
@@ -785,6 +819,10 @@ class ApplyUpdatesRequest(BaseModel):
     actions: list[UpdateActionIn]
     attachments: list[AttachmentActionIn] | None = None
     dry_run: bool | None = None
+    # Takes the breaking changes to hidden entries as one line (ADR 0435): they are applied with
+    # the rest and not named, so they are acknowledged together. Without it an update with any is
+    # refused with `409 update-needs-confirmation`.
+    acknowledge_hidden_breaking: bool | None = None
 
 
 class NotAppliedOut(BaseModel):
@@ -811,3 +849,5 @@ class ApplyUpdatesOut(BaseModel):
     attachments_added: int
     attachments_detached: int
     not_applied: list[NotAppliedOut]
+    # The changes to hidden entries taken with the rest, as counts (ADR 0435).
+    hidden: HiddenChangesOut | None = None

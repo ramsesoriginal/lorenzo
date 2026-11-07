@@ -34,7 +34,7 @@ from lorenzo_api.exceptions import (
     TenantCreationForbiddenError,
     TenantNotFoundError,
 )
-from lorenzo_api.models import Campaign, Entity, Tenant, User
+from lorenzo_api.models import Campaign, Entity, RepositoryCopyLinkEntity, Tenant, User
 from lorenzo_api.personal_tokens import find_live_token, is_personal_token, touch_last_used
 
 __all__ = [
@@ -462,7 +462,7 @@ async def set_tenant_rls_context(session: AsyncSession, tenant_id: uuid.UUID) ->
 
 
 async def get_tenant_context(
-    tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser
+    tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser, request: Request
 ) -> uuid.UUID:
     """Validates tenant_id is real *and* the caller actually has a
     Membership in it, of any role: an Owner, an Organizer or an Author (ADR 0219;
@@ -484,6 +484,7 @@ async def get_tenant_context(
     if await membership_of(session, tenant_id=tenant_id, user_id=user.id) is None:
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     await set_tenant_rls_context(session, tenant_id)
+    await refuse_hidden_entries(request, session, tenant)
     return tenant_id
 
 
@@ -515,7 +516,7 @@ async def get_tenant_admin_context(
 
 
 async def get_tenant_or_404(
-    tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser
+    tenant_id: uuid.UUID, session: SessionDep, user: CurrentUser, request: Request
 ) -> uuid.UUID:
     """Existence-only - no Membership check, unlike get_tenant_context. See
     ADR 0030/RFC 0003: which RLS partition a query runs against is a
@@ -549,6 +550,7 @@ async def get_tenant_or_404(
         raise TenantNotFoundError(detail=f"No tenant with id {tenant_id}")
     hold(session, tenant)
     await set_tenant_rls_context(session, tenant_id)
+    await refuse_hidden_entries(request, session, tenant)
     return tenant_id
 
 
@@ -618,3 +620,34 @@ async def get_entity_or_404(
     if entity is None:
         raise EntityNotFoundError(detail=f"No entity with id {entity_id} in tenant {tenant_id}")
     return entity
+
+
+async def refuse_hidden_entries(request: Request, session: AsyncSession, tenant: Tenant) -> None:
+    """`404` for a route whose path names an entry the tenant hides (ADR 0435), for everyone: an
+    entry is addressed by an id in the path (`entity_id`, `being_id`, `location_id`, ...) and
+    nothing a library hides is read or written by its address. One place for every route under
+    `/tenants/{tenant_id}`, so a route added later cannot forget it. A tenant that hides nothing
+    (`tenant.hides_entries`, a column of the row it already holds) asks nothing."""
+    if not tenant.hides_entries:
+        return
+    named: list[uuid.UUID] = []
+    for key, value in request.path_params.items():
+        if key == "tenant_id":
+            continue
+        try:
+            named.append(uuid.UUID(str(value)))
+        except ValueError:
+            continue
+    if not named:
+        return
+    found = await session.scalar(
+        select(RepositoryCopyLinkEntity.entity_id)
+        .where(
+            RepositoryCopyLinkEntity.tenant_id == tenant.id,
+            RepositoryCopyLinkEntity.entity_id.in_(named),
+            RepositoryCopyLinkEntity.hidden.is_(True),
+        )
+        .limit(1)
+    )
+    if found is not None:
+        raise EntityNotFoundError(detail=f"No entity with id {found} in tenant {tenant.id}")

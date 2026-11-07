@@ -30,7 +30,11 @@ from lorenzo_api.release_fanout import announce
 from lorenzo_api.repository_built_on import built_on_behind
 from lorenzo_api.repository_content import assert_acyclic
 from lorenzo_api.repository_digest import assess, replace_stored_rows
-from lorenzo_api.repository_inclusion import refuse_unless_includable, refuse_unless_showable
+from lorenzo_api.repository_inclusion import (
+    refuse_unless_hidable,
+    refuse_unless_includable,
+    refuse_unless_showable,
+)
 from lorenzo_api.repository_listing import set_listing_facts
 from lorenzo_api.repository_releases import (
     lock_repository,
@@ -139,6 +143,7 @@ async def publish_release(
         # has to be allowed to publish it (ADR 0431).
         await refuse_unless_includable(session, tenant_id, user_id)
         await refuse_unless_showable(session, tenant_id, user_id)
+        await refuse_unless_hidable(session, tenant_id, user_id)
     if (assessed.hits or assessed.inclusion_changes) and not body.acknowledge_breaking:
         raise ReleaseHasBreakingChangesError(
             detail=f"{len(assessed.hits) + len(assessed.inclusion_changes)} of the changes in this "

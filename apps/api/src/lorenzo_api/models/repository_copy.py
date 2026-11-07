@@ -26,7 +26,9 @@ class RepositoryCopy(Base):
 
     __tablename__ = "repository_copy"
     __table_args__ = (
-        CheckConstraint("inclusion IN ('show', 'include')", name="repository_copy_inclusion"),
+        CheckConstraint(
+            "inclusion IN ('show', 'include', 'hide')", name="repository_copy_inclusion"
+        ),
     )
 
     tenant_id: Mapped[uuid.UUID] = _tenant_pk()
@@ -47,6 +49,11 @@ class RepositoryCopy(Base):
     # one, `include` makes its rows this repository's own in the release document. Only a
     # repository has a use for it; a library's is always `show`.
     inclusion: Mapped[str] = mapped_column(server_default=text("'show'"))
+    # What this record's repository brings separate into the tenant, as the release the tenant last
+    # took says it (ADR 0435): `{<source id>: "show" | "hide"}`, and the repository's own id as
+    # `show` where the tenant copied it for itself. A library's hidden rows are derived from every
+    # record's (`repository_hiding.refresh_hidden`), so the derivation reads no other repository.
+    carries: Mapped[dict[str, str]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
 
 
 class _CopyLink:
@@ -81,6 +88,10 @@ class RepositoryCopyLinkEntity(_CopyLink, Base):
     )
 
     entity_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    # Whether the library hides this entry (ADR 0435): true while every repository the library
+    # holds that brings the row's repository hides it. Derived by `repository_hiding`, never set
+    # by a request; read by the gate every read of an entry applies, for everyone.
+    hidden: Mapped[bool] = mapped_column(server_default=text("false"))
 
 
 class RepositoryCopyLinkStatGroup(_CopyLink, Base):

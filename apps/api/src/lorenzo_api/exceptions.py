@@ -1108,6 +1108,14 @@ class RepositoryProtectedError(ConflictProblem):
     title = "This repository is protected"
 
 
+class RepositoryNotHidableError(ConflictProblem):
+    """Keeping a repository separate and hidden (`inclusion = hide`) when its terms forbid it and
+    the user is not an Owner of it - ADR 0435, RFC 0051 H4. Carries `repositories`: each one that
+    cannot be hidden, by id and name. Only a protected repository can say no."""
+
+    title = "This repository cannot be kept separate and hidden"
+
+
 class RepositoryNotProtectedError(ConflictProblem):
     """Saying a repository may not be shown (`terms.may_be_shown: false`) while it is not
     protected - ADR 0434, RFC 0051 H3. Only a protected repository can stay hidden: a private one

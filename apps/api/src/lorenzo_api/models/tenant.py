@@ -147,6 +147,10 @@ class Tenant(Base):
         ARRAY(UUID(as_uuid=True)), server_default=text("'{}'::uuid[]")
     )
     released_public: Mapped[bool] = mapped_column(server_default=text("false"))
+    # ADR 0435: whether any copy link of the tenant is hidden (`repository_copy_link_entity`).
+    # Read by the gate every read of an entry applies, so that a tenant that hides nothing pays
+    # nothing; written by `repository_hiding.refresh_hidden`, which derives both.
+    hides_entries: Mapped[bool] = mapped_column(server_default=text("false"))
     # ADR 0288: the release a library reads of a repository, set by a publish and by "make release
     # current"; null for a play tenant and for a repository that has made none.
     current_release_id: Mapped[uuid.UUID | None]

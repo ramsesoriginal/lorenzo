@@ -106,6 +106,8 @@ def member_profile_out(
             is_default=profile.may_be_included is None,
             may_be_shown=terms_of(profile).may_be_shown,
             may_be_shown_is_default=profile.may_be_shown is None,
+            may_be_hidden=terms_of(profile).may_be_hidden,
+            may_be_hidden_is_default=profile.may_be_hidden is None,
         ),
     )
 

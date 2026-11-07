@@ -26,6 +26,7 @@ from lorenzo_api.campaign_access import is_tenant_owner
 from lorenzo_api.models import RepositoryCopy, RepositoryProfile, Tenant
 from lorenzo_api.repository_access import reading_repository_held
 from lorenzo_api.repository_inclusion import (
+    hidable,
     includable,
     recorded_inclusions,
     showable,
@@ -178,6 +179,7 @@ async def built_on_sources(
             terms = terms_of(await session.get(RepositoryProfile, upstream)) if readable else None
         can = await includable(session, upstream, user_id)
         may_show = await showable(session, upstream, user_id)
+        may_hide = await hidable(session, upstream, user_id)
         found.append(
             {
                 "id": str(upstream),
@@ -191,6 +193,9 @@ async def built_on_sources(
                 "showable": may_show.allowed,
                 "show_by": may_show.by,
                 "may_be_shown": terms.may_be_shown if terms is not None else True,
+                "hidable": may_hide.allowed,
+                "hide_by": may_hide.by,
+                "may_be_hidden": terms.may_be_hidden if terms is not None else True,
                 "in_release": recorded.get(str(upstream)),
             }
         )

@@ -5,9 +5,10 @@ from typing import Any, cast
 from fastapi import APIRouter, Depends
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import apaginate
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from lorenzo_api.dependencies import ParamsDep, SessionDep, get_tenant_admin_context
+from lorenzo_api.entry_visibility import unhidden
 from lorenzo_api.models import Information, Knowledge
 from lorenzo_api.schemas.knowledge import KnowledgeEntryOut
 
@@ -42,7 +43,16 @@ async def list_knowledge(
             Knowledge.created_at,
         )
         .join(Information, Information.id == Knowledge.information_id)
-        .where(Knowledge.tenant_id == tenant_id, Information.tenant_id == tenant_id)
+        .where(
+            Knowledge.tenant_id == tenant_id,
+            Information.tenant_id == tenant_id,
+            await unhidden(session, tenant_id, Information.entity_id),
+            # A knower the library hides is not named either (ADR 0435).
+            or_(
+                Knowledge.knower_entity_id.is_(None),
+                await unhidden(session, tenant_id, Knowledge.knower_entity_id),
+            ),
+        )
         .order_by(Knowledge.created_at, Knowledge.id)
     )
 

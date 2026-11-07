@@ -1398,8 +1398,23 @@ def stat_definition_snapshot(
     }
 
 
+def hidden_by_source(content: Content, entity_id: uuid.UUID) -> bool:
+    """Whether the document carries the entry hidden (ADR 0435): it is a copy of a row of a
+    repository the release carries `hide`. A document of a repository that hides nothing, and
+    content loaded live, record no sources, so no entry of them is."""
+    origin = content.links.entity.get(entity_id)
+    if origin is None or not content.sources:
+        return False
+    tenant = content.links.origin_tenant.get(origin)
+    source = content.sources.get(tenant) if tenant is not None else None
+    return source is not None and source["inclusion"] == "hide"
+
+
 def public_entry(content: Content, entity_id: uuid.UUID) -> bool:
-    if not content.entry_audiences.get(entity_id, True):
+    """Whether a visitor of the repository may be shown the entry at all: its audience is Everyone
+    and the release does not carry it hidden (ADR 0435), so what a repository hides from the
+    libraries that copy it is not on its storefront, its preview or its counts either."""
+    if hidden_by_source(content, entity_id) or not content.entry_audiences.get(entity_id, True):
         return False
     period = content.calendar_periods.get(entity_id) or content.observances.get(entity_id)
     return period is None or content.entry_audiences.get(period["calendar"], True)

@@ -113,6 +113,7 @@ from lorenzo_api.repository_content import (
     stat_group_snapshot,
 )
 from lorenzo_api.repository_deprecation import copy_refusal
+from lorenzo_api.repository_hiding import carries_of, refresh_hidden
 from lorenzo_api.repository_reach import PROTECTED_NAME
 from lorenzo_api.repository_upstream import load_upstream, upstream_copies, visibility_of
 from lorenzo_api.svg_lint import SvgRefused, check_svg
@@ -186,6 +187,9 @@ class Step:
     # The release the repository is read at when it is planned, its current one: what the copy
     # records as taken (ADR 0207, 0286).
     release_id: uuid.UUID | None = None
+    # The repository the copy is of: its entries are brought for itself, and never hidden by what
+    # another repository says of it (ADR 0435).
+    head: bool = False
     entities: int = 0
     stat_groups: int = 0
     stat_definitions: int = 0
@@ -1600,6 +1604,7 @@ class _Planner:
                     "repository_name": step.name,
                     "copied_by": user_id,
                     "synced_release_id": step.release_id,
+                    "carries": carries_of(c, repository_id, for_itself=step.head),
                 }
             )
 
@@ -1694,6 +1699,7 @@ async def plan_copy(
         for step in steps[:-1]:
             if step.deprecated and step.readable and not step.already_copied:
                 raise copy_refusal(step.name, step.deprecated_message)
+    steps[-1].head = True
     plan = Plan(tenant_id=tenant_id, steps=steps)
     if steps[-1].already_copied or plan.missing:
         return plan
@@ -1939,6 +1945,7 @@ async def apply_plan(session: AsyncSession, plan: Plan, *, user_id: uuid.UUID) -
         a.step.attachments -= a.edge
         a.step.dropped.append(Dropped("attachment", a.child_source_id, LOOP_REASON))
     await check_formula_cycles(session, plan.tenant_id)
+    await refresh_hidden(session, plan.tenant_id)
     for step in plan.to_copy:
         reported_dropped = sum(
             d.kind
@@ -2633,6 +2640,7 @@ async def forget_copy(
             RepositoryCopy.tenant_id == t, RepositoryCopy.repository_tenant_id == repository_id
         )
     )
+    await refresh_hidden(session, t)
     reported_removed = sum(
         count
         for kind, count in previous.also_removed.items()

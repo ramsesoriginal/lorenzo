@@ -90,7 +90,9 @@ from lorenzo_api.repository_grants import (
     notify_tenant_admins,
     subscribe_to_public,
 )
+from lorenzo_api.repository_hiding import HiddenChanges
 from lorenzo_api.repository_inclusion import (
+    hidable,
     includable,
     recorded_inclusions,
     set_inclusion,
@@ -141,10 +143,10 @@ from lorenzo_api.schemas.repositories import (
     DroppedOut,
     EntityKindName,
     FieldChangeOut,
+    HiddenChangesOut,
     IncludableOut,
     InclusionChangeOut,
     InclusionIn,
-    InclusionName,
     InclusionOut,
     MakeCurrentRequest,
     NotAppliedOut,
@@ -503,9 +505,9 @@ def _row_names(rows: Sequence[Row]) -> list[RowNameOut]:
     ]
 
 
-def _inclusion(value: str | None) -> InclusionName | None:
-    """A stored choice as the API names it (the database check allows only these two)."""
-    return cast("InclusionName | None", value)
+def _inclusion(value: str | None) -> str | None:
+    """A stored choice as the API names it (the database check allows only the three)."""
+    return value
 
 
 def _release_ref(release: ReleaseRef | None) -> ReleaseRefOut | None:
@@ -904,6 +906,11 @@ async def list_repositories(
             if copy is not None and own is not None and own.kind is TenantKind.REPOSITORY
             else None
         )
+        may_hide = (
+            await hidable(session, repository_id, user.id)
+            if copy is not None and own is not None and own.kind is TenantKind.REPOSITORY
+            else None
+        )
         through_another = grant is not None and grant.source == "protected"
         rows.append(
             SubscriptionOut(
@@ -961,6 +968,9 @@ async def list_repositories(
                 showable=IncludableOut(allowed=may_show.allowed, by=may_show.by)
                 if may_show
                 else None,
+                hidable=IncludableOut(allowed=may_hide.allowed, by=may_hide.by)
+                if may_hide
+                else None,
                 inclusion_in_release=_inclusion(recorded.get(str(repository_id))),
                 protected=through_another,
             )
@@ -1011,6 +1021,7 @@ async def set_repository_inclusion(
     )
     can = await includable(session, repository_id, user.id)
     may_show = await showable(session, repository_id, user.id)
+    may_hide = await hidable(session, repository_id, user.id)
     source = await session.get(Tenant, repository_id)
     held = await session.get(RepositorySubscription, (repository_id, tenant_id))
     out = InclusionOut(
@@ -1022,11 +1033,12 @@ async def set_repository_inclusion(
             if source is not None
             else copy.repository_name
         ),
-        inclusion=cast("InclusionName", copy.inclusion),
+        inclusion=copy.inclusion,
         includable=IncludableOut(allowed=can.allowed, by=can.by),
         inclusion_in_release=_inclusion(recorded),
         breaking_next_release=recorded is not None and recorded != copy.inclusion,
         showable=IncludableOut(allowed=may_show.allowed, by=may_show.by),
+        hidable=IncludableOut(allowed=may_hide.allowed, by=may_hide.by),
     )
     await session.commit()
     return out
@@ -1606,6 +1618,20 @@ def _attachment_change_out(a: AttachmentRef) -> AttachmentChangeOut:
     )
 
 
+def _hidden_out(hidden: HiddenChanges | None) -> HiddenChangesOut | None:
+    """What an update does to hidden entries, as counts and the label that stands for them: no
+    entry is named (ADR 0435)."""
+    if hidden is None or hidden.label is None:
+        return None
+    return HiddenChangesOut(
+        changed=hidden.changed,
+        added=hidden.added,
+        removed=hidden.removed,
+        breaking=hidden.breaking,
+        label=hidden.label,
+    )
+
+
 @router.get("/repositories/{repository_id}/updates")
 async def list_repository_updates(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_context)],
@@ -1669,6 +1695,7 @@ async def list_repository_updates(
         ],
         names=updates.names,
         release=(_readable(updates.release, current=True) if updates.release else None),
+        hidden=_hidden_out(updates.hidden),
     )
 
 
@@ -1724,6 +1751,7 @@ async def apply_repository_updates(
             )
             for a in body.attachments or []
         ],
+        acknowledge_hidden_breaking=bool(body.acknowledge_hidden_breaking),
     )
     if body.dry_run:
         await session.rollback()
@@ -1736,6 +1764,7 @@ async def apply_repository_updates(
         detached=result.detached,
         attachments_added=result.attachments_added,
         attachments_detached=result.attachments_detached,
+        hidden=_hidden_out(result.hidden),
         not_applied=[
             NotAppliedOut(
                 kind=n.kind,
