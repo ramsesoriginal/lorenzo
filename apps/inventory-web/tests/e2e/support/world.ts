@@ -215,6 +215,7 @@ export async function buildWorld() {
         ),
       );
     }
+    // biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: describe is this app's own helper, not Playwright's
     if (options.description) setUp.push(describe(created.entity_id, options.description));
     await Promise.all(setUp);
     return created.entity_id;
