@@ -242,8 +242,9 @@ tests per client.
   let past every audience, where a hidden entry has to stay hidden for them.
 - **Everything still resolves through a hidden entry.** The effective-stat views read the tables and never the
   gate; the prototype edge is a row nobody filters; and the provenance already answers "a source the reader may not
-  see" with a null source, which the API now says as `from_hidden`. Not the texts: the information of a hidden entry
-  is not read through to the entries below it, as for an entry an audience hides.
+  see" with a null source, which the API now says as `from_hidden`. The texts too (the maintainer's decision): the
+  descriptions and pictures of a hidden entry are inherited by the entries below it as a visible prototype's are, and
+  the entry is not named.
 - **The gate is not the one place.** The typed lists (items, beings, characters, item instances, knowledge) never
   applied it, and an administrator was never filtered by it. Both are closed (a typed clause, and one guard in the two
   dependencies every tenant route goes through for any route with an entry in its path), and a sweep of every `GET`
@@ -265,7 +266,12 @@ where the build differs, it says so here:
   rest when the update is applied, with one acknowledgement line (`acknowledge_hidden_breaking`) for breaking ones;
   the release it names has its rows scrubbed. A hidden entry the repository dropped is removed when nothing visible
   uses it, and kept (hidden) when something does.
-- **Provenance** is `from_hidden` beside the null `from_entity`, which a client says as "a hidden entry".
+- **Provenance** is `from_hidden` beside the null `from_entity`, which a client says as "a hidden entry", on stat
+  values and on inherited descriptions and pictures. The texts are given by asking the audiences alone
+  (`can_see_inherited`), not the source's hide; the bytes of an inherited picture are read while an entry the reader
+  can see inherits from the hidden one.
+- **Consent is asked once, when the choice is set** (`409 repository-not-hidable`), and not again when a release is
+  made (the maintainer's decision, as for include and show).
 - **B's own page** (browse, preview, entry count) leaves out what its release carries hidden.
 - **The contract** gains the value `hide` where responses name the choice; the diff reports it as an added enum value, accepted in `openapi-breaking-accepted.txt`.
 

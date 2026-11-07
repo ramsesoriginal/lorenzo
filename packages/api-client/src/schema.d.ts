@@ -9714,6 +9714,8 @@ export interface components {
             /** Locale */
             locale: string;
             from_entity: components["schemas"]["EntitySummary"] | null;
+            /** From Hidden */
+            from_hidden?: boolean | null;
         };
         /**
          * DeviceApproval
@@ -13998,6 +14000,8 @@ export interface components {
             /** File Type */
             file_type: string;
             from_entity: components["schemas"]["EntitySummary"] | null;
+            /** From Hidden */
+            from_hidden?: boolean | null;
         };
         /** PlaceOut */
         PlaceOut: {

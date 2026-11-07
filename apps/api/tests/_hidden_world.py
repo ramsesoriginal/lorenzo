@@ -19,9 +19,22 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from test_repository_include import W, _bridge, _copy, _library, _make_public
 
-from lorenzo_api.models import Entity, RepositoryCopy, RepositoryCopyLinkEntity
+from lorenzo_api.models import (
+    Entity,
+    Information,
+    Payload,
+    PayloadDescription,
+    PayloadPicture,
+    RepositoryCopy,
+    RepositoryCopyLinkEntity,
+)
 
 A_ENTRIES = ("Longsword", "Dagger", "Orc")
+
+# What A says in words, and what the entries that inherit from Longsword read of it (ADR 0437).
+LONGSWORD_TEXT = "A long blade, balanced for the hand."
+LONGSWORD_PICTURE = b"\x89PNG-longsword"
+ORC_TEXT = "Green, loud and hungry."
 
 
 @dataclass
@@ -66,6 +79,40 @@ async def choose(actor: Actor, b: uuid.UUID, source: uuid.UUID, choice: str) -> 
     )
 
 
+async def seed_texts(tenant: uuid.UUID, ids: dict[str, uuid.UUID]) -> None:
+    """A description with a picture on Longsword, which Dagger and Bridge Blade inherit from, and
+    one on Orc, which nothing inherits from."""
+    async with admin_session_factory() as session:
+        for name, text, picture in (
+            ("Longsword", LONGSWORD_TEXT, LONGSWORD_PICTURE),
+            ("Orc", ORC_TEXT, b"\x89PNG-orc"),
+        ):
+            info = Information(
+                tenant_id=tenant,
+                entity_id=ids[name],
+                title=f"{name} title",
+                type="description",
+                is_public=True,
+            )
+            session.add(info)
+            await session.flush()
+            words = Payload(tenant_id=tenant, information_id=info.id)
+            drawing = Payload(tenant_id=tenant, information_id=info.id)
+            session.add_all([words, drawing])
+            await session.flush()
+            session.add_all(
+                [
+                    PayloadDescription(
+                        payload_id=words.id, tenant_id=tenant, locale="en-GB", content=text
+                    ),
+                    PayloadPicture(
+                        payload_id=drawing.id, tenant_id=tenant, data=picture, file_type="image/png"
+                    ),
+                ]
+            )
+        await session.commit()
+
+
 async def world(
     raw_client: AsyncClient,
     jwks: FakeJwksServer,
@@ -75,8 +122,10 @@ async def world(
     copy: bool = True,
 ) -> H:
     """A (protected unless `protected` is false, then public) and B built on it with `choice`,
-    public; a library that has copied B if `copy`."""
+    public; a library that has copied B if `copy`. A has a description and a picture on Longsword
+    and a description on Orc."""
     base = await release_world(raw_client, jwks)
+    await seed_texts(base.repository, base.ids)
     if protected:
         assert (await protect(base.author, base.repository, label="p1")).status_code == 200
     else:

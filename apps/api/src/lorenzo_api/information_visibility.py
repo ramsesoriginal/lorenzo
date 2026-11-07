@@ -116,9 +116,24 @@ class InformationVisibility:
     # Whether the tenant hides any entry from everyone (ADR 0437): the gate then asks of every entry
     # whether the repository it came with hides it, and an administrator is not let past it.
     hides_entries: bool = False
+    # The entries the audiences alone hide from this reader, that is `hidden_entry_ids` without
+    # what only the repository an entry came with hides. None where the two are the same (a tenant
+    # that hides nothing, and a hand-built visibility). What an entry gives the entries below it
+    # reads through the first and not the second (ADR 0437): a hidden entry is not listed, searched
+    # or opened, and its texts are still inherited.
+    audience_hidden_entry_ids: frozenset[uuid.UUID] | None = None
 
     def can_see_entry(self, entity_id: uuid.UUID) -> bool:
         return entity_id not in self.hidden_entry_ids
+
+    def is_hidden_by_source(self, entity_id: uuid.UUID) -> bool:
+        """Whether the entry is hidden from this reader only because of the repository it came
+        with, and so is not named to them but still gives what it holds to the entries below it."""
+        return (
+            self.audience_hidden_entry_ids is not None
+            and entity_id in self.hidden_entry_ids
+            and entity_id not in self.audience_hidden_entry_ids
+        )
 
     def can_see(self, info: Information) -> bool:
         """info.knowledge_links must already be eager-loaded (raise_on_sql,
@@ -144,6 +159,23 @@ class InformationVisibility:
         """
         if info.entity_id in self.hidden_entry_ids:
             return False
+        return self._visible(info)
+
+    def can_see_inherited(self, info: Information) -> bool:
+        """`can_see` for a row an entry inherits from an ancestor (its descriptions and pictures,
+        ADR 0111): the ancestor may be hidden by the repository it came with, which is a reason to
+        leave it out of every list and not to withhold what it gives (ADR 0437). An audience that
+        hides it still does. The reader is told the entry is not named (`is_hidden_by_source`)."""
+        hidden = (
+            self.hidden_entry_ids
+            if self.audience_hidden_entry_ids is None
+            else self.audience_hidden_entry_ids
+        )
+        if info.entity_id in hidden:
+            return False
+        return self._visible(info)
+
+    def _visible(self, info: Information) -> bool:
         if info.shared_with_participants and info.entity_id in self.participant_event_ids:
             return True
         if info.entity_id in self.session_entry_ids and info.created_by == self.user_id:
@@ -170,7 +202,11 @@ class InformationReader(Protocol):
 
     def can_see(self, info: Information) -> bool: ...
 
+    def can_see_inherited(self, info: Information) -> bool: ...
+
     def can_see_entry(self, entity_id: uuid.UUID) -> bool: ...
+
+    def is_hidden_by_source(self, entity_id: uuid.UUID) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,7 +218,13 @@ class SeesEverything:
     def can_see_entry(self, entity_id: uuid.UUID) -> bool:
         return True
 
+    def is_hidden_by_source(self, entity_id: uuid.UUID) -> bool:
+        return False
+
     def can_see(self, info: Information) -> bool:
+        return True
+
+    def can_see_inherited(self, info: Information) -> bool:
         return True
 
 
@@ -626,6 +668,7 @@ async def resolve_information_visibility(
         vis = replace(vis, hides_entries=True)
     gates = aliased(EntityAudience)
     hidden: frozenset[uuid.UUID] = frozenset()
+    audience_hidden: frozenset[uuid.UUID] | None = None
     if hides or not (vis.is_admin or vis.author_sees_all):
         hidden = frozenset(
             await session.scalars(
@@ -637,6 +680,20 @@ async def resolve_information_visibility(
         )
     if hides:
         # What the repository an entry came with hides is hidden from everyone, and the ties that
-        # reach a hidden end are hidden with it (ADR 0437; ADR 0399 for a relationship).
+        # reach a hidden end are hidden with it (ADR 0437; ADR 0399 for a relationship). What the
+        # audiences alone hide is kept apart: an inherited text is withheld for that and not for
+        # this. The audiences' share is the gate asked as it is for a tenant that hides nothing.
+        audience_only = replace(vis, hides_entries=False)
+        if audience_only.is_admin or audience_only.author_sees_all:
+            audience_hidden = frozenset()
+        else:
+            audience_hidden = frozenset(
+                await session.scalars(
+                    select(gates.entity_id).where(
+                        gates.tenant_id == tenant_id,
+                        ~visible_entry_clause(audience_only, gates.entity_id),
+                    )
+                )
+            )
         hidden |= await hidden_by_source_ids(session, tenant_id)
-    return replace(vis, hidden_entry_ids=hidden)
+    return replace(vis, hidden_entry_ids=hidden, audience_hidden_entry_ids=audience_hidden)

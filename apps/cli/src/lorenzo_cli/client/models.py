@@ -2375,6 +2375,7 @@ class PictureRefOut(BaseModel):
     url: str = Field(..., title="Url")
     file_type: str = Field(..., title="File Type")
     from_entity: EntitySummary | None
+    from_hidden: bool | None = Field(None, title="From Hidden")
 
 
 class PlaceOut(BaseModel):
@@ -4126,6 +4127,7 @@ class DescriptionOut(BaseModel):
     content: str = Field(..., title="Content")
     locale: str = Field(..., title="Locale")
     from_entity: EntitySummary | None
+    from_hidden: bool | None = Field(None, title="From Hidden")
 
 
 class DiscoverItemOut(BaseModel):

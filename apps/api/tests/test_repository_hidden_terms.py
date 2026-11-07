@@ -230,16 +230,19 @@ async def test_a_protected_repository_can_say_it_may_not_be_hidden(
         assert allowed.status_code == 200 and allowed.json()["hidable"]["by"] == "terms"
         assert (await _make_public(owner_b, b)).status_code == 200
 
-        # And said again, the next release is refused, naming A, and keeps nothing.
+        # And said again: consent is asked once, when the choice is set. The choice stands and
+        # the next release is made; only a choice made afterwards is refused.
         assert (
             await base.author.patch(
                 f"/tenants/{base.repository}/profile", json={"terms": {"may_be_hidden": False}}
             )
         ).status_code == 200
         again = await owner_b.put(f"/tenants/{b}/published", json={"label": "1.1"})
-        assert again.status_code == 409
-        assert again.json()["type"] == "repository-not-hidable"
-        assert [r["name"] for r in again.json()["repositories"]] == ["Armoury"]
+        assert again.status_code == 200, again.text
+        assert (await choose(owner_b, b, base.repository, "show")).status_code == 200
+        refused_now = await choose(owner_b, b, base.repository, "hide")
+        assert refused_now.status_code == 409
+        assert refused_now.json()["type"] == "repository-not-hidable"
     finally:
         await w.done()
 
