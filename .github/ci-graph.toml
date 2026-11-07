@@ -203,6 +203,9 @@ batch = "web-2"
 node = "apps/maps"
 depends_on = ["apps/api"]
 
+[nodes."apps/legal"]
+batch = "web-2"
+
 [nodes."apps/social"]
 batch = "web-2"
 

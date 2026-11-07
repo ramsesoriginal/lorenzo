@@ -126,8 +126,25 @@ import ReleaseComposer from './ReleaseComposer.astro';
           </p>
           <div class="row">
             <button type="button" class="btn btn-secondary" data-visibility-button></button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-visibility-button-alt
+              hidden
+            ></button>
           </div>
           <p class="caption" data-visibility-note hidden></p>
+          <!-- Whether Discover lists it (RFC 0051 H2, ADR 0432): an Owner's, for a public repository, saved at once. -->
+          <div class="stack-tight" data-visibility-listed hidden>
+            <label class="field-row">
+              <input type="checkbox" data-visibility-listed-input />
+              <span data-visibility-listed-label></span>
+            </label>
+            <p class="caption" data-visibility-listed-help></p>
+            <p>
+              <a class="shelf-link" data-visibility-listed-link></a>
+            </p>
+          </div>
           <p class="status-text" role="status" data-visibility-status hidden></p>
         </div>
         <!-- What is still missing before it can be public, each with a link to where to fix it (ADR 0385): an Owner's, beside the switch. -->
@@ -403,6 +420,36 @@ import ReleaseComposer from './ReleaseComposer.astro';
           <dl class="key-values" data-preview-facts></dl>
         </section>
       </section>
+
+      <!-- What repositories built on this one may do with it (ADR 0431): an Owner decides, every member
+           reads. Beside the profile and not in it: it is saved when it is changed, not with Save. -->
+      <div class="card card-body stack" id="profile-terms" tabindex="-1" data-terms-card hidden>
+        <h4 data-terms-heading></h4>
+        <p class="caption" data-terms-intro></p>
+        <fieldset class="stack-tight" data-terms-presets>
+          <legend class="caption" data-terms-presets-legend></legend>
+        </fieldset>
+        <label class="field-row">
+          <input type="checkbox" data-terms-include />
+          <span data-terms-include-label></span>
+        </label>
+        <p class="caption" data-terms-include-help></p>
+        <p class="caption" data-terms-line></p>
+        <label class="field-row">
+          <input type="checkbox" data-terms-shown />
+          <span data-terms-shown-label></span>
+        </label>
+        <p class="caption" data-terms-shown-help></p>
+        <p class="caption" data-terms-shown-line></p>
+        <label class="field-row">
+          <input type="checkbox" data-terms-hidden />
+          <span data-terms-hidden-label></span>
+        </label>
+        <p class="caption" data-terms-hidden-help></p>
+        <p class="caption" data-terms-hidden-line></p>
+        <p class="caption" data-terms-owner-only hidden></p>
+        <p class="status-text" role="status" data-terms-status hidden></p>
+      </div>
     </div>
 
     <div class="stack" role="tabpanel">
@@ -515,7 +562,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
     </form>
   </dialog>
 
-  <!-- What making it public or private will do, said before it does it (ADR 0290). -->
+  <!-- What making it public, protected or private will do, said before it does it (ADR 0290, ADR 0434). -->
   <dialog aria-labelledby="visibility-dialog-title" data-visibility-dialog>
     <form method="dialog" class="stack" data-visibility-form>
       <h3 id="visibility-dialog-title" data-vis-title></h3>
@@ -529,7 +576,13 @@ import ReleaseComposer from './ReleaseComposer.astro';
       </div>
       <ul class="stack-tight" data-vis-lines></ul>
 
-      <!-- Making it public: what it says of itself, what people may look at, and the release. -->
+      <!-- Making it public: how it carries each repository it is built on (ADR 0431). -->
+      <div class="stack" data-vis-built-on hidden>
+        <strong data-vis-built-on-title></strong>
+        <ul class="stack" data-vis-built-on-list></ul>
+      </div>
+
+      <!-- Making it public: what it says of itself and what people may look at. -->
       <div class="stack" data-vis-public hidden>
         <label class="field">
           <span class="field-label">Summary</span>
@@ -540,8 +593,13 @@ import ReleaseComposer from './ReleaseComposer.astro';
         <fieldset data-vis-preview>
           <legend data-vis-preview-legend></legend>
         </fieldset>
-        <ReleaseComposer />
+      </div>
 
+      <!-- Making it public or protected (a private repository): the release. -->
+      <ReleaseComposer />
+
+      <!-- Making it public: the terms line an Owner agrees to (RFC 0038 section 6, ADR 0299). -->
+      <div class="stack" data-vis-public-terms hidden>
         <!-- The terms line an Owner agrees to (RFC 0038 section 6, ADR 0299). -->
         <label class="field-row" data-vis-terms-row>
           <input type="checkbox" data-vis-terms />
@@ -725,7 +783,7 @@ import ReleaseComposer from './ReleaseComposer.astro';
   </template>
   <template data-built-on-template>
     <li class="row">
-      <div class="grow stack-tight">
+      <div class="grow stack-tight" data-built-on-body>
         <a class="shelf-link" href="/repositories/" data-name></a>
         <span class="campaign-meta" data-line></span>
         <span class="campaign-meta" data-updates></span>

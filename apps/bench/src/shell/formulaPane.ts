@@ -94,6 +94,7 @@ export function renderFormulas(
     const li = el('li', own ? 'formula own' : 'formula inherited');
     li.dataset.formula = def.id;
     li.append(el('span', 'stat-name', `ƒ ${def.name}`));
+    // biome-ignore lint/correctness/usePlaywrightValidDescribeCallback: describe is this app's own helper, not Playwright's
     li.append(el('span', 'formula-text', describe(held.formula, nameOf)));
     if (!own) {
       const from = el('button', 'btn link', `from ${entryName(held.entryId)}`);

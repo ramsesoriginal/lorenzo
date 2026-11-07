@@ -169,6 +169,10 @@ test('a writer makes a Map, draws, changes and undoes', async ({ browser }) => {
     await expect.poll(() => corner(2)).toBe(beforeDrag);
     await page.getByRole('button', { name: 'Redo' }).click();
     await expect.poll(async () => ((await corner(2)) ?? 0) > (beforeDrag ?? 0) + 20).toBe(true);
+    // The corner moves while the redo is still saving; the editor ignores a click that lands
+    // mid-save, and "Remove from this map" is not disabled then. The status line is the redo's
+    // last word, so wait for it.
+    await expect(page.getByText('Done again.')).toBeVisible();
 
     // Remove it from the Map; the entry stays, and the pin is still there.
     await page.getByRole('button', { name: 'Remove from this map' }).click();

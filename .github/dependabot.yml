@@ -108,6 +108,7 @@ updates:
       - "/apps/sessions"
       - "/apps/writing"
       - "/apps/maps"
+      - "/apps/legal"
       - "/apps/social"
       - "/apps/bench"
       - "/apps/inventory-web"

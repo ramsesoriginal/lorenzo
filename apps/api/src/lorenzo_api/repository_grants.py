@@ -122,6 +122,8 @@ async def subscribe_to_public(
     tenant_id: uuid.UUID,
     repository_ids: Sequence[uuid.UUID],
     user_id: uuid.UUID,
+    protected_ids: Sequence[uuid.UUID] = (),
+    via: uuid.UUID | None = None,
 ) -> list[uuid.UUID]:
     """Gives the library `tenant_id` a grant of its own, `source = public`, to each of the
     public repositories (ADR 0287, RFC 0038 section 3): what copying a public repository does
@@ -132,10 +134,19 @@ async def subscribe_to_public(
     invitation outranks this, and is left as it is), runs under the library's RLS context, and
     commits. Nothing is said to the repository's Owner here beyond a line in its activity log
     that a library copied it, with no name, no person and nothing to tell which (ADR 0299, RFC
-    0038 section 6); the library's own log keeps its own record. Returns the ids written."""
+    0038 section 6); the library's own log keeps its own record. Returns the ids written.
+
+    `protected_ids` are the protected repositories the copy of `via` brought in (ADR 0434): each
+    gets a row of `source = protected`, written inside the read of that repository through `via`,
+    which is where the database lets the library see that it is reached. That row lets the library
+    list what it holds and nothing else: it reads the repository again only through a public
+    repository whose release lists it, which the database asks each time."""
     written: list[uuid.UUID] = []
-    for repository_id in repository_ids:
-        async with reading_repository(session, repository_id) as readable:
+    steps = [(i, "public", None) for i in repository_ids] + [
+        (i, "protected", via) for i in protected_ids
+    ]
+    for repository_id, source, through in steps:
+        async with reading_repository(session, repository_id, via=through) as readable:
             if not readable:
                 continue
             session.add(
@@ -143,7 +154,7 @@ async def subscribe_to_public(
                     repository_tenant_id=repository_id,
                     subscriber_tenant_id=tenant_id,
                     created_by=user_id,
-                    source="public",
+                    source=source,
                 )
             )
             await session.flush()
@@ -155,7 +166,7 @@ async def subscribe_to_public(
             action="repository.subscribed",
             target_type="tenant",
             target_id=repository_id,
-            detail="source=public",
+            detail=f"source={source}",
         )
         await _log_public_copy(session, repository_id=repository_id, library_id=tenant_id)
     return written

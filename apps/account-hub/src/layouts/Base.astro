@@ -41,7 +41,13 @@ const { title = 'Lorenzo - Account' } = Astro.props;
 </AppPage>
 
 <script>
+  import { bindLegalLinksFromApi } from '@lorenzo/app-shell/legal';
+  import { API_BASE_URL } from '../lib/config';
   import { startShell } from '../lib/shell';
+
+  // The legal notice, the privacy policy and the support link in the shell's footer, when the
+  // deployment has them (ADR 0439).
+  void bindLegalLinksFromApi(API_BASE_URL);
 
   await startShell();
 </script>
