@@ -2,7 +2,7 @@
 // plain functions over what the API returns. No DOM and nothing but ./types, so they run under Node
 // in the unit tests. The words are those of identity.md §14.3.
 
-import type { Inclusion } from './inclusion';
+import { asInclusion, type Inclusion } from './inclusion';
 import { onRelease } from './releases';
 import { dayOf, type ShelfState, shelfState } from './shelf';
 import type { IncludableOut, SubscriberOut, SubscriptionOut } from './types';
@@ -45,6 +45,7 @@ export function usingLine(row: SubscriberOut): string {
   // A repository that carries this one as its own in its release says so to this one's Owner
   // (RFC 0051: the Owner sees each repository built on it and the choice it made).
   if (row.inclusion === 'include') parts.push('includes it in its own release');
+  if (row.inclusion === 'hide') parts.push('keeps it separate and hides it');
   if (row.granted_at === null && row.copied_at) {
     return `${parts.join(', ')}. It keeps its copy and gets no more updates unless you invite it again.`;
   }
@@ -121,6 +122,8 @@ export type BuiltOn = {
   // Whether it may be kept separate and visible, which only the terms of a protected repository can
   // forbid (ADR 0434), and whether it is protected.
   showable: IncludableOut | null;
+  // And separate and hidden, which only the terms of a protected repository can forbid (ADR 0435).
+  hidable: IncludableOut | null;
   protected: boolean;
   inclusionInRelease: Inclusion | null;
 };
@@ -149,11 +152,12 @@ export function builtOn(subscriptions: readonly SubscriptionOut[]): BuiltOn[] {
         checkable:
           subscription.copied_at !== null && (state === 'copied' || state === 'update-announced'),
         line: parts.length === 0 ? '' : `${parts.join(', ')}.`,
-        inclusion: subscription.copied_at !== null ? (subscription.inclusion ?? null) : null,
+        inclusion: subscription.copied_at !== null ? asInclusion(subscription.inclusion) : null,
         includable: subscription.includable ?? null,
         showable: subscription.showable ?? null,
+        hidable: subscription.hidable ?? null,
         protected: subscription.protected === true,
-        inclusionInRelease: subscription.inclusion_in_release ?? null,
+        inclusionInRelease: asInclusion(subscription.inclusion_in_release),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));

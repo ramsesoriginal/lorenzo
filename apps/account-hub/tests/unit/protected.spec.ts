@@ -222,6 +222,7 @@ function source(overrides: Partial<BuiltOnSourceOut> = {}): BuiltOnSourceOut {
     includable: { allowed: true, by: 'terms' },
     showable: { allowed: true, by: 'terms' },
     may_be_shown: true,
+    may_be_hidden: true,
     in_release: null,
     ...overrides,
   };
@@ -294,19 +295,23 @@ describe('A’s terms: the presets and the switch', () => {
   });
 
   it('set both switches, so that a preset is the same whatever was said before', () => {
-    expect(presetPatch('open')).toEqual({ terms: { may_be_included: true, may_be_shown: true } });
+    expect(presetPatch('open')).toEqual({
+      terms: { may_be_included: true, may_be_shown: true, may_be_hidden: true },
+    });
     expect(presetPatch('stay-hidden')).toEqual({
-      terms: { may_be_included: true, may_be_shown: false },
+      terms: { may_be_included: true, may_be_shown: false, may_be_hidden: true },
     });
     expect(termsShownPatch(false)).toEqual({ terms: { may_be_shown: false } });
   });
 
   it('are read from the switches, and none where they say something else', () => {
-    const terms = { may_be_included: true, may_be_shown: true };
+    const terms = { may_be_included: true, may_be_shown: true, may_be_hidden: true };
 
     expect(presetOf(terms, 'protected')).toBe('open');
     expect(presetOf({ ...terms, may_be_shown: false }, 'protected')).toBe('stay-hidden');
-    expect(presetOf({ may_be_included: false, may_be_shown: true }, 'protected')).toBeNull();
+    expect(presetOf({ ...terms, may_be_included: false }, 'protected')).toBeNull();
+    // A repository that may not be hidden is neither preset (RFC 0051 H4).
+    expect(presetOf({ ...terms, may_be_hidden: false }, 'protected')).toBeNull();
     // Only a protected repository can stay hidden: what a private one said is not a preset.
     expect(presetOf({ ...terms, may_be_shown: false }, 'private')).toBeNull();
   });

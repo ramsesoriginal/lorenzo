@@ -214,6 +214,7 @@ export function createVisibilityControls(
         notOffered: row.notOffered,
         note: row.note,
         protected: row.protected,
+        public: row.public,
         editable: true,
         onSaved: () => void reread(repository),
       }),

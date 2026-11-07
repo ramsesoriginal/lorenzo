@@ -330,7 +330,14 @@ export type UpdateCounts = {
   removed: number;
   conflicts: number;
   parents: number;
+  // Changes to the entries the library hides (RFC 0051 H4, ADR 0435): counted and never named, and taken
+  // with the rest.
+  hidden: number;
 };
+
+export function hiddenChanges(hidden: UpdatesOut['hidden']): number {
+  return hidden ? hidden.changed + hidden.added + hidden.removed : 0;
+}
 
 export function countUpdates(updates: UpdatesOut): UpdateCounts {
   const groups = groupUpdates(updates);
@@ -341,11 +348,41 @@ export function countUpdates(updates: UpdatesOut): UpdateCounts {
     removed: groups.removed.length,
     conflicts: groups.conflicts.length,
     parents: groups.attachmentsAdded.length + groups.attachmentsRemoved.length,
+    hidden: hiddenChanges(updates.hidden),
   };
 }
 
 export function todo(counts: UpdateCounts): number {
-  return counts.changed + counts.new + counts.removed + counts.conflicts + counts.parents;
+  return (
+    counts.changed + counts.new + counts.removed + counts.conflicts + counts.parents + counts.hidden
+  );
+}
+
+// What an update does to hidden entries, which are never named: "3 changes to hidden entries".
+export function hiddenSentence(count: number): string {
+  return count === 1 ? '1 change to a hidden entry' : `${count} changes to hidden entries`;
+}
+
+// Said before an update with breaking changes to hidden entries is taken: they are acknowledged as one
+// line, since none of them can be named.
+export function hiddenConfirmation(line: string): string {
+  return `A release since this library last updated marked these changes breaking: ${line}. They are taken with the rest of the update, and their entries stay hidden.
+
+Apply the update anyway?`;
+}
+
+// The problem the API answers with when the acknowledgement is missing: the one line it asks about
+// ("1 change to a hidden entry"), or null where the refusal is about something else.
+export function hiddenBreakingOf(problem: Record<string, unknown>): string | null {
+  if (!Array.isArray(problem.unconfirmed)) return null;
+
+  for (const entry of problem.unconfirmed) {
+    const row = entry as { kind?: unknown; name?: unknown };
+
+    if (row.kind === 'hidden' && typeof row.name === 'string') return row.name;
+  }
+
+  return null;
 }
 
 // "4 changed, 12 new, 1 removed upstream, 2 conflicts, 3 parents", or that there is nothing.
@@ -360,6 +397,7 @@ export function countsSentence(counts: UpdateCounts): string {
     counts.parents > 0
       ? `${counts.parents} ${counts.parents === 1 ? 'parent' : 'parents'} added or removed`
       : null,
+    counts.hidden > 0 ? hiddenSentence(counts.hidden) : null,
   ].filter((part): part is string => part !== null);
 
   return parts.length === 0 ? 'Up to date' : parts.join(', ');
@@ -371,6 +409,8 @@ export type CleanSelection = {
   actions: UpdateActionIn[];
   changed: number;
   added: number;
+  // What an update does to the entries the library hides: taken with the rest, never chosen (ADR 0435).
+  hidden: number;
   // What it leaves for a decision of its own.
   left: {
     conflicts: number;
@@ -427,6 +467,7 @@ export function cleanSelection(
     actions,
     changed,
     added,
+    hidden: hiddenChanges(updates.hidden),
     left: {
       conflicts: groups.conflicts.length,
       collisions: groups.added.filter((row) => row.collision !== null).length,
@@ -445,6 +486,7 @@ export function cleanSentence(selection: CleanSelection): string {
       ? `${selection.changed} ${selection.changed === 1 ? 'change' : 'changes'}`
       : null,
     selection.added > 0 ? `${selection.added} new` : null,
+    selection.hidden > 0 ? hiddenSentence(selection.hidden) : null,
   ].filter((part): part is string => part !== null);
 
   if (take.length === 0) return 'There is nothing clean to apply.';
@@ -547,6 +589,7 @@ export function appliedSentence(result: ApplyUpdatesOut): string {
     result.attachments_detached > 0
       ? `${past ? 'detached' : 'detach'} ${plural(result.attachments_detached, 'parent', 'parents')}`
       : null,
+    result.hidden ? `${past ? 'took' : 'take'} ${result.hidden.label.toLowerCase()}` : null,
   ].filter((part): part is string => part !== null);
 
   if (parts.length === 0) {

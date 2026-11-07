@@ -20,7 +20,13 @@ import type {
   TermsOut,
 } from './types';
 
-export type Inclusion = InclusionOut['inclusion'];
+// The three ways a repository carries one it is built on (RFC 0051, ADR 0431, ADR 0435). The API names the
+// value as an extensible enum, so a word added later reads as null here and never as a guess.
+export type Inclusion = 'show' | 'include' | 'hide';
+
+export function asInclusion(value: string | null | undefined): Inclusion | null {
+  return value === 'show' || value === 'include' || value === 'hide' ? value : null;
+}
 
 // ---------------------------------------------------------------------------------------------
 // The choice, for each repository a repository is built on.
@@ -30,9 +36,10 @@ export const INCLUSION_LEGEND = 'How is it carried in this repository?';
 export const INCLUSION_LABEL: Record<Inclusion, string> = {
   show: 'Keep separate and visible',
   include: 'Include in this repository',
+  hide: 'Keep separate and hidden',
 };
 
-export const INCLUSION_CHOICES: readonly Inclusion[] = ['show', 'include'];
+export const INCLUSION_CHOICES: readonly Inclusion[] = ['show', 'hide', 'include'];
 
 // The choices to offer: "Include in this repository" only where the user may include it. What is already
 // chosen stays offered, so that it shows as chosen even where it could not be chosen again.
@@ -40,10 +47,14 @@ export function offeredChoices(
   includable: Pick<IncludableOut, 'allowed'> | null | undefined,
   current: Inclusion,
   showable?: Pick<IncludableOut, 'allowed'> | null,
+  hidable?: Pick<IncludableOut, 'allowed'> | null,
 ): Inclusion[] {
   return INCLUSION_CHOICES.filter((choice) => {
     if (choice === current) return true;
     if (choice === 'include') return includable?.allowed === true;
+    // `hide` is offered where the API says it may be (RFC 0051 H4, ADR 0435): a reply that says nothing
+    // of it is an older one, and offers what it knows.
+    if (choice === 'hide') return hidable?.allowed === true;
 
     // `show` is offered unless the repository's terms forbid it (RFC 0051 H3, ADR 0434).
     return showable?.allowed !== false;
@@ -51,10 +62,23 @@ export function offeredChoices(
 }
 
 // What each choice does, said before it is chosen: for a library that copies this repository, and for
-// this repository's own Owner.
-export function inclusionEffect(choice: Inclusion, name: string, isProtected = false): string {
+// this repository's own Owner. `isPublic` is for what hiding means of a repository anyone can copy.
+export function inclusionEffect(
+  choice: Inclusion,
+  name: string,
+  isProtected = false,
+  isPublic = false,
+): string {
   if (choice === 'include') {
     return `The entries of ${name} become this repository’s own when you publish a release. A library that copies this repository does not need ${name} and never reads it. Your copy of ${name} here is not changed, and you keep taking its updates.`;
+  }
+
+  if (choice === 'hide') {
+    return `${name} stays a repository of its own, and a library that copies this repository holds its entries and does not see them: they are not listed, searched or opened, and the entries of this repository still inherit from them. ${
+      isPublic
+        ? 'Anyone can copy it, so hiding it only tidies the libraries that copy this repository.'
+        : 'It is a way to tidy, not a secret: what they give this repository’s entries reaches the library as values.'
+    }`;
   }
 
   return isProtected
@@ -86,6 +110,18 @@ export function notShowableReason(
   return `You cannot keep ${name} separate and visible here: its Owner has asked that what is built on it does not show it. Include it in this repository instead, or ask its Owner.`;
 }
 
+// Why "Keep separate and hidden" is not offered, or null where it is: the Owner of a protected repository
+// can ask that what is built on it is not hidden (RFC 0051 H4, ADR 0435), and then it is kept visible or
+// included, unless this user is one of its Owners.
+export function notHidableReason(
+  name: string,
+  hidable: Pick<IncludableOut, 'allowed'> | null | undefined,
+): string | null {
+  if (hidable?.allowed !== false) return null;
+
+  return `You cannot keep ${name} separate and hidden here: its Owner has asked that what is built on it is not hidden. Keep it separate and visible instead, or ask its Owner.`;
+}
+
 // After the repository's first public release a choice made again makes the next release breaking: the
 // rows libraries hold change where they come from. Said beside the choice once a release carried it.
 export const BREAKING_NOTE = 'Changing how this is included makes a breaking release.';
@@ -111,7 +147,7 @@ export function inclusionSaved(answer: InclusionOut): string {
 
 export const TERMS_HEADING = 'How repositories built on this one may use it';
 export const TERMS_INTRO =
-  'You decide whether a repository built on this one may carry it in its own release, and whether it may keep it separate and visible. Nobody else can say yes for you.';
+  'You decide whether a repository built on this one may carry it in its own release, and whether it may keep it separate, visible or hidden. Nobody else can say yes for you.';
 export const TERMS_INCLUDE_LABEL = 'May be included';
 export const TERMS_INCLUDE_HELP =
   'A repository built on this one may include it: its entries become that repository’s own, and a library that copies that repository never reads this one.';
@@ -167,6 +203,28 @@ export function termsShownPatch(on: boolean): { terms: { may_be_shown: boolean }
   return { terms: { may_be_shown: on } };
 }
 
+export const TERMS_HIDDEN_LABEL = 'May be hidden';
+export const TERMS_HIDDEN_HELP =
+  'A repository built on this one may keep it separate and hidden: a library that copies that repository holds the entries of this one and does not see them, and the entries of that repository still inherit from them.';
+
+export function termsHiddenLine(
+  terms: Pick<TermsOut, 'may_be_hidden' | 'may_be_hidden_is_default'>,
+  visibility: string,
+): string {
+  if (visibility !== 'protected') return TERMS_SHOWN_ONLY_PROTECTED;
+  if (terms.may_be_hidden_is_default) {
+    return 'Nobody chose: a protected repository may be hidden. Turn the switch off to say otherwise.';
+  }
+
+  return terms.may_be_hidden
+    ? 'You allowed it. Repositories built on this one may keep it separate and hidden.'
+    : 'You did not allow it. Repositories built on this one can show it or include it, and only its Owners can keep it separate and hidden.';
+}
+
+export function termsHiddenPatch(on: boolean): { terms: { may_be_hidden: boolean } } {
+  return { terms: { may_be_hidden: on } };
+}
+
 // The two presets of the screen (RFC 0051): `Open` lets a repository built on this one carry it any way
 // it has, `Stay hidden` leaves only include. The switches under them say each one.
 export type TermsPreset = 'open' | 'stay-hidden';
@@ -175,12 +233,12 @@ export const TERMS_PRESETS: readonly { id: TermsPreset; label: string; help: str
   {
     id: 'open',
     label: 'Open',
-    help: 'Repositories built on this one may include it or keep it separate and visible.',
+    help: 'Repositories built on this one may include it, or keep it separate, visible or hidden.',
   },
   {
     id: 'stay-hidden',
     label: 'Stay hidden',
-    help: 'Repositories built on this one may include it, and may not show it.',
+    help: 'Repositories built on this one may include it or keep it separate and hidden, and may not show it.',
   },
 ];
 
@@ -188,17 +246,19 @@ export const TERMS_PRESET_LEGEND = 'Start from';
 
 // What a preset sets: both switches, so that it is the same whatever was said before.
 export function presetPatch(preset: TermsPreset): {
-  terms: { may_be_included: boolean; may_be_shown: boolean };
+  terms: { may_be_included: boolean; may_be_shown: boolean; may_be_hidden: boolean };
 } {
-  return { terms: { may_be_included: true, may_be_shown: preset === 'open' } };
+  return {
+    terms: { may_be_included: true, may_be_shown: preset === 'open', may_be_hidden: true },
+  };
 }
 
 // Which preset the switches say, or none where they say something else.
 export function presetOf(
-  terms: Pick<TermsOut, 'may_be_included' | 'may_be_shown'>,
+  terms: Pick<TermsOut, 'may_be_included' | 'may_be_shown' | 'may_be_hidden'>,
   visibility: string,
 ): TermsPreset | null {
-  if (!terms.may_be_included) return null;
+  if (!terms.may_be_included || !terms.may_be_hidden) return null;
   if (terms.may_be_shown) return 'open';
 
   return visibility === 'protected' ? 'stay-hidden' : null;
@@ -245,6 +305,12 @@ export function includesFacts(
 // A release that is breaking for how it carries something, in the release composer.
 
 export function inclusionChangeLine(change: Pick<InclusionChangeOut, 'name' | 'before' | 'after'>) {
+  if (change.before !== 'include' && change.after !== 'include') {
+    return change.after === 'hide'
+      ? `“${change.name}” was kept separate and visible in the last public release and is kept separate and hidden now. A library that holds this repository keeps its entries and stops seeing them.`
+      : `“${change.name}” was kept separate and hidden in the last public release and is kept separate and visible now. A library that holds this repository sees the entries it did not see.`;
+  }
+
   return change.after === 'include'
     ? `“${change.name}” was kept separate in the last public release and is included now. A library that holds this repository gets its entries as this repository’s own, which changes them there.`
     : `“${change.name}” was included in the last public release and is kept separate now. Its entries leave this repository, and a library that holds it needs ${change.name} as a repository of its own.`;
@@ -265,7 +331,7 @@ export function inclusionChangesOf(problem: Record<string, unknown>): InclusionC
       typeof change === 'object' &&
       change !== null &&
       typeof (change as InclusionChangeOut).name === 'string' &&
-      ['show', 'include'].includes((change as InclusionChangeOut).after),
+      ['show', 'include', 'hide'].includes((change as InclusionChangeOut).after),
   );
 }
 
@@ -282,6 +348,8 @@ export type BuiltOnChoice = {
   state: string;
   // A protected repository: a library reads it as a step of the copy of this one (ADR 0434).
   protected: boolean;
+  // A public one: keeping it separate and hidden only tidies the libraries that copy this one.
+  public: boolean;
   inclusion: Inclusion;
   offered: readonly Inclusion[];
   notOffered: string | null;
@@ -291,24 +359,27 @@ export type BuiltOnChoice = {
 
 export function builtOnChoices(sources: readonly BuiltOnSourceOut[] | undefined): BuiltOnChoice[] {
   return (sources ?? []).map((source) => {
+    const inclusion = asInclusion(source.inclusion) ?? 'show';
     const notOffered =
       [
         notOfferedReason(source.name, source.includable),
         notShowableReason(source.name, source.showable),
+        notHidableReason(source.name, source.hidable),
       ]
         .filter((reason): reason is string => reason !== null)
         .join(' ') || null;
-    const offered = offeredChoices(source.includable, source.inclusion, source.showable);
+    const offered = offeredChoices(source.includable, inclusion, source.showable, source.hidable);
 
     return {
       id: source.id,
       name: source.name,
       state: source.public ? 'Public' : source.protected ? 'Protected' : 'Private',
       protected: source.protected === true,
-      inclusion: source.inclusion,
+      public: source.public,
+      inclusion,
       offered,
       notOffered,
-      effect: inclusionEffect(source.inclusion, source.name, source.protected === true),
+      effect: inclusionEffect(inclusion, source.name, source.protected === true, source.public),
       note: breakingNote(source),
     };
   });

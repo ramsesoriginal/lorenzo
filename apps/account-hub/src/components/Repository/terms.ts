@@ -3,14 +3,16 @@
 // "May be included" and "May be shown". Every member reads it; an Owner changes it, and it is saved when
 // it is changed, not with the profile's Save: it is a decision of its own, and nothing about the rest of
 // the profile is waiting on it. "May be shown" can be turned off only while the repository is protected;
-// the card says so where it is not. The words are lib/inclusion.ts's. H4 adds the third switch, "May be
-// hidden", under the same presets.
+// the card says so where it is not. The third switch, "May be hidden" (RFC 0051 H4, ADR 0435), is the same
+// under the same presets. The words are lib/inclusion.ts's.
 
 import { describeError } from '../../lib/describeError';
 import {
   presetOf,
   presetPatch,
   TERMS_HEADING,
+  TERMS_HIDDEN_HELP,
+  TERMS_HIDDEN_LABEL,
   TERMS_INCLUDE_HELP,
   TERMS_INCLUDE_LABEL,
   TERMS_INTRO,
@@ -21,6 +23,8 @@ import {
   TERMS_SHOWN_HELP,
   TERMS_SHOWN_LABEL,
   type TermsPreset,
+  termsHiddenLine,
+  termsHiddenPatch,
   termsLine,
   termsPatch,
   termsShownLine,
@@ -46,6 +50,8 @@ export function createTermsCard(root: HTMLElement): TermsCard {
   const shown = required<HTMLInputElement>(card, '[data-terms-shown]');
   const line = required<HTMLElement>(card, '[data-terms-line]');
   const shownLine = required<HTMLElement>(card, '[data-terms-shown-line]');
+  const hidden = required<HTMLInputElement>(card, '[data-terms-hidden]');
+  const hiddenLine = required<HTMLElement>(card, '[data-terms-hidden-line]');
   const presets = required<HTMLElement>(card, '[data-terms-presets]');
   const ownerOnly = required<HTMLElement>(card, '[data-terms-owner-only]');
   const status = required<HTMLElement>(card, '[data-terms-status]');
@@ -56,6 +62,8 @@ export function createTermsCard(root: HTMLElement): TermsCard {
   required<HTMLElement>(card, '[data-terms-include-help]').textContent = TERMS_INCLUDE_HELP;
   required<HTMLElement>(card, '[data-terms-shown-label]').textContent = TERMS_SHOWN_LABEL;
   required<HTMLElement>(card, '[data-terms-shown-help]').textContent = TERMS_SHOWN_HELP;
+  required<HTMLElement>(card, '[data-terms-hidden-label]').textContent = TERMS_HIDDEN_LABEL;
+  required<HTMLElement>(card, '[data-terms-hidden-help]').textContent = TERMS_HIDDEN_HELP;
   required<HTMLElement>(card, '[data-terms-presets-legend]').textContent = TERMS_PRESET_LEGEND;
   ownerOnly.textContent = ONLY_AN_OWNER;
 
@@ -89,6 +97,7 @@ export function createTermsCard(root: HTMLElement): TermsCard {
 
     include.disabled = locked || !owner;
     shown.disabled = locked || !owner || !mayHide;
+    hidden.disabled = locked || !owner || !mayHide;
     for (const [id, radio] of radios) {
       radio.disabled = locked || !owner || (id === 'stay-hidden' && !mayHide);
     }
@@ -100,6 +109,8 @@ export function createTermsCard(root: HTMLElement): TermsCard {
     line.textContent = termsLine(terms, visibility);
     shown.checked = terms.may_be_shown;
     shownLine.textContent = termsShownLine(terms, visibility);
+    hidden.checked = terms.may_be_hidden;
+    hiddenLine.textContent = termsHiddenLine(terms, visibility);
 
     const preset = presetOf(terms, visibility);
 
@@ -147,6 +158,14 @@ export function createTermsCard(root: HTMLElement): TermsCard {
 
     save(termsShownPatch(wanted), () => {
       shown.checked = !wanted;
+    });
+  });
+
+  hidden.addEventListener('change', () => {
+    const wanted = hidden.checked;
+
+    save(termsHiddenPatch(wanted), () => {
+      hidden.checked = !wanted;
     });
   });
 
