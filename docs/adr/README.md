@@ -435,4 +435,6 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 
 - [0430 - Repository text updates for placed leaf Chapters](0430-placed-chapter-text-updates.md)
 
-- [0431 - Repository text updates for nested leaf Chapters](0431-nested-chapter-text-updates.md)
+- [0435 - Repository text updates for nested leaf Chapters](0435-nested-chapter-text-updates.md)
+
+- [0436 - Repository text updates for Chapters with subchapters](0436-parent-chapter-text-updates.md)
