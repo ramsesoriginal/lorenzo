@@ -22,7 +22,7 @@ There is no Authgear client and no API call. The app needs one environment varia
 | GitHub Actions variable, handed to the API at deploy | `LEGAL_URL` | The address of the legal app, for example `https://legal.example.org`. **No default**: unset, the apps show no legal links, so a deployment cannot link to another operator's notice. |
 | GitHub Actions variable, handed to the API at deploy | `SUPPORT_URL` | An optional support link (a donation page, for example). Unset, no link is shown. |
 
-The API also has `GRAVATAR_LOOKUP_ENABLED` (default `true`): the one-time Gravatar copy when an account's email is first cached ([ADR 0439](../adr/0439-legal-notice-and-privacy-policy.md)). Set it to `false` in a deployment that does not want that request; the privacy policy then needs the avatar paragraph removed, so ask your lawyer which text applies.
+The API also has `GRAVATAR_LOOKUP_ENABLED` (default `true`): the one-time Gravatar copy when an account's email is first cached ([ADR 0439](../adr/0439-legal-notice-and-privacy-policy.md)). Set it to `false` in a deployment that does not want that request, and `gravatarLookup` to `false` in the profile so the policy stops describing it.
 
 `LEGAL_URL` and `SUPPORT_URL` are added to `deploy-api.yml` like `REPORT_ADDRESS` ([Going public](public-launch.md#2-the-report-address)); a change takes effect on the next API deploy, which you can start by hand.
 
