@@ -51,7 +51,6 @@ __all__ = [
     "recorded_inclusions",
     "includable",
     "inclusion_changes",
-    "refuse_unless_showable",
     "release_sources_of",
     "set_inclusion",
     "showable",
@@ -142,36 +141,13 @@ class Showable:
 async def showable(session: AsyncSession, source_id: uuid.UUID, user_id: uuid.UUID) -> Showable:
     """Whether `user_id` may keep the repository `source_id` separate and visible in a repository
     they own: they own it, or its terms allow it. A repository that cannot be read just now is not
-    refused here: the skew gate says so, it counts one it cannot read as behind."""
+    refused here: the skew gate says so when it matters."""
     if await is_tenant_owner(session, tenant_id=source_id, user_id=user_id):
         return Showable(True, "owner")
     async with reading_repository_held(session, source_id) as readable:
         if not readable or terms_of(await session.get(RepositoryProfile, source_id)).may_be_shown:
             return Showable(True, "terms")
     return Showable(False)
-
-
-async def refuse_unless_showable(
-    session: AsyncSession, repository_id: uuid.UUID, user_id: uuid.UUID
-) -> None:
-    """`409 repository-not-showable`, naming each one, when the repository keeps separate and
-    visible a source whose terms forbid it and the user is not an Owner of it (ADR 0434). Checked
-    when a release is made, as `refuse_unless_includable` is: A may have said "stay hidden" since
-    the choice was made, and a repository that copied it before has `show` until it chooses."""
-    refused: list[dict[str, str]] = []
-    for source in await sources_of(session, repository_id):
-        if (
-            source.inclusion == "show"
-            and not (await showable(session, source.repository_id, user_id)).allowed
-        ):
-            refused.append({"id": str(source.repository_id), "name": source.name})
-    if refused:
-        raise RepositoryNotShowableError(
-            detail="Its Owner has asked that what is built on it does not show it. Include it in "
-            "this repository instead, or ask its Owner. Not allowed for: "
-            + ", ".join(r["name"] for r in refused),
-            repositories=refused,
-        )
 
 
 # --- The choice and the record of it -----------------------------------------------------------
@@ -196,7 +172,10 @@ class Source:
 
 async def sources_of(session: AsyncSession, repository_id: uuid.UUID) -> list[Source]:
     """Every repository this one has copied, by name, with the choice made for it and the
-    snapshot a release records: its name, and its licence if its profile can be read."""
+    snapshot a release records: its name, and its licence if its profile can be read (or, for a
+    source that cannot be read now, the one the current release recorded)."""
+    own = await session.get(RepositoryProfile, repository_id)
+    own_record = (own.release_sources if own else None) or []
     rows = await session.execute(
         select(RepositoryCopy, Tenant.name)
         .join(Tenant, Tenant.id == RepositoryCopy.repository_tenant_id)
@@ -211,6 +190,14 @@ async def sources_of(session: AsyncSession, repository_id: uuid.UUID) -> list[So
                 profile = await session.get(RepositoryProfile, copy.repository_tenant_id)
                 if profile is not None and profile.licence_label is not None:
                     licence = {"label": profile.licence_label, "url": profile.licence_url}
+        if not readable:
+            # A source it holds but cannot read now (protected since, ADR 0434): what its current
+            # release recorded of the licence stands until it can be read again.
+            record = next(
+                (s for s in own_record if s["id"] == str(copy.repository_tenant_id)), None
+            )
+            if record is not None and record.get("licence_label") is not None:
+                licence = {"label": record["licence_label"], "url": record.get("licence_url")}
         found.append(Source(copy.repository_tenant_id, name, copy.inclusion, licence, readable))
     return found
 
