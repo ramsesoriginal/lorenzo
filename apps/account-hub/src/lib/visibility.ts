@@ -535,6 +535,7 @@ const CHANGED_UNDER_IT = new Set([
   'built-on-behind',
   'repository-not-includable',
   'repository-not-showable',
+  'repository-not-hidable',
   'public-repositories-built-on-it',
   'public-copies-would-be-cut-off',
   'repository-already-public',

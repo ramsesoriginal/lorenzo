@@ -117,12 +117,13 @@ async def update_profile(
         )
     if (
         body.terms is not None
-        and body.terms.may_be_shown is False
+        and (body.terms.may_be_shown is False or body.terms.may_be_hidden is False)
         and profile.visibility != "protected"
     ):
         raise RepositoryNotProtectedError(
-            detail="Only a protected repository can ask that what is built on it does not show it: "
-            "a private one is read by the people its Owner invites, and a public one by anybody."
+            detail="Only a protected repository can ask that what is built on it does not show it "
+            "or does not hide it: a private one is read by the people its Owner invites, and a "
+            "public one by anybody."
         )
     changed = [name for name in _FIELDS if name in body.model_fields_set]
     # `listed` is changed by what it says: a repository that is listed and is told so is unchanged.
@@ -130,7 +131,7 @@ async def update_profile(
         changed.remove("listed")
     # `terms` is changed by what it says: an empty one says nothing (ADR 0431).
     if body.terms is not None and not (
-        {"may_be_included", "may_be_shown"} & body.terms.model_fields_set
+        {"may_be_included", "may_be_shown", "may_be_hidden"} & body.terms.model_fields_set
     ):
         changed.remove("terms")
     for name in changed:
@@ -145,6 +146,8 @@ async def update_profile(
                 profile.may_be_included = value.may_be_included
             if "may_be_shown" in value.model_fields_set:
                 profile.may_be_shown = value.may_be_shown
+            if "may_be_hidden" in value.model_fields_set:
+                profile.may_be_hidden = value.may_be_hidden
         else:
             setattr(profile, name, value)
     if changed:

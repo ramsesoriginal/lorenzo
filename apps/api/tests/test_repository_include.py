@@ -535,6 +535,7 @@ async def test_the_choice_is_on_the_copy_record_and_listed(
             "inclusion_in_release": None,
             "breaking_next_release": False,
             "showable": {"allowed": True, "by": "owner"},
+            "hidable": {"allowed": True, "by": "owner"},
         }
         listed = (await w.author.get(f"/tenants/{w.b}/repositories")).json()["items"]
         assert listed[0]["inclusion"] == "include"
@@ -571,7 +572,7 @@ async def test_only_an_owner_of_the_repository_chooses_and_only_for_what_it_copi
         # Not for a repository it has not copied, not a word that is not one, not on a library.
         other = uuid.uuid4()
         assert (await _include(w.author, w.b, other)).status_code == 409
-        assert (await _include(w.author, w.b, w.a, "hide")).status_code == 422
+        assert (await _include(w.author, w.b, w.a, "seal")).status_code == 422
         library = await w.author.create_tenant("A table")
         w.tenants.append(library)
         assert (await _include(w.author, library, w.a)).status_code == 409
@@ -579,7 +580,7 @@ async def test_only_an_owner_of_the_repository_chooses_and_only_for_what_it_copi
         await w.done()
 
 
-async def test_the_database_allows_only_show_and_include(
+async def test_the_database_allows_only_show_include_and_hide(
     raw_client: AsyncClient, fake_jwks_server: FakeJwksServer
 ) -> None:
     w = await _world(raw_client, fake_jwks_server)
@@ -589,7 +590,7 @@ async def test_the_database_allows_only_show_and_include(
                 await session.execute(
                     update(RepositoryCopy)
                     .where(RepositoryCopy.tenant_id == w.b)
-                    .values(inclusion="hide")
+                    .values(inclusion="seal")
                 )
             await session.rollback()
     finally:
@@ -628,6 +629,8 @@ async def test_another_owners_repository_is_included_only_with_its_terms(
             "is_default": True,
             "may_be_shown": True,
             "may_be_shown_is_default": True,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
         assert (
             "terms"
@@ -648,6 +651,8 @@ async def test_another_owners_repository_is_included_only_with_its_terms(
             "is_default": False,
             "may_be_shown": True,
             "may_be_shown_is_default": True,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
 
         allowed = await _include(owner_b, b, base.repository)
@@ -691,6 +696,8 @@ async def test_the_terms_follow_the_visibility_until_an_owner_says_otherwise(
             "is_default": True,
             "may_be_shown": True,
             "may_be_shown_is_default": True,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
         assert (await _make_public(base.author, base.repository)).status_code == 200
         assert (await base.author.get(url)).json()["terms"] == {
@@ -698,6 +705,8 @@ async def test_the_terms_follow_the_visibility_until_an_owner_says_otherwise(
             "is_default": True,
             "may_be_shown": True,
             "may_be_shown_is_default": True,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
         # An Owner's value wins, in both directions, and null is the default again.
         off = await base.author.patch(url, json={"terms": {"may_be_included": False}})
@@ -706,6 +715,8 @@ async def test_the_terms_follow_the_visibility_until_an_owner_says_otherwise(
             "is_default": False,
             "may_be_shown": True,
             "may_be_shown_is_default": True,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
         # An empty `terms` says nothing; nothing but a boolean or null is a value.
         same = await base.author.patch(url, json={"terms": {}})
@@ -714,13 +725,15 @@ async def test_the_terms_follow_the_visibility_until_an_owner_says_otherwise(
             "is_default": False,
             "may_be_shown": True,
             "may_be_shown_is_default": True,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
         assert (await base.author.patch(url, json={"terms": None})).status_code == 422
         assert (
             await base.author.patch(url, json={"terms": {"may_be_included": "maybe"}})
         ).status_code == 422
         assert (
-            await base.author.patch(url, json={"terms": {"may_be_hidden": True}})
+            await base.author.patch(url, json={"terms": {"may_be_sealed": True}})
         ).status_code == 422
         back = await base.author.patch(url, json={"terms": {"may_be_included": None}})
         assert back.json()["terms"] == {
@@ -728,6 +741,8 @@ async def test_the_terms_follow_the_visibility_until_an_owner_says_otherwise(
             "is_default": True,
             "may_be_shown": True,
             "may_be_shown_is_default": True,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
         private = await base.author.delete(
             f"/tenants/{base.repository}/public", params={"acknowledge_revokes": "true"}
@@ -738,6 +753,8 @@ async def test_the_terms_follow_the_visibility_until_an_owner_says_otherwise(
             "is_default": True,
             "may_be_shown": True,
             "may_be_shown_is_default": True,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
     finally:
         await cleanup([base.table, base.repository], [base.author, base.gm])

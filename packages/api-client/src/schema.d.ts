@@ -7494,6 +7494,7 @@ export interface components {
             attachments_detached: number;
             /** Not Applied */
             not_applied: components["schemas"]["NotAppliedOut"][];
+            hidden?: components["schemas"]["HiddenChangesOut"] | null;
         };
         /**
          * ApplyUpdatesRequest
@@ -7508,6 +7509,8 @@ export interface components {
             attachments?: components["schemas"]["AttachmentActionIn"][] | null;
             /** Dry Run */
             dry_run?: boolean | null;
+            /** Acknowledge Hidden Breaking */
+            acknowledge_hidden_breaking?: boolean | null;
         };
         /** AppsOut */
         AppsOut: {
@@ -7932,10 +7935,10 @@ export interface components {
              * Inclusion
              * @enum {string}
              */
-            inclusion: "show" | "include";
+            inclusion: "show" | "include" | "hide";
             includable: components["schemas"]["IncludableOut"];
             /** In Release */
-            in_release: ("show" | "include") | null;
+            in_release: ("show" | "include" | "hide") | null;
             /**
              * Protected
              * @default false
@@ -7947,6 +7950,12 @@ export interface components {
              * @default true
              */
             may_be_shown: boolean;
+            hidable?: components["schemas"]["IncludableOut"] | null;
+            /**
+             * May Be Hidden
+             * @default true
+             */
+            may_be_hidden: boolean;
         };
         /**
          * BulkAddPrototypeRequest
@@ -9705,6 +9714,8 @@ export interface components {
             /** Locale */
             locale: string;
             from_entity: components["schemas"]["EntitySummary"] | null;
+            /** From Hidden */
+            from_hidden?: boolean | null;
         };
         /**
          * DeviceApproval
@@ -9937,6 +9948,8 @@ export interface components {
             /** Own */
             own: boolean;
             from_entity?: components["schemas"]["EntitySummary"] | null;
+            /** From Hidden */
+            from_hidden?: boolean | null;
             /** Computed */
             computed: boolean;
         };
@@ -10233,6 +10246,8 @@ export interface components {
             /** Own */
             own: boolean;
             from_entity?: components["schemas"]["EntitySummary"] | null;
+            /** From Hidden */
+            from_hidden?: boolean | null;
             /**
              * Computed
              * @default false
@@ -10829,6 +10844,25 @@ export interface components {
             /** Item Instances */
             item_instances: components["schemas"]["ItemInstanceOut"][];
         };
+        /**
+         * HiddenChangesOut
+         * @description What an update does to the entries this library hides, as counts and a plain label, never
+         *     names (ADR 0437): `label` reads "3 changes to hidden entries". They are taken with the rest of
+         *     the update; `breaking` is how many a release since the library last updated called breaking,
+         *     which `acknowledge_hidden_breaking` takes as one line.
+         */
+        HiddenChangesOut: {
+            /** Changed */
+            changed: number;
+            /** Added */
+            added: number;
+            /** Removed */
+            removed: number;
+            /** Breaking */
+            breaking: number;
+            /** Label */
+            label: string;
+        };
         /** HubCreate */
         HubCreate: {
             /**
@@ -10884,12 +10918,12 @@ export interface components {
              * Before
              * @enum {string}
              */
-            before: "show" | "include";
+            before: "show" | "include" | "hide";
             /**
              * After
              * @enum {string}
              */
-            after: "show" | "include";
+            after: "show" | "include" | "hide";
         };
         /**
          * InclusionIn
@@ -10902,7 +10936,7 @@ export interface components {
              * Inclusion
              * @enum {string}
              */
-            inclusion: "show" | "include";
+            inclusion: "show" | "include" | "hide";
         };
         /**
          * InclusionOut
@@ -10922,13 +10956,14 @@ export interface components {
              * Inclusion
              * @enum {string}
              */
-            inclusion: "show" | "include";
+            inclusion: "show" | "include" | "hide";
             includable: components["schemas"]["IncludableOut"];
             /** Inclusion In Release */
-            inclusion_in_release: ("show" | "include") | null;
+            inclusion_in_release: ("show" | "include" | "hide") | null;
             /** Breaking Next Release */
             breaking_next_release: boolean;
             showable?: components["schemas"]["IncludableOut"] | null;
+            hidable?: components["schemas"]["IncludableOut"] | null;
         };
         /**
          * InformationAudience
@@ -13965,6 +14000,8 @@ export interface components {
             /** File Type */
             file_type: string;
             from_entity: components["schemas"]["EntitySummary"] | null;
+            /** From Hidden */
+            from_hidden?: boolean | null;
         };
         /** PlaceOut */
         PlaceOut: {
@@ -16559,6 +16596,8 @@ export interface components {
             /** Computed */
             computed: boolean;
             from_entity: components["schemas"]["EntitySummary"] | null;
+            /** From Hidden */
+            from_hidden?: boolean | null;
             /** Formula */
             formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"]) | null;
             /** Inputs */
@@ -16721,7 +16760,7 @@ export interface components {
             synced_at: string | null;
             synced_release: components["schemas"]["ReleaseRefOut"] | null;
             /** Inclusion */
-            inclusion?: ("show" | "include") | null;
+            inclusion?: ("show" | "include" | "hide") | null;
         };
         /**
          * SubscribersSummaryOut
@@ -16758,11 +16797,12 @@ export interface components {
             current_release: components["schemas"]["ReleaseRefOut"] | null;
             deprecated?: components["schemas"]["DeprecatedNoticeOut"] | null;
             /** Inclusion */
-            inclusion?: ("show" | "include") | null;
+            inclusion?: ("show" | "include" | "hide") | null;
             includable?: components["schemas"]["IncludableOut"] | null;
             /** Inclusion In Release */
-            inclusion_in_release?: ("show" | "include") | null;
+            inclusion_in_release?: ("show" | "include" | "hide") | null;
             showable?: components["schemas"]["IncludableOut"] | null;
+            hidable?: components["schemas"]["IncludableOut"] | null;
             /**
              * Protected
              * @default false
@@ -17019,13 +17059,16 @@ export interface components {
          *     `null` takes the default for the repository's visibility back (a private repository: no, a
          *     public or protected one: yes). `may_be_shown` is whether one may keep it separate and visible
          *     (ADR 0434): `false` only for a protected repository (`409 repository-not-protected`), `null` is
-         *     the default again, which is yes.
+         *     the default again, which is yes. `may_be_hidden` is the same for keeping it separate and hidden
+         *     (ADR 0437).
          */
         TermsIn: {
             /** May Be Included */
             may_be_included?: boolean | null;
             /** May Be Shown */
             may_be_shown?: boolean | null;
+            /** May Be Hidden */
+            may_be_hidden?: boolean | null;
         };
         /**
          * TermsOut
@@ -17048,6 +17091,16 @@ export interface components {
              * @default true
              */
             may_be_shown_is_default: boolean;
+            /**
+             * May Be Hidden
+             * @default true
+             */
+            may_be_hidden: boolean;
+            /**
+             * May Be Hidden Is Default
+             * @default true
+             */
+            may_be_hidden_is_default: boolean;
         };
         /**
          * UndeprecatedOut
@@ -17154,6 +17207,7 @@ export interface components {
                 [key: string]: string;
             };
             release: components["schemas"]["ReleaseOut"] | null;
+            hidden?: components["schemas"]["HiddenChangesOut"] | null;
         };
         /**
          * UserRefOut

@@ -35,6 +35,7 @@ function source(overrides: Partial<BuiltOnSourceOut> = {}): BuiltOnSourceOut {
     in_release: null,
     protected: false,
     may_be_shown: true,
+    may_be_hidden: true,
     ...overrides,
   };
 }
@@ -44,6 +45,7 @@ describe('the words of the choice', () => {
     expect(INCLUSION_LABEL).toEqual({
       show: 'Keep separate and visible',
       include: 'Include in this repository',
+      hide: 'Keep separate and hidden',
     });
     expect(TERMS_HEADING).toBe('How repositories built on this one may use it');
     expect(TERMS_INCLUDE_LABEL).toBe('May be included');

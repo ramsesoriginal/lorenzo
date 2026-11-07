@@ -1499,9 +1499,13 @@ for repositories only, so the two relations never share a phrase.
 | **Protected** | A repository that is on no listing and that no library copies on its own: a library gets it with a public repository built on it, and reads it for as long as it holds one. The API calls this `protected`. | Hidden, unlisted, secret, internal |
 | **A protected repository** | What a library calls a protected repository it holds through another: it is never named to it. | The name of the repository, its address |
 | **How repositories built on this one may use it** | The card of a repository's Owner with the presets and the switches that say what a repository built on it may do with it. | Permissions, licence, sharing |
-| **Open** | The preset: a repository built on this one may include it or keep it separate and visible. | Public, free |
-| **Stay hidden** | The preset: a repository built on this one may include it, and may not keep it separate and visible. Only a protected repository can ask for it. | Sealed, locked, private |
+| **Open** | The preset: a repository built on this one may include it, or keep it separate, visible or hidden. | Public, free |
+| **Stay hidden** | The preset: a repository built on this one may include it or keep it separate and hidden, and may not keep it separate and visible. Only a protected repository can ask for it. | Sealed, locked, private |
 | **May be shown** | The switch of a protected repository's Owner: whether a repository built on it may keep it separate and visible. | Allow link, expose |
+| **Keep separate and hidden** | How a repository built on another carries it: the other stays a repository of its own, and a library that copies this one holds its entries and does not see them. The API calls this `hide`. | Conceal, secret, private |
+| **May be hidden** | The switch of a protected repository's Owner: whether a repository built on it may keep it separate and hidden. | Allow concealing, seal |
+| **A hidden entry** | What a library calls an entry it holds and does not see, wherever a name would give it away: where a value or a text comes from ("From a hidden entry"), a change in an update. | The name of the entry, its address |
+| **Changes to hidden entries** | The words for what an update does to entries a library hides: a count and no names, taken with the rest ("3 changes to hidden entries"). | Hidden rows, updates to the source |
 | **Check first** | Try a copy or an update without changing anything | Dry run |
 
 An attachment (a parent that a repository adds to something a library copied) has

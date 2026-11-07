@@ -6,6 +6,7 @@
 
 import { describeError } from '../../lib/describeError';
 import {
+  asInclusion,
   BREAKING_NOTE,
   INCLUSION_CHOICES,
   INCLUSION_LABEL,
@@ -32,6 +33,8 @@ export type InclusionChoice = {
   note: string | null;
   // The repository is protected: what keeping it separate means says so (ADR 0434).
   protected?: boolean;
+  // The repository is public: hiding it only tidies the libraries that copy this one (ADR 0437).
+  public?: boolean;
   // Only an Owner chooses.
   editable: boolean;
   // Called with what the API answered after a choice was saved; `failed` after one was refused.
@@ -85,7 +88,12 @@ export function createInclusionChoice(options: InclusionChoice): HTMLFieldSetEle
   }
 
   effect.dataset.inclusionEffect = '';
-  effect.textContent = inclusionEffect(chosen, options.name, options.protected === true);
+  effect.textContent = inclusionEffect(
+    chosen,
+    options.name,
+    options.protected === true,
+    options.public === true,
+  );
   refusal.dataset.inclusionNotOffered = '';
   refusal.textContent = options.notOffered ?? '';
   refusal.hidden = options.notOffered === null;
@@ -109,8 +117,13 @@ export function createInclusionChoice(options: InclusionChoice): HTMLFieldSetEle
         try {
           const answer = await setInclusion(options.repositoryId, options.sourceId, choice);
 
-          chosen = answer.inclusion;
-          effect.textContent = inclusionEffect(chosen, options.name, options.protected === true);
+          chosen = asInclusion(answer.inclusion) ?? chosen;
+          effect.textContent = inclusionEffect(
+            chosen,
+            options.name,
+            options.protected === true,
+            options.public === true,
+          );
           note.textContent = BREAKING_NOTE;
           note.hidden = answer.inclusion_in_release === null;
           say(status, inclusionSaved(answer));

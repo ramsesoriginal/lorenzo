@@ -738,6 +738,8 @@ async def test_a_repository_that_says_stay_hidden_leaves_include_for_the_ones_bu
             "is_default": True,
             "may_be_shown": False,
             "may_be_shown_is_default": False,
+            "may_be_hidden": True,
+            "may_be_hidden_is_default": True,
         }
         assert (
             await base.gm.patch(

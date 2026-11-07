@@ -5,6 +5,7 @@
 import { fetchAllPages, LorenzoApiError, MAX_PAGE_SIZE } from '@lorenzo/api-client';
 import { client, pictureUpload, unwrap } from './api';
 import { cached } from './cache';
+import type { Inclusion } from './inclusion';
 import { fetchPictureUrl } from './pictureFetch';
 import type {
   ApplyUpdatesOut,
@@ -394,13 +395,14 @@ export async function makePrivate(
 }
 
 // How this repository carries one it is built on when it releases (ADR 0431): `include` makes its
-// entries this repository's own in the release, `show` keeps it a repository of its own. An Owner's;
-// `include` is refused (`409 repository-not-includable`) unless the Owner may include it. The answer
-// says whether the next release is breaking for it.
+// entries this repository's own in the release, `show` keeps it a repository of its own and `hide` one whose
+// entries the libraries hold and do not see (ADR 0437). An Owner's; `include` is refused (`409
+// repository-not-includable`) unless the Owner may include it, as `show` and `hide` are by its terms. The
+// answer says whether the next release is breaking for it.
 export async function setInclusion(
   repositoryId: string,
   sourceId: string,
-  inclusion: InclusionOut['inclusion'],
+  inclusion: Inclusion,
 ): Promise<InclusionOut> {
   return unwrap(
     await client.PUT('/tenants/{tenant_id}/repositories/{repository_id}/inclusion', {

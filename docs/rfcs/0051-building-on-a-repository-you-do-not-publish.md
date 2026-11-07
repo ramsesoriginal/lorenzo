@@ -233,6 +233,48 @@ inheritance, effective values, formulas and the updates that touch them.
 every client that lists entries (Bench, Beings, Sessions, Maps, Calendars, Social, Writing, Inventory, the CLI),
 tests per client.
 
+*Spike findings* (written into [ADR 0437](../adr/0437-hiding-the-entries-of-a-repository-built-on-another.md)):
+
+- **Hiding rides on the gate of the entry audiences, not on their rows.** Every read of an entry already asks one
+  gate ([ADR 0305](../adr/0305-facts-and-entry-audiences.md): `visible_entry_clause`, `hidden_entry_ids`,
+  `require_visible_entry`), so it gains one input. The audience *rows* cannot carry it: an audience is the library's
+  own fact about its entry, copied with it and edited by its members, and an Owner, an Organizer and an Author are
+  let past every audience, where a hidden entry has to stay hidden for them.
+- **Everything still resolves through a hidden entry.** The effective-stat views read the tables and never the
+  gate; the prototype edge is a row nobody filters; and the provenance already answers "a source the reader may not
+  see" with a null source, which the API now says as `from_hidden`. The texts too (the maintainer's decision): the
+  descriptions and pictures of a hidden entry are inherited by the entries below it as a visible prototype's are, and
+  the entry is not named.
+- **The gate is not the one place.** The typed lists (items, beings, characters, item instances, knowledge) never
+  applied it, and an administrator was never filtered by it. Both are closed (a typed clause, and one guard in the two
+  dependencies every tenant route goes through for any route with an entry in its path), and a sweep of every `GET`
+  route proves it.
+
+*Built as [ADR 0437](../adr/0437-hiding-the-entries-of-a-repository-built-on-another.md).* The RFC stays the spec;
+where the build differs, it says so here:
+
+- **The flag is derived from the library's own records**, not set at copy and at update from another repository: each
+  copy record keeps what the release it last took brings separate (`carries`), and the flag on each entry's copy link
+  and `tenant.hides_entries` are derived from them after every copy, update and removal. *Show wins* is that rule:
+  hidden only while at least one repository the library holds hides the entry's repository and none shows it, and a
+  repository the library copied for itself is always shown. Only a library hides (a repository's copy of A is the
+  rows its own release is built from), and stat groups and definitions are not hidden.
+- **`may_be_hidden`** is the third switch of A's terms, on by default for every visibility, and only a protected
+  repository can say no (`409 repository-not-hidable` for the choice, `409 repository-not-protected` for the term);
+  "Stay hidden" keeps its meaning (included and hidden on, shown off).
+- **The update of a hidden repository names no entry**: its changes are `hidden` counts and a label, taken with the
+  rest when the update is applied, with one acknowledgement line (`acknowledge_hidden_breaking`) for breaking ones;
+  the release it names has its rows scrubbed. A hidden entry the repository dropped is removed when nothing visible
+  uses it, and kept (hidden) when something does.
+- **Provenance** is `from_hidden` beside the null `from_entity`, which a client says as "a hidden entry", on stat
+  values and on inherited descriptions and pictures. The texts are given by asking the audiences alone
+  (`can_see_inherited`), not the source's hide; the bytes of an inherited picture are read while an entry the reader
+  can see inherits from the hidden one.
+- **Consent is asked once, when the choice is set** (`409 repository-not-hidable`), and not again when a release is
+  made (the maintainer's decision, as for include and show).
+- **B's own page** (browse, preview, entry count) leaves out what its release carries hidden.
+- **The contract** gains the value `hide` where responses name the choice; the diff reports it as an added enum value, accepted in `openapi-breaking-accepted.txt`.
+
 ### Combinations
 
 - **One library, two repositories with different choices.** B hides A, C shows it: A's rows are visible, by show
@@ -279,7 +321,7 @@ tenant, grant, subscription, flatten or source.
 | H1 | Include A in B at release; A's terms; the choice column; attribution. **Built**, [ADR 0431](../adr/0431-including-a-repository-in-the-release-of-one-built-on-it.md) | RFC 0037 R5 to R8, ADR 0385 | api, hub |
 | H2 | Public but unlisted. **Built**, [ADR 0432](../adr/0432-a-public-repository-that-is-not-listed.md) | RFC 0038 D3 | api, hub |
 | H3 | Protected: the value, the flips, the stack rule, the gate, the copy plan. **Built**, [ADR 0434](../adr/0434-a-protected-repository.md) | H1 (terms, the choice), ADR 0287, ADR 0289 | api, hub |
-| H4 | Hide A's items | H3, the spike | api, hub, bench, beings, sessions, maps, calendars, social, writing, inventory, cli |
+| H4 | Hide A's items. **Built**, [ADR 0437](../adr/0437-hiding-the-entries-of-a-repository-built-on-another.md) | H3, the spike | api, hub, beings |
 
 H1 and H2 are independent of each other and of the rest. H1 alone answers "B public without A public" when A's
 Owner agrees. H3 adds shared identity and updates from A. H4 is optional and is decided after H3 has been used.

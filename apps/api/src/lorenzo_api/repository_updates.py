@@ -13,7 +13,7 @@ conflict is never resolved without being named.
 
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
@@ -66,6 +66,7 @@ from lorenzo_api.models import (
     StatGroup,
     StatValueType,
     Tenant,
+    TenantKind,
 )
 from lorenzo_api.models.calendar import Calendar
 from lorenzo_api.models.fact import EntityAudience, Fact
@@ -101,6 +102,16 @@ from lorenzo_api.repository_digest import (
     stored_rows,
 )
 from lorenzo_api.repository_digest import State as RowState
+from lorenzo_api.repository_hiding import (
+    HIDDEN_ENTRY,
+    HiddenChanges,
+    carries_of,
+    hidden_label,
+    hidden_sources,
+    refresh_hidden,
+    scrub_rows,
+    unused_hidden_entries,
+)
 from lorenzo_api.repository_releases import ReleaseRef
 from lorenzo_api.repository_upstream import load_upstream
 from lorenzo_api.stat_enum_values import enum_value_uses
@@ -241,6 +252,9 @@ class Updates:
     warnings: dict[Key, list[BreakingNote]] = field(default_factory=dict)
     upstream: Content | None = None
     local: Content | None = None
+    # What the update does to the entries this library hides, as counts: the rows themselves are
+    # not in `changed`, `removed` or `added` (ADR 0437). None where it hides nothing of them.
+    hidden: HiddenChanges | None = None
 
 
 # --- Finding updates -------------------------------------------------------------
@@ -508,6 +522,7 @@ async def compute_updates(
     updates.breaking = noted
     updates.warnings = warned
     _mark(updates, stored)
+    await _hide(session, updates, tenant_id)
     return updates
 
 
@@ -537,6 +552,72 @@ def _mark(updates: Updates, stored: dict[Key, Any] | None) -> None:
     ):
         mark(a, ("attachment", a.child_source_id, a.parent_source_id))
         a.warnings = updates.warnings.get(("attachment", a.child_source_id, a.parent_source_id), [])
+
+
+async def _hide(session: AsyncSession, updates: Updates, tenant_id: uuid.UUID) -> None:
+    """Takes what an update does to the entries the library hides out of the lists a library reads
+    and counts it (ADR 0437): the entries of a repository the library hides are not named, so their
+    changes, additions and removals are `updates.hidden`, which `apply_updates` applies with the
+    rest; and the name of a hidden entry that a visible row mentions (a parent it has, say) is
+    "a hidden entry". Only a library hides."""
+    assert updates.upstream is not None
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None or tenant.kind is TenantKind.REPOSITORY or not tenant.hides_entries:
+        return
+    hidden_repositories = hidden_sources(
+        list(
+            await session.scalars(
+                select(RepositoryCopy.carries).where(RepositoryCopy.tenant_id == tenant_id)
+            )
+        )
+    )
+    held = set(
+        await session.scalars(
+            select(RepositoryCopyLinkEntity.source_id).where(
+                RepositoryCopyLinkEntity.tenant_id == tenant_id,
+                RepositoryCopyLinkEntity.hidden.is_(True),
+            )
+        )
+    )
+    origins = updates.upstream.links.origin_tenant
+
+    def hidden_entry(ref: Any) -> bool:
+        try:
+            origin = uuid.UUID(str(ref))
+        except ValueError:
+            return False
+        return origin in held or origins.get(origin) in hidden_repositories
+
+    if updates.repository_id in hidden_repositories:
+        if updates.release is not None:
+            updates.release = replace(
+                updates.release,
+                breaking_rows=scrub_rows(updates.release.breaking_rows),
+                warning_rows=scrub_rows(updates.release.warning_rows),
+            )
+        hidden = HiddenChanges()
+        hidden.changed_rows = [r for r in updates.changed if r.kind == "entity"]
+        hidden.removed_rows = [r for r in updates.removed if r.kind == "entity"]
+        hidden.added_rows = [a for a in updates.added if a.kind == "entity"]
+        updates.changed = [r for r in updates.changed if r.kind != "entity"]
+        updates.removed = [r for r in updates.removed if r.kind != "entity"]
+        updates.added = [a for a in updates.added if a.kind != "entity"]
+        updates.hidden = hidden if hidden.total else None
+    for row in updates.changed:
+        for change in row.fields:
+            for kind, ref in mentioned(change):
+                if kind == "entity" and hidden_entry(ref):
+                    updates.names[ref] = HIDDEN_ENTRY
+    for attachments in (
+        updates.attachments_added,
+        updates.attachments_removed,
+        updates.attachments_deleted_locally,
+    ):
+        for a in attachments:
+            if hidden_entry(a.child_source_id):
+                a.child_name = HIDDEN_ENTRY
+            if hidden_entry(a.parent_source_id):
+                a.parent_name = HIDDEN_ENTRY
 
 
 def _local_entity(
@@ -658,6 +739,8 @@ class ApplyResult:
     attachments_added: int = 0
     attachments_detached: int = 0
     not_applied: list[NotApplied] = field(default_factory=list)
+    # What was taken of the entries the library hides, as counts (ADR 0437).
+    hidden: HiddenChanges | None = None
 
 
 class _Applier:
@@ -1621,6 +1704,7 @@ async def apply_updates(
     user_id: uuid.UUID,
     actions: list[UpdateAction],
     attachments: list[AttachmentAction] | None = None,
+    acknowledge_hidden_breaking: bool = False,
 ) -> ApplyResult:
     """Applies the listed actions in one transaction (doesn't commit), then the
     listed attachments (ADR 0172), which can point at a row an action added."""
@@ -1683,7 +1767,55 @@ async def apply_updates(
             detail="Name each conflicting field in keep_local or take_upstream", conflicts=unnamed
         )
 
-    result = ApplyResult()
+    hidden = updates.hidden
+    if hidden is not None:
+        # What the library hides is taken with the rest, since it cannot be named to be chosen: a
+        # conflict is the repository's, a collision of a slug leaves the entry without one, and a
+        # breaking change among them is acknowledged as one line (ADR 0437).
+        if hidden.breaking and not acknowledge_hidden_breaking:
+            raise UpdateNeedsConfirmationError(
+                detail="A release since this library last updated called some changes to hidden "
+                "entries breaking. Acknowledge them as one line to take this update.",
+                unconfirmed=[
+                    {
+                        "kind": "hidden",
+                        "source_id": None,
+                        "parent_source_id": None,
+                        "name": hidden_label(hidden.breaking),
+                        "reason": "hidden",
+                        "detail": hidden_label(hidden.breaking),
+                        "release": updates.release.label if updates.release else "",
+                    }
+                ],
+            )
+        for row in hidden.changed_rows:
+            changed[(row.kind, row.source_id)] = row
+            actions = [
+                *actions,
+                UpdateAction(
+                    row.kind,
+                    row.source_id,
+                    "apply",
+                    take_upstream=[f.field for f in row.fields if f.state == "conflict"],
+                    confirm=True,
+                ),
+            ]
+        for new in hidden.added_rows:
+            added[(new.kind, new.source_id)] = new
+            actions = [
+                *actions,
+                UpdateAction(
+                    new.kind,
+                    new.source_id,
+                    "add",
+                    resolution=(
+                        Resolution("slug", new.source_id, "skip") if new.collision else None
+                    ),
+                    confirm=True,
+                ),
+            ]
+
+    result = ApplyResult(hidden=hidden)
     # Additions first, so an applied change can point at a row added in the
     # same call; then the tenant's content again, with them in it.
     additions = [a for a in actions if a.action == "add"]
@@ -1721,13 +1853,23 @@ async def apply_updates(
             result.applied += 1
 
     await _attach(session, updates, tenant_id, local, attachments, result)
+    if hidden is not None and hidden.removed_rows:
+        await _drop_hidden(session, tenant_id, hidden)
 
     # A repository held only through another is not named in anything the library reads, so its
     # name is left as the copy recorded it (ADR 0434).
     held = await session.get(RepositorySubscription, (repository_id, tenant_id))
+    taken = await session.get(RepositoryCopy, (tenant_id, repository_id))
     values: dict[str, Any] = {
         "synced_at": datetime.now(UTC),
         "synced_release_id": updates.release.id if updates.release else None,
+        # What the release just taken brings separate and hidden (ADR 0437), kept beside the
+        # mark of a repository the library copied for itself.
+        "carries": carries_of(
+            updates.upstream,
+            repository_id,
+            for_itself=bool(taken and str(repository_id) in (taken.carries or {})),
+        ),
     }
     if held is None or held.source != "protected":
         values["repository_name"] = (await session.get_one(Tenant, repository_id)).name
@@ -1740,6 +1882,7 @@ async def apply_updates(
         .values(**values)
     )
     await check_formula_cycles(session, tenant_id)
+    await refresh_hidden(session, tenant_id)
     await record_activity(
         session,
         tenant_id=tenant_id,
@@ -1891,3 +2034,26 @@ async def _add(
                 {"tenant_id": tenant_id, "stat_definition_id": definition_id, "value": value}
             )
     await write_rows(session, planner.rows)
+
+
+async def _drop_hidden(session: AsyncSession, tenant_id: uuid.UUID, hidden: HiddenChanges) -> None:
+    """Removes the hidden entries the repository no longer brings, when nothing visible uses them
+    (ADR 0437, RFC 0051 default 4): a library cannot delete a hidden entry, and one nobody can see
+    must not stay for ever. One something visible still uses stays, hidden, until that lets go.
+    Each is removed on its own, in a savepoint, and one the database refuses to remove (a manuscript
+    or a telling that hangs on it) stays."""
+    candidates = {row.local_id for row in hidden.removed_rows if row.local_id is not None}
+    for local_id in sorted(await unused_hidden_entries(session, tenant_id, candidates), key=str):
+        try:
+            async with session.begin_nested():
+                await session.execute(
+                    delete(RepositoryCopyLinkEntity).where(
+                        RepositoryCopyLinkEntity.tenant_id == tenant_id,
+                        RepositoryCopyLinkEntity.entity_id == local_id,
+                    )
+                )
+                await session.execute(
+                    delete(Entity).where(Entity.tenant_id == tenant_id, Entity.id == local_id)
+                )
+        except DBAPIError:
+            continue

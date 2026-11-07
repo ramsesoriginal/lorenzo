@@ -262,6 +262,7 @@ describe('what stands in the way of making it public', () => {
             in_release: null,
             protected: false,
             may_be_shown: true,
+            may_be_hidden: true,
           },
           {
             id: 'other-id',
@@ -273,6 +274,7 @@ describe('what stands in the way of making it public', () => {
             in_release: null,
             protected: false,
             may_be_shown: true,
+            may_be_hidden: true,
           },
         ],
       }),
@@ -292,6 +294,7 @@ describe('what stands in the way of making it public', () => {
       in_release: null,
       protected: false,
       may_be_shown: true,
+      may_be_hidden: true,
     } as const;
 
     expect(

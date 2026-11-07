@@ -289,6 +289,8 @@ test('an Owner changes what repositories built on a repository may do with it, a
     is_default: false,
     may_be_shown: true,
     may_be_shown_is_default: true,
+    may_be_hidden: true,
+    may_be_hidden_is_default: true,
   });
 
   // An Author reads it and cannot change it.

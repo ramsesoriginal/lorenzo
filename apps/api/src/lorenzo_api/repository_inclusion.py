@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from lorenzo_api.campaign_access import is_tenant_owner
 from lorenzo_api.exceptions import (
     RepositoryNotCopiedError,
+    RepositoryNotHidableError,
     RepositoryNotIncludableError,
     RepositoryNotShowableError,
 )
@@ -38,15 +39,18 @@ from lorenzo_api.repository_content import Content
 
 __all__ = [
     "INCLUSIONS",
+    "Hidable",
     "Includable",
     "Inclusion",
     "InclusionChange",
     "Showable",
     "Source",
     "Terms",
+    "default_may_be_hidden",
     "default_may_be_included",
     "default_may_be_shown",
     "flatten",
+    "hidable",
     "included_by",
     "recorded_inclusions",
     "includable",
@@ -58,8 +62,8 @@ __all__ = [
     "terms_of",
 ]
 
-Inclusion = Literal["show", "include"]
-INCLUSIONS: tuple[Inclusion, ...] = ("show", "include")
+Inclusion = Literal["show", "include", "hide"]
+INCLUSIONS: tuple[Inclusion, ...] = ("show", "include", "hide")
 
 
 # --- A's terms ---------------------------------------------------------------------------------
@@ -67,11 +71,12 @@ INCLUSIONS: tuple[Inclusion, ...] = ("show", "include")
 
 @dataclass(frozen=True)
 class Terms:
-    """What a repository built on this one may do with it: include it in its own release (H1) and
-    keep it separate and visible (H3). H4 adds the third switch, hide."""
+    """What a repository built on this one may do with it: include it in its own release (H1), keep
+    it separate and visible (H3) and keep it separate and hidden (H4)."""
 
     may_be_included: bool
     may_be_shown: bool = True
+    may_be_hidden: bool = True
 
 
 def default_may_be_included(visibility: str) -> bool:
@@ -88,22 +93,35 @@ def default_may_be_shown(visibility: str) -> bool:
     return True
 
 
+def default_may_be_hidden(visibility: str) -> bool:
+    """What an Owner who said nothing allows: a repository built on it may keep it separate and
+    hidden, whatever its visibility. For a public one it is cosmetic: anyone can copy it, so hiding
+    only tidies one library (RFC 0051, "Combinations")."""
+    return True
+
+
 def terms_of(profile: RepositoryProfile | None) -> Terms:
     """A repository's terms as they stand: an Owner's own value where there is one, else the
     default for its visibility. A repository with no profile row is private, with no terms said.
 
-    Only a protected repository can say no to being shown: anyone can copy a public one and a
-    private one is read by the invitation of its Owner, so what an Owner said while it was
+    Only a protected repository can say no to being shown or hidden: anyone can copy a public one
+    and a private one is read by the invitation of its Owner, so what an Owner said while it was
     protected waits for the next time it is."""
     visibility = profile.visibility if profile is not None else "private"
     explicit = profile.may_be_included if profile is not None else None
     shown = profile.may_be_shown if profile is not None else None
+    hidden = profile.may_be_hidden if profile is not None else None
     return Terms(
         may_be_included=default_may_be_included(visibility) if explicit is None else explicit,
         may_be_shown=(
             shown
             if shown is not None and visibility == "protected"
             else default_may_be_shown(visibility)
+        ),
+        may_be_hidden=(
+            hidden
+            if hidden is not None and visibility == "protected"
+            else default_may_be_hidden(visibility)
         ),
     )
 
@@ -148,6 +166,27 @@ async def showable(session: AsyncSession, source_id: uuid.UUID, user_id: uuid.UU
         if not readable or terms_of(await session.get(RepositoryProfile, source_id)).may_be_shown:
             return Showable(True, "terms")
     return Showable(False)
+
+
+@dataclass(frozen=True)
+class Hidable:
+    """Whether a user may keep a repository separate and hidden, and why: they own it, or its terms
+    allow it (ADR 0437). Only a protected repository can forbid it."""
+
+    allowed: bool
+    by: Literal["owner", "terms"] | None = None
+
+
+async def hidable(session: AsyncSession, source_id: uuid.UUID, user_id: uuid.UUID) -> Hidable:
+    """Whether `user_id` may keep the repository `source_id` separate and hidden in a repository
+    they own: they own it, or its terms allow it. As `showable`, a repository that cannot be read
+    just now is not refused here."""
+    if await is_tenant_owner(session, tenant_id=source_id, user_id=user_id):
+        return Hidable(True, "owner")
+    async with reading_repository_held(session, source_id) as readable:
+        if not readable or terms_of(await session.get(RepositoryProfile, source_id)).may_be_hidden:
+            return Hidable(True, "terms")
+    return Hidable(False)
 
 
 # --- The choice and the record of it -----------------------------------------------------------
@@ -223,6 +262,13 @@ async def set_inclusion(
         raise RepositoryNotShowableError(
             detail=f"{name} cannot be kept separate and visible here: its Owner has asked that "
             "what is built on it does not show it. Include it instead, or ask its Owner.",
+            repositories=[{"id": str(source_id), "name": name}],
+        )
+    if inclusion == "hide" and not (await hidable(session, source_id, user_id)).allowed:
+        name = copy.repository_name or str(source_id)
+        raise RepositoryNotHidableError(
+            detail=f"{name} cannot be kept separate and hidden here: its Owner has asked that what "
+            "is built on it is not hidden. Keep it separate and visible instead, or ask its Owner.",
             repositories=[{"id": str(source_id), "name": name}],
         )
     if inclusion == "include" and not (await includable(session, source_id, user_id)).allowed:

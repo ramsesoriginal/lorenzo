@@ -6,6 +6,7 @@ import { knownNames } from '../../lib/activityNames';
 import { describeError } from '../../lib/describeError';
 import {
   breakingNote,
+  notHidableReason,
   notOfferedReason,
   notShowableReason,
   offeredChoices,
@@ -256,11 +257,12 @@ export function createBuiltOn(root: HTMLElement): Section {
                   sourceId: row.id,
                   name: row.name,
                   inclusion: row.inclusion,
-                  offered: offeredChoices(row.includable, row.inclusion, row.showable),
+                  offered: offeredChoices(row.includable, row.inclusion, row.showable, row.hidable),
                   notOffered:
                     [
                       notOfferedReason(row.name, row.includable),
                       notShowableReason(row.name, row.showable),
+                      notHidableReason(row.name, row.hidable),
                     ]
                       .filter((reason): reason is string => reason !== null)
                       .join(' ') || null,

@@ -110,6 +110,8 @@ async def check_flip(
                 protected=s["protected"],
                 showable=IncludableOut(allowed=s["showable"], by=s["show_by"]),
                 may_be_shown=s["may_be_shown"],
+                hidable=IncludableOut(allowed=s["hidable"], by=s["hide_by"]),
+                may_be_hidden=s["may_be_hidden"],
             )
             for s in await built_on_sources(session, tenant_id, user.id)
         ],

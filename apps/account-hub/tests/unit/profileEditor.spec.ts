@@ -56,6 +56,8 @@ function profile(overrides: Partial<MemberProfileOut> = {}): MemberProfileOut {
       is_default: true,
       may_be_shown: true,
       may_be_shown_is_default: true,
+      may_be_hidden: true,
+      may_be_hidden_is_default: true,
     },
     ...overrides,
   };
