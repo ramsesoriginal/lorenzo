@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { loadProfile, parseProfile } from '../src/lib/profile';
+import { describe, expect, it, vi } from 'vitest';
+import { loadProfile, parseProfile, unverifiedPaths } from '../src/lib/profile';
 import { SAMPLE_PROFILE } from '../src/lib/sample-profile';
 
 // A profile the tests are free to break in any way, so it is deliberately loose.
@@ -87,6 +87,30 @@ describe('the operator profile', () => {
     const profile = clone();
     delete profile.gravatarLookup;
     expect(() => parseProfile(profile)).toThrow(/gravatarLookup/);
+  });
+
+  it('rejects text that still says FILL or TODO, anywhere in a value', () => {
+    for (const value of ['FILL: the region', 'Region TODO', 'to be confirmed (TBD)']) {
+      const profile = clone();
+      profile.providers[0].location.en = value;
+      expect(() => parseProfile(profile), value).toThrow(/providers\[0\]\.location\.en/);
+    }
+  });
+
+  it('builds with guesses but names every one of them in a warning', () => {
+    const profile = clone();
+    profile.providers[0].location.de = 'Frankfurt [unverified]';
+    profile.retention.logs.en = '30 days [unverified]';
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(loadProfile({ LEGAL_PROFILE: JSON.stringify(profile) }, SAMPLE_PROFILE).sample).toBe(
+      false,
+    );
+    expect(unverifiedPaths(profile)).toEqual(['providers[0].location.de', 'retention.logs.en']);
+    expect(warn.mock.calls[0]?.[0]).toMatch(
+      /providers\[0\]\.location\.de[\s\S]*retention\.logs\.en/,
+    );
+    warn.mockRestore();
   });
 
   it('does not accept invalid JSON in the environment', () => {
