@@ -19,7 +19,7 @@ There is no Authgear client and no API call. The app needs one environment varia
 | Where | Variable | Meaning |
 | --- | --- | --- |
 | Pages project `lorenzo-legal` | `LEGAL_PROFILE` | The operator profile, one JSON object (below). |
-| GitHub Actions variable, handed to the API at deploy | `LEGAL_URL` | The address of the legal app, for example `https://legal.example.org`. **No default**: unset, the apps show no legal links, so a deployment cannot link to another operator's notice. |
+| GitHub Actions variable, handed to the API and to the Discord bot at deploy | `LEGAL_URL` | The address of the legal app, for example `https://legal.example.org`. **No default**: unset, the apps show no legal links, so a deployment cannot link to another operator's notice. The bot links it from `/help`; the CLI prints it with `lorenzo legal`. |
 | GitHub Actions variable, handed to the API at deploy | `SUPPORT_URL` | An optional support link (a donation page, for example). Unset, no link is shown. |
 
 The API also has `GRAVATAR_LOOKUP_ENABLED` (default `true`): the one-time Gravatar copy when an account's email is first cached ([ADR 0439](../adr/0439-legal-notice-and-privacy-policy.md)). Set it to `false` in a deployment that does not want that request, and `gravatarLookup` to `false` in the profile so the policy stops describing it.
