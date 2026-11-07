@@ -19,10 +19,10 @@ class RepositoryProfile(Base):
     refuses a row for a play tenant. The tenants granted the repository read it through
     the gated read (ADR 0118), so it carries `repository_read` beside `tenant_isolation`.
 
-    `visibility` is `private` or `public` and `preview` is `off`, `showcase` or `public`
-    (RFC 0038 §5); the profile route refuses `public` for the first (it has its own route, ADR
-    0289) and that route refuses it while PUBLIC_REPOSITORIES_ENABLED is off (ADR 0290), the
-    database does not. `credits` is a list of `{name, role, url}`.
+    `visibility` is `private`, `protected` or `public` and `preview` is `off`, `showcase` or
+    `public` (RFC 0038 §5); the profile route refuses a flip of the first (it has its own routes,
+    ADR 0289 and ADR 0434) and those refuse it while PUBLIC_REPOSITORIES_ENABLED is off (ADR 0290),
+    the database does not. `credits` is a list of `{name, role, url}`.
     `cover_picture_id` is a row of the same blob table the other profile pictures use
     (ADR 0056), deleted with the cover.
     """
@@ -30,8 +30,10 @@ class RepositoryProfile(Base):
     __tablename__ = "repository_profile"
     __table_args__ = (
         CheckConstraint(
-            "visibility IN ('private', 'public')", name="repository_profile_visibility"
+            "visibility IN ('private', 'protected', 'public')",
+            name="repository_profile_visibility",
         ),
+        CheckConstraint("listed OR visibility = 'public'", name="repository_profile_listed"),
         CheckConstraint(
             "preview IN ('off', 'showcase', 'public')", name="repository_profile_preview"
         ),
@@ -55,6 +57,11 @@ class RepositoryProfile(Base):
     )
     visibility: Mapped[str] = mapped_column(server_default=text("'private'"))
     preview: Mapped[str] = mapped_column(server_default=text("'showcase'"))
+    # Whether Discover lists the repository while it is public (ADR 0432, RFC 0051 H2): an Owner of
+    # a public repository may turn it off, and the flips turn it back on when the repository stops
+    # being public (the check ties the two). An unlisted repository is public and copyable by its
+    # address in every other way.
+    listed: Mapped[bool] = mapped_column(server_default=text("true"))
     summary: Mapped[str] = mapped_column(server_default=text("''"))
     licence_label: Mapped[str | None]
     licence_url: Mapped[str | None]
@@ -71,5 +78,23 @@ class RepositoryProfile(Base):
     released_at: Mapped[datetime | None]
     entry_count: Mapped[int | None]
     stat_definition_count: Mapped[int | None]
+    # A's terms (ADR 0431, RFC 0051): whether a repository built on this one may include it. Null
+    # is the default for the repository's visibility (`repository_terms.may_be_included`); a
+    # value the Owner chose wins.
+    may_be_included: Mapped[bool | None]
+    # A second term (ADR 0434): whether a repository built on this one may show it, that is, keep it
+    # a separate repository its libraries read and see. Null is the default for the visibility;
+    # only a protected repository can say no (`repository_terms`).
+    may_be_shown: Mapped[bool | None]
+    # The third term (ADR 0437): whether a repository built on this one may hide it, so that its
+    # entries are hidden in the libraries that hold them through that repository. Null is the
+    # default for the visibility; only a protected repository can say no (`repository_terms`).
+    may_be_hidden: Mapped[bool | None]
+    # How the current public release carries each repository it is built on, as the release
+    # recorded it: a list of `{id, name, inclusion, licence_label, licence_url}`. Null until the
+    # repository makes a public release; written with the listing facts above, so it is always
+    # that of the current release. The storefront names what is included from it, and the
+    # breaking-change rule compares the choices now with it.
+    release_sources: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     updated_by: Mapped[UpdatedBy]
     updated_at: Mapped[UpdatedAt]

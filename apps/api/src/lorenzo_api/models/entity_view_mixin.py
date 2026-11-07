@@ -129,15 +129,19 @@ def _by_position(stat: VEffectiveStat) -> tuple[int, str]:
     return (stat.stat_definition.position, stat.stat_definition.name)
 
 
-def description_pairs(entity: Entity, visibility: InformationReader) -> list[tuple[str, str]]:
+def description_pairs(
+    entity: Entity, visibility: InformationReader, *, inherited: bool = False
+) -> list[tuple[str, str]]:
     """`entity`'s visible description texts as (content, locale): what
     EntityViewMixin.descriptions returns for the view's own entity, and what
-    an item inherits from each ancestor (ADR 0111). Needs entity ->
+    an item inherits from each ancestor (ADR 0111; `inherited` for the ancestor's, which an
+    entry the repository it came with hides still gives, ADR 0437). Needs entity ->
     information -> payloads -> description and knowledge_links loaded."""
+    can_see = visibility.can_see_inherited if inherited else visibility.can_see
     return [
         (payload.description.content, payload.description.locale)
         for info in entity.information
-        if info.type == "description" and visibility.can_see(info)
+        if info.type == "description" and can_see(info)
         for payload in info.payloads
         if payload.description is not None
     ]
