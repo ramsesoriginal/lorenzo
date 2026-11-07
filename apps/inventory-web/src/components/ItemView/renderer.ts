@@ -9,6 +9,13 @@ import { type Renderer, showDescriptions } from '../../lib/descriptions';
 import { itemPageHref } from '../../lib/entityLinks';
 import { statLabel } from '../../lib/statLabel';
 import { fromTemplate, requiredIn } from '../../lib/template';
+import {
+  HIDDEN_SOURCE_LABEL,
+  isFromHiddenEntry,
+  type TextOrigin,
+  textHome,
+  textSources,
+} from '../../lib/textSources';
 import type { ItemBase } from '../../lib/types';
 
 type Source = components['schemas']['EntitySummary'] | null;
@@ -54,6 +61,20 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
 
     return label;
   }
+
+  // "From a hidden entry": what an item inherits from an entry its library hides, never named
+  // (ADR 0437).
+  function hiddenLabel(): HTMLElement {
+    const label = document.createElement('p');
+
+    label.className = 'caption';
+    label.textContent = HIDDEN_SOURCE_LABEL;
+
+    return label;
+  }
+
+  const labelOf = (part: TextOrigin): HTMLElement | null =>
+    isFromHiddenEntry(part) ? hiddenLabel() : sourceLabel(part.from_entity ?? null);
 
   let turn = 0;
   let facts: HTMLElement | null = null;
@@ -111,20 +132,21 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
           options.renderer,
           item.descriptions.map((description) => ({
             text: description.content,
-            label: sourceLabel(description.from_entity),
-            home: description.from_entity?.id ?? item.entity_id,
+            label: labelOf(description),
+            home: textHome(description, item.entity_id),
           })),
         );
       // The item read retains its flat text/picture contract. Read each visible source's
-      // description bundles for their shared order, including image-only descriptions.
-      const sources = new Map<string, Source>([[item.entity_id, null]]);
-      for (const part of [...item.descriptions, ...item.pictures])
-        if (part.from_entity) sources.set(part.from_entity.id, part.from_entity);
+      // description bundles for their shared order, including image-only descriptions. What a
+      // hidden entry gives is not readable by its address, so it comes from the item read.
+      const sources = textSources(item.entity_id, [...item.descriptions, ...item.pictures]);
       void Promise.all(
-        [...sources].map(async ([id, source]) => ({
-          id,
+        sources.map(async (source) => ({
           source,
-          infos: await listInformation(options.tenantId, id, ['description']),
+          infos:
+            source.kind === 'hidden'
+              ? []
+              : await listInformation(options.tenantId, source.id, ['description']),
         })),
       )
         .then((found) => {
@@ -137,17 +159,28 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
             ),
           );
           descriptions.replaceChildren();
-          for (const { id, source, infos } of found) {
+          for (const { source, infos } of found) {
+            if (source.kind === 'hidden') {
+              for (const description of item.descriptions.filter(isFromHiddenEntry)) {
+                const mount = document.createElement('div');
+                descriptions.append(hiddenLabel(), mount);
+                void showDescriptions(mount, options.renderer, [
+                  { text: description.content, home: textHome(description, item.entity_id) },
+                ]);
+              }
+              continue;
+            }
+            const home = source.id;
             for (const info of infos) {
               const mount = document.createElement('div');
-              const label = sourceLabel(source);
+              const label = source.kind === 'entry' ? sourceLabel(source.source) : null;
               if (label) descriptions.append(label);
               descriptions.append(mount);
               renderInformationPayloads(mount, {
                 information: info,
                 loadFile: (payload) => blobUrl(payload.url),
                 renderText: (host, text) =>
-                  showDescriptions(host, options.renderer, [{ text, home: id }]),
+                  showDescriptions(host, options.renderer, [{ text, home }]),
               });
             }
           }
@@ -166,7 +199,9 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
 
               image.alt = picture.from_entity
                 ? `Picture of ${picture.from_entity.name}`
-                : `Picture of ${item.title}`;
+                : isFromHiddenEntry(picture)
+                  ? 'Picture from a hidden entry'
+                  : `Picture of ${item.title}`;
               blobUrl(picture.url).then(
                 (src) => {
                   image.src = src;
@@ -176,6 +211,9 @@ export function renderItemView(root: HTMLElement, options: ItemViewOptions): Ren
 
               if (picture.from_entity) {
                 fillSource(caption, picture.from_entity);
+                caption.hidden = false;
+              } else if (isFromHiddenEntry(picture)) {
+                caption.textContent = HIDDEN_SOURCE_LABEL;
                 caption.hidden = false;
               } else {
                 caption.remove();

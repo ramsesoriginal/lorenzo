@@ -1504,7 +1504,7 @@ for repositories only, so the two relations never share a phrase.
 | **May be shown** | The switch of a protected repository's Owner: whether a repository built on it may keep it separate and visible. | Allow link, expose |
 | **Keep separate and hidden** | How a repository built on another carries it: the other stays a repository of its own, and a library that copies this one holds its entries and does not see them. The API calls this `hide`. | Conceal, secret, private |
 | **May be hidden** | The switch of a protected repository's Owner: whether a repository built on it may keep it separate and hidden. | Allow concealing, seal |
-| **A hidden entry** | What a library calls an entry it holds and does not see, wherever a name would give it away: where a value comes from, a change in an update. | The name of the entry, its address |
+| **A hidden entry** | What a library calls an entry it holds and does not see, wherever a name would give it away: where a value or a text comes from ("From a hidden entry"), a change in an update. | The name of the entry, its address |
 | **Changes to hidden entries** | The words for what an update does to entries a library hides: a count and no names, taken with the rest ("3 changes to hidden entries"). | Hidden rows, updates to the source |
 | **Check first** | Try a copy or an update without changing anything | Dry run |
 
