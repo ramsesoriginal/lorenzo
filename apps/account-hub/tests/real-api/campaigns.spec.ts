@@ -94,7 +94,7 @@ test('the seat actions are create, rename and leave', async ({ browser }) => {
   await seat.getByRole('button', { name: 'Create character' }).click();
   await expect(seat).toContainText('Mira');
   await seat.getByRole('button', { name: 'Leave this campaign' }).click();
-  expect(confirmations[0]).toContain('Leave "Hood"?');
+  await expect.poll(() => confirmations[0]).toContain('Leave "Hood"?');
   await expect.poll(async () => (await ok(player.api.GET('/me'))).players.length).toBe(0);
   await context.close();
 });
