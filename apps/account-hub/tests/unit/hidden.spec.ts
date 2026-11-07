@@ -104,7 +104,7 @@ describe('hiding a repository built on (RFC 0051 H4, ADR 0437)', () => {
       'does not see them',
     );
     // What the API calls something this client does not know reads as `show`.
-    expect(builtOnChoices([source({ inclusion: 'seal' })])[0]?.inclusion).toBe('show');
+    expect(builtOnChoices([source({ inclusion: 'seal' as never })])[0]?.inclusion).toBe('show');
   });
 
   it('is a switch of the terms, and a preset says all three', () => {
