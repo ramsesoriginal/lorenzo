@@ -82,6 +82,7 @@ test('a library admin sees what is offered, what a repository holds and what it 
   await expect(page).toHaveURL(/repository=/);
   await expect(page.getByRole('heading', { name: 'Faerûn campaign' })).toBeVisible();
   await expect(page.getByText('has not copied it yet')).toBeVisible();
+  await showOverview(page);
 
   // The API counts nothing while a repository it is built on is not offered to the library, so the
   // page says that and does not show a row of zeros.
@@ -135,7 +136,10 @@ test('a library that copied a repository, and one that lost its invitation, say 
   await page.goto(`/repositories/?tenant=${library.slug}`);
 
   // Someone who runs two libraries chooses one; the address follows.
-  await page.locator('#content').getByLabel('Library').selectOption({ label: second.name });
+  await page
+    .locator('#content')
+    .getByLabel('Library', { exact: true })
+    .selectOption({ label: second.name });
   await expect(page).toHaveURL(new RegExp(`tenant=${second.slug}`));
   await expect(
     page.locator('[data-list-view]').getByRole('listitem').filter({ hasText: 'Core rules' }),

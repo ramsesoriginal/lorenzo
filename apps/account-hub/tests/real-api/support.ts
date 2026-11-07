@@ -122,6 +122,9 @@ export async function openLibrary(page: Page, library: { slug: string; name: str
  * what is inside, its entries or its look.
  */
 export async function showOverview(page: Page) {
+  // The tabs appear once the page has been read, so wait for the page before looking for them.
+  await expect(page.locator('[data-detail-view]')).toBeVisible();
+
   const overview = page.getByRole('tab', { name: 'Overview' });
 
   if ((await overview.count()) > 0) await overview.click();
