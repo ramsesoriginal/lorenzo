@@ -314,7 +314,10 @@ async def load_links(session: AsyncSession, tenant_id: uuid.UUID) -> Links:
         columns = [local, model.source_id, model.source_tenant_id, model.snapshot]
         if mode_col is not None:
             columns.append(mode_col)
-        for row in await session.execute(select(*columns).where(model.tenant_id == tenant_id)):
+        # In the order of the source: the maps are read twice (a document and the rows) and are
+        # compared in order (ADR 0214), which a scan of the table does not promise.
+        stmt = select(*columns).where(model.tenant_id == tenant_id).order_by(model.source_id)
+        for row in await session.execute(stmt):
             local_id, source_id, source_tenant, snapshot = row[0], row[1], row[2], row[3]
             links.origin_tenant[source_id] = source_tenant
             links.snapshots[source_id] = snapshot
