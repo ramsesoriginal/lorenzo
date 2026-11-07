@@ -33,6 +33,7 @@ import {
   submit,
 } from './dom';
 import { canManage, libraryName } from './names';
+import { notes } from './notes';
 import { endPicker, entryPicker, typePicker as findType } from './pickers';
 import { start } from './sign-in';
 import { readEntry } from './social-api';
@@ -462,6 +463,7 @@ export async function mountWeb() {
         );
       }
       view.append(controls.root, lensControls(), listing);
+      view.append(notes(tenant, id));
 
       if (manage) view.append(editor(tenant, id, version, graph, web, draw));
       host.replaceChildren(view);
