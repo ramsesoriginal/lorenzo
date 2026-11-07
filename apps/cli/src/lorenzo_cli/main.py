@@ -154,6 +154,7 @@ from lorenzo_cli.tenants import (
 app = typer.Typer(
     name="lorenzo",
     help="The Lorenzo command line.",
+    epilog="The legal notice and the privacy policy of the Lorenzo you use: `lorenzo legal`.",
     no_args_is_help=True,
     add_completion=True,
 )
@@ -594,6 +595,49 @@ def _token_origin(runtime: Runtime) -> str:
     if runtime.env.get("LORENZO_TOKEN"):
         return "LORENZO_TOKEN"
     return "the stored login"
+
+
+@app.command()
+def legal(
+    ctx: typer.Context,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the addresses as JSON.")] = False,
+) -> None:
+    """Where the legal notice and the privacy policy of the Lorenzo you use are.
+
+    Asks the API's public registry, so it needs no login and names whatever deployment you talk
+    to; nothing about any operator is built into the command (ADR 0439).
+    """
+    runtime: Runtime = ctx.obj
+    with _reporting_errors():
+        base_url = runtime.settings.require_api_url()
+        try:
+            with httpx.Client(transport=runtime.transport, timeout=30.0) as http:
+                response = http.get(f"{base_url.rstrip('/')}/app-links")
+            response.raise_for_status()
+            registry = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise LorenzoConnectionError(f"Could not read {base_url}/app-links: {exc}") from exc
+    links = registry.get("links", {}) if isinstance(registry, dict) else {}
+    rows = {
+        "legal notice": links.get("legal_notice_en"),
+        "impressum": links.get("legal_notice_de"),
+        "privacy policy": links.get("legal_privacy_en"),
+        "datenschutzerklärung": links.get("legal_privacy_de"),
+        "support": registry.get("support_url") if isinstance(registry, dict) else None,
+    }
+    found = {
+        name: address for name, address in rows.items() if isinstance(address, str) and address
+    }
+    if as_json:
+        typer.echo(json.dumps(found, indent=2, ensure_ascii=False))
+        return
+    if not any(name != "support" for name in found):
+        _err.print(f"{base_url} has not published a legal notice or a privacy policy.")
+        raise typer.Exit(1)
+    table = Table(show_header=False, box=None)
+    for name, address in found.items():
+        table.add_row(name, address)
+    _out.print(table)
 
 
 @app.command()

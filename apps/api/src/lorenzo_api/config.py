@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     calendars_url: str = "https://lorenzo-calendars.pages.dev"
     maps_url: str = "https://lorenzo-maps.pages.dev"
     social_url: str = "https://lorenzo-social.pages.dev"
+    # The legal notice and privacy policy app (ADR 0439). Unlike the apps above it has NO
+    # default: a deployment that has not set `LEGAL_URL` shows no legal links, so it can never
+    # link to another operator's notice. The official deployment sets it.
+    legal_url: str | None = None
+    # An optional support link (a donation page, for example), `SUPPORT_URL`. Unset: no link.
+    support_url: str | None = None
     # Optional per-link overrides in APP_LINK_TEMPLATES: space-separated `name=template`
     # pairs (like CORS_ALLOWED_ORIGINS, no commas and no JSON, for the deploy action's sake),
     # e.g. "item=https://i.example.com/i/{tenant}/{id}". NoDecode, as cors_allowed_origins.
@@ -103,6 +109,11 @@ class Settings(BaseSettings):
         if isinstance(v, str) and not v.strip():
             return cls.model_fields[info.field_name or ""].default
         return v
+
+    @field_validator("legal_url", "support_url")
+    @classmethod
+    def _blank_legal_setting_is_unset(cls, v: str | None) -> str | None:
+        return (v or "").strip() or None
 
     @field_validator("app_link_templates", mode="before")
     @classmethod
@@ -172,6 +183,11 @@ class Settings(BaseSettings):
     # (matching payload_picture's own precedent, ADR 0017), so this caps
     # both the request body size and the row size, not a bucket quota.
     profile_picture_max_bytes: int = 10_000_000
+    # The one-time Gravatar lookup when an account's email is first cached (ADR 0439): it asks
+    # `<base>/avatar/<sha256 of the email>?d=404` once and keeps the picture as the account's own.
+    # `GRAVATAR_LOOKUP_ENABLED=false` turns it off for a deployment that does not want the request.
+    gravatar_base_url: str = "https://www.gravatar.com"
+    gravatar_lookup_enabled: bool = True
 
     # Pictures on an entry's information (K8, ADR 0237): the same cap to start with, a setting of
     # its own because a cover or a map may want more than an avatar. Bytes in Postgres here too.

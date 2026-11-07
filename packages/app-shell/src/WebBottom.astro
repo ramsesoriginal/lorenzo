@@ -1,4 +1,6 @@
 ---
+import LegalLinks from './LegalLinks.astro';
+import type { Lang } from './legal';
 import { splitTabs } from './pure';
 import type { NavItem } from './pure';
 
@@ -12,10 +14,12 @@ interface Props {
   path: string;
   // The release, and the licence's name, shown in the sheet
   version?: string;
+  // A static address, shown at once; otherwise the registry names them (ADR 0439).
   legal?: { notice?: string; privacy?: string };
+  lang?: Lang;
 }
 
-const { brandingUrl, nav = [], path, version, legal } = Astro.props;
+const { brandingUrl, nav = [], path, version, legal, lang = 'en' } = Astro.props;
 const icons = `${brandingUrl}/icons.svg`;
 const { tabs, rest } = splitTabs(nav, 3);
 ---
@@ -96,16 +100,7 @@ const { tabs, rest } = splitTabs(nav, 3);
       <div class="apps" data-shell-apps></div>
       <div>
         <div class="menu-label">About</div>
-        {legal?.notice && (
-          <a class="l" href={legal.notice}>
-            Legal notice
-          </a>
-        )}
-        {legal?.privacy && (
-          <a class="l" href={legal.privacy}>
-            Privacy policy
-          </a>
-        )}
+        <LegalLinks lang={lang} notice={legal?.notice} privacy={legal?.privacy} />
         <a class="l" href={`https://github.com/ramsesoriginal/lorenzo/tree/main/${path}`}>
           Source code
         </a>

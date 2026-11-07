@@ -205,7 +205,14 @@ async def test_clearing_an_own_value_inherits_again_and_says_what_it_removed(
     body = response.json()
     assert body["previous"] == {"had_own_value": True, "value": 9}
     assert body["stats"] == [
-        {"name": "damage", "value": 5, "own": False, "from_entity": ANY, "computed": False}
+        {
+            "name": "damage",
+            "value": 5,
+            "own": False,
+            "from_entity": ANY,
+            "from_hidden": None,
+            "computed": False,
+        }
     ]
     assert response.headers["etag"] != before
     assert await _own(child, stats["damage"]) is None

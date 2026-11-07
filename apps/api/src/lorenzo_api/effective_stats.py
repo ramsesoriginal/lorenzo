@@ -68,6 +68,11 @@ async def effective_stats_of(
                         if own or not visibility.can_see_entry(winner.source_entity_id)
                         else EntitySummary.from_entity(winner.source_entity)
                     ),
+                    from_hidden=(
+                        True
+                        if not own and not visibility.can_see_entry(winner.source_entity_id)
+                        else None
+                    ),
                     computed=winner.computed_entity_id is not None,
                 )
             )
