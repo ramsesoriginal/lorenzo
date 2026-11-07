@@ -47,6 +47,7 @@ from lorenzo_api.entity_access import (
     recursive_descendants_cte,
     surroundings,
 )
+from lorenzo_api.entry_visibility import unhidden
 from lorenzo_api.etag import check_if_match, etag_for
 from lorenzo_api.exceptions import (
     EntityNotFoundError,
@@ -197,7 +198,7 @@ async def _visible_owner_predicate(
     """
     return _owner_predicate_for(
         await caller_reach(session, tenant_id=tenant_id, user=user, visibility=visibility)
-    )
+    ) & await unhidden(session, tenant_id, VItemInstance.entity_id)
 
 
 async def caller_reach(
@@ -346,7 +347,11 @@ async def _grouped_by_container_response(
     stmt = (
         select(VItemInstance, Containment.parent_entity_id)
         .outerjoin(Containment, Containment.child_entity_id == VItemInstance.entity_id)
-        .where(owner_predicate, VItemInstance.tenant_id == tenant_id)
+        .where(
+            owner_predicate,
+            VItemInstance.tenant_id == tenant_id,
+            await unhidden(session, tenant_id, VItemInstance.entity_id),
+        )
         .options(*eager_load_options(VItemInstance.entity))
         .order_by(Containment.parent_entity_id, VItemInstance.entity_id)
     )
@@ -462,6 +467,7 @@ async def list_item_instances_held_by(
         .where(
             VItemInstance.entity_id.in_(held - {entity_id}),
             _owner_predicate_for(reach),
+            await unhidden(session, tenant_id, VItemInstance.entity_id),
             VItemInstance.tenant_id == tenant_id,
         )
         .options(*eager_load_options(VItemInstance.entity))
@@ -647,6 +653,7 @@ async def list_item_instances_controlled_by(
                 .where(
                     VItemInstance.entity_id.in_(walked - {entity_id} - group_ids),
                     VItemInstance.tenant_id == tenant_id,
+                    await unhidden(session, tenant_id, VItemInstance.entity_id),
                 )
                 .options(*eager_load_options(VItemInstance.entity))
                 .order_by(VItemInstance.entity_id)

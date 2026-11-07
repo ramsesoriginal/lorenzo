@@ -38,6 +38,8 @@ import {
   showsDiscover,
   storefrontHref,
   TOO_DEEP,
+  UNLISTED_NOTE,
+  unlistedNote,
 } from '../../src/lib/discover';
 import { subjectOfPublic, subjectOfSubscription } from '../../src/lib/shelf';
 import type {
@@ -423,8 +425,9 @@ describe('a repository page', () => {
     expect(BUILT_ON_NOT_PUBLIC).toContain('Ask its Owner to make it public');
   });
 
-  it('has a word for a repository that is not listed', () => {
-    expect(NOT_LISTED).toContain('not listed');
+  it('has a word for a repository that cannot be opened, which does not call it unlisted', () => {
+    expect(NOT_LISTED).toContain('cannot be opened');
+    expect(NOT_LISTED).not.toMatch(/not listed/i);
   });
 });
 
@@ -520,8 +523,32 @@ describe('the words of the page', () => {
       PAST_THE_END,
       BUILT_ON_NOT_PUBLIC,
       NO_LICENCE,
+      UNLISTED_NOTE,
     ].join(' ');
 
     expect(words).not.toMatch(/tenant|grant|subscri|stable|frozen/i);
+  });
+});
+
+describe('a repository its Owner left off Discover (RFC 0051 H2)', () => {
+  const id = '11111111-1111-4111-8111-111111111111';
+  const mine = [
+    tenant({ id, kind: 'repository', role: 'owner' }),
+    tenant({ id: 'other', kind: 'repository', role: 'owner' }),
+  ];
+
+  it('tells its Owners that only people who have its address can open the page', () => {
+    expect(unlistedNote({ listed: false }, mine, id)).toBe(UNLISTED_NOTE);
+    expect(UNLISTED_NOTE).toMatch(/not listed on Discover/);
+    expect(UNLISTED_NOTE).toMatch(/address/);
+  });
+
+  it('says nothing to anyone else, nor about a repository that is listed', () => {
+    expect(unlistedNote({ listed: true }, mine, id)).toBeNull();
+    expect(unlistedNote({ listed: false }, [tenant({ id, role: 'orga' })], id)).toBeNull();
+    expect(unlistedNote({ listed: false }, [tenant({ id, role: 'participant' })], id)).toBeNull();
+    expect(unlistedNote({ listed: false }, [], id)).toBeNull();
+    // An Owner of some other repository is not one of this.
+    expect(unlistedNote({ listed: false }, mine.slice(1), id)).toBeNull();
   });
 });

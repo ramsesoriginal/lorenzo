@@ -19,8 +19,8 @@ from lorenzo_api.discover import (
     MAX_PAGE_SIZE,
     facets,
     item_out,
-    listing_of,
     search,
+    storefront_of,
 )
 from lorenzo_api.exceptions import RepositoryNotFoundError
 from lorenzo_api.repository_profiles import profile_out
@@ -51,8 +51,9 @@ async def list_public_repositories(
     `released`, never by popularity. `q` is a case-insensitive part of the name, the summary or a
     tag; `tag`, `system` and `language` narrow it exactly. A page is at most 50 repositories (a
     bigger `size` is that), and a listing goes at most 1000 deep: `422 discover-too-deep`, narrow
-    it. Listed are repositories that are public, published and have a release. Each says who
-    published it, by its Owners' accounts (`publishers`, ADR 0299)."""
+    it. Listed are repositories that are public, published and have a release, and whose Owner has
+    not turned listing off (`listed`, ADR 0432). Each says who published it, by its Owners'
+    accounts (`publishers`, ADR 0299)."""
     found, total = await search(
         session,
         q=q,
@@ -87,12 +88,13 @@ async def discover_facets(session: SessionDep, user: PublicReader) -> DiscoverFa
 async def get_storefront(
     repository_id: uuid.UUID, session: SessionDep, user: PublicReader
 ) -> StorefrontOut:
-    """A listed repository's page: its listing entry (with who published it, by its Owners'
+    """A public repository's page: its listing entry (with who published it, by its Owners'
     accounts), its long description, its profile and, where the deployment sets a report address,
-    a `mailto:` for the Report link.
-    `404` for one that is not listed (private, a draft, or with no release), the same as for one
-    that does not exist."""
-    found = await listing_of(session, repository_id)
+    a `mailto:` for the Report link. Any signed-in user who has the address opens it, whether
+    Discover lists the repository or its Owner left it off the listing (ADR 0432).
+    `404` for one that is not public (private, a draft, or with no release), retired or delisted,
+    the same as for one that does not exist."""
+    found = await storefront_of(session, repository_id)
     if found is None:
         raise RepositoryNotFoundError(detail=f"No public repository {repository_id}")
     publishers = await publishers_of(session, [repository_id], current_tenant_id=NO_TENANT)

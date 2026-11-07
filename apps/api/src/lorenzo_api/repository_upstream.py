@@ -29,12 +29,15 @@ from lorenzo_api.repository_releases import ReleaseRef, current_release
 from lorenzo_api.schemas.repositories import EntityKindName
 
 __all__ = [
+    "DOCUMENT_VISIBILITIES",
     "EntityRow",
     "StatDefinitionRow",
     "StatGroupRow",
     "Upstream",
     "entity_rows",
     "is_public",
+    "reads_through_release",
+    "visibility_of",
     "load_upstream",
     "stat_group_rows",
     "upstream_copies",
@@ -55,13 +58,30 @@ class Upstream:
     public: bool
 
 
-async def is_public(session: AsyncSession, repository_id: uuid.UUID) -> bool:
-    """Whether the repository's profile says `public`. A repository with no profile row is
-    private, as the profile's own default is."""
+# What a library reads through a release document and not through the rows: a public repository,
+# and a protected one (ADR 0434), which has a first release made as it is made protected.
+DOCUMENT_VISIBILITIES = ("public", "protected")
+
+
+async def visibility_of(session: AsyncSession, repository_id: uuid.UUID) -> str:
+    """The repository's visibility as its profile says it: `private`, `protected` or `public`. A
+    repository with no profile row is private, as the profile's own default is. Run inside the
+    gated read, which is where another tenant may read the profile."""
     visibility = await session.scalar(
         select(RepositoryProfile.visibility).where(RepositoryProfile.tenant_id == repository_id)
     )
-    return visibility == "public"
+    return visibility or "private"
+
+
+async def is_public(session: AsyncSession, repository_id: uuid.UUID) -> bool:
+    """Whether the repository's profile says `public`."""
+    return await visibility_of(session, repository_id) == "public"
+
+
+async def reads_through_release(session: AsyncSession, repository_id: uuid.UUID) -> bool:
+    """Whether libraries read the repository through its current release's document: it is
+    public or protected. A private repository is read live, whole."""
+    return await visibility_of(session, repository_id) in DOCUMENT_VISIBILITIES
 
 
 def _no_release(repository_id: uuid.UUID, why: str) -> PublicRepositoryHasNoReleaseError:
@@ -82,7 +102,7 @@ async def load_upstream(session: AsyncSession, repository_id: uuid.UUID) -> Upst
     its rows now if it is private. `409 public-repository-has-no-release` for a public one with
     no release, or whose current release has no document: nothing is read live instead, since
     that would show edits no release has announced."""
-    if not await is_public(session, repository_id):
+    if not await reads_through_release(session, repository_id):
         return Upstream(
             await load_content(session, repository_id),
             await current_release(session, repository_id),
@@ -103,7 +123,7 @@ async def upstream_copies(session: AsyncSession, repository_id: uuid.UUID) -> se
     and what it had copied when its current release was made, if it is public. A document
     carries the same set as the copy records, so the manifest of a public repository is the one
     that release was made against."""
-    if not await is_public(session, repository_id):
+    if not await reads_through_release(session, repository_id):
         return set(
             await session.scalars(
                 select(RepositoryCopy.repository_tenant_id).where(

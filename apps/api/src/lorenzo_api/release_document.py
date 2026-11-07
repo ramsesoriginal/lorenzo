@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 36
+FORMAT = 37
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -531,6 +531,21 @@ _CONTENT = _dataclass(
         "entry_audiences": _id_map(_PLAIN),
         "entry_knowledge": _pairs(_ID, _ID),
         "fact_about": _pairs(_ID, _ID),
+        "sources": _id_map(
+            _record(
+                {
+                    "inclusion": _PLAIN,
+                    "name": _PLAIN,
+                    "licence": _optional(
+                        _record(
+                            {"label": _PLAIN, "url": _optional(_PLAIN)},
+                            name="Content.sources.licence",
+                        )
+                    ),
+                },
+                name="Content.sources",
+            )
+        ),
         "links": _LINKS,
     },
 )
@@ -711,6 +726,11 @@ def _read_v35(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v36(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 37 a release did not say how it carried what it is built on (ADR 0431).
+    return _read_v37({**document, "sources": {}}, files)
+
+
+def _read_v37(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -754,6 +774,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     34: _read_v34,
     35: _read_v35,
     36: _read_v36,
+    37: _read_v37,
 }
 
 

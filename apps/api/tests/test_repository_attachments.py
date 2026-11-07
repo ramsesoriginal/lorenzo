@@ -450,6 +450,7 @@ async def test_an_attachment_the_bridge_adds_later_is_offered_and_applied(
             "attachments_added": 1,
             "attachments_detached": 0,
             "not_applied": [],
+            "hidden": None,
         }
         assert (await _parents(table))["Dagger"] == ["Economic Object", "Weapon"]
         assert (await gm.get(url)).json()["attachments_added"] == []
