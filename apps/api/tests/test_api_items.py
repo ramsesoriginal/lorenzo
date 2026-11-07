@@ -184,7 +184,12 @@ async def test_get_item_returns_full_wrapped_shape(
     # _make_full_item) defaults to a stack of one, not null.
     assert body["quantity"] == 1
     assert body["descriptions"] == [
-        {"content": "A gleaming blade.", "locale": "en-US", "from_entity": None}
+        {
+            "content": "A gleaming blade.",
+            "locale": "en-US",
+            "from_entity": None,
+            "from_hidden": None,
+        }
     ]
     assert len(body["pictures"]) == 1
     assert body["pictures"][0]["file_type"] == "image/png"
@@ -442,7 +447,12 @@ async def test_get_item_orga_sees_gm_only_description(
     response = await client.get(f"/tenants/{tenant_id}/items/{entity_id}")
     assert response.status_code == 200
     assert response.json()["descriptions"] == [
-        {"content": "A gleaming blade.", "locale": "en-US", "from_entity": None}
+        {
+            "content": "A gleaming blade.",
+            "locale": "en-US",
+            "from_entity": None,
+            "from_hidden": None,
+        }
     ]
 
     await delete_tenant(tenant_id)

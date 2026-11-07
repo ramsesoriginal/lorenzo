@@ -53,6 +53,14 @@ export type Tag = {
 
 const NUMBER_TYPES = new Set(['int', 'float']);
 
+// Where an inherited value comes from, in words: the entry it is held by, or "a hidden entry" where the
+// library hides it (RFC 0051 H4, ADR 0437), so that a value that comes from somewhere says so.
+export const HIDDEN_ENTRY = 'a hidden entry';
+
+function sourceOf(stat: Pick<StatValue, 'from_entity' | 'from_hidden'> | undefined): string | null {
+  return stat?.from_entity?.name ?? (stat?.from_hidden ? HIDDEN_ENTRY : null);
+}
+
 /** A number with its sign, the minus a real one: "+3", "−1", "±0". */
 export function signed(value: number): string {
   const sign = value > 0 ? '+' : value < 0 ? '−' : '±';
@@ -143,7 +151,7 @@ export function bandOf(
         pinned: definition?.pin ?? false,
         own: stat?.own ?? false,
         computed: stat?.computed === true,
-        from: stat?.from_entity?.name ?? null,
+        from: sourceOf(stat),
         of: plainValue(statNamed(definition?.max_hint_id ?? null)),
         resolved: resolvedText(definition?.resolved_hint_id ?? null),
         floor: numberOf(definition?.min_hint_id ?? null),
@@ -231,7 +239,7 @@ export function tagsOf(
         name: definition.name,
         label: statLabel(definition.name),
         state,
-        from: stat && !stat.own ? (stat.from_entity?.name ?? null) : null,
+        from: stat && !stat.own ? sourceOf(stat) : null,
         adjustable: definition.adjustable_in_play,
       };
     });

@@ -34,7 +34,7 @@ from lorenzo_api.models import RepositoryProfile, RepositoryShowcase
 from lorenzo_api.release_document_store import ReleaseDocumentNotFoundError, read_release_content
 from lorenzo_api.repository_content import Content, load_content, public_entry
 from lorenzo_api.repository_releases import current_release
-from lorenzo_api.repository_upstream import is_public
+from lorenzo_api.repository_upstream import reads_through_release
 from lorenzo_api.schemas.repositories import EntityKindName
 from lorenzo_api.schemas.repository_preview import (
     PreviewDescriptionOut,
@@ -125,7 +125,7 @@ async def read_content(session: AsyncSession, repository_id: uuid.UUID) -> Conte
     release id while it fits the cache, for a public repository; its rows for a private one.
     `409 public-repository-has-no-release` for a public one with nothing to read. The caller
     only reads what it returns: it is shared."""
-    if not await is_public(session, repository_id):
+    if not await reads_through_release(session, repository_id):
         return await load_content(session, repository_id)
     release = await current_release(session, repository_id)
     if release is None:

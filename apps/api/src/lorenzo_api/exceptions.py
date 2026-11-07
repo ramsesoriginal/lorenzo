@@ -111,6 +111,8 @@ __all__ = [
     "RepositoryCopyNeedsGrantsError",
     "InvalidRepositoryUpdateError",
     "RepositoryNotCopiedError",
+    "RepositoryNotIncludableError",
+    "RepositoryNotPublicError",
     "RepositoryUpdateNeedsChoicesError",
     "PublicRepositoriesNotAvailableError",
     "TermsNotAcceptedError",
@@ -1073,6 +1075,61 @@ class RepositoryNotCopiedError(ConflictProblem):
     title = "This repository hasn't been copied here"
 
 
+class RepositoryNotPublicError(ConflictProblem):
+    """Leaving a repository off Discover when it is not public (`PATCH .../profile` with `listed:
+    false`) - ADR 0432, RFC 0051 H2. Only a public repository is listed or not; a private one is
+    on no listing, so there is nothing to leave it off."""
+
+    title = "This repository is not public"
+
+
+class RepositoryNotIncludableError(ConflictProblem):
+    """Including a repository in another's release when the user is not an Owner of it and its
+    terms do not allow it - ADR 0431, RFC 0051. Carries `repositories`: each one that cannot be
+    included, by id and name. One Owner's content is not published by another without a yes."""
+
+    title = "This repository cannot be included"
+
+
+class RepositoryNotShowableError(ConflictProblem):
+    """Keeping a repository separate and visible (`inclusion = show`) when its terms forbid it and
+    the user is not an Owner of it - ADR 0434, RFC 0051 H3. Carries `repositories`: each one that
+    cannot be shown, by id and name. Only a protected repository can say no: a repository anyone
+    can copy cannot forbid show."""
+
+    title = "This repository cannot be kept separate and visible"
+
+
+class RepositoryProtectedError(ConflictProblem):
+    """Copying, or planning the copy of, a protected repository on its own - ADR 0434, RFC 0051
+    H3. A protected repository comes with the public repositories built on it and is copied as a
+    step of one of them, never alone."""
+
+    title = "This repository is protected"
+
+
+class RepositoryNotHidableError(ConflictProblem):
+    """Keeping a repository separate and hidden (`inclusion = hide`) when its terms forbid it and
+    the user is not an Owner of it - ADR 0437, RFC 0051 H4. Carries `repositories`: each one that
+    cannot be hidden, by id and name. Only a protected repository can say no."""
+
+    title = "This repository cannot be kept separate and hidden"
+
+
+class RepositoryNotProtectedError(ConflictProblem):
+    """Saying a repository may not be shown (`terms.may_be_shown: false`) while it is not
+    protected - ADR 0434, RFC 0051 H3. Only a protected repository can stay hidden: a private one
+    is read by invitation and a public one by anybody."""
+
+    title = "This repository is not protected"
+
+
+class RepositoryAlreadyProtectedError(ConflictProblem):
+    """Making a protected repository protected - ADR 0434."""
+
+    title = "This repository is already protected"
+
+
 class RepositoryUpdateNeedsChoicesError(ConflictProblem):
     """Applying an update where this tenant changed a field too, without
     saying whether to keep its own value or take the repository's - ADR
@@ -1108,7 +1165,9 @@ class PublicRepositoryHasNoReleaseError(ConflictProblem):
 class ReleaseHasBreakingChangesError(ConflictProblem):
     """Publishing a release that holds changes the update engine cannot carry to a library that
     already copied the repository, without `acknowledge_breaking` - ADR 0208, RFC 0037 §3.
-    Carries `breaking_rows`: each row, with the reason it breaks, in words."""
+    Carries `breaking_rows`: each row, with the reason it breaks, in words.
+    Carries `inclusion_changes` too when a repository it is built on is carried differently from
+    the way the last public release carried it (ADR 0431)."""
 
     title = "This release would break things"
 

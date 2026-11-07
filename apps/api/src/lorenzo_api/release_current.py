@@ -20,7 +20,7 @@ from lorenzo_api.exceptions import (
     ReleaseNotFoundError,
     ReleaseNotRetainedError,
 )
-from lorenzo_api.models import RepositoryRelease, Tenant
+from lorenzo_api.models import RepositoryProfile, RepositoryRelease, Tenant
 from lorenzo_api.release_document import ReleaseDocumentCorruptError
 from lorenzo_api.release_document_store import ReleaseDocumentNotFoundError, read_release_content
 from lorenzo_api.repository_digest import (
@@ -33,6 +33,7 @@ from lorenzo_api.repository_digest import (
     split,
     stored_rows,
 )
+from lorenzo_api.repository_inclusion import inclusion_changes
 from lorenzo_api.repository_listing import set_listing_facts
 from lorenzo_api.repository_releases import current_release, lock_repository, set_current_release
 
@@ -93,15 +94,25 @@ async def make_release_current(
     warnings: list[Breaking] = []
     if baseline:
         hits, warnings = split(detect(compare(await stored_rows(session, repository.id), rows)))
-    if hits and not acknowledge_breaking:
+    # How the two releases carry what the repository is built on (ADR 0431): moving between a
+    # release that included a repository and one that did not changes the rows libraries hold.
+    profile = await session.get(RepositoryProfile, repository.id)
+    changes = inclusion_changes(
+        profile.release_sources if profile is not None else None, content.sources
+    )
+    if (hits or changes) and not acknowledge_breaking:
         raise ReleaseHasBreakingChangesError(
-            detail=f"{len(hits)} of the changes between release {current.label if current else ''} "
-            f"and release {release.label} break what libraries built on the first hold. Look at "
-            "them, then make it current again, saying you acknowledge it.",
+            detail=f"{len(hits) + len(changes)} of the changes between release "
+            f"{current.label if current else ''} and release {release.label} break what "
+            "libraries built on the first hold. Look at them, then make it current again, saying "
+            "you acknowledge it.",
             breaking_rows=[b.as_json() for b in hits],
+            inclusion_changes=[c.as_json() for c in changes],
         )
 
     await replace_stored_rows(session, repository.id, rows.values())
     await set_current_release(session, repository, release.id)
-    await set_listing_facts(session, repository.id, release=release, content=content)
+    await set_listing_facts(
+        session, repository.id, release=release, content=content, documented=True
+    )
     return MadeCurrent(release, True, current.id if current else None, hits, warnings)
