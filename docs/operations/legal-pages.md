@@ -43,6 +43,8 @@ One JSON object. Every field is required unless it says otherwise; the build nam
 | `gravatarLookup` | `true` or `false`: whether the API of this deployment makes the one-time Gravatar lookup (`GRAVATAR_LOOKUP_ENABLED`, default `true`). The policy describes that request only when it is `true`. |
 | `support` | Optional `{"name", "url"}`: a support link the policy names as a link out. |
 
+A value that still says `FILL`, `TODO` or `TBD` anywhere fails the build. A best guess you have not checked yet can carry the mark `[unverified]`: the build succeeds but prints a warning naming every such value, so none is forgotten. The page shows the text as written, mark included, until you replace it.
+
 For a development build, `LEGAL_PROFILE_SAMPLE=1` uses [a made-up profile](../../apps/legal/src/lib/sample-profile.ts) under a "sample" banner.
 
 ## What to find out before you fill it in
