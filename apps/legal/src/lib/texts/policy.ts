@@ -88,25 +88,31 @@ export function policyDoc(profile: LegalProfile): Doc {
 
   add(
     'pictures',
-    bi('Profilbilder und das Gravatar-Bild', 'Profile pictures and the Gravatar picture'),
+    profile.gravatarLookup
+      ? bi('Profilbilder und das Gravatar-Bild', 'Profile pictures and the Gravatar picture')
+      : bi('Profilbilder', 'Profile pictures'),
     {
       p: bi(
         'Ein hochgeladenes Profilbild liegt in der Datenbank. Es wird ohne Anmeldung ausgeliefert: wer die zufällige Kennung Ihres Kontos kennt, kann es abrufen.',
         'An uploaded profile picture is stored in the database. It is served without sign-in: whoever knows the random identifier of your account can fetch it.',
       ),
     },
-    {
-      p: bi(
-        'Wenn Lorenzo Ihre E-Mail-Adresse zum ersten Mal von Authgear übernimmt und Sie noch kein Bild haben, fragt Lorenzo einmal bei Gravatar (Automattic, USA) nach einem Bild zu einem Hashwert (SHA-256) Ihrer E-Mail-Adresse. Gibt es eines, wird es als Ihr Profilbild in Lorenzo gespeichert. Danach fragt Lorenzo nie wieder bei Gravatar nach, und Ihr Browser spricht nie mit Gravatar. Bei bereits bestehenden Konten fragt Lorenzo nicht nach. Sie können das Bild jederzeit ersetzen oder löschen; es wird nicht erneut geholt.',
-        'When Lorenzo first takes your email address from Authgear and you have no picture yet, Lorenzo asks Gravatar (Automattic, USA) once for a picture for a hash (SHA-256) of your email address. If there is one, it is stored as your profile picture in Lorenzo. After that Lorenzo never asks Gravatar again, and your browser never talks to Gravatar. For accounts that already existed, Lorenzo does not ask. You can replace or delete the picture at any time; it is not fetched again.',
-      ),
-    },
-    {
-      p: bi(
-        'Grundlage für die einmalige Anfrage: berechtigtes Interesse, Art. 6 Abs. 1 lit. f DSGVO. Dem können Sie widersprechen, indem Sie das Bild löschen oder uns schreiben.',
-        'Basis for the single request: legitimate interest, Art. 6(1)(f) GDPR. You can object by deleting the picture or by writing to us.',
-      ),
-    },
+    ...(profile.gravatarLookup
+      ? [
+          {
+            p: bi(
+              'Wenn Lorenzo Ihre E-Mail-Adresse zum ersten Mal von Authgear übernimmt und Sie noch kein Bild haben, fragt Lorenzo einmal bei Gravatar (Automattic, USA) nach einem Bild zu einem Hashwert (SHA-256) Ihrer E-Mail-Adresse. Gibt es eines, wird es als Ihr Profilbild in Lorenzo gespeichert. Danach fragt Lorenzo nie wieder bei Gravatar nach, und Ihr Browser spricht nie mit Gravatar. Bei bereits bestehenden Konten fragt Lorenzo nicht nach. Sie können das Bild jederzeit ersetzen oder löschen; es wird nicht erneut geholt.',
+              'When Lorenzo first takes your email address from Authgear and you have no picture yet, Lorenzo asks Gravatar (Automattic, USA) once for a picture for a hash (SHA-256) of your email address. If there is one, it is stored as your profile picture in Lorenzo. After that Lorenzo never asks Gravatar again, and your browser never talks to Gravatar. For accounts that already existed, Lorenzo does not ask. You can replace or delete the picture at any time; it is not fetched again.',
+            ),
+          },
+          {
+            p: bi(
+              'Grundlage für die einmalige Anfrage: berechtigtes Interesse, Art. 6 Abs. 1 lit. f DSGVO. Dem können Sie widersprechen, indem Sie das Bild löschen oder uns schreiben.',
+              'Basis for the single request: legitimate interest, Art. 6(1)(f) GDPR. You can object by deleting the picture or by writing to us.',
+            ),
+          },
+        ]
+      : []),
   );
 
   add('public', bi('Öffentliche Repositories', 'Public repositories'), {
@@ -204,10 +210,15 @@ export function policyDoc(profile: LegalProfile): Doc {
       },
     },
     {
-      p: bi(
-        'Außerdem werden Gravatar (einmalige Anfrage, siehe oben) und Discord (nur, wenn Sie den Bot nutzen) genannt; sie sind nicht Teil des normalen Betriebs der Web-Apps.',
-        'Gravatar (a single request, see above) and Discord (only if you use the bot) are also named; they are not part of the normal operation of the web apps.',
-      ),
+      p: profile.gravatarLookup
+        ? bi(
+            'Außerdem werden Gravatar (einmalige Anfrage, siehe oben) und Discord (nur, wenn Sie den Bot nutzen) genannt; sie sind nicht Teil des normalen Betriebs der Web-Apps.',
+            'Gravatar (a single request, see above) and Discord (only if you use the bot) are also named; they are not part of the normal operation of the web apps.',
+          )
+        : bi(
+            'Außerdem wird Discord (nur, wenn Sie den Bot nutzen) genannt; es ist nicht Teil des normalen Betriebs der Web-Apps.',
+            'Discord (only if you use the bot) is also named; it is not part of the normal operation of the web apps.',
+          ),
     },
   );
 

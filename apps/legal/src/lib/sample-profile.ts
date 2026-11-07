@@ -32,5 +32,6 @@ export const SAMPLE_PROFILE = {
     backups: { de: 'Beispielfrist', en: 'Sample period' },
     activityLog: { de: 'Beispielfrist', en: 'Sample period' },
   },
+  gravatarLookup: true,
   support: { name: 'Sample Support', url: 'https://support.example.test/sample' },
 };

@@ -42,6 +42,7 @@ One JSON object. Every field is required unless it says otherwise; the build nam
 | `supervisoryAuthority.name`, `url` | The data protection authority responsible for you. |
 | `providers[]` | Every provider that handles personal data: `name`, `purpose`, `location`, `transfer`, `policyUrl`. `purpose`, `location` and `transfer` are `{"de": "…", "en": "…"}`. |
 | `retention.logs`, `backups`, `activityLog` | How long each is kept, as `{"de", "en"}`. |
+| `gravatarLookup` | `true` or `false`: whether the API of this deployment makes the one-time Gravatar lookup (`GRAVATAR_LOOKUP_ENABLED`, default `true`). The policy describes that request only when it is `true`. |
 | `support` | Optional `{"name", "url"}`: a support link the policy names as a link out. |
 
 For a development build, `LEGAL_PROFILE_SAMPLE=1` uses [a made-up profile](../../apps/legal/src/lib/sample-profile.ts) under a "sample" banner.

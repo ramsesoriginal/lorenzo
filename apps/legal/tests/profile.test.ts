@@ -83,6 +83,12 @@ describe('the operator profile', () => {
     expect(parseProfile(reviewed).reviewedOn).toBe('2027-01-31');
   });
 
+  it('wants the Gravatar lookup stated, true or false', () => {
+    const profile = clone();
+    delete profile.gravatarLookup;
+    expect(() => parseProfile(profile)).toThrow(/gravatarLookup/);
+  });
+
   it('does not accept invalid JSON in the environment', () => {
     expect(() => loadProfile({ LEGAL_PROFILE: '{nope' }, SAMPLE_PROFILE)).toThrow(/not JSON/);
   });
