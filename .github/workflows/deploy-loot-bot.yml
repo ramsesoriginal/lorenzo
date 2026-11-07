@@ -162,6 +162,7 @@ jobs:
             LOOT_BOT_TOKEN_ENCRYPTION_KEY=${{ secrets.LOOT_BOT_TOKEN_ENCRYPTION_KEY }}
             LOOT_BOT_PUBLIC_BASE_URL=${{ vars.LOOT_BOT_PUBLIC_BASE_URL }}
             NOTIFICATION_SCHEDULER_SERVICE_ACCOUNT=${{ vars.LOOT_BOT_SCHEDULER_SERVICE_ACCOUNT }}
+            LEGAL_URL=${{ vars.LEGAL_URL }}
 
       - name: Verify the deployed revision is actually ready
         # /livez, not /healthz - Google Front End reserves the literal path

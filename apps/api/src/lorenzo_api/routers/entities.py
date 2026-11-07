@@ -471,7 +471,7 @@ async def create_entity(
     kinds = sorted(set(body.kinds))
     await require_tenant_participant(session, tenant_id=tenant_id, user=user)
     if not kinds or not set(kinds) <= {"event", "fact"}:
-        await get_tenant_context(tenant_id, session, user)
+        await get_tenant_context(tenant_id, session, user, request)
     await author_may_use_kinds(session, tenant_id=tenant_id, user_id=user.id, kinds=kinds)
     entity = await create_entry(
         session,

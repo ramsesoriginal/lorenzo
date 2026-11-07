@@ -1,6 +1,5 @@
 """Profile pictures for User/Tenant/Campaign - see ADR 0056."""
 
-import hashlib
 import uuid
 
 from _admin_db import admin_session_factory
@@ -90,9 +89,11 @@ async def test_upload_my_picture_rejects_oversized_file(client: AsyncClient) -> 
     assert response.status_code == 422
 
 
-async def test_user_picture_redirects_to_gravatar_when_no_upload_but_has_email(
+async def test_user_picture_does_not_redirect_to_gravatar_even_with_an_email(
     raw_client: AsyncClient,
 ) -> None:
+    """ADR 0439: a browser never talks to Gravatar. An account with an email and no picture of its
+    own gets a 404, not a redirect; the one-time copy is tests/test_gravatar_copy.py."""
     email = f"gravatar-{uuid.uuid4()}@example.com"
     async with admin_session_factory() as session:
         user = User(authgear_subject_id=f"authgear|gravatar-{uuid.uuid4()}", email=email)
@@ -102,12 +103,8 @@ async def test_user_picture_redirects_to_gravatar_when_no_upload_but_has_email(
 
     response = await raw_client.get(f"/users/{user_id}/picture", follow_redirects=False)
 
-    assert response.status_code == 302
-    expected_hash = hashlib.sha256(email.strip().lower().encode()).hexdigest()
-    assert (
-        response.headers["location"]
-        == f"https://www.gravatar.com/avatar/{expected_hash}?d=mp&s=200"
-    )
+    assert response.status_code == 404
+    assert "location" not in response.headers
 
     async with admin_session_factory() as session:
         await session.delete(await session.get_one(User, user_id))

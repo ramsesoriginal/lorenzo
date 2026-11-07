@@ -66,6 +66,9 @@ class DescriptionOut(BaseModel):
     locale: str
     # ADR 0111: null for the item's own; otherwise the ancestor it inherits from.
     from_entity: EntitySummary | None
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0437): `from_entity` is
+    # null, as for the stat values, and the text is still given, as the entry's value is.
+    from_hidden: bool | None = None
 
 
 class PictureRefOut(BaseModel):
@@ -86,6 +89,9 @@ class PictureRefOut(BaseModel):
     file_type: str
     # ADR 0111: null for the item's own; otherwise the ancestor it inherits from.
     from_entity: EntitySummary | None
+    # Inherited from an entry the caller may not see (a hidden entry, ADR 0437), as on a
+    # description.
+    from_hidden: bool | None = None
 
 
 def _picture_refs(
@@ -93,7 +99,11 @@ def _picture_refs(
     request: Request,
     visibility: InformationReader,
     from_entity: EntitySummary | None,
+    *,
+    inherited: bool = False,
+    from_hidden: bool | None = None,
 ) -> list[PictureRefOut]:
+    can_see = visibility.can_see_inherited if inherited else visibility.can_see
     return [
         PictureRefOut(
             url=str(
@@ -103,9 +113,10 @@ def _picture_refs(
             ),
             file_type=payload.picture.file_type,
             from_entity=from_entity,
+            from_hidden=from_hidden,
         )
         for info in entity.information
-        if info.type == "description" and visibility.can_see(info)
+        if info.type == "description" and can_see(info)
         for payload in info.payloads
         if payload.picture is not None
     ]
@@ -139,20 +150,42 @@ def _described_out(
     """`descriptions` and `pictures`: the item's own, then each ancestor's,
     nearest first, each labelled with where it comes from (ADR 0111).
     `ancestors` comes from inherited_information.prototype_ancestors."""
-    sources: list[tuple[EntitySummary | None, Entity]] = [
-        (None, view.entity),
-        *((EntitySummary(id=a.id, name=a.name), a) for a in ancestors),
+    # An ancestor the repository it came with hides (ADR 0437) still gives its texts, as it gives
+    # its values: they are the item's inherited ones, and the ancestor is not named.
+    sources: list[tuple[EntitySummary | None, bool, Entity]] = [
+        (None, False, view.entity),
+        *(
+            (
+                None
+                if visibility.is_hidden_by_source(a.id)
+                else EntitySummary(id=a.id, name=a.name),
+                visibility.is_hidden_by_source(a.id),
+                a,
+            )
+            for a in ancestors
+        ),
     ]
     return dict(
         descriptions=[
-            DescriptionOut(content=content, locale=locale, from_entity=source)
-            for source, entity in sources
-            for content, locale in description_pairs(entity, visibility)
+            DescriptionOut(
+                content=content, locale=locale, from_entity=source, from_hidden=hidden or None
+            )
+            for source, hidden, entity in sources
+            for content, locale in description_pairs(
+                entity, visibility, inherited=source is not None or hidden
+            )
         ],
         pictures=[
             picture
-            for source, entity in sources
-            for picture in _picture_refs(entity, request, visibility, source)
+            for source, hidden, entity in sources
+            for picture in _picture_refs(
+                entity,
+                request,
+                visibility,
+                source,
+                inherited=source is not None or hidden,
+                from_hidden=hidden or None,
+            )
         ],
     )
 
