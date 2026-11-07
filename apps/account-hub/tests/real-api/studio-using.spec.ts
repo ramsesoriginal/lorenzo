@@ -211,7 +211,9 @@ test('Built on: what a repository copies from, with its updates waiting, and the
   await page.getByRole('tab', { name: 'Built on' }).click();
   await page.getByRole('link', { name: 'Repositories offered to this one' }).click();
   await expect(page).toHaveURL(new RegExp(`tenant=${bridge.slug}`));
-  await expect(page.getByRole('link', { name: core.name })).toBeVisible();
+  await expect(
+    page.locator('[data-list-view]').getByRole('link', { name: core.name }),
+  ).toBeVisible();
   await context.close();
 });
 
