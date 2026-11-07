@@ -111,7 +111,7 @@ test('the header has the four places of the design, and the rest are behind the 
   await context.close();
 });
 
-test('every page is the one width, which is the container’s, at a desktop width', async ({
+test('every page is the one width, which follows the container up to a cap of 1760px', async ({
   browser,
 }) => {
   const owner = await newUser('owner', ['tenant_creator']);
@@ -121,9 +121,7 @@ test('every page is the one width, which is the container’s, at a desktop widt
   const { page, context } = await signedInPage(browser, owner.subject, {
     viewport: { width: 1440, height: 900 },
   });
-
-  // Not a width for the content of a page: Home, the lists, the forms and the reading pages alike.
-  for (const path of [
+  const paths = [
     '/',
     '/tenants/',
     '/repositories/',
@@ -131,33 +129,39 @@ test('every page is the one width, which is the container’s, at a desktop widt
     '/profile/',
     '/tokens/',
     '/notifications/',
-  ]) {
-    await page.goto(path);
-    await expect(page.locator('[data-account-signed-in]')).toBeVisible();
-
-    const box = await page.locator('#content > .shell-page').boundingBox();
-
-    expect(box?.width, path).toBe(1120);
-    // Nothing in it breaks out of it: the page does not scroll sideways.
-    const overflow = await page.evaluate(
+  ];
+  const widthOf = async () =>
+    (await page.locator('#content > .shell-page').boundingBox())?.width ?? 0;
+  const overflow = () =>
+    page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
 
-    expect(overflow, path).toBeLessThanOrEqual(0);
+  // The page is not given a width of its own: it fills what the window gives it, so at each step the
+  // same number holds for every page, whatever it holds, and nothing breaks out of it. Above the cap
+  // (1760px, D20’s upper cap) it stays that wide and centred.
+  for (const [width, expected] of [
+    [2200, 1760],
+    [1440, 1440],
+    [1200, 1200],
+    [834, 834],
+    [430, 430],
+  ] as const) {
+    await page.setViewportSize({ width, height: 900 });
+
+    for (const path of paths) {
+      await page.goto(path);
+      await expect(page.locator('[data-account-signed-in]')).toBeVisible();
+      expect(await widthOf(), `${path} at ${width}`).toBe(expected);
+      expect(await overflow(), `${path} at ${width}`).toBeLessThanOrEqual(0);
+    }
   }
 
-  // A window narrower than that gives the page what it has, less its gutters, and it still fits.
-  await page.setViewportSize({ width: 900, height: 900 });
-  await page.goto('/profile/');
+  // On a phone the gutters are the design's 16px, not the desktop's 24px.
+  const gutter = await page
+    .locator('#content > .shell-page')
+    .evaluate((el) => getComputedStyle(el).paddingLeft);
 
-  const narrow = (await page.locator('#content > .shell-page').boundingBox())?.width ?? 0;
-
-  expect(narrow).toBeGreaterThan(800);
-  expect(narrow).toBeLessThanOrEqual(900);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    ),
-  ).toBeLessThanOrEqual(0);
+  expect(gutter).toBe('16px');
   await context.close();
 });

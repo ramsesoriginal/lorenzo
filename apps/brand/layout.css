@@ -173,14 +173,6 @@ body {
 
 main {
   flex: 1 0 auto;
-  padding: var(--space-4);
-}
-
-/* A bare <section> gets a sensible default rhythm with no class needed -
-   .section/.section-lg below stay available for wherever a different
-   rhythm is deliberately wanted instead. */
-section {
-  margin-bottom: var(--space-6);
 }
 
 /* A bare <footer> gets a sensible default treatment - a quiet divider
@@ -346,21 +338,10 @@ body:has(.full-width) {
    keep in step. A custom property cannot be used in a media query, so the
    number is written here and in the .with-sidebar rule above.
 
-   What changes is only what stops working at that width: the double gutter
-   (main's padding plus .wrap's), a header that cannot fit on one row, and
-   side-by-side columns. Type does not shrink (§15.5) and nothing is hidden
+   What changes is only what stops working at that width: a header that
+   cannot fit on one row, and side-by-side columns. Type does not shrink (§15.5) and nothing is hidden
    to make room. */
 @media (max-width: 720px) {
-  main {
-    padding: var(--space-3);
-  }
-
-  /* main already gives the gutter; the footer's .wrap, which has no main
-     around it, keeps its own. */
-  main .wrap {
-    padding-inline: 0;
-  }
-
   .site-header {
     flex-wrap: wrap;
     padding: var(--space-2) var(--space-3);
@@ -457,8 +438,11 @@ html[data-density="dense"] .shell-app {
   }
 }
 
-/* A page's own width: reading has a 680px measure, forms 1040px, other pages 1120px; a board, a
-   map or a wide table is exempt (ADR 0412). The gutter follows the spacing token. */
+/* A page's own width: it fills the shell's container and is capped at 1760px, the design's
+   upper cap (D20), so on a large window it stays centred; reading has a 680px measure and forms
+   1040px, and a board, a map or a wide table is exempt (ADR 0412). The padding is the spacing
+   tokens, 32px above and 24px at the sides, which the container redefines to 20px and 16px on a
+   phone. */
 /* A web page's frame (the shell package's AppPage with shell="web"): the app fills the window, its
    main grows, and the status bar and tab bar stay at the bottom. */
 .shell-app--page {
@@ -494,7 +478,7 @@ html[data-density="dense"] .shell-app {
   width: 100%;
   margin-inline: auto;
   padding: var(--space-5) var(--space-4);
-  max-width: 1120px;
+  max-width: 1760px;
 }
 
 .shell-page--reading {

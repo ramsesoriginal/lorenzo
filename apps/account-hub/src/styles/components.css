@@ -101,7 +101,20 @@
   cursor: pointer;
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  .shelf-link,
+  .shelf-section > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
+
+  .shelf-section > summary {
+    display: flex;
+  }
+}
+
+@media (pointer: coarse) {
   .shelf-link,
   .shelf-section > summary {
     display: inline-flex;
@@ -136,7 +149,17 @@
   color: var(--text-primary);
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  .clash .field-row,
+  [data-again] .field-row,
+  .inclusion .field-row,
+  [data-terms-card] .field-row,
+  [data-visibility] .field-row {
+    min-height: var(--target-min);
+  }
+}
+
+@media (pointer: coarse) {
   .clash .field-row,
   [data-again] .field-row,
   .inclusion .field-row,
@@ -161,7 +184,15 @@
 
 /* The release composer in the publish dialog (ADR 0209) and the "Make public" dialog (ADR 0290): its checkboxes are pressed, so each row is
    the brand's target size at phone widths and for a coarse pointer (identity.md 8.5). */
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  [data-publish-dialog] .field-row,
+  [data-visibility-dialog] .field-row,
+  [data-showcase] .field-row {
+    min-height: var(--target-min);
+  }
+}
+
+@media (pointer: coarse) {
   [data-publish-dialog] .field-row,
   [data-visibility-dialog] .field-row,
   [data-showcase] .field-row {
@@ -287,7 +318,14 @@
   flex-wrap: nowrap;
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  .preview-item button,
+  .preview-dialog button {
+    min-height: var(--target-min);
+  }
+}
+
+@media (pointer: coarse) {
   .preview-item button,
   .preview-dialog button {
     min-height: var(--target-min);
@@ -324,8 +362,8 @@
    which stays in view while the form scrolls; on a tablet and a phone the card moves above the form. */
 .profile-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: var(--space-5);
   align-items: start;
 }
 .profile-card {
@@ -335,7 +373,7 @@
   flex-direction: column;
   gap: var(--space-2);
 }
-@container shell (max-width: 1100px) {
+@container shell (max-width: 1099px) {
   .profile-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
@@ -440,14 +478,14 @@
 }
 
 /* Home (ADR 0417, AH1, screen 01): what needs the person and where they play beside what they run,
-   then Continue and the apps. One column below 1100px. */
+   then Continue and the apps. One column below 1100px (the desktop step). */
 .home-columns {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
-@container shell (max-width: 1100px) {
+@container shell (max-width: 1099px) {
   .home-columns {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -553,7 +591,7 @@
 .home-tiles--apps {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-@container shell (max-width: 1100px) {
+@container shell (max-width: 1099px) {
   .home-tiles--apps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -678,7 +716,7 @@
   align-items: start;
 }
 
-@media (max-width: 52rem) {
+@container shell (max-width: 1099px) {
   .storefront-columns {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -729,7 +767,7 @@
   align-items: start;
 }
 
-@media (max-width: 52rem) {
+@container shell (max-width: 1099px) {
   .library-columns {
     grid-template-columns: minmax(0, 1fr);
   }
