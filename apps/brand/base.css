@@ -18,6 +18,9 @@ html {
    still takes its width when it has one. */
 html:has(.shell-header) {
   scrollbar-gutter: auto;
+  /* The status bar (and on a phone the tab bar) is sticky over the page's foot: what is scrolled into
+     view, by a link to it, a key or a script, stops above them, not under them. */
+  scroll-padding-bottom: 6rem;
 }
 
 body {
