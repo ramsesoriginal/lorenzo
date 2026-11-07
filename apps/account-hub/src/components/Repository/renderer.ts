@@ -60,7 +60,7 @@ export type RenderedRepository = {
   hide(): void;
   // False where the person was asked whether to leave what they typed in the profile unsaved, and said
   // no: the page does not go elsewhere (ADR 0385).
-  mayLeave(): boolean;
+  mayLeave(): boolean | Promise<boolean>;
 };
 
 // The tabs, in the order of the markup.
@@ -160,16 +160,16 @@ export function renderRepository(
   }
 
   // Opens where a link of the readiness list points: the tab, and the field.
-  function jump(target: ReadinessTarget): void {
+  async function jump(target: ReadinessTarget): Promise<void> {
     if (target.kind === 'built-on') {
-      tabs.select(TAB.builtOn);
+      await tabs.select(TAB.builtOn);
 
       return;
     }
 
     if (target.kind === 'page') return;
 
-    if (tabs.select(TAB.profile)) profile.focus(target.kind);
+    if (await tabs.select(TAB.profile)) profile.focus(target.kind);
   }
 
   // `keepDraft`: the same repository drawn again keeps what was typed in its profile and not saved.

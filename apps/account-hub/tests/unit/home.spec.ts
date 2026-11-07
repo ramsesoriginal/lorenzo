@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { needsYou, pageTitle, parseRecent, rememberPage, splitTables } from '../../src/lib/home';
+import {
+  linkTasks,
+  needsYou,
+  orderTasks,
+  pageTitle,
+  parseRecent,
+  playerTasks,
+  rememberPage,
+  splitTables,
+  updateTasks,
+} from '../../src/lib/home';
 
 const card = (name: string, roles: string[]) => ({ name, roles }) as never;
 
@@ -41,6 +51,143 @@ describe('needsYou', () => {
 
   it('is empty on a quiet day', () => {
     expect(needsYou([], href)).toEqual([]);
+  });
+});
+
+const NOW = Date.parse('2026-11-07T12:00:00Z');
+const DAY = 24 * 60 * 60 * 1000;
+const iso = (offset: number) => new Date(NOW + offset).toISOString();
+
+describe('updateTasks', () => {
+  const subscription = (
+    name: string,
+    published: string | null,
+    copied: string | null,
+    synced: string | null,
+  ) =>
+    ({
+      repository: { id: `id-${name}`, name, slug: name.toLowerCase(), published_at: published },
+      granted_at: '2026-01-01T00:00:00Z',
+      copied_at: copied,
+      synced_at: synced,
+    }) as never;
+
+  it('is a task for each copied repository published since the last update, and none for the rest', () => {
+    const tasks = updateTasks({ name: 'Thursday table', slug: 'thursday' }, [
+      subscription('Core', '2026-11-01T00:00:00Z', '2026-10-01T00:00:00Z', null),
+      subscription('Vale', '2026-09-01T00:00:00Z', '2026-10-01T00:00:00Z', null),
+      subscription('Fresh', '2026-11-01T00:00:00Z', null, null),
+    ]);
+
+    expect(tasks).toEqual([
+      {
+        id: 'update:thursday:id-Core',
+        text: 'Core has an update announced for Thursday table.',
+        action: 'Review updates',
+        href: '/repositories/?tenant=thursday&repository=core&updates=1',
+      },
+    ]);
+  });
+});
+
+describe('linkTasks', () => {
+  const invite = (over: Record<string, unknown>) =>
+    ({
+      id: 'i1',
+      expires_at: iso(2 * DAY),
+      max_uses: 10,
+      use_count: 3,
+      revoked_at: null,
+      is_active: true,
+      ...over,
+    }) as never;
+  const where = { label: 'The harbour job', slug: 'thursday' };
+
+  it('is a task for a link that works and ends within three days', () => {
+    expect(linkTasks(where, [invite({})], NOW)).toEqual([
+      {
+        id: 'link:i1',
+        text: 'An invite link for The harbour job ends in 2 days (used 3 of 10 times).',
+        action: 'Make a new link',
+        href: '/tenants/?tenant=thursday',
+      },
+    ]);
+  });
+
+  it('says within a day when it ends inside one, and counts uses of a link with no limit', () => {
+    const [task] = linkTasks(
+      where,
+      [invite({ expires_at: iso(3 * 60 * 60 * 1000), max_uses: null })],
+      NOW,
+    );
+
+    expect(task?.text).toBe('An invite link for The harbour job ends within a day (used 3 times).');
+  });
+
+  it('is none for a link that is far off, revoked, used up or already over', () => {
+    expect(
+      linkTasks(
+        where,
+        [
+          invite({ id: 'far', expires_at: iso(10 * DAY) }),
+          invite({ id: 'revoked', revoked_at: iso(-DAY), is_active: false }),
+          invite({ id: 'used-up', is_active: false }),
+          invite({ id: 'over', expires_at: iso(-DAY) }),
+        ],
+        NOW,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('playerTasks', () => {
+  const entry = (over: Record<string, unknown>) =>
+    ({
+      action: 'campaign_invite.redeemed',
+      detail: 'campaign=c1, player=p1',
+      created_at: iso(-DAY),
+      ...over,
+    }) as never;
+  const campaigns = new Map([['c1', { name: 'The harbour job', slug: 'thursday' }]]);
+
+  it('is one task for a campaign a new player joined, saying how many', () => {
+    expect(playerTasks([entry({})], campaigns, NOW)).toEqual([
+      {
+        id: 'players:c1',
+        text: 'A new player joined The harbour job.',
+        action: 'See players',
+        href: '/tenants/?tenant=thursday',
+      },
+    ]);
+    expect(
+      playerTasks([entry({}), entry({ detail: 'campaign=c1, player=p2' })], campaigns, NOW)[0]
+        ?.text,
+    ).toBe('2 new players joined The harbour job.');
+  });
+
+  it('is none for a GM who joined, an old join, another campaign or another action', () => {
+    expect(
+      playerTasks(
+        [
+          entry({ detail: 'campaign=c1, role=gm, gm=u1' }),
+          entry({ created_at: iso(-10 * DAY) }),
+          entry({ detail: 'campaign=other, player=p3' }),
+          entry({ action: 'player.removed' }),
+        ],
+        campaigns,
+        NOW,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('orderTasks', () => {
+  it('keeps each group together, in the order given', () => {
+    const task = (id: string) => ({ id, text: id, action: 'Open', href: '/' });
+
+    expect(orderTasks([task('u')], [task('l')], [task('p')], [task('d')]).map((t) => t.id)).toEqual(
+      ['u', 'l', 'p', 'd'],
+    );
   });
 });
 

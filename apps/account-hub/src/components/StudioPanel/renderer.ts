@@ -99,7 +99,7 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
       }
 
       event.preventDefault();
-      navigate(view);
+      void navigate(view);
     });
     links.set(keyOf(view), link);
 
@@ -156,9 +156,9 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
     if (view.type === 'repository') await repositoryView.show(view.repository);
   }
 
-  function navigate(view: View): void {
+  async function navigate(view: View): Promise<void> {
     // Something typed in a profile and not saved: asked about before the page goes elsewhere (ADR 0385).
-    if (current.type === 'repository' && !repositoryView.mayLeave()) return;
+    if (current.type === 'repository' && !(await repositoryView.mayLeave())) return;
 
     say(notice, '');
     window.history.pushState(null, '', urlFor(view));
@@ -201,7 +201,7 @@ export async function renderStudioPanel(root: HTMLElement, me: MeOut): Promise<v
 
       const repository = repositories.find((r) => r.id === created.id);
 
-      if (repository) navigate({ type: 'repository', repository });
+      if (repository) void navigate({ type: 'repository', repository });
       else await show(defaultView());
     } catch (cause) {
       sayError(error, cause);

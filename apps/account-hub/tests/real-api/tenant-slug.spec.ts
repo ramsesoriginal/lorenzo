@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { apiAs, ok } from '../../../inventory-web/tests/e2e/support/api';
-import { openLibrary, signIn } from './support';
+import { newLibrary, newUser, openLibrary, signedInPage, signIn } from './support';
 
 test('owner edits a slug, cancels, sees collision and invalid input, and cannot overwrite a stale edit', async ({
   page,
@@ -120,4 +120,37 @@ test('organizers can edit, campaign participants cannot', async ({ browser }) =>
       await context.close();
     }
   }
+});
+
+test('an address for a library that is not theirs says the page is not available, and offers Home', async ({
+  browser,
+}) => {
+  const stranger = await newUser('owner', ['tenant_creator']);
+  const mine = await newLibrary(stranger.api, `Mine ${crypto.randomUUID().slice(0, 8)}`);
+  const theirs = await newLibrary(
+    (await newUser('other', ['tenant_creator'])).api,
+    `Theirs ${crypto.randomUUID().slice(0, 8)}`,
+  );
+
+  const { page, context } = await signedInPage(browser, stranger.subject);
+
+  await page.goto(`/tenants/?tenant=${theirs.slug}`);
+
+  const unavailable = page.locator('[data-unavailable]');
+
+  await expect(
+    unavailable.getByRole('heading', { name: 'This page isn’t available' }),
+  ).toBeVisible();
+  await expect(unavailable).toContainText('you may not have access');
+  await expect(unavailable.getByRole('link', { name: 'Go to Home' })).toHaveAttribute('href', '/');
+  // Nothing of theirs is shown, and the address stays as it was asked.
+  await expect(page.locator('[data-tenant]')).toBeHidden();
+  await expect(page.getByText(theirs.name)).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`tenant=${theirs.slug}`));
+
+  // Their own library is still one click away.
+  await page.goto(`/tenants/?tenant=${mine.slug}`);
+  await expect(page.locator('[data-unavailable]')).toBeHidden();
+  await expect(page.locator('h2[data-name]')).toHaveText(mine.name);
+  await context.close();
 });

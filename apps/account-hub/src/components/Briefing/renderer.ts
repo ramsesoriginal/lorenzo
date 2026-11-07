@@ -1,17 +1,29 @@
 // The home page of someone who belongs somewhere. Each section asks for what it needs and shows
 // itself when it has it, so a slow or failed answer holds up or hides only its own section.
 
-import { runRows, seatsIn, type TableCard, tableCards } from '../../lib/campaigns';
+import { type RunRow, runRows, seatsIn, type TableCard, tableCards } from '../../lib/campaigns';
 import { listMyChanges } from '../../lib/changes';
 import { RECENT_KEY } from '../../lib/config';
-import { needsYou, parseRecent, splitTables } from '../../lib/home';
+import {
+  linkTasks,
+  needsYou,
+  orderTasks,
+  parseRecent,
+  playerTasks,
+  splitTables,
+  type Task,
+  updateTasks,
+} from '../../lib/home';
+import { listInvites } from '../../lib/invites';
 import { getManaged } from '../../lib/me';
+import { listLibraryRepositories } from '../../lib/repositories';
 import { sayError } from '../../lib/statusLine';
 import { studioHref } from '../../lib/studio';
 import { requiredIn } from '../../lib/template';
+import { listTenantInvites } from '../../lib/tenantInvites';
 import { canCreateTenants, isRepository, publishedLabel } from '../../lib/tenantKind';
-import { getTenant, listMyTenants, listTenantCampaigns } from '../../lib/tenants';
-import type { ManagedScopeOut, MeOut, TenantSummaryOut } from '../../lib/types';
+import { getTenant, listActivityLog, listMyTenants, listTenantCampaigns } from '../../lib/tenants';
+import type { InviteOut, ManagedScopeOut, MeOut, TenantSummaryOut } from '../../lib/types';
 import { showChanges } from './changes';
 import { showNeeds } from './needs';
 import { showRecent } from './recent';
@@ -59,6 +71,60 @@ function loadRepositories(tenants: TenantSummaryOut[]): Promise<RepositoryCard[]
   );
 }
 
+// What waits for a library's administrators and the people who run its campaigns, from what each may
+// read: an update announced for a repository the library copied, a link about to end, a new player.
+// A read that is refused or fails gives no tasks, never an error: Home only says what it knows.
+async function loadTasks(
+  tenants: TenantSummaryOut[],
+  rows: RunRow[],
+  now: number,
+): Promise<Task[][]> {
+  const none = (): InviteOut[] => [];
+  const libraries = tenants.filter((tenant) => !isRepository(tenant));
+  const admins = libraries.filter((tenant) => tenant.role === 'owner' || tenant.role === 'orga');
+
+  const updates = admins.map(async (library) =>
+    updateTasks(library, await listLibraryRepositories(library.id).catch(() => [])),
+  );
+  const libraryLinks = libraries
+    .filter((tenant) => tenant.role === 'owner')
+    .map(async (library) =>
+      linkTasks(
+        { label: library.name, slug: library.slug },
+        await listTenantInvites(library.id).catch(none),
+        now,
+      ),
+    );
+  const campaignLinks = rows.map(async (row) =>
+    linkTasks(
+      { label: row.campaignName, slug: row.tenantSlug },
+      await listInvites(row.tenantId, row.campaignId).catch(none),
+      now,
+    ),
+  );
+  const players = admins
+    .filter((library) => rows.some((row) => row.tenantId === library.id))
+    .map(async (library) =>
+      playerTasks(
+        (await listActivityLog(library.id).catch(() => null))?.items ?? [],
+        new Map(
+          rows
+            .filter((row) => row.tenantId === library.id)
+            .map((row) => [row.campaignId, { name: row.campaignName, slug: row.tenantSlug }]),
+        ),
+        now,
+      ),
+    );
+
+  const settled = await Promise.all([
+    Promise.all(updates),
+    Promise.all([...libraryLinks, ...campaignLinks]),
+    Promise.all(players),
+  ]);
+
+  return settled.map((group) => group.flat());
+}
+
 export async function renderBriefing(root: HTMLElement, me: MeOut): Promise<void> {
   const name = me.display_name ?? me.nickname;
 
@@ -70,6 +136,7 @@ export async function renderBriefing(root: HTMLElement, me: MeOut): Promise<void
   const tenants = listMyTenants();
   const managed = getManaged();
   const changes = listMyChanges(CHANGES_SHOWN);
+  const repositories = tenants.then((page) => loadRepositories(page.items));
 
   // A section whose answer fails says so in its own place and leaves the rest alone.
   function section(selector: string, work: () => Promise<void>): Promise<void> {
@@ -98,10 +165,24 @@ export async function renderBriefing(root: HTMLElement, me: MeOut): Promise<void
       showTables(root, '[data-run]', split.run);
     }),
     section('[data-repositories]', async () => {
-      const repositories = await loadRepositories((await tenants).items);
+      showRepositories(root, await repositories);
+    }),
+    section('[data-needs]', async () => {
+      const [tenantPage, managedScope, drafts] = await Promise.all([
+        tenants,
+        managed,
+        repositories,
+      ]);
+      const [updates, links, players] = await loadTasks(
+        tenantPage.items,
+        runRows(managedScope),
+        Date.now(),
+      );
 
-      showRepositories(root, repositories);
-      showNeeds(root, needsYou(repositories, studioHref));
+      showNeeds(
+        root,
+        orderTasks(updates ?? [], links ?? [], players ?? [], needsYou(drafts, studioHref)),
+      );
     }),
     section('[data-changes]', async () => {
       // Without the libraries' names, a change just doesn't say which one.

@@ -865,29 +865,23 @@ test('leaving the Profile tab with something unsaved asks first, and a saved one
   browser,
 }) => {
   const { owner, repository } = await world();
-  const { page, context, confirmations } = await signedInPage(browser, owner.subject);
+  const { page, context, confirmations, answer } = await signedInPage(browser, owner.subject);
 
   await openProfile(page, repository.slug);
 
   // Said no to: it stays, with what was typed.
   await summary(page).fill('Not saved yet.');
-  page.removeAllListeners('dialog');
-  page.once('dialog', (dialog) => {
-    confirmations.push(dialog.message());
-    void dialog.dismiss();
-  });
+  answer.yes = false;
   await page.getByRole('tab', { name: 'Overview' }).click();
-  expect(confirmations).toEqual([
+  await expect.poll(() => confirmations).toHaveLength(1);
+  expect(confirmations[0]).toContain(
     'You have unsaved changes to the profile. Leave without saving them?',
-  ]);
+  );
   await expect(page.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true');
   await expect(summary(page)).toHaveValue('Not saved yet.');
 
   // Said yes to: it leaves, and what was typed comes back when the tab is opened again.
-  page.once('dialog', (dialog) => {
-    confirmations.push(dialog.message());
-    void dialog.accept();
-  });
+  answer.yes = true;
   await page.getByRole('tab', { name: 'Overview' }).click();
   await expect(page.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
     'aria-selected',
@@ -911,12 +905,9 @@ test('leaving the Profile tab with something unsaved asks first, and a saved one
   await expect(page.locator('[data-overview] [data-state]')).toBeVisible();
   await page.getByRole('tab', { name: 'Profile' }).click();
   await summary(page).fill('Changed again.');
-  page.once('dialog', (dialog) => {
-    confirmations.push(dialog.message());
-    void dialog.dismiss();
-  });
+  answer.yes = false;
   await page.locator('[data-list]').getByRole('link', { name: second.name }).click();
-  expect(confirmations).toHaveLength(3);
+  await expect.poll(() => confirmations).toHaveLength(3);
   await expect(page.locator('h2[data-name]')).toHaveText(repository.name);
   await context.close();
 });
