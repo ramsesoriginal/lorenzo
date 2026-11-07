@@ -73,7 +73,10 @@ test('a repository on the shelf shows its picture, asked for with the token', as
 
   await page.goto(`/repositories/?tenant=${library.slug}`);
 
-  const card = page.getByRole('listitem').filter({ hasText: `Armoury ${tag}` });
+  const card = page
+    .locator('[data-list-view]')
+    .getByRole('listitem')
+    .filter({ hasText: `Armoury ${tag}` });
 
   await expect(card.locator('[data-picture]')).toBeVisible();
   await expect(card.locator('[data-initial]')).toBeHidden();
