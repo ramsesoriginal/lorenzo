@@ -119,8 +119,10 @@ async def compare_manuscript(
     for local_id, source_id, payload_ids in links:
         identities[str(local_id)] = str(source_id)
         identities.update(payload_ids or {})
-    local_context = chapter_contexts(local_content, identities).get(id)
-    upstream_context = chapter_contexts(source.content).get(link.source_id)
+    local_context = chapter_contexts(local_content, identities, entries={id}).get(id)
+    upstream_context = chapter_contexts(source.content, entries={link.source_id}).get(
+        link.source_id
+    )
     unchanged_composition = (
         saved.get("composition") is not None
         and saved["composition"] == local_context == upstream_context

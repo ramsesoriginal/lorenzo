@@ -1954,9 +1954,11 @@ test('an author reviews existing calendar dates before setting a Scene period', 
     await context.close();
   }
 });
-for (const depth of [0, 1, 3]) {
+for (const variant of ['draft', 'placed', 'nested', 'parent']) {
+  const depth = variant === 'draft' ? 0 : variant === 'placed' ? 1 : 3;
   const placed = depth > 0;
-  test(`copied manuscripts review updates (${depth > 1 ? 'nested Chapter' : placed ? 'placed Chapter' : 'draft'}), protect unsaved drafts and preserve session credit`, async ({
+  const hasChildren = variant === 'parent';
+  test(`copied manuscripts review updates (${variant}), protect unsaved drafts and preserve session credit`, async ({
     browser,
   }) => {
     test.setTimeout(120000);
@@ -2020,6 +2022,40 @@ for (const depth of [0, 1, 3]) {
               header: { 'if-match': edition.version },
             },
             body: { elements: [chapter.id] },
+          }),
+        );
+      }
+      if (hasChildren) {
+        const child = await ok(
+          owner.POST('/tenants/{tenant_id}/writing/chapters', {
+            params: { path: { tenant_id: repository.id } },
+            body: { name: 'Child passage' },
+          }),
+        );
+        await ok(
+          owner.POST('/tenants/{tenant_id}/entities/{entity_id}/information', {
+            params: { path: { tenant_id: repository.id, entity_id: child.id } },
+            body: {
+              title: 'Manuscript',
+              type: 'manuscript',
+              content: 'Child stays here.',
+              locale: 'en',
+              is_public: true,
+            },
+          }),
+        );
+        const parent = await ok(
+          owner.GET('/tenants/{tenant_id}/writing/entries/{id}', {
+            params: { path: { tenant_id: repository.id, id: chapter.id } },
+          }),
+        );
+        await ok(
+          owner.PUT('/tenants/{tenant_id}/writing/entries/{id}/composition', {
+            params: {
+              path: { tenant_id: repository.id, id: chapter.id },
+              header: { 'if-match': parent.version },
+            },
+            body: { elements: [...parent.elements.map((item) => item.id), child.id] },
           }),
         );
       }
@@ -2142,8 +2178,13 @@ for (const depth of [0, 1, 3]) {
           );
         }
         await page.goto(`/?tenant=${tenant.id}&entry=${root.id}&view=read`);
-        await expect(page.locator('article')).toContainText('Upstream crossing.');
+        // Continuous reading fetches each nested entry before its manuscript.
+        await expect(page.locator('article')).toContainText('Upstream crossing.', {
+          timeout: 15000,
+        });
         await expect(page.locator('article')).toContainText('Copied crossing');
+        if (hasChildren)
+          await expect(page.locator('article')).toHaveText(/Upstream crossing.*Child stays here/s);
       }
     } finally {
       await context.close();
