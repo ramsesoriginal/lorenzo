@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@biomejs/biome": "~2.5.14",
+    "@biomejs/biome": "^2.6.4",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^26.6.6",
     "astro": "^7.4.5",
