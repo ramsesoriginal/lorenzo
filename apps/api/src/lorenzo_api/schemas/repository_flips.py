@@ -9,7 +9,7 @@ from lorenzo_api.schemas.discover import PublisherOut
 from lorenzo_api.schemas.repositories import (
     BuiltOnBehindOut,
     IncludableOut,
-    InclusionNameOut,
+    InclusionName,
     PublishRequest,
     ReleaseAuthoredOut,
 )
@@ -93,9 +93,9 @@ class BuiltOnSourceOut(BaseModel):
     name: str
     public: bool
     owned: bool
-    inclusion: InclusionNameOut
+    inclusion: InclusionName
     includable: IncludableOut
-    in_release: InclusionNameOut | None
+    in_release: InclusionName | None
     # It is protected (ADR 0434): a library reads it only as a step of the copy of a public
     # repository built on it. `public` and `protected` are both false for a source this repository
     # cannot read just now.

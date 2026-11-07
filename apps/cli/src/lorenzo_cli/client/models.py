@@ -259,6 +259,18 @@ class BuiltOnPublicOut(BaseModel):
     owned: bool = Field(..., title="Owned")
 
 
+class Inclusion(StrEnum):
+    show = "show"
+    include = "include"
+    hide = "hide"
+
+
+class InRelease(StrEnum):
+    show = "show"
+    include = "include"
+    hide = "hide"
+
+
 class BulkAddPrototypeRequest(BaseModel):
     prototype_id: UUID = Field(..., title="Prototype Id")
     item_ids: list[UUID] = Field(..., title="Item Ids")
@@ -1251,17 +1263,23 @@ class IncludableOut(BaseModel):
     by: By | None = Field(None, title="By")
 
 
-class InclusionChangeOut(BaseModel):
-    repository_id: UUID = Field(..., title="Repository Id")
-    name: str = Field(..., title="Name")
-    before: str = Field(..., title="Before")
-    after: str = Field(..., title="After")
-
-
-class Inclusion(StrEnum):
+class Before(StrEnum):
     show = "show"
     include = "include"
     hide = "hide"
+
+
+class After(StrEnum):
+    show = "show"
+    include = "include"
+    hide = "hide"
+
+
+class InclusionChangeOut(BaseModel):
+    repository_id: UUID = Field(..., title="Repository Id")
+    name: str = Field(..., title="Name")
+    before: Before = Field(..., title="Before")
+    after: After = Field(..., title="After")
 
 
 class InclusionIn(BaseModel):
@@ -1271,12 +1289,18 @@ class InclusionIn(BaseModel):
     inclusion: Inclusion = Field(..., title="Inclusion")
 
 
+class InclusionInRelease(StrEnum):
+    show = "show"
+    include = "include"
+    hide = "hide"
+
+
 class InclusionOut(BaseModel):
     repository_id: UUID = Field(..., title="Repository Id")
     name: str = Field(..., title="Name")
-    inclusion: str = Field(..., title="Inclusion")
+    inclusion: Inclusion = Field(..., title="Inclusion")
     includable: IncludableOut
-    inclusion_in_release: str | None = Field(..., title="Inclusion In Release")
+    inclusion_in_release: InclusionInRelease | None = Field(..., title="Inclusion In Release")
     breaking_next_release: bool = Field(..., title="Breaking Next Release")
     showable: IncludableOut | None = None
     hidable: IncludableOut | None = None
@@ -3517,7 +3541,7 @@ class SubscriberOut(BaseModel):
     copied_at: AwareDatetime | None = Field(..., title="Copied At")
     synced_at: AwareDatetime | None = Field(..., title="Synced At")
     synced_release: ReleaseRefOut | None
-    inclusion: str | None = Field(None, title="Inclusion")
+    inclusion: Inclusion | None = Field(None, title="Inclusion")
 
 
 class SubscribersSummaryOut(BaseModel):
@@ -3534,9 +3558,9 @@ class SubscriptionOut(BaseModel):
     synced_release: ReleaseRefOut | None
     current_release: ReleaseRefOut | None
     deprecated: DeprecatedNoticeOut | None = None
-    inclusion: str | None = Field(None, title="Inclusion")
+    inclusion: Inclusion | None = Field(None, title="Inclusion")
     includable: IncludableOut | None = None
-    inclusion_in_release: str | None = Field(None, title="Inclusion In Release")
+    inclusion_in_release: InclusionInRelease | None = Field(None, title="Inclusion In Release")
     showable: IncludableOut | None = None
     hidable: IncludableOut | None = None
     protected: bool | None = Field(False, title="Protected")
@@ -3844,9 +3868,9 @@ class BuiltOnSourceOut(BaseModel):
     name: str = Field(..., title="Name")
     public: bool = Field(..., title="Public")
     owned: bool = Field(..., title="Owned")
-    inclusion: str = Field(..., title="Inclusion")
+    inclusion: Inclusion = Field(..., title="Inclusion")
     includable: IncludableOut
-    in_release: str | None = Field(..., title="In Release")
+    in_release: InRelease | None = Field(..., title="In Release")
     protected: bool | None = Field(False, title="Protected")
     showable: IncludableOut | None = None
     may_be_shown: bool | None = Field(True, title="May Be Shown")

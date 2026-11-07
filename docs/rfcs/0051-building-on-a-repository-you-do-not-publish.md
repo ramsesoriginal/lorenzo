@@ -265,7 +265,7 @@ where the build differs, it says so here:
   uses it, and kept (hidden) when something does.
 - **Provenance** is `from_hidden` beside the null `from_entity`, which a client says as "a hidden entry".
 - **B's own page** (browse, preview, entry count) leaves out what its release carries hidden.
-- **The contract** names the choice in responses with `x-extensible-enum`, as H3 did for `visibility`.
+- **The contract** gains the value `hide` where responses name the choice; the diff reports it as an added enum value, accepted in `openapi-breaking-accepted.txt`.
 
 ### Combinations
 

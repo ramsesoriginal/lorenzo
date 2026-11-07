@@ -7931,11 +7931,14 @@ export interface components {
             public: boolean;
             /** Owned */
             owned: boolean;
-            /** Inclusion */
-            inclusion: string;
+            /**
+             * Inclusion
+             * @enum {string}
+             */
+            inclusion: "show" | "include" | "hide";
             includable: components["schemas"]["IncludableOut"];
             /** In Release */
-            in_release: string | null;
+            in_release: ("show" | "include" | "hide") | null;
             /**
              * Protected
              * @default false
@@ -10909,10 +10912,16 @@ export interface components {
             repository_id: string;
             /** Name */
             name: string;
-            /** Before */
-            before: string;
-            /** After */
-            after: string;
+            /**
+             * Before
+             * @enum {string}
+             */
+            before: "show" | "include" | "hide";
+            /**
+             * After
+             * @enum {string}
+             */
+            after: "show" | "include" | "hide";
         };
         /**
          * InclusionIn
@@ -10941,11 +10950,14 @@ export interface components {
             repository_id: string;
             /** Name */
             name: string;
-            /** Inclusion */
-            inclusion: string;
+            /**
+             * Inclusion
+             * @enum {string}
+             */
+            inclusion: "show" | "include" | "hide";
             includable: components["schemas"]["IncludableOut"];
             /** Inclusion In Release */
-            inclusion_in_release: string | null;
+            inclusion_in_release: ("show" | "include" | "hide") | null;
             /** Breaking Next Release */
             breaking_next_release: boolean;
             showable?: components["schemas"]["IncludableOut"] | null;
@@ -16744,7 +16756,7 @@ export interface components {
             synced_at: string | null;
             synced_release: components["schemas"]["ReleaseRefOut"] | null;
             /** Inclusion */
-            inclusion?: string | null;
+            inclusion?: ("show" | "include" | "hide") | null;
         };
         /**
          * SubscribersSummaryOut
@@ -16781,10 +16793,10 @@ export interface components {
             current_release: components["schemas"]["ReleaseRefOut"] | null;
             deprecated?: components["schemas"]["DeprecatedNoticeOut"] | null;
             /** Inclusion */
-            inclusion?: string | null;
+            inclusion?: ("show" | "include" | "hide") | null;
             includable?: components["schemas"]["IncludableOut"] | null;
             /** Inclusion In Release */
-            inclusion_in_release?: string | null;
+            inclusion_in_release?: ("show" | "include" | "hide") | null;
             showable?: components["schemas"]["IncludableOut"] | null;
             hidable?: components["schemas"]["IncludableOut"] | null;
             /**

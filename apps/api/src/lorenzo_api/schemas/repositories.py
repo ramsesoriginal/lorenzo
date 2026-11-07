@@ -6,7 +6,6 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import (
     BaseModel,
     ConfigDict,
-    Field,
     StringConstraints,
     field_validator,
     model_validator,
@@ -21,7 +20,6 @@ __all__ = [
     "InclusionChangeOut",
     "InclusionIn",
     "InclusionName",
-    "InclusionNameOut",
     "InclusionOut",
     "AttachmentActionIn",
     "AttachmentActionName",
@@ -95,12 +93,6 @@ def _blank_is_none(value: str | None) -> str | None:
 
 # How a repository carries one it is built on when it releases (ADR 0431, RFC 0051).
 InclusionName = Literal["show", "include", "hide"]
-# What a response says of it: declared extensible, so that a way of carrying a repository
-# added later is not a break of the contract (ADR 0437: `hide` was the third), and clients read
-# the three they know.
-InclusionNameOut = Annotated[
-    str, Field(json_schema_extra={"x-extensible-enum": ["show", "include", "hide"]})
-]
 
 
 class IncludableOut(BaseModel):
@@ -128,9 +120,9 @@ class InclusionOut(BaseModel):
 
     repository_id: uuid.UUID
     name: str
-    inclusion: InclusionNameOut
+    inclusion: InclusionName
     includable: IncludableOut
-    inclusion_in_release: InclusionNameOut | None
+    inclusion_in_release: InclusionName | None
     breaking_next_release: bool
     # Whether the caller may keep it separate and visible and why (ADR 0434): only the terms of a
     # protected repository can say no, and an Owner of it is always allowed.
@@ -144,8 +136,8 @@ class InclusionChangeOut(BaseModel):
 
     repository_id: uuid.UUID
     name: str
-    before: InclusionNameOut
-    after: InclusionNameOut
+    before: InclusionName
+    after: InclusionName
 
 
 ReleasedKindName = Literal["entity", "stat_group", "stat_definition", "attachment"]
@@ -387,7 +379,7 @@ class SubscriberOut(BaseModel):
     synced_release: ReleaseRefOut | None
     # How it carries this repository when it releases, if it copied it (ADR 0431): a library's is
     # always `show`. Null before it copies. The Owner of the repository reads who chose what.
-    inclusion: InclusionNameOut | None = None
+    inclusion: InclusionName | None = None
 
 
 class SubscribersSummaryOut(BaseModel):
@@ -446,9 +438,9 @@ class SubscriptionOut(BaseModel):
     # (`inclusion`), whether the caller may include it and why (`includable`), and how its current
     # public release carried it (`inclusion_in_release`, null when none did or it was built on
     # later). All null for a library, and for a repository that has not copied this one.
-    inclusion: InclusionNameOut | None = None
+    inclusion: InclusionName | None = None
     includable: IncludableOut | None = None
-    inclusion_in_release: InclusionNameOut | None = None
+    inclusion_in_release: InclusionName | None = None
     # As `includable`, for keeping it separate and visible (ADR 0434) and hidden (ADR 0437).
     showable: IncludableOut | None = None
     hidable: IncludableOut | None = None

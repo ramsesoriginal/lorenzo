@@ -281,25 +281,26 @@ async def resolve_information_reader(
 
     The rows are those whose `can_see` the caller will ask: an item's own and its ancestors'.
     """
-    from lorenzo_api.entry_visibility import hides_entries
-
     rows = list(information)
     ids = set(entry_ids) | {row.entity_id for row in rows}
-    # A tenant that hides entries lets nobody past the gate, so nothing is skipped (ADR 0437).
-    hiding = await hides_entries(session, tenant_id)
-    gated = hiding or (
-        bool(ids)
-        and await session.scalar(
-            select(EntityAudience.entity_id)
-            .where(
-                EntityAudience.entity_id.in_(ids),
-                EntityAudience.tenant_id == tenant_id,
-                EntityAudience.is_public.is_(False),
+    if not ids:
+        return SEES_EVERYTHING
+    # One statement answers both questions: is one of the rows gated by an audience, and does the
+    # tenant hide entries (ADR 0437), which lets nobody past the gate, so nothing is skipped.
+    gate_row = (
+        await session.execute(
+            select(
+                exists().where(
+                    EntityAudience.entity_id.in_(ids),
+                    EntityAudience.tenant_id == tenant_id,
+                    EntityAudience.is_public.is_(False),
+                ),
+                select(Tenant.hides_entries).where(Tenant.id == tenant_id).scalar_subquery(),
             )
-            .limit(1)
         )
-        is not None
-    )
+    ).one()
+    hiding = bool(gate_row[1])
+    gated = hiding or bool(gate_row[0])
     if not gated and all(row.is_public for row in rows):
         return SEES_EVERYTHING
     tier = await _administrative_tier(session, user_id=user_id, tenant_id=tenant_id)
