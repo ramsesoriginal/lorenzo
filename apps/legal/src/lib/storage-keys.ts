@@ -95,6 +95,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     ],
   },
   {
+    key: 'lorenzo:hub-recent',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich die zuletzt geöffneten Seiten des Kontos für „Weitermachen“ auf der Startseite. Bleibt in Ihrem Browser und wird nirgendwohin gesendet.',
+      'Remembers the account pages you opened last, for "Continue" on Home. It stays in your browser and is sent nowhere.',
+    ),
+    lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
+    files: [`${accountHub}/components/Briefing/renderer.ts`, `${accountHub}/lib/shell.ts`],
+  },
+  {
     key: 'lorenzo:inventory-web:catalog:*',
     store: 'localStorage',
     purpose: bi(

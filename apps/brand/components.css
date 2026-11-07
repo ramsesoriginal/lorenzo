@@ -2385,7 +2385,7 @@ dialog.palette:not([open]) {
 /* The shell's bars follow the width of the .shell-container they sit in (layout.css), not the
    window, so the same markup works in a full page and in a pane. A dialog is the window's. */
 @container shell (max-width: 720px) {
-  .shell-header:not([data-tiers="one"]) .shell-apps,
+  .shell-apps,
   .only-wide {
     display: none;
   }
