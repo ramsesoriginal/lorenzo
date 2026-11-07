@@ -19,61 +19,86 @@ import TenantDelete from '../TenantDelete/TenantDelete.astro';
 import TenantEdit from '../TenantEdit/TenantEdit.astro';
 ---
 
-<article class="stack card card-body" data-tenant hidden>
-  <header class="stack">
+<article class="stack" data-tenant hidden>
+  <header class="stack-tight">
     <div class="row">
       <div class="row grow">
-        <h2 class="" data-name></h2>
+        <h2 data-name></h2>
         <code data-slug></code>
       </div>
       <span class="badge" data-role></span>
     </div>
-    <div class="stack">
-      <div class="row sticky-top" data-body>
-        <!-- For its administrators the Edit button, whose form <TenantEdit /> holds. -->
-
-        <div class="stack grow" data-tenant-edit>
-          <div class="ls-content" data-tenant-description hidden></div>
-          <div class="row" data-body>
-            <button type="button" data-edit hidden>
-              Edit <span data-noun></span>
-            </button>
-          </div>
-
-          <span class="status-text" role="status" data-edit-status hidden></span>
-        </div>
-        <div data-slot data-picture-slot hidden></div>
-      </div>
-      <TenantEdit />
-    </div>
+    <div class="ls-content" data-tenant-description hidden></div>
   </header>
+
   <div class="stack">
     <p data-loading hidden>
       Loading&hellip;
     </p>
     <p class="error-text" role="alert" data-error hidden></p>
 
-    <!-- What a tenant's people can do in it, one part at a time. A tab is there only while its panel has
-         something in it, so a repository, or a player, has fewer; bindTabs does that. -->
+    <!-- What a library's people can do in it, one part at a time (the design's Overview, Campaigns,
+         People and Settings). A tab is there only while its panel has something in it, so a player has
+         the campaigns only; bindTabs does that. -->
     <div class="stack" data-tenant-tabs>
-      <div class="tabs" role="tablist" aria-label="Manage this tenant">
+      <div class="tabs" role="tablist" aria-label="This library">
         <button type="button" class="tab" role="tab">
-          Campaigns
+          Overview
         </button>
         <button type="button" class="tab" role="tab">
-          New campaign
+          Campaigns
         </button>
         <button type="button" class="tab" role="tab">
           People
         </button>
         <button type="button" class="tab" role="tab">
-          Activity
-        </button>
-        <button type="button" class="tab" role="tab">
-          Notifications
+          Settings
         </button>
       </div>
 
+      <!-- Overview: how big it is, what it draws on, what happened lately. -->
+      <div class="stack" role="tabpanel">
+        <div class="library-stats" data-stats hidden>
+          <div class="card card-body stack-tight">
+            <span class="caption">People</span>
+            <strong class="library-stat" data-stat-people>
+              0
+            </strong>
+          </div>
+          <div class="card card-body stack-tight">
+            <span class="caption">Campaigns</span>
+            <strong class="library-stat" data-stat-campaigns>
+              0
+            </strong>
+          </div>
+          <div class="card card-body stack-tight">
+            <span class="caption">Repositories</span>
+            <strong class="library-stat" data-stat-repositories>
+              0
+            </strong>
+          </div>
+        </div>
+        <div class="library-columns" data-overview-columns hidden>
+          <section class="stack" data-overview-repositories hidden>
+            <div class="row">
+              <h3 class="grow">Repositories it draws on</h3>
+              <a href="/repositories/" data-all-repositories>
+                All repositories
+              </a>
+            </div>
+            <ul class="list" data-overview-repository-list></ul>
+            <p data-overview-no-repositories hidden>
+              It draws on no repository yet.
+            </p>
+          </section>
+          <section class="stack" data-overview-recent hidden>
+            <h3>Recent</h3>
+            <div data-slot data-activity-slot hidden></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Campaigns, and the form that makes one. -->
       <div class="stack" role="tabpanel">
         <section class="stack" data-campaigns hidden>
           <p data-no-campaigns hidden>
@@ -81,15 +106,28 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
           </p>
           <div class="stack" data-campaign-list></div>
         </section>
-      </div>
-
-      <div class="stack" role="tabpanel">
         <div data-slot data-create-campaign-slot hidden></div>
       </div>
 
+      <!-- People: who is in it, the links that bring them, and a word to all of them. -->
       <div class="stack" role="tabpanel">
         <div data-slot data-memberships-slot hidden></div>
         <div data-slot data-links-slot hidden></div>
+        <div data-slot data-notifications-slot hidden></div>
+      </div>
+
+      <!-- Settings: its name and description, its picture, leaving it, deleting it. -->
+      <div class="stack" role="tabpanel">
+        <div class="stack" data-tenant-edit hidden>
+          <h3>General</h3>
+          <div class="row" data-body>
+            <button type="button" data-edit hidden>
+              Edit <span data-noun></span>
+            </button>
+          </div>
+          <span class="status-text" role="status" data-edit-status hidden></span>
+        </div>
+        <div data-slot data-picture-slot hidden></div>
 
         <div data-leave hidden>
           <button type="button" class="btn-danger" data-leave-button>
@@ -100,18 +138,11 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
 
         <div data-slot data-delete-slot hidden></div>
       </div>
-
-      <div class="stack" role="tabpanel">
-        <div data-slot data-activity-slot hidden></div>
-      </div>
-
-      <div class="stack" role="tabpanel">
-        <div data-slot data-notifications-slot hidden></div>
-      </div>
     </div>
   </div>
 
   <!-- The library's parts. -->
+  <TenantEdit />
   <template data-picture-upload-template>
     <PictureUpload />
   </template>

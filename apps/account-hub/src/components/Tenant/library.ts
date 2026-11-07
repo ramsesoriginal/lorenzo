@@ -13,6 +13,13 @@ import { type LibraryReads, readLibrary } from '../../lib/libraryData';
 import { showLorenzoScript } from '../../lib/lorenzoScript';
 import { rosterFromPlayers } from '../../lib/roster';
 import { loadSeatOwners } from '../../lib/seatOwners';
+import {
+  SHELF_STATE_LABEL,
+  SHELF_STATE_PILL,
+  shelfHref,
+  shelfState,
+  sortSubscriptions,
+} from '../../lib/shelf';
 import { bindTabs } from '../../lib/tabs';
 import { requiredIn } from '../../lib/template';
 import { canCreateTenants } from '../../lib/tenantKind';
@@ -248,6 +255,49 @@ function renderCampaign(
   return item;
 }
 
+// The overview, for an administrator: how big the library is, what it draws on, and (in the slot
+// the activity goes in) what happened lately.
+function fillOverview(root: HTMLElement, tenant: TenantSummaryOut, data: LibraryData): void {
+  required<HTMLElement>(root, '[data-stat-people]').textContent = String(
+    data.roster ? distinctPeople(data.roster) : 0,
+  );
+  required<HTMLElement>(root, '[data-stat-campaigns]').textContent = String(data.campaigns.length);
+  required<HTMLElement>(root, '[data-stat-repositories]').textContent = String(
+    data.subscriptions?.length ?? 0,
+  );
+  required<HTMLElement>(root, '[data-stats]').hidden = false;
+
+  const section = required<HTMLElement>(root, '[data-overview-repositories]');
+  const list = required<HTMLElement>(root, '[data-overview-repository-list]');
+  const none = required<HTMLElement>(root, '[data-overview-no-repositories]');
+
+  if (data.subscriptions) {
+    list.replaceChildren(
+      ...sortSubscriptions(data.subscriptions).map((subscription) => {
+        const item = document.createElement('li');
+        const link = document.createElement('a');
+        const pill = document.createElement('span');
+
+        item.className = 'row';
+        link.className = 'grow';
+        link.textContent = subscription.repository.name;
+        link.href = shelfHref(tenant.slug, subscription.repository.id);
+        pill.className = SHELF_STATE_PILL[shelfState(subscription)];
+        pill.textContent = SHELF_STATE_LABEL[shelfState(subscription)];
+        item.append(link, pill);
+
+        return item;
+      }),
+    );
+    none.hidden = data.subscriptions.length > 0;
+    required<HTMLAnchorElement>(root, '[data-all-repositories]').href = shelfHref(tenant.slug);
+    section.hidden = false;
+  }
+
+  required<HTMLElement>(root, '[data-overview-recent]').hidden = data.activity === null;
+  required<HTMLElement>(root, '[data-overview-columns]').hidden = false;
+}
+
 // Puts the library's pieces in <Tenant />'s slots, each only for those who may use it.
 export function fillLibrary(
   root: HTMLElement,
@@ -271,6 +321,8 @@ export function fillLibrary(
     });
     fillSlot(root, '[data-picture-slot]', picture);
   }
+
+  if (admin) fillOverview(root, tenant, data);
 
   required<HTMLElement>(root, '[data-campaigns]').hidden = false;
   required<HTMLElement>(root, '[data-no-campaigns]').hidden = data.campaigns.length > 0;

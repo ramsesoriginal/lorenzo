@@ -567,3 +567,34 @@
   max-width: 10rem;
   height: auto;
 }
+
+/* A library's overview (the design's screen 05): three figures in a row, then what it draws on beside
+   what happened lately. */
+.library-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+}
+
+.library-stats[hidden],
+.library-columns[hidden] {
+  display: none;
+}
+
+.library-stat {
+  font-size: var(--text-title, 1.75rem);
+  line-height: 1.1;
+}
+
+.library-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 52rem) {
+  .library-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

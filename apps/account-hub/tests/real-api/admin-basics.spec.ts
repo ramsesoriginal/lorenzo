@@ -190,6 +190,7 @@ test('an organizer edits a library name and description, and sees the new name a
 
   const session = await signedInPage(browser, owner.subject);
   const card = await openLibrary(session.page, library);
+  await card.getByRole('tab', { name: 'Settings' }).click();
   await card.getByRole('button', { name: 'Edit library' }).click();
   await expect(card.getByLabel('Description')).toHaveValue('The first draft.');
   const name = `Renamed ${crypto.randomUUID()}`;

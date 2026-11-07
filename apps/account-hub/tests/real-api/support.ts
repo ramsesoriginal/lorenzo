@@ -94,6 +94,11 @@ export async function openLibrary(page: Page, library: { slug: string; name: str
   await expect(article.locator('h2[data-name]')).toHaveText(library.name);
   await expect(article.locator('[data-loading]')).toBeHidden();
 
+  // A library opens on its Overview (for an administrator); most specs are about its campaigns.
+  const campaigns = article.getByRole('tab', { name: 'Campaigns' });
+
+  if ((await campaigns.count()) > 0) await campaigns.click();
+
   return article;
 }
 

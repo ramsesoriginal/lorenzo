@@ -242,7 +242,7 @@ test('in a library: an Owner has People with links; an Author may leave and has 
 
   await expect(mine).toContainText('Author');
   await expect(mine.locator('[data-tenant-invite-links]')).toHaveCount(0);
-  await mine.getByRole('tab', { name: 'People' }).click();
+  await mine.getByRole('tab', { name: 'Settings' }).click();
   await expect(mine.getByRole('button', { name: 'Leave this library' })).toBeVisible();
   await asAuthor.context.close();
 });

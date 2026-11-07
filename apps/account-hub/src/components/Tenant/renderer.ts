@@ -61,6 +61,11 @@ export function renderTenant(root: HTMLElement, me: MeOut, hooks: TenantHooks): 
 
     campaignList.replaceChildren();
     campaigns.hidden = true;
+    for (const part of root.querySelectorAll<HTMLElement>(
+      '[data-stats], [data-overview-columns], [data-overview-repositories], [data-overview-recent]',
+    )) {
+      part.hidden = true;
+    }
     showDescription('');
   }
 
