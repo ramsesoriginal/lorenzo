@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/writing-v1.0.0...writing-v1.1.0) (2026-11-07)
+
+
+### Features
+
+* **writing:** add personal manuscript length targets ([a9317b6](https://github.com/ramsesoriginal/lorenzo/commit/a9317b646d1ef8c8ec03b13ec6e518633df5d3b7))
+* **writing:** count manuscript words and selected passages ([23e4de7](https://github.com/ramsesoriginal/lorenzo/commit/23e4de74970d7c2c4d3b314ba6aa2a617c688d3c))
+* **writing:** count manuscript words and selected passages ([b7e9e0c](https://github.com/ramsesoriginal/lorenzo/commit/b7e9e0c802c41ab42d25b142a999f3f30dc563cb))
+* **writing:** personal manuscript-length targets ([e55d62f](https://github.com/ramsesoriginal/lorenzo/commit/e55d62f569f16c8dcd410bb4fbfd9e22825a56b7))
+
+
+### Bug Fixes
+
+* **writing:** preserve word-target label encoding ([8cb03a1](https://github.com/ramsesoriginal/lorenzo/commit/8cb03a117757063ccdc5833e85a202fea1d8bc99))
+
 ## 1.0.0 (2026-10-29)
 
 

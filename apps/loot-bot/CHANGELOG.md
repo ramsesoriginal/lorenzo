@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.5.0...loot-bot-v0.5.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* **loot-bot:** use msw 3's onUnhandledFrame in the tests ([c6f91b5](https://github.com/ramsesoriginal/lorenzo/commit/c6f91b5483f42c2f8d2ea03bc8975f0fd5b25289))
+
 ## [0.5.0](https://github.com/ramsesoriginal/lorenzo/compare/loot-bot-v0.4.0...loot-bot-v0.5.0) (2026-10-29)
 
 
