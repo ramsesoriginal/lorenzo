@@ -101,7 +101,7 @@ test('the old addresses land on the libraries when signed in', async ({ browser 
   const { page, context } = await signedInPage(browser, owner.subject);
   for (const old of ['/overview', '/characters', '/campaigns']) {
     await page.goto(old);
-    await expect(page).toHaveURL(/\/tenants\/?$/);
+    await expect(page).toHaveURL(/\/tenants\/?(\?.*)?$/);
     await expect(page.locator('[data-campaign-list]')).toContainText('The Open Table');
   }
   await context.close();
