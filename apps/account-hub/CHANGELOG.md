@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.3.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.2.0...account-hub-v1.3.0) (2026-11-07)
+
+
+### Features
+
+* **account-hub:** an Owner retires a repository, and the libraries that hold it read that it is retired ([0b23211](https://github.com/ramsesoriginal/lorenzo/commit/0b232114811bef8508cbc143fe3fe9e6992df554))
+* **account-hub:** Studio's profile editor and the cover controls (ADR 0385) ([04bc54c](https://github.com/ramsesoriginal/lorenzo/commit/04bc54ca634bd3ddafda9f59ec4b1e4af89f9090))
+* **account-hub:** Studio's profile editor, cover controls and readiness list ([b8eaea2](https://github.com/ramsesoriginal/lorenzo/commit/b8eaea20e0f4371ee81e873a3e56741fd1f56bdb))
+* **account-hub:** the update inbox draws its fields with the shared review ([8e2a1e7](https://github.com/ramsesoriginal/lorenzo/commit/8e2a1e70fffb2bddc6bf984a8ab40e0adaa9d295))
+* **api:** an Owner can retire a repository (ADR 0384) ([ce5e5a9](https://github.com/ramsesoriginal/lorenzo/commit/ce5e5a987e3505006ad8818ab64aa269e9eea65a))
+* **repo-ui:** the shared three-way review element (ADR 0389) ([8f1aaf5](https://github.com/ramsesoriginal/lorenzo/commit/8f1aaf5506f79e5c3ab70dd3ee67c2145a010571))
+* **repo-ui:** the three-way review element ([248264d](https://github.com/ramsesoriginal/lorenzo/commit/248264dad0b33a6ed44348a884648da9b6708591))
+
+
+### Bug Fixes
+
+* **account-hub:** draw the chosen cover on a canvas ([9742fb6](https://github.com/ramsesoriginal/lorenzo/commit/9742fb64f55700c25c08c2dd4dc43b466394c19c))
+* **account-hub:** show a staged cover only from a blob address ([5ced169](https://github.com/ramsesoriginal/lorenzo/commit/5ced1690b171a7d5250cf3e1ba587c8411bf0a81))
+
 ## [1.2.0](https://github.com/ramsesoriginal/lorenzo/compare/account-hub-v1.1.0...account-hub-v1.2.0) (2026-10-29)
 
 

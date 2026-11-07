@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/beings-v1.0.0...beings-v1.1.0) (2026-11-07)
+
+
+### Features
+
+* **beings,bench:** the Relationships section and the Relations pane take the graph renderer (ADR 0407) ([12e412d](https://github.com/ramsesoriginal/lorenzo/commit/12e412d3ff1c2a849715a824a533212fba5a1a6e))
+
 ## 1.0.0 (2026-10-29)
 
 

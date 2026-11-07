@@ -2,7 +2,7 @@
   "name": "@lorenzo/repo-ui",
   "private": true,
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Elements the repository screens share: the three-way review of a change (ADR 0389).",
   "exports": {
     ".": "./src/index.ts",

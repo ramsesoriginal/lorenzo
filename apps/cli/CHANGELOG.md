@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.0.0](https://github.com/ramsesoriginal/lorenzo/compare/cli-v0.1.0...cli-v1.0.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** the `kinds` enum of entries gains `social_web`; accepted in openapi-breaking-accepted.txt (ADR 0406).
+* **api:** the `kinds` enum of entries gains `relationship`; accepted in openapi-breaking-accepted.txt (ADR 0399).
+
+### Features
+
+* **api:** an Owner can deprecate a repository, so it keeps its updates and blocks new copies ([30a4465](https://github.com/ramsesoriginal/lorenzo/commit/30a446584bedaa674fdb58741765d0476f79cc24))
+* **api:** an Owner can retire a repository (ADR 0384) ([ce5e5a9](https://github.com/ramsesoriginal/lorenzo/commit/ce5e5a987e3505006ad8818ab64aa269e9eea65a))
+* **api:** bulk write of relationships and standings, and the type stats (ADR 0400) ([545ceac](https://github.com/ramsesoriginal/lorenzo/commit/545ceac1e73e2bef84d2d588c2373ed2b5b82d74))
+* **api:** count the libraries that hold what is about to be deleted ([d1cd608](https://github.com/ramsesoriginal/lorenzo/commit/d1cd6083f11e91cf2ef0ccfe7348099287c21d89))
+* **api:** Lorenzo Social in the registry of app links ([38ed868](https://github.com/ramsesoriginal/lorenzo/commit/38ed8689c61a5fffe1fe695c7be537f8ebfea16c))
+* **api:** Lorenzo Social in the registry of app links ([7e28c77](https://github.com/ramsesoriginal/lorenzo/commit/7e28c7731e3a65a8a44056ed24f0e39b156eb291))
+* **api:** optional minimum and maximum on a numeric stat (ADR 0403) ([2c293a5](https://github.com/ramsesoriginal/lorenzo/commit/2c293a5f6764f6896d61270fa8d664d453ea2427))
+* **api:** optional time on a relationship and reading it as of an Event (ADR 0405) ([45952a6](https://github.com/ramsesoriginal/lorenzo/commit/45952a6c596aa9b64ad3a79d01606b107d15a48d))
+* **api:** read the effective value of some stats on a page of entries ([85ed246](https://github.com/ramsesoriginal/lorenzo/commit/85ed246cbb47a1de8e71eb22356f7653e1f8640d))
+* **api:** relationship through, an authored ordered chain (ADR 0402) ([f3503ea](https://github.com/ramsesoriginal/lorenzo/commit/f3503ea7130fba8367ad5055ffbcdf782b4d0392))
+* **api:** relationships, the second kind joining two entries (ADR 0399) ([5594086](https://github.com/ramsesoriginal/lorenzo/commit/55940860f9f823e77aabbde042f8e699e8108c89))
+* **api:** rename a stat definition and an enum value ([8262f84](https://github.com/ramsesoriginal/lorenzo/commit/8262f84f883c0d94249cef18efd599728526d482))
+* **api:** the SocialWeb kind, a saved view of relationships (ADR 0406) ([c7b253d](https://github.com/ramsesoriginal/lorenzo/commit/c7b253de438f623b0ea8e5296cc1b001a4097951))
+* **bench,cli:** say how many libraries hold what is about to be deleted ([105be9b](https://github.com/ramsesoriginal/lorenzo/commit/105be9bcd0aed5317c0a6dcbcbc9b6b9e0f8aa64)), closes [#974](https://github.com/ramsesoriginal/lorenzo/issues/974)
+* **bench:** rename a stat and one of its values in the vocabulary pane ([3cbdf8b](https://github.com/ramsesoriginal/lorenzo/commit/3cbdf8b8c7386b675a727cf45cf8b4c9962509fa)), closes [#973](https://github.com/ramsesoriginal/lorenzo/issues/973)
+* **social:** players write their own relationships (ADR 0409) ([96b83a3](https://github.com/ramsesoriginal/lorenzo/commit/96b83a38e85a48ec01a04e366aaa7d06f4d59e2a))
+* **social:** the Lorenzo Social app scaffold, relationship list and page (ADR 0408) ([cc6aa2b](https://github.com/ramsesoriginal/lorenzo/commit/cc6aa2b93687ad3598813d501a897af26a8bad33))
+* **social:** the types and standings screen and the starter vocabulary (ADR 0400) ([f35ac64](https://github.com/ramsesoriginal/lorenzo/commit/f35ac6425ef1ead1fcc1cba3af4bea4deb808df0))
+* **social:** the web screens and the graph view with stress and ForceAtlas2 (ADR 0407, ADR 0408) ([f6733ad](https://github.com/ramsesoriginal/lorenzo/commit/f6733ad86a4f9c37e78123b1776b3de7c20e5422))
+* **writing:** add personal manuscript length targets ([a9317b6](https://github.com/ramsesoriginal/lorenzo/commit/a9317b646d1ef8c8ec03b13ec6e518633df5d3b7))
+* **writing:** count manuscript words and selected passages ([23e4de7](https://github.com/ramsesoriginal/lorenzo/commit/23e4de74970d7c2c4d3b314ba6aa2a617c688d3c))
+* **writing:** personal manuscript-length targets ([e55d62f](https://github.com/ramsesoriginal/lorenzo/commit/e55d62f569f16c8dcd410bb4fbfd9e22825a56b7))
+
+
+### Documentation
+
+* **adr:** number the stat rename ADR 0390 ([20f81fe](https://github.com/ramsesoriginal/lorenzo/commit/20f81fedb05bc920a6e5a6736fff2bc4ac644b0f))
+* describe the repository tooling and entity kinds slices that merged ([8333e9c](https://github.com/ramsesoriginal/lorenzo/commit/8333e9c736b0496d1e1537e2bb1d1dd0edc6d86b))
+* describe the repository tooling and entity kinds slices that merged ([e21dae4](https://github.com/ramsesoriginal/lorenzo/commit/e21dae4601e402fd2473d3058bb463bf2c422681))
+
 ## 0.1.0 (2026-10-29)
 
 

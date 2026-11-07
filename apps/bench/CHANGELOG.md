@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.1.0](https://github.com/ramsesoriginal/lorenzo/compare/bench-v1.0.0...bench-v1.1.0) (2026-11-07)
+
+
+### Features
+
+* **beings,bench:** the Relationships section and the Relations pane take the graph renderer (ADR 0407) ([12e412d](https://github.com/ramsesoriginal/lorenzo/commit/12e412d3ff1c2a849715a824a533212fba5a1a6e))
+* **bench,cli:** say how many libraries hold what is about to be deleted ([105be9b](https://github.com/ramsesoriginal/lorenzo/commit/105be9bcd0aed5317c0a6dcbcbc9b6b9e0f8aa64)), closes [#974](https://github.com/ramsesoriginal/lorenzo/issues/974)
+* **bench:** kind icons on the entry picker rows and the grid's name cells ([b610111](https://github.com/ramsesoriginal/lorenzo/commit/b61011137c5a94edbdd5f02628bdb5bc8980959e))
+* **bench:** kind icons on the entry picker rows and the grid's name cells ([c65d831](https://github.com/ramsesoriginal/lorenzo/commit/c65d83108fbe8cb0f1efaf74e443d53b66df6fc9))
+* **bench:** new from parent and duplicate ([f343183](https://github.com/ramsesoriginal/lorenzo/commit/f343183b2132bb9a0cb0a1bfd961cecd58069547)), closes [#976](https://github.com/ramsesoriginal/lorenzo/issues/976)
+* **bench:** rename a stat and one of its values in the vocabulary pane ([3cbdf8b](https://github.com/ramsesoriginal/lorenzo/commit/3cbdf8b8c7386b675a727cf45cf8b4c9962509fa)), closes [#973](https://github.com/ramsesoriginal/lorenzo/issues/973)
+* **bench:** second icon pass, with a formatting toolbar over texts ([ece25ff](https://github.com/ramsesoriginal/lorenzo/commit/ece25ff248a85f59532baf4bfcd9ebd1623084e5))
+* **bench:** second icon pass, with a formatting toolbar over texts ([2c0a80c](https://github.com/ramsesoriginal/lorenzo/commit/2c0a80cffbb7c7383a7f20d97c324e0bf2a33f58))
+* **bench:** the compare grid reads its columns a page at a time ([8c211a4](https://github.com/ramsesoriginal/lorenzo/commit/8c211a423af7ef2979d218e7c34a8bbf3d85ff9c)), closes [#975](https://github.com/ramsesoriginal/lorenzo/issues/975)
+* **bench:** the conflict dialog draws its values with the shared review ([855d1d3](https://github.com/ramsesoriginal/lorenzo/commit/855d1d3f7f0a77c90c66f934a771670befd69f3c)), closes [#984](https://github.com/ramsesoriginal/lorenzo/issues/984)
+* **repo-ui:** the shared three-way review element (ADR 0389) ([8f1aaf5](https://github.com/ramsesoriginal/lorenzo/commit/8f1aaf5506f79e5c3ab70dd3ee67c2145a010571))
+* **repo-ui:** the three-way review element ([248264d](https://github.com/ramsesoriginal/lorenzo/commit/248264dad0b33a6ed44348a884648da9b6708591))
+
 ## 1.0.0 (2026-10-29)
 
 
