@@ -106,7 +106,7 @@ async def built_on_not_public(
     `user_id` owns it (so they can be offered to make it public): the ones that stop this
     repository being made public. One this repository includes is not a dependency of it, since
     its release carries it as its own rows (ADR 0431), so it is not here; whether the user may
-    include it is `refuse_unless_includable`'s question, asked when the release is made."""
+    include it is asked once, when the choice is set (`set_inclusion`)."""
     found: list[dict[str, Any]] = []
     for copy, name in await _copies(session, repository_id):
         if copy.inclusion == "include":
