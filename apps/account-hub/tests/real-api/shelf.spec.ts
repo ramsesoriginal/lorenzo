@@ -93,6 +93,8 @@ test('a library admin sees what is offered, what a repository holds and what it 
   await expect(page.getByText('Only names show until your library copies')).toBeVisible();
 
   // Built on: this repository, and the core it needs and the library cannot yet take in.
+  await page.getByRole('tab', { name: 'Use in a library' }).click();
+
   const outline = page.getByRole('list', { name: 'Built on' });
   await expect(outline).toContainText('Faerûn campaign');
   await expect(outline).toContainText('This repository');
