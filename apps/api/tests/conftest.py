@@ -14,6 +14,7 @@ from jwt import PyJWKClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api.config import get_settings
 from lorenzo_api.dependencies import (
     SessionDep,
     get_current_user,
@@ -343,3 +344,10 @@ async def raw_client(fake_jwks_server: FakeJwksServer) -> AsyncGenerator[AsyncCl
         yield ac
     del app.dependency_overrides[get_jwks_client]
     del app.dependency_overrides[get_userinfo_url]
+
+
+@pytest.fixture(autouse=True)
+def _no_gravatar_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The one-time Gravatar copy (ADR 0439) is off in every test, so none reaches the internet;
+    tests/test_gravatar_copy.py turns it on against a local server."""
+    monkeypatch.setattr(get_settings(), "gravatar_lookup_enabled", False)

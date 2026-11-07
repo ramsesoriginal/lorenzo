@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from lorenzo_api import gravatar
 from lorenzo_api.campaign_access import (
     can_access_campaign,
     is_tenant_admin,
@@ -225,6 +226,7 @@ async def _sync_email_from_claims(
     # synchronous reload and crash with MissingGreenlet outside of an
     # `await` - confirmed the hard way, not assumed.
     user_id = user.id
+    first_cache = user.email is None
     try:
         async with session.begin_nested():
             user.email = email
@@ -233,6 +235,10 @@ async def _sync_email_from_claims(
     except IntegrityError:
         await session.refresh(user)
         logger.warning("email_sync_conflict", user_id=str(user_id), email=email)
+        return
+    if first_cache:
+        # The one-time Gravatar copy (ADR 0439): only when the email is first cached, never raises.
+        await gravatar.copy_once(session, user)
 
 
 async def get_current_user(

@@ -249,15 +249,20 @@ describe('the apps sheet', () => {
     expect(sheet.hasAttribute('open')).toBe(true);
   });
 
-  it('names the source, the version and the legal pages it has', async () => {
+  it('names the source, the version and the legal page it was given', async () => {
     mount(await render('web'));
 
-    const about = document.querySelector('[data-shell-sheet]')?.textContent ?? '';
+    const sheet = document.querySelector('[data-shell-sheet]');
+    const notice = sheet?.querySelector<HTMLAnchorElement>('[data-shell-link="notice"] a');
+    const privacy = sheet?.querySelector<HTMLElement>('[data-shell-link="privacy"]');
 
-    expect(about).toContain('Legal notice');
-    expect(about).not.toContain('Privacy policy');
-    expect(about).toContain('Source code');
-    expect(about).toContain('Lorenzo 1.2.0');
+    expect(notice?.getAttribute('href')).toBe('/legal/');
+    expect(notice?.closest<HTMLElement>('[data-shell-link]')?.hidden).toBe(false);
+    expect(notice?.textContent).toContain('Legal notice (Impressum)');
+    // A link nobody gave an address stays hidden.
+    expect(privacy?.hidden).toBe(true);
+    expect(sheet?.textContent).toContain('Source code');
+    expect(sheet?.textContent).toContain('Lorenzo 1.2.0');
   });
 });
 

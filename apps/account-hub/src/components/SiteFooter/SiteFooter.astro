@@ -1,5 +1,17 @@
+---
+import LegalLinks from '@lorenzo/app-shell/LegalLinks.astro';
+---
+
 <footer>
   <div class="wrap">
     Part of <code>apps/account-hub</code>
+    <LegalLinks layout="inline" />
   </div>
 </footer>
+<script>
+  import { bindLegalLinksFromApi } from '@lorenzo/app-shell/legal';
+  import { API_BASE_URL } from '../../lib/config';
+
+  // The legal notice, the privacy policy and the support link, when the deployment has them (ADR 0439).
+  void bindLegalLinksFromApi(API_BASE_URL);
+</script>

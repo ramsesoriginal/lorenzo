@@ -4,6 +4,7 @@ import AppHead from './SiteHead.astro';
 import AppHeader from './SiteHeader.astro';
 import WebBottom from './WebBottom.astro';
 import WebHeader from './WebHeader.astro';
+import type { Lang } from './legal';
 import type { NavItem } from './pure';
 import { pageClass, type PageTemplate } from './templates';
 
@@ -25,6 +26,8 @@ interface Props {
   // The release shown in the web shell's sheet, and links to its legal pages once they exist.
   version?: string;
   legal?: { notice?: string; privacy?: string };
+  // The page's language (ADR 0439): `<html lang>`, and the labels of the legal links.
+  lang?: Lang;
   // The page's template (ADR 0412), which sets the width of its container; without it the page
   // keeps the app's own `wrap`.
   template?: PageTemplate;
@@ -41,13 +44,14 @@ const {
   shell,
   version,
   legal,
+  lang = 'en',
   template,
 } = Astro.props;
 const container = shell === 'web' && template ? pageClass(template) : 'wrap';
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <AppHead title={title} brandingUrl={brandingUrl} themeKey={themeKey}>
     <slot name="head" />
   </AppHead>
@@ -80,6 +84,7 @@ const container = shell === 'web' && template ? pageClass(template) : 'wrap';
             path={path}
             version={version}
             legal={legal}
+            lang={lang}
           />
         </div>
       </div>
@@ -101,7 +106,7 @@ const container = shell === 'web' && template ? pageClass(template) : 'wrap';
             </div>
           </div>
         </main>
-        <AppFooter app={`Lorenzo ${product}`} path={path} />
+        <AppFooter app={`Lorenzo ${product}`} path={path} lang={lang} />
       </>
     )}
   </body>

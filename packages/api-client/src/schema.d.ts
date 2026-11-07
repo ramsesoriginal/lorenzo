@@ -368,7 +368,8 @@ export interface paths {
         };
         /**
          * Get App Links
-         * @description The registry of app links (ADR 0273). Public: it says nothing about any library.
+         * @description The registry of app links (ADR 0273). Public: it says nothing about any library. An app or
+         *     link a deployment has not set (`legal`, `support_url`, ADR 0439) is left out, not null.
          */
         get: operations["get_app_links"];
         put?: never;
@@ -5045,11 +5046,10 @@ export interface paths {
         };
         /**
          * Get User Picture
-         * @description No auth - see module docstring. Falls back to a computed Gravatar
-         *     URL (302, not 301 - so a later custom upload isn't cached past) when
-         *     the user has no upload but does have a verified email; 404 only when
-         *     neither exists. `user_profile_picture` carries no RLS (ADR 0056), so no
-         *     `set_tenant_rls_context` call is needed here, unlike the tenant/
+         * @description No auth - see module docstring. The uploaded picture, or a copy kept once from Gravatar
+         *     when the account's email was first cached (ADR 0439); 404 when the account has neither. No
+         *     redirect to a third party: a browser never talks to Gravatar. `user_profile_picture` carries
+         *     no RLS (ADR 0056), so no `set_tenant_rls_context` call is needed here, unlike the tenant/
          *     campaign routes below.
          */
         get: operations["get_user_picture"];
@@ -7427,6 +7427,8 @@ export interface components {
             links: {
                 [key: string]: string;
             };
+            /** Support Url */
+            support_url?: string | null;
         };
         /** AppOut */
         AppOut: {
@@ -7523,6 +7525,7 @@ export interface components {
             writing?: components["schemas"]["AppOut"] | null;
             maps?: components["schemas"]["AppOut"] | null;
             social?: components["schemas"]["AppOut"] | null;
+            legal?: components["schemas"]["AppOut"] | null;
         };
         /** AtIn */
         AtIn: {
