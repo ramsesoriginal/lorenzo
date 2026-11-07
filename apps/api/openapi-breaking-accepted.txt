@@ -962,3 +962,21 @@ GET /tenants/{tenant_id}/distance added the new `relationship` enum value to the
 GET /tenants/{tenant_id}/distance added the new `social_web` enum value to the `map/anyOf[subschema #1: EntryStub]/kinds/items/` response property for the response status `200` (shared schema: `EntryStub`, also at `route/items/connection/kinds/items/`, `route/items/end/kinds/items/` and 1 more)
 GET /tenants/{tenant_id}/maps/{map_id}/links added the new `relationship` enum value to the `items/items/connection/kinds/items/` response property for the response status `200` (shared schema: `EntryStub`, also at `items/items/here/kinds/items/`, `items/items/other/kinds/items/` and 1 more)
 GET /tenants/{tenant_id}/maps/{map_id}/links added the new `social_web` enum value to the `items/items/connection/kinds/items/` response property for the response status `200` (shared schema: `EntryStub`, also at `items/items/here/kinds/items/`, `items/items/other/kinds/items/` and 1 more)
+# ADR 0434: the response `visibility` of a repository's profile gains `protected`.
+GET /discover/repositories/{repository_id} added the new `protected` enum value to the `profile/visibility` response property for the response status `200`
+GET /repositories/{repository_id}/profile added the new `protected` enum value to the `visibility` response property for the response status `200`
+GET /tenants/{tenant_id}/flip-check added the new `protected` enum value to the `visibility` response property for the response status `200`
+GET /tenants/{tenant_id}/profile added the new `protected` enum value to the `visibility` response property for the response status `200`
+PATCH /tenants/{tenant_id}/profile added the new `protected` enum value to the `visibility` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories/{repository_id}/profile added the new `protected` enum value to the `visibility` response property for the response status `200`
+# ADR 0437: the answers that name how a repository is carried gain `hide`.
+GET /tenants/{tenant_id}/flip-check added the new `hide` enum value to the `built_on/items/in_release/anyOf[subschema #1]/` response property for the response status `200`
+GET /tenants/{tenant_id}/flip-check added the new `hide` enum value to the `built_on/items/inclusion` response property for the response status `200`
+GET /tenants/{tenant_id}/release-preview added the new `hide` enum value to the `inclusion_changes/items/after` response property for the response status `200`
+GET /tenants/{tenant_id}/release-preview added the new `hide` enum value to the `inclusion_changes/items/before` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories added the new `hide` enum value to the `items/items/inclusion/anyOf[subschema #1]/` response property for the response status `200`
+GET /tenants/{tenant_id}/repositories added the new `hide` enum value to the `items/items/inclusion_in_release/anyOf[subschema #1]/` response property for the response status `200`
+GET /tenants/{tenant_id}/subscribers added the new `hide` enum value to the `items/items/inclusion/anyOf[subschema #1]/` response property for the response status `200`
+PUT /tenants/{tenant_id}/repositories/{repository_id}/inclusion added the new `hide` enum value to the `inclusion_in_release/anyOf[subschema #1]/` response property for the response status `200`
+PUT /tenants/{tenant_id}/repositories/{repository_id}/inclusion added the new `hide` enum value to the `inclusion` response property for the response status `200`
+PUT /tenants/{tenant_id}/subscribers/{subscriber_tenant_id} added the new `hide` enum value to the `inclusion/anyOf[subschema #1]/` response property for the response status `200`

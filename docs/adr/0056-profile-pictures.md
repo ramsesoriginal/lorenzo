@@ -55,3 +55,7 @@ When a user has no uploaded picture: if `email` is set, 302-redirect (not 301 - 
 ## Addendum: a private repository's picture is no longer open
 
 [ADR 0300](0300-authentication-on-a-private-repositorys-picture.md): `GET /tenants/{tenant_id}/picture` now answers a request with no token for a private repository as for a tenant with no picture, and gives it to any signed-in user. A play tenant's picture, a public repository's, a campaign's and a user's are served as described above.
+
+## Addendum: the Gravatar redirect is gone
+
+[ADR 0439](0439-legal-notice-and-privacy-policy.md) replaces the redirect to Gravatar. `GET /users/{id}/picture` serves the uploaded picture or answers `404`; a browser never talks to Gravatar. The API asks Gravatar once, when an account's email is first cached and it has no picture, and keeps what it gets as the account's own picture.

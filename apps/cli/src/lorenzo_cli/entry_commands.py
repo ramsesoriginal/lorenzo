@@ -11,7 +11,7 @@ from rich.table import Column, Table
 from rich.text import Text
 
 from lorenzo_cli.client import ops
-from lorenzo_cli.client.models import ItemInstanceOut, ItemOut, SheetOut
+from lorenzo_cli.client.models import DescriptionOut, ItemInstanceOut, ItemOut, SheetOut
 from lorenzo_cli.client.paging import all_items
 from lorenzo_cli.client.transport import LorenzoClient
 from lorenzo_cli.importer.tenant_view import resolve_slugs
@@ -65,6 +65,20 @@ def formatted(value: object, definition: Any = None) -> str:
     else:
         text = str(value)
     return safe(text + (f" {definition.unit}" if definition and definition.unit else ""))
+
+
+def description_origin(desc: DescriptionOut) -> str:
+    """Where a description comes from, as a title suffix: nothing for the entry's own.
+
+    A null `from_entity` is the entry's own text only when `from_hidden` is not set: a text from an
+    entry the library hides arrives with no name and `from_hidden: true` (ADR 0437), and is said
+    to come from "a hidden entry" and never named.
+    """
+    if desc.from_entity:
+        return f" · from {desc.from_entity.name}"
+    if desc.from_hidden:
+        return " · from a hidden entry"
+    return ""
 
 
 def references(
@@ -182,11 +196,7 @@ def show(ctx: typer.Context, tenant: str, ref: str, kind: Kind, as_json: bool) -
         seen: set[str] = set()
         if item:
             for desc in item.descriptions:
-                title = (
-                    "Description"
-                    + (f" · from {desc.from_entity.name}" if desc.from_entity else "")
-                    + f" · {desc.locale}"
-                )
+                title = f"Description{description_origin(desc)} · {desc.locale}"
                 texts.append((title, desc.content))
                 seen.add(desc.content)
             if item.pictures:

@@ -37,10 +37,23 @@ _DEFAULTS = {
     "system": None,
     "languages": [],
     "has_cover": False,
+    # Listed on Discover, until an Owner of a public repository says otherwise (ADR 0432).
+    "listed": True,
     # What the repository's own members read: listed, so nothing to say (ADR 0303).
     "delisted": None,
     # And not retired by its Owner either (ADR 0384).
     "deprecated": None,
+    # Nothing included before a public release, and nobody has said what may be done with it:
+    # a private repository's terms are the default, which does not allow inclusion (ADR 0431).
+    "includes": [],
+    "terms": {
+        "may_be_included": False,
+        "is_default": True,
+        "may_be_shown": True,
+        "may_be_shown_is_default": True,
+        "may_be_hidden": True,
+        "may_be_hidden_is_default": True,
+    },
 }
 
 
@@ -205,8 +218,18 @@ async def test_an_owner_sets_the_whole_profile_and_it_is_kept_tidy(
             "system": "D&D 5e",
             "languages": ["en", "de", "pt-br"],
             "has_cover": False,
+            "listed": True,
             "delisted": None,
             "deprecated": None,
+            "includes": [],
+            "terms": {
+                "may_be_included": False,
+                "is_default": True,
+                "may_be_shown": True,
+                "may_be_shown_is_default": True,
+                "may_be_hidden": True,
+                "may_be_hidden_is_default": True,
+            },
         }
         assert _without_stamp(patched.json()) == expected
         assert _without_stamp(await _profile(owner, faerun)) == expected
@@ -582,7 +605,7 @@ async def test_a_library_the_repository_is_granted_to_reads_its_profile_once_pub
         # A library reads the profile with no `delisted` or `deprecated` at all: only the members
         # are told.
         assert _without_stamp(seen.json()) == {
-            **{k: v for k, v in _DEFAULTS.items() if k not in ("delisted", "deprecated")},
+            **{k: v for k, v in _DEFAULTS.items() if k not in ("delisted", "deprecated", "terms")},
             "summary": "Realms.",
             "tags": ["setting"],
             "system": "5e",
