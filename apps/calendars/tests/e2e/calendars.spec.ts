@@ -255,6 +255,33 @@ test('the status bar says which date is on show and whether anything is written 
   await page.context().close();
 });
 
+test('on a phone the day panel is a sheet: there when a date is chosen, gone with Close', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
+  const panel = page.locator('.calendar-layout > aside');
+  await segmentChip(page, 'Quirm').click();
+  await expect(page.locator('.day')).toHaveCount(27);
+  // Nothing is chosen yet, so no sheet is over the page.
+  await expect(panel).toBeHidden();
+  await page.getByRole('button', { name: '16 Quirm 3286', exact: true }).click();
+  await expect(panel).toBeVisible();
+  expect(await panel.evaluate((node) => getComputedStyle(node).position)).toBe('fixed');
+  const box = await panel.boundingBox();
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeGreaterThan(800);
+  await panel.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(panel).toBeHidden();
+  await expect(page.getByRole('button', { name: '16 Quirm 3286', exact: true })).toBeFocused();
+  // Beside the grid, at a desktop width, the panel is always there and has no Close.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Close', exact: true })).toBeHidden();
+  await page.context().close();
+});
+
 test('imported irregular year is browsable without creating periods, and dated information stays separate', async ({
   browser,
 }) => {

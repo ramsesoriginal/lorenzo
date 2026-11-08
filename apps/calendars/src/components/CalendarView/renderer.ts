@@ -426,7 +426,7 @@ export async function mount() {
       notesRow.append(
         button(
           `Year ${year}: notes and dated entries`,
-          () => showPeriod(),
+          () => showPeriod(undefined, undefined, undefined, true),
           true,
           'kind-calendar-pin',
         ),
@@ -668,7 +668,12 @@ export async function mount() {
         });
       if (pending.length) loadDays(key, pending);
     }
-    async function showPeriod(segment?: string, day?: number, target?: HTMLButtonElement) {
+    async function showPeriod(
+      segment?: string,
+      day?: number,
+      target?: HTMLButtonElement,
+      forceOpen = false,
+    ) {
       const turn = ++selection;
       const chosenYear = year;
       const address = new URL(location.href);
@@ -681,6 +686,22 @@ export async function mount() {
         ? `${day === undefined ? '' : `${day} `}${calendar.definition.segments.find((s) => s.key === segment)?.name ?? segment} ${year}`
         : `Year ${year}`;
       detail.replaceChildren();
+      // On a narrow window the panel is a sheet (CS6): it is there once a date, or the year's notes,
+      // has been chosen, and goes with Close; beside the grid it is always there.
+      if (segment !== undefined || forceOpen) detail.dataset.open = '';
+      const close = button(
+        'Close',
+        () => {
+          delete detail.dataset.open;
+          grid
+            .querySelector<HTMLElement>('.day-button[aria-pressed="true"]')
+            ?.focus({ preventScroll: true });
+        },
+        true,
+        'close',
+      );
+      close.classList.add('sheet-close');
+      detail.append(close);
       if (segment && day !== undefined) {
         // Which day of the week and of the year it is, over its name.
         const shown = preview.segments.find((s) => s.key === segment);

@@ -712,6 +712,23 @@ button.seg-chip:hover {
 }
 
 @container shell (max-width: 720px) {
+  /* The panel is a bottom sheet: not there until a date is chosen, then over the bottom of the page. */
+  .calendar-layout > aside {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 19;
+    max-height: 70dvh;
+    overflow-y: auto;
+    border-width: 1px 0 0;
+    border-radius: var(--radius-surface) var(--radius-surface) 0 0;
+    background: var(--surface-canvas);
+  }
+
+  .calendar-layout > aside:not([data-open]) {
+    display: none;
+  }
+
   .day {
     min-height: 3.75rem;
     padding: var(--space-1);
@@ -880,5 +897,17 @@ button.seg-chip:hover {
   .segment-row > .row {
     grid-column: 1 / -1;
     grid-row: auto;
+  }
+}
+
+/* Close, for the sheet: beside the grid the panel stays and has none. */
+.sheet-close {
+  display: none;
+  align-self: flex-end;
+}
+
+@container shell (max-width: 720px) {
+  .sheet-close {
+    display: inline-flex;
   }
 }
