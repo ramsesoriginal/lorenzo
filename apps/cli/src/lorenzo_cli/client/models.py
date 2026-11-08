@@ -1122,6 +1122,8 @@ class EventSummary(BaseModel):
     name: str = Field(..., title="Name")
     slug: str | None = Field(None, title="Slug")
     order_basis: OrderBasis | None = Field(None, title="Order Basis")
+    dates: list[str] | None = Field(None, title="Dates")
+    participants: list[str] | None = Field(None, title="Participants")
 
 
 class ExtractChapter(BaseModel):
