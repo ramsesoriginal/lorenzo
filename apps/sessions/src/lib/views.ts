@@ -46,7 +46,7 @@ import {
   withView,
   writeViews,
 } from './regions';
-import { start } from './sign-in';
+import { currentShell, start } from './sign-in';
 
 type StorySession = Schema<'SessionOut'>;
 /** What the Session page shares between its panels: the Session as last read and its version, which every conditional write sends and every write to the Session moves on. */
@@ -623,6 +623,28 @@ export async function mountSession() {
       return swap(regionOf(name), next);
     };
 
+    // The status bar says the part the person has and the in-world date of this Session (CS1): the date
+    // of the Session being looked at, and nothing on any other page.
+    const showBar = async () => {
+      const startId = ctx.session.start_period_id;
+      const started = startId
+        ? await client
+            .GET('/tenants/{tenant_id}/entities/{entity_id}', {
+              params: { path: { tenant_id: tenant, entity_id: startId } },
+            })
+            .then((r) => r.data?.name ?? null)
+            .catch(() => null)
+        : null;
+      if (!host.isConnected) return;
+      currentShell()?.statusBar({
+        meta: [
+          ctx.session.can_manage ? 'You are a GM' : 'You play',
+          started ? `In-world: ${started}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      });
+    };
     const refreshRegions = async (names: string[]) => {
       const wasManager = ctx.session.can_manage;
       const nodes = names
@@ -636,6 +658,7 @@ export async function mountSession() {
       try {
         await readSession();
         if (!host.isConnected) return;
+        void showBar();
         if (ctx.session.can_manage !== wasManager) {
           await drawAll();
           return;
@@ -650,6 +673,7 @@ export async function mountSession() {
 
     await readSession();
     await drawAll();
+    void showBar();
   } catch (error) {
     host.replaceChildren(backLink('My Sessions', '/'), errorNotice(error));
   }

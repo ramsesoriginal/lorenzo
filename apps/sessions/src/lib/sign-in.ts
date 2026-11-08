@@ -6,6 +6,15 @@ import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { bindSessionPrefetch } from './prefetch';
 import { readScope, sessionReads } from './read-cache';
+
+type Shell = NonNullable<ReturnType<typeof bindShell>>;
+let started: Shell | null = null;
+
+/** The shell this page started, for a page that says something in the status bar; null before it starts. */
+export function currentShell(): Shell | null {
+  return started;
+}
+
 export async function start() {
   const shell = bindShell({
     themeKey: 'lorenzo:sessions:theme',
@@ -18,6 +27,7 @@ export async function start() {
     },
   });
   if (!shell || !document.querySelector('[data-session]')) return null;
+  started = shell;
   shell.account({ state: 'checking' });
   shell.palette();
   // The links that belong to a library name the one the address names.

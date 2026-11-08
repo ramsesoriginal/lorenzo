@@ -817,6 +817,8 @@ test('the period picker chooses game time and a start, and writes nothing until 
           ).start_period_id,
       )
       .toBe(saved.find((period) => period.day === 17)?.entity_id);
+    // The status bar says the part the person has and the in-world date of this Session (CS1).
+    await expect(page.locator('[data-shell-meta]')).toContainText('You are a GM · In-world: ');
   } finally {
     await page.context().close();
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
