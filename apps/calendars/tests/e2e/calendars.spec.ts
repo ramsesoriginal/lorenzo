@@ -751,7 +751,9 @@ test('Event order shows evidence, keeps conflicting selections, and stays absent
   const page = await signedIn(browser, world.subject);
   await page.goto(`/entry/?tenant=${world.tenantId}&id=${first.id}`);
   const panel = page.locator('[data-event-order]');
-  await panel.getByText('Order and causes', { exact: true }).click();
+  // The head's button opens the card and takes the reader to it.
+  await page.getByRole('button', { name: 'Order and causes', exact: true }).click();
+  await expect(panel).toHaveAttribute('open', '');
   await panel.getByLabel('Find an Event').fill('The gates');
   await panel.getByRole('button', { name: 'Search Events', exact: true }).click();
   await panel.getByRole('button', { name: second.name, exact: true }).click();

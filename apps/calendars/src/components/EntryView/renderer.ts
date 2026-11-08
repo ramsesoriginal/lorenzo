@@ -107,7 +107,22 @@ export async function mount() {
     if (entry.kinds.includes('event') && session.canReadEventOrder) {
       try {
         const ordering = await eventOrder(tenantId, id, session.canOrderEvents);
-        if (ordering) grid.append(ordering);
+        if (ordering) {
+          grid.append(ordering);
+          // The design's head has Order and causes as a button: it opens that card and takes you to it.
+          const open = button(
+            'Order and causes',
+            () => {
+              if (ordering instanceof HTMLDetailsElement) ordering.open = true;
+              ordering.scrollIntoView({ block: 'start' });
+              ordering.querySelector<HTMLElement>('summary')?.focus();
+            },
+            true,
+            'causality',
+          );
+          actions.append(open);
+          if (!actions.isConnected) host.insertBefore(actions, grid);
+        }
         if (canWrite) grid.append(await participants(tenantId, id, session.canOrderEvents));
         if (session.canOrderEvents) grid.append(await eventLearning(tenantId, id));
       } catch (error) {
