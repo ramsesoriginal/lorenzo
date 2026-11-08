@@ -71,27 +71,78 @@ export async function mount() {
       .filter(Boolean)
       .join(' · ');
   }
+  // When and who, read lazily per row through the entry's own endpoints, so a long list stays cheap.
+  type Meta = { when: string; years: number[]; who: string };
+  const metaCache = new Map<string, Promise<Meta>>();
+  function metaFor(id: string): Promise<Meta> {
+    let known = metaCache.get(id);
+    if (!known) {
+      const path = { tenant_id: tenantId, entity_id: id };
+      known = (async () => {
+        const dates = await client
+          .GET('/tenants/{tenant_id}/entities/{entity_id}/dates', { params: { path } })
+          .then((r) => r.data ?? [])
+          .catch(() => []);
+        const who = canOrderEvents
+          ? await client
+              .GET('/tenants/{tenant_id}/events/{event_id}/participants', {
+                params: { path: { tenant_id: tenantId, event_id: id } },
+              })
+              .then((r) => (r.data ?? []).map((b) => b.name))
+              .catch(() => [])
+          : [];
+        return {
+          when: dates.length
+            ? dates.map((d) => `${d.name}, year ${d.year}`).join(' · ')
+            : 'Undated',
+          years: dates.map((d) => d.year),
+          who: who.join(', '),
+        };
+      })();
+      metaCache.set(id, known);
+    }
+    return known;
+  }
+  const yearFrom = field('From year', initial.get('from') ?? '', 'number');
+  const yearTo = field('To year', initial.get('to') ?? '', 'number');
+  const timeActive = () => yearFrom.input.value !== '' || yearTo.input.value !== '';
+  function inRange(years: number[]) {
+    const lo = yearFrom.input.value === '' ? -Infinity : Number(yearFrom.input.value);
+    const hi = yearTo.input.value === '' ? Infinity : Number(yearTo.input.value);
+    return years.some((y) => y >= lo && y <= hi);
+  }
   let generation = 0;
   async function load() {
     const turn = ++generation;
     status.busy('Loading Events…');
     try {
-      const response = await unwrap(
-        await client.GET('/tenants/{tenant_id}/events', {
-          params: {
-            path: { tenant_id: tenantId },
-            query: {
-              q: q.input.value,
-              sort: sort.input.value as 'name' | 'order',
-              being_id: being || undefined,
-              causal_event_id: chain || undefined,
-              direction: direction.input.value as 'both' | 'ancestors' | 'descendants',
-              page,
-              size: 30,
+      const fetchPage = async (number: number, size: number) =>
+        unwrap(
+          await client.GET('/tenants/{tenant_id}/events', {
+            params: {
+              path: { tenant_id: tenantId },
+              query: {
+                q: q.input.value,
+                sort: sort.input.value as 'name' | 'order',
+                being_id: being || undefined,
+                causal_event_id: chain || undefined,
+                direction: direction.input.value as 'both' | 'ancestors' | 'descendants',
+                page: number,
+                size,
+              },
             },
-          },
-        }),
-      );
+          }),
+        );
+      let response = await fetchPage(timeActive() ? 1 : page, timeActive() ? 100 : 30);
+      if (timeActive()) {
+        // A time filter looks at every Event, not one page: read them all, keep those dated in range.
+        const all = [...response.items];
+        for (let n = 2; n <= (response.pages ?? 1); n++)
+          all.push(...(await fetchPage(n, 100)).items);
+        const metas = await Promise.all(all.map((e) => metaFor(e.entity_id)));
+        const kept = all.filter((_, i) => inRange(metas[i]?.years ?? []));
+        response = { ...response, items: kept, total: kept.length, pages: 1 };
+      }
       if (turn !== generation || !host?.isConnected) return;
       list.replaceChildren();
       list.hidden = !response.items.length;
@@ -100,8 +151,14 @@ export async function mount() {
         const row = el('li', '', 'event-row');
         row.append(icon('kind-event', 'event-mark'));
         const open = link(entry.name, entryHref(tenantId, entry.entity_id));
-        open.classList.add('grow');
-        row.append(open);
+        const text = el('div', '', 'event-text grow');
+        const detail = el('span', '', 'caption event-meta');
+        open.classList.remove('grow');
+        text.append(open, detail);
+        void metaFor(entry.entity_id).then((m) => {
+          detail.textContent = [m.when, m.who && `With ${m.who}`].filter(Boolean).join(' · ');
+        });
+        row.append(text);
         if (entry.order_basis) {
           // What the story order rests on (D24): a chip with the place in the order, and the whole
           // sentence for a screen reader, which is what the old caption said.
@@ -179,6 +236,8 @@ export async function mount() {
         sort: sort.input.value,
         being,
         chain,
+        from: yearFrom.input.value,
+        to: yearTo.input.value,
       })) {
         if (value) address.searchParams.set(key, value);
         else address.searchParams.delete(key);
@@ -207,6 +266,35 @@ export async function mount() {
     ),
   );
   filters.append(bar);
+  const time = disclosure('Time');
+  const timeRow = el('div', '', 'form-grid');
+  timeRow.append(yearFrom.label, yearTo.label);
+  time.root.open = timeActive();
+  time.body.append(
+    el(
+      'p',
+      'Events dated within these years, in any calendar. Leave a side empty for no limit.',
+      'caption',
+    ),
+    timeRow,
+    button(
+      'Clear time filter',
+      () => {
+        yearFrom.input.value = '';
+        yearTo.input.value = '';
+        page = 1;
+        void load();
+      },
+      true,
+      'close',
+    ),
+  );
+  for (const input of [yearFrom.input, yearTo.input])
+    input.addEventListener('change', () => {
+      page = 1;
+      void load();
+    });
+  filters.append(time.root);
   if (canReadEventOrder) {
     const advanced = disclosure(canOrderEvents ? 'Participants and causes' : 'Causes');
     advanced.body.append(

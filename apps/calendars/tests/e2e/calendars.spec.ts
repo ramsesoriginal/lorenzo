@@ -851,6 +851,17 @@ test('standalone Events can be found by participating being without acquiring a 
   await page.getByRole('button', { name: being.name, exact: true }).click();
   await expect(page.locator('[data-event-list] > li')).toHaveCount(1);
   await expect(page.locator('[data-event-list]')).toContainText('The beacon is lit');
+  await expect(page.locator('[data-event-list] .event-meta')).toHaveText(
+    'Undated · With Aster the traveller',
+  );
+  // A time filter keeps only Events dated in the years asked for; an undated one is not among them.
+  await page.getByText('Time', { exact: true }).click();
+  await page.getByLabel('From year', { exact: true }).fill('10');
+  await page.getByLabel('To year', { exact: true }).fill('20');
+  await page.getByLabel('To year', { exact: true }).press('Tab');
+  await expect(page.getByText('No Events match these filters.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear time filter', exact: true }).click();
+  await expect(page.locator('[data-event-list] > li')).toHaveCount(1);
   await page.getByRole('combobox', { name: 'List order', exact: true }).selectOption('order');
   await page.getByRole('button', { name: 'Find Events', exact: true }).click();
   await expect(page.getByText('1 Event.', { exact: true })).toBeVisible();

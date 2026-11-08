@@ -799,6 +799,17 @@ button.seg-chip:hover {
   border-top: 0;
 }
 
+.event-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-block: var(--space-1);
+}
+
+.event-meta:empty {
+  display: none;
+}
+
 .event-mark {
   flex: none;
   color: var(--text-secondary);
