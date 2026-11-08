@@ -22,7 +22,6 @@ import {
   linkButton,
   loading,
   message,
-  select,
 } from '../../lib/dom';
 import { informationView, renderText } from '../../lib/information';
 import { prefetchEntry, prefetchYear } from '../../lib/prefetch';
@@ -82,19 +81,28 @@ export async function mount() {
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, calendarId);
     rememberThisPage(tenantId, calendar.name);
-    const head = el('div', '', 'page-header');
-    head.append(
-      el('h1', calendar.name),
-      linkButton('Calendar entry', entryHref(tenantId, calendarId), 'kind-calendar'),
-    );
+    // The head (CS6): the calendar's name small over the segment's name large, and on the right the
+    // choices that change what is shown (month or whole year, the year, the calendar's own page and,
+    // for whoever can write, its definition).
+    const head = el('div', '', 'cal-head');
+    const titleBlock = el('div', '', 'cal-title');
+    const over = el('div', '', 'cal-over');
+    const overYear = el('span');
+    over.append(el('h1', calendar.name), overYear);
+    const bigTitle = el('h2', '', 'cal-big display');
+    titleBlock.append(over, bigTitle);
+    const controls = el('div', '', 'cal-controls');
+    const viewSlot = el('div', '', 'cal-view');
+    head.append(titleBlock, controls);
     wait.replaceWith(head);
+    let edit: ReturnType<typeof disclosure> | undefined;
     if (canWrite) {
-      const edit = disclosure('Edit calendar definition', true);
+      edit = disclosure('Edit calendar definition', true);
+      edit.root.classList.add('cal-edit');
       edit.body.append(
         definitionEditor(tenantId, calendar),
         renderAudienceControl({ client, tenantId, entityId: calendarId }),
       );
-      host.append(edit.root);
     }
     const fallback =
       calendar.definition.week?.reference.year ?? calendar.definition.moons[0]?.reference.year ?? 0;
@@ -103,7 +111,7 @@ export async function mount() {
     y.input.min = '-1000000';
     y.input.max = '1000000';
     y.label.classList.add('year-field');
-    const yearNav = el('form', '', 'toolbar year-nav');
+    const yearNav = el('form', '', 'year-nav');
     const go = el('button', 'Open year', 'btn btn-secondary');
     go.type = 'submit';
     yearNav.append(
@@ -112,8 +120,28 @@ export async function mount() {
       button('Next year', () => openYear(year + 1), true, 'next'),
       go,
     );
+    const entryLink = linkButton(
+      'Calendar entry',
+      entryHref(tenantId, calendarId),
+      'kind-calendar',
+    );
+    controls.append(viewSlot, yearNav, entryLink);
+    if (edit) {
+      const editing = edit;
+      const open = button(
+        'Edit the calendar',
+        () => {
+          editing.root.open = !editing.root.open;
+          if (editing.root.open) editing.root.scrollIntoView({ block: 'start' });
+        },
+        true,
+        'edit',
+      );
+      controls.append(open);
+      host.append(edit.root);
+    }
     const status = feedback();
-    host.append(yearNav, status.node);
+    host.append(status.node);
     const body = el('div', '', 'calendar-layout');
     const grid = el('section', '', 'stack');
     const detail = el('aside', '', 'card card-body stack');
@@ -131,6 +159,40 @@ export async function mount() {
       name: string;
       date: { year: number; segment: string; day: number };
     }> = [];
+    // A day's marks (CS5): up to two small symbols and "+N" for the rest, the words of each kept for a
+    // reader of the page (and for the panel, which has them in full).
+    type Mark = { kind: 'note' | 'entry' | 'observance'; text: string };
+    const markIcons = { note: 'kind-fact', entry: 'kind-entity', observance: 'kind-observance' };
+    const dayState = new WeakMap<HTMLElement, { items: Mark[]; loading: boolean }>();
+    function paintDay(content: HTMLElement) {
+      const state = dayState.get(content);
+      if (!state) return;
+      const nodes: Node[] = [];
+      if (state.loading) nodes.push(el('span', 'Loading notes…', 'skeleton day-item day-loading'));
+      if (state.items.length) {
+        const marks = el('span', '', 'day-marks');
+        marks.setAttribute('aria-hidden', 'true');
+        for (const item of state.items.slice(0, 2)) {
+          const mark = el('span', '', `day-mark day-mark--${item.kind}`);
+          mark.title = item.text;
+          mark.append(icon(markIcons[item.kind]));
+          marks.append(mark);
+        }
+        if (state.items.length > 2)
+          marks.append(el('span', `+${state.items.length - 2}`, 'day-more'));
+        nodes.push(marks);
+        // What each mark is, in words, for a screen reader and for finding it on the page.
+        for (const item of state.items) nodes.push(el('span', item.text, 'visually-hidden'));
+      }
+      content.replaceChildren(...nodes);
+    }
+    function dayItems(content: HTMLElement, change: { items?: Mark[]; loading?: boolean }) {
+      const state = dayState.get(content) ?? { items: [], loading: false };
+      if (change.items) state.items = [...state.items, ...change.items];
+      if (change.loading !== undefined) state.loading = change.loading;
+      dayState.set(content, state);
+      paintDay(content);
+    }
     type DaySummary = { notes: string[]; entries: string[] };
     const contentCache = new Map<string, Promise<DaySummary>>();
     const summaryReads = new Map<string, Promise<void>>();
@@ -195,20 +257,25 @@ export async function mount() {
             if (!content.isConnected) continue;
             const summary = await contentCache.get(period.entity_id);
             if (!content.isConnected) continue;
-            content.replaceChildren(
-              ...(summary?.notes ?? []).map((note) =>
-                el('span', `Note · ${note}`, 'day-item day-note'),
-              ),
-              ...(summary?.entries ?? []).map((name) => el('span', name, 'day-item day-entry')),
-            );
+            dayItems(content, {
+              loading: false,
+              items: [
+                ...(summary?.notes ?? []).map(
+                  (note): Mark => ({ kind: 'note', text: `Note · ${note}` }),
+                ),
+                ...(summary?.entries ?? []).map((name): Mark => ({ kind: 'entry', text: name })),
+              ],
+            });
           }
         })
         .catch(() => {
           for (const { content } of jobs) {
-            if (content.isConnected)
+            if (content.isConnected) {
+              dayState.set(content, { items: [], loading: false });
               content.replaceChildren(
                 el('span', 'Could not load notes and entries.', 'day-item error-text'),
               );
+            }
           }
         });
     }
@@ -297,13 +364,13 @@ export async function mount() {
     }
     function showYear() {
       grid.replaceChildren();
-      const tabs = el('div', '', 'tabs');
+      const tabs = el('div', '', 'tabs view-switch');
       tabs.setAttribute('role', 'tablist');
       tabs.setAttribute('aria-label', 'Calendar view');
       const monthPanel = el('div', '', 'stack');
       const yearPanel = el('div', '', 'stack year-segments');
       const panels = [monthPanel, yearPanel];
-      const tabButtons = ['Month or festival', 'Whole year'].map((name, index) => {
+      const tabButtons = ['Month', 'Whole year'].map((name, index) => {
         const tab = button(name, () => activate(index), true);
         tab.className = 'tab';
         tab.id = `calendar-view-tab-${index}`;
@@ -337,9 +404,9 @@ export async function mount() {
         tabs.append(tab);
         return tab;
       });
-      const bar = el('div', '', 'view-bar');
-      bar.append(
-        tabs,
+      viewSlot.replaceChildren(tabs);
+      const notesRow = el('div', '', 'cal-notes-row');
+      notesRow.append(
         button(
           `Year ${year}: notes and dated entries`,
           () => showPeriod(),
@@ -347,7 +414,7 @@ export async function mount() {
           'kind-calendar-pin',
         ),
       );
-      grid.append(bar, monthPanel, yearPanel);
+      grid.append(notesRow, monthPanel, yearPanel);
       function activate(index: number) {
         wholeYear = index === 1;
         detail.querySelector('[data-calendar-return]')?.remove();
@@ -366,32 +433,89 @@ export async function mount() {
           for (const segment of preview.segments) {
             const month = el('section', '', 'stack year-segment');
             yearPanel.append(month);
-            showSegment(segment.key, month);
+            showSegment(segment.key, month, true);
           }
         } else {
           if (!preview.segments.some((s) => s.key === chosenSegment))
             chosenSegment = preview.segments[0]?.key ?? '';
-          const picker = select(
-            'Month or festival',
-            preview.segments.map((s) => [
-              s.key,
-              `${s.name}${s.kind === 'festival' ? ' · festival' : ''}`,
-            ]),
-            chosenSegment,
-          );
-          picker.label.classList.add('narrow-field');
+          const strip = el('div', '', 'seg-strip horizontal-mask');
+          strip.setAttribute('role', 'group');
+          strip.setAttribute('aria-label', 'Month or festival');
           const days = el('div', '', 'stack');
-          monthPanel.append(picker.label, days);
-          picker.input.addEventListener('change', () => {
-            chosenSegment = picker.input.value;
-            showSegment(chosenSegment, days);
+          monthPanel.append(strip, days);
+          const chips = new Map<string, HTMLButtonElement>();
+          const choose = (key: string) => {
+            chosenSegment = key;
+            for (const [chipKey, chip] of chips)
+              chip.setAttribute('aria-pressed', String(chipKey === key));
+            chips.get(key)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+            showSegment(key, days, false);
+            setTitle();
+          };
+          for (const definition of calendar.definition.segments) {
+            const shown = preview.segments.find((s) => s.key === definition.key);
+            if (!shown) {
+              // A leap segment that this year does not have keeps its place, and cannot be opened.
+              const absent = el('div', '', 'seg-chip seg-chip--absent');
+              absent.append(
+                el('span', definition.name, 'seg-name'),
+                el('span', 'absent this year', 'seg-meta'),
+              );
+              strip.append(absent);
+              continue;
+            }
+            const chip = el('button', '', `seg-chip${shown.kind === 'festival' ? ' fest' : ''}`);
+            chip.type = 'button';
+            chip.dataset.segment = shown.key;
+            // How much is written: a dot for each fifth of the days that have something.
+            const written = periods.filter((p) => p.segment === shown.key && p.day !== null).length;
+            const filled =
+              written === 0 ? 0 : Math.max(1, Math.ceil((written / shown.days.length) * 5));
+            const dots = el('span', '', 'seg-density');
+            dots.setAttribute('aria-hidden', 'true');
+            for (let i = 0; i < 5; i++) dots.append(el('span', '', i < filled ? 'on' : ''));
+            chip.append(
+              el('span', shown.name, 'seg-name'),
+              el(
+                'span',
+                `${shown.days.length} ${shown.days.length === 1 ? 'day' : 'days'}`,
+                'seg-meta',
+              ),
+              dots,
+            );
+            chip.setAttribute('aria-pressed', String(shown.key === chosenSegment));
+            chip.addEventListener('click', () => choose(shown.key));
+            chips.set(shown.key, chip);
+            strip.append(chip);
+          }
+          // Page Up and Page Down change segment, from the strip or the grid.
+          monthPanel.addEventListener('keydown', (event) => {
+            if (event.key !== 'PageUp' && event.key !== 'PageDown') return;
+            const keys = [...chips.keys()];
+            const next = keys.indexOf(chosenSegment) + (event.key === 'PageDown' ? 1 : -1);
+            if (next < 0 || next >= keys.length) return;
+            event.preventDefault();
+            const target = keys[next] ?? chosenSegment;
+            choose(target);
+            chips.get(target)?.focus();
           });
-          showSegment(chosenSegment, days);
+          showSegment(chosenSegment, days, false);
+          // The strip opens with the segment on show in view, however far along it is.
+          chips.get(chosenSegment)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
         }
+        setTitle();
       }
       activate(wholeYear ? 1 : 0);
     }
-    function showSegment(key: string, container: HTMLElement) {
+    // The heading that says which segment is shown: the head of the page for the month, and a row's
+    // name in the whole year.
+    function setTitle() {
+      overYear.textContent = `· Year ${year}`;
+      bigTitle.textContent = wholeYear
+        ? `Year ${year}`
+        : (preview.segments.find((s) => s.key === chosenSegment)?.name ?? '');
+    }
+    function showSegment(key: string, container: HTMLElement, withTitle: boolean) {
       const segment = preview.segments.find((s) => s.key === key);
       if (!segment) return;
       container.replaceChildren();
@@ -401,9 +525,15 @@ export async function mount() {
         true,
         'kind-calendar-pin',
       );
-      const title = el('div', '', 'section-head');
-      title.append(el('h2', segment.name), notes);
-      container.append(title);
+      if (withTitle) {
+        const title = el('div', '', 'section-head');
+        title.append(el('h2', segment.name), notes);
+        container.append(title);
+      } else {
+        const row = el('div', '', 'cal-notes-row');
+        row.append(notes);
+        container.append(row);
+      }
       const definition = calendar.definition.segments.find((s) => s.key === key);
       const week = calendar.definition.week;
       const useWeek = Boolean(week && definition?.in_week);
@@ -413,9 +543,6 @@ export async function mount() {
         cells.tabIndex = 0;
         cells.setAttribute('role', 'group');
         cells.setAttribute('aria-label', `Dates in ${segment.name} ${year}`);
-        container.append(
-          el('p', 'Scroll across the week for more dates.', 'caption calendar-scroll-hint'),
-        );
       }
       if (useWeek && week) {
         for (let i = 0; i < week.length; i++)
@@ -469,13 +596,13 @@ export async function mount() {
         if (saved) {
           press.addEventListener('pointerenter', () => prefetchEntry(tenantId, saved.entity_id));
           press.addEventListener('focus', () => prefetchEntry(tenantId, saved.entity_id));
-          content.append(el('span', 'Loading notes…', 'skeleton day-item day-loading'));
+          dayItems(content, { loading: true });
           pending.push({ period: saved, content });
         }
-        for (const occurrence of occurrences.filter(
-          (o) => o.date.segment === key && o.date.day === day.date.day,
-        ))
-          cell.append(el('span', `Recurring · ${occurrence.name}`, 'day-item day-observance'));
+        const recurring = occurrences
+          .filter((o) => o.date.segment === key && o.date.day === day.date.day)
+          .map((o): Mark => ({ kind: 'observance', text: `Recurring · ${o.name}` }));
+        if (recurring.length) dayItems(content, { items: recurring });
         cells.append(cell);
       }
       container.append(cells);

@@ -297,9 +297,165 @@ a.home-tile:hover {
 
 /* A calendar ---------------------------------------------------------------------------- */
 
+/* The head (CS6): the calendar's name small over the segment's name large, and the choices that change
+   what is shown on the right. */
+.cal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.cal-over {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+}
+
+[data-page] .cal-over h1 {
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 400;
+  color: inherit;
+}
+
+[data-page] .cal-big {
+  margin: 0;
+  font-size: var(--fs-title);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.cal-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2h) var(--space-3);
+}
+
+.year-nav {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.year-nav .year-field {
+  flex: none;
+  width: 6.5rem;
+}
+
+/* Month and Whole year, as one control. */
+.tabs.view-switch {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+}
+
+.view-switch .tab {
+  min-height: var(--hit);
+  padding: 0 var(--space-3);
+  border-bottom: 0;
+}
+
+.view-switch .tab[aria-selected="true"] {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+
+/* A form in a card that the head's Edit button opens; until then it is not there. */
+.cal-edit {
+  margin-block-start: var(--space-3);
+}
+
+.cal-edit:not([open]) {
+  display: none;
+}
+
+.cal-notes-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The strip of segments: a chip for each, with how much is written as five dots; a festival has a
+   double edge, and a leap segment this year does not have keeps its place and cannot be opened. */
+.seg-strip {
+  display: flex;
+  gap: var(--space-2);
+  padding-block-end: var(--space-1);
+  overflow-x: auto;
+}
+
+.seg-chip {
+  flex: none;
+  display: grid;
+  gap: 2px;
+  justify-content: start;
+  justify-items: start;
+  min-width: 7rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  font-weight: 400;
+  text-align: start;
+}
+
+button.seg-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--fill-soft);
+}
+
+.seg-chip[aria-pressed="true"] {
+  border-color: var(--action);
+  background: var(--surface-selected);
+}
+
+.seg-chip.fest {
+  border-style: double;
+  border-width: 3px;
+}
+
+.seg-chip--absent {
+  border-style: dashed;
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.seg-name {
+  font-weight: 500;
+}
+
+.seg-meta {
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+}
+
+.seg-density {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.seg-density > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+}
+
+.seg-density > .on {
+  background: var(--action);
+}
+
 .calendar-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
   gap: var(--space-4);
   align-items: start;
 }
@@ -308,34 +464,35 @@ a.home-tile:hover {
   min-width: 0;
 }
 
-.view-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-}
-
-.view-bar > .tabs {
-  flex: 1 1 auto;
-}
-
+/* The grid: hairlines between the days, a muted row of weekdays, the selected day framed. */
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(var(--week-length, 7), minmax(5.5rem, 1fr));
-  gap: var(--space-1);
-  overflow-x: auto;
-  padding: var(--space-1);
+  grid-template-columns: repeat(var(--week-length, 7), minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--surface-default);
 }
 
 .weekday {
-  padding-block: var(--space-2);
+  padding: var(--space-2);
   overflow: hidden;
-  font-size: 13px;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+  font-size: var(--fs-meta);
   font-weight: 500;
   color: var(--text-secondary);
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.month-grid > span[aria-hidden="true"] {
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .day {
@@ -343,31 +500,28 @@ a.home-tile:hover {
   display: grid;
   align-content: start;
   gap: var(--space-1);
-  min-height: 5rem;
+  min-height: 5.5rem;
   padding: var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-default);
   color: var(--text-primary);
-  font-size: 14px;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease;
+  font-size: var(--fs-ui);
+  transition: background-color 150ms ease;
 }
 
 .day:hover {
-  border-color: var(--border-strong);
   background: var(--fill-soft);
 }
 
 .day:has(.day-button[aria-pressed="true"]) {
-  border-color: var(--action);
   background: var(--surface-selected);
+  box-shadow: inset 0 0 0 2px var(--action);
 }
 
 .day:has(.day-button:focus-visible) {
   outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline-offset: -2px;
 }
 
 /* The button names the date and holds the moons; its hit area is the whole cell. */
@@ -376,7 +530,7 @@ a.home-tile:hover {
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-control);
+  border-radius: 0;
   background: transparent;
   color: inherit;
   font-size: inherit;
@@ -407,13 +561,13 @@ a.home-tile:hover {
 }
 
 .day-number {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .moon-phases {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: 2px;
   color: var(--text-secondary);
 }
 
@@ -422,21 +576,20 @@ a.home-tile:hover {
   gap: var(--space-1);
 }
 
+.day-marks {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+}
+
 .day-item {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   line-height: 1.4;
-}
-
-.day-note,
-.day-observance {
-  color: var(--text-secondary);
-}
-
-.day-entry {
-  color: var(--action);
-  font-weight: 500;
 }
 
 .day-loading {
@@ -452,16 +605,14 @@ a.home-tile:hover {
 
 .festival .day {
   min-width: 7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
 }
 
 .year-segment {
   min-width: 0;
   padding-block-end: var(--space-4);
   border-block-end: 1px solid var(--border-subtle);
-}
-
-.calendar-scroll-hint {
-  display: none;
 }
 
 /* The selected day's moons, each a symbol and its words. */
@@ -474,11 +625,12 @@ a.home-tile:hover {
 
 /* The day panel's own heading is smaller than a page's. */
 .calendar-layout > aside h2 {
-  font-size: 20px;
+  font-size: var(--fs-heading);
 }
 
-@media (min-width: 721px) {
-  .calendar-layout.whole-year > aside {
+/* Above a tablet the panel stays in view beside the grid. */
+@container shell (min-width: 1100px) {
+  .calendar-layout > aside {
     position: sticky;
     top: var(--space-3);
     max-height: calc(100dvh - var(--space-5));
@@ -486,17 +638,20 @@ a.home-tile:hover {
   }
 }
 
-@media (max-width: 720px) {
+@container shell (max-width: 1099px) {
   .calendar-layout {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .calendar-scroll-hint {
-    display: block;
+@container shell (max-width: 720px) {
+  .day {
+    min-height: 3.75rem;
+    padding: var(--space-1);
   }
 
-  .day {
-    min-height: 4.5rem;
+  .weekday {
+    padding: var(--space-1);
   }
 
   .card.disclosure > summary,

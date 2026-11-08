@@ -3,6 +3,10 @@ import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { AUTHGEAR_URL, REFRESH_TOKEN_KEY, SITE_URL, SUBJECT_COOKIE } from './support/env.ts';
 import { buildWorld } from './support/world.ts';
 
+/** The chip of a month or festival in the strip above the grid. */
+const segmentChip = (page: Page, name: string) =>
+  page.locator('.seg-chip').filter({ has: page.getByText(name, { exact: true }) });
+
 /** The cell of one day: its button, which names the date, and what is written beneath it. */
 const dayCell = (page: Page, name: string) =>
   page.locator('.day').filter({ has: page.getByRole('button', { name, exact: true }) });
@@ -135,9 +139,7 @@ test('imported irregular year is browsable without creating periods, and dated i
   const before = await periods();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await expect(page.getByRole('heading', { name: 'Isles calendar', exact: true })).toBeVisible();
-  await expect(
-    page.getByRole('combobox', { name: /^Month or festival/ }).locator('option'),
-  ).toHaveCount(19);
+  await expect(page.locator('.seg-chip')).toHaveCount(19);
   await expect(page.locator('.day')).toHaveCount(27);
   await expect(page.locator('.weekday').first()).toHaveText('Montag');
   const firstMoon = page.locator('.day').first().locator('.moon-phase').first();
@@ -147,9 +149,9 @@ test('imported irregular year is browsable without creating periods, and dated i
     'aria-description',
     /Maira:.*Mendra:.*Galon:/,
   );
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-4');
+  await segmentChip(page, 'Nordtage').click();
   await expect(page.locator('.day')).toHaveCount(2);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Quirm').click();
   const diaryDay = page.getByRole('button', { name: '16 Quirm 3286', exact: true });
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   await expect(dayCell(page, '17 Quirm 3286')).toContainText('Harbour storm');
@@ -220,7 +222,7 @@ test('definition conflict retains the draft until the saved version has been rev
   const world = await buildWorld();
   const page = await signedIn(browser, world.subject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByText('Edit calendar definition', { exact: true }).click();
+  await page.getByRole('button', { name: 'Edit the calendar', exact: true }).click();
   await page.getByLabel('Segment name', { exact: true }).first().fill('Rimsep draft');
   await page.getByRole('button', { name: 'Preview this year', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Save definition', exact: true })).toBeEnabled();
@@ -259,7 +261,7 @@ test('readers see permitted names and dates without private information or autho
   const world = await buildWorld();
   const page = await signedIn(browser, world.readerSubject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Quirm').click();
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   await expect(dayCell(page, '17 Quirm 3286')).toContainText('Harbour storm');
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toHaveCount(0);
@@ -408,15 +410,15 @@ test('month content is cached and moon names remain available when selecting a d
     if (r.url().includes('/period-summaries')) summaries.push(r.url());
   });
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Quirm').click();
   await expect(page.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(0);
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   // Only the selected day's own panel reads a period by itself; no cell does.
   expect(reads.length).toBeLessThanOrEqual(2);
   const loaded = summaries.length;
   expect(loaded).toBeGreaterThan(0);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-4');
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Nordtage').click();
+  await segmentChip(page, 'Quirm').click();
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit by the harbour.');
   // Another month asks once more; coming back to Quirm asks for nothing.
   expect(summaries.length).toBeLessThanOrEqual(loaded + 1);
@@ -472,9 +474,9 @@ test('whole year reuses month content and supports keyboard tabs, festivals and 
     );
   const before = await periods();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
-  await page.getByRole('combobox', { name: /^Month or festival/ }).selectOption('segment-6');
+  await segmentChip(page, 'Quirm').click();
   await expect(dayCell(page, '16 Quirm 3286')).toContainText('A lantern was lit');
-  await page.getByRole('tab', { name: 'Month or festival', exact: true }).press('End');
+  await page.getByRole('tab', { name: 'Month', exact: true }).press('End');
   const yearPanel = page.getByRole('tabpanel', { name: 'Whole year', exact: true });
   await expect(page.getByRole('tab', { name: 'Whole year', exact: true })).toHaveAttribute(
     'aria-selected',
@@ -493,8 +495,8 @@ test('whole year reuses month content and supports keyboard tabs, festivals and 
   );
   const loaded = reads.length;
   await page.getByRole('tab', { name: 'Whole year', exact: true }).press('Home');
-  await expect(page.getByRole('combobox', { name: /^Month or festival/ })).toHaveValue('segment-6');
-  await page.getByRole('tab', { name: 'Month or festival', exact: true }).press('ArrowRight');
+  await expect(segmentChip(page, 'Quirm')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('tab', { name: 'Month', exact: true }).press('ArrowRight');
   await expect(yearPanel.locator('.day-content').filter({ hasText: 'Loading notes' })).toHaveCount(
     0,
   );
@@ -544,7 +546,7 @@ test('whole year on a phone keeps reader visibility and returns from day detail 
   await expect(day).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('whole-year-phone.png') });
-  await page.getByRole('tab', { name: 'Month or festival', exact: true }).click();
+  await page.getByRole('tab', { name: 'Month', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Back to calendar', exact: true })).toHaveCount(0);
   await expect(page.locator('.day')).toHaveCount(27);
   await page.context().close();
@@ -757,7 +759,7 @@ test('calendar addresses and named or numbered date links preserve identity with
   await expect(page.locator('a.ls-cal')).toHaveCount(2);
   await expect(page.locator('a.ls-cal').first()).toHaveText('16 Quirm 3286');
   await page.locator('a.ls-cal').first().click();
-  await expect(page.getByRole('combobox', { name: /^Month or festival/ })).toHaveValue('segment-6');
+  await expect(segmentChip(page, 'Quirm')).toHaveAttribute('aria-pressed', 'true');
   await expect(
     page.locator('aside').getByRole('heading', { name: '16 Quirm 3286', exact: true }),
   ).toBeVisible();
