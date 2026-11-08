@@ -72,7 +72,7 @@ export async function mount() {
       .filter(Boolean)
       .join(' · ');
   }
-  // When and who, read lazily per row through the entry's own endpoints, so a long list stays cheap.
+  // The strip's ticks need each Event's structured dates, read through the entry's own endpoints.
   type Dated = { calendar: string; year: number; segment: string | null; day: number | null };
   type Meta = { when: string; dates: Dated[]; who: string };
   const metaCache = new Map<string, Promise<Meta>>();
@@ -168,11 +168,13 @@ export async function mount() {
         const detail = el('span', '', 'caption event-meta');
         open.classList.remove('grow');
         text.append(open, detail);
-        void metaFor(entry.entity_id).then((m) => {
-          detail.textContent = [m.when, canOrderEvents ? m.who || 'No one recorded' : '']
-            .filter(Boolean)
-            .join(' · ');
-        });
+        // The list says it itself (ADR 0442): where it is dated and, for who may read it, who took part.
+        detail.textContent = [
+          entry.dates?.length ? entry.dates.join(' · ') : 'Undated',
+          entry.participants ? entry.participants.join(', ') || 'No one recorded' : '',
+        ]
+          .filter(Boolean)
+          .join(' · ');
         row.append(text);
         if (entry.order_basis) {
           // What the story order rests on (D24): a chip with the place in the order, and the whole

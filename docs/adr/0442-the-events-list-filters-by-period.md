@@ -23,4 +23,4 @@ Calendars' Events list sends the strip's range to this filter and no longer read
 
 - The filter is one SQL subquery joined to the date associations; an Event dated in no period is never in a filtered list, which is what an undated Event should do.
 - The generated clients carry the new parameters (`packages/api-client`); the CLI's models are unchanged, since they hold schemas and not query parameters.
-- Not done here: the date and who took part on the Events list's rows (the first item of #1135); the rows still read them for each row.
+- Each row of the list also carries the names of the dates it can see and, for who may read an Event's people, who took part, so the list no longer reads them per row. The strip's ticks still read structured dates per Event.

@@ -10463,6 +10463,10 @@ export interface components {
             slug?: string | null;
             /** Order Basis */
             order_basis?: ("causal" | "ruled" | "linearized") | null;
+            /** Dates */
+            dates?: string[];
+            /** Participants */
+            participants?: string[] | null;
         };
         /** ExtractChapter */
         ExtractChapter: {
