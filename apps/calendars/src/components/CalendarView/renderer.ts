@@ -118,12 +118,10 @@ export async function mount() {
     const yearNav = el('form', '', 'year-nav');
     const go = el('button', 'Open year', 'btn btn-secondary');
     go.type = 'submit';
-    yearNav.append(
-      button('Previous year', () => openYear(year - 1), true, 'previous'),
-      y.label,
-      button('Next year', () => openYear(year + 1), true, 'next'),
-      go,
-    );
+    // The arrows step the month (CS6) and, in the whole year, the year; the field reaches any year.
+    const earlier = button('Previous month', () => step(-1), true, 'previous');
+    const later = button('Next month', () => step(1), true, 'next');
+    yearNav.append(earlier, y.label, later, go);
     const entryLink = linkButton(
       'Calendar entry',
       entryHref(tenantId, calendarId),
@@ -304,6 +302,23 @@ export async function mount() {
       event.preventDefault();
       void openYear(Number(y.input.value));
     });
+    // After a step over the end of a year, the segment to open on in the year that follows.
+    let arrive: 'first' | 'last' | null = null;
+    let stepChips: string[] = [];
+    function step(direction: -1 | 1) {
+      if (wholeYear) {
+        void openYear(year + direction);
+        return;
+      }
+      const at = stepChips.indexOf(chosenSegment) + direction;
+      const target = stepChips[at];
+      if (target !== undefined) choose?.(target);
+      else {
+        arrive = direction === 1 ? 'first' : 'last';
+        void openYear(year + direction);
+      }
+    }
+    let choose: ((key: string) => void) | undefined;
     async function openYear(next: number) {
       if (!Number.isInteger(next) || Math.abs(next) > 1000000) {
         status.fail('Enter a whole year between −1000000 and 1000000.');
@@ -460,6 +475,10 @@ export async function mount() {
             ),
           );
         } else {
+          if (arrive)
+            chosenSegment =
+              (arrive === 'first' ? preview.segments[0] : preview.segments.at(-1))?.key ?? '';
+          arrive = null;
           if (!preview.segments.some((s) => s.key === chosenSegment))
             chosenSegment = preview.segments[0]?.key ?? '';
           const strip = el('div', '', 'seg-strip horizontal-mask');
@@ -468,7 +487,7 @@ export async function mount() {
           const days = el('div', '', 'stack');
           monthPanel.append(strip, days);
           const chips = new Map<string, HTMLButtonElement>();
-          const choose = (key: string) => {
+          choose = (key: string) => {
             chosenSegment = key;
             for (const [chipKey, chip] of chips)
               chip.setAttribute('aria-pressed', String(chipKey === key));
@@ -520,9 +539,10 @@ export async function mount() {
             if (next < 0 || next >= keys.length) return;
             event.preventDefault();
             const target = keys[next] ?? chosenSegment;
-            choose(target);
+            choose?.(target);
             chips.get(target)?.focus();
           });
+          stepChips = [...chips.keys()];
           showSegment(chosenSegment, days, false);
           // The strip opens with the segment on show in view, however far along it is.
           chips.get(chosenSegment)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
@@ -534,6 +554,14 @@ export async function mount() {
     // The heading that says which segment is shown: the head of the page for the month, and a row's
     // name in the whole year.
     function setTitle() {
+      const unit = wholeYear ? 'year' : 'month';
+      for (const [arrow, words] of [
+        [earlier, `Previous ${unit}`],
+        [later, `Next ${unit}`],
+      ] as const) {
+        const label = arrow.lastChild;
+        if (label) label.textContent = words;
+      }
       overYear.textContent = `· Year ${year}`;
       bigTitle.textContent = wholeYear
         ? `Year ${year}`

@@ -332,7 +332,14 @@ test('imported irregular year is browsable without creating periods, and dated i
   ).toBeVisible();
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toBeVisible();
   await page.goBack();
-  await page.getByRole('button', { name: 'Next year', exact: true }).click();
+  // The arrows step the month; the year's field reaches another year.
+  await page.getByRole('button', { name: 'Next month', exact: true }).click();
+  await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3286');
+  await expect(segmentChip(page, 'Emsest')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Previous month', exact: true }).click();
+  await expect(segmentChip(page, 'Quirm')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByLabel('Year', { exact: true }).fill('3287');
+  await page.getByRole('button', { name: 'Open year', exact: true }).click();
   await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3287');
   await expect(page.getByRole('link', { name: /Harbour feast/ })).toBeVisible();
   expect(writes).toEqual([]);
@@ -1572,4 +1579,22 @@ test('the Events time filter marks the days things are dated on and keeps the Ev
   await expect(page.getByText('Harbour storm', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Any time', exact: true }).click();
   await expect(page.locator('.time-filter-out')).toHaveText('Any time');
+});
+
+test('the month arrows carry on into the neighbouring year at the ends of a year', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-1`,
+  );
+  await expect(segmentChip(page, 'Rimsep')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Previous month', exact: true }).click();
+  await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3285');
+  await expect(segmentChip(page, 'Rimsep')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.seg-chip[aria-pressed="true"]')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Next month', exact: true }).click();
+  await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3286');
+  await expect(segmentChip(page, 'Rimsep')).toHaveAttribute('aria-pressed', 'true');
 });

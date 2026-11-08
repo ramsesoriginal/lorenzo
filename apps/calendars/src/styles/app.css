@@ -711,7 +711,7 @@ button.seg-chip:hover {
   }
 }
 
-@container shell (max-width: 720px) {
+@container shell (max-width: 1099px) {
   /* The panel is a bottom sheet: not there until a date is chosen, then over the bottom of the page. */
   .calendar-layout > aside {
     position: fixed;
@@ -917,7 +917,7 @@ button.seg-chip:hover {
   align-self: flex-end;
 }
 
-@container shell (max-width: 720px) {
+@container shell (max-width: 1099px) {
   .sheet-close {
     display: inline-flex;
   }
