@@ -7,6 +7,7 @@ import {
   entryHref,
   feedback,
   field,
+  icon,
   iconLink,
   link,
   message,
@@ -28,14 +29,14 @@ export async function mount() {
   let being = canOrderEvents ? (initial.get('being') ?? '') : '';
   let chain = initial.get('chain') ?? '';
   let page = 1;
-  const top = el('div', '', 'stack-tight');
-  top.append(
+  const head = el('div', '', 'page-heading');
+  head.append(
     el('h1', 'Events'),
-    el('p', 'Record what happened, even before its date is known.', 'lede'),
+    el('p', 'Record what happened, even before its date is known.', 'page-sub'),
   );
-  host.append(iconLink('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`, 'back'), top);
+  host.append(iconLink('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`, 'back'), head);
   const status = feedback();
-  const list = el('ol', '', 'list');
+  const list = el('ol', '', 'list event-list');
   list.dataset.eventList = '';
   const nav = el('div', '', 'row');
   const q = field('Search Event names', initial.get('q') ?? '');
@@ -94,42 +95,51 @@ export async function mount() {
       if (turn !== generation || !host?.isConnected) return;
       list.replaceChildren();
       list.hidden = !response.items.length;
-      list.start = (page - 1) * 30 + 1;
-      for (const entry of response.items) {
+      for (const [index, entry] of response.items.entries()) {
         rememberEntryAddress(tenantId, entry);
-        const row = el('li');
+        const row = el('li', '', 'event-row');
+        row.append(icon('kind-event', 'event-mark'));
         const open = link(entry.name, entryHref(tenantId, entry.entity_id));
         open.classList.add('grow');
         row.append(open);
-        if (entry.order_basis)
-          row.append(
+        if (entry.order_basis) {
+          // What the story order rests on (D24): a chip with the place in the order, and the whole
+          // sentence for a screen reader, which is what the old caption said.
+          const words = {
+            causal: 'Causal order',
+            ruled: 'Recorded order',
+            linearized: canOrderEvents
+              ? 'Linearized · no recorded ordering path'
+              : 'Linearized · no visible recorded ordering path',
+          }[entry.order_basis];
+          const position = sort.input.value === 'order' ? `${(page - 1) * 30 + index + 1}. ` : '';
+          const chip = el('span', '', 'state-chip');
+          chip.dataset.state = entry.order_basis === 'linearized' ? 'stale' : 'synced';
+          chip.setAttribute('aria-hidden', 'true');
+          chip.append(
             el(
               'span',
-              {
-                causal: 'Causal order',
-                ruled: 'Recorded order',
-                linearized: canOrderEvents
-                  ? 'Linearized · no recorded ordering path'
-                  : 'Linearized · no visible recorded ordering path',
-              }[entry.order_basis],
-              'caption',
+              `${position}${entry.order_basis === 'linearized' ? 'linearized' : 'recorded'}`,
             ),
           );
-        if (canReadEventOrder)
-          row.append(
-            button(
-              'Follow causes',
-              () => {
-                chain = entry.entity_id;
-                sort.input.value = 'order';
-                page = 1;
-                showChoices();
-                void load();
-              },
-              true,
-              'causality',
-            ),
+          row.append(chip, el('span', words, 'visually-hidden'));
+        }
+        if (canReadEventOrder) {
+          const follow = button(
+            'Follow causes',
+            () => {
+              chain = entry.entity_id;
+              sort.input.value = 'order';
+              page = 1;
+              showChoices();
+              void load();
+            },
+            true,
+            'causality',
           );
+          follow.classList.replace('btn-secondary', 'btn-text');
+          row.append(follow);
+        }
         list.append(row);
       }
       nav.replaceChildren();
@@ -235,6 +245,7 @@ export async function mount() {
   }
   if (session.canCreateEntries) {
     const create = disclosure('Create an Event', true);
+    create.root.classList.add('event-create');
     const form = el('form', '', 'stack');
     const name = field('Event name');
     name.input.required = true;
@@ -301,6 +312,18 @@ export async function mount() {
     });
     create.body.append(form);
     host.append(create.root);
+    // The page's main action opens the form that makes one.
+    const headActions = el('div', '', 'page-heading-actions');
+    const open = el('button', '', 'btn btn-primary');
+    open.type = 'button';
+    open.append(icon('add'), document.createTextNode('New Event'));
+    open.addEventListener('click', () => {
+      create.root.open = true;
+      create.root.scrollIntoView({ block: 'start' });
+      name.input.focus();
+    });
+    headActions.append(open);
+    head.querySelector('h1')?.after(headActions);
   }
   host.append(
     filters,

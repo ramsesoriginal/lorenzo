@@ -758,3 +758,36 @@ button.seg-chip:hover {
 .add-form:not([open]) {
   display: none;
 }
+
+/* The list of Events: one frame, a hairline between rows, a chip for what the story order rests on. */
+.list.event-list {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+  list-style: none;
+}
+
+.list.event-list > li {
+  min-height: var(--row-h);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+}
+
+.list.event-list > li:first-child {
+  border-top: 0;
+}
+
+.event-mark {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+/* The form that makes an Event is opened by the page's New Event; until then it is not there. */
+.event-create:not([open]) {
+  display: none;
+}

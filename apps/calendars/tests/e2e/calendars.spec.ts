@@ -665,7 +665,7 @@ test('standalone Events can be found by participating being without acquiring a 
   );
   const page = await signedIn(browser, world.subject);
   await page.goto(`/events/?tenant=${world.tenantId}`);
-  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByRole('button', { name: 'New Event', exact: true }).click();
   await page.getByLabel('Event name', { exact: true }).fill('The beacon is lit');
   await page.getByRole('button', { name: 'Create Event', exact: true }).click();
   await expect(
@@ -714,7 +714,7 @@ test('standalone Events can be found by participating being without acquiring a 
     reader.getByRole('heading', { name: 'Events', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(reader.getByText('Participants and causes', { exact: true })).toHaveCount(0);
-  await expect(reader.getByText('Create an Event', { exact: true })).toHaveCount(1);
+  await expect(reader.getByRole('button', { name: 'New Event', exact: true })).toHaveCount(1);
   await expect(reader.getByRole('link', { name: 'The beacon is lit', exact: true })).toHaveCount(0);
   await page.context().close();
   await reader.context().close();
@@ -1241,7 +1241,7 @@ test('players create their own Events and Facts and contribute only their own no
   const world = await buildWorld();
   const page = await signedIn(browser, world.readerSubject);
   await page.goto(`/events/?tenant=${world.tenantId}`);
-  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByRole('button', { name: 'New Event', exact: true }).click();
   await page.getByLabel('Event name', { exact: true }).fill('A player records arrival');
   await page.getByRole('button', { name: 'Create Event', exact: true }).click();
   await expect(
@@ -1261,7 +1261,7 @@ test('players create their own Events and Facts and contribute only their own no
   await expect(page.getByText('We arrived before supper.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Edit note', exact: true })).toHaveCount(1);
   await page.goto(`/events/?tenant=${world.tenantId}`);
-  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByRole('button', { name: 'New Event', exact: true }).click();
   await page.getByLabel('Entry kind', { exact: true }).selectOption('fact');
   await page.getByLabel('Event name', { exact: true }).fill('The harbour has a beacon');
   await page.getByRole('button', { name: 'Create Fact', exact: true }).click();
@@ -1279,7 +1279,7 @@ test('Event creation visibility and participant note audiences remain separate',
   const world = await buildWorld();
   const page = await signedIn(browser, world.subject);
   await page.goto(`/events/?tenant=${world.tenantId}`);
-  await page.getByText('Create an Event', { exact: true }).click();
+  await page.getByRole('button', { name: 'New Event', exact: true }).click();
   await page.getByLabel('Event name', { exact: true }).fill('The participants meet');
   await page.getByLabel('Entry visibility', { exact: true }).selectOption('participants');
   await page.getByRole('button', { name: 'Create Event', exact: true }).click();
