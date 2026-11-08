@@ -265,6 +265,7 @@ export async function mountSession() {
     // The parts shown (CS4): a Session opens in Prepare, every time. A region drawn again keeps what
     // the view says of it.
     let visible: PartKey[] = [...BUILT_IN.Prepare];
+    let viewChosen = false;
     let savedViews = readViews();
     const shown = (name: string) => {
       const part = partOf(name);
@@ -498,6 +499,12 @@ export async function mountSession() {
 
     // Everything drawn again: the first time, and when what the person may do has changed.
     const drawAll = async () => {
+      // A player has fewer parts and nothing to prepare, so a Session opens in All for them (screen
+      // 20); the first drawing is when the person's part is known.
+      if (!viewChosen) {
+        viewChosen = true;
+        if (!ctx.session.can_manage) visible = [...BUILT_IN.All];
+      }
       const names = Object.keys(build);
       const nodes = new Map(
         await Promise.all(names.map(async (name) => [name, await build[name]?.()] as const)),

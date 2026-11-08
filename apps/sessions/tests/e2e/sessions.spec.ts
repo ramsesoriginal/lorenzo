@@ -106,6 +106,8 @@ test('GM prepares a session, player keeps a restricted note, and Scene reuse kee
     await player.goto(`/session/?tenant=${w.tenant.id}&id=wreck-session`);
     await expect(player.getByRole('heading', { name: 'At the wreck', exact: true })).toBeVisible();
     await expect(player.getByRole('button', { name: 'Save roster' })).toHaveCount(0);
+    // A player has no preparation to do: the Session opens in All, with only the parts they may see.
+    await expect(player.getByRole('button', { name: 'View: All' })).toBeVisible();
     await player.getByRole('button', { name: 'Add note', exact: true }).first().click();
     await player.getByLabel('Note title', { exact: true }).fill('My recollection');
     await player
