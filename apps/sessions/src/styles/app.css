@@ -242,3 +242,8 @@
   margin: var(--space-6) auto;
   text-align: center;
 }
+
+/* A card's own heading is smaller than a page's (screens 15, 21 and 23). */
+.session-grid .section-head h2 {
+  font-size: var(--fs-heading);
+}

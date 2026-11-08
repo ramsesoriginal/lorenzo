@@ -104,6 +104,13 @@ export async function mountLived() {
             'lede',
           ),
         );
+        // The sections are cards in two columns where there is room (screen 23).
+        const grid = el('div', '', 'session-grid');
+        view.append(grid);
+        const add = (node: HTMLElement, name: string) => {
+          node.dataset.region = name;
+          grid.append(node);
+        };
         const assertions = el('section', '', 'stack');
         assertions.append(sectionHead('Lived-before evidence', { count: saved.assertions.length }));
         const list = el('ul', '', 'list');
@@ -165,7 +172,7 @@ export async function mountLived() {
         }
         if (saved.assertions.length) assertions.append(list);
         else assertions.append(empty('No lived assertions are available to you here.'));
-        view.append(assertions);
+        add(assertions, 'assertions');
         const available = el('section', '', 'stack');
         available.append(
           sectionHead('Recorded participations', { count: saved.participations.length }),
@@ -182,7 +189,7 @@ export async function mountLived() {
             'status-text',
           ),
         );
-        view.append(available);
+        add(available, 'available');
         if (!saved.can_manage) {
           publish();
           return;
@@ -246,7 +253,7 @@ export async function mountLived() {
             status,
           ).root,
         );
-        view.append(form);
+        add(form, 'form');
         if (sid) {
           const source = await client.GET('/tenants/{tenant_id}/sessions/{session_id}/play', {
             params: { path: { tenant_id: tenant, session_id: sid } },
@@ -342,7 +349,7 @@ export async function mountLived() {
               proposalStatus,
             ).root,
           );
-          view.append(proposal);
+          add(proposal, 'proposal');
         }
         publish();
       } finally {
