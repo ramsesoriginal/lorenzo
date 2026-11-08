@@ -829,3 +829,56 @@ button.seg-chip:hover {
   font-size: var(--fs-heading);
   font-weight: 600;
 }
+
+/* The definition editor: a segment is one row of a table (name, days, kind, and what moves or removes
+   it), with its week and leap rule folded under it; only the first row says what each column is. */
+.segment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) 6rem minmax(0, 2fr) auto;
+  gap: var(--space-1) var(--space-3);
+  align-items: end;
+  padding-block: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.segment-row:first-child {
+  border-top: 0;
+}
+
+.segment-row > .form-grid {
+  display: contents;
+}
+
+.segment-row > .row {
+  grid-column: 4;
+  grid-row: 1;
+  flex-wrap: nowrap;
+}
+
+.segment-row > .disclosure {
+  grid-column: 1 / -1;
+}
+
+.segment-row:not(:first-child) .field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@container shell (max-width: 720px) {
+  .segment-row {
+    grid-template-columns: minmax(0, 1fr) 5rem;
+  }
+
+  .segment-row > .form-grid {
+    display: contents;
+  }
+
+  .segment-row > .row {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}

@@ -96,20 +96,19 @@ export async function mountClocks() {
     );
     if (!host.isConnected) return;
     if (clocks.length) {
-      const list = el('ul', '', 'grid calendar-list');
+      const list = el('ul', '', 'calendar-list');
       for (const clock of clocks) {
         rememberEntryAddress(tenant, clock);
+        // The same card as a calendar's: its name is the link and the whole card opens it.
         const open = link(clock.name, entryHref(tenant, clock.entity_id));
-        open.className = 'card calendar-card';
-        open.replaceChildren(
-          icon('kind-clock', 'calendar-mark'),
-          el('span', clock.name, 'calendar-name'),
-          el('span', clock.ticking ? 'Ticking' : 'Timeless', 'badge'),
-          icon('next'),
-        );
-        const item = el('li');
-        item.append(open);
-        list.append(item);
+        open.className = 'calendar-open';
+        const title = el('h2', '', 'calendar-name');
+        title.append(open);
+        const top = el('div', '', 'row-tight');
+        top.append(icon('kind-clock', 'calendar-mark'), title);
+        const card = el('li', '', 'card card-body stack-tight calendar-card');
+        card.append(top, el('p', clock.ticking ? 'Ticking' : 'Timeless', 'caption'));
+        list.append(card);
       }
       host.append(list);
     } else
