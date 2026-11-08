@@ -40,7 +40,17 @@ export function parseRecent(text: string | null): RecentPage[] {
 
 /** The title a page gives itself, without the product: "Your profile — Lorenzo" is "Your profile". */
 export function pageTitle(documentTitle: string): string {
-  return documentTitle.replace(/\s+[—-]\s+Lorenzo.*$/, '').trim() || documentTitle;
+  // Found from the dash, not from the space before it: a title is whatever a page wrote, and a regular
+  // expression that starts at every space is quadratic on a long run of them.
+  for (const match of documentTitle.matchAll(/[—-]\s+Lorenzo/g)) {
+    const before = documentTitle.slice(0, match.index);
+
+    if (before === '' || before.charAt(before.length - 1).trim() !== '') continue;
+
+    return before.trim() || documentTitle;
+  }
+
+  return documentTitle;
 }
 
 /** How long ago, in days: "today", "yesterday", "3 days ago". */
