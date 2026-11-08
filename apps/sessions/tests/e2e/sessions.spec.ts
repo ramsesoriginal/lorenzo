@@ -989,6 +989,11 @@ test('the View menu shows parts, says what is hidden, and keeps a view the perso
     await expect(page.locator('[data-region="play"]')).toBeHidden();
     await expect(page.locator('.view-foot')).toContainText('Hidden:');
     await expect(page.locator('.view-foot')).toContainText('nothing is deleted');
+    // A part's own control hides it, and the foot says so; the menu brings it back.
+    await page.getByRole('button', { name: 'Hide Scenes', exact: true }).click();
+    await expect(page.locator('[data-region="scenes"]')).toBeHidden();
+    await expect(page.locator('.view-foot')).toContainText('Scenes');
+    await expect(page.getByRole('button', { name: 'View: Custom' })).toBeVisible();
     // Played swaps them over; All shows everything and leaves nothing to say.
     await page.getByRole('button', { name: /View: / }).click();
     // The view and the part are both called Played; the views come first in the menu.

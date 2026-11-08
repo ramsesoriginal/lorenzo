@@ -203,3 +203,34 @@
     align-items: center;
   }
 }
+
+/* A part's control to hide it sits at the end of its heading (screen 15). */
+.region-hide {
+  margin-inline-start: auto;
+  min-block-size: var(--target-min);
+  min-inline-size: var(--target-min);
+}
+
+/* The parts of a Session: one column, two from 1100px, each a card (screen 15). */
+.session-grid {
+  display: block;
+}
+
+.session-grid > [data-region] {
+  break-inside: avoid;
+  margin-block-end: var(--space-3);
+}
+
+.session-grid > [data-region]:not(.card, [hidden]) {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+
+@container shell (min-width: 1100px) {
+  .session-grid {
+    column-count: 2;
+    column-gap: var(--space-4);
+  }
+}

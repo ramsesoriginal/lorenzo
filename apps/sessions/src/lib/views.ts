@@ -259,9 +259,33 @@ export async function mountSession() {
       const part = partOf(name);
       return part === undefined || visible.includes(part);
     };
+    // Each part has a control to hide it (screen 15); the View menu brings it back. It hides only the
+    // drawing, so it is the same choice as unticking the part there.
+    const hideControl = (node: HTMLElement, name: string) => {
+      const part = partOf(name);
+      const label = PARTS.find((p) => p.key === part)?.label;
+      if (part === undefined || !label) return;
+      // In a heading row only: a control inside a <summary> is nested interactive content. A part that
+      // folds is hidden from the View menu, which every part has.
+      const head = node.querySelector<HTMLElement>(':scope > .section-head');
+      if (!head || head.querySelector('.region-hide')) return;
+      const hide = el('button', '', 'btn btn-text region-hide');
+      hide.type = 'button';
+      hide.setAttribute('aria-label', `Hide ${label}`);
+      hide.title = `Hide ${label}`;
+      hide.append(icon('eye-off'));
+      hide.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        visible = toggled(visible, part);
+        syncView();
+      });
+      head.append(hide);
+    };
     const region = <T extends HTMLElement>(node: T, name: string): T => {
       node.dataset.region = name;
       node.hidden = !shown(name);
+      hideControl(node, name);
       return node;
     };
     const refreshOf =
@@ -469,24 +493,26 @@ export async function mountSession() {
       );
       if (!host.isConnected) return;
       const view = el('div', '', 'stack view');
-      const editors = el('div', '', 'stack-tight');
-      for (const name of ['details', 'roster']) {
+      // The parts are cards in two columns where there is room (screen 15), in the order the menu lists.
+      const grid = el('div', '', 'session-grid');
+      for (const name of [
+        'details',
+        'roster',
+        'notes',
+        'references',
+        'coverage',
+        'scenes',
+        'adder',
+        'play',
+        'sequence',
+        'lived',
+      ]) {
         const node = nodes.get(name);
-        if (node) editors.append(node);
+        if (node) grid.append(node);
       }
-      const outline = el('div', '', 'stack');
-      for (const name of ['scenes', 'adder']) {
-        const node = nodes.get(name);
-        if (node) outline.append(node);
-      }
-      const put = (name: string) => nodes.get(name) ?? [];
-      view.append(
-        ...[put('head')].flat(),
-        ...(editors.childElementCount ? [editors] : []),
-        ...[put('notes'), put('references'), put('coverage')].flat(),
-        outline,
-        ...[put('play'), put('sequence'), put('lived')].flat(),
-      );
+      const head = nodes.get('head');
+      if (head) view.append(head);
+      view.append(grid);
       const foot = el('p', '', 'caption view-foot');
       view.append(foot);
       const open = openPanels();
@@ -499,7 +525,11 @@ export async function mountSession() {
     const syncView = () => {
       for (const node of host.querySelectorAll<HTMLElement>('[data-region]')) {
         const name = node.dataset.region ?? '';
-        if (partOf(name) !== undefined) node.hidden = !shown(name);
+        if (partOf(name) !== undefined) {
+          node.hidden = !shown(name);
+          // The heading is there once the part is drawn, so the control is added now, once.
+          hideControl(node, name);
+        }
       }
       const foot = host.querySelector<HTMLElement>('.view-foot');
       if (foot) {
@@ -664,6 +694,7 @@ export async function mountSession() {
           return;
         }
         const drawn = await Promise.all(names.map(drawRegion));
+        syncView();
         // A region that is not on the page cannot be drawn in place: draw the page again.
         if (drawn.includes(false)) await drawAll();
       } finally {
