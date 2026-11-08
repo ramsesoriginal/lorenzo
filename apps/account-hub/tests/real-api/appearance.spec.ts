@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { newLibrary, newUser, signedInPage } from './support';
+import { newCampaign, newLibrary, newUser, openLibrary, signedInPage } from './support';
 
 // Appearance (D22, ADR 0416, screen 33): the account menu opens a dialog for the theme, the density of
 // lists and tables, and motion; each is applied at once, kept on the device and there on the next page.
@@ -96,5 +96,54 @@ test('on a phone, density is not offered and every row is big enough', async ({ 
   await expect(dialog.getByRole('radiogroup', { name: 'Density of lists and tables' })).toHaveCount(
     0,
   );
+  await context.close();
+});
+
+test('the rows of a list follow the density, and the controls and gutters do not', async ({
+  browser,
+}) => {
+  const owner = await newUser('owner', ['tenant_creator']);
+  const library = await newLibrary(owner.api);
+
+  await newCampaign(owner.api, library.id, 'Harbour job');
+
+  const { page, context } = await signedInPage(browser, owner.subject, {
+    viewport: { width: 1440, height: 900 },
+  });
+
+  await openLibrary(page, library);
+
+  await page.getByRole('tab', { name: 'People' }).first().click();
+
+  const rows = page.locator('.shell-page .list > li:visible');
+
+  await expect(rows.first()).toBeVisible();
+
+  // The least tall row of the page is the density's row height, whatever it holds.
+  const least = async () =>
+    Math.round(
+      await rows.evaluateAll((els) =>
+        Math.min(...els.map((e) => e.getBoundingClientRect().height)),
+      ),
+    );
+  const dialog = await openAppearance(page);
+  const seen: number[] = [];
+
+  for (const name of ['Comfortable', 'Compact', 'Dense']) {
+    await dialog.getByRole('radio', { name }).click();
+    seen.push(await least());
+  }
+
+  // Comfortable is the 48px row. Compact and Dense are lower, down to what the row's own controls
+  // (a button, a select) need: a row never squeezes what is pressed in it.
+  expect(seen[0]).toBe(48);
+  expect(seen[1]).toBeLessThan(seen[0] ?? 0);
+  expect(seen[1]).toBeLessThanOrEqual(42);
+  expect(seen[2]).toBeLessThanOrEqual(seen[1] ?? 0);
+
+  // The gutters of the page are the same at every density: it changes a row, not the page.
+  expect(
+    await page.locator('#content > .shell-page').evaluate((el) => getComputedStyle(el).paddingLeft),
+  ).toBe('24px');
   await context.close();
 });

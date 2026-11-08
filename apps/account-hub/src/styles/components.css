@@ -358,6 +358,14 @@
   min-width: 0;
 }
 
+/* The place a page of the account sits in, over its title (screen 26). */
+.page-crumb {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-tertiary);
+}
+
 /* /profile (ADR 0418, PT2, PT3): the form with a card beside it that shows how others see the person,
    which stays in view while the form scrolls; on a tablet and a phone the card moves above the form. */
 .profile-layout {
@@ -366,12 +374,41 @@
   gap: var(--space-5);
   align-items: start;
 }
+/* The sections of the profile are drawn stacked, a heading over its fields (screen 26), not with the
+   label beside them as the settings template has it. */
+.profile-main .form-section {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2h);
+}
+.profile-main .form-section-fields {
+  max-width: 34rem;
+}
 .profile-card {
   position: sticky;
-  top: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  top: var(--space-3);
+  display: grid;
+  gap: var(--space-2h);
+  padding: var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+}
+.profile-card > h2 {
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.profile-card > p {
+  margin: 0;
+}
+.profile-card #preview {
+  padding: 0;
+  border: 0;
+  background: none;
 }
 @container shell (max-width: 1099px) {
   .profile-layout {
@@ -402,8 +439,8 @@
   gap: var(--space-2);
 }
 .colour-swatch {
-  width: 36px;
-  height: 36px;
+  width: var(--hit);
+  height: var(--hit);
   padding: 0;
   border: 2px solid var(--border-control);
   border-radius: 999px;
@@ -413,12 +450,6 @@
 .colour-swatch[aria-pressed="true"] {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-}
-@container shell (max-width: 720px) {
-  .colour-swatch {
-    width: 44px;
-    height: 44px;
-  }
 }
 
 /* /tokens (ADR 0418, PT4): the one sentence that says what a token is, and the rows. A state is told
@@ -448,7 +479,8 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
   gap: var(--space-3);
   align-items: center;
-  padding: var(--space-3);
+  min-height: var(--row-h);
+  padding: 0 var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
 }
 .token-name,
@@ -513,6 +545,42 @@
   font-size: var(--fs-meta);
 }
 
+/* The page's own gap follows the title (the design's 24px), not a second one on top of the stack's. */
+[data-briefing] > .page-heading {
+  margin-bottom: 0;
+}
+
+/* Needs you holds its heading inside its card, as the design draws it; the rows below are the same
+   rows as the other cards'. */
+.home-card-head {
+  padding: var(--space-3) var(--space-3) 0;
+}
+.home-card-head h2 {
+  margin: 0;
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.home-needs {
+  padding-bottom: var(--space-1);
+}
+.home-needs > .error-text {
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+/* Continue and the apps are quiet labels over their cards (the design's section title), set apart
+   from the blocks above by the larger step. */
+.home-label {
+  margin-top: var(--space-2);
+}
+.home-label > h2 {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
 /* A card of rows, a hairline between them. */
 .home-card {
   border: 1px solid var(--border-subtle);
@@ -529,6 +597,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2h);
+  min-height: var(--hit);
   padding: var(--space-2h) var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
@@ -550,7 +619,7 @@
 .home-chip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  padding: 1px var(--space-2);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-pill);
   font-size: var(--fs-meta);
@@ -602,10 +671,11 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.home-tile {
+.home-tile,
+a.home-tile {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: flex-start;
+  gap: var(--space-2h);
   height: 100%;
   padding: var(--space-3);
   color: var(--text-primary);
@@ -614,17 +684,23 @@
 .home-tile:hover {
   background: var(--fill-soft);
 }
-.home-tile-head {
+.home-tile-text {
   display: flex;
-  align-items: center;
-  gap: var(--space-2h);
+  flex-direction: column;
+  min-width: 0;
 }
 .home-tile-title {
   font-weight: 600;
 }
 .home-tile-icon {
   display: inline-flex;
-  color: var(--text-secondary);
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: 1.4rem;
+}
+.home-tile-icon .icon {
+  width: 1em;
+  height: 1em;
 }
 
 /* First run (ADR 0416, D27): the mascot beside the welcome and the two doors; one column on a phone. */
@@ -666,7 +742,8 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2h);
-  padding: var(--space-2h) var(--space-3);
+  min-height: var(--row-h);
+  padding: 0 var(--space-3);
 }
 .notif-dot-slot {
   flex: none;

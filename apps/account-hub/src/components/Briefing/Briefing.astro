@@ -16,12 +16,12 @@ const icons = `${BRANDING_CSS_URL}/icons.svg`;
 
   <div class="home-columns">
     <div class="stack">
-      <section class="home-section" aria-labelledby="home-needs" data-needs hidden>
-        <h2 id="home-needs">Needs you</h2>
-        <div class="home-card">
-          <ul class="home-rows" data-needs-list></ul>
-          <div data-needs-empty hidden></div>
+      <section class="home-card home-needs" aria-labelledby="home-needs" data-needs hidden>
+        <div class="home-card-head">
+          <h2 id="home-needs">Needs you</h2>
         </div>
+        <ul class="home-rows" data-needs-list></ul>
+        <div data-needs-empty hidden></div>
         <p class="error-text" role="alert" data-error hidden></p>
       </section>
 
@@ -71,12 +71,12 @@ const icons = `${BRANDING_CSS_URL}/icons.svg`;
     </div>
   </div>
 
-  <section class="home-section" aria-labelledby="home-continue" data-continue hidden>
+  <section class="home-section home-label" aria-labelledby="home-continue" data-continue hidden>
     <h2 id="home-continue">Continue</h2>
     <ul class="home-tiles" data-continue-list></ul>
   </section>
 
-  <section class="home-section" aria-labelledby="home-actions" data-apps hidden>
+  <section class="home-section home-label" aria-labelledby="home-actions" data-apps hidden>
     <h2 id="home-actions">What do you want to do?</h2>
     <ul class="home-tiles home-tiles--apps" data-apps-list></ul>
   </section>
@@ -125,15 +125,15 @@ const icons = `${BRANDING_CSS_URL}/icons.svg`;
   <template data-tile-template>
     <li>
       <a class="card home-tile" data-link>
-        <span class="home-tile-head">
-          <span class="home-tile-icon" data-tile-icon hidden>
-            <svg class="icon" aria-hidden="true">
-              <use data-icon></use>
-            </svg>
-          </span>
-          <b class="home-tile-title" data-title></b>
+        <span class="home-tile-icon" data-tile-icon hidden>
+          <svg class="icon" aria-hidden="true">
+            <use data-icon></use>
+          </svg>
         </span>
-        <span class="caption" data-meta></span>
+        <span class="home-tile-text">
+          <b class="home-tile-title" data-title></b>
+          <span class="caption" data-meta></span>
+        </span>
       </a>
     </li>
   </template>
