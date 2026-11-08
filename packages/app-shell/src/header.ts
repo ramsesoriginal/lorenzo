@@ -475,7 +475,9 @@ export function bindShell(options: ShellOptions): Shell | null {
         accountName = state.name;
         const letters = find<HTMLElement>(root, '[data-shell-initials]');
 
-        if (letters) letters.textContent = initials(state.label);
+        // The name a person chose for themselves (their display name) is what the letters come from; the
+        // address is only for before it is known.
+        if (letters) letters.textContent = initials(state.name || state.label);
       }
     },
 

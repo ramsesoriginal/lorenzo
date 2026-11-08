@@ -51,7 +51,7 @@ import {
   updatesHref,
 } from '../../lib/shelf';
 import { sayError } from '../../lib/statusLine';
-import { CREATE_NOT_OPEN, roleLabel, studioHref } from '../../lib/studio';
+import { CREATE_NOT_OPEN, repositoriesMode, roleLabel, studioHref } from '../../lib/studio';
 import { bindTabs } from '../../lib/tabs';
 import { cloneRoot, requiredIn } from '../../lib/template';
 import { canCreateTenants, isRepository } from '../../lib/tenantKind';
@@ -735,6 +735,9 @@ export async function renderRepositoriesPanel(root: HTMLElement): Promise<void> 
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
+    // A link to the workspace of a repository one works on (or to the form for a new one) is the other
+    // half of this page: the browser loads it, since this half cannot show it.
+    if (repositoriesMode(new URL(link.href).search) === 'workspace') return;
 
     event.preventDefault();
     window.history.pushState(null, '', link.href);

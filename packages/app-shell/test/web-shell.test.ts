@@ -765,6 +765,17 @@ describe('the account menu', () => {
     expect((items()[0] as HTMLAnchorElement).href).toBe('https://account.example/profile/');
   });
 
+  it('takes the letters from the display name once it is known, not from the address', async () => {
+    const html = await render('web');
+    const shell = mount(html);
+    const button = document.querySelector('[data-shell-account-button]') as HTMLButtonElement;
+
+    shell.account({ state: 'signed-in', label: 'ho@example.com' });
+    expect(button.textContent).toBe('H');
+    shell.account({ state: 'signed-in', label: 'ho@example.com', name: 'Dana Okafor' });
+    expect(button.textContent).toBe('DO');
+  });
+
   it('puts the name over the address, and the unread count beside Notifications', async () => {
     const html = await render('web');
     const shell = mount(html);

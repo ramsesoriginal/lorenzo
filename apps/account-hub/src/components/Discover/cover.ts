@@ -1,9 +1,8 @@
-// A repository's cover, or a quiet placeholder (its first letter) where it has none. The cover is
-// fetched with the token and shown from a blob (lib/discoverApi.ts); the letter stays until the
+// A repository's cover, or a quiet placeholder (a dashed frame saying "Cover") where it has none. The cover is
+// fetched with the token and shown from a blob (lib/discoverApi.ts); the frame stays until the
 // picture has arrived, and for good where it never does.
 
 import { coverUrl } from '../../lib/discoverApi';
-import { avatarInitial } from '../../lib/format';
 
 export function showCover(
   img: HTMLImageElement,
@@ -12,7 +11,7 @@ export function showCover(
   isCurrent: () => boolean,
 ): void {
   if (placeholder) {
-    placeholder.textContent = avatarInitial(repository.name);
+    placeholder.textContent = 'Cover';
     placeholder.hidden = false;
   }
 

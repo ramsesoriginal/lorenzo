@@ -10,7 +10,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
   <p class="status-text" data-empty hidden>
     No one here yet.
   </p>
-  <ul class="list" data-list></ul>
+  <ul class="list hub-rows hub-table" data-list></ul>
 
   <template data-entry-template>
     <li class="row">
@@ -26,7 +26,7 @@ import { BRANDING_CSS_URL } from '../../lib/config';
           <option value="true">Can make their own items</option>
           <option value="false">Can't make their own items</option>
         </select>
-        <button type="button" data-remove>
+        <button type="button" class="btn btn-text" data-remove>
           Remove
         </button>
       </span>

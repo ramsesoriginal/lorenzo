@@ -229,7 +229,6 @@ export function renderRepository(
       const panel = cloneRoot(root, '[data-membership-admin-template]');
 
       renderMembershipAdmin(panel, repository, members, hooks.onChanged, {
-        heading: 'Everyone with a role',
         inviteLabel: 'Add a person, as:',
       });
       membershipsSlot.replaceChildren(panel);

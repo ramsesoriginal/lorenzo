@@ -52,12 +52,12 @@ test('an Owner sees every role with what it allows, and changes a person between
   await expect(people).toContainText('Edits what is in it: entries, stats and notes.');
   await expect(people).not.toContainText(/\borga\b/);
 
-  // The choice offers Author, and each row says who added the person.
+  // The choice offers Author, and each row has a column that says who added the person.
   const row = people.locator('[data-members] > li').filter({ hasText: author.me.id });
 
   await expect(row.getByRole('combobox')).toHaveValue('author');
   await expect(row.getByRole('option')).toHaveText(['Owner', 'Organizer', 'Author']);
-  await expect(row.locator('[data-added-by]')).toContainText('Added by');
+  await expect(row.locator('[data-added-by]')).toHaveText(/\S/);
 
   await row.getByRole('combobox').selectOption('orga');
   await expect

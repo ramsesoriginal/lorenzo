@@ -51,12 +51,8 @@ function fillMembers(
     // Who added them, where that person is in the list too.
     const adder = memberships.find((other) => other.user_id === membership.created_by);
 
-    if (adder) {
-      const addedBy = required<HTMLElement>(item, '[data-added-by]');
-
-      addedBy.textContent = `Added by ${displayNameFor(adder)}`;
-      addedBy.hidden = false;
-    }
+    // Its own column ("Added by"), so it is the name alone; empty where nobody is known to have added them.
+    if (adder) required<HTMLElement>(item, '[data-added-by]').textContent = displayNameFor(adder);
     roleSelect.value = membership.role;
 
     roleSelect.addEventListener('change', async () => {
@@ -187,7 +183,8 @@ export function renderMembershipAdmin(
   onChanged: () => void,
   words: { heading?: string; inviteLabel?: string } = {},
 ): void {
-  required<HTMLElement>(root, '[data-heading]').textContent = words.heading ?? 'People';
+  required<HTMLElement>(root, '[data-heading]').textContent =
+    words.heading ?? 'What each role allows';
   // What each role can do, in this library's or repository's words.
   required<HTMLElement>(root, '[data-roles]').replaceChildren(
     ...roleMeanings(tenant.kind).map(({ label, meaning }) => {

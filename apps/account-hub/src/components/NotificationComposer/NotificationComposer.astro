@@ -3,9 +3,9 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 ---
 
 <div class="stack" data-notification-composer>
-  <strong>Send a notification:</strong>
+  <h3 class="hub-heading">Send a notification</h3>
 
-  <form class="stack card card-body" data-form>
+  <form class="hub-card stack" data-form>
     <div class="row">
       <label class="field grow">
         <span class="field-label">Type (e.g. announcement)</span>
@@ -39,7 +39,7 @@ import UserPicker from '../UserPicker/UserPicker.astro';
     <div class="stack grow">
       <div data-broadcasting>
         <p class="status-text">Broadcasting to everyone in this scope.</p>
-        <button type="button" data-pick>
+        <button type="button" class="btn btn-secondary" data-pick>
           Pick a specific recipient instead of broadcasting
         </button>
       </div>
@@ -48,13 +48,13 @@ import UserPicker from '../UserPicker/UserPicker.astro';
 
       <div data-chosen hidden>
         <p data-chosen-text></p>
-        <button type="button" data-clear>
+        <button type="button" class="btn btn-text" data-clear>
           Clear (broadcast instead)
         </button>
       </div>
     </div>
     <div class="row">
-      <button type="submit" data-send>
+      <button type="submit" class="btn btn-primary" data-send>
         Send
       </button>
     </div>
