@@ -791,3 +791,41 @@ button.seg-chip:hover {
 .event-create:not([open]) {
   display: none;
 }
+
+/* An entry (CS3, screen 08): its panels in columns where there is room, each a card with a heading. */
+.entry-grid {
+  display: block;
+}
+
+.entry-grid > * {
+  break-inside: avoid;
+  margin-block-end: var(--space-3);
+}
+
+.entry-grid > :is(section, details, div):not(.feedback) {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+
+.entry-grid > .card {
+  background: var(--surface-canvas);
+}
+
+/* A folding card has the padding of its own summary and body. */
+.entry-grid > details.card {
+  padding: 0;
+}
+
+@container shell (min-width: 1100px) {
+  .entry-grid {
+    column-count: 2;
+    column-gap: var(--space-4);
+  }
+}
+
+[data-page] .entry-grid h2 {
+  font-size: var(--fs-heading);
+  font-weight: 600;
+}

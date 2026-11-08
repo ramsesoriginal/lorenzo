@@ -68,7 +68,7 @@ export async function mount() {
     canonicalAddress(tenantId, id);
     rememberThisPage(tenantId, entry.name);
     const version = result.response.headers.get('etag');
-    const head = el('div', '', 'stack-tight');
+    const head = el('div', '', 'page-heading');
     const kinds = el('div', '', 'row-tight kinds');
     for (const kind of entry.kinds) kinds.append(el('span', kindNames[kind] ?? kind, 'badge'));
     head.append(el('h1', entry.name), kinds);
@@ -91,23 +91,27 @@ export async function mount() {
         );
     }
     if (actions.childElementCount) host.append(actions);
+    // The panels of the entry, in two columns where there is room: each says what it is and holds what
+    // is written there.
+    const grid = el('div', '', 'entry-grid');
+    host.append(grid);
     if (entry.kinds.includes('clock')) {
-      host.append(await clockPanel(tenantId, id, session.canOrderEvents));
-      host.append(await clockRelationships(tenantId, id, entry.name));
+      grid.append(await clockPanel(tenantId, id, session.canOrderEvents));
+      grid.append(await clockRelationships(tenantId, id, entry.name));
     }
     if (entry.kinds.includes('event')) {
-      host.append(await eventReadings(tenantId, id));
-      host.append(await eventClockConversions(tenantId, id));
+      grid.append(await eventReadings(tenantId, id));
+      grid.append(await eventClockConversions(tenantId, id));
     }
-    if (entry.kinds.includes('calendar_period')) host.append(await datedEntries(tenantId, id));
+    if (entry.kinds.includes('calendar_period')) grid.append(await datedEntries(tenantId, id));
     if (entry.kinds.includes('event') && session.canReadEventOrder) {
       try {
         const ordering = await eventOrder(tenantId, id, session.canOrderEvents);
-        if (ordering) host.append(ordering);
-        if (canWrite) host.append(await participants(tenantId, id, session.canOrderEvents));
-        if (session.canOrderEvents) host.append(await eventLearning(tenantId, id));
+        if (ordering) grid.append(ordering);
+        if (canWrite) grid.append(await participants(tenantId, id, session.canOrderEvents));
+        if (session.canOrderEvents) grid.append(await eventLearning(tenantId, id));
       } catch (error) {
-        host.append(failure(`Could not load Event ordering. ${message(error)}`));
+        grid.append(failure(`Could not load Event ordering. ${message(error)}`));
       }
     }
     if (entry.kinds.includes('being') && session.canOrderEvents) {
@@ -116,13 +120,13 @@ export async function mount() {
         el('h2', 'Recorded learning'),
         await learningList(tenantId, { being_id: id }),
       );
-      host.append(learning);
+      grid.append(learning);
     }
     const refresh = () => {
       if (host.isConnected) location.reload();
     };
     if (canWrite && entry.kinds.includes('event'))
-      host.append(await eventVisibility(tenantId, id, refresh));
+      grid.append(await eventVisibility(tenantId, id, refresh));
     if (canWrite) {
       const controls = disclosure('Name, link name and audience', true);
       const status = feedback();
@@ -193,7 +197,7 @@ export async function mount() {
           allowParticipants: entry.kinds.includes('event'),
         }),
       );
-      host.append(controls.root);
+      grid.append(controls.root);
     }
     if (entry.kinds.includes('observance')) {
       const obs = await unwrap(
@@ -212,7 +216,7 @@ export async function mount() {
           `${obs.rule.day} ${calendar.definition.segments.find((s) => s.key === obs.rule.segment)?.name ?? obs.rule.segment}, every ${obs.rule.when.every} year(s), offset ${obs.rule.when.offset}. Absent dates are skipped.`,
         ),
       );
-      host.append(rule);
+      grid.append(rule);
       if (canWrite) {
         const edit = disclosure('Edit recurrence', true);
         const status = feedback();
@@ -240,7 +244,7 @@ export async function mount() {
           ),
         );
         edit.body.append(rules.element, actions, status.node);
-        host.append(edit.root);
+        grid.append(edit.root);
       }
     }
     if (entry.kinds.includes('fact') || entry.kinds.includes('event')) {
@@ -259,7 +263,7 @@ export async function mount() {
           'caption',
         ),
       );
-      host.append(section);
+      grid.append(section);
       const list = el('ul', '', 'list');
       for (const date of dates) {
         const row = el('li', '', 'row');
@@ -336,16 +340,16 @@ export async function mount() {
       }
       if (subjects.length) about.append(list);
       else about.append(el('p', 'No subjects are available to you.', 'lede'));
-      host.append(about);
+      grid.append(about);
     }
-    host.append(
+    grid.append(
       informationView(tenantId, entry, canWrite, refresh, session.canOrderEvents, access),
     );
     if (access.can_add_notes && params.get('add') === 'information') {
       const frame = el('div', '', 'card card-body');
       frame.dataset.formFrame = '';
       frame.append(informationForm(tenantId, id, refresh));
-      host.append(frame);
+      grid.append(frame);
     }
   } catch (e) {
     const problem = failure(message(e));
