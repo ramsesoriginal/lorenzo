@@ -1047,3 +1047,64 @@ test('Home says what to expect when a person has no Session yet', async ({ brows
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
   }
 });
+
+test('the played record is proposed in one dialog: statuses and Events presented, saved on purpose', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'Dialog session', campaign_id: w.campaign.id },
+      }),
+    );
+    const scene = await ok(
+      w.gm.POST('/tenants/{tenant_id}/scenes', {
+        params: { path: w.path },
+        body: { name: 'The lamps go out', is_public: true },
+      }),
+    );
+    const path = { ...w.path, session_id: session.id };
+    const initial = await w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+      params: { path },
+    });
+    await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
+        params: { path, header: { 'if-match': initial.response.headers.get('etag') ?? '' } },
+        body: { scene_entity_id: scene.id, is_shared: true },
+      }),
+    );
+    const event = await ok(
+      w.gm.POST('/tenants/{tenant_id}/entities', {
+        params: { path: w.path },
+        body: { name: 'The blackout', kinds: ['event'], parents: [], visibility: 'library' },
+      }),
+    );
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await showAll(page);
+    await page.getByRole('button', { name: 'Propose the outline as played', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Propose the outline as played' });
+    await expect(dialog).toContainText('Nothing is saved until you save the record');
+    // Nothing is written by opening it or by cancelling it.
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(
+      (await ok(w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}/play', { params: { path } })))
+        .played_appearance_ids,
+    ).toEqual([]);
+    await page.getByRole('button', { name: 'Propose the outline as played', exact: true }).click();
+    await dialog.getByLabel('The blackout', { exact: true }).check();
+    await dialog.getByRole('button', { name: 'Save the record', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    const record = await ok(
+      w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}/play', { params: { path } }),
+    );
+    expect(record.played_appearance_ids).toHaveLength(1);
+    expect(record.presentations.map((p) => p.event_id)).toEqual([event.id]);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});

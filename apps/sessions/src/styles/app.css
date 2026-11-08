@@ -263,3 +263,11 @@
 .facts dd {
   margin: 0;
 }
+
+/* The dialog that proposes the outline as played (screen 19): a modal over the page, scrolling inside. */
+.played-dialog {
+  inline-size: min(48rem, calc(100vw - var(--space-6)));
+  max-block-size: calc(100dvh - var(--space-6));
+  padding: var(--space-4);
+  overflow-y: auto;
+}
