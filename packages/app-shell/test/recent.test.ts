@@ -35,5 +35,14 @@ describe('Continue, the pages a person had open', () => {
     expect(agoText(5 * day, 4 * day)).toBe('yesterday');
     expect(agoText(5 * day, 2 * day)).toBe('3 days ago');
     expect(pageTitle('Isles calendar — Lorenzo Calendars')).toBe('Isles calendar');
+    expect(pageTitle('Your profile - Lorenzo')).toBe('Your profile');
+    // No space before the dash, or nothing before it: the title is left as it is.
+    expect(pageTitle('Well-Lorenzo — not it')).toBe('Well-Lorenzo — not it');
+    expect(pageTitle('— Lorenzo')).toBe('— Lorenzo');
+    // A long run of spaces is not slow.
+    const started = Date.now();
+
+    pageTitle(`${' '.repeat(100_000)}x`);
+    expect(Date.now() - started).toBeLessThan(500);
   });
 });
