@@ -363,6 +363,11 @@ async def test_events_list_filters_by_period_before_pagination(
                 url, params={**base, "dated_from_segment": "gone", "dated_from_day": 1}
             )
         ).status_code == 422
+        # Each row says where it is dated, and who took part when the reader may read that.
+        rows = {e["name"]: e for e in (await client.get(url, params={"size": 50})).json()["items"]}
+        assert rows["Middle"]["dates"] == ["16 First 3286"] or len(rows["Middle"]["dates"]) == 1
+        assert rows["Undated"]["dates"] == []
+        assert rows["Middle"]["participants"] == []
         assert {early, middle, feast, other_year}
     finally:
         await delete_tenant(tenant)

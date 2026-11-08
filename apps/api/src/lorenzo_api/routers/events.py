@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Annotated, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from fastapi_pagination import Page, create_page
@@ -27,7 +28,7 @@ from lorenzo_api.dependencies import (
 )
 from lorenzo_api.entry_visibility import visible_entry_clause
 from lorenzo_api.etag import check_if_match, etag_for
-from lorenzo_api.event_fact_access import edits_event_fact
+from lorenzo_api.event_fact_access import edits_event_fact, manages_events
 from lorenzo_api.exceptions import (
     ClientIdUnavailableError,
     EntityNotFoundError,
@@ -60,6 +61,9 @@ class EventSummary(BaseModel):
     name: str
     slug: str | None = None
     order_basis: Literal["causal", "ruled", "linearized"] | None = None
+    # What a row of the list says: where it is dated and, for who may read it, who took part.
+    dates: list[str] = Field(default_factory=list)
+    participants: list[str] | None = None
 
 
 class ParticipantOut(BaseModel):
@@ -144,6 +148,56 @@ async def dated_in_period(
     )
 
 
+async def describe_rows(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    vis: InformationVisibility,
+    ids: list[uuid.UUID],
+    with_participants: bool,
+) -> tuple[dict[uuid.UUID, list[str]], dict[uuid.UUID, list[str]]]:
+    """The names of the periods each Event is dated in, and of the beings who took part.
+
+    Dates come only through periods the reader sees. Participants are asked for only by a reader who
+    may read them, as the participants list itself requires.
+    """
+    dates: dict[uuid.UUID, list[str]] = {}
+    people: dict[uuid.UUID, list[str]] = {}
+    if not ids:
+        return dates, people
+    rows = await session.execute(
+        select(EntryCalendarPeriod.entity_id, Entity.name)
+        .join(CalendarPeriod, CalendarPeriod.entity_id == EntryCalendarPeriod.period_entity_id)
+        .join(Entity, Entity.id == CalendarPeriod.entity_id)
+        .where(
+            EntryCalendarPeriod.tenant_id == tenant_id,
+            EntryCalendarPeriod.entity_id.in_(ids),
+            visible_entry_clause(vis, CalendarPeriod.entity_id),
+        )
+        .order_by(
+            CalendarPeriod.calendar_entity_id,
+            CalendarPeriod.year,
+            CalendarPeriod.segment,
+            CalendarPeriod.day,
+        )
+    )
+    for event_id, name in rows:
+        dates.setdefault(event_id, []).append(name)
+    if with_participants:
+        who = await session.execute(
+            select(EventParticipant.event_entity_id, Entity.name)
+            .join(Entity, Entity.id == EventParticipant.being_entity_id)
+            .where(
+                EventParticipant.tenant_id == tenant_id,
+                Entity.tenant_id == tenant_id,
+                EventParticipant.event_entity_id.in_(ids),
+            )
+            .order_by(Entity.name, Entity.id)
+        )
+        for event_id, name in who:
+            people.setdefault(event_id, []).append(name)
+    return dates, people
+
+
 @router.get("")
 async def browse_events(
     tenant_id: uuid.UUID,
@@ -182,6 +236,9 @@ async def browse_events(
     if being_id is not None:
         await require_event_order_access(session, user, tenant_id)
     vis = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
+    reads_people = vis.is_admin or await manages_events(
+        session, tenant_id=tenant_id, user_id=user.id
+    )
     dated = (
         await dated_in_period(
             session,
@@ -223,13 +280,26 @@ async def browse_events(
             query = query.where(name.ilike("%" + q + "%"))
         if dated is not None:
             query = query.where(StoryEvent.entity_id.in_(dated))
+
+        async def rows_to_summaries(rows: Sequence[Any]) -> list[EventSummary]:
+            ids = [e for e, _, _ in rows]
+            when, who = await describe_rows(session, tenant_id, vis, ids, reads_people)
+            return [
+                EventSummary(
+                    entity_id=e,
+                    name=n,
+                    slug=s,
+                    dates=when.get(e, []),
+                    participants=who.get(e, []) if reads_people else None,
+                )
+                for e, n, s in rows
+            ]
+
         page = await apaginate(
             session,
             query,
             params,
-            transformer=lambda rows: [
-                EventSummary(entity_id=e, name=n, slug=s) for e, n, s in rows
-            ],
+            transformer=rows_to_summaries,
         )
         return cast(Page[EventSummary], page)
     order, names = await graph(session, tenant_id, vis)
@@ -290,11 +360,19 @@ async def browse_events(
         .tuples()
         .all()
     )
+    when, who = await describe_rows(session, tenant_id, vis, page_ids, reads_people)
     summaries = []
     for offset, e in enumerate(page_ids, start):
         basis = order.compare(ids[offset - 1], e)[1] if sort == "order" and offset else None
         summaries.append(
-            EventSummary(entity_id=e, name=names[e], slug=slugs.get(e), order_basis=basis)
+            EventSummary(
+                entity_id=e,
+                name=names[e],
+                slug=slugs.get(e),
+                order_basis=basis,
+                dates=when.get(e, []),
+                participants=who.get(e, []) if reads_people else None,
+            )
         )
     return cast(Page[EventSummary], create_page(summaries, total=len(ids), params=params))
 
