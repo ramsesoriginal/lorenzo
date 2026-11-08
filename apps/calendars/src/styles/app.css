@@ -681,3 +681,13 @@ button.seg-chip:hover {
     min-height: var(--target-min);
   }
 }
+
+/* The panel's overline, and the forms that "Add to this day" reveals: they are not there until asked. */
+.day-over {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.add-form:not([open]) {
+  display: none;
+}

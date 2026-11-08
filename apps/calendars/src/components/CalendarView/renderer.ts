@@ -1,6 +1,8 @@
+import { openMenu } from '@lorenzo/app-shell';
 import { renderAudienceControl } from '@lorenzo/information-editor';
 import { canonicalAddress, rememberEntryAddress, resolveAddress } from '../../lib/addresses';
 import { client, fetchAllPages, unwrap } from '../../lib/api';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import {
   attachExisting,
   createDatedEntry,
@@ -620,7 +622,34 @@ export async function mount() {
       const title = segment
         ? `${day === undefined ? '' : `${day} `}${calendar.definition.segments.find((s) => s.key === segment)?.name ?? segment} ${year}`
         : `Year ${year}`;
-      detail.replaceChildren(el('h2', title));
+      detail.replaceChildren();
+      if (segment && day !== undefined) {
+        // Which day of the week and of the year it is, over its name.
+        const shown = preview.segments.find((s) => s.key === segment);
+        const index = shown?.days.findIndex((d) => d.date.day === day) ?? -1;
+        const before = preview.segments
+          .slice(
+            0,
+            preview.segments.findIndex((s) => s.key === segment),
+          )
+          .reduce((total, s) => total + s.days.length, 0);
+        const weekday = shown?.days[index]?.weekday;
+        const weekdayName =
+          weekday === null || weekday === undefined
+            ? ''
+            : (calendar.definition.week?.names?.[weekday] ?? '');
+        if (index >= 0)
+          detail.append(
+            el(
+              'p',
+              `${weekdayName ? `${weekdayName} · ` : ''}day ${before + index + 1} of Year ${year}`,
+              'caption day-over',
+            ),
+          );
+      }
+      detail.append(el('h2', title));
+      const addSlot = el('div', '', 'day-add');
+      detail.append(addSlot);
       selectedDay = segment && day !== undefined ? { segment, day } : null;
       for (const pressed of grid.querySelectorAll('.day-button[aria-pressed]'))
         pressed.removeAttribute('aria-pressed');
@@ -705,31 +734,13 @@ export async function mount() {
             ),
           );
         if (canWrite) {
-          detail.append(
-            button(
-              'Add a note to this date',
-              async () => {
-                try {
-                  const period = await materialize();
-                  if (!host?.isConnected) return;
-                  location.assign(
-                    `${entryHref(tenantId, period.entity_id)}&calendar=${encodeURIComponent(calendarId)}&year=${chosenYear}&add=information`,
-                  );
-                } catch (e) {
-                  localStatus.fail(message(e));
-                }
-              },
-              true,
-              'add',
-            ),
-          );
           const create = disclosure('Create a fact or story event');
           create.body.append(createDatedEntry(tenantId, materialize));
           const existing = disclosure('Associate an existing fact or event');
           existing.body.append(attachExisting(tenantId, materialize));
-          detail.append(create.root, existing.root);
-          if (segment && day !== undefined) {
-            const recurring = disclosure('Create a recurring observance');
+          const recurring =
+            segment && day !== undefined ? disclosure('Create a recurring observance') : undefined;
+          if (recurring && segment && day !== undefined)
             recurring.body.append(
               createObservance(tenantId, calendarId, calendar.definition, {
                 segment,
@@ -737,8 +748,81 @@ export async function mount() {
                 when: { every: 1, offset: 0 },
               }),
             );
-            detail.append(recurring.root);
-          }
+          // The forms are not on the panel until "Add to this day" asks for one.
+          const forms = [create, existing, recurring].filter(
+            (form): form is NonNullable<typeof form> => form !== undefined,
+          );
+          for (const form of forms) form.root.classList.add('add-form');
+          const reveal = (form: (typeof forms)[number]) => {
+            for (const other of forms) other.root.open = other === form;
+            form.root.scrollIntoView?.({ block: 'nearest' });
+            form.body.querySelector<HTMLElement>('input, select, textarea')?.focus();
+          };
+          const chooseKind = (kind: 'event' | 'fact') => {
+            const kinds = create.body.querySelector<HTMLSelectElement>('select');
+            if (!kinds) return;
+            kinds.value = kind;
+            kinds.dispatchEvent(new Event('change'));
+          };
+          const addNote = async () => {
+            try {
+              const period = await materialize();
+              if (!host?.isConnected) return;
+              location.assign(
+                `${entryHref(tenantId, period.entity_id)}&calendar=${encodeURIComponent(calendarId)}&year=${chosenYear}&add=information`,
+              );
+            } catch (e) {
+              localStatus.fail(message(e));
+            }
+          };
+          const add = button(
+            'Add to this day',
+            () => {
+              openMenu(
+                add,
+                [
+                  { label: 'A note on this day', icon: 'kind-fact', run: () => void addNote() },
+                  {
+                    label: 'An Event',
+                    icon: 'kind-event',
+                    run: () => {
+                      chooseKind('event');
+                      reveal(create);
+                    },
+                  },
+                  {
+                    label: 'A Fact',
+                    icon: 'kind-fact',
+                    run: () => {
+                      chooseKind('fact');
+                      reveal(create);
+                    },
+                  },
+                  {
+                    label: 'An existing Event or Fact…',
+                    icon: 'link',
+                    run: () => reveal(existing),
+                  },
+                  ...(recurring
+                    ? [
+                        { separator: true as const },
+                        {
+                          label: 'A recurring observance…',
+                          icon: 'kind-observance',
+                          run: () => reveal(recurring),
+                        },
+                      ]
+                    : []),
+                ],
+                { label: 'Add to this day', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+              );
+            },
+            true,
+            'add',
+          );
+          add.setAttribute('aria-haspopup', 'menu');
+          addSlot.append(add);
+          detail.append(...forms.map((form) => form.root));
         }
         detail.append(localStatus.node);
         if (wholeYear && target?.isConnected && window.matchMedia('(max-width: 720px)').matches) {

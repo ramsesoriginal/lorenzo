@@ -3,6 +3,12 @@ import { apiAs, ok, refreshTokenFor } from './support/api.ts';
 import { AUTHGEAR_URL, REFRESH_TOKEN_KEY, SITE_URL, SUBJECT_COOKIE } from './support/env.ts';
 import { buildWorld } from './support/world.ts';
 
+/** Chooses what to write on the day on show, from the panel's "Add to this day" menu. */
+async function addToDay(page: Page, item: string) {
+  await page.getByRole('button', { name: 'Add to this day', exact: true }).click();
+  await page.getByRole('menuitem', { name: item, exact: true }).click();
+}
+
 /** The chip of a month or festival in the strip above the grid. */
 const segmentChip = (page: Page, name: string) =>
   page.locator('.seg-chip').filter({ has: page.getByText(name, { exact: true }) });
@@ -186,7 +192,7 @@ test('authoring creates periods explicitly and edits ordered information and sto
   const page = await signedIn(browser, world.subject);
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '2 Rimsep 3286', exact: true }).click();
-  await page.getByRole('button', { name: 'Add a note to this date', exact: true }).click();
+  await addToDay(page, 'A note on this day');
   await page.getByLabel('Note title', { exact: true }).fill('Harbour log');
   await page.getByLabel('Text', { exact: true }).fill('The beacon is repaired.');
   await page.locator('input[type=file]').setInputFiles({
@@ -199,14 +205,14 @@ test('authoring creates periods explicitly and edits ordered information and sto
   await expect(page.getByRole('img', { name: 'Harbour log', exact: true })).toBeVisible();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '3 Rimsep 3286', exact: true }).click();
-  await page.getByText('Create a fact or story event', { exact: true }).click();
+  await addToDay(page, 'An Event');
   await page.getByLabel('Entry name', { exact: true }).fill('Beacon relit');
   await page.getByRole('button', { name: 'Create dated entry', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Beacon relit', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: '3 Rimsep 3286', exact: true })).toBeVisible();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '4 Rimsep 3286', exact: true }).click();
-  await page.getByText('Associate an existing fact or event', { exact: true }).click();
+  await addToDay(page, 'An existing Event or Fact…');
   await page.getByLabel('Find a fact or event').fill('Beacon relit');
   await page.getByRole('button', { name: 'Search entries', exact: true }).click();
   await page.getByRole('button', { name: 'Beacon relit', exact: true }).click();
@@ -323,7 +329,7 @@ test('recurring observance creation and rule edits do not materialize occurrence
   const before = await periods();
   await page.goto(`/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286`);
   await page.getByRole('button', { name: '5 Rimsep 3286', exact: true }).click();
-  await page.getByText('Create a recurring observance', { exact: true }).click();
+  await addToDay(page, 'A recurring observance…');
   await page.getByLabel('Observance name', { exact: true }).fill('Lantern feast');
   await page.getByLabel('Every N years', { exact: true }).fill('3');
   await page.locator('aside').getByLabel('Year offset', { exact: true }).fill('1');
