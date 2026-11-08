@@ -376,11 +376,11 @@
 }
 /* The sections of the profile are drawn stacked, a heading over its fields (screen 26), not with the
    label beside them as the settings template has it. */
-.profile-main .form-section {
+section.profile-section {
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2h);
 }
-.profile-main .form-section-fields {
+div.profile-fields {
   max-width: 34rem;
 }
 .profile-card {
@@ -546,7 +546,7 @@
 }
 
 /* The page's own gap follows the title (the design's 24px), not a second one on top of the stack's. */
-[data-briefing] > .page-heading {
+div.home-title {
   margin-bottom: 0;
 }
 
