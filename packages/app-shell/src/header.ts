@@ -201,7 +201,44 @@ function sameOrigin(url: string): boolean {
  * Starts the header and returns what an app may do to it. Null when this page has no header (the
  * auth redirect page), so a caller can carry on without one.
  */
+// What the shell holds on the document and the window (keys, a docked sheet's outside press, the unsent
+// warning, the clock). An app that swaps its page without a reload (a client router) binds the shell
+// again on every page, and the ones of the page that went must not stay: they would answer for a
+// header that is no longer there.
+let released: Array<() => void> = [];
+
+function onDocument<K extends keyof DocumentEventMap>(
+  type: K,
+  handler: (event: DocumentEventMap[K]) => void,
+): void {
+  const target = document;
+
+  target.addEventListener(type, handler);
+  released.push(() => target.removeEventListener(type, handler));
+}
+
+function onWindow<K extends keyof WindowEventMap>(
+  type: K,
+  handler: (event: WindowEventMap[K]) => void,
+): void {
+  const target = window;
+
+  target.addEventListener(type, handler);
+  released.push(() => target.removeEventListener(type, handler));
+}
+
+function everyWhile(handler: () => void, ms: number): void {
+  const target = window;
+  const timer = target.setInterval(handler, ms);
+
+  released.push(() => target.clearInterval(timer));
+}
+
 export function bindShell(options: ShellOptions): Shell | null {
+  for (const release of released) release();
+
+  released = [];
+
   const root = find<HTMLElement>(document, '[data-site-header]');
 
   if (!root) return null;
@@ -237,7 +274,10 @@ export function bindShell(options: ShellOptions): Shell | null {
       link.hidden = href === null || (requires !== undefined && !allowed.has(requires));
       if (href !== null) link.href = href;
 
-      if (isCurrentPage(path, window.location.pathname)) link.setAttribute('aria-current', 'page');
+      const also = (link.dataset.also ?? '').split(' ').filter(Boolean);
+
+      if (isCurrentPage(path, window.location.pathname, also))
+        link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     }
   }
@@ -298,10 +338,10 @@ export function bindShell(options: ShellOptions): Shell | null {
     });
     sheet.addEventListener('close', () => setExpanded(false));
     // A docked panel is not modal: Escape and a press outside it close it, as for a modal.
-    document.addEventListener('keydown', (event) => {
+    onDocument('keydown', (event) => {
       if (event.key === 'Escape' && sheet.open && sheet.hasAttribute('data-docked')) close();
     });
-    document.addEventListener('pointerdown', (event) => {
+    onDocument('pointerdown', (event) => {
       if (!sheet.open || !sheet.hasAttribute('data-docked')) return;
 
       const target = event.target as Node;
@@ -363,7 +403,7 @@ export function bindShell(options: ShellOptions): Shell | null {
     ];
   };
 
-  window.addEventListener('beforeunload', (event) => {
+  onWindow('beforeunload', (event) => {
     if ((bar?.count() ?? 0) > 0) {
       event.preventDefault();
       event.returnValue = '';
@@ -451,7 +491,7 @@ export function bindShell(options: ShellOptions): Shell | null {
     };
 
     tick();
-    window.setInterval(tick, 30_000);
+    everyWhile(tick, 30_000);
   }
 
   const welcome = find<HTMLElement>(document, '[data-welcome]');
@@ -477,7 +517,14 @@ export function bindShell(options: ShellOptions): Shell | null {
 
         // The name a person chose for themselves (their display name) is what the letters come from; the
         // address is only for before it is known.
-        if (letters) letters.textContent = initials(state.name || state.label);
+        const text = initials(state.name || state.label);
+
+        if (letters) letters.textContent = text;
+        // The name of the button holds the letters it shows (label in name, WCAG 2.5.3).
+        find<HTMLElement>(root, '[data-shell-account-button]')?.setAttribute(
+          'aria-label',
+          text === '·' ? 'Account menu' : `${text}, account menu`,
+        );
       }
     },
 
@@ -636,8 +683,14 @@ export function bindShell(options: ShellOptions): Shell | null {
       const navigate = options.navigate ?? ((url: string) => window.location.assign(url));
       const go = (target: string) => {
         if (target === 'home') navigate('/');
-        else if (target === 'theme') find<HTMLButtonElement>(root, '[data-theme-toggle]')?.click();
-        else if (target === 'library') {
+        else if (target === 'theme') {
+          // The classic header has a toggle. The web header's is a hidden placeholder, and there the
+          // Appearance dialog is the way, for a visitor who is not signed in as for anyone.
+          const toggle = find<HTMLButtonElement>(root, '[data-theme-toggle]');
+
+          if (toggle && !toggle.hidden) toggle.click();
+          else appearance().open();
+        } else if (target === 'library') {
           const select = find<HTMLSelectElement>(root, '[data-library-select]');
 
           if (select && !select.closest<HTMLElement>('[data-library-switcher]')?.hidden)
@@ -744,7 +797,7 @@ export function bindShell(options: ShellOptions): Shell | null {
         onPalette: () => (palette?.isOpen() ? palette.close() : palette?.open()),
       });
 
-      document.addEventListener('keydown', (event) => {
+      onDocument('keydown', (event) => {
         if (event.defaultPrevented) return;
 
         const input: KeyInput = {

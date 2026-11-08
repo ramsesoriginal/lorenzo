@@ -77,6 +77,10 @@
       "release-type": "node",
       "component": "period-picker"
     },
+    "packages/time-filter": {
+      "release-type": "node",
+      "component": "time-filter"
+    },
     "packages/read-cache": {
       "release-type": "node",
       "component": "read-cache"

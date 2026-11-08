@@ -16,11 +16,21 @@ const { title = 'Lorenzo Sessions', status = 'Opening your Sessions…' } = Astr
 <AppPage
   title={title}
   product="Sessions"
+  icon="kind-session"
   brandingUrl={BRANDING_CSS_URL}
   themeKey="lorenzo:sessions:theme"
+  shell="web"
+  template="list-detail"
   nav={[
-    { label: 'My Sessions', href: '/' },
-    { label: 'Scenes', href: '/scenes/', needsLibrary: true },
+    { label: 'Sessions', href: '/', icon: 'kind-session', also: ['/session/'] },
+    {
+      label: 'Scenes',
+      href: '/scenes/',
+      needsLibrary: true,
+      icon: 'kind-scene',
+      also: ['/scene/'],
+    },
+    { label: 'Lived order', href: '/lived/', needsLibrary: true, icon: 'kind-being' },
   ]}
   path="apps/sessions"
   welcome={{

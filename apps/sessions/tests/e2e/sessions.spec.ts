@@ -25,6 +25,12 @@ const relationship = (page: Page, audience: 'Private' | 'Shared') =>
     .getByRole('listitem')
     .filter({ hasText: 'Guild ownership' })
     .getByText(audience, { exact: true });
+/** The Session page opens in Prepare (CS7); a test that works on the other parts shows them all first. */
+async function showAll(page: Page) {
+  await page.getByRole('button', { name: /View: / }).click();
+  await page.getByRole('menuitemradio', { name: 'All', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'View: All' })).toBeVisible();
+}
 async function world() {
   const subject = `session-gm-${randomUUID()}`;
   const gm = await apiAs(subject, ['tenant_creator']);
@@ -71,12 +77,10 @@ test('GM prepares a session, player keeps a restricted note, and Scene reuse kee
     await gm.goto('/');
     await expect
       .poll(() =>
-        gm
-          .getByRole('img', { name: 'Lorenzo', exact: true })
-          .first()
-          .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+        gm.locator('.brand-spark').evaluate((img) => (img as HTMLImageElement).naturalWidth),
       )
       .toBeGreaterThan(0);
+    await gm.getByRole('button', { name: 'New Session', exact: true }).click();
     await gm.getByLabel('Session title', { exact: true }).fill('At the wreck');
     await gm.getByLabel('Link name (optional)').fill('wreck-session');
     await gm.getByRole('button', { name: 'Create Session', exact: true }).click();
@@ -102,6 +106,8 @@ test('GM prepares a session, player keeps a restricted note, and Scene reuse kee
     await player.goto(`/session/?tenant=${w.tenant.id}&id=wreck-session`);
     await expect(player.getByRole('heading', { name: 'At the wreck', exact: true })).toBeVisible();
     await expect(player.getByRole('button', { name: 'Save roster' })).toHaveCount(0);
+    // A player has no preparation to do: the Session opens in All, with only the parts they may see.
+    await expect(player.getByRole('button', { name: 'View: All' })).toBeVisible();
     await player.getByRole('button', { name: 'Add note', exact: true }).first().click();
     await player.getByLabel('Note title', { exact: true }).fill('My recollection');
     await player
@@ -147,7 +153,14 @@ test('signed-out view and explicit theme work on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  // Without an account the palette's Change theme opens Appearance, which keeps the choice.
+  await page.getByRole('button', { name: /Search or go anywhere/ }).click();
+  await page.getByRole('option', { name: /Change theme/ }).click();
+  await page
+    .getByRole('dialog', { name: 'Appearance' })
+    .getByRole('radiogroup', { name: 'Theme' })
+    .getByRole('radio', { name: 'Dark' })
+    .click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
@@ -275,6 +288,7 @@ test('GM reviews a played-order proposal and records repeated Event presentation
       }),
     );
     await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await showAll(page);
     await page.getByText('Review and record played Scenes', { exact: true }).click();
     await page
       .getByRole('button', { name: 'Propose played order from preparation', exact: true })
@@ -471,6 +485,7 @@ test('a save draws again only what it changed: drafts and open panels elsewhere 
       }),
     );
     await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await showAll(page);
     await expect(page.getByRole('heading', { name: 'Saved session', exact: true })).toBeVisible();
 
     // A draft in the roster panel (a player ticked, not saved) and a note being written.
@@ -740,6 +755,7 @@ test('the period picker chooses game time and a start, and writes nothing until 
       }),
     );
     await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await showAll(page);
 
     // Game time covered: a range of days, chosen as days.
     await page.getByText('Choose periods', { exact: true }).click();
@@ -803,6 +819,8 @@ test('the period picker chooses game time and a start, and writes nothing until 
           ).start_period_id,
       )
       .toBe(saved.find((period) => period.day === 17)?.entity_id);
+    // The status bar says the part the person has and the in-world date of this Session (CS1).
+    await expect(page.locator('[data-shell-meta]')).toContainText('You are a GM · In-world: ');
   } finally {
     await page.context().close();
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
@@ -911,6 +929,180 @@ test('moving and sharing a Scene draw only the cards that changed, and removing 
     await expect(cards).toHaveCount(2);
     await expect(cards.locator('h3')).toHaveText(['Scene A', 'Scene C']);
     await expect(page.getByRole('heading', { name: 'Scenes', exact: true })).toBeVisible();
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('Home says which Session is next, marks the past ones and groups Sessions by campaign', async ({
+  browser,
+}) => {
+  const w = await world();
+  const make = (name: string, real_date: string | null) =>
+    ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name, campaign_id: w.campaign.id, real_date },
+      }),
+    );
+  await make('Long ago', '2020-01-01');
+  await make('Far ahead', '2099-12-31');
+  await make('Undated', null);
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Sessions', level: 1 })).toBeVisible();
+    // Next is the soonest Session whose date has not gone by.
+    const next = page.locator('section', { has: page.getByRole('heading', { name: 'Next' }) });
+    await expect(next.getByRole('link', { name: 'Far ahead', exact: true })).toBeVisible();
+    // The campaign's Sessions are listed together, each with its state and the person's part.
+    const list = page.locator('.home-list');
+    await expect(list.getByRole('link')).toHaveText(['Long ago', 'Far ahead', 'Undated']);
+    await expect(list.getByText('Past', { exact: true })).toHaveCount(1);
+    await expect(list.getByText('Next', { exact: true })).toHaveCount(1);
+    await expect(list.getByText('You are a GM', { exact: true })).toHaveCount(3);
+    // None has a place in the campaign's order yet, which the GM's rows say.
+    await expect(list.getByText('Not placed in order', { exact: true })).toHaveCount(3);
+    // The form that makes a Session is not on the page until New Session opens it.
+    await expect(page.getByLabel('Session title', { exact: true })).toBeHidden();
+    await page.getByRole('button', { name: 'New Session', exact: true }).click();
+    await expect(page.getByLabel('Session title', { exact: true })).toBeVisible();
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('the View menu shows parts, says what is hidden, and keeps a view the person names', async ({
+  browser,
+}) => {
+  const w = await world();
+  const session = await ok(
+    w.gm.POST('/tenants/{tenant_id}/sessions', {
+      params: { path: w.path },
+      body: { name: 'Viewed session', campaign_id: w.campaign.id },
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    // A Session opens in Prepare: its parts are there, and the others are not drawn.
+    await expect(page.getByRole('button', { name: 'View: Prepare' })).toBeVisible();
+    await expect(page.locator('[data-region="details"]')).toBeVisible();
+    // Details are read first, and the editor folds under them (screen 15).
+    await expect(page.locator('[data-region="details"] dl')).toContainText('Harbour campaign');
+    await expect(page.locator('[data-region="details"] dl')).toContainText('Not set');
+    await expect(page.locator('[data-region="play"]')).toBeHidden();
+    await expect(page.locator('.view-foot')).toContainText('Hidden:');
+    await expect(page.locator('.view-foot')).toContainText('nothing is deleted');
+    // A part's own control hides it, and the foot says so; the menu brings it back.
+    await page.getByRole('button', { name: 'Hide Scenes', exact: true }).click();
+    await expect(page.locator('[data-region="scenes"]')).toBeHidden();
+    await expect(page.locator('.view-foot')).toContainText('Scenes');
+    await expect(page.getByRole('button', { name: 'View: Custom' })).toBeVisible();
+    // Played swaps them over; All shows everything and leaves nothing to say.
+    await page.getByRole('button', { name: /View: / }).click();
+    // The view and the part are both called Played; the views come first in the menu.
+    await page.getByRole('menuitemradio', { name: 'Played', exact: true }).first().click();
+    await expect(page.getByRole('button', { name: 'View: Played' })).toBeVisible();
+    await expect(page.locator('[data-region="play"]')).toBeVisible();
+    await expect(page.locator('[data-region="details"]')).toBeHidden();
+    await page.getByRole('button', { name: /View: / }).click();
+    await page.getByRole('menuitemradio', { name: 'All', exact: true }).click();
+    await expect(page.locator('.view-foot')).toBeHidden();
+    // One part turned off makes a Custom view; naming it keeps it for the next visit.
+    await page.getByRole('button', { name: /View: / }).click();
+    await page.getByRole('menuitemradio', { name: 'References', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'View: Custom' })).toBeVisible();
+    page.once('dialog', (dialog) => void dialog.accept('Without references'));
+    await page.getByRole('button', { name: /View: / }).click();
+    await page.getByRole('menuitem', { name: 'Save this view…', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'View: Without references' })).toBeVisible();
+    await page.reload();
+    // The Session opens in Prepare again, and the person's own view is one pick away.
+    await expect(page.getByRole('button', { name: 'View: Prepare' })).toBeVisible();
+    await page.getByRole('button', { name: /View: / }).click();
+    await page.getByRole('menuitemradio', { name: 'Without references', exact: true }).click();
+    await expect(page.locator('[data-region="references"]')).toBeHidden();
+    await expect(page.locator('[data-region="play"]')).toBeVisible();
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('Home says what to expect when a person has no Session yet', async ({ browser }) => {
+  const w = await world();
+  // The player has a seat but no Session: nothing is assigned to them yet.
+  const page = await signedIn(browser, w.playerSubject);
+  try {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'No Session yet' })).toBeVisible();
+    await expect(page.getByText('once a GM assigns you to it', { exact: false })).toBeVisible();
+    // A player runs no campaign, so there is no New Session to offer.
+    await expect(page.getByRole('button', { name: 'New Session' })).toHaveCount(0);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('the played record is proposed in one dialog: statuses and Events presented, saved on purpose', async ({
+  browser,
+}) => {
+  const w = await world();
+  const page = await signedIn(browser, w.subject);
+  try {
+    const session = await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name: 'Dialog session', campaign_id: w.campaign.id },
+      }),
+    );
+    const scene = await ok(
+      w.gm.POST('/tenants/{tenant_id}/scenes', {
+        params: { path: w.path },
+        body: { name: 'The lamps go out', is_public: true },
+      }),
+    );
+    const path = { ...w.path, session_id: session.id };
+    const initial = await w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+      params: { path },
+    });
+    await ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
+        params: { path, header: { 'if-match': initial.response.headers.get('etag') ?? '' } },
+        body: { scene_entity_id: scene.id, is_shared: true },
+      }),
+    );
+    const event = await ok(
+      w.gm.POST('/tenants/{tenant_id}/entities', {
+        params: { path: w.path },
+        body: { name: 'The blackout', kinds: ['event'], parents: [], visibility: 'library' },
+      }),
+    );
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await showAll(page);
+    await page.getByRole('button', { name: 'Propose the outline as played', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Propose the outline as played' });
+    await expect(dialog).toContainText('Nothing is saved until you save the record');
+    // Nothing is written by opening it or by cancelling it.
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(
+      (await ok(w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}/play', { params: { path } })))
+        .played_appearance_ids,
+    ).toEqual([]);
+    await page.getByRole('button', { name: 'Propose the outline as played', exact: true }).click();
+    await dialog.getByLabel('The blackout', { exact: true }).check();
+    await dialog.getByRole('button', { name: 'Save the record', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    const record = await ok(
+      w.gm.GET('/tenants/{tenant_id}/sessions/{session_id}/play', { params: { path } }),
+    );
+    expect(record.played_appearance_ids).toHaveLength(1);
+    expect(record.presentations.map((p) => p.event_id)).toEqual([event.id]);
   } finally {
     await page.context().close();
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });

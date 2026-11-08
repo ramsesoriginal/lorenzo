@@ -49,6 +49,8 @@ export {
   themeChoiceOf,
   themeToggleLabel,
 } from './pure';
+export type { RecentPage } from './recent';
+export { agoText, pageTitle, parseRecent, RECENT_MAX, rememberPage } from './recent';
 export type { RetryReadOptions } from './retry';
 export { backoffMs, retryRead } from './retry';
 export type { SaveBar, SaveBarHandlers } from './save-bar';

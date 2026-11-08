@@ -60,6 +60,7 @@ const { tabs, rest } = splitTabs(nav, 3);
         data-needs-library={item.needsLibrary ? '' : undefined}
 
         data-requires={item.requires}
+        data-also={item.also?.join(' ')}
         hidden={item.needsLibrary || Boolean(item.requires)}
       >
         {item.icon && (
@@ -94,6 +95,7 @@ const { tabs, rest } = splitTabs(nav, 3);
               data-needs-library={item.needsLibrary ? '' : undefined}
 
               data-requires={item.requires}
+              data-also={item.also?.join(' ')}
               hidden={item.needsLibrary || Boolean(item.requires)}
             >
               {item.icon && (

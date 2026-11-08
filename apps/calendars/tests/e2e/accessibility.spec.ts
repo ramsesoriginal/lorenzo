@@ -153,7 +153,7 @@ for (const size of sizes) {
           path: `/events/?${tenant}`,
           ready: async () => {
             await expect(page.getByRole('link', { name: event.name, exact: true })).toBeVisible();
-            await expect(page.getByRole('status')).toHaveText(/Events?\./);
+            await expect(page.locator('#content').getByRole('status')).toHaveText(/Events?\./);
           },
         },
       ];

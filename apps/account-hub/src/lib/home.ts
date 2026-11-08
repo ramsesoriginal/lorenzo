@@ -2,6 +2,7 @@
 // run, the tasks that need them, and the pages they were last in. Pure and dependency-free, so each
 // is tested without a browser.
 
+import { agoText } from '@lorenzo/app-shell';
 import type { RunRow, TableCard } from './campaigns';
 import { type GmWords, gmWords } from './gmTitle';
 import { shelfState, updatesHref } from './shelf';
@@ -168,14 +169,7 @@ export function playerTasks(
   });
 }
 
-/** How long ago, in days: "today", "yesterday", "3 days ago". */
-export function agoText(now: number, at: number): string {
-  const days = Math.floor((now - at) / DAY);
-
-  if (days < 1) return 'today';
-
-  return days === 1 ? 'yesterday' : `${days} days ago`;
-}
+export { agoText } from '@lorenzo/app-shell';
 
 /** The line under "Home": who it is, and how many things need them. */
 export function homeSubtitle(name: string | null, needs: number): string {
@@ -277,41 +271,5 @@ export function runItems(input: {
 
 // --- Continue ----------------------------------------------------------------
 
-export type RecentPage = { href: string; title: string; at?: number };
-
-export const RECENT_MAX = 3;
-
-/** The page just opened first, no repeats, at most `max`. */
-export function rememberPage(
-  recent: RecentPage[],
-  page: RecentPage,
-  max = RECENT_MAX,
-): RecentPage[] {
-  return [page, ...recent.filter((entry) => entry.href !== page.href)].slice(0, max);
-}
-
-/** What was stored, kept only where it is the right shape (it is read from a browser). */
-export function parseRecent(text: string | null): RecentPage[] {
-  try {
-    const value: unknown = JSON.parse(text ?? '[]');
-
-    if (!Array.isArray(value)) return [];
-
-    return value.filter(
-      (entry): entry is RecentPage =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        typeof (entry as RecentPage).href === 'string' &&
-        typeof (entry as RecentPage).title === 'string' &&
-        (typeof (entry as RecentPage).at === 'number' || (entry as RecentPage).at === undefined) &&
-        (entry as RecentPage).href.startsWith('/'),
-    );
-  } catch {
-    return [];
-  }
-}
-
-/** The title a page gives itself, without the product: "Your profile — Lorenzo" is "Your profile". */
-export function pageTitle(documentTitle: string): string {
-  return documentTitle.replace(/\s+[—-]\s+Lorenzo.*$/, '').trim() || documentTitle;
-}
+export type { RecentPage } from '@lorenzo/app-shell';
+export { pageTitle, parseRecent, RECENT_MAX, rememberPage } from '@lorenzo/app-shell';

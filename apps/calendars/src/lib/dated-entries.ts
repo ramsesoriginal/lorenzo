@@ -1,6 +1,7 @@
 import { rememberEntryAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
-import { button, el, entryHref, feedback, field, link, message, select, submit } from './dom';
+import { button, el, entryHref, feedback, field, icon, link, message, select, submit } from './dom';
+import { eventIds } from './event-ids';
 import { creationVisibility } from './event-visibility';
 import type { Definition, Period, Rule } from './types';
 
@@ -235,23 +236,51 @@ export function attachExisting(tenantId: string, period: () => Promise<Period>):
 }
 
 export async function datedEntries(tenantId: string, periodId: string): Promise<HTMLElement> {
-  const host = el('section', '', 'stack-tight');
-  host.append(el('h3', 'Dated entries'));
-  const entries = await fetchAllPages(async (page) =>
-    unwrap(
-      await client.GET('/tenants/{tenant_id}/calendar-periods/{period_id}/entries', {
-        params: { path: { tenant_id: tenantId, period_id: periodId }, query: { page, size: 100 } },
-      }),
+  const host = el('div', '', 'stack-tight');
+  const [entries, events] = await Promise.all([
+    fetchAllPages(async (page) =>
+      unwrap(
+        await client.GET('/tenants/{tenant_id}/calendar-periods/{period_id}/entries', {
+          params: {
+            path: { tenant_id: tenantId, period_id: periodId },
+            query: { page, size: 100 },
+          },
+        }),
+      ),
     ),
-  );
-  const list = el('ul', '', 'stack-tight');
-  for (const entry of entries) {
-    rememberEntryAddress(tenantId, entry);
-    const item = el('li');
-    item.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
-    list.append(item);
+    eventIds(tenantId),
+  ]);
+  // What is dated here, in the two kinds the panel names (CS5): Events, then Facts.
+  const groups = [
+    { title: 'Events', symbol: 'kind-event', rows: entries.filter((e) => events.has(e.entity_id)) },
+    { title: 'Facts', symbol: 'kind-fact', rows: entries.filter((e) => !events.has(e.entity_id)) },
+  ];
+  for (const group of groups) {
+    const section = el('section', '', 'stack-tight');
+    const heading = el('h3', '', 'panel-group');
+    heading.append(icon(group.symbol), document.createTextNode(group.title));
+    section.append(heading);
+    if (group.rows.length) {
+      const list = el('ul', '', 'stack-tight');
+      for (const entry of group.rows) {
+        rememberEntryAddress(tenantId, entry);
+        const item = el('li');
+        item.append(link(entry.name, entryHref(tenantId, entry.entity_id)));
+        list.append(item);
+      }
+      section.append(list);
+    } else {
+      section.append(
+        el(
+          'p',
+          entries.length || group.title === 'Facts'
+            ? `No ${group.title} dated here.`
+            : 'Nothing is dated here yet, or none of it is open to you.',
+          'lede',
+        ),
+      );
+    }
+    host.append(section);
   }
-  if (entries.length) host.append(list);
-  else host.append(el('p', 'Nothing is dated here yet, or none of it is open to you.', 'lede'));
   return host;
 }

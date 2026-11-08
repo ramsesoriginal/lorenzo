@@ -19,6 +19,7 @@
   "packages/app-shell": "1.0.0",
   "packages/period-picker": "1.0.0",
   "packages/read-cache": "1.0.0",
+  "packages/time-filter": "0.0.0",
   "apps/inventory-ios": "0.2.0",
   "packages/calendar-engine": "0.1.0",
   "apps/calendars": "1.0.0",

@@ -1,4 +1,6 @@
+import { openMenu } from '@lorenzo/app-shell';
 import { client, fetchAllPages, type Schema, unwrap } from './api';
+import { BRANDING_CSS_URL } from './config';
 import { coveragePanel, referencePanel } from './context';
 import {
   actions,
@@ -10,6 +12,7 @@ import {
   empty,
   errorNotice,
   field,
+  icon,
   link,
   linkButton,
   loading,
@@ -25,12 +28,25 @@ import {
   submit,
   suspendControls,
 } from './dom';
+import { byCampaign, dateWords, nextSession, stateOf } from './home';
 import { livedLinkPanel } from './lived';
 import { campaignName, libraryName, libraryNames } from './names';
 import { notes } from './notes';
 import { periodControl } from './periods';
 import { playPanel, sequencePanel } from './play';
-import { start } from './sign-in';
+import {
+  BUILT_IN,
+  footLine,
+  PARTS,
+  type PartKey,
+  partOf,
+  readViews,
+  toggled,
+  viewName,
+  withView,
+  writeViews,
+} from './regions';
+import { currentShell, start } from './sign-in';
 
 type StorySession = Schema<'SessionOut'>;
 /** What the Session page shares between its panels: the Session as last read and its version, which every conditional write sends and every write to the Session moves on. */
@@ -56,88 +72,178 @@ export async function mountHome() {
       libraryNames(),
       client.GET('/me/managed').then(unwrap),
     ]);
-    const view = el('div', '', 'stack view');
-    view.append(
-      pageHead('My Sessions', {
-        lede: 'Sessions where you are a GM or a player, across your libraries.',
-      }),
-    );
-    if (sessions.length) {
-      const list = el('ul', '', 'list');
-      for (const session of sessions) {
-        const row = el('li');
-        const text = el('div', '', 'stack-tight grow');
-        const where = names.get(session.tenant_id);
-        text.append(
-          link(session.name, sessionHref(session.tenant_id, session.id, session.slug)),
-          el(
-            'p',
-            [where, session.real_date ?? 'Date not set'].filter(Boolean).join(' · '),
-            'status-text',
-          ),
-        );
-        row.append(text, roleBadge(session.can_manage));
-        list.append(row);
-      }
-      view.append(list);
-    } else
-      view.append(empty('No Sessions yet. One appears here when you are added as a GM or player.'));
-    host.replaceChildren(view);
     const campaigns = managed.tenants.flatMap((t) =>
       t.campaigns
         .filter((c) => c.is_gm)
         .map((c) => ({ tenant: t.tenant_id, id: c.campaign_id, name: `${t.name} · ${c.name}` })),
     );
-    if (!campaigns.length) return;
-    const form = el('form', '', 'stack');
-    const name = field('Session title');
-    name.input.required = true;
-    const campaign = select(
-      'Campaign',
-      campaigns.map((c) => [c.id, c.name]),
-      campaigns[0].id,
-    );
-    const date = field('Real-world date', '', 'date');
-    const slug = field('Link name (optional)');
-    const status = statusLine();
-    const save = submit('Create Session');
-    const id = crypto.randomUUID();
-    form.append(fields(name.label, campaign.label, date.label, slug.label), actions(save), status);
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      if (!form.reportValidity()) return;
-      save.disabled = true;
-      const chosen = campaigns.find((c) => c.id === campaign.input.value);
-      if (!chosen) return;
-      void (async () => {
-        try {
-          const session = await unwrap(
-            await client.POST('/tenants/{tenant_id}/sessions', {
-              params: { path: { tenant_id: chosen.tenant } },
-              body: {
-                id,
-                name: name.input.value,
-                slug: slug.input.value || null,
-                campaign_id: chosen.id,
-                real_date: date.input.value || null,
-              },
-            }),
-          );
-          location.assign(sessionHref(chosen.tenant, session.id, session.slug));
-        } catch (error) {
-          say(status, `${message(error)} Your draft is still here.`, true);
-          save.disabled = false;
-        }
-      })();
+    const view = el('div', '', 'stack view home');
+    const head = pageHead('Sessions', {
+      lede: 'Where you play and run games, across your libraries.',
     });
-    const section = el('section', '', 'stack');
-    section.append(sectionHead('Prepare a Session'), card(form).root);
-    host.firstElementChild?.append(section);
+    view.append(head);
+    // The page's main action opens the form that makes a Session; until then it is not there.
+    const create = campaigns.length ? createForm(campaigns) : null;
+    if (create) {
+      const open = el('button', '', 'btn btn-primary');
+      open.type = 'button';
+      open.append(icon('add'), document.createTextNode('New Session'));
+      open.addEventListener('click', () => {
+        create.hidden = false;
+        create.scrollIntoView({ block: 'start' });
+        create.querySelector<HTMLInputElement>('input')?.focus();
+      });
+      head.querySelector('.row')?.append(open);
+    }
+    if (create) view.append(create);
+    const today = new Date().toISOString().slice(0, 10);
+    const next = nextSession(sessions, today);
+    if (next) {
+      const block = el('section', '', 'stack-tight');
+      block.append(el('h2', 'Next', 'group-title'));
+      const row = el('div', '', 'card card-body row home-next');
+      const text = el('div', '', 'stack-tight grow');
+      text.append(
+        link(next.name, sessionHref(next.tenant_id, next.id, next.slug)),
+        el(
+          'p',
+          [names.get(next.tenant_id), dateWords(next.real_date)].filter(Boolean).join(' · '),
+          'status-text',
+        ),
+      );
+      row.append(icon('kind-session'), text);
+      block.append(row);
+      view.append(block);
+    }
+    for (const group of byCampaign(sessions)) {
+      const block = el('section', '', 'stack-tight');
+      const title = el('h2', names.get(group.tenant) ?? 'Sessions', 'group-title');
+      block.append(title);
+      void campaignName(group.tenant, group.campaign).then((name) => {
+        if (name) title.textContent = [names.get(group.tenant), name].filter(Boolean).join(' · ');
+      });
+      const list = el('ul', '', 'list home-list');
+      for (const session of group.sessions) {
+        const row = el('li', '', 'row');
+        row.append(icon('kind-session'));
+        const text = el('div', '', 'stack-tight grow');
+        const when = el('p', dateWords(session.real_date), 'status-text');
+        text.append(
+          link(session.name, sessionHref(session.tenant_id, session.id, session.slug)),
+          when,
+        );
+        row.append(text);
+        // Where it starts in the world, read for the row and never held up on (screen 14).
+        if (session.start_period_id)
+          void client
+            .GET('/tenants/{tenant_id}/entities/{entity_id}', {
+              params: {
+                path: { tenant_id: session.tenant_id, entity_id: session.start_period_id },
+              },
+            })
+            .then((r) => {
+              if (r.data?.name) when.textContent = `${when.textContent} · starts ${r.data.name}`;
+            })
+            .catch(() => {});
+        row.dataset.session = session.id;
+        const state = stateOf(session, today, next);
+        if (state) {
+          const chip = el('span', state === 'past' ? 'Past' : 'Next', 'state-chip');
+          chip.dataset.state = state === 'past' ? 'synced' : 'stale';
+          row.append(chip);
+        }
+        row.append(el('span', session.can_manage ? 'You are a GM' : 'You play', 'chip'));
+        list.append(row);
+      }
+      block.append(list);
+      view.append(block);
+      // A GM's campaign says which of its Sessions have no place in the order yet. Only the Sessions
+      // a person manages are in that answer, so for anyone else nothing is asked.
+      if (group.sessions.some((x) => x.can_manage))
+        void client
+          .GET('/tenants/{tenant_id}/campaigns/{campaign_id}/session-sequence', {
+            params: { path: { tenant_id: group.tenant, campaign_id: group.campaign } },
+          })
+          .then((r) => {
+            for (const unplaced of r.data?.unplaced ?? []) {
+              const row = list.querySelector<HTMLElement>(`[data-session="${unplaced.id}"]`);
+              if (!row) continue;
+              const chip = el('span', 'Not placed in order', 'state-chip');
+              chip.dataset.state = 'stale';
+              row.querySelector('.chip')?.before(chip);
+            }
+          })
+          .catch(() => {});
+    }
+    if (!sessions.length) {
+      // No Session yet (screen 24): what it means, and how one comes to be here.
+      const none = el('section', '', 'stack-tight home-empty');
+      none.append(
+        el('h2', 'No Session yet'),
+        el(
+          'p',
+          'You will see a Session here once a GM assigns you to it. An invite link from a GM adds you to a campaign.',
+          'status-text',
+        ),
+      );
+      view.append(none);
+    }
+    host.replaceChildren(view);
   } catch (error) {
     host.querySelector('[data-loading]')?.remove();
     host.append(errorNotice(error));
   }
 }
+
+/** The form that makes a Session: shut until New Session opens it, and keeping its draft when a save fails. */
+function createForm(campaigns: Array<{ tenant: string; id: string; name: string }>) {
+  const root = card();
+  root.root.hidden = true;
+  const form = el('form', '', 'stack');
+  const name = field('Session title');
+  name.input.required = true;
+  const campaign = select(
+    'Campaign',
+    campaigns.map((c) => [c.id, c.name]),
+    campaigns[0]?.id,
+  );
+  const date = field('Real-world date', '', 'date');
+  const slug = field('Link name (optional)');
+  const status = statusLine();
+  const save = submit('Create Session');
+  const id = crypto.randomUUID();
+  form.append(fields(name.label, campaign.label, date.label, slug.label), actions(save), status);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    save.disabled = true;
+    const chosen = campaigns.find((c) => c.id === campaign.input.value);
+    if (!chosen) return;
+    void (async () => {
+      try {
+        const session = await unwrap(
+          await client.POST('/tenants/{tenant_id}/sessions', {
+            params: { path: { tenant_id: chosen.tenant } },
+            body: {
+              id,
+              name: name.input.value,
+              slug: slug.input.value || null,
+              campaign_id: chosen.id,
+              real_date: date.input.value || null,
+            },
+          }),
+        );
+        location.assign(sessionHref(chosen.tenant, session.id, session.slug));
+      } catch (error) {
+        say(status, `${message(error)} Your draft is still here.`, true);
+        save.disabled = false;
+      }
+    })();
+  });
+  root.body.append(sectionHead('Prepare a Session'), form);
+  return root.root;
+}
+
 async function resolveSession(tenant: string, address: string, forceSlug = false) {
   if (!forceSlug && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(address)) return address;
   const rows = await unwrap(
@@ -187,8 +293,42 @@ export async function mountSession() {
     // other panels, and which panels are open, is left as it is.
     const regionOf = (name: string) =>
       host.querySelector<HTMLElement>(`[data-region="${CSS.escape(name)}"]`);
+    // The parts shown (CS4): a Session opens in Prepare, every time. A region drawn again keeps what
+    // the view says of it.
+    let visible: PartKey[] = [...BUILT_IN.Prepare];
+    let viewChosen = false;
+    let savedViews = readViews();
+    const shown = (name: string) => {
+      const part = partOf(name);
+      return part === undefined || visible.includes(part);
+    };
+    // Each part has a control to hide it (screen 15); the View menu brings it back. It hides only the
+    // drawing, so it is the same choice as unticking the part there.
+    const hideControl = (node: HTMLElement, name: string) => {
+      const part = partOf(name);
+      const label = PARTS.find((p) => p.key === part)?.label;
+      if (part === undefined || !label) return;
+      // In a heading row only: a control inside a <summary> is nested interactive content. A part that
+      // folds is hidden from the View menu, which every part has.
+      const head = node.querySelector<HTMLElement>(':scope > .section-head');
+      if (!head || head.querySelector('.region-hide')) return;
+      const hide = el('button', '', 'btn btn-text region-hide');
+      hide.type = 'button';
+      hide.setAttribute('aria-label', `Hide ${label}`);
+      hide.title = `Hide ${label}`;
+      hide.append(icon('eye-off'));
+      hide.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        visible = toggled(visible, part);
+        syncView();
+      });
+      head.append(hide);
+    };
     const region = <T extends HTMLElement>(node: T, name: string): T => {
       node.dataset.region = name;
+      node.hidden = !shown(name);
+      hideControl(node, name);
       return node;
     };
     const refreshOf =
@@ -390,33 +530,119 @@ export async function mountSession() {
 
     // Everything drawn again: the first time, and when what the person may do has changed.
     const drawAll = async () => {
+      // A player has fewer parts and nothing to prepare, so a Session opens in All for them (screen
+      // 20); the first drawing is when the person's part is known.
+      if (!viewChosen) {
+        viewChosen = true;
+        if (!ctx.session.can_manage) visible = [...BUILT_IN.All];
+      }
       const names = Object.keys(build);
       const nodes = new Map(
         await Promise.all(names.map(async (name) => [name, await build[name]?.()] as const)),
       );
       if (!host.isConnected) return;
       const view = el('div', '', 'stack view');
-      const editors = el('div', '', 'stack-tight');
-      for (const name of ['details', 'roster']) {
+      // The parts are cards in two columns where there is room (screen 15), in the order the menu lists.
+      const grid = el('div', '', 'session-grid');
+      for (const name of [
+        'details',
+        'roster',
+        'notes',
+        'references',
+        'coverage',
+        'scenes',
+        'adder',
+        'play',
+        'sequence',
+        'lived',
+      ]) {
         const node = nodes.get(name);
-        if (node) editors.append(node);
+        if (node) grid.append(node);
       }
-      const outline = el('div', '', 'stack');
-      for (const name of ['scenes', 'adder']) {
-        const node = nodes.get(name);
-        if (node) outline.append(node);
-      }
-      const put = (name: string) => nodes.get(name) ?? [];
-      view.append(
-        ...[put('head')].flat(),
-        ...(editors.childElementCount ? [editors] : []),
-        ...[put('notes'), put('references'), put('coverage')].flat(),
-        outline,
-        ...[put('play'), put('sequence'), put('lived')].flat(),
-      );
+      const head = nodes.get('head');
+      if (head) view.append(head);
+      view.append(grid);
+      const foot = el('p', '', 'caption view-foot');
+      view.append(foot);
       const open = openPanels();
       host.replaceChildren(...view.childNodes);
       reopen(host, open);
+      mountViewMenu(foot);
+    };
+
+    // The View menu and the line at the foot that says what is hidden (CS4, CS6, screens 15 to 18).
+    const syncView = () => {
+      for (const node of host.querySelectorAll<HTMLElement>('[data-region]')) {
+        const name = node.dataset.region ?? '';
+        if (partOf(name) !== undefined) {
+          node.hidden = !shown(name);
+          // The heading is there once the part is drawn, so the control is added now, once.
+          hideControl(node, name);
+        }
+      }
+      const foot = host.querySelector<HTMLElement>('.view-foot');
+      if (foot) {
+        foot.textContent = footLine(visible);
+        foot.hidden = !foot.textContent;
+      }
+      const label = host.querySelector<HTMLElement>('[data-view-label]');
+      if (label) label.textContent = `View: ${viewName(visible, savedViews)}`;
+    };
+    const mountViewMenu = (foot: HTMLElement) => {
+      const title = host.querySelector<HTMLElement>('[data-region="head"] .row');
+      if (!title) return syncView();
+      const button = el('button', '', 'btn btn-secondary view-button');
+      button.type = 'button';
+      button.setAttribute('aria-haspopup', 'menu');
+      const label = el('span', '', 'view-label');
+      label.dataset.viewLabel = '';
+      button.append(icon('settings'), label);
+      const choose = (parts: readonly PartKey[]) => {
+        visible = [...parts];
+        syncView();
+      };
+      button.addEventListener('click', () => {
+        const current = viewName(visible, savedViews);
+        openMenu(
+          button,
+          [
+            { heading: 'View' },
+            ...(['Prepare', 'Played', 'All'] as const).map((name) => ({
+              label: name,
+              checked: current === name,
+              run: () => choose(BUILT_IN[name]),
+            })),
+            ...savedViews.map((v) => ({
+              label: v.name,
+              checked: current === v.name,
+              run: () => choose(v.parts),
+            })),
+            { separator: true as const },
+            { heading: 'Parts' },
+            ...PARTS.map((part) => ({
+              label: part.label,
+              checked: visible.includes(part.key),
+              run: () => choose(toggled(visible, part.key)),
+            })),
+            { separator: true as const },
+            {
+              label: 'Save this view…',
+              icon: 'add',
+              run: () => {
+                const name = prompt('Name this view');
+                const next = name === null ? null : withView(savedViews, name, visible);
+                if (!next) return;
+                savedViews = next;
+                writeViews(savedViews);
+                syncView();
+              },
+            },
+          ],
+          { label: 'View', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+        );
+      });
+      title.append(button);
+      syncView();
     };
 
     const turns = new Map<string, number>();
@@ -476,6 +702,28 @@ export async function mountSession() {
       return swap(regionOf(name), next);
     };
 
+    // The status bar says the part the person has and the in-world date of this Session (CS1): the date
+    // of the Session being looked at, and nothing on any other page.
+    const showBar = async () => {
+      const startId = ctx.session.start_period_id;
+      const started = startId
+        ? await client
+            .GET('/tenants/{tenant_id}/entities/{entity_id}', {
+              params: { path: { tenant_id: tenant, entity_id: startId } },
+            })
+            .then((r) => r.data?.name ?? null)
+            .catch(() => null)
+        : null;
+      if (!host.isConnected) return;
+      currentShell()?.statusBar({
+        meta: [
+          ctx.session.can_manage ? 'You are a GM' : 'You play',
+          started ? `In-world: ${started}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      });
+    };
     const refreshRegions = async (names: string[]) => {
       const wasManager = ctx.session.can_manage;
       const nodes = names
@@ -489,11 +737,13 @@ export async function mountSession() {
       try {
         await readSession();
         if (!host.isConnected) return;
+        void showBar();
         if (ctx.session.can_manage !== wasManager) {
           await drawAll();
           return;
         }
         const drawn = await Promise.all(names.map(drawRegion));
+        syncView();
         // A region that is not on the page cannot be drawn in place: draw the page again.
         if (drawn.includes(false)) await drawAll();
       } finally {
@@ -503,6 +753,7 @@ export async function mountSession() {
 
     await readSession();
     await drawAll();
+    void showBar();
   } catch (error) {
     host.replaceChildren(backLink('My Sessions', '/'), errorNotice(error));
   }
@@ -568,7 +819,29 @@ async function detailsEditor(ctx: PageState, refresh: () => Promise<void>) {
     ),
     status,
   );
-  return details.root;
+  // What the Session is, read first (screen 15); the editor folds under it.
+  const [campaign, started] = await Promise.all([
+    campaignName(session.tenant_id, session.campaign_id),
+    session.start_period_id
+      ? client
+          .GET('/tenants/{tenant_id}/entities/{entity_id}', {
+            params: { path: { tenant_id: session.tenant_id, entity_id: session.start_period_id } },
+          })
+          .then((r) => r.data?.name ?? null)
+          .catch(() => null)
+      : Promise.resolve(null),
+  ]);
+  const rows = el('dl', '', 'facts');
+  for (const [term, value] of [
+    ['Campaign', campaign ?? '…'],
+    ['Real-world date', dateWords(session.real_date)],
+    ['In-world start', started ?? 'Not set'],
+  ] as const) {
+    rows.append(el('dt', term), el('dd', value));
+  }
+  const root = el('div', '', 'stack-tight');
+  root.append(sectionHead('Details'), rows, details.root);
+  return root;
 }
 function rosterEditor(ctx: PageState, refresh: () => Promise<void>) {
   const session = ctx.session;

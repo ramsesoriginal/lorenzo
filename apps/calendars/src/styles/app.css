@@ -168,42 +168,294 @@ pre {
   gap: var(--space-2);
 }
 
-/* The list of calendars --------------------------------------------------------------- */
+/* The list of calendars ---------------------------------------------------------------- */
 
 .calendar-list {
-  --grid-min: 18rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-a.calendar-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  font-weight: 500;
-  transition: border-color 150ms ease;
+/* The whole card opens the calendar; the link is its name, so that is what a screen reader hears. */
+.calendar-card {
+  position: relative;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
 }
 
-a.calendar-card:hover {
-  border-color: var(--action);
+.calendar-card:hover {
+  border-color: var(--border-strong);
+  background: var(--fill-soft);
 }
 
-.calendar-mark,
-.calendar-card > :last-child {
-  flex: none;
-  color: var(--text-secondary);
+.calendar-card:has(.calendar-open:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
-.calendar-name {
-  flex: 1;
+[data-page] .calendar-name {
+  margin: 0;
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  line-height: 1.3;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
+.calendar-open {
+  color: inherit;
+  text-decoration: none;
+}
+
+.calendar-open:focus-visible {
+  outline: none;
+}
+
+.calendar-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.calendar-mark {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+/* Continue and the apps (D16): quiet labels over cards, set apart from what is above. */
+[data-page] .home-label {
+  margin-top: var(--space-2);
+}
+
+[data-page] .home-label > h2 {
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.home-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-tiles--apps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@container shell (max-width: 1099px) {
+  .home-tiles--apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container shell (max-width: 720px) {
+  .home-tiles,
+  .home-tiles--apps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+a.home-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2h);
+  height: 100%;
+  padding: var(--space-3);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+a.home-tile:hover {
+  background: var(--fill-soft);
+}
+
+.home-tile-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.home-tile-title {
+  font-weight: 600;
+}
+
+.home-tile-icon {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  margin-top: 2px;
+}
+
 /* A calendar ---------------------------------------------------------------------------- */
+
+/* The head (CS6): the calendar's name small over the segment's name large, and the choices that change
+   what is shown on the right. */
+.cal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.cal-over {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+}
+
+[data-page] .cal-over h1 {
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 400;
+  color: inherit;
+}
+
+[data-page] .cal-big {
+  margin: 0;
+  font-size: var(--fs-title);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.cal-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2h) var(--space-3);
+}
+
+.year-nav {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.year-nav .year-field {
+  flex: none;
+  width: 6.5rem;
+}
+
+/* Month and Whole year, as one control. */
+.tabs.view-switch {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+}
+
+.view-switch .tab {
+  min-height: var(--hit);
+  padding: 0 var(--space-3);
+  border-bottom: 0;
+}
+
+.view-switch .tab[aria-selected="true"] {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+
+/* A form in a card that the head's Edit button opens; until then it is not there. */
+.cal-edit {
+  margin-block-start: var(--space-3);
+}
+
+.cal-edit:not([open]) {
+  display: none;
+}
+
+.cal-notes-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The strip of segments: a chip for each, with how much is written as five dots; a festival has a
+   double edge, and a leap segment this year does not have keeps its place and cannot be opened. */
+.seg-strip {
+  display: flex;
+  gap: var(--space-2);
+  padding-block-end: var(--space-1);
+  overflow-x: auto;
+}
+
+.seg-chip {
+  flex: none;
+  display: grid;
+  gap: 2px;
+  justify-content: start;
+  justify-items: start;
+  min-width: 7rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
+  color: var(--text-primary);
+  font-weight: 400;
+  text-align: start;
+}
+
+button.seg-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--fill-soft);
+}
+
+.seg-chip[aria-pressed="true"] {
+  border-color: var(--action);
+  background: var(--surface-selected);
+}
+
+.seg-chip.fest {
+  border-style: double;
+  border-width: 3px;
+}
+
+.seg-chip--absent {
+  border-style: dashed;
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.seg-name {
+  font-weight: 500;
+}
+
+.seg-meta {
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+}
+
+.seg-density {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.seg-density > span {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--border-subtle);
+}
+
+.seg-density > .on {
+  background: var(--action);
+}
 
 .calendar-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
   gap: var(--space-4);
   align-items: start;
 }
@@ -212,34 +464,35 @@ a.calendar-card:hover {
   min-width: 0;
 }
 
-.view-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-}
-
-.view-bar > .tabs {
-  flex: 1 1 auto;
-}
-
+/* The grid: hairlines between the days, a muted row of weekdays, the selected day framed. */
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(var(--week-length, 7), minmax(5.5rem, 1fr));
-  gap: var(--space-1);
-  overflow-x: auto;
-  padding: var(--space-1);
+  grid-template-columns: repeat(var(--week-length, 7), minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--surface-default);
 }
 
 .weekday {
-  padding-block: var(--space-2);
+  padding: var(--space-2);
   overflow: hidden;
-  font-size: 13px;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+  font-size: var(--fs-meta);
   font-weight: 500;
   color: var(--text-secondary);
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.month-grid > span[aria-hidden="true"] {
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .day {
@@ -247,31 +500,29 @@ a.calendar-card:hover {
   display: grid;
   align-content: start;
   gap: var(--space-1);
-  min-height: 5rem;
+  min-height: 5.5rem;
   padding: var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-default);
   color: var(--text-primary);
-  font-size: 14px;
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease;
+  font-size: var(--fs-ui);
+  transition: background-color 150ms ease;
 }
 
 .day:hover {
-  border-color: var(--border-strong);
   background: var(--fill-soft);
 }
 
 .day:has(.day-button[aria-pressed="true"]) {
-  border-color: var(--action);
   background: var(--surface-selected);
+  outline: 2px solid var(--action);
+  outline-offset: -2px;
 }
 
 .day:has(.day-button:focus-visible) {
   outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  outline-offset: -2px;
 }
 
 /* The button names the date and holds the moons; its hit area is the whole cell. */
@@ -280,7 +531,7 @@ a.calendar-card:hover {
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-control);
+  border-radius: 0;
   background: transparent;
   color: inherit;
   font-size: inherit;
@@ -311,13 +562,13 @@ a.calendar-card:hover {
 }
 
 .day-number {
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .moon-phases {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: 2px;
   color: var(--text-secondary);
 }
 
@@ -326,21 +577,20 @@ a.calendar-card:hover {
   gap: var(--space-1);
 }
 
+.day-marks {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+}
+
 .day-item {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: var(--fs-meta);
   line-height: 1.4;
-}
-
-.day-note,
-.day-observance {
-  color: var(--text-secondary);
-}
-
-.day-entry {
-  color: var(--action);
-  font-weight: 500;
 }
 
 .day-loading {
@@ -354,18 +604,82 @@ a.calendar-card:hover {
   gap: var(--space-2);
 }
 
-.festival .day {
+.festival:not(.year-days) .day {
   min-width: 7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
 }
 
+/* The whole year (CS2): a row for each segment, and a square for each day, darker for more written. */
 .year-segment {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: start;
   min-width: 0;
-  padding-block-end: var(--space-4);
-  border-block-end: 1px solid var(--border-subtle);
 }
 
-.calendar-scroll-hint {
+.year-head {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+
+[data-page] .year-head h2 {
+  font-size: var(--fs-ui);
+  font-weight: 500;
+}
+
+.year-head p {
+  margin: 0;
+}
+
+.year-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.day--square {
+  width: 1.4rem;
+  height: 1.4rem;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+
+.day--square .day-button {
+  height: 100%;
+}
+
+/* A square has no room for marks: its shade says how much, and the panel says what. */
+.day--square .day-marks {
   display: none;
+}
+
+.day--square[data-level="1"] {
+  background: color-mix(in srgb, var(--action) 18%, var(--surface-default));
+}
+
+.day--square[data-level="2"] {
+  background: color-mix(in srgb, var(--action) 38%, var(--surface-default));
+}
+
+.day--square[data-level="3"] {
+  background: color-mix(in srgb, var(--action) 60%, var(--surface-default));
+}
+
+.day--square:has(.day-button[aria-pressed="true"]) {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
+
+/* Each square is a day: said once under the rows. */
+.year-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
 }
 
 /* The selected day's moons, each a symbol and its words. */
@@ -378,11 +692,12 @@ a.calendar-card:hover {
 
 /* The day panel's own heading is smaller than a page's. */
 .calendar-layout > aside h2 {
-  font-size: 20px;
+  font-size: var(--fs-heading);
 }
 
-@media (min-width: 721px) {
-  .calendar-layout.whole-year > aside {
+/* Above a tablet the panel stays in view beside the grid. */
+@container shell (min-width: 1100px) {
+  .calendar-layout > aside {
     position: sticky;
     top: var(--space-3);
     max-height: calc(100dvh - var(--space-5));
@@ -390,17 +705,37 @@ a.calendar-card:hover {
   }
 }
 
-@media (max-width: 720px) {
+@container shell (max-width: 1099px) {
   .calendar-layout {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .calendar-scroll-hint {
-    display: block;
+@container shell (max-width: 1099px) {
+  /* The panel is a bottom sheet: not there until a date is chosen, then over the bottom of the page. */
+  .calendar-layout > aside {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 19;
+    max-height: 70dvh;
+    overflow-y: auto;
+    border-width: 1px 0 0;
+    border-radius: var(--radius-surface) var(--radius-surface) 0 0;
+    background: var(--surface-canvas);
+  }
+
+  .calendar-layout > aside:not([data-open]) {
+    display: none;
   }
 
   .day {
-    min-height: 4.5rem;
+    min-height: 3.75rem;
+    padding: var(--space-1);
+  }
+
+  .weekday {
+    padding: var(--space-1);
   }
 
   .card.disclosure > summary,
@@ -414,8 +749,7 @@ a.calendar-card:hover {
 @media (max-width: 720px), (pointer: coarse) {
   .disclosure > summary,
   .field-row,
-  a.row-tight,
-  .calendar-card {
+  a.row-tight {
     min-height: var(--target-min);
   }
 
@@ -430,4 +764,169 @@ a.calendar-card:hover {
     align-items: center;
     min-height: var(--target-min);
   }
+}
+
+/* The panel's overline, and the forms that "Add to this day" reveals: they are not there until asked. */
+.day-over {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.add-form:not([open]) {
+  display: none;
+}
+
+/* The list of Events: one frame, a hairline between rows, a chip for what the story order rests on. */
+.list.event-list {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+  list-style: none;
+}
+
+.list.event-list > li {
+  min-height: var(--row-h);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+}
+
+.list.event-list > li:first-child {
+  border-top: 0;
+}
+
+.event-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-block: var(--space-1);
+}
+
+.event-meta:empty {
+  display: none;
+}
+
+.event-mark {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+/* The form that makes an Event is opened by the page's New Event; until then it is not there. */
+.event-create:not([open]) {
+  display: none;
+}
+
+/* An entry (CS3, screen 08): its panels in columns where there is room, each a card with a heading. */
+.entry-grid {
+  display: block;
+}
+
+.entry-grid > * {
+  break-inside: avoid;
+  margin-block-end: var(--space-3);
+}
+
+.entry-grid > :is(section, details, div):not(.feedback) {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+
+.entry-grid > .card {
+  background: var(--surface-canvas);
+}
+
+/* A folding card has the padding of its own summary and body. */
+.entry-grid > details.card {
+  padding: 0;
+}
+
+@container shell (min-width: 1100px) {
+  .entry-grid {
+    column-count: 2;
+    column-gap: var(--space-4);
+  }
+}
+
+[data-page] .entry-grid h2 {
+  font-size: var(--fs-heading);
+  font-weight: 600;
+}
+
+/* The definition editor: a segment is one row of a table (name, days, kind, and what moves or removes
+   it), with its week and leap rule folded under it; only the first row says what each column is. */
+.segment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) 6rem minmax(0, 2fr) auto;
+  gap: var(--space-1) var(--space-3);
+  align-items: end;
+  padding-block: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.segment-row:first-child {
+  border-top: 0;
+}
+
+.segment-row > .form-grid {
+  display: contents;
+}
+
+.segment-row > .row {
+  grid-column: 4;
+  grid-row: 1;
+  flex-wrap: nowrap;
+}
+
+.segment-row > .disclosure {
+  grid-column: 1 / -1;
+}
+
+.segment-row:not(:first-child) .field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@container shell (max-width: 720px) {
+  .segment-row {
+    grid-template-columns: minmax(0, 1fr) 5rem;
+  }
+
+  .segment-row > .form-grid {
+    display: contents;
+  }
+
+  .segment-row > .row {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}
+
+/* Close, for the sheet: beside the grid the panel stays and has none. */
+.sheet-close {
+  display: none;
+  align-self: flex-end;
+}
+
+@container shell (max-width: 1099px) {
+  .sheet-close {
+    display: inline-flex;
+  }
+}
+
+/* A group in the day panel: its kind's symbol and name. */
+.panel-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-ui);
 }

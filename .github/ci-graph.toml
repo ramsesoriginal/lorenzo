@@ -150,6 +150,9 @@ batch = "packages"
 [nodes."packages/read-cache"]
 batch = "packages"
 
+[nodes."packages/time-filter"]
+batch = "packages"
+
 [nodes."apps/inventory-ios"]
 depends_on = ["apps/brand"]
 generated_from = ["apps/api"]

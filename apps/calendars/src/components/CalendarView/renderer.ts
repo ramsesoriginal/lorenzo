@@ -1,6 +1,9 @@
+import { fill } from '@lorenzo/api-client';
+import { openMenu } from '@lorenzo/app-shell';
 import { renderAudienceControl } from '@lorenzo/information-editor';
 import { canonicalAddress, rememberEntryAddress, resolveAddress } from '../../lib/addresses';
 import { client, fetchAllPages, unwrap } from '../../lib/api';
+import { BRANDING_CSS_URL } from '../../lib/config';
 import {
   attachExisting,
   createDatedEntry,
@@ -22,11 +25,13 @@ import {
   linkButton,
   loading,
   message,
-  select,
 } from '../../lib/dom';
+import { eventIds } from '../../lib/event-ids';
 import { informationView, renderText } from '../../lib/information';
 import { prefetchEntry, prefetchYear } from '../../lib/prefetch';
-import { start } from '../../lib/session';
+import { rememberThisPage } from '../../lib/recent';
+import { appRegistry } from '../../lib/registry';
+import { currentShell, start } from '../../lib/session';
 import type { Period, YearPreview } from '../../lib/types';
 
 // Phase n of the calendar engine's int(fraction * 8): the words, and the atlas symbol (ADR 0326).
@@ -80,19 +85,29 @@ export async function mount() {
     if (!host?.isConnected) return;
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, calendarId);
-    const head = el('div', '', 'page-header');
-    head.append(
-      el('h1', calendar.name),
-      linkButton('Calendar entry', entryHref(tenantId, calendarId), 'kind-calendar'),
-    );
+    rememberThisPage(tenantId, calendar.name);
+    // The head (CS6): the calendar's name small over the segment's name large, and on the right the
+    // choices that change what is shown (month or whole year, the year, the calendar's own page and,
+    // for whoever can write, its definition).
+    const head = el('div', '', 'cal-head');
+    const titleBlock = el('div', '', 'cal-title');
+    const over = el('div', '', 'cal-over');
+    const overYear = el('span');
+    over.append(el('h1', calendar.name), overYear);
+    const bigTitle = el('h2', '', 'cal-big display');
+    titleBlock.append(over, bigTitle);
+    const controls = el('div', '', 'cal-controls');
+    const viewSlot = el('div', '', 'cal-view');
+    head.append(titleBlock, controls);
     wait.replaceWith(head);
+    let edit: ReturnType<typeof disclosure> | undefined;
     if (canWrite) {
-      const edit = disclosure('Edit calendar definition', true);
+      edit = disclosure('Edit calendar definition', true);
+      edit.root.classList.add('cal-edit');
       edit.body.append(
         definitionEditor(tenantId, calendar),
         renderAudienceControl({ client, tenantId, entityId: calendarId }),
       );
-      host.append(edit.root);
     }
     const fallback =
       calendar.definition.week?.reference.year ?? calendar.definition.moons[0]?.reference.year ?? 0;
@@ -101,17 +116,43 @@ export async function mount() {
     y.input.min = '-1000000';
     y.input.max = '1000000';
     y.label.classList.add('year-field');
-    const yearNav = el('form', '', 'toolbar year-nav');
+    const yearNav = el('form', '', 'year-nav');
     const go = el('button', 'Open year', 'btn btn-secondary');
     go.type = 'submit';
-    yearNav.append(
-      button('Previous year', () => openYear(year - 1), true, 'previous'),
-      y.label,
-      button('Next year', () => openYear(year + 1), true, 'next'),
-      go,
+    // The arrows step the month (CS6) and, in the whole year, the year; the field reaches any year.
+    // Icon-only, as drawn; the name is what a screen reader and a tooltip say.
+    const earlier = button('', () => step(-1), true, 'previous');
+    const later = button('', () => step(1), true, 'next');
+    for (const [arrow, words] of [
+      [earlier, 'Previous month'],
+      [later, 'Next month'],
+    ] as const) {
+      arrow.setAttribute('aria-label', words);
+      arrow.title = words;
+    }
+    yearNav.append(earlier, y.label, later, go);
+    const entryLink = linkButton(
+      'Calendar entry',
+      entryHref(tenantId, calendarId),
+      'kind-calendar',
     );
+    controls.append(viewSlot, yearNav, entryLink);
+    if (edit) {
+      const editing = edit;
+      const open = button(
+        'Edit the calendar',
+        () => {
+          editing.root.open = !editing.root.open;
+          if (editing.root.open) editing.root.scrollIntoView({ block: 'start' });
+        },
+        true,
+        'edit',
+      );
+      controls.append(open);
+      host.append(edit.root);
+    }
     const status = feedback();
-    host.append(yearNav, status.node);
+    host.append(status.node);
     const body = el('div', '', 'calendar-layout');
     const grid = el('section', '', 'stack');
     const detail = el('aside', '', 'card card-body stack');
@@ -129,7 +170,93 @@ export async function mount() {
       name: string;
       date: { year: number; segment: string; day: number };
     }> = [];
-    type DaySummary = { notes: string[]; entries: string[] };
+    // A day's marks (CS5): up to two small symbols and "+N" for the rest, the words of each kept for a
+    // reader of the page (and for the panel, which has them in full).
+    type Mark = { kind: 'note' | 'event' | 'fact' | 'observance'; text: string };
+    // One symbol for each kind of thing on a day (CS5): a note, an Event, a Fact, a recurring observance.
+    const markIcons = {
+      note: 'kind-chapter',
+      event: 'kind-event',
+      fact: 'kind-fact',
+      observance: 'kind-observance',
+    };
+    const dayState = new WeakMap<HTMLElement, { items: Mark[]; loading: boolean }>();
+    function paintDay(content: HTMLElement) {
+      const state = dayState.get(content);
+      if (!state) return;
+      const nodes: Node[] = [];
+      if (state.loading) nodes.push(el('span', 'Loading notes…', 'skeleton day-item day-loading'));
+      if (state.items.length) {
+        const marks = el('span', '', 'day-marks');
+        marks.setAttribute('aria-hidden', 'true');
+        for (const item of state.items.slice(0, 2)) {
+          const mark = el('span', '', `day-mark day-mark--${item.kind}`);
+          mark.title = item.text;
+          mark.append(icon(markIcons[item.kind]));
+          marks.append(mark);
+        }
+        if (state.items.length > 2)
+          marks.append(el('span', `+${state.items.length - 2}`, 'day-more'));
+        nodes.push(marks);
+        // What each mark is, in words, for a screen reader and for finding it on the page.
+        for (const item of state.items) nodes.push(el('span', item.text, 'visually-hidden'));
+      }
+      content.replaceChildren(...nodes);
+      // How much is written, for the year's squares: darker for more.
+      const cell = content.parentElement;
+      if (cell) cell.dataset.level = String(Math.min(3, state.items.length));
+    }
+    function dayItems(content: HTMLElement, change: { items?: Mark[]; loading?: boolean }) {
+      const state = dayState.get(content) ?? { items: [], loading: false };
+      if (change.items) state.items = [...state.items, ...change.items];
+      if (change.loading !== undefined) state.loading = change.loading;
+      dayState.set(content, state);
+      paintDay(content);
+    }
+    // The Sessions of the library, read once for the page (CS1: a day lists the Sessions that start on
+    // it). What the person may not see is not in the answer, and a failure leaves the day without them.
+    type Covered = {
+      calendar_entity_id: string;
+      year: number;
+      segment: string | null;
+      day: number | null;
+    };
+    let sessionRows:
+      | Promise<
+          Array<{ id: string; name: string; start_period_id: string | null; covers: Covered[] }>
+        >
+      | undefined;
+    // Each Session's game time covered is its own date associations (the periods it is set on, of any
+    // size: a day, a month or festival, a year), read for the few Sessions of a library.
+    const readSessions = () =>
+      (sessionRows ??= client
+        .GET('/tenants/{tenant_id}/sessions', { params: { path: { tenant_id: tenantId } } })
+        .then(unwrap)
+        .then((rows) =>
+          Promise.all(
+            rows.map(async (row) => ({
+              ...row,
+              covers: await client
+                .GET('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+                  params: { path: { tenant_id: tenantId, entity_id: row.id } },
+                })
+                .then((r) => (r.data ?? []) as Covered[])
+                .catch(() => [] as Covered[]),
+            })),
+          ),
+        )
+        .catch(() => []));
+    // Whether a covered period takes in a day: the day itself, its month or festival, or its year.
+    const takesIn = (
+      cover: Covered,
+      day: { calendar: string; year: number; segment: string | null; day: number | null },
+    ) =>
+      cover.calendar_entity_id === day.calendar &&
+      cover.year === day.year &&
+      (cover.segment === null ||
+        (cover.segment === day.segment && (cover.day === null || cover.day === day.day)));
+    type DaySummary = { notes: string[]; entries: Array<{ id: string; name: string }> };
+    const readEventIds = () => eventIds(tenantId);
     const contentCache = new Map<string, Promise<DaySummary>>();
     const summaryReads = new Map<string, Promise<void>>();
     // What a saved day shows, in one request for the whole month or festival (ADR 0324) instead
@@ -175,7 +302,10 @@ export async function mount() {
                     : 'Note';
                 }),
               );
-              return { notes, entries: item.entries.map((e) => e.name) };
+              return {
+                notes,
+                entries: item.entries.map((e) => ({ id: e.entity_id, name: e.name })),
+              };
             })(),
           );
         }
@@ -189,24 +319,35 @@ export async function mount() {
     function loadDays(segment: string, jobs: Array<{ period: Period; content: HTMLElement }>) {
       void loadSummaries(segment)
         .then(async () => {
+          const events = await readEventIds();
           for (const { period, content } of jobs) {
             if (!content.isConnected) continue;
             const summary = await contentCache.get(period.entity_id);
             if (!content.isConnected) continue;
-            content.replaceChildren(
-              ...(summary?.notes ?? []).map((note) =>
-                el('span', `Note · ${note}`, 'day-item day-note'),
-              ),
-              ...(summary?.entries ?? []).map((name) => el('span', name, 'day-item day-entry')),
-            );
+            dayItems(content, {
+              loading: false,
+              items: [
+                ...(summary?.notes ?? []).map(
+                  (note): Mark => ({ kind: 'note', text: `Note · ${note}` }),
+                ),
+                ...(summary?.entries ?? []).map(
+                  (entry): Mark => ({
+                    kind: events.has(entry.id) ? 'event' : 'fact',
+                    text: entry.name,
+                  }),
+                ),
+              ],
+            });
           }
         })
         .catch(() => {
           for (const { content } of jobs) {
-            if (content.isConnected)
+            if (content.isConnected) {
+              dayState.set(content, { items: [], loading: false });
               content.replaceChildren(
                 el('span', 'Could not load notes and entries.', 'day-item error-text'),
               );
+            }
           }
         });
     }
@@ -218,6 +359,23 @@ export async function mount() {
       event.preventDefault();
       void openYear(Number(y.input.value));
     });
+    // After a step over the end of a year, the segment to open on in the year that follows.
+    let arrive: 'first' | 'last' | null = null;
+    let stepChips: string[] = [];
+    function step(direction: -1 | 1) {
+      if (wholeYear) {
+        void openYear(year + direction);
+        return;
+      }
+      const at = stepChips.indexOf(chosenSegment) + direction;
+      const target = stepChips[at];
+      if (target !== undefined) choose?.(target);
+      else {
+        arrive = direction === 1 ? 'first' : 'last';
+        void openYear(year + direction);
+      }
+    }
+    let choose: ((key: string) => void) | undefined;
     async function openYear(next: number) {
       if (!Number.isInteger(next) || Math.abs(next) > 1000000) {
         status.fail('Enter a whole year between −1000000 and 1000000.');
@@ -280,7 +438,13 @@ export async function mount() {
           target &&
           (dayRequested === null || target.days.some((d) => d.date.day === dayRequested))
         ) {
-          await showPeriod(target.key, dayRequested ?? undefined);
+          await showPeriod(
+            target.key,
+            dayRequested ?? undefined,
+            undefined,
+            false,
+            dayRequested === null,
+          );
         } else await showPeriod();
         requestedDay = null;
         requestedDate = false;
@@ -295,13 +459,13 @@ export async function mount() {
     }
     function showYear() {
       grid.replaceChildren();
-      const tabs = el('div', '', 'tabs');
+      const tabs = el('div', '', 'tabs view-switch');
       tabs.setAttribute('role', 'tablist');
       tabs.setAttribute('aria-label', 'Calendar view');
       const monthPanel = el('div', '', 'stack');
       const yearPanel = el('div', '', 'stack year-segments');
       const panels = [monthPanel, yearPanel];
-      const tabButtons = ['Month or festival', 'Whole year'].map((name, index) => {
+      const tabButtons = ['Month', 'Whole year'].map((name, index) => {
         const tab = button(name, () => activate(index), true);
         tab.className = 'tab';
         tab.id = `calendar-view-tab-${index}`;
@@ -335,17 +499,17 @@ export async function mount() {
         tabs.append(tab);
         return tab;
       });
-      const bar = el('div', '', 'view-bar');
-      bar.append(
-        tabs,
+      viewSlot.replaceChildren(tabs);
+      const notesRow = el('div', '', 'cal-notes-row');
+      notesRow.append(
         button(
           `Year ${year}: notes and dated entries`,
-          () => showPeriod(),
+          () => showPeriod(undefined, undefined, undefined, true),
           true,
           'kind-calendar-pin',
         ),
       );
-      grid.append(bar, monthPanel, yearPanel);
+      grid.append(notesRow, monthPanel, yearPanel);
       function activate(index: number) {
         wholeYear = index === 1;
         detail.querySelector('[data-calendar-return]')?.remove();
@@ -364,32 +528,109 @@ export async function mount() {
           for (const segment of preview.segments) {
             const month = el('section', '', 'stack year-segment');
             yearPanel.append(month);
-            showSegment(segment.key, month);
+            showSegment(segment.key, month, true);
           }
+          yearPanel.append(
+            el(
+              'p',
+              'Each square is a day. Darker means more is written on it. Choose a day to read it in the panel.',
+              'year-note',
+            ),
+          );
         } else {
+          if (arrive)
+            chosenSegment =
+              (arrive === 'first' ? preview.segments[0] : preview.segments.at(-1))?.key ?? '';
+          arrive = null;
           if (!preview.segments.some((s) => s.key === chosenSegment))
             chosenSegment = preview.segments[0]?.key ?? '';
-          const picker = select(
-            'Month or festival',
-            preview.segments.map((s) => [
-              s.key,
-              `${s.name}${s.kind === 'festival' ? ' · festival' : ''}`,
-            ]),
-            chosenSegment,
-          );
-          picker.label.classList.add('narrow-field');
+          const strip = el('div', '', 'seg-strip horizontal-mask');
+          strip.setAttribute('role', 'group');
+          strip.setAttribute('aria-label', 'Month or festival');
           const days = el('div', '', 'stack');
-          monthPanel.append(picker.label, days);
-          picker.input.addEventListener('change', () => {
-            chosenSegment = picker.input.value;
-            showSegment(chosenSegment, days);
+          monthPanel.append(strip, days);
+          const chips = new Map<string, HTMLButtonElement>();
+          choose = (key: string) => {
+            chosenSegment = key;
+            for (const [chipKey, chip] of chips)
+              chip.setAttribute('aria-pressed', String(chipKey === key));
+            chips.get(key)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+            showSegment(key, days, false);
+            setTitle();
+          };
+          for (const definition of calendar.definition.segments) {
+            const shown = preview.segments.find((s) => s.key === definition.key);
+            if (!shown) {
+              // A leap segment that this year does not have keeps its place, and cannot be opened.
+              const absent = el('div', '', 'seg-chip seg-chip--absent');
+              absent.append(
+                el('span', definition.name, 'seg-name'),
+                el('span', 'absent this year', 'seg-meta'),
+              );
+              strip.append(absent);
+              continue;
+            }
+            const chip = el('button', '', `seg-chip${shown.kind === 'festival' ? ' fest' : ''}`);
+            chip.type = 'button';
+            chip.dataset.segment = shown.key;
+            // How much is written: a dot for each fifth of the days that have something.
+            const written = periods.filter((p) => p.segment === shown.key && p.day !== null).length;
+            const filled =
+              written === 0 ? 0 : Math.max(1, Math.ceil((written / shown.days.length) * 5));
+            const dots = el('span', '', 'seg-density');
+            dots.setAttribute('aria-hidden', 'true');
+            for (let i = 0; i < 5; i++) dots.append(el('span', '', i < filled ? 'on' : ''));
+            chip.append(
+              el('span', shown.name, 'seg-name'),
+              el(
+                'span',
+                `${shown.days.length} ${shown.days.length === 1 ? 'day' : 'days'}`,
+                'seg-meta',
+              ),
+              dots,
+            );
+            chip.setAttribute('aria-pressed', String(shown.key === chosenSegment));
+            chip.addEventListener('click', () => choose?.(shown.key));
+            chips.set(shown.key, chip);
+            strip.append(chip);
+          }
+          // Page Up and Page Down change segment, from the strip or the grid.
+          monthPanel.addEventListener('keydown', (event) => {
+            if (event.key !== 'PageUp' && event.key !== 'PageDown') return;
+            const keys = [...chips.keys()];
+            const next = keys.indexOf(chosenSegment) + (event.key === 'PageDown' ? 1 : -1);
+            if (next < 0 || next >= keys.length) return;
+            event.preventDefault();
+            const target = keys[next] ?? chosenSegment;
+            choose?.(target);
+            chips.get(target)?.focus();
           });
-          showSegment(chosenSegment, days);
+          stepChips = [...chips.keys()];
+          showSegment(chosenSegment, days, false);
+          // The strip opens with the segment on show in view, however far along it is.
+          chips.get(chosenSegment)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
         }
+        setTitle();
       }
       activate(wholeYear ? 1 : 0);
     }
-    function showSegment(key: string, container: HTMLElement) {
+    // The heading that says which segment is shown: the head of the page for the month, and a row's
+    // name in the whole year.
+    function setTitle() {
+      const unit = wholeYear ? 'year' : 'month';
+      for (const [arrow, words] of [
+        [earlier, `Previous ${unit}`],
+        [later, `Next ${unit}`],
+      ] as const) {
+        arrow.setAttribute('aria-label', words);
+        arrow.title = words;
+      }
+      overYear.textContent = `· Year ${year}`;
+      bigTitle.textContent = wholeYear
+        ? `Year ${year}`
+        : (preview.segments.find((s) => s.key === chosenSegment)?.name ?? '');
+    }
+    function showSegment(key: string, container: HTMLElement, inYear: boolean) {
       const segment = preview.segments.find((s) => s.key === key);
       if (!segment) return;
       container.replaceChildren();
@@ -399,23 +640,43 @@ export async function mount() {
         true,
         'kind-calendar-pin',
       );
-      const title = el('div', '', 'section-head');
-      title.append(el('h2', segment.name), notes);
-      container.append(title);
+      if (inYear) {
+        // A row of the year: the segment's name and size on the left, its days as squares.
+        const head = el('div', '', 'year-head');
+        // In a row of the year it is a quiet "Notes", still named for what it opens.
+        notes.classList.replace('btn-secondary', 'btn-text');
+        notes.setAttribute('aria-label', 'Month or festival notes');
+        if (notes.lastChild) notes.lastChild.textContent = 'Notes';
+        head.append(
+          el('h2', segment.name),
+          el(
+            'p',
+            `${segment.days.length} ${segment.days.length === 1 ? 'day' : 'days'}`,
+            'caption',
+          ),
+          notes,
+        );
+        container.append(head);
+      } else {
+        const row = el('div', '', 'cal-notes-row');
+        row.append(notes);
+        container.append(row);
+      }
       const definition = calendar.definition.segments.find((s) => s.key === key);
       const week = calendar.definition.week;
       const useWeek = Boolean(week && definition?.in_week);
-      const cells = el('div', '', useWeek ? 'month-grid' : 'festival');
+      const cells = el(
+        'div',
+        '',
+        inYear ? `year-days${useWeek ? '' : ' festival'}` : useWeek ? 'month-grid' : 'festival',
+      );
       cells.style.setProperty('--week-length', String(week?.length ?? 7));
-      if (useWeek) {
+      if (useWeek && !inYear) {
         cells.tabIndex = 0;
         cells.setAttribute('role', 'group');
         cells.setAttribute('aria-label', `Dates in ${segment.name} ${year}`);
-        container.append(
-          el('p', 'Scroll across the week for more dates.', 'caption calendar-scroll-hint'),
-        );
       }
-      if (useWeek && week) {
+      if (useWeek && week && !inYear) {
         for (let i = 0; i < week.length; i++)
           cells.append(el('span', week.names?.[i] ?? String(i + 1), 'weekday'));
         const start = segment.days[0]?.weekday ?? 0;
@@ -429,7 +690,7 @@ export async function mount() {
       for (const day of segment.days) {
         // A cell is the date's button, which carries its name and its moons, and beneath it what
         // is written for the day. The button's own text is only the date, so its name holds it.
-        const cell = el('div', '', 'day');
+        const cell = el('div', '', inYear ? 'day day--square' : 'day');
         const press = el('button', '', 'day-button');
         press.type = 'button';
         press.addEventListener('click', () => {
@@ -460,26 +721,53 @@ export async function mount() {
           header.append(moons);
           press.setAttribute('aria-description', moonLabels.join('; '));
         }
-        press.append(header);
+        // In the year a day is a square with no words on it; its name is the button's.
+        if (!inYear) press.append(header);
         const content = el('div', '', 'day-content');
         cell.append(press, content);
         const saved = periods.find((p) => p.segment === key && p.day === day.date.day);
         if (saved) {
           press.addEventListener('pointerenter', () => prefetchEntry(tenantId, saved.entity_id));
           press.addEventListener('focus', () => prefetchEntry(tenantId, saved.entity_id));
-          content.append(el('span', 'Loading notes…', 'skeleton day-item day-loading'));
+          dayItems(content, { loading: true });
           pending.push({ period: saved, content });
         }
-        for (const occurrence of occurrences.filter(
-          (o) => o.date.segment === key && o.date.day === day.date.day,
-        ))
-          cell.append(el('span', `Recurring · ${occurrence.name}`, 'day-item day-observance'));
+        const recurring = occurrences
+          .filter((o) => o.date.segment === key && o.date.day === day.date.day)
+          .map((o): Mark => ({ kind: 'observance', text: `Recurring · ${o.name}` }));
+        if (recurring.length) dayItems(content, { items: recurring });
         cells.append(cell);
       }
       container.append(cells);
+      if (!inYear)
+        // The arrow keys move through the days: along the week, and down and up a week.
+        cells.addEventListener('keydown', (event) => {
+          const buttons = [...cells.querySelectorAll<HTMLButtonElement>('.day-button')];
+          const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+          const weekLength = useWeek ? (week?.length ?? 7) : 0;
+          const step = {
+            ArrowLeft: -1,
+            ArrowRight: 1,
+            ArrowUp: -weekLength,
+            ArrowDown: weekLength,
+          }[event.key];
+          if (at < 0 || !step) return;
+          const target = buttons[at + step];
+          if (!target) return;
+          event.preventDefault();
+          target.focus();
+        });
       if (pending.length) loadDays(key, pending);
     }
-    async function showPeriod(segment?: string, day?: number, target?: HTMLButtonElement) {
+    async function showPeriod(
+      segment?: string,
+      day?: number,
+      target?: HTMLButtonElement,
+      forceOpen = false,
+      // The page opened on a segment from its address and no day: the panel is there, but a phone's
+      // sheet stays closed until a date is chosen, so the grid is what is seen first.
+      quiet = false,
+    ) {
       const turn = ++selection;
       const chosenYear = year;
       const address = new URL(location.href);
@@ -491,7 +779,50 @@ export async function mount() {
       const title = segment
         ? `${day === undefined ? '' : `${day} `}${calendar.definition.segments.find((s) => s.key === segment)?.name ?? segment} ${year}`
         : `Year ${year}`;
-      detail.replaceChildren(el('h2', title));
+      detail.replaceChildren();
+      // On a narrow window the panel is a sheet (CS6): it is there once a date, or the year's notes,
+      // has been chosen, and goes with Close; beside the grid it is always there.
+      if ((segment !== undefined && !quiet) || forceOpen) detail.dataset.open = '';
+      const close = button(
+        'Close',
+        () => {
+          delete detail.dataset.open;
+          grid
+            .querySelector<HTMLElement>('.day-button[aria-pressed="true"]')
+            ?.focus({ preventScroll: true });
+        },
+        true,
+        'close',
+      );
+      close.classList.add('sheet-close');
+      detail.append(close);
+      if (segment && day !== undefined) {
+        // Which day of the week and of the year it is, over its name.
+        const shown = preview.segments.find((s) => s.key === segment);
+        const index = shown?.days.findIndex((d) => d.date.day === day) ?? -1;
+        const before = preview.segments
+          .slice(
+            0,
+            preview.segments.findIndex((s) => s.key === segment),
+          )
+          .reduce((total, s) => total + s.days.length, 0);
+        const weekday = shown?.days[index]?.weekday;
+        const weekdayName =
+          weekday === null || weekday === undefined
+            ? ''
+            : (calendar.definition.week?.names?.[weekday] ?? '');
+        if (index >= 0)
+          detail.append(
+            el(
+              'p',
+              `${weekdayName ? `${weekdayName} · ` : ''}day ${before + index + 1} of Year ${year}`,
+              'caption day-over',
+            ),
+          );
+      }
+      detail.append(el('h2', title));
+      const addSlot = el('div', '', 'day-add');
+      detail.append(addSlot);
       selectedDay = segment && day !== undefined ? { segment, day } : null;
       for (const pressed of grid.querySelectorAll('.day-button[aria-pressed]'))
         pressed.removeAttribute('aria-pressed');
@@ -520,6 +851,10 @@ export async function mount() {
         if (moons.childElementCount) detail.append(moons);
       }
       const saved = periods.find((p) => p.segment === (segment ?? null) && p.day === (day ?? null));
+      // The status bar says which date is on show and whether anything is written on it (screen 01).
+      currentShell()?.statusBar({
+        meta: `${title} · ${saved ? 'period written' : 'nothing written'}`,
+      });
       const localStatus = feedback();
       let materialized = saved;
       const waiting = loading('Opening notes…');
@@ -564,43 +899,78 @@ export async function mount() {
             el('p', 'Nothing is written for this date yet, or none of it is open to you.', 'lede'),
           );
         if (turn !== selection || !host?.isConnected) return;
-        for (const o of occurrences.filter(
+        if (saved) {
+          const template = (await appRegistry())?.links.session;
+          const here = {
+            calendar: saved.calendar_entity_id,
+            year: saved.year,
+            segment: saved.segment,
+            day: saved.day,
+          };
+          const starting = template
+            ? (await readSessions())
+                .map((row) => ({
+                  row,
+                  starts: row.start_period_id === saved.entity_id,
+                  covered: row.covers.some((c) => takesIn(c, here)),
+                }))
+                .filter((x) => x.starts || x.covered)
+            : [];
+          if (turn !== selection || !host?.isConnected) return;
+          if (template && starting.length) {
+            const block = el('section', '', 'stack-tight day-sessions');
+            const sessions = el('ul', '', 'list');
+            for (const { row, starts } of starting) {
+              const item = el('li', '', 'row');
+              const open = el('a', row.name);
+              open.href = fill(template, { tenant: tenantId, id: row.id });
+              item.append(
+                icon('kind-session'),
+                open,
+                el('span', starts ? 'Starts here' : 'Covers this day', 'caption'),
+              );
+              sessions.append(item);
+            }
+            block.append(el('h3', 'Sessions'), sessions);
+            detail.append(block);
+          }
+        }
+        // What recurs here, under its own heading as the other kinds are (CS5): an observance is a rule,
+        // and a day says whether one falls on it.
+        const recurring = occurrences.filter(
           (o) =>
             (segment === undefined || o.date.segment === segment) &&
             (day === undefined || o.date.day === day),
-        ))
-          detail.append(
-            link(
-              `${o.date.day} ${calendar.definition.segments.find((s) => s.key === o.date.segment)?.name ?? o.date.segment}: ${o.name}`,
-              entryHref(tenantId, o.entity_id),
-            ),
-          );
+        );
+        if (recurring.length || day !== undefined) {
+          const group = el('section', '', 'stack-tight');
+          const heading = el('h3', '', 'panel-group');
+          heading.append(icon('kind-observance'), document.createTextNode('Recurring'));
+          group.append(heading);
+          if (recurring.length) {
+            const list = el('ul', '', 'stack-tight');
+            for (const o of recurring) {
+              const item = el('li');
+              item.append(
+                link(
+                  `${o.date.day} ${calendar.definition.segments.find((s) => s.key === o.date.segment)?.name ?? o.date.segment}: ${o.name}`,
+                  entryHref(tenantId, o.entity_id),
+                ),
+              );
+              list.append(item);
+            }
+            group.append(list);
+          } else group.append(el('p', 'Nothing recurs on this day.', 'lede'));
+          detail.append(group);
+        }
         if (canWrite) {
-          detail.append(
-            button(
-              'Add a note to this date',
-              async () => {
-                try {
-                  const period = await materialize();
-                  if (!host?.isConnected) return;
-                  location.assign(
-                    `${entryHref(tenantId, period.entity_id)}&calendar=${encodeURIComponent(calendarId)}&year=${chosenYear}&add=information`,
-                  );
-                } catch (e) {
-                  localStatus.fail(message(e));
-                }
-              },
-              true,
-              'add',
-            ),
-          );
           const create = disclosure('Create a fact or story event');
           create.body.append(createDatedEntry(tenantId, materialize));
           const existing = disclosure('Associate an existing fact or event');
           existing.body.append(attachExisting(tenantId, materialize));
-          detail.append(create.root, existing.root);
-          if (segment && day !== undefined) {
-            const recurring = disclosure('Create a recurring observance');
+          const recurring =
+            segment && day !== undefined ? disclosure('Create a recurring observance') : undefined;
+          if (recurring && segment && day !== undefined)
             recurring.body.append(
               createObservance(tenantId, calendarId, calendar.definition, {
                 segment,
@@ -608,8 +978,81 @@ export async function mount() {
                 when: { every: 1, offset: 0 },
               }),
             );
-            detail.append(recurring.root);
-          }
+          // The forms are not on the panel until "Add to this day" asks for one.
+          const forms = [create, existing, recurring].filter(
+            (form): form is NonNullable<typeof form> => form !== undefined,
+          );
+          for (const form of forms) form.root.classList.add('add-form');
+          const reveal = (form: (typeof forms)[number]) => {
+            for (const other of forms) other.root.open = other === form;
+            form.root.scrollIntoView?.({ block: 'nearest' });
+            form.body.querySelector<HTMLElement>('input, select, textarea')?.focus();
+          };
+          const chooseKind = (kind: 'event' | 'fact') => {
+            const kinds = create.body.querySelector<HTMLSelectElement>('select');
+            if (!kinds) return;
+            kinds.value = kind;
+            kinds.dispatchEvent(new Event('change'));
+          };
+          const addNote = async () => {
+            try {
+              const period = await materialize();
+              if (!host?.isConnected) return;
+              location.assign(
+                `${entryHref(tenantId, period.entity_id)}&calendar=${encodeURIComponent(calendarId)}&year=${chosenYear}&add=information`,
+              );
+            } catch (e) {
+              localStatus.fail(message(e));
+            }
+          };
+          const add = button(
+            'Add to this day',
+            () => {
+              openMenu(
+                add,
+                [
+                  { label: 'A note on this day', icon: 'kind-fact', run: () => void addNote() },
+                  {
+                    label: 'An Event',
+                    icon: 'kind-event',
+                    run: () => {
+                      chooseKind('event');
+                      reveal(create);
+                    },
+                  },
+                  {
+                    label: 'A Fact',
+                    icon: 'kind-fact',
+                    run: () => {
+                      chooseKind('fact');
+                      reveal(create);
+                    },
+                  },
+                  {
+                    label: 'An existing Event or Fact…',
+                    icon: 'link',
+                    run: () => reveal(existing),
+                  },
+                  ...(recurring
+                    ? [
+                        { separator: true as const },
+                        {
+                          label: 'A recurring observance…',
+                          icon: 'kind-observance',
+                          run: () => reveal(recurring),
+                        },
+                      ]
+                    : []),
+                ],
+                { label: 'Add to this day', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+              );
+            },
+            true,
+            'add',
+          );
+          add.setAttribute('aria-haspopup', 'menu');
+          addSlot.append(add);
+          detail.append(...forms.map((form) => form.root));
         }
         detail.append(localStatus.node);
         if (wholeYear && target?.isConnected && window.matchMedia('(max-width: 720px)').matches) {
