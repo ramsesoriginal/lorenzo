@@ -1,0 +1,17 @@
+# 0441 - Sessions moves into the web shell
+
+Status: accepted, decided with the maintainer on 2026-11-08. Part of [RFC 0050](../rfcs/0050-the-web-interface.md); it implements the Sessions part of UI-E ([#1016](https://github.com/ramsesoriginal/lorenzo/issues/1016)) with [ADR 0420](0420-calendars-and-sessions-redesign.md) and the design in [docs/design/web/calendars-sessions](../design/web/calendars-sessions/README.md) (CS1, CS4 to CS6, screens 14 to 24, 26, 31 and 32), after [Calendars](0440-calendars-moves-into-the-web-shell.md), on the shell of [ADR 0426](0426-the-web-shell-grows-in-app-shell-opt-in.md).
+
+## Context
+
+Sessions draws its own page as a one-row header, a `wrap` and a footer, with the tabs My Sessions and Scenes. The design puts it in the web shell's frame, with Sessions, Scenes and Lived order as tabs (CS5), a Home of the next Session and Sessions by campaign, and a Session page of nine regions with a View menu (CS4, CS6).
+
+## Decision
+
+Slices, each its own pull request on the one before; this record grows a bullet for each.
+
+- **The frame is the web shell** (`AppPage shell="web"`, the `list-detail` template). The tabs are Sessions (current on a Session's page too), Scenes (current on a Scene's) and Lived order, the last two for a library. The palette, the apps sheet and the status bar are the shell's, and the account menu holds Appearance, so the old light/dark toggle is gone; without an account the palette's Change theme opens Appearance. The e2e tests that drove the old header (the logo, the toggle) drive the shell instead.
+
+## Consequences
+
+- The pages' contents move to the design in the slices that follow.

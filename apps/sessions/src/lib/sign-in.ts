@@ -19,6 +19,7 @@ export async function start() {
   });
   if (!shell || !document.querySelector('[data-session]')) return null;
   shell.account({ state: 'checking' });
+  shell.palette();
   // The links that belong to a library name the one the address names.
   const tenant = new URLSearchParams(location.search).get('tenant');
   shell.library(tenant);
@@ -26,6 +27,7 @@ export async function start() {
   void getAppLinks(API_BASE_URL, sessionReads.fetch)
     .then((registry) => {
       if (registry.apps.account_hub) shell.accountLink(registry.apps.account_hub.url);
+      shell.apps(registry);
     })
     .catch(() => {});
   try {
@@ -41,6 +43,7 @@ export async function start() {
     shell.account({ state: 'signed-in', label: me.email ?? undefined });
     shell.status('');
     shell.reveal();
+    shell.statusBar({ sync: 'synced', syncedAt: new Date() });
     return me;
   } catch (error) {
     shell.account({ state: 'signed-out' });

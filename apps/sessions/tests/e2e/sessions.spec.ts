@@ -71,10 +71,7 @@ test('GM prepares a session, player keeps a restricted note, and Scene reuse kee
     await gm.goto('/');
     await expect
       .poll(() =>
-        gm
-          .getByRole('img', { name: 'Lorenzo', exact: true })
-          .first()
-          .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+        gm.locator('.brand-spark').evaluate((img) => (img as HTMLImageElement).naturalWidth),
       )
       .toBeGreaterThan(0);
     await gm.getByLabel('Session title', { exact: true }).fill('At the wreck');
@@ -147,7 +144,14 @@ test('signed-out view and explicit theme work on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  // Without an account the palette's Change theme opens Appearance, which keeps the choice.
+  await page.getByRole('button', { name: /Search or go anywhere/ }).click();
+  await page.getByRole('option', { name: /Change theme/ }).click();
+  await page
+    .getByRole('dialog', { name: 'Appearance' })
+    .getByRole('radiogroup', { name: 'Theme' })
+    .getByRole('radio', { name: 'Dark' })
+    .click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
