@@ -445,7 +445,7 @@ button.seg-chip:hover {
 .seg-density > span {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--border-subtle);
 }
 
@@ -516,7 +516,8 @@ button.seg-chip:hover {
 
 .day:has(.day-button[aria-pressed="true"]) {
   background: var(--surface-selected);
-  box-shadow: inset 0 0 0 2px var(--action);
+  outline: 2px solid var(--action);
+  outline-offset: -2px;
 }
 
 .day:has(.day-button:focus-visible) {
