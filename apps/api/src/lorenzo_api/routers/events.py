@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, R
 from fastapi_pagination import Page, create_page
 from fastapi_pagination.ext.sqlalchemy import apaginate
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, case, delete, func, or_, select
+from sqlalchemy import Select, and_, case, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.activity_log import record_activity
@@ -93,7 +93,7 @@ async def dated_in_period(
     year: int,
     start: tuple[str | None, int | None],
     end: tuple[str | None, int | None],
-):
+) -> Select[tuple[uuid.UUID]]:
     """The Events dated in a calendar's year, or in a range of it, through periods the reader sees.
 
     A period is a day, a month or festival (its days) or the whole year; it counts when any day it
