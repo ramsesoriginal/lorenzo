@@ -1,3 +1,4 @@
+import { fill } from '@lorenzo/api-client';
 import { openMenu } from '@lorenzo/app-shell';
 import { renderAudienceControl } from '@lorenzo/information-editor';
 import { canonicalAddress, rememberEntryAddress, resolveAddress } from '../../lib/addresses';
@@ -28,7 +29,8 @@ import {
 import { informationView, renderText } from '../../lib/information';
 import { prefetchEntry, prefetchYear } from '../../lib/prefetch';
 import { rememberThisPage } from '../../lib/recent';
-import { start } from '../../lib/session';
+import { appRegistry } from '../../lib/registry';
+import { currentShell, start } from '../../lib/session';
 import type { Period, YearPreview } from '../../lib/types';
 
 // Phase n of the calendar engine's int(fraction * 8): the words, and the atlas symbol (ADR 0326).
@@ -198,6 +200,16 @@ export async function mount() {
       dayState.set(content, state);
       paintDay(content);
     }
+    // The Sessions of the library, read once for the page (CS1: a day lists the Sessions that start on
+    // it). What the person may not see is not in the answer, and a failure leaves the day without them.
+    let sessionRows:
+      | Promise<Array<{ id: string; name: string; start_period_id: string | null }>>
+      | undefined;
+    const readSessions = () =>
+      (sessionRows ??= client
+        .GET('/tenants/{tenant_id}/sessions', { params: { path: { tenant_id: tenantId } } })
+        .then(unwrap)
+        .catch(() => []));
     type DaySummary = { notes: string[]; entries: string[] };
     const contentCache = new Map<string, Promise<DaySummary>>();
     const summaryReads = new Map<string, Promise<void>>();
@@ -636,6 +648,24 @@ export async function mount() {
         cells.append(cell);
       }
       container.append(cells);
+      if (!inYear)
+        // The arrow keys move through the days: along the week, and down and up a week.
+        cells.addEventListener('keydown', (event) => {
+          const buttons = [...cells.querySelectorAll<HTMLButtonElement>('.day-button')];
+          const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+          const weekLength = useWeek ? (week?.length ?? 7) : 0;
+          const step = {
+            ArrowLeft: -1,
+            ArrowRight: 1,
+            ArrowUp: -weekLength,
+            ArrowDown: weekLength,
+          }[event.key];
+          if (at < 0 || !step) return;
+          const target = buttons[at + step];
+          if (!target) return;
+          event.preventDefault();
+          target.focus();
+        });
       if (pending.length) loadDays(key, pending);
     }
     async function showPeriod(segment?: string, day?: number, target?: HTMLButtonElement) {
@@ -706,6 +736,10 @@ export async function mount() {
         if (moons.childElementCount) detail.append(moons);
       }
       const saved = periods.find((p) => p.segment === (segment ?? null) && p.day === (day ?? null));
+      // The status bar says which date is on show and whether anything is written on it (screen 01).
+      currentShell()?.statusBar({
+        meta: `${title} · ${saved ? 'period written' : 'nothing written'}`,
+      });
       const localStatus = feedback();
       let materialized = saved;
       const waiting = loading('Opening notes…');
@@ -750,6 +784,26 @@ export async function mount() {
             el('p', 'Nothing is written for this date yet, or none of it is open to you.', 'lede'),
           );
         if (turn !== selection || !host?.isConnected) return;
+        if (saved) {
+          const template = (await appRegistry())?.links.session;
+          const starting = template
+            ? (await readSessions()).filter((row) => row.start_period_id === saved.entity_id)
+            : [];
+          if (turn !== selection || !host?.isConnected) return;
+          if (template && starting.length) {
+            const block = el('section', '', 'stack-tight day-sessions');
+            const sessions = el('ul', '', 'list');
+            for (const row of starting) {
+              const item = el('li', '', 'row');
+              const open = el('a', row.name);
+              open.href = fill(template, { tenant: tenantId, id: row.id });
+              item.append(icon('kind-session'), open, el('span', 'Starts here', 'caption'));
+              sessions.append(item);
+            }
+            block.append(el('h3', 'Sessions'), sessions);
+            detail.append(block);
+          }
+        }
         for (const o of occurrences.filter(
           (o) =>
             (segment === undefined || o.date.segment === segment) &&

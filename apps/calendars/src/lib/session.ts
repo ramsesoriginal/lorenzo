@@ -16,6 +16,24 @@ async function libraryHasClocks(tenantId: string): Promise<boolean> {
   return clocks.length > 0;
 }
 
+async function showUnread(shell: Shell): Promise<void> {
+  try {
+    const hub = (await appRegistry())?.apps.account_hub?.url;
+
+    if (!hub) return;
+
+    const { total } = await unwrap(
+      await client.GET('/me/notifications', {
+        params: { query: { unread_only: true, page: 1, size: 1 } },
+      }),
+    );
+
+    shell.notifications({ count: total, href: new URL('/notifications/', hub).href });
+  } catch {
+    // No bell: nothing is lost that a page needs.
+  }
+}
+
 export type Session = {
   tenantId: string;
   tenantName: string;
@@ -24,6 +42,15 @@ export type Session = {
   canOrderEvents: boolean;
   canReadEventOrder: boolean;
 };
+type Shell = NonNullable<ReturnType<typeof bindShell>>;
+
+let started: Shell | null = null;
+
+/** The shell this page started, for a page that says something in the status bar; null before it starts. */
+export function currentShell(): Shell | null {
+  return started;
+}
+
 export async function start(): Promise<Session | null> {
   calendarReads.suspend();
   const shell = bindShell({
@@ -38,6 +65,7 @@ export async function start(): Promise<Session | null> {
   });
   const marker = document.querySelector('[data-session]');
   if (!shell || !marker) return null;
+  started = shell;
   shell.account({ state: 'checking' });
   shell.palette();
   // The registry, the viewer and the libraries do not wait for one another, and none of them blocks
@@ -67,6 +95,9 @@ export async function start(): Promise<Session | null> {
       ),
     ]);
     shell.account({ state: 'signed-in', label: viewer.email ?? undefined });
+    // The bell (D18) is the account's unread count, with the hub's page of them to go to; without the
+    // hub's address, or the count, it is not shown.
+    void showUnread(shell);
     if (!marker.isConnected) return null;
     if (!tenants.length) {
       calendarReads.clear();

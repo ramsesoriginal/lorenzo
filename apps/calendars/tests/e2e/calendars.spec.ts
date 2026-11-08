@@ -124,6 +124,137 @@ test('Home draws the calendars as cards, offers New calendar to writers only, an
   await reader.context().close();
 });
 
+test('the bell in the header counts the unread notifications and goes to the hub', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  await ok(
+    world.api.POST('/tenants/{tenant_id}/notifications', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: {
+        recipient_user_id: world.ownerId,
+        type: 'announcement',
+        title: 'The harbour is open',
+        body: 'Come in.',
+      },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`/?tenant=${world.tenantId}`);
+  const bell = page.getByRole('link', { name: /Notifications/ }).first();
+  await expect(bell).toBeVisible();
+  await expect(bell).toContainText('1');
+  await expect(bell).toHaveAttribute('href', /\/notifications\/$/);
+  await page.context().close();
+});
+
+test('a day lists the Sessions that start on it, linked to the Sessions app', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const periods = await ok(
+    world.api.GET('/tenants/{tenant_id}/calendars/{calendar_id}/periods', {
+      params: {
+        path: { tenant_id: world.tenantId, calendar_id: world.calendarId },
+        query: { year: 3286, size: 100 },
+      },
+    }),
+  );
+  const day = periods.items.find((p) => p.segment === 'segment-6' && p.day === 16);
+  expect(day).toBeDefined();
+  const campaign = await ok(
+    world.api.POST('/tenants/{tenant_id}/campaigns', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: {
+        name: 'The harbour job',
+        slug: 'the-harbour-job',
+        description: '',
+        game_system: 'test',
+        secret: false,
+      },
+    }),
+  );
+  // A Session is prepared in a campaign one runs.
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}', {
+      params: {
+        path: { tenant_id: world.tenantId, campaign_id: campaign.id, user_id: world.ownerId },
+      },
+    }),
+  );
+  await ok(
+    world.api.POST('/tenants/{tenant_id}/sessions', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: {
+        name: 'The blackout',
+        campaign_id: campaign.id,
+        start_period_id: day?.entity_id ?? null,
+      },
+    }),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=16`,
+  );
+  const panel = page.locator('aside');
+  await expect(panel.getByRole('heading', { name: 'Sessions', exact: true })).toBeVisible();
+  const session = panel.getByRole('link', { name: 'The blackout', exact: true });
+  await expect(session).toBeVisible();
+  await expect(session).toHaveAttribute('href', /\/session\/\?tenant=.*&id=/);
+  // A day with no Session starting on it lists none.
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=17`,
+  );
+  await expect(panel.getByRole('heading', { name: '17 Quirm 3286', exact: true })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Sessions', exact: true })).toHaveCount(0);
+  await page.context().close();
+});
+
+test('the arrow keys move through the days of the month and Page Down to the next segment', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-1`,
+  );
+  const day = (name: string) => page.getByRole('button', { name, exact: true });
+  await day('1 Rimsep 3286').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(day('2 Rimsep 3286')).toBeFocused();
+  // A week is seven days.
+  await page.keyboard.press('ArrowDown');
+  await expect(day('9 Rimsep 3286')).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowUp');
+  await expect(day('1 Rimsep 3286')).toBeFocused();
+  // Page Down changes the segment, and the strip says which is on show.
+  await page.keyboard.press('PageDown');
+  await expect(segmentChip(page, 'Sogmen')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { name: 'Sogmen', exact: true, level: 2 })).toBeVisible();
+  await page.context().close();
+});
+
+test('the status bar says which date is on show and whether anything is written on it', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const open = (day: number) =>
+    page.goto(
+      `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=${day}`,
+    );
+  await open(16);
+  await expect(page.locator('[data-shell-meta]')).toHaveText('16 Quirm 3286 · period written');
+  // Opening a day that has nothing creates nothing, and says so.
+  await open(5);
+  await expect(page.locator('[data-shell-meta]')).toHaveText('5 Quirm 3286 · nothing written');
+  await page.context().close();
+});
+
 test('imported irregular year is browsable without creating periods, and dated information stays separate', async ({
   browser,
 }) => {
