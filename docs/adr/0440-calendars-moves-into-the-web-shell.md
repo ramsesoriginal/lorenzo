@@ -14,6 +14,7 @@ Calendars draws its own page as a one-row header, a `wrap` and a footer, and mov
 - **A page that says its own loading and a page that has a welcome both work;** Calendars keeps its welcome, which is what a signed-out visitor sees.
 - **The library switcher, the palette, the apps sheet and the status bar** are the shell's. The status bar says "Synced" with the time; the in-world date is for a Session (CS1), so Calendars shows none.
 - **Appearance is the shell's dialog.** The old light/dark toggle is gone; a signed-in person chooses in Appearance (the account menu), and a signed-out visitor has the system's.
+- **Home is the list of calendars, drawn as the design draws a Home (D16):** "Calendars" with the library's name, a primary "New calendar" that opens the form that makes one (for whoever can write; nobody else is offered it), a card for each calendar (its name is the link, the whole card opens it, and it says when the calendar last changed), then the blocks every Home shares. **Continue** is the calendars and entries last opened in this library, kept in this browser (`lorenzo:calendars:recent:<library>`, named in the privacy policy), and **What do you want to do?** is every deployed app, from the API's registry. The logic of Continue (`rememberPage`, `parseRecent`, `agoText`) is in `@lorenzo/app-shell`, and the hub uses it from there. The links to Events and Clocks that Home had are the tabs.
 
 ## Consequences
 

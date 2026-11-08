@@ -26,6 +26,7 @@ import {
 } from '../../lib/dom';
 import { informationView, renderText } from '../../lib/information';
 import { prefetchEntry, prefetchYear } from '../../lib/prefetch';
+import { rememberThisPage } from '../../lib/recent';
 import { start } from '../../lib/session';
 import type { Period, YearPreview } from '../../lib/types';
 
@@ -80,6 +81,7 @@ export async function mount() {
     if (!host?.isConnected) return;
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, calendarId);
+    rememberThisPage(tenantId, calendar.name);
     const head = el('div', '', 'page-header');
     head.append(
       el('h1', calendar.name),

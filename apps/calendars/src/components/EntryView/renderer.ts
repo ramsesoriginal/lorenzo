@@ -24,6 +24,7 @@ import { eventVisibility } from '../../lib/event-visibility';
 import { informationForm, informationView } from '../../lib/information';
 import { eventLearning, learningList } from '../../lib/learning';
 import { participants } from '../../lib/participants';
+import { rememberThisPage } from '../../lib/recent';
 import { start } from '../../lib/session';
 
 const kindNames: Partial<Record<string, string>> = {
@@ -65,6 +66,7 @@ export async function mount() {
     if (!host.isConnected) return;
     rememberEntryAddress(tenantId, entry);
     canonicalAddress(tenantId, id);
+    rememberThisPage(tenantId, entry.name);
     const version = result.response.headers.get('etag');
     const head = el('div', '', 'stack-tight');
     const kinds = el('div', '', 'row-tight kinds');

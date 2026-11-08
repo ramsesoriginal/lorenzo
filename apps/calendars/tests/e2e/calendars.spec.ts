@@ -64,6 +64,56 @@ test('the header offers the skip link, the page links and the account once signe
   await expect(switcher.locator('option:checked')).toHaveText('Second library');
   await page.context().close();
 });
+test('Home draws the calendars as cards, offers New calendar to writers only, and Continue after one was opened', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?tenant=${world.tenantId}`);
+  await expect(
+    page.getByRole('heading', { name: 'Calendars', exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(page.locator('.page-sub')).toContainText('The calendars of');
+  const card = page
+    .locator('.calendar-card')
+    .filter({ has: page.getByRole('link', { name: 'Isles calendar', exact: true }) });
+  await expect(card).toContainText('Last changed');
+  // Nothing to continue yet; the apps are offered where the registry names some.
+  await expect(page.getByRole('heading', { name: 'Continue' })).toHaveCount(0);
+
+  // The whole card opens the calendar, not only its name.
+  await card.click({ position: { x: 250, y: 60 } });
+  await expect(
+    page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
+  ).toBeVisible();
+
+  // Back home through the tab: what was opened is offered.
+  await page
+    .getByRole('navigation', { name: 'Pages' })
+    .getByRole('link', { name: 'Calendar', exact: true })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Continue' })).toBeVisible();
+  await expect(
+    page
+      .locator('.home-tiles')
+      .first()
+      .getByRole('link', { name: /Isles calendar/ }),
+  ).toBeVisible();
+
+  // The page's main action opens the form that makes a calendar.
+  await page.getByRole('button', { name: 'New calendar' }).click();
+  await expect(page.getByLabel('Calendar name', { exact: true })).toBeVisible();
+
+  // Someone who cannot write is offered no such thing.
+  const reader = await signedIn(browser, world.readerSubject);
+  await reader.goto(`/?tenant=${world.tenantId}`);
+  await expect(reader.getByRole('link', { name: 'Isles calendar', exact: true })).toBeVisible();
+  await expect(reader.getByRole('button', { name: 'New calendar' })).toHaveCount(0);
+  await page.context().close();
+  await reader.context().close();
+});
+
 test('imported irregular year is browsable without creating periods, and dated information stays separate', async ({
   browser,
 }) => {

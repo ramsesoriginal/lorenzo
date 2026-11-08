@@ -105,6 +105,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     files: [`${accountHub}/components/Briefing/renderer.ts`, `${accountHub}/lib/shell.ts`],
   },
   {
+    key: 'lorenzo:calendars:recent:*',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich für jede Bibliothek die zuletzt geöffneten Kalender und Einträge für „Weitermachen“ auf der Startseite von Kalender. Bleibt in Ihrem Browser und wird nirgendwohin gesendet.',
+      'Remembers, for each library, the calendars and entries you opened last, for "Continue" on the Calendars home. It stays in your browser and is sent nowhere.',
+    ),
+    lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
+    files: ['apps/calendars/src/lib/recent.ts'],
+  },
+  {
     key: 'lorenzo:inventory-web:catalog:*',
     store: 'localStorage',
     purpose: bi(

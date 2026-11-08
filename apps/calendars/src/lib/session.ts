@@ -1,12 +1,11 @@
-import { getAppLinks } from '@lorenzo/api-client';
 import { bindShell } from '@lorenzo/app-shell';
 import { rememberTenantAddress, tenantAddress } from './addresses';
 import { client, fetchAllPages, unwrap } from './api';
 import { isAuthConfigured, isAuthenticated, login, logout } from './auth';
-import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { currentTenant, rememberTenant } from './lastTenant';
 import { calendarReads, readScope } from './read-cache';
+import { appRegistry } from './registry';
 
 // Whether the library has a clock to read: the tab of them is offered only then.
 async function libraryHasClocks(tenantId: string): Promise<boolean> {
@@ -19,6 +18,7 @@ async function libraryHasClocks(tenantId: string): Promise<boolean> {
 
 export type Session = {
   tenantId: string;
+  tenantName: string;
   canWrite: boolean;
   canCreateEntries: boolean;
   canOrderEvents: boolean;
@@ -42,12 +42,12 @@ export async function start(): Promise<Session | null> {
   shell.palette();
   // The registry, the viewer and the libraries do not wait for one another, and none of them blocks
   // the page: calendar reading does not depend on the registry.
-  void getAppLinks(API_BASE_URL, calendarReads.fetch)
-    .then((registry) => {
-      if (registry.apps.account_hub) shell.accountLink(registry.apps.account_hub.url);
-      shell.apps(registry);
-    })
-    .catch(() => {});
+  void appRegistry().then((registry) => {
+    if (!registry) return;
+    const hub = registry.apps.account_hub?.url;
+    if (hub) shell.accountLink(hub);
+    shell.apps(registry);
+  });
   if (!isAuthConfigured()) {
     shell.account({ state: 'error', message: 'Sign-in is not set up' });
     shell.status('Sign-in for this calendar app is not set up yet.');
@@ -131,6 +131,7 @@ export async function start(): Promise<Session | null> {
       );
     return {
       tenantId: tenant.id,
+      tenantName: tenant.name,
       canWrite: ['owner', 'orga', 'author'].includes(tenant.role),
       canCreateEntries: true,
       canOrderEvents,
