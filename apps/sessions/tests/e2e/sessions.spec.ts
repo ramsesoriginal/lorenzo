@@ -25,6 +25,12 @@ const relationship = (page: Page, audience: 'Private' | 'Shared') =>
     .getByRole('listitem')
     .filter({ hasText: 'Guild ownership' })
     .getByText(audience, { exact: true });
+/** The Session page opens in Prepare (CS7); a test that works on the other parts shows them all first. */
+async function showAll(page: Page) {
+  await page.getByRole('button', { name: /View: / }).click();
+  await page.getByRole('menuitemradio', { name: 'All', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'View: All' })).toBeVisible();
+}
 async function world() {
   const subject = `session-gm-${randomUUID()}`;
   const gm = await apiAs(subject, ['tenant_creator']);
@@ -280,6 +286,7 @@ test('GM reviews a played-order proposal and records repeated Event presentation
       }),
     );
     await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await showAll(page);
     await page.getByText('Review and record played Scenes', { exact: true }).click();
     await page
       .getByRole('button', { name: 'Propose played order from preparation', exact: true })
@@ -476,6 +483,7 @@ test('a save draws again only what it changed: drafts and open panels elsewhere 
       }),
     );
     await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await showAll(page);
     await expect(page.getByRole('heading', { name: 'Saved session', exact: true })).toBeVisible();
 
     // A draft in the roster panel (a player ticked, not saved) and a note being written.
@@ -745,6 +753,7 @@ test('the period picker chooses game time and a start, and writes nothing until 
       }),
     );
     await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    await showAll(page);
 
     // Game time covered: a range of days, chosen as days.
     await page.getByText('Choose periods', { exact: true }).click();
@@ -953,6 +962,56 @@ test('Home says which Session is next, marks the past ones and groups Sessions b
     await expect(page.getByLabel('Session title', { exact: true })).toBeHidden();
     await page.getByRole('button', { name: 'New Session', exact: true }).click();
     await expect(page.getByLabel('Session title', { exact: true })).toBeVisible();
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('the View menu shows parts, says what is hidden, and keeps a view the person names', async ({
+  browser,
+}) => {
+  const w = await world();
+  const session = await ok(
+    w.gm.POST('/tenants/{tenant_id}/sessions', {
+      params: { path: w.path },
+      body: { name: 'Viewed session', campaign_id: w.campaign.id },
+    }),
+  );
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(`/session/?tenant=${w.tenant.id}&id=${session.id}`);
+    // A Session opens in Prepare: its parts are there, and the others are not drawn.
+    await expect(page.getByRole('button', { name: 'View: Prepare' })).toBeVisible();
+    await expect(page.locator('[data-region="details"]')).toBeVisible();
+    await expect(page.locator('[data-region="play"]')).toBeHidden();
+    await expect(page.locator('.view-foot')).toContainText('Hidden:');
+    await expect(page.locator('.view-foot')).toContainText('nothing is deleted');
+    // Played swaps them over; All shows everything and leaves nothing to say.
+    await page.getByRole('button', { name: /View: / }).click();
+    // The view and the part are both called Played; the views come first in the menu.
+    await page.getByRole('menuitemradio', { name: 'Played', exact: true }).first().click();
+    await expect(page.getByRole('button', { name: 'View: Played' })).toBeVisible();
+    await expect(page.locator('[data-region="play"]')).toBeVisible();
+    await expect(page.locator('[data-region="details"]')).toBeHidden();
+    await page.getByRole('button', { name: /View: / }).click();
+    await page.getByRole('menuitemradio', { name: 'All', exact: true }).click();
+    await expect(page.locator('.view-foot')).toBeHidden();
+    // One part turned off makes a Custom view; naming it keeps it for the next visit.
+    await page.getByRole('button', { name: /View: / }).click();
+    await page.getByRole('menuitemradio', { name: 'References', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'View: Custom' })).toBeVisible();
+    page.once('dialog', (dialog) => void dialog.accept('Without references'));
+    await page.getByRole('button', { name: /View: / }).click();
+    await page.getByRole('menuitem', { name: 'Save this view…', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'View: Without references' })).toBeVisible();
+    await page.reload();
+    // The Session opens in Prepare again, and the person's own view is one pick away.
+    await expect(page.getByRole('button', { name: 'View: Prepare' })).toBeVisible();
+    await page.getByRole('button', { name: /View: / }).click();
+    await page.getByRole('menuitemradio', { name: 'Without references', exact: true }).click();
+    await expect(page.locator('[data-region="references"]')).toBeHidden();
+    await expect(page.locator('[data-region="play"]')).toBeVisible();
   } finally {
     await page.context().close();
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });

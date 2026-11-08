@@ -1,4 +1,6 @@
+import { openMenu } from '@lorenzo/app-shell';
 import { client, fetchAllPages, type Schema, unwrap } from './api';
+import { BRANDING_CSS_URL } from './config';
 import { coveragePanel, referencePanel } from './context';
 import {
   actions,
@@ -32,6 +34,18 @@ import { campaignName, libraryName, libraryNames } from './names';
 import { notes } from './notes';
 import { periodControl } from './periods';
 import { playPanel, sequencePanel } from './play';
+import {
+  BUILT_IN,
+  footLine,
+  PARTS,
+  type PartKey,
+  partOf,
+  readViews,
+  toggled,
+  viewName,
+  withView,
+  writeViews,
+} from './regions';
 import { start } from './sign-in';
 
 type StorySession = Schema<'SessionOut'>;
@@ -237,8 +251,17 @@ export async function mountSession() {
     // other panels, and which panels are open, is left as it is.
     const regionOf = (name: string) =>
       host.querySelector<HTMLElement>(`[data-region="${CSS.escape(name)}"]`);
+    // The parts shown (CS4): a Session opens in Prepare, every time. A region drawn again keeps what
+    // the view says of it.
+    let visible: PartKey[] = [...BUILT_IN.Prepare];
+    let savedViews = readViews();
+    const shown = (name: string) => {
+      const part = partOf(name);
+      return part === undefined || visible.includes(part);
+    };
     const region = <T extends HTMLElement>(node: T, name: string): T => {
       node.dataset.region = name;
+      node.hidden = !shown(name);
       return node;
     };
     const refreshOf =
@@ -464,9 +487,83 @@ export async function mountSession() {
         outline,
         ...[put('play'), put('sequence'), put('lived')].flat(),
       );
+      const foot = el('p', '', 'caption view-foot');
+      view.append(foot);
       const open = openPanels();
       host.replaceChildren(...view.childNodes);
       reopen(host, open);
+      mountViewMenu(foot);
+    };
+
+    // The View menu and the line at the foot that says what is hidden (CS4, CS6, screens 15 to 18).
+    const syncView = () => {
+      for (const node of host.querySelectorAll<HTMLElement>('[data-region]')) {
+        const name = node.dataset.region ?? '';
+        if (partOf(name) !== undefined) node.hidden = !shown(name);
+      }
+      const foot = host.querySelector<HTMLElement>('.view-foot');
+      if (foot) {
+        foot.textContent = footLine(visible);
+        foot.hidden = !foot.textContent;
+      }
+      const label = host.querySelector<HTMLElement>('[data-view-label]');
+      if (label) label.textContent = `View: ${viewName(visible, savedViews)}`;
+    };
+    const mountViewMenu = (foot: HTMLElement) => {
+      const title = host.querySelector<HTMLElement>('[data-region="head"] .row');
+      if (!title) return syncView();
+      const button = el('button', '', 'btn btn-secondary view-button');
+      button.type = 'button';
+      button.setAttribute('aria-haspopup', 'menu');
+      const label = el('span', '', 'view-label');
+      label.dataset.viewLabel = '';
+      button.append(icon('settings'), label);
+      const choose = (parts: readonly PartKey[]) => {
+        visible = [...parts];
+        syncView();
+      };
+      button.addEventListener('click', () => {
+        const current = viewName(visible, savedViews);
+        openMenu(
+          button,
+          [
+            { heading: 'View' },
+            ...(['Prepare', 'Played', 'All'] as const).map((name) => ({
+              label: name,
+              checked: current === name,
+              run: () => choose(BUILT_IN[name]),
+            })),
+            ...savedViews.map((v) => ({
+              label: v.name,
+              checked: current === v.name,
+              run: () => choose(v.parts),
+            })),
+            { separator: true as const },
+            { heading: 'Parts' },
+            ...PARTS.map((part) => ({
+              label: part.label,
+              checked: visible.includes(part.key),
+              run: () => choose(toggled(visible, part.key)),
+            })),
+            { separator: true as const },
+            {
+              label: 'Save this view…',
+              icon: 'add',
+              run: () => {
+                const name = prompt('Name this view');
+                const next = name === null ? null : withView(savedViews, name, visible);
+                if (!next) return;
+                savedViews = next;
+                writeViews(savedViews);
+                syncView();
+              },
+            },
+          ],
+          { label: 'View', sprite: `${BRANDING_CSS_URL}/icons.svg` },
+        );
+      });
+      title.append(button);
+      syncView();
     };
 
     const turns = new Map<string, number>();

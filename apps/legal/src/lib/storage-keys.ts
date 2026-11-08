@@ -105,6 +105,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     files: [`${accountHub}/components/Briefing/renderer.ts`, `${accountHub}/lib/shell.ts`],
   },
   {
+    key: 'lorenzo:sessions:views',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich die Ansichten der Session-Seite, die Sie selbst benannt haben (welche Bereiche sichtbar sind). Bleibt in Ihrem Browser und wird nirgendwohin gesendet.',
+      'Remembers the views of the Session page that you named yourself (which parts are shown). It stays in your browser and is sent nowhere.',
+    ),
+    lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
+    files: ['apps/sessions/src/lib/regions.ts'],
+  },
+  {
     key: 'lorenzo:calendars:recent:*',
     store: 'localStorage',
     purpose: bi(
