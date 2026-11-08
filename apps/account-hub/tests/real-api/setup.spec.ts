@@ -285,13 +285,10 @@ test('only an account the API says may create is offered setup, and the links to
   await expect(refused.page.locator('#setup')).toBeHidden();
   await refused.page.goto('/');
   await expect(refused.page.locator('[data-account-signed-in]')).toBeVisible();
-  // Neither the page's own offer nor the header's link to setup.
+  // Not the page's own offer, nor the one beside what they run.
   await expect(
     refused.page.locator('main').getByRole('link', { name: 'Set up a library' }),
   ).toHaveCount(0);
-  await expect(
-    refused.page.getByRole('banner').getByRole('link', { name: 'Set up a library' }),
-  ).toBeHidden();
   await refused.context.close();
 
   const maker = await newUser('maker', ['tenant_creator']);
@@ -299,16 +296,10 @@ test('only an account the API says may create is offered setup, and the links to
   await page.goto('/');
   // A new account is offered the first-run choice, whose door says "library".
   await expect(page.locator('main').getByRole('link', { name: 'Set up a library' })).toBeVisible();
-  await expect(
-    page.getByRole('banner').getByRole('link', { name: 'Set up a library' }),
-  ).toHaveAttribute('href', '/setup/');
   // /tenants no longer has an empty page for an account that may create: with no library it opens
-  // the form to make one (TenantsPanel's defaultView), and the header's link is the way to /setup.
+  // the form to make one (TenantsPanel's defaultView).
   await page.goto('/tenants');
   await expect(page.locator('[data-create-tenant]')).toBeVisible();
-  await expect(
-    page.getByRole('banner').getByRole('link', { name: 'Set up a library' }),
-  ).toBeVisible();
   await context.close();
 });
 

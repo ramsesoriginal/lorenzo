@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agoText,
+  homeSubtitle,
   linkTasks,
   needsYou,
   orderTasks,
@@ -7,6 +9,7 @@ import {
   parseRecent,
   playerTasks,
   rememberPage,
+  runItems,
   splitTables,
   updateTasks,
 } from '../../src/lib/home';
@@ -42,6 +45,8 @@ describe('needsYou', () => {
     expect(tasks).toEqual([
       {
         id: 'draft:orla',
+        kind: 'draft',
+        meta: 'You are its Owner',
         text: 'Orla is still a draft.',
         action: 'Open it',
         href: '/repositories/?repository=orla',
@@ -82,6 +87,8 @@ describe('updateTasks', () => {
     expect(tasks).toEqual([
       {
         id: 'update:thursday:id-Core',
+        kind: 'update',
+        meta: 'Thursday table',
         text: 'Core has an update announced for Thursday table.',
         action: 'Review updates',
         href: '/repositories/?tenant=thursday&repository=core&updates=1',
@@ -107,6 +114,7 @@ describe('linkTasks', () => {
     expect(linkTasks(where, [invite({})], NOW)).toEqual([
       {
         id: 'link:i1',
+        kind: 'link',
         text: 'An invite link for The harbour job ends in 2 days (used 3 of 10 times).',
         action: 'Make a new link',
         href: '/tenants/?tenant=thursday',
@@ -154,6 +162,8 @@ describe('playerTasks', () => {
     expect(playerTasks([entry({})], campaigns, NOW)).toEqual([
       {
         id: 'players:c1',
+        kind: 'player',
+        meta: 'yesterday',
         text: 'A new player joined The harbour job.',
         action: 'See players',
         href: '/tenants/?tenant=thursday',
@@ -183,7 +193,13 @@ describe('playerTasks', () => {
 
 describe('orderTasks', () => {
   it('keeps each group together, in the order given', () => {
-    const task = (id: string) => ({ id, text: id, action: 'Open', href: '/' });
+    const task = (id: string) => ({
+      id,
+      kind: 'update' as const,
+      text: id,
+      action: 'Open',
+      href: '/',
+    });
 
     expect(orderTasks([task('u')], [task('l')], [task('p')], [task('d')]).map((t) => t.id)).toEqual(
       ['u', 'l', 'p', 'd'],
@@ -219,5 +235,101 @@ describe('pageTitle', () => {
   it('drops the product', () => {
     expect(pageTitle('Your profile — Lorenzo')).toBe('Your profile');
     expect(pageTitle('Lorenzo - Account')).toBe('Lorenzo - Account');
+  });
+});
+
+describe('agoText and homeSubtitle', () => {
+  const NOW = Date.parse('2026-11-07T12:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it('says how long ago in days', () => {
+    expect(agoText(NOW, NOW - 3 * 60 * 60 * 1000)).toBe('today');
+    expect(agoText(NOW, NOW - DAY - 1000)).toBe('yesterday');
+    expect(agoText(NOW, NOW - 3 * DAY - 1000)).toBe('3 days ago');
+  });
+
+  it('says who it is and how many things need them', () => {
+    expect(homeSubtitle('Dana Okafor', 4)).toBe('Dana Okafor · 4 things need you');
+    expect(homeSubtitle('Dana Okafor', 1)).toBe('Dana Okafor · 1 thing needs you');
+    expect(homeSubtitle('Dana Okafor', 0)).toBe('Dana Okafor · nothing needs you');
+    expect(homeSubtitle(null, 2)).toBe('2 things need you');
+    expect(homeSubtitle(null, 0)).toBe('Nothing needs you');
+  });
+});
+
+describe('runItems', () => {
+  const library = (id: string, role: string) => ({
+    id,
+    name: `Library ${id}`,
+    slug: id,
+    role,
+    admin: role === 'owner' || role === 'orga',
+  });
+  const gmRow = (tenantId: string, title: string) =>
+    ({ tenantId, role: 'gm', gm: { title, plural: `${title}s` } }) as never;
+  const base = {
+    campaignCounts: new Map([['a', 2]]),
+    peopleCounts: new Map([['a', 3]]),
+    updatesWaiting: new Set<string>(),
+    repositories: [],
+    repositoryHref: (slug: string) => `/repositories/?repository=${slug}`,
+    roleText: (role: string) => (role === 'orga' ? 'Organizer' : role === 'owner' ? 'Owner' : role),
+  };
+
+  it('says what a library holds, the person’s part in it and what is waiting', () => {
+    const items = runItems({
+      ...base,
+      libraries: [library('a', 'owner')],
+      rows: [gmRow('a', 'Storyteller')],
+      updatesWaiting: new Set(['a']),
+    });
+
+    expect(items).toEqual([
+      {
+        kind: 'library',
+        name: 'Library a',
+        href: '/tenants/?tenant=a',
+        meta: '3 people · 2 campaigns · you Storyteller',
+        role: 'Owner',
+        chip: { state: 'waiting', text: 'Updates waiting', icon: 'update-available' },
+      },
+    ]);
+  });
+
+  it('counts only what the person may, and names a game master by the campaign’s word', () => {
+    const items = runItems({
+      ...base,
+      libraries: [library('a', 'participant')],
+      rows: [gmRow('a', 'Storyteller')],
+      peopleCounts: new Map(),
+    });
+
+    expect(items[0]).toMatchObject({ meta: '2 campaigns · you Storyteller', role: 'Storyteller' });
+  });
+
+  it('leaves out a library the person only plays in, and lists repositories after the libraries', () => {
+    const items = runItems({
+      ...base,
+      libraries: [library('b', 'participant'), library('a', 'orga')],
+      rows: [],
+      repositories: [
+        { name: 'Orla', slug: 'orla', role: 'Owner', status: 'Draft' },
+        { name: 'Vale', slug: 'vale', role: 'Author', status: 'Published 2026-10-01' },
+        { name: 'Odd', slug: 'odd', role: 'Author', status: null },
+      ],
+    });
+
+    expect(items.map((item) => item.name)).toEqual(['Library a', 'Orla', 'Vale', 'Odd']);
+    expect(items[1]).toMatchObject({
+      kind: 'repository',
+      meta: 'You are its Owner',
+      chip: { state: 'stale', text: 'Draft', icon: 'stale' },
+    });
+    expect(items[2]?.chip).toEqual({
+      state: 'synced',
+      text: 'Published 2026-10-01',
+      icon: 'select-item',
+    });
+    expect(items[3]?.chip).toBeUndefined();
   });
 });

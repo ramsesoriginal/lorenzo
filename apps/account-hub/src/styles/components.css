@@ -101,7 +101,20 @@
   cursor: pointer;
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  .shelf-link,
+  .shelf-section > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target-min);
+  }
+
+  .shelf-section > summary {
+    display: flex;
+  }
+}
+
+@media (pointer: coarse) {
   .shelf-link,
   .shelf-section > summary {
     display: inline-flex;
@@ -136,7 +149,17 @@
   color: var(--text-primary);
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  .clash .field-row,
+  [data-again] .field-row,
+  .inclusion .field-row,
+  [data-terms-card] .field-row,
+  [data-visibility] .field-row {
+    min-height: var(--target-min);
+  }
+}
+
+@media (pointer: coarse) {
   .clash .field-row,
   [data-again] .field-row,
   .inclusion .field-row,
@@ -161,7 +184,15 @@
 
 /* The release composer in the publish dialog (ADR 0209) and the "Make public" dialog (ADR 0290): its checkboxes are pressed, so each row is
    the brand's target size at phone widths and for a coarse pointer (identity.md 8.5). */
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  [data-publish-dialog] .field-row,
+  [data-visibility-dialog] .field-row,
+  [data-showcase] .field-row {
+    min-height: var(--target-min);
+  }
+}
+
+@media (pointer: coarse) {
   [data-publish-dialog] .field-row,
   [data-visibility-dialog] .field-row,
   [data-showcase] .field-row {
@@ -287,7 +318,14 @@
   flex-wrap: nowrap;
 }
 
-@media (max-width: 720px), (pointer: coarse) {
+@container shell (max-width: 720px) {
+  .preview-item button,
+  .preview-dialog button {
+    min-height: var(--target-min);
+  }
+}
+
+@media (pointer: coarse) {
   .preview-item button,
   .preview-dialog button {
     min-height: var(--target-min);
@@ -320,22 +358,59 @@
   min-width: 0;
 }
 
+/* The place a page of the account sits in, over its title (screen 26). */
+.page-crumb {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--text-tertiary);
+}
+
 /* /profile (ADR 0418, PT2, PT3): the form with a card beside it that shows how others see the person,
    which stays in view while the form scrolls; on a tablet and a phone the card moves above the form. */
 .profile-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: var(--space-5);
   align-items: start;
+}
+/* The sections of the profile are drawn stacked, a heading over its fields (screen 26), not with the
+   label beside them as the settings template has it. */
+section.profile-section {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2h);
+}
+div.profile-fields {
+  max-width: 34rem;
 }
 .profile-card {
   position: sticky;
-  top: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  top: var(--space-3);
+  display: grid;
+  gap: var(--space-2h);
+  padding: var(--space-3);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-card);
+  background: var(--surface-default);
 }
-@container shell (max-width: 1100px) {
+.profile-card > h2 {
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.profile-card > p {
+  margin: 0;
+}
+.profile-card #preview {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+@container shell (max-width: 1099px) {
   .profile-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
@@ -364,8 +439,8 @@
   gap: var(--space-2);
 }
 .colour-swatch {
-  width: 36px;
-  height: 36px;
+  width: var(--hit);
+  height: var(--hit);
   padding: 0;
   border: 2px solid var(--border-control);
   border-radius: 999px;
@@ -375,12 +450,6 @@
 .colour-swatch[aria-pressed="true"] {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-}
-@container shell (max-width: 720px) {
-  .colour-swatch {
-    width: 44px;
-    height: 44px;
-  }
 }
 
 /* /tokens (ADR 0418, PT4): the one sentence that says what a token is, and the rows. A state is told
@@ -410,7 +479,8 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
   gap: var(--space-3);
   align-items: center;
-  padding: var(--space-3);
+  min-height: var(--row-h);
+  padding: 0 var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
 }
 .token-name,
@@ -439,18 +509,198 @@
   }
 }
 
-/* Home (ADR 0417, AH1): what needs the person and where they play beside what they run; the blocks
-   below hold Continue and the actions. One column below 1100px. */
+/* Home (ADR 0417, AH1, screen 01): what needs the person and where they play beside what they run,
+   then Continue and the apps. One column below 1100px (the desktop step). */
 .home-columns {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
-@container shell (max-width: 1100px) {
+@container shell (max-width: 1099px) {
   .home-columns {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2h);
+}
+.home-section > h2,
+.home-head h2 {
+  margin: 0;
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.home-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.home-head a {
+  font-size: var(--fs-meta);
+}
+
+/* The page's own gap follows the title (the design's 24px), not a second one on top of the stack's. */
+div.home-title {
+  margin-bottom: 0;
+}
+
+/* Needs you holds its heading inside its card, as the design draws it; the rows below are the same
+   rows as the other cards'. */
+.home-card-head {
+  padding: var(--space-3) var(--space-3) 0;
+}
+.home-card-head h2 {
+  margin: 0;
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.home-needs {
+  padding-bottom: var(--space-1);
+}
+.home-needs > .error-text {
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+/* Continue and the apps are quiet labels over their cards (the design's section title), set apart
+   from the blocks above by the larger step. */
+.home-label {
+  margin-top: var(--space-2);
+}
+.home-label > h2 {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+/* A card of rows, a hairline between them. */
+.home-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+.home-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2h);
+  min-height: var(--hit);
+  padding: var(--space-2h) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.home-row:first-child {
+  border-top: 0;
+}
+.home-row > .icon {
+  align-self: flex-start;
+  margin-top: 3px;
+  color: var(--text-secondary);
+}
+.home-row-text {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  min-width: 0;
+}
+/* A role beside a name: an outline, not a status (the brand's pills are for state). */
+.home-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-meta);
+}
+.home-row-text b {
+  font-weight: 500;
+}
+.home-row-link {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.home-row-link:hover b {
+  text-decoration: underline;
+}
+.home-row .btn {
+  flex: none;
+}
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.home-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Continue and the apps: cards in a grid that gives way with the width. */
+.home-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-tiles--apps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@container shell (max-width: 1099px) {
+  .home-tiles--apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container shell (max-width: 720px) {
+  .home-tiles,
+  .home-tiles--apps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.home-tile,
+a.home-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2h);
+  height: 100%;
+  padding: var(--space-3);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.home-tile:hover {
+  background: var(--fill-soft);
+}
+.home-tile-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.home-tile-title {
+  font-weight: 600;
+}
+.home-tile-icon {
+  display: inline-flex;
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: 1.4rem;
+}
+.home-tile-icon .icon {
+  width: 1em;
+  height: 1em;
 }
 
 /* First run (ADR 0416, D27): the mascot beside the welcome and the two doors; one column on a phone. */
@@ -492,7 +742,8 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-2h);
-  padding: var(--space-2h) var(--space-3);
+  min-height: var(--row-h);
+  padding: 0 var(--space-3);
 }
 .notif-dot-slot {
   flex: none;
@@ -542,7 +793,7 @@
   align-items: start;
 }
 
-@media (max-width: 52rem) {
+@container shell (max-width: 1099px) {
   .storefront-columns {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -593,7 +844,7 @@
   align-items: start;
 }
 
-@media (max-width: 52rem) {
+@container shell (max-width: 1099px) {
   .library-columns {
     grid-template-columns: minmax(0, 1fr);
   }

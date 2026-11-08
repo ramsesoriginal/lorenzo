@@ -13,6 +13,8 @@ interface Props {
   title: string;
   // The product's own name, beside the lockup: "Calendars"
   product: string;
+  // Its icon in the web shell's header, an icon of the brand's sprite: "account"
+  icon?: string;
   brandingUrl: string;
   themeKey: string;
   nav?: NavItem[];
@@ -37,6 +39,7 @@ interface Props {
 const {
   title,
   product,
+  icon,
   brandingUrl,
   themeKey,
   nav,
@@ -63,7 +66,7 @@ const container = shell === 'web' && template ? pageClass(template) : 'wrap';
     {shell === 'web' ? (
       <div class="shell-container">
         <div class="shell-app shell-app--page">
-          <WebHeader product={product} brandingUrl={brandingUrl} nav={nav} />
+          <WebHeader product={product} icon={icon} brandingUrl={brandingUrl} nav={nav} />
           <main id="content">
             <div class={`${container} stack`}>
               {welcome && (
@@ -82,6 +85,7 @@ const container = shell === 'web' && template ? pageClass(template) : 'wrap';
             </div>
           </main>
           <WebBottom
+            product={product}
             brandingUrl={brandingUrl}
             nav={nav}
             path={path}

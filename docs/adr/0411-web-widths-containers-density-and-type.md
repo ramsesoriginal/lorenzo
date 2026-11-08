@@ -18,4 +18,4 @@ Identity §8.5 sets one breakpoint at 720px for phones. Apps also need a tablet 
 
 - The brand's spacing tokens must become container-driven; the prototypes redefine them by container so the simulated width works.
 - Saved views and the remembered density are a follow-up slice with an API for a person's preferences.
-- The 1760px cap in the probe is not decided; 1700px is the large-screen step.
+- The 1760px cap is decided as the upper cap (the maintainer, 2026-11-07); 1700px is the large-screen step.

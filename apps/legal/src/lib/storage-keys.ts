@@ -95,6 +95,16 @@ export const STORAGE_KEYS: StorageEntry[] = [
     ],
   },
   {
+    key: 'lorenzo:hub-recent',
+    store: 'localStorage',
+    purpose: bi(
+      'Merkt sich die zuletzt geöffneten Seiten des Kontos für „Weitermachen“ auf der Startseite. Bleibt in Ihrem Browser und wird nirgendwohin gesendet.',
+      'Remembers the account pages you opened last, for "Continue" on Home. It stays in your browser and is sent nowhere.',
+    ),
+    lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
+    files: [`${accountHub}/components/Briefing/renderer.ts`, `${accountHub}/lib/shell.ts`],
+  },
+  {
     key: 'lorenzo:inventory-web:catalog:*',
     store: 'localStorage',
     purpose: bi(
@@ -105,11 +115,11 @@ export const STORAGE_KEYS: StorageEntry[] = [
     files: ['apps/inventory-web/src/lib/catalogCache.ts'],
   },
   {
-    key: 'lorenzo:<app>:theme, bench:theme, bench:sans, lorenzo:single-keys, lorenzo:maps:look, lorenzo:maps:projection:*',
+    key: 'lorenzo:<app>:theme, lorenzo:density, lorenzo:motion, bench:theme, bench:sans, lorenzo:single-keys, lorenzo:maps:look, lorenzo:maps:projection:*',
     store: 'localStorage',
     purpose: bi(
-      'Ihre Darstellungswahl (Hell/Dunkel, Schrift, Tastenkürzel, Kartenansicht und Projektion einer Karte).',
-      'Your display choices (light/dark, typeface, keyboard shortcuts, map look and the projection of a map).',
+      'Ihre Darstellungswahl (Hell/Dunkel, Dichte der Listen, Bewegung, Schrift, Tastenkürzel, Kartenansicht und Projektion einer Karte).',
+      'Your display choices (light/dark, the density of lists, motion, typeface, keyboard shortcuts, map look and the projection of a map).',
     ),
     lasts: bi('Bis zum Löschen der Browserdaten', 'Until browser data is cleared'),
     files: [
@@ -118,6 +128,7 @@ export const STORAGE_KEYS: StorageEntry[] = [
       'apps/maps/src/lib/look.ts',
       'apps/maps/src/lib/sphere-words.ts',
       'packages/app-shell/src/SiteHead.astro',
+      'packages/app-shell/src/appearance.ts',
       'packages/app-shell/src/settings.ts',
       'packages/app-shell/src/theme.ts',
     ],

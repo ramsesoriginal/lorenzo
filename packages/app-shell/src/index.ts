@@ -33,15 +33,20 @@ export {
   SCOPES,
   search,
 } from './palette';
-export type { NavItem, Theme } from './pure';
+export type { Density, Motion, NavItem, Theme, ThemeChoice } from './pure';
 export {
+  clockLocale,
   clockText,
+  DENSITIES,
+  densityOf,
   initials,
   initialTheme,
   isCurrentPage,
+  motionOf,
   navHref,
   otherTheme,
   splitTabs,
+  themeChoiceOf,
   themeToggleLabel,
 } from './pure';
 export type { RetryReadOptions } from './retry';

@@ -1,16 +1,16 @@
 ---
 import AppPage from '@lorenzo/app-shell/AppPage.astro';
-import type { PageTemplate } from '@lorenzo/app-shell';
 import { BRANDING_CSS_URL, THEME_KEY } from '../lib/config';
 import '../styles/global.css';
 
 interface Props {
   title?: string;
-  // The page's template (ADR 0412), which sets the width of its container.
-  template?: PageTemplate;
 }
 
-const { title = 'Lorenzo - Account', template } = Astro.props;
+const { title = 'Lorenzo - Account' } = Astro.props;
+// Every page of the hub has the one width, the shell's page container: it follows the width it is
+// given (a window, a pane, a phone) and the page's parts adapt to that, not to what is in them.
+const PAGE = 'list-detail';
 ---
 
 <AppPage
@@ -19,22 +19,19 @@ const { title = 'Lorenzo - Account', template } = Astro.props;
   brandingUrl={BRANDING_CSS_URL}
   themeKey={THEME_KEY}
   shell="web"
-  template={template}
+  template={PAGE}
   path="apps/account-hub"
+  icon="account"
   nav={[
-    { label: 'Home', href: '/', icon: 'library' },
-    { label: 'Profile', href: '/profile/', requires: 'signed-in', icon: 'account' },
-    { label: 'Access tokens', href: '/tokens/', requires: 'signed-in' },
+    { label: 'Home', href: '/', icon: 'account' },
     { label: 'Libraries', href: '/tenants/', requires: 'signed-in', icon: 'library' },
-    { label: 'Repositories', href: '/repositories/', requires: 'repositories' },
-    { label: 'Discover', href: '/discover/', requires: 'discover' },
-    { label: 'Set up a library', href: '/setup/', requires: 'create-tenant' },
     {
-      label: 'Notifications',
-      href: '/notifications/',
-      requires: 'signed-in',
-      icon: 'notifications',
+      label: 'Repositories',
+      href: '/repositories/',
+      requires: 'repositories',
+      icon: 'kind-repository',
     },
+    { label: 'Discover', href: '/discover/', requires: 'discover', icon: 'discover' },
   ]}
 >
   <!-- What a page puts in `slot="head"` (the referrer policy of /join, ADR 0171) reaches <head>. -->
