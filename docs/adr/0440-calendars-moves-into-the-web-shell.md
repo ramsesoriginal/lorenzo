@@ -42,7 +42,7 @@ A pass over the screens that belong to Calendars (`docs/design/web/calendars-ses
 | 08 an Event | As drawn: the Events tab is the current one, Order and causes is a button in the head and a card, the other panels are cards in two columns |
 | 09, 10 order and causes | The panel as before (relationships, sharing, compare, linearized said as such) |
 | 11 a clock | The clock's page as before; the list of clocks is cards |
-| 12 date lens | Maps' screen, not Calendars'; `@lorenzo/time-filter` is built for it |
+| 12 date lens | Maps' screen: the lens has the strip in `@lorenzo/time-filter`'s one-date mode (a calendar and year beside it, a day on it, by pointer or key), above the period picker, which stays for a month or a whole year, so no tie it could say is lost |
 | 13 definition refused | The editor keeps the API's refusal and the author's draft (the stale-definition review) |
 | 25 dark | The tokens give it; the theme is chosen in Appearance |
 | 27 at 834 | As drawn: no docked panel; the day panel is a sheet |

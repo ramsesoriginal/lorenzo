@@ -246,3 +246,25 @@ for (const theme of ['light', 'dark'] as const) {
     }
   });
 }
+
+test('the date lens has a strip of a year: one date on it, by key, and the date can be cleared', async ({
+  browser,
+}) => {
+  const w = await world();
+  const { ids } = await calendarWith(w, { year: 3286 });
+  await openUp(w, ids[0] as string);
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto(here(w.tenant.id));
+    const handle = page.getByRole('slider', { name: 'Date', exact: true });
+    await expect(handle).toBeVisible();
+    await expect(page.locator('.time-filter-out')).toHaveText('Any time');
+    await handle.focus();
+    await handle.press('ArrowRight');
+    await expect(page.locator('.time-filter-out')).not.toHaveText('Any time');
+    await page.getByRole('button', { name: 'Clear the date' }).click();
+    await expect(page.getByRole('button', { name: 'Clear the date' })).toBeHidden();
+  } finally {
+    await page.context().close();
+  }
+});

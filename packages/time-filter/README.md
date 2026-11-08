@@ -17,6 +17,7 @@ host.append(filter.element);
 
 - A range is two places on the year, counted from 1 over every segment in the calendar's order, festivals included. `indexOf` and `dayAt` turn a segment and day into a place and back.
 - The ends are handles (`role="slider"`): drag across the strip, or Arrow keys (one day), Page Up and Page Down (thirty), Home and End. Moving one end past the other drags the other along.
+- `mode: 'point'` is one handle for one date (the date lens on Maps and Locations): `onChange` gets `{ from, to }` with both the same place, or null.
 - **Any time** clears the range. The filter narrows a list in the browser and changes nothing in the data; it infers no order from a date.
 
 `mise run //packages/time-filter:test` covers the strip's arithmetic (places, words, keys, the pointer and the range's order); the control is covered by the end-to-end suite of Calendars.

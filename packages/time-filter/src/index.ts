@@ -18,6 +18,8 @@ export interface TimeFilterOptions {
   /** Called with a range of places on the strip, or null for any time. */
   onChange: (range: { from: number; to: number } | null) => void;
   initial?: { from: number; to: number } | null;
+  /** A range (two handles, the default) or one date (one handle, the date lens). */
+  mode?: 'range' | 'point';
 }
 
 export interface TimeFilter {
@@ -36,6 +38,7 @@ function node<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', tex
 /** The strip: a segment bar, a tick for each marked day, and one handle for each end of a range. */
 export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
   const { segments, onChange } = options;
+  const point = options.mode === 'point';
   const total = totalDays(segments);
   let current = options.initial ?? null;
   const root = node('div', 'time-filter');
@@ -44,7 +47,7 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
   out.setAttribute('aria-live', 'polite');
   const clear = node('button', 'btn btn-text', 'Any time');
   clear.type = 'button';
-  head.append(node('b', '', 'When'), out, clear);
+  head.append(node('b', '', point ? 'Looking at' : 'When'), out, clear);
   const strip = node('div', 'time-filter-strip');
   const bar = node('div', 'time-filter-segs');
   for (const s of segments) {
@@ -76,12 +79,16 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
     handle.type = 'button';
     handle.setAttribute('role', 'slider');
     handle.dataset.which = which;
-    handle.setAttribute('aria-label', which === 'from' ? 'From' : 'To');
+    handle.setAttribute('aria-label', which === 'from' ? (point ? 'Date' : 'From') : 'To');
     handle.setAttribute('aria-valuemin', '1');
     handle.setAttribute('aria-valuemax', String(total));
     return handle;
   });
-  strip.append(bar, ticks, band, ...handles);
+  if (point) {
+    band.hidden = true;
+    handles[1]?.remove();
+  }
+  strip.append(bar, ticks, band, ...handles.filter((h) => !point || h.dataset.which === 'from'));
   const note = node(
     'p',
     'caption',
@@ -92,9 +99,9 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
   function draw() {
     out.textContent = describe(segments, current);
     // With no range the handles stand at the two ends of the year, as drawn: any time is the whole year.
-    const shown = current ?? { from: 1, to: total };
+    const shown = current ?? { from: 1, to: point ? 1 : total };
     clear.hidden = !current;
-    band.hidden = false;
+    band.hidden = point;
     for (const handle of handles) {
       const value = shown[handle.dataset.which as 'from' | 'to'];
       handle.style.left = `${pct(value)}%`;
@@ -106,7 +113,12 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
   }
   function apply(next: { from: number; to: number } | null) {
     // A range that takes in the whole year is any time.
-    current = next && next.from === 1 && next.to === total ? null : next;
+    current = point
+      ? next && { from: next.from, to: next.from }
+      : next && next.from === 1 && next.to === total
+        ? null
+        : next;
+    current ??= null;
     draw();
     onChange(current);
   }
@@ -120,15 +132,17 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
     const value = place(event);
     const grabbed = (event.target as HTMLElement).dataset?.which as 'from' | 'to' | undefined;
     const start = current ?? { from: value, to: value };
-    const which =
-      grabbed ?? (Math.abs(value - start.from) <= Math.abs(value - start.to) ? 'from' : 'to');
+    const which = point
+      ? 'from'
+      : (grabbed ?? (Math.abs(value - start.from) <= Math.abs(value - start.to) ? 'from' : 'to'));
     dragging = which;
     strip.setPointerCapture?.(event.pointerId);
     apply(moved(start, which, value));
     event.preventDefault();
   });
   strip.addEventListener('pointermove', (event) => {
-    if (dragging) apply(moved(current ?? { from: 1, to: total }, dragging, place(event)));
+    if (dragging)
+      apply(moved(current ?? { from: 1, to: point ? 1 : total }, dragging, place(event)));
   });
   const stop = () => {
     dragging = null;
@@ -139,7 +153,7 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
     const handle = event.target as HTMLElement;
     const which = handle.dataset?.which as 'from' | 'to' | undefined;
     if (!which) return;
-    const from = current ?? { from: 1, to: total };
+    const from = current ?? { from: 1, to: point ? 1 : total };
     const next = keyTarget(event.key, from[which], total);
     if (next === null) return;
     event.preventDefault();
