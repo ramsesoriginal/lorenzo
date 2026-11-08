@@ -38,7 +38,7 @@ A pass over the screens that belong to Calendars (`docs/design/web/calendars-ses
 | 03 add to a day | As drawn: a menu of a note, an Event, a Fact, an existing one, a recurring observance |
 | 04 whole year | As drawn: a row for each segment with a square for each day, darker for more written |
 | 05, 06 Events and story order | As drawn: New Event, the search and the list order, a row with the Event's date and who took part ("No one recorded" where none), a chip for what its place rests on. The design's "Restricted" chip is not drawn: a hidden Event is never shown or counted (D24) |
-| 07 time filter | As drawn: the strip of a year with a tick for each day something is dated on, the two handles at its ends (any time), by pointer and by key. The design's "This month" shortcut is not drawn |
+| 07 time filter | As drawn: the strip of a year with a tick for each day something is dated on, the two handles at its ends (any time), by pointer and by key. The design's "This month" shortcut is not drawn on purpose: a calendar has no current date ("today" is not built), so there is no month it could mean |
 | 08 an Event | As drawn: the Events tab is the current one, Order and causes is a button in the head and a card, the other panels are cards in two columns |
 | 09, 10 order and causes | The panel as before (relationships, sharing, compare, linearized said as such) |
 | 11 a clock | The clock's page as before; the list of clocks is cards |
