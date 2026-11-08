@@ -129,6 +129,7 @@ export async function mount() {
           session.canWrite
             ? 'Create one below to give a world its months, festivals and moons.'
             : 'No calendars in this library are available to you yet.',
+          'empty-calendar',
         ),
       );
     if (session.canWrite) {
