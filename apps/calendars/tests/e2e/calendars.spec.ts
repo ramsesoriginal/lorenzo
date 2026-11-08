@@ -854,13 +854,15 @@ test('standalone Events can be found by participating being without acquiring a 
   await expect(page.locator('[data-event-list] .event-meta')).toHaveText(
     'Undated · With Aster the traveller',
   );
-  // A time filter keeps only Events dated in the years asked for; an undated one is not among them.
-  await page.getByText('Time', { exact: true }).click();
-  await page.getByLabel('From year', { exact: true }).fill('10');
-  await page.getByLabel('To year', { exact: true }).fill('20');
-  await page.getByLabel('To year', { exact: true }).press('Tab');
+  // The time filter is a strip of a calendar's year: a range on it keeps the Events dated inside it,
+  // and an undated Event is not among them.
+  const handle = page.getByRole('slider', { name: 'From', exact: true });
+  await expect(page.getByText('Any time', { exact: true }).first()).toBeVisible();
+  await page.locator('.time-filter-seg').first().click();
+  await expect(handle).toBeVisible();
   await expect(page.getByText('No Events match these filters.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Clear time filter', exact: true }).click();
+  await handle.press('End');
+  await page.getByRole('button', { name: 'Any time', exact: true }).click();
   await expect(page.locator('[data-event-list] > li')).toHaveCount(1);
   await page.getByRole('combobox', { name: 'List order', exact: true }).selectOption('order');
   await page.getByRole('button', { name: 'Find Events', exact: true }).click();
@@ -1541,4 +1543,33 @@ test('Event managers create an ordinary group snapshot including an untracked NP
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.context().close();
+});
+
+test('the Events time filter marks the days things are dated on and keeps the Events inside a range', async ({
+  browser,
+}) => {
+  const world = await buildWorld();
+  const before = world.definition.segments
+    .slice(0, 5)
+    .reduce((sum: number, s: { days: number }) => sum + s.days, 0);
+  const storm = before + 17;
+  const base = `/events/?tenant=${world.tenantId}&calendar=${world.calendarId}&year=3286`;
+  const page = await signedIn(browser, world.subject);
+  await page.goto(base);
+  await expect(page.locator('.time-filter-marks > i').first()).toBeAttached();
+  await expect(
+    page.locator('[data-event-list] > li').filter({ hasText: 'Harbour storm' }),
+  ).toBeVisible();
+  await page.goto(`${base}&from=${storm - 3}&to=${storm + 3}`);
+  await expect(page.getByText('Harbour storm', { exact: true })).toBeVisible();
+  await expect(page.locator('.time-filter-out')).toContainText(' to ');
+  await page.goto(`${base}&from=1&to=${storm - 5}`);
+  await expect(page.getByText('No Events match these filters.', { exact: true })).toBeVisible();
+  // A handle moves by key, and Any time clears the range.
+  const to = page.getByRole('slider', { name: 'To', exact: true });
+  await to.focus();
+  await to.press('End');
+  await expect(page.getByText('Harbour storm', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Any time', exact: true }).click();
+  await expect(page.locator('.time-filter-out')).toHaveText('Any time');
 });

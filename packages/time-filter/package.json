@@ -1,0 +1,21 @@
+{
+  "name": "@lorenzo/time-filter",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A strip of a calendar's year to look a list through: a range of days, drawn once for the apps to share (calendars-sessions design CS2, CS7).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "biome check . && tsc --noEmit",
+    "format": "biome check --write .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.4",
+    "@types/node": "^26.6.6",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  }
+}

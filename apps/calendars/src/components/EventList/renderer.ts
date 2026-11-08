@@ -1,5 +1,6 @@
+import { createTimeFilter, indexOf, type StripSegment } from '@lorenzo/time-filter';
 import { rememberEntryAddress, tenantAddress } from '../../lib/addresses';
-import { client, unwrap } from '../../lib/api';
+import { client, fetchAllPages, unwrap } from '../../lib/api';
 import {
   button,
   disclosure,
@@ -72,7 +73,8 @@ export async function mount() {
       .join(' · ');
   }
   // When and who, read lazily per row through the entry's own endpoints, so a long list stays cheap.
-  type Meta = { when: string; years: number[]; who: string };
+  type Dated = { calendar: string; year: number; segment: string | null; day: number | null };
+  type Meta = { when: string; dates: Dated[]; who: string };
   const metaCache = new Map<string, Promise<Meta>>();
   function metaFor(id: string): Promise<Meta> {
     let known = metaCache.get(id);
@@ -92,10 +94,13 @@ export async function mount() {
               .catch(() => [])
           : [];
         return {
-          when: dates.length
-            ? dates.map((d) => `${d.name}, year ${d.year}`).join(' · ')
-            : 'Undated',
-          years: dates.map((d) => d.year),
+          when: dates.length ? dates.map((d) => d.name).join(' · ') : 'Undated',
+          dates: dates.map((d) => ({
+            calendar: d.calendar_entity_id,
+            year: d.year,
+            segment: d.segment,
+            day: d.day,
+          })),
           who: who.join(', '),
         };
       })();
@@ -103,14 +108,30 @@ export async function mount() {
     }
     return known;
   }
-  const yearFrom = field('From year', initial.get('from') ?? '', 'number');
-  const yearTo = field('To year', initial.get('to') ?? '', 'number');
-  const timeActive = () => yearFrom.input.value !== '' || yearTo.input.value !== '';
-  function inRange(years: number[]) {
-    const lo = yearFrom.input.value === '' ? -Infinity : Number(yearFrom.input.value);
-    const hi = yearTo.input.value === '' ? Infinity : Number(yearTo.input.value);
-    return years.some((y) => y >= lo && y <= hi);
+  // The time filter (CS2): a strip of one calendar's year; a range of its days narrows the list to
+  // the Events dated inside it. Which calendar and year it draws is chosen beside it.
+  let range: { from: number; to: number } | null =
+    initial.get('from') && initial.get('to')
+      ? { from: Number(initial.get('from')), to: Number(initial.get('to')) }
+      : null;
+  let strip: StripSegment[] = [];
+  let calendarId = initial.get('calendar') ?? '';
+  const yearField = field('Year', initial.get('year') ?? '0', 'number');
+  yearField.label.classList.add('narrow-field');
+  const calendarChoice = select('Calendar', [], calendarId);
+  const timeHost = el('section', '', 'stack-tight');
+  const timeActive = () => range !== null;
+  function inRange(dates: Dated[]) {
+    if (!range) return true;
+    const year = Number(yearField.input.value);
+    return dates.some((d) => {
+      if (d.calendar !== calendarId || d.year !== year || !d.segment || d.day === null)
+        return false;
+      const at = indexOf(strip, d.segment, d.day);
+      return at !== null && range !== null && at >= range.from && at <= range.to;
+    });
   }
+  let stripReady: Promise<void> = Promise.resolve();
   let generation = 0;
   async function load() {
     const turn = ++generation;
@@ -135,12 +156,13 @@ export async function mount() {
         );
       let response = await fetchPage(timeActive() ? 1 : page, timeActive() ? 100 : 30);
       if (timeActive()) {
+        await stripReady;
         // A time filter looks at every Event, not one page: read them all, keep those dated in range.
         const all = [...response.items];
         for (let n = 2; n <= (response.pages ?? 1); n++)
           all.push(...(await fetchPage(n, 100)).items);
         const metas = await Promise.all(all.map((e) => metaFor(e.entity_id)));
-        const kept = all.filter((_, i) => inRange(metas[i]?.years ?? []));
+        const kept = all.filter((_, i) => inRange(metas[i]?.dates ?? []));
         response = { ...response, items: kept, total: kept.length, pages: 1 };
       }
       if (turn !== generation || !host?.isConnected) return;
@@ -236,8 +258,10 @@ export async function mount() {
         sort: sort.input.value,
         being,
         chain,
-        from: yearFrom.input.value,
-        to: yearTo.input.value,
+        calendar: range ? calendarId : '',
+        year: range ? yearField.input.value : '',
+        from: range ? String(range.from) : '',
+        to: range ? String(range.to) : '',
       })) {
         if (value) address.searchParams.set(key, value);
         else address.searchParams.delete(key);
@@ -266,35 +290,79 @@ export async function mount() {
     ),
   );
   filters.append(bar);
-  const time = disclosure('Time');
-  const timeRow = el('div', '', 'form-grid');
-  timeRow.append(yearFrom.label, yearTo.label);
-  time.root.open = timeActive();
-  time.body.append(
-    el(
-      'p',
-      'Events dated within these years, in any calendar. Leave a side empty for no limit.',
-      'caption',
+  async function drawStrip() {
+    if (!calendarId) {
+      timeHost.hidden = true;
+      return;
+    }
+    const year = Number(yearField.input.value);
+    try {
+      const calculated = await unwrap(
+        await client.GET('/tenants/{tenant_id}/calendars/{entity_id}/years/{year}', {
+          params: { path: { tenant_id: tenantId, entity_id: calendarId, year } },
+        }),
+      );
+      strip = calculated.segments.map((x) => ({
+        key: x.key,
+        name: x.name,
+        days: x.days.length,
+        festival: x.month_ordinal === null,
+      }));
+      // A tick for every day something is dated on, read from every Event the person can see.
+      const everyone = await fetchAllPages(async (n) =>
+        unwrap(
+          await client.GET('/tenants/{tenant_id}/events', {
+            params: { path: { tenant_id: tenantId }, query: { page: n, size: 100 } },
+          }),
+        ),
+      );
+      const metas = await Promise.all(everyone.map((e) => metaFor(e.entity_id)));
+      const marks: Array<[string, number]> = [];
+      for (const m of metas)
+        for (const d of m.dates)
+          if (d.calendar === calendarId && d.year === year && d.segment && d.day !== null)
+            marks.push([d.segment, d.day]);
+      const filter = createTimeFilter({
+        segments: strip,
+        marks,
+        initial: range,
+        onChange: (next) => {
+          range = next;
+          page = 1;
+          void load();
+        },
+      });
+      const choosers = el('div', '', 'form-grid');
+      choosers.append(...(calendars.length > 1 ? [calendarChoice.label] : []), yearField.label);
+      timeHost.replaceChildren(filter.element, choosers);
+      timeHost.hidden = false;
+    } catch (error) {
+      timeHost.replaceChildren(el('p', `Could not draw the year. ${message(error)}`, 'caption'));
+    }
+  }
+  const calendars = await fetchAllPages(async (n) =>
+    unwrap(
+      await client.GET('/tenants/{tenant_id}/calendars', {
+        params: { path: { tenant_id: tenantId }, query: { page: n, size: 100 } },
+      }),
     ),
-    timeRow,
-    button(
-      'Clear time filter',
-      () => {
-        yearFrom.input.value = '';
-        yearTo.input.value = '';
-        page = 1;
-        void load();
-      },
-      true,
-      'close',
-    ),
-  );
-  for (const input of [yearFrom.input, yearTo.input])
+  ).catch(() => []);
+  if (!calendars.some((c) => c.entity_id === calendarId))
+    calendarId = calendars[0]?.entity_id ?? '';
+  for (const c of calendars) {
+    const option = el('option', c.name);
+    option.value = c.entity_id;
+    calendarChoice.input.append(option);
+  }
+  calendarChoice.input.value = calendarId;
+  for (const input of [calendarChoice.input, yearField.input])
     input.addEventListener('change', () => {
+      calendarId = calendarChoice.input.value;
+      range = null;
       page = 1;
+      stripReady = drawStrip();
       void load();
     });
-  filters.append(time.root);
   if (canReadEventOrder) {
     const advanced = disclosure(canOrderEvents ? 'Participants and causes' : 'Causes');
     advanced.body.append(
@@ -414,6 +482,7 @@ export async function mount() {
     head.querySelector('h1')?.after(headActions);
   }
   host.append(
+    timeHost,
     filters,
     el(
       'p',
@@ -427,5 +496,6 @@ export async function mount() {
     nav,
   );
   showChoices();
+  stripReady = drawStrip();
   await load();
 }

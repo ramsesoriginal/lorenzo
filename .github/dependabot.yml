@@ -123,6 +123,7 @@ updates:
       - "/packages/app-shell"
       - "/packages/period-picker"
       - "/packages/read-cache"
+      - "/packages/time-filter"
       - "/packages/map-renderer"
       - "/packages/graph-renderer"
       - "/packages/entry-preview"
