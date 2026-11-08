@@ -26,6 +26,7 @@ import {
   loading,
   message,
 } from '../../lib/dom';
+import { eventIds } from '../../lib/event-ids';
 import { informationView, renderText } from '../../lib/information';
 import { prefetchEntry, prefetchYear } from '../../lib/prefetch';
 import { rememberThisPage } from '../../lib/recent';
@@ -119,8 +120,16 @@ export async function mount() {
     const go = el('button', 'Open year', 'btn btn-secondary');
     go.type = 'submit';
     // The arrows step the month (CS6) and, in the whole year, the year; the field reaches any year.
-    const earlier = button('Previous month', () => step(-1), true, 'previous');
-    const later = button('Next month', () => step(1), true, 'next');
+    // Icon-only, as drawn; the name is what a screen reader and a tooltip say.
+    const earlier = button('', () => step(-1), true, 'previous');
+    const later = button('', () => step(1), true, 'next');
+    for (const [arrow, words] of [
+      [earlier, 'Previous month'],
+      [later, 'Next month'],
+    ] as const) {
+      arrow.setAttribute('aria-label', words);
+      arrow.title = words;
+    }
     yearNav.append(earlier, y.label, later, go);
     const entryLink = linkButton(
       'Calendar entry',
@@ -247,19 +256,7 @@ export async function mount() {
       (cover.segment === null ||
         (cover.segment === day.segment && (cover.day === null || cover.day === day.day)));
     type DaySummary = { notes: string[]; entries: Array<{ id: string; name: string }> };
-    // Which dated entries are Events: the summary names an entry and not its kind, and what the person
-    // can see of the Events is one list; the rest are Facts.
-    let eventIds: Promise<Set<string>> | undefined;
-    const readEventIds = () =>
-      (eventIds ??= fetchAllPages(async (page) =>
-        unwrap(
-          await client.GET('/tenants/{tenant_id}/events', {
-            params: { path: { tenant_id: tenantId }, query: { page, size: 100 } },
-          }),
-        ),
-      )
-        .then((rows) => new Set(rows.map((r) => r.entity_id)))
-        .catch(() => new Set<string>()));
+    const readEventIds = () => eventIds(tenantId);
     const contentCache = new Map<string, Promise<DaySummary>>();
     const summaryReads = new Map<string, Promise<void>>();
     // What a saved day shows, in one request for the whole month or festival (ADR 0324) instead
@@ -441,7 +438,13 @@ export async function mount() {
           target &&
           (dayRequested === null || target.days.some((d) => d.date.day === dayRequested))
         ) {
-          await showPeriod(target.key, dayRequested ?? undefined);
+          await showPeriod(
+            target.key,
+            dayRequested ?? undefined,
+            undefined,
+            false,
+            dayRequested === null,
+          );
         } else await showPeriod();
         requestedDay = null;
         requestedDate = false;
@@ -619,8 +622,8 @@ export async function mount() {
         [earlier, `Previous ${unit}`],
         [later, `Next ${unit}`],
       ] as const) {
-        const label = arrow.lastChild;
-        if (label) label.textContent = words;
+        arrow.setAttribute('aria-label', words);
+        arrow.title = words;
       }
       overYear.textContent = `· Year ${year}`;
       bigTitle.textContent = wholeYear
@@ -761,6 +764,9 @@ export async function mount() {
       day?: number,
       target?: HTMLButtonElement,
       forceOpen = false,
+      // The page opened on a segment from its address and no day: the panel is there, but a phone's
+      // sheet stays closed until a date is chosen, so the grid is what is seen first.
+      quiet = false,
     ) {
       const turn = ++selection;
       const chosenYear = year;
@@ -776,7 +782,7 @@ export async function mount() {
       detail.replaceChildren();
       // On a narrow window the panel is a sheet (CS6): it is there once a date, or the year's notes,
       // has been chosen, and goes with Close; beside the grid it is always there.
-      if (segment !== undefined || forceOpen) detail.dataset.open = '';
+      if ((segment !== undefined && !quiet) || forceOpen) detail.dataset.open = '';
       const close = button(
         'Close',
         () => {
@@ -929,17 +935,34 @@ export async function mount() {
             detail.append(block);
           }
         }
-        for (const o of occurrences.filter(
+        // What recurs here, under its own heading as the other kinds are (CS5): an observance is a rule,
+        // and a day says whether one falls on it.
+        const recurring = occurrences.filter(
           (o) =>
             (segment === undefined || o.date.segment === segment) &&
             (day === undefined || o.date.day === day),
-        ))
-          detail.append(
-            link(
-              `${o.date.day} ${calendar.definition.segments.find((s) => s.key === o.date.segment)?.name ?? o.date.segment}: ${o.name}`,
-              entryHref(tenantId, o.entity_id),
-            ),
-          );
+        );
+        if (recurring.length || day !== undefined) {
+          const group = el('section', '', 'stack-tight');
+          const heading = el('h3', '', 'panel-group');
+          heading.append(icon('kind-observance'), document.createTextNode('Recurring'));
+          group.append(heading);
+          if (recurring.length) {
+            const list = el('ul', '', 'stack-tight');
+            for (const o of recurring) {
+              const item = el('li');
+              item.append(
+                link(
+                  `${o.date.day} ${calendar.definition.segments.find((s) => s.key === o.date.segment)?.name ?? o.date.segment}: ${o.name}`,
+                  entryHref(tenantId, o.entity_id),
+                ),
+              );
+              list.append(item);
+            }
+            group.append(list);
+          } else group.append(el('p', 'Nothing recurs on this day.', 'lede'));
+          detail.append(group);
+        }
         if (canWrite) {
           const create = disclosure('Create a fact or story event');
           create.body.append(createDatedEntry(tenantId, materialize));

@@ -91,22 +91,22 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
 
   function draw() {
     out.textContent = describe(segments, current);
+    // With no range the handles stand at the two ends of the year, as drawn: any time is the whole year.
+    const shown = current ?? { from: 1, to: total };
     clear.hidden = !current;
-    band.hidden = !current;
+    band.hidden = false;
     for (const handle of handles) {
-      handle.hidden = !current;
-      const value = current ? current[handle.dataset.which as 'from' | 'to'] : 1;
+      const value = shown[handle.dataset.which as 'from' | 'to'];
       handle.style.left = `${pct(value)}%`;
       handle.setAttribute('aria-valuenow', String(value));
       handle.setAttribute('aria-valuetext', describe(segments, { from: value, to: value }));
     }
-    if (current) {
-      band.style.left = `${pct(current.from)}%`;
-      band.style.width = `${pct(current.to) - pct(current.from)}%`;
-    }
+    band.style.left = `${pct(shown.from)}%`;
+    band.style.width = `${pct(shown.to) - pct(shown.from)}%`;
   }
   function apply(next: { from: number; to: number } | null) {
-    current = next;
+    // A range that takes in the whole year is any time.
+    current = next && next.from === 1 && next.to === total ? null : next;
     draw();
     onChange(current);
   }
@@ -128,7 +128,7 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
     event.preventDefault();
   });
   strip.addEventListener('pointermove', (event) => {
-    if (dragging && current) apply(moved(current, dragging, place(event)));
+    if (dragging) apply(moved(current ?? { from: 1, to: total }, dragging, place(event)));
   });
   const stop = () => {
     dragging = null;
@@ -138,11 +138,12 @@ export function createTimeFilter(options: TimeFilterOptions): TimeFilter {
   strip.addEventListener('keydown', (event) => {
     const handle = event.target as HTMLElement;
     const which = handle.dataset?.which as 'from' | 'to' | undefined;
-    if (!which || !current) return;
-    const next = keyTarget(event.key, current[which], total);
+    if (!which) return;
+    const from = current ?? { from: 1, to: total };
+    const next = keyTarget(event.key, from[which], total);
     if (next === null) return;
     event.preventDefault();
-    apply(moved(current, which, next));
+    apply(moved(from, which, next));
     // Moving an end past the other drags the other along; the handle keeps the focus.
     strip.querySelector<HTMLElement>(`[data-which="${which}"]`)?.focus();
   });

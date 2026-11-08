@@ -116,7 +116,7 @@ export async function mount() {
       : null;
   let strip: StripSegment[] = [];
   let calendarId = initial.get('calendar') ?? '';
-  const yearField = field('Year', initial.get('year') ?? '0', 'number');
+  const yearField = field('Year', initial.get('year') ?? '', 'number');
   yearField.label.classList.add('narrow-field');
   const calendarChoice = select('Calendar', [], calendarId);
   const timeHost = el('section', '', 'stack-tight');
@@ -178,7 +178,9 @@ export async function mount() {
         open.classList.remove('grow');
         text.append(open, detail);
         void metaFor(entry.entity_id).then((m) => {
-          detail.textContent = [m.when, m.who && `With ${m.who}`].filter(Boolean).join(' · ');
+          detail.textContent = [m.when, canOrderEvents ? m.who || 'No one recorded' : '']
+            .filter(Boolean)
+            .join(' · ');
         });
         row.append(text);
         if (entry.order_basis) {
@@ -295,8 +297,19 @@ export async function mount() {
       timeHost.hidden = true;
       return;
     }
-    const year = Number(yearField.input.value);
     try {
+      // Without a year in the address, the year the calendar is anchored to, as the calendar opens on.
+      if (!yearField.input.value) {
+        const definition = await client
+          .GET('/tenants/{tenant_id}/calendars/{entity_id}', {
+            params: { path: { tenant_id: tenantId, entity_id: calendarId } },
+          })
+          .then((r) => r.data?.definition);
+        yearField.input.value = String(
+          definition?.week?.reference.year ?? definition?.moons[0]?.reference.year ?? 0,
+        );
+      }
+      const year = Number(yearField.input.value);
       const calculated = await unwrap(
         await client.GET('/tenants/{tenant_id}/calendars/{entity_id}/years/{year}', {
           params: { path: { tenant_id: tenantId, entity_id: calendarId, year } },
@@ -357,6 +370,7 @@ export async function mount() {
   calendarChoice.input.value = calendarId;
   for (const input of [calendarChoice.input, yearField.input])
     input.addEventListener('change', () => {
+      if (calendarChoice.input.value !== calendarId) yearField.input.value = '';
       calendarId = calendarChoice.input.value;
       range = null;
       page = 1;

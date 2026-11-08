@@ -27,6 +27,30 @@ Calendars draws its own page as a one-row header, a `wrap` and a footer, and mov
 - **Appearance is reachable without an account:** the palette's "Change theme" (and G then T) opens the Appearance dialog, which it did not (the web header's toggle is a hidden placeholder), so a visitor who is not signed in can choose and the choice is kept.
 - **The day panel is a sheet wherever it does not fit beside the grid (CS6):** below 1100px (a phone and the 834px tablet the design draws) the panel is fixed to the bottom of the window, not there until a date (or the year's notes) is chosen, and gone with Close, which puts the focus back on the day; from 1100px it is docked beside the grid.
 
+## Checked against the design
+
+A pass over the screens that belong to Calendars (`docs/design/web/calendars-sessions/screens/`), each compared with the page as built at 1440, 834 and 430 wide, and a pass over the app's README for what it could do before. What the pass found is in the slices above; this is where each screen stands.
+
+| Screen | Where it stands |
+| --- | --- |
+| 01 month | As drawn: the heading with the calendar's name and year over the segment's, Month and Whole year, the strip of segments with density dots, the grid with moons and up to two marks and "+N", the panel docked beside it. The year's field, "Open year" and the buttons for the calendar's entry and for the year's and month's notes are kept in the head, where the design has only the arrows and Edit: they are what reaches any year and the notes that are not on a day |
+| 02 day written | As drawn: the weekday and day of the year over the date, the moons, then Sessions (that start on the day or cover it), Events, Facts, Recurring and Notes, each under its own heading |
+| 03 add to a day | As drawn: a menu of a note, an Event, a Fact, an existing one, a recurring observance |
+| 04 whole year | As drawn: a row for each segment with a square for each day, darker for more written |
+| 05, 06 Events and story order | As drawn: New Event, the search and the list order, a row with the Event's date and who took part ("No one recorded" where none), a chip for what its place rests on. The design's "Restricted" chip is not drawn: a hidden Event is never shown or counted (D24) |
+| 07 time filter | As drawn: the strip of a year with a tick for each day something is dated on, the two handles at its ends (any time), by pointer and by key. The design's "This month" shortcut is not drawn |
+| 08 an Event | As drawn: the Events tab is the current one, Order and causes is a button in the head and a card, the other panels are cards in two columns |
+| 09, 10 order and causes | The panel as before (relationships, sharing, compare, linearized said as such) |
+| 11 a clock | The clock's page as before; the list of clocks is cards |
+| 12 date lens | Maps' screen, not Calendars'; `@lorenzo/time-filter` is built for it |
+| 13 definition refused | The editor keeps the API's refusal and the author's draft (the stale-definition review) |
+| 25 dark | The tokens give it; the theme is chosen in Appearance |
+| 27 at 834 | As drawn: no docked panel; the day panel is a sheet |
+| 28 to 30 at 430 | As drawn: the strip, the grid, the sheet that opens on a chosen date and goes with Close |
+| 14 to 24, 26, 31, 32 | Sessions' screens, not Calendars' |
+
+Nothing the app did before is missing: browsing and the whole year, defining a calendar with its preview and its stale-definition review, a date's notes and entries, creating Events, Facts and observances on a day, the entry page and its audiences, Order and causes with sharing and Compare, Events with their filters and story order, participants, learning and groups, clocks, link names and the prefetching. What changed is where it is: appearance is in the account menu (and, without an account, the palette's Change theme).
+
 ## Consequences
 
 - The e2e tests that drove the old header (the toggle, the "Account" link, "Log out") drive the account menu and the Appearance dialog instead.

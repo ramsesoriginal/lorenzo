@@ -922,3 +922,11 @@ button.seg-chip:hover {
     display: inline-flex;
   }
 }
+
+/* A group in the day panel: its kind's symbol and name. */
+.panel-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-ui);
+}

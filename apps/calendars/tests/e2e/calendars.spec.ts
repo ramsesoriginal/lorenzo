@@ -290,6 +290,12 @@ test('on a phone the day panel is a sheet: there when a date is chosen, gone wit
   await expect(page.locator('.day')).toHaveCount(27);
   // Nothing is chosen yet, so no sheet is over the page.
   await expect(panel).toBeHidden();
+  // An address that names a segment and no day does not put the sheet over the grid either.
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6`,
+  );
+  await expect(page.locator('.day')).toHaveCount(27);
+  await expect(panel).toBeHidden();
   await page.getByRole('button', { name: '16 Quirm 3286', exact: true }).click();
   await expect(panel).toBeVisible();
   expect(await panel.evaluate((node) => getComputedStyle(node).position)).toBe('fixed');
@@ -354,6 +360,11 @@ test('imported irregular year is browsable without creating periods, and dated i
     page.getByRole('heading', { name: 'Harbour storm', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(page.getByText('A storm reaches the harbour.', { exact: true })).toBeVisible();
+  // An Event is under the Events tab, not Calendar.
+  await expect(page.getByRole('link', { name: 'Events', exact: true }).first()).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await page.goBack();
   // The arrows step the month; the year's field reaches another year.
   await page.getByRole('button', { name: 'Next month', exact: true }).click();
@@ -884,7 +895,7 @@ test('standalone Events can be found by participating being without acquiring a 
   await expect(page.locator('[data-event-list] > li')).toHaveCount(1);
   await expect(page.locator('[data-event-list]')).toContainText('The beacon is lit');
   await expect(page.locator('[data-event-list] .event-meta')).toHaveText(
-    'Undated · With Aster the traveller',
+    'Undated · Aster the traveller',
   );
   // The time filter is a strip of a calendar's year: a range on it keeps the Events dated inside it,
   // and an undated Event is not among them.
@@ -1602,8 +1613,12 @@ test('the Events time filter marks the days things are dated on and keeps the Ev
   await to.focus();
   await to.press('End');
   await expect(page.getByText('Harbour storm', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Any time', exact: true }).click();
+  // A range over the whole year is any time, and the handles stand at its two ends.
   await expect(page.locator('.time-filter-out')).toHaveText('Any time');
+  await expect(page.getByRole('slider', { name: 'From', exact: true })).toHaveAttribute(
+    'aria-valuenow',
+    '1',
+  );
 });
 
 test('the month arrows carry on into the neighbouring year at the ends of a year', async ({
@@ -1634,6 +1649,16 @@ test('a day mark says what kind of thing is on the day', async ({ browser }) => 
   await expect(page.locator('.day-mark--note').first()).toBeAttached();
   await expect(page.locator('.day-mark--event').first()).toBeAttached();
   await expect(page.locator('.day-mark--fact')).toHaveCount(0);
+  // The panel names the kinds too: the Event is under Events, and Facts says there are none.
+  await page.getByRole('button', { name: '17 Quirm 3286', exact: true }).click();
+  const panel = page.locator('aside');
+  await expect(panel.getByRole('heading', { name: 'Events', exact: true })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'Harbour storm', exact: true })).toBeVisible();
+  await expect(panel.getByText('No Facts dated here.', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Recurring', exact: true })).toBeVisible();
+  await expect(panel.getByText('Nothing recurs on this day.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '18 Quirm 3286', exact: true }).click();
+  await expect(panel.getByRole('link', { name: /Harbour feast/ })).toBeVisible();
 });
 
 test('an Event says which Sessions presented it in a played Scene', async ({ browser }) => {

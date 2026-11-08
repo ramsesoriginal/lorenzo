@@ -74,6 +74,12 @@ export async function mount() {
     for (const kind of entry.kinds) kinds.append(el('span', kindNames[kind] ?? kind, 'badge'));
     head.append(el('h1', entry.name), kinds);
     wait.replaceWith(head);
+    // An Event belongs to the Events tab (screen 08), the other entries to Calendar, which the nav says.
+    if (entry.kinds.includes('event'))
+      for (const tab of document.querySelectorAll<HTMLAnchorElement>('a[data-path]')) {
+        if (tab.dataset.path === '/events/') tab.setAttribute('aria-current', 'page');
+        else if ((tab.dataset.also ?? '').includes('/entry/')) tab.removeAttribute('aria-current');
+      }
     const actions = el('div', '', 'row');
     if (entry.kinds.includes('calendar'))
       actions.append(
