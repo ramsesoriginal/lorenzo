@@ -22,7 +22,7 @@
   "dependencies": {
     "@lorenzo/api-client": "workspace:*",
     "discord-interactions": "^4.1.0",
-    "discord.js": "^14.16.3",
+    "discord.js": "^14.28.1",
     "drizzle-orm": "^0.45.4",
     "jose": "^6.2.15",
     "openapi-fetch": "^0.17.0",
