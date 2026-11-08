@@ -20,6 +20,7 @@ import {
   message,
 } from '../../lib/dom';
 import { eventOrder } from '../../lib/event-order';
+import { eventPresentations } from '../../lib/event-presentations';
 import { eventVisibility } from '../../lib/event-visibility';
 import { informationForm, informationView } from '../../lib/information';
 import { eventLearning, learningList } from '../../lib/learning';
@@ -102,6 +103,8 @@ export async function mount() {
     if (entry.kinds.includes('event')) {
       grid.append(await eventReadings(tenantId, id));
       grid.append(await eventClockConversions(tenantId, id));
+      const presented = await eventPresentations(tenantId, id);
+      if (presented) grid.append(presented);
     }
     if (entry.kinds.includes('calendar_period')) grid.append(await datedEntries(tenantId, id));
     if (entry.kinds.includes('event') && session.canReadEventOrder) {

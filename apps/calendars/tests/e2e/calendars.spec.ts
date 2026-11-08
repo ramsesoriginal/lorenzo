@@ -1635,3 +1635,113 @@ test('a day mark says what kind of thing is on the day', async ({ browser }) => 
   await expect(page.locator('.day-mark--event').first()).toBeAttached();
   await expect(page.locator('.day-mark--fact')).toHaveCount(0);
 });
+
+test('an Event says which Sessions presented it in a played Scene', async ({ browser }) => {
+  const world = await buildWorld();
+  const events = await ok(
+    world.api.GET('/tenants/{tenant_id}/events', {
+      params: { path: { tenant_id: world.tenantId }, query: { q: 'Harbour storm' } },
+    }),
+  );
+  const storm = events.items[0];
+  expect(storm).toBeDefined();
+  const campaign = await ok(
+    world.api.POST('/tenants/{tenant_id}/campaigns', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: {
+        name: 'The harbour job',
+        slug: 'the-harbour-job',
+        description: '',
+        game_system: 'test',
+        secret: false,
+      },
+    }),
+  );
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/campaigns/{campaign_id}/gms/{user_id}', {
+      params: {
+        path: { tenant_id: world.tenantId, campaign_id: campaign.id, user_id: world.ownerId },
+      },
+    }),
+  );
+  const session = await ok(
+    world.api.POST('/tenants/{tenant_id}/sessions', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'The blackout', campaign_id: campaign.id, start_period_id: null },
+    }),
+  );
+  const scene = await ok(
+    world.api.POST('/tenants/{tenant_id}/scenes', {
+      params: { path: { tenant_id: world.tenantId } },
+      body: { name: 'The lamps go out', is_public: false },
+    }),
+  );
+  const fresh = await world.api.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+    params: { path: { tenant_id: world.tenantId, session_id: session.id } },
+  });
+  const played = await ok(
+    world.api.POST('/tenants/{tenant_id}/sessions/{session_id}/scenes', {
+      params: {
+        path: { tenant_id: world.tenantId, session_id: session.id },
+        header: { 'if-match': fresh.response.headers.get('etag') ?? '' },
+      },
+      body: {
+        scene_entity_id:
+          (scene as { entity_id?: string; id?: string }).entity_id ?? (scene as { id: string }).id,
+        is_shared: false,
+      },
+    }),
+  );
+  const appearance = played.scenes[0];
+  const again = await world.api.GET('/tenants/{tenant_id}/sessions/{session_id}', {
+    params: { path: { tenant_id: world.tenantId, session_id: session.id } },
+  });
+  await ok(
+    world.api.POST(
+      '/tenants/{tenant_id}/sessions/{session_id}/scenes/{appearance_id}/presentations',
+      {
+        params: {
+          path: {
+            tenant_id: world.tenantId,
+            session_id: session.id,
+            appearance_id: appearance?.id ?? '',
+          },
+          header: { 'if-match': again.response.headers.get('etag') ?? '' },
+        },
+        body: { event_id: storm?.entity_id ?? '', is_shared: false },
+      },
+    ),
+  );
+  const page = await signedIn(browser, world.subject);
+  await page.goto(`/entry/?tenant=${world.tenantId}&id=${storm?.entity_id}`);
+  const card = page.locator('section.card', { hasText: 'Where it was presented' });
+  await expect(card.getByRole('link', { name: 'The blackout', exact: true })).toHaveAttribute(
+    'href',
+    /\/session\/\?tenant=.*&id=/,
+  );
+  await expect(card).toContainText('The lamps go out');
+  // An Event no Scene presented says nothing of the kind.
+  const other = events.items.find((e) => e.entity_id !== storm?.entity_id);
+  if (other) {
+    await page.goto(`/entry/?tenant=${world.tenantId}&id=${other.entity_id}`);
+    await expect(page.getByText('Where it was presented', { exact: true })).toHaveCount(0);
+  }
+});
+
+test('a visitor who is not signed in can still choose the appearance, from the palette', async ({
+  browser,
+}) => {
+  const page = await (await browser.newContext()).newPage();
+  await page.goto('/');
+  await page.getByRole('button', { name: /Search or go anywhere/ }).click();
+  await page.getByRole('option', { name: /Change theme/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Appearance' });
+  await dialog
+    .getByRole('radiogroup', { name: 'Theme' })
+    .getByRole('radio', { name: 'Dark' })
+    .click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});

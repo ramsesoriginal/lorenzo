@@ -683,8 +683,14 @@ export function bindShell(options: ShellOptions): Shell | null {
       const navigate = options.navigate ?? ((url: string) => window.location.assign(url));
       const go = (target: string) => {
         if (target === 'home') navigate('/');
-        else if (target === 'theme') find<HTMLButtonElement>(root, '[data-theme-toggle]')?.click();
-        else if (target === 'library') {
+        else if (target === 'theme') {
+          // The classic header has a toggle. The web header's is a hidden placeholder, and there the
+          // Appearance dialog is the way, for a visitor who is not signed in as for anyone.
+          const toggle = find<HTMLButtonElement>(root, '[data-theme-toggle]');
+
+          if (toggle && !toggle.hidden) toggle.click();
+          else appearance().open();
+        } else if (target === 'library') {
           const select = find<HTMLSelectElement>(root, '[data-library-select]');
 
           if (select && !select.closest<HTMLElement>('[data-library-switcher]')?.hidden)
