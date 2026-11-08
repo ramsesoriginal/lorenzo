@@ -19,6 +19,7 @@ Slices, each its own pull request on the one before; this record grows a bullet 
 - **Lived order is cards in the same grid (screens 22, 23):** its evidence, participations, the form that records one and a proposal from what was played are cards, and a card's own heading is smaller than a page's, in the Session's parts and the Scene's too. What it reads and writes is unchanged, including its refusal of an order that contradicts a ruling.
 - **A player's Session opens in All (screen 20):** a player has no preparation to do, so the view is All, with only the parts they may see (the others are not there to show). A GM still opens in Prepare.
 - **Where Sessions differs from the design on purpose, and why:** the played record is proposed in a folding panel on the page, not in a dialog (screen 19), because the draft it holds must survive the page drawing a part again after a save and a dialog would lose it; the design's "starts Greening 3" and "Not placed in order" on Home's rows (they need a read of every Session's start period and of the campaign's order); the empty state's illustration (the art is not in the brand yet); and a control to hide a part that folds is in the View menu, not in its summary (a control inside a `<summary>` is nested interactive content).
+- **Details are read first (screen 15):** the Details part says the campaign, the real-world date and the in-world start, and the editor of them folds under it, as before.
 
 ## Consequences
 

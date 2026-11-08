@@ -988,6 +988,9 @@ test('the View menu shows parts, says what is hidden, and keeps a view the perso
     // A Session opens in Prepare: its parts are there, and the others are not drawn.
     await expect(page.getByRole('button', { name: 'View: Prepare' })).toBeVisible();
     await expect(page.locator('[data-region="details"]')).toBeVisible();
+    // Details are read first, and the editor folds under them (screen 15).
+    await expect(page.locator('[data-region="details"] dl')).toContainText('Harbour campaign');
+    await expect(page.locator('[data-region="details"] dl')).toContainText('Not set');
     await expect(page.locator('[data-region="play"]')).toBeHidden();
     await expect(page.locator('.view-foot')).toContainText('Hidden:');
     await expect(page.locator('.view-foot')).toContainText('nothing is deleted');

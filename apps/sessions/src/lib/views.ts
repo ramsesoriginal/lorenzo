@@ -788,7 +788,29 @@ async function detailsEditor(ctx: PageState, refresh: () => Promise<void>) {
     ),
     status,
   );
-  return details.root;
+  // What the Session is, read first (screen 15); the editor folds under it.
+  const [campaign, started] = await Promise.all([
+    campaignName(session.tenant_id, session.campaign_id),
+    session.start_period_id
+      ? client
+          .GET('/tenants/{tenant_id}/entities/{entity_id}', {
+            params: { path: { tenant_id: session.tenant_id, entity_id: session.start_period_id } },
+          })
+          .then((r) => r.data?.name ?? null)
+          .catch(() => null)
+      : Promise.resolve(null),
+  ]);
+  const rows = el('dl', '', 'facts');
+  for (const [term, value] of [
+    ['Campaign', campaign ?? '…'],
+    ['Real-world date', dateWords(session.real_date)],
+    ['In-world start', started ?? 'Not set'],
+  ] as const) {
+    rows.append(el('dt', term), el('dd', value));
+  }
+  const root = el('div', '', 'stack-tight');
+  root.append(sectionHead('Details'), rows, details.root);
+  return root;
 }
 function rosterEditor(ctx: PageState, refresh: () => Promise<void>) {
   const session = ctx.session;
