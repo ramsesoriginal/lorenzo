@@ -234,3 +234,11 @@
     column-gap: var(--space-4);
   }
 }
+
+/* Nothing yet: a short heading and what to expect, centred (screen 24). */
+.home-empty {
+  align-items: center;
+  max-inline-size: 36rem;
+  margin: var(--space-6) auto;
+  text-align: center;
+}

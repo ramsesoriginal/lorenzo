@@ -144,8 +144,19 @@ export async function mountHome() {
       block.append(list);
       view.append(block);
     }
-    if (!sessions.length)
-      view.append(empty('No Sessions yet. One appears here when you are added as a GM or player.'));
+    if (!sessions.length) {
+      // No Session yet (screen 24): what it means, and how one comes to be here.
+      const none = el('section', '', 'stack-tight home-empty');
+      none.append(
+        el('h2', 'No Session yet'),
+        el(
+          'p',
+          'You will see a Session here once a GM assigns you to it. An invite link from a GM adds you to a campaign.',
+          'status-text',
+        ),
+      );
+      view.append(none);
+    }
     host.replaceChildren(view);
   } catch (error) {
     host.querySelector('[data-loading]')?.remove();

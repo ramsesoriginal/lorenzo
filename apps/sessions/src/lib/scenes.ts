@@ -155,6 +155,7 @@ export async function mountScene() {
             lede: (await libraryName(tenant)) ?? undefined,
           }),
         );
+        const grid = el('div', '', 'session-grid');
         if (scene.can_manage) {
           const details = panel('Scene details', 'title, link name, audience, period');
           const name = field('Scene title', scene.name);
@@ -168,11 +169,11 @@ export async function mountScene() {
             initial: scene.period_entity_id ? [scene.period_entity_id] : [],
           });
           const status = statusLine();
-          const grid = el('div', '', 'grid');
-          grid.style.setProperty('--grid-min', '240px');
-          grid.append(name.label, slug.label, period.root);
+          const fieldGrid = el('div', '', 'grid');
+          fieldGrid.style.setProperty('--grid-min', '240px');
+          fieldGrid.append(name.label, slug.label, period.root);
           details.body.append(
-            grid,
+            fieldGrid,
             shared.label,
             actions(
               button(
@@ -209,12 +210,16 @@ export async function mountScene() {
             ),
             status,
           );
-          view.append(details.root);
+          grid.append(details.root);
         }
-        view.append(
+        grid.append(
           await referencePanel(tenant, 'scenes', id, scene.can_manage, refresh),
           await notes(tenant, id, () => void refresh(), 'scene'),
         );
+        // The parts of a Scene are cards in two columns where there is room (screen 21).
+        for (const [index, node] of [...grid.children].entries())
+          (node as HTMLElement).dataset.region = `scene-part-${index}`;
+        view.append(grid);
         publish();
       } finally {
         if (turn === generation) {

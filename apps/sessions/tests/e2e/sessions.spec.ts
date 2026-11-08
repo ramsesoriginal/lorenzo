@@ -1024,3 +1024,19 @@ test('the View menu shows parts, says what is hidden, and keeps a view the perso
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
   }
 });
+
+test('Home says what to expect when a person has no Session yet', async ({ browser }) => {
+  const w = await world();
+  // The player has a seat but no Session: nothing is assigned to them yet.
+  const page = await signedIn(browser, w.playerSubject);
+  try {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'No Session yet' })).toBeVisible();
+    await expect(page.getByText('once a GM assigns you to it', { exact: false })).toBeVisible();
+    // A player runs no campaign, so there is no New Session to offer.
+    await expect(page.getByRole('button', { name: 'New Session' })).toHaveCount(0);
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
