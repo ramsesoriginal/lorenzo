@@ -11,6 +11,7 @@ Sessions draws its own page as a one-row header, a `wrap` and a footer, with the
 Slices, each its own pull request on the one before; this record grows a bullet for each.
 
 - **The frame is the web shell** (`AppPage shell="web"`, the `list-detail` template). The tabs are Sessions (current on a Session's page too), Scenes (current on a Scene's) and Lived order, the last two for a library. The palette, the apps sheet and the status bar are the shell's, and the account menu holds Appearance, so the old light/dark toggle is gone; without an account the palette's Change theme opens Appearance. The e2e tests that drove the old header (the logo, the toggle) drive the shell instead.
+- **Home as drawn (screen 14):** "Sessions" with a primary **New Session** that opens the form that makes one (for whoever runs a campaign; nobody else is offered it, and the form is not on the page until then); **Next**, the soonest Session whose real-world date has not gone by (an undated Session is never next, and no in-world "now" is read from anywhere); then each campaign's Sessions together, in date order, a row with its date, a chip for **Past** or **Next**, and the person's part, **You are a GM** or **You play**. The logic (`nextSession`, `stateOf`, `byCampaign`) is a pure module with tests. Not drawn: the design's "starts Greening 3" and "Not placed in order", which need a read of each Session's start period and of the campaign's order for every row.
 
 ## Consequences
 

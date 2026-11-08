@@ -10,6 +10,7 @@ import {
   empty,
   errorNotice,
   field,
+  icon,
   link,
   linkButton,
   loading,
@@ -25,6 +26,7 @@ import {
   submit,
   suspendControls,
 } from './dom';
+import { byCampaign, dateWords, nextSession, stateOf } from './home';
 import { livedLinkPanel } from './lived';
 import { campaignName, libraryName, libraryNames } from './names';
 import { notes } from './notes';
@@ -56,88 +58,136 @@ export async function mountHome() {
       libraryNames(),
       client.GET('/me/managed').then(unwrap),
     ]);
-    const view = el('div', '', 'stack view');
-    view.append(
-      pageHead('My Sessions', {
-        lede: 'Sessions where you are a GM or a player, across your libraries.',
-      }),
-    );
-    if (sessions.length) {
-      const list = el('ul', '', 'list');
-      for (const session of sessions) {
-        const row = el('li');
-        const text = el('div', '', 'stack-tight grow');
-        const where = names.get(session.tenant_id);
-        text.append(
-          link(session.name, sessionHref(session.tenant_id, session.id, session.slug)),
-          el(
-            'p',
-            [where, session.real_date ?? 'Date not set'].filter(Boolean).join(' · '),
-            'status-text',
-          ),
-        );
-        row.append(text, roleBadge(session.can_manage));
-        list.append(row);
-      }
-      view.append(list);
-    } else
-      view.append(empty('No Sessions yet. One appears here when you are added as a GM or player.'));
-    host.replaceChildren(view);
     const campaigns = managed.tenants.flatMap((t) =>
       t.campaigns
         .filter((c) => c.is_gm)
         .map((c) => ({ tenant: t.tenant_id, id: c.campaign_id, name: `${t.name} · ${c.name}` })),
     );
-    if (!campaigns.length) return;
-    const form = el('form', '', 'stack');
-    const name = field('Session title');
-    name.input.required = true;
-    const campaign = select(
-      'Campaign',
-      campaigns.map((c) => [c.id, c.name]),
-      campaigns[0].id,
-    );
-    const date = field('Real-world date', '', 'date');
-    const slug = field('Link name (optional)');
-    const status = statusLine();
-    const save = submit('Create Session');
-    const id = crypto.randomUUID();
-    form.append(fields(name.label, campaign.label, date.label, slug.label), actions(save), status);
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      if (!form.reportValidity()) return;
-      save.disabled = true;
-      const chosen = campaigns.find((c) => c.id === campaign.input.value);
-      if (!chosen) return;
-      void (async () => {
-        try {
-          const session = await unwrap(
-            await client.POST('/tenants/{tenant_id}/sessions', {
-              params: { path: { tenant_id: chosen.tenant } },
-              body: {
-                id,
-                name: name.input.value,
-                slug: slug.input.value || null,
-                campaign_id: chosen.id,
-                real_date: date.input.value || null,
-              },
-            }),
-          );
-          location.assign(sessionHref(chosen.tenant, session.id, session.slug));
-        } catch (error) {
-          say(status, `${message(error)} Your draft is still here.`, true);
-          save.disabled = false;
-        }
-      })();
+    const view = el('div', '', 'stack view home');
+    const head = pageHead('Sessions', {
+      lede: 'Where you play and run games, across your libraries.',
     });
-    const section = el('section', '', 'stack');
-    section.append(sectionHead('Prepare a Session'), card(form).root);
-    host.firstElementChild?.append(section);
+    view.append(head);
+    // The page's main action opens the form that makes a Session; until then it is not there.
+    const create = campaigns.length ? createForm(campaigns) : null;
+    if (create) {
+      const open = el('button', '', 'btn btn-primary');
+      open.type = 'button';
+      open.append(icon('add'), document.createTextNode('New Session'));
+      open.addEventListener('click', () => {
+        create.hidden = false;
+        create.scrollIntoView({ block: 'start' });
+        create.querySelector<HTMLInputElement>('input')?.focus();
+      });
+      head.querySelector('.row')?.append(open);
+    }
+    if (create) view.append(create);
+    const today = new Date().toISOString().slice(0, 10);
+    const next = nextSession(sessions, today);
+    if (next) {
+      const block = el('section', '', 'stack-tight');
+      block.append(el('h2', 'Next', 'group-title'));
+      const row = el('div', '', 'card card-body row home-next');
+      const text = el('div', '', 'stack-tight grow');
+      text.append(
+        link(next.name, sessionHref(next.tenant_id, next.id, next.slug)),
+        el(
+          'p',
+          [names.get(next.tenant_id), dateWords(next.real_date)].filter(Boolean).join(' · '),
+          'status-text',
+        ),
+      );
+      row.append(icon('kind-session'), text);
+      block.append(row);
+      view.append(block);
+    }
+    for (const group of byCampaign(sessions)) {
+      const block = el('section', '', 'stack-tight');
+      const title = el('h2', names.get(group.tenant) ?? 'Sessions', 'group-title');
+      block.append(title);
+      void campaignName(group.tenant, group.campaign).then((name) => {
+        if (name) title.textContent = [names.get(group.tenant), name].filter(Boolean).join(' · ');
+      });
+      const list = el('ul', '', 'list home-list');
+      for (const session of group.sessions) {
+        const row = el('li', '', 'row');
+        row.append(icon('kind-session'));
+        const text = el('div', '', 'stack-tight grow');
+        text.append(
+          link(session.name, sessionHref(session.tenant_id, session.id, session.slug)),
+          el('p', dateWords(session.real_date), 'status-text'),
+        );
+        row.append(text);
+        const state = stateOf(session, today, next);
+        if (state) {
+          const chip = el('span', state === 'past' ? 'Past' : 'Next', 'state-chip');
+          chip.dataset.state = state === 'past' ? 'synced' : 'stale';
+          row.append(chip);
+        }
+        row.append(el('span', session.can_manage ? 'You are a GM' : 'You play', 'chip'));
+        list.append(row);
+      }
+      block.append(list);
+      view.append(block);
+    }
+    if (!sessions.length)
+      view.append(empty('No Sessions yet. One appears here when you are added as a GM or player.'));
+    host.replaceChildren(view);
   } catch (error) {
     host.querySelector('[data-loading]')?.remove();
     host.append(errorNotice(error));
   }
 }
+
+/** The form that makes a Session: shut until New Session opens it, and keeping its draft when a save fails. */
+function createForm(campaigns: Array<{ tenant: string; id: string; name: string }>) {
+  const root = card();
+  root.root.hidden = true;
+  const form = el('form', '', 'stack');
+  const name = field('Session title');
+  name.input.required = true;
+  const campaign = select(
+    'Campaign',
+    campaigns.map((c) => [c.id, c.name]),
+    campaigns[0]?.id,
+  );
+  const date = field('Real-world date', '', 'date');
+  const slug = field('Link name (optional)');
+  const status = statusLine();
+  const save = submit('Create Session');
+  const id = crypto.randomUUID();
+  form.append(fields(name.label, campaign.label, date.label, slug.label), actions(save), status);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    save.disabled = true;
+    const chosen = campaigns.find((c) => c.id === campaign.input.value);
+    if (!chosen) return;
+    void (async () => {
+      try {
+        const session = await unwrap(
+          await client.POST('/tenants/{tenant_id}/sessions', {
+            params: { path: { tenant_id: chosen.tenant } },
+            body: {
+              id,
+              name: name.input.value,
+              slug: slug.input.value || null,
+              campaign_id: chosen.id,
+              real_date: date.input.value || null,
+            },
+          }),
+        );
+        location.assign(sessionHref(chosen.tenant, session.id, session.slug));
+      } catch (error) {
+        say(status, `${message(error)} Your draft is still here.`, true);
+        save.disabled = false;
+      }
+    })();
+  });
+  root.body.append(sectionHead('Prepare a Session'), form);
+  return root.root;
+}
+
 async function resolveSession(tenant: string, address: string, forceSlug = false) {
   if (!forceSlug && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(address)) return address;
   const rows = await unwrap(

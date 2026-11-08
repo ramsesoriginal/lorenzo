@@ -74,6 +74,7 @@ test('GM prepares a session, player keeps a restricted note, and Scene reuse kee
         gm.locator('.brand-spark').evaluate((img) => (img as HTMLImageElement).naturalWidth),
       )
       .toBeGreaterThan(0);
+    await gm.getByRole('button', { name: 'New Session', exact: true }).click();
     await gm.getByLabel('Session title', { exact: true }).fill('At the wreck');
     await gm.getByLabel('Link name (optional)').fill('wreck-session');
     await gm.getByRole('button', { name: 'Create Session', exact: true }).click();
@@ -915,6 +916,43 @@ test('moving and sharing a Scene draw only the cards that changed, and removing 
     await expect(cards).toHaveCount(2);
     await expect(cards.locator('h3')).toHaveText(['Scene A', 'Scene C']);
     await expect(page.getByRole('heading', { name: 'Scenes', exact: true })).toBeVisible();
+  } finally {
+    await page.context().close();
+    await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
+  }
+});
+
+test('Home says which Session is next, marks the past ones and groups Sessions by campaign', async ({
+  browser,
+}) => {
+  const w = await world();
+  const make = (name: string, real_date: string | null) =>
+    ok(
+      w.gm.POST('/tenants/{tenant_id}/sessions', {
+        params: { path: w.path },
+        body: { name, campaign_id: w.campaign.id, real_date },
+      }),
+    );
+  await make('Long ago', '2020-01-01');
+  await make('Far ahead', '2099-12-31');
+  await make('Undated', null);
+  const page = await signedIn(browser, w.subject);
+  try {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Sessions', level: 1 })).toBeVisible();
+    // Next is the soonest Session whose date has not gone by.
+    const next = page.locator('section', { has: page.getByRole('heading', { name: 'Next' }) });
+    await expect(next.getByRole('link', { name: 'Far ahead', exact: true })).toBeVisible();
+    // The campaign's Sessions are listed together, each with its state and the person's part.
+    const list = page.locator('.home-list');
+    await expect(list.getByRole('link')).toHaveText(['Long ago', 'Far ahead', 'Undated']);
+    await expect(list.getByText('Past', { exact: true })).toHaveCount(1);
+    await expect(list.getByText('Next', { exact: true })).toHaveCount(1);
+    await expect(list.getByText('You are a GM', { exact: true })).toHaveCount(3);
+    // The form that makes a Session is not on the page until New Session opens it.
+    await expect(page.getByLabel('Session title', { exact: true })).toBeHidden();
+    await page.getByRole('button', { name: 'New Session', exact: true }).click();
+    await expect(page.getByLabel('Session title', { exact: true })).toBeVisible();
   } finally {
     await page.context().close();
     await w.gm.DELETE('/tenants/{tenant_id}', { params: { path: w.path } });
