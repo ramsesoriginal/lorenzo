@@ -54,9 +54,9 @@ check, does not change the selected date and never authors periods. Existing fou
 loading for visible month content remains in place. In-app navigation uses Astro's built-in
 client router; every new page remounts behind its fresh session check.
 
-The appearance toggle remembers an explicit light/dark choice in this browser and preserves it
-through page navigation and browser history. Without a saved choice, the system appearance is
-used. When preference storage is unavailable, the toggle still works throughout the visit.
+Appearance (light, dark or the system's) is chosen in the account menu's Appearance dialog, which the shell keeps; a visitor who is not signed in has the system's.
+
+The app is drawn in the web shell ([ADR 0440](../../docs/adr/0440-calendars-moves-into-the-web-shell.md)): Calendar, Events and Clocks tabs, a Home of calendar cards with Continue, the month with a strip of segments and a day panel (a bottom sheet below 1100px), the Whole year as squares, and an Events list with the date and participants on each row and a time filter over a year (`@lorenzo/time-filter`, which Maps' date lens will share). The arrows beside the title step the month; the year's field reaches any year.
 
 ## Development and checks
 
