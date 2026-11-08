@@ -962,6 +962,8 @@ test('Home says which Session is next, marks the past ones and groups Sessions b
     await expect(list.getByText('Past', { exact: true })).toHaveCount(1);
     await expect(list.getByText('Next', { exact: true })).toHaveCount(1);
     await expect(list.getByText('You are a GM', { exact: true })).toHaveCount(3);
+    // None has a place in the campaign's order yet, which the GM's rows say.
+    await expect(list.getByText('Not placed in order', { exact: true })).toHaveCount(3);
     // The form that makes a Session is not on the page until New Session opens it.
     await expect(page.getByLabel('Session title', { exact: true })).toBeHidden();
     await page.getByRole('button', { name: 'New Session', exact: true }).click();

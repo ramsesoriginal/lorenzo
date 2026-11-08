@@ -127,11 +127,25 @@ export async function mountHome() {
         const row = el('li', '', 'row');
         row.append(icon('kind-session'));
         const text = el('div', '', 'stack-tight grow');
+        const when = el('p', dateWords(session.real_date), 'status-text');
         text.append(
           link(session.name, sessionHref(session.tenant_id, session.id, session.slug)),
-          el('p', dateWords(session.real_date), 'status-text'),
+          when,
         );
         row.append(text);
+        // Where it starts in the world, read for the row and never held up on (screen 14).
+        if (session.start_period_id)
+          void client
+            .GET('/tenants/{tenant_id}/entities/{entity_id}', {
+              params: {
+                path: { tenant_id: session.tenant_id, entity_id: session.start_period_id },
+              },
+            })
+            .then((r) => {
+              if (r.data?.name) when.textContent = `${when.textContent} · starts ${r.data.name}`;
+            })
+            .catch(() => {});
+        row.dataset.session = session.id;
         const state = stateOf(session, today, next);
         if (state) {
           const chip = el('span', state === 'past' ? 'Past' : 'Next', 'state-chip');
@@ -143,6 +157,23 @@ export async function mountHome() {
       }
       block.append(list);
       view.append(block);
+      // A GM's campaign says which of its Sessions have no place in the order yet. Only the Sessions
+      // a person manages are in that answer, so for anyone else nothing is asked.
+      if (group.sessions.some((x) => x.can_manage))
+        void client
+          .GET('/tenants/{tenant_id}/campaigns/{campaign_id}/session-sequence', {
+            params: { path: { tenant_id: group.tenant, campaign_id: group.campaign } },
+          })
+          .then((r) => {
+            for (const unplaced of r.data?.unplaced ?? []) {
+              const row = list.querySelector<HTMLElement>(`[data-session="${unplaced.id}"]`);
+              if (!row) continue;
+              const chip = el('span', 'Not placed in order', 'state-chip');
+              chip.dataset.state = 'stale';
+              row.querySelector('.chip')?.before(chip);
+            }
+          })
+          .catch(() => {});
     }
     if (!sessions.length) {
       // No Session yet (screen 24): what it means, and how one comes to be here.
