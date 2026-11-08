@@ -149,7 +149,7 @@ test('the bell in the header counts the unread notifications and goes to the hub
   await page.context().close();
 });
 
-test('a day lists the Sessions that start on it, linked to the Sessions app', async ({
+test('a day lists the Sessions that start on it or cover it, linked to the Sessions app', async ({
   browser,
 }) => {
   const world = await buildWorld();
@@ -183,7 +183,7 @@ test('a day lists the Sessions that start on it, linked to the Sessions app', as
       },
     }),
   );
-  await ok(
+  const created = await ok(
     world.api.POST('/tenants/{tenant_id}/sessions', {
       params: { path: { tenant_id: world.tenantId } },
       body: {
@@ -191,6 +191,21 @@ test('a day lists the Sessions that start on it, linked to the Sessions app', as
         campaign_id: campaign.id,
         start_period_id: day?.entity_id ?? null,
       },
+    }),
+  );
+  // Its game time also covers the 17th, which it does not start on.
+  const next = periods.items.find((p) => p.segment === 'segment-6' && p.day === 17);
+  expect(next).toBeDefined();
+  const saved = await world.api.GET('/tenants/{tenant_id}/entities/{entity_id}', {
+    params: { path: { tenant_id: world.tenantId, entity_id: created.id } },
+  });
+  await ok(
+    world.api.PUT('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+      params: {
+        path: { tenant_id: world.tenantId, entity_id: created.id },
+        header: { 'if-match': saved.response.headers.get('etag') ?? '' },
+      },
+      body: { period_ids: [next?.entity_id ?? ''] },
     }),
   );
   const page = await signedIn(browser, world.subject);
@@ -203,11 +218,19 @@ test('a day lists the Sessions that start on it, linked to the Sessions app', as
   const session = panel.getByRole('link', { name: 'The blackout', exact: true });
   await expect(session).toBeVisible();
   await expect(session).toHaveAttribute('href', /\/session\/\?tenant=.*&id=/);
-  // A day with no Session starting on it lists none.
+  await expect(panel.getByText('Starts here', { exact: true })).toBeVisible();
+  // A day the Session covers lists it too, and says it does not start there.
   await page.goto(
     `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=17`,
   );
   await expect(panel.getByRole('heading', { name: '17 Quirm 3286', exact: true })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'The blackout', exact: true })).toBeVisible();
+  await expect(panel.getByText('Covers this day', { exact: true })).toBeVisible();
+  // A day it neither starts nor covers lists none.
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6&day=19`,
+  );
+  await expect(panel.getByRole('heading', { name: '19 Quirm 3286', exact: true })).toBeVisible();
   await expect(panel.getByRole('heading', { name: 'Sessions', exact: true })).toHaveCount(0);
   await page.context().close();
 });
@@ -1599,4 +1622,16 @@ test('the month arrows carry on into the neighbouring year at the ends of a year
   await page.getByRole('button', { name: 'Next month', exact: true }).click();
   await expect(page.getByLabel('Year', { exact: true })).toHaveValue('3286');
   await expect(segmentChip(page, 'Rimsep')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('a day mark says what kind of thing is on the day', async ({ browser }) => {
+  const world = await buildWorld();
+  const page = await signedIn(browser, world.subject);
+  await page.goto(
+    `/calendar/?tenant=${world.tenantId}&id=${world.calendarId}&year=3286&segment=segment-6`,
+  );
+  // The month has a note (the 16th) and an Event (the 17th), and nothing it would call a Fact.
+  await expect(page.locator('.day-mark--note').first()).toBeAttached();
+  await expect(page.locator('.day-mark--event').first()).toBeAttached();
+  await expect(page.locator('.day-mark--fact')).toHaveCount(0);
 });

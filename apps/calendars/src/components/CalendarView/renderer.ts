@@ -163,8 +163,14 @@ export async function mount() {
     }> = [];
     // A day's marks (CS5): up to two small symbols and "+N" for the rest, the words of each kept for a
     // reader of the page (and for the panel, which has them in full).
-    type Mark = { kind: 'note' | 'entry' | 'observance'; text: string };
-    const markIcons = { note: 'kind-fact', entry: 'kind-entity', observance: 'kind-observance' };
+    type Mark = { kind: 'note' | 'event' | 'fact' | 'observance'; text: string };
+    // One symbol for each kind of thing on a day (CS5): a note, an Event, a Fact, a recurring observance.
+    const markIcons = {
+      note: 'kind-chapter',
+      event: 'kind-event',
+      fact: 'kind-fact',
+      observance: 'kind-observance',
+    };
     const dayState = new WeakMap<HTMLElement, { items: Mark[]; loading: boolean }>();
     function paintDay(content: HTMLElement) {
       const state = dayState.get(content);
@@ -200,15 +206,60 @@ export async function mount() {
     }
     // The Sessions of the library, read once for the page (CS1: a day lists the Sessions that start on
     // it). What the person may not see is not in the answer, and a failure leaves the day without them.
+    type Covered = {
+      calendar_entity_id: string;
+      year: number;
+      segment: string | null;
+      day: number | null;
+    };
     let sessionRows:
-      | Promise<Array<{ id: string; name: string; start_period_id: string | null }>>
+      | Promise<
+          Array<{ id: string; name: string; start_period_id: string | null; covers: Covered[] }>
+        >
       | undefined;
+    // Each Session's game time covered is its own date associations (the periods it is set on, of any
+    // size: a day, a month or festival, a year), read for the few Sessions of a library.
     const readSessions = () =>
       (sessionRows ??= client
         .GET('/tenants/{tenant_id}/sessions', { params: { path: { tenant_id: tenantId } } })
         .then(unwrap)
+        .then((rows) =>
+          Promise.all(
+            rows.map(async (row) => ({
+              ...row,
+              covers: await client
+                .GET('/tenants/{tenant_id}/entities/{entity_id}/dates', {
+                  params: { path: { tenant_id: tenantId, entity_id: row.id } },
+                })
+                .then((r) => (r.data ?? []) as Covered[])
+                .catch(() => [] as Covered[]),
+            })),
+          ),
+        )
         .catch(() => []));
-    type DaySummary = { notes: string[]; entries: string[] };
+    // Whether a covered period takes in a day: the day itself, its month or festival, or its year.
+    const takesIn = (
+      cover: Covered,
+      day: { calendar: string; year: number; segment: string | null; day: number | null },
+    ) =>
+      cover.calendar_entity_id === day.calendar &&
+      cover.year === day.year &&
+      (cover.segment === null ||
+        (cover.segment === day.segment && (cover.day === null || cover.day === day.day)));
+    type DaySummary = { notes: string[]; entries: Array<{ id: string; name: string }> };
+    // Which dated entries are Events: the summary names an entry and not its kind, and what the person
+    // can see of the Events is one list; the rest are Facts.
+    let eventIds: Promise<Set<string>> | undefined;
+    const readEventIds = () =>
+      (eventIds ??= fetchAllPages(async (page) =>
+        unwrap(
+          await client.GET('/tenants/{tenant_id}/events', {
+            params: { path: { tenant_id: tenantId }, query: { page, size: 100 } },
+          }),
+        ),
+      )
+        .then((rows) => new Set(rows.map((r) => r.entity_id)))
+        .catch(() => new Set<string>()));
     const contentCache = new Map<string, Promise<DaySummary>>();
     const summaryReads = new Map<string, Promise<void>>();
     // What a saved day shows, in one request for the whole month or festival (ADR 0324) instead
@@ -254,7 +305,10 @@ export async function mount() {
                     : 'Note';
                 }),
               );
-              return { notes, entries: item.entries.map((e) => e.name) };
+              return {
+                notes,
+                entries: item.entries.map((e) => ({ id: e.entity_id, name: e.name })),
+              };
             })(),
           );
         }
@@ -268,6 +322,7 @@ export async function mount() {
     function loadDays(segment: string, jobs: Array<{ period: Period; content: HTMLElement }>) {
       void loadSummaries(segment)
         .then(async () => {
+          const events = await readEventIds();
           for (const { period, content } of jobs) {
             if (!content.isConnected) continue;
             const summary = await contentCache.get(period.entity_id);
@@ -278,7 +333,12 @@ export async function mount() {
                 ...(summary?.notes ?? []).map(
                   (note): Mark => ({ kind: 'note', text: `Note · ${note}` }),
                 ),
-                ...(summary?.entries ?? []).map((name): Mark => ({ kind: 'entry', text: name })),
+                ...(summary?.entries ?? []).map(
+                  (entry): Mark => ({
+                    kind: events.has(entry.id) ? 'event' : 'fact',
+                    text: entry.name,
+                  }),
+                ),
               ],
             });
           }
@@ -835,18 +895,34 @@ export async function mount() {
         if (turn !== selection || !host?.isConnected) return;
         if (saved) {
           const template = (await appRegistry())?.links.session;
+          const here = {
+            calendar: saved.calendar_entity_id,
+            year: saved.year,
+            segment: saved.segment,
+            day: saved.day,
+          };
           const starting = template
-            ? (await readSessions()).filter((row) => row.start_period_id === saved.entity_id)
+            ? (await readSessions())
+                .map((row) => ({
+                  row,
+                  starts: row.start_period_id === saved.entity_id,
+                  covered: row.covers.some((c) => takesIn(c, here)),
+                }))
+                .filter((x) => x.starts || x.covered)
             : [];
           if (turn !== selection || !host?.isConnected) return;
           if (template && starting.length) {
             const block = el('section', '', 'stack-tight day-sessions');
             const sessions = el('ul', '', 'list');
-            for (const row of starting) {
+            for (const { row, starts } of starting) {
               const item = el('li', '', 'row');
               const open = el('a', row.name);
               open.href = fill(template, { tenant: tenantId, id: row.id });
-              item.append(icon('kind-session'), open, el('span', 'Starts here', 'caption'));
+              item.append(
+                icon('kind-session'),
+                open,
+                el('span', starts ? 'Starts here' : 'Covers this day', 'caption'),
+              );
               sessions.append(item);
             }
             block.append(el('h3', 'Sessions'), sessions);
