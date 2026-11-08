@@ -17,6 +17,19 @@ async function signedIn(browser: Browser, subject: string): Promise<Page> {
   });
   return context.newPage();
 }
+/** Chooses a theme in the Appearance dialog of the account menu, as the web shell has it. */
+async function chooseTheme(page: Page, choice: 'System' | 'Light' | 'Dark') {
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Appearance…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Appearance' });
+  await dialog
+    .getByRole('radiogroup', { name: 'Theme' })
+    .getByRole('radio', { name: choice })
+    .click();
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(dialog).toBeHidden();
+}
+
 test('the header offers the skip link, the page links and the account once signed in', async ({
   browser,
 }) => {
@@ -27,11 +40,16 @@ test('the header offers the skip link, the page links and the account once signe
   await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeAttached();
   const pages = page.getByRole('navigation', { name: 'Pages' });
-  await expect(pages.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+  await expect(pages.getByRole('link', { name: 'Calendar', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
   await expect(pages.getByRole('link', { name: 'Events' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Account' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
+  // The account is one button that opens its menu, which has the way out.
   await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeHidden();
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Skip to content' }).focus();
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeVisible();
   // One library needs no switcher; with two it is in the header and switching reopens the list.
@@ -285,55 +303,44 @@ test('home recovers from a deleted remembered library without substituting expli
 });
 
 // The shared header remains usable before authentication and at phone widths.
-test('signed-out welcome and appearance controls work in light and dark themes', async ({
+test('signed-out welcome follows the system appearance at phone and desktop widths', async ({
   browser,
 }) => {
-  const context = await browser.newContext({
-    colorScheme: 'light',
-    viewport: { width: 390, height: 844 },
-  });
-  const page = await context.newPage();
-  await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
-  // At phone width the header shows the spark alone (identity 12.2); the lockup is for wider screens.
-  await expect(page.locator('.brand-spark')).toBeVisible();
-  await expect(page.locator('.brand-mark--light')).toBeHidden();
-  expect(
-    await page.locator('.brand-spark').evaluate((node) => (node as HTMLImageElement).naturalWidth),
-  ).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.locator('.brand-spark')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: test.info().outputPath('welcome-dark-phone.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.locator('.brand-spark')).toBeHidden();
-  await expect(page.locator('.brand-mark--light')).toBeVisible();
-  expect(
-    await page
-      .locator('.brand-mark--light')
-      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
-  ).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
-  await expect(page.locator('.brand-mark--dark')).toBeVisible();
-  expect(
-    await page
-      .locator('.brand-mark--dark')
-      .evaluate((node) => (node as HTMLImageElement).naturalWidth),
-  ).toBeGreaterThan(0);
-  await page.getByRole('button', { name: 'Light theme', exact: true }).click();
-  await page.screenshot({
-    path: test.info().outputPath('welcome-light-desktop.png'),
-    fullPage: true,
-  });
-  await context.close();
+  for (const scheme of ['light', 'dark'] as const) {
+    const context = await browser.newContext({
+      colorScheme: scheme,
+      viewport: { width: 390, height: 844 },
+    });
+    const page = await context.newPage();
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Calendars', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Log in', exact: true })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', scheme);
+    // At phone width the header shows the spark alone (identity 12.2); the lockup is for wider screens.
+    await expect(page.locator('.brand-spark')).toBeVisible();
+    expect(
+      await page
+        .locator('.brand-spark')
+        .evaluate((node) => (node as HTMLImageElement).naturalWidth),
+    ).toBeGreaterThan(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: test.info().outputPath(`welcome-${scheme}-phone.png`),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    // One library or none is one row: the spark and the product's name (D29), the wordmark is for the
+    // header of several libraries.
+    await expect(page.locator('.brand-spark')).toBeVisible();
+    await expect(page.locator('[data-site-header] .prod')).toHaveText('Calendars');
+    await page.screenshot({
+      path: test.info().outputPath(`welcome-${scheme}-desktop.png`),
+      fullPage: true,
+    });
+    await context.close();
+  }
 });
 
 test('month content is cached and moon names remain available when selecting a day on a phone', async ({
@@ -874,12 +881,7 @@ for (const preferred of ['dark', 'light'] as const) {
     await page.emulateMedia({ colorScheme: preferred === 'dark' ? 'light' : 'dark' });
     await page.goto(`/?tenant=${world.tenantId}`);
     await expect(page.getByRole('link', { name: 'Isles calendar', exact: true })).toBeVisible();
-    await page
-      .getByRole('button', {
-        name: preferred === 'dark' ? 'Dark theme' : 'Light theme',
-        exact: true,
-      })
-      .click();
+    await chooseTheme(page, preferred === 'dark' ? 'Dark' : 'Light');
     await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
     await page.getByRole('link', { name: 'Isles calendar', exact: true }).click();
     await expect(
@@ -901,12 +903,15 @@ for (const preferred of ['dark', 'light'] as const) {
       page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
     ).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('data-theme', preferred);
+    // The dialog shows what is chosen.
+    await page.getByRole('button', { name: 'Account menu' }).click();
+    await page.getByRole('menuitem', { name: 'Appearance…' }).click();
     await expect(
-      page.getByRole('button', {
-        name: preferred === 'dark' ? 'Light theme' : 'Dark theme',
-        exact: true,
-      }),
-    ).toHaveAttribute('aria-pressed', String(preferred === 'dark'));
+      page
+        .getByRole('dialog', { name: 'Appearance' })
+        .getByRole('radiogroup', { name: 'Theme' })
+        .getByRole('radio', { name: preferred === 'dark' ? 'Dark' : 'Light' }),
+    ).toHaveAttribute('aria-checked', 'true');
     await page.context().close();
   });
 }
@@ -934,16 +939,12 @@ test('appearance choice survives page swaps when preference storage is unavailab
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`/?tenant=${world.tenantId}`);
-  await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
+  await chooseTheme(page, 'Dark');
   await page.getByRole('link', { name: 'Isles calendar', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Isles calendar', exact: true, level: 1 }),
   ).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.getByRole('button', { name: 'Light theme', exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
   expect(errors).toEqual([]);
   await page.context().close();
 });
@@ -1150,7 +1151,7 @@ test('shared Event order is readable without exposing private relationships or e
   await reader.getByRole('link', { name: 'All Events', exact: true }).click();
   await reader.getByLabel('List order', { exact: true }).selectOption('order');
   await reader.getByRole('button', { name: 'Find Events', exact: true }).click();
-  await expect(reader.getByRole('status')).toHaveText('3 Events.');
+  await expect(reader.locator('#content').getByRole('status')).toHaveText('3 Events.');
   await expect(reader.locator('[data-event-list]')).toContainText(
     'Linearized · no visible recorded ordering path',
   );

@@ -16,11 +16,26 @@ const { title = 'Lorenzo Calendars', status = 'Opening your calendars…' } = As
 <AppPage
   title={title}
   product="Calendars"
+  icon="kind-calendar"
   brandingUrl={BRANDING_CSS_URL}
   themeKey="lorenzo:calendars:theme"
+  shell="web"
+  template="list-detail"
   nav={[
-    { label: 'Home', href: '/' },
-    { label: 'Events', href: '/events/', needsLibrary: true },
+    {
+      label: 'Calendar',
+      href: '/',
+      icon: 'kind-calendar',
+      also: ['/calendar/', '/entry/'],
+    },
+    { label: 'Events', href: '/events/', needsLibrary: true, icon: 'kind-event' },
+    {
+      label: 'Clocks',
+      href: '/clocks/',
+      needsLibrary: true,
+      requires: 'clocks',
+      icon: 'kind-clock',
+    },
   ]}
   path="apps/calendars"
   welcome={{

@@ -7,6 +7,16 @@ import { API_BASE_URL } from './config';
 import { message } from './dom';
 import { currentTenant, rememberTenant } from './lastTenant';
 import { calendarReads, readScope } from './read-cache';
+
+// Whether the library has a clock to read: the tab of them is offered only then.
+async function libraryHasClocks(tenantId: string): Promise<boolean> {
+  const clocks = await unwrap(
+    await client.GET('/tenants/{tenant_id}/clocks', { params: { path: { tenant_id: tenantId } } }),
+  );
+
+  return clocks.length > 0;
+}
+
 export type Session = {
   tenantId: string;
   canWrite: boolean;
@@ -29,11 +39,13 @@ export async function start(): Promise<Session | null> {
   const marker = document.querySelector('[data-session]');
   if (!shell || !marker) return null;
   shell.account({ state: 'checking' });
+  shell.palette();
   // The registry, the viewer and the libraries do not wait for one another, and none of them blocks
   // the page: calendar reading does not depend on the registry.
   void getAppLinks(API_BASE_URL, calendarReads.fetch)
     .then((registry) => {
       if (registry.apps.account_hub) shell.accountLink(registry.apps.account_hub.url);
+      shell.apps(registry);
     })
     .catch(() => {});
   if (!isAuthConfigured()) {
@@ -106,6 +118,17 @@ export async function start(): Promise<Session | null> {
     );
     shell.status('');
     shell.reveal();
+    shell.statusBar({ sync: 'synced', syncedAt: new Date() });
+    // Clocks are a tab for a library that has some (CS5), and for whoever can write, since that is
+    // where the first one is made.
+    if (['owner', 'orga', 'author'].includes(tenant.role)) shell.allow('clocks');
+    else
+      void libraryHasClocks(tenant.id).then(
+        (has) => {
+          if (has) shell.allow('clocks');
+        },
+        () => {},
+      );
     return {
       tenantId: tenant.id,
       canWrite: ['owner', 'orga', 'author'].includes(tenant.role),

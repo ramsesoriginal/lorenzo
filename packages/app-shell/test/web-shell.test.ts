@@ -5,7 +5,7 @@ import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AppPage from '../src/AppPage.astro';
 import type { Shell, ShellOptions } from '../src/index';
-import { bindShell, initials, placeMenu } from '../src/index';
+import { bindShell, initials, isCurrentPage, placeMenu } from '../src/index';
 import { createToastTimer } from '../src/toast-timer';
 
 const nav = [
@@ -188,6 +188,35 @@ describe('the web shell', () => {
     vi.setSystemTime(new Date(2026, 10, 6, 9, 52));
     vi.advanceTimersByTime(30_000);
     expect(clock.textContent).toMatch(/09:52/);
+  });
+});
+
+describe('a tab that owns other pages', () => {
+  it('stays the current page on them', () => {
+    expect(isCurrentPage('/', '/calendar/', ['/calendar/', '/entry/'])).toBe(true);
+    expect(isCurrentPage('/', '/entry', ['/calendar/', '/entry/'])).toBe(true);
+    expect(isCurrentPage('/', '/events/', ['/calendar/', '/entry/'])).toBe(false);
+  });
+});
+
+describe('binding again, as an app with a client router does on every page', () => {
+  it('lets go of what the first page held on the document and the window', async () => {
+    const html = await render('web');
+
+    mount(html);
+
+    const first = document;
+    const removed = vi.spyOn(first, 'removeEventListener');
+    const kept = vi.spyOn(window, 'removeEventListener');
+
+    mount(html);
+
+    // The sheet's Escape and outside press, which belonged to the first page's header.
+    expect(removed.mock.calls.some(([type]) => type === 'keydown')).toBe(true);
+    expect(removed.mock.calls.some(([type]) => type === 'pointerdown')).toBe(true);
+    // Its clock stops with it: only the second page's runs.
+    expect(vi.getTimerCount()).toBe(1);
+    void kept;
   });
 });
 

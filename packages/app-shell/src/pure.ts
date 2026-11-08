@@ -14,6 +14,9 @@ export type NavItem = {
   // The link stays hidden until the app says the person may have it (`shell.allow(requires)`): a page
   // that has nothing for someone is not offered to them.
   requires?: string;
+  // Other pages that belong to this one, which keep it marked as the current page: the calendar's own
+  // page and an entry belong to the list of calendars.
+  also?: string[];
 };
 
 /** The saved choice if there is one, otherwise what the system prefers. */
@@ -66,10 +69,10 @@ export function navHref(item: Pick<NavItem, 'href' | 'needsLibrary'>, library: s
 }
 
 /** Whether a link to `href` is the page at `pathname`, with or without a trailing slash. */
-export function isCurrentPage(href: string, pathname: string): boolean {
+export function isCurrentPage(href: string, pathname: string, also: string[] = []): boolean {
   const normal = (path: string) => (path.endsWith('/') ? path : `${path}/`);
 
-  return normal(href) === normal(pathname);
+  return [href, ...also].some((path) => normal(path) === normal(pathname));
 }
 
 /** The locale the clock is written in: the page's language, and for plain English the day-first form the design draws. */
