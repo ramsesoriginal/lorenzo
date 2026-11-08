@@ -4735,7 +4735,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Browse Events */
+        /**
+         * Browse Events
+         * @description Events by name, causes, participants or story order; `dated_*` keeps those dated in a period.
+         *
+         *     A period filter (ADR 0442) names a calendar and a year, and may bound it by a segment and day at
+         *     each end. It is applied before pagination and story order, and only through dates the reader can
+         *     see, so it never shows a reader an Event they cannot see.
+         */
         get: operations["browse_events"];
         put?: never;
         post?: never;
@@ -36934,6 +36941,12 @@ export interface operations {
                 causal_event_id?: string | null;
                 direction?: "ancestors" | "descendants" | "both";
                 sort?: "name" | "order";
+                dated_calendar_id?: string | null;
+                dated_year?: number | null;
+                dated_from_segment?: string | null;
+                dated_from_day?: number | null;
+                dated_to_segment?: string | null;
+                dated_to_day?: number | null;
                 page?: number;
                 size?: number;
             };

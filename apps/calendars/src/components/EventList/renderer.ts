@@ -1,4 +1,4 @@
-import { createTimeFilter, indexOf, type StripSegment } from '@lorenzo/time-filter';
+import { createTimeFilter, dayAt, type StripSegment } from '@lorenzo/time-filter';
 import { rememberEntryAddress, tenantAddress } from '../../lib/addresses';
 import { client, fetchAllPages, unwrap } from '../../lib/api';
 import {
@@ -120,51 +120,42 @@ export async function mount() {
   yearField.label.classList.add('narrow-field');
   const calendarChoice = select('Calendar', [], calendarId);
   const timeHost = el('section', '', 'stack-tight');
-  const timeActive = () => range !== null;
-  function inRange(dates: Dated[]) {
-    if (!range) return true;
-    const year = Number(yearField.input.value);
-    return dates.some((d) => {
-      if (d.calendar !== calendarId || d.year !== year || !d.segment || d.day === null)
-        return false;
-      const at = indexOf(strip, d.segment, d.day);
-      return at !== null && range !== null && at >= range.from && at <= range.to;
-    });
-  }
   let stripReady: Promise<void> = Promise.resolve();
   let generation = 0;
   async function load() {
     const turn = ++generation;
     status.busy('Loading Events…');
     try {
-      const fetchPage = async (number: number, size: number) =>
-        unwrap(
-          await client.GET('/tenants/{tenant_id}/events', {
-            params: {
-              path: { tenant_id: tenantId },
-              query: {
-                q: q.input.value,
-                sort: sort.input.value as 'name' | 'order',
-                being_id: being || undefined,
-                causal_event_id: chain || undefined,
-                direction: direction.input.value as 'both' | 'ancestors' | 'descendants',
-                page: number,
-                size,
-              },
+      // The time filter is the API's (ADR 0442): the Events dated in the strip's year, or in the range on
+      // it, through dates the reader can see, applied before the page and the story order.
+      await stripReady;
+      const ends = range ? [dayAt(strip, range.from), dayAt(strip, range.to)] : [];
+      const response = await unwrap(
+        await client.GET('/tenants/{tenant_id}/events', {
+          params: {
+            path: { tenant_id: tenantId },
+            query: {
+              q: q.input.value,
+              sort: sort.input.value as 'name' | 'order',
+              being_id: being || undefined,
+              causal_event_id: chain || undefined,
+              direction: direction.input.value as 'both' | 'ancestors' | 'descendants',
+              page,
+              size: 30,
+              ...(range && calendarId && strip.length
+                ? {
+                    dated_calendar_id: calendarId,
+                    dated_year: Number(yearField.input.value),
+                    dated_from_segment: ends[0]?.key,
+                    dated_from_day: ends[0]?.day,
+                    dated_to_segment: ends[1]?.key,
+                    dated_to_day: ends[1]?.day,
+                  }
+                : {}),
             },
-          }),
-        );
-      let response = await fetchPage(timeActive() ? 1 : page, timeActive() ? 100 : 30);
-      if (timeActive()) {
-        await stripReady;
-        // A time filter looks at every Event, not one page: read them all, keep those dated in range.
-        const all = [...response.items];
-        for (let n = 2; n <= (response.pages ?? 1); n++)
-          all.push(...(await fetchPage(n, 100)).items);
-        const metas = await Promise.all(all.map((e) => metaFor(e.entity_id)));
-        const kept = all.filter((_, i) => inRange(metas[i]?.dates ?? []));
-        response = { ...response, items: kept, total: kept.length, pages: 1 };
-      }
+          },
+        }),
+      );
       if (turn !== generation || !host?.isConnected) return;
       list.replaceChildren();
       list.hidden = !response.items.length;

@@ -290,3 +290,79 @@ async def test_public_period_list_for_a_player_uses_calendar_visibility(client, 
         assert listed.json()["total"] == 3
     finally:
         await delete_tenant(tenant)
+
+
+async def test_events_list_filters_by_period_before_pagination(
+    client: AsyncClient, test_user_id: uuid.UUID
+):
+    """The Events list keeps those dated in a calendar's year or a range of it (ADR 0442)."""
+    tenant = await make_tenant(test_user_id)
+    try:
+        calendar = (await make_calendar(client, tenant)).json()["entity_id"]
+
+        async def dated(name, **date):
+            event = await client.post(
+                f"/tenants/{tenant}/entities", json={"name": name, "kinds": ["event"]}
+            )
+            assert event.status_code == 201, event.text
+            if date:
+                p = await period(client, tenant, calendar, **date)
+                put = await client.put(
+                    f"/tenants/{tenant}/entities/{event.json()['id']}/dates",
+                    json={"period_ids": [p["entity_id"]]},
+                    headers={"If-Match": event.headers["etag"]},
+                )
+                assert put.status_code == 200, put.text
+            return event.json()["id"]
+
+        early = await dated("Early", year=3286, segment="first", day=3)
+        middle = await dated("Middle", year=3286, segment="first", day=16)
+        feast = await dated("Feast", year=3286, segment="festival", day=1)
+        other_year = await dated("Other year", year=3287, segment="first", day=16)
+        await dated("Undated")
+        url = f"/tenants/{tenant}/events"
+        base = {"dated_calendar_id": calendar, "dated_year": 3286}
+
+        async def names(**params):
+            rows = await client.get(url, params={"size": 50, **params})
+            assert rows.status_code == 200, rows.text
+            return [e["name"] for e in rows.json()["items"]], rows.json()["total"]
+
+        # A year keeps the Events dated in it: not the other year's, not the undated.
+        assert await names(**base) == (["Early", "Feast", "Middle"], 3)
+        # A range is bounded by a segment and a day at each end, in the calendar's own order.
+        assert (await names(**base, dated_from_segment="first", dated_from_day=10))[0] == [
+            "Feast",
+            "Middle",
+        ]
+        assert (
+            await names(
+                **base,
+                dated_from_segment="first",
+                dated_from_day=10,
+                dated_to_segment="first",
+                dated_to_day=20,
+            )
+        )[0] == ["Middle"]
+        assert (await names(**base, dated_to_segment="first", dated_to_day=5))[0] == ["Early"]
+        # The filter applies before pagination: the total counts only what it kept.
+        page = await client.get(url, params={**base, "size": 1, "page": 2})
+        assert page.json()["total"] == 3 and len(page.json()["items"]) == 1
+        # It combines with the other filters and with story order.
+        assert (await names(**base, q="mid"))[0] == ["Middle"]
+        assert (await names(**base, sort="order"))[1] == 3
+        # Another year, and the other year's Event.
+        assert (await names(dated_calendar_id=calendar, dated_year=3287))[0] == ["Other year"]
+        # A request that names half a filter, or a segment the calendar lacks, is refused.
+        assert (await client.get(url, params={"dated_year": 3286})).status_code == 422
+        assert (
+            await client.get(url, params={**base, "dated_from_segment": "first"})
+        ).status_code == 422
+        assert (
+            await client.get(
+                url, params={**base, "dated_from_segment": "gone", "dated_from_day": 1}
+            )
+        ).status_code == 422
+        assert {early, middle, feast, other_year}
+    finally:
+        await delete_tenant(tenant)
