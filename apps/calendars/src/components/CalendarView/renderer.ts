@@ -187,6 +187,9 @@ export async function mount() {
         for (const item of state.items) nodes.push(el('span', item.text, 'visually-hidden'));
       }
       content.replaceChildren(...nodes);
+      // How much is written, for the year's squares: darker for more.
+      const cell = content.parentElement;
+      if (cell) cell.dataset.level = String(Math.min(3, state.items.length));
     }
     function dayItems(content: HTMLElement, change: { items?: Mark[]; loading?: boolean }) {
       const state = dayState.get(content) ?? { items: [], loading: false };
@@ -437,6 +440,13 @@ export async function mount() {
             yearPanel.append(month);
             showSegment(segment.key, month, true);
           }
+          yearPanel.append(
+            el(
+              'p',
+              'Each square is a day. Darker means more is written on it. Choose a day to read it in the panel.',
+              'year-note',
+            ),
+          );
         } else {
           if (!preview.segments.some((s) => s.key === chosenSegment))
             chosenSegment = preview.segments[0]?.key ?? '';
@@ -517,7 +527,7 @@ export async function mount() {
         ? `Year ${year}`
         : (preview.segments.find((s) => s.key === chosenSegment)?.name ?? '');
     }
-    function showSegment(key: string, container: HTMLElement, withTitle: boolean) {
+    function showSegment(key: string, container: HTMLElement, inYear: boolean) {
       const segment = preview.segments.find((s) => s.key === key);
       if (!segment) return;
       container.replaceChildren();
@@ -527,10 +537,23 @@ export async function mount() {
         true,
         'kind-calendar-pin',
       );
-      if (withTitle) {
-        const title = el('div', '', 'section-head');
-        title.append(el('h2', segment.name), notes);
-        container.append(title);
+      if (inYear) {
+        // A row of the year: the segment's name and size on the left, its days as squares.
+        const head = el('div', '', 'year-head');
+        // In a row of the year it is a quiet "Notes", still named for what it opens.
+        notes.classList.replace('btn-secondary', 'btn-text');
+        notes.setAttribute('aria-label', 'Month or festival notes');
+        if (notes.lastChild) notes.lastChild.textContent = 'Notes';
+        head.append(
+          el('h2', segment.name),
+          el(
+            'p',
+            `${segment.days.length} ${segment.days.length === 1 ? 'day' : 'days'}`,
+            'caption',
+          ),
+          notes,
+        );
+        container.append(head);
       } else {
         const row = el('div', '', 'cal-notes-row');
         row.append(notes);
@@ -539,14 +562,18 @@ export async function mount() {
       const definition = calendar.definition.segments.find((s) => s.key === key);
       const week = calendar.definition.week;
       const useWeek = Boolean(week && definition?.in_week);
-      const cells = el('div', '', useWeek ? 'month-grid' : 'festival');
+      const cells = el(
+        'div',
+        '',
+        inYear ? `year-days${useWeek ? '' : ' festival'}` : useWeek ? 'month-grid' : 'festival',
+      );
       cells.style.setProperty('--week-length', String(week?.length ?? 7));
-      if (useWeek) {
+      if (useWeek && !inYear) {
         cells.tabIndex = 0;
         cells.setAttribute('role', 'group');
         cells.setAttribute('aria-label', `Dates in ${segment.name} ${year}`);
       }
-      if (useWeek && week) {
+      if (useWeek && week && !inYear) {
         for (let i = 0; i < week.length; i++)
           cells.append(el('span', week.names?.[i] ?? String(i + 1), 'weekday'));
         const start = segment.days[0]?.weekday ?? 0;
@@ -560,7 +587,7 @@ export async function mount() {
       for (const day of segment.days) {
         // A cell is the date's button, which carries its name and its moons, and beneath it what
         // is written for the day. The button's own text is only the date, so its name holds it.
-        const cell = el('div', '', 'day');
+        const cell = el('div', '', inYear ? 'day day--square' : 'day');
         const press = el('button', '', 'day-button');
         press.type = 'button';
         press.addEventListener('click', () => {
@@ -591,7 +618,8 @@ export async function mount() {
           header.append(moons);
           press.setAttribute('aria-description', moonLabels.join('; '));
         }
-        press.append(header);
+        // In the year a day is a square with no words on it; its name is the button's.
+        if (!inYear) press.append(header);
         const content = el('div', '', 'day-content');
         cell.append(press, content);
         const saved = periods.find((p) => p.segment === key && p.day === day.date.day);

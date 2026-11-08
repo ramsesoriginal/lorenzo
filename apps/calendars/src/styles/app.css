@@ -604,16 +604,82 @@ button.seg-chip:hover {
   gap: var(--space-2);
 }
 
-.festival .day {
+.festival:not(.year-days) .day {
   min-width: 7rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
 }
 
+/* The whole year (CS2): a row for each segment, and a square for each day, darker for more written. */
 .year-segment {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: start;
   min-width: 0;
-  padding-block-end: var(--space-4);
-  border-block-end: 1px solid var(--border-subtle);
+}
+
+.year-head {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+
+[data-page] .year-head h2 {
+  font-size: var(--fs-ui);
+  font-weight: 500;
+}
+
+.year-head p {
+  margin: 0;
+}
+
+.year-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.day--square {
+  width: 1.4rem;
+  height: 1.4rem;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+
+.day--square .day-button {
+  height: 100%;
+}
+
+/* A square has no room for marks: its shade says how much, and the panel says what. */
+.day--square .day-marks {
+  display: none;
+}
+
+.day--square[data-level="1"] {
+  background: color-mix(in srgb, var(--action) 18%, var(--surface-default));
+}
+
+.day--square[data-level="2"] {
+  background: color-mix(in srgb, var(--action) 38%, var(--surface-default));
+}
+
+.day--square[data-level="3"] {
+  background: color-mix(in srgb, var(--action) 60%, var(--surface-default));
+}
+
+.day--square:has(.day-button[aria-pressed="true"]) {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+}
+
+/* Each square is a day: said once under the rows. */
+.year-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
 }
 
 /* The selected day's moons, each a symbol and its words. */
