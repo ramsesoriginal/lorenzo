@@ -96,7 +96,8 @@
     "page-state",
     "page-state-art",
     "home-grid",
-    "home-block"
+    "home-block",
+    "btn-text"
   ],
   "allowed": {
     "bench": "bench does not load apps/brand; its own .palette and the like are its own"

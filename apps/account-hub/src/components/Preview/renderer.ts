@@ -237,7 +237,54 @@ export function createPreview(root: HTMLElement, options: PreviewOptions): Previ
     dialogBody.replaceChildren();
   });
 
+  // A row shows the first picture its entry has, read when the row comes into view: the list does not
+  // carry pictures, so each is one read of the entry, and only for rows that are looked at.
+  let thumbs: IntersectionObserver | null = null;
+  const thumbOf = new Map<Element, { img: HTMLImageElement; entityId: string }>();
+
+  async function showThumb(
+    img: HTMLImageElement,
+    entityId: string,
+    listTurn: number,
+  ): Promise<void> {
+    try {
+      const entry = await source?.entry(entityId);
+      const first = entry?.information.flatMap((row) => row.pictures)[0];
+
+      if (!first || listTurn !== latest) return;
+
+      const url = await source?.picture(entityId, first.id);
+
+      if (!url || listTurn !== latest) return;
+
+      img.src = url;
+      img.hidden = false;
+    } catch {
+      // A row with no picture is a row with its name.
+    }
+  }
+
   function paintList(): void {
+    thumbs?.disconnect();
+    thumbOf.clear();
+
+    const listTurn = latest;
+
+    thumbs =
+      typeof IntersectionObserver === 'undefined'
+        ? null
+        : new IntersectionObserver((seen) => {
+            for (const change of seen) {
+              const row = thumbOf.get(change.target);
+
+              if (!change.isIntersecting || !row) continue;
+
+              thumbs?.unobserve(change.target);
+              thumbOf.delete(change.target);
+              void showThumb(row.img, row.entityId, listTurn);
+            }
+          });
+
     list.replaceChildren(
       ...entries.loaded.map((entry) => {
         const item = cloneRoot(section, '[data-preview-item-template]');
@@ -249,6 +296,11 @@ export function createPreview(root: HTMLElement, options: PreviewOptions): Previ
           .join(', ');
         look.setAttribute('aria-label', `Look at ${entry.name}`);
         look.addEventListener('click', () => void open(entry.id));
+
+        const thumb = required<HTMLImageElement>(item, '[data-thumb]');
+
+        thumbOf.set(item, { img: thumb, entityId: entry.id });
+        thumbs?.observe(item);
 
         return item;
       }),

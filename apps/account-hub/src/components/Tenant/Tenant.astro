@@ -100,6 +100,7 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
 
       <!-- Campaigns, and the form that makes one. -->
       <div class="stack" role="tabpanel">
+        <p class="hub-intro">Who plays, who runs, and the links that bring people in.</p>
         <section class="stack" data-campaigns hidden>
           <p data-no-campaigns hidden>
             No campaigns visible to you here yet.
@@ -165,7 +166,7 @@ import TenantEdit from '../TenantEdit/TenantEdit.astro';
 
   <!-- A campaign's row and its parts, which are the same components for every campaign. -->
   <template data-campaign-template>
-    <article class="card card-body stack">
+    <article class="card card-body stack hub-campaign">
       <header class="row">
         <h3 data-campaign-name></h3>
         <span class="campaign-meta" data-campaign-meta></span>

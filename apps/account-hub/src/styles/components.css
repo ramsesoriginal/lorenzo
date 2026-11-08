@@ -77,6 +77,9 @@
    it, and shaped like the placeholder letter that stands in for it. */
 .repository-picture {
   flex: none;
+  width: auto;
+  height: 7.5rem;
+  aspect-ratio: 3 / 4;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
   object-fit: cover;
@@ -86,8 +89,17 @@
   display: none;
 }
 
-.repository-initial {
-  --avatar-size: 64px;
+/* No cover yet: the frame the picture will fill, as the design draws it. */
+.avatar-placeholder.repository-initial {
+  flex: none;
+  width: auto;
+  height: 7.5rem;
+  aspect-ratio: 3 / 4;
+  border: 1px dashed var(--border-control);
+  border-radius: var(--radius-card);
+  background: none;
+  font-size: var(--fs-meta);
+  color: var(--text-tertiary);
 }
 
 /* The links and section headings that are the way through Shelf (ADR 0196): a card's name, "All
@@ -252,6 +264,7 @@
   display: block;
   width: 100%;
   aspect-ratio: 3 / 1;
+  max-height: 14rem;
   object-fit: cover;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
@@ -379,9 +392,6 @@
 section.profile-section {
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2h);
-}
-div.profile-fields {
-  max-width: 34rem;
 }
 .profile-card {
   position: sticky;
@@ -848,4 +858,148 @@ a.home-tile {
   .library-columns {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* A row of an entry in Look inside: its first picture, small, before its name. */
+.preview-thumb {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  object-fit: cover;
+}
+.preview-thumb[hidden] {
+  display: none;
+}
+
+/* The library's Campaigns and People, as the design draws them (screens 06, 09): a card for a block
+   of words or a form, and a table for the people, the links and the players, with a hairline between
+   its rows and a quiet button for what is done to one. */
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2h);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--surface-canvas);
+}
+.hub-card > h3,
+.hub-card > header h3 {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+.hub-intro {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.hub-roles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A list that is a table: one frame, a hairline between rows. A header row sits in the same frame. */
+.hub-table {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--surface-canvas);
+}
+.hub-table > .list,
+.list.hub-table {
+  gap: 0;
+}
+.hub-table > .list {
+  border: 0;
+}
+.list.hub-rows > li {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: none;
+}
+.list.hub-rows > li:first-child {
+  border-top: 0;
+}
+.hub-head + .list.hub-rows > li:first-child {
+  border-top: 1px solid var(--border-subtle);
+}
+.hub-head {
+  display: grid;
+  grid-template-columns: var(--hub-cols);
+  gap: var(--space-2h);
+  align-items: center;
+  min-height: 2.125rem;
+  padding: 0 var(--space-3);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+}
+.hub-people {
+  --hub-cols: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 7rem;
+}
+.hub-people > .list.hub-rows > li.hub-member {
+  display: grid;
+  grid-template-columns: var(--hub-cols);
+  gap: var(--space-2h);
+  align-items: center;
+}
+.hub-name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.hub-cell {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.hub-end {
+  justify-content: flex-end;
+}
+@container shell (max-width: 720px) {
+  .hub-head {
+    display: none;
+  }
+  .hub-people > .list.hub-rows > li.hub-member {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+    padding-block: var(--space-2h);
+  }
+  .hub-end {
+    justify-content: flex-start;
+  }
+}
+
+/* Add someone: the choice of role and the lookup in one card, the meaning of the role under it. */
+.hub-add {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2h) var(--space-3);
+}
+
+/* A campaign: a card whose picture is a small thumbnail with its buttons beside it, not a block. */
+.hub-campaign [data-picture-upload] img {
+  width: 4rem;
+  height: 4rem;
+  object-fit: cover;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+.hub-campaign [data-picture-upload] > .stack {
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+/* A table with nothing in it draws nothing; its words say so. */
+.hub-table:empty {
+  display: none;
+}
+/* The small headings of the People tab and of a campaign: the size of a card's own. */
+.hub-heading {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
 }

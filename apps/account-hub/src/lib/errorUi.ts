@@ -11,6 +11,7 @@ export function showError(target: HTMLElement, error: unknown): void {
   if (!isSessionExpired(error)) return;
   const loginButton = document.createElement('button');
   loginButton.type = 'button';
+  loginButton.className = 'btn btn-primary';
   loginButton.textContent = 'Log in';
   loginButton.addEventListener('click', () => void login());
   target.append(' ', loginButton);

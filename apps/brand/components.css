@@ -71,16 +71,17 @@ button {
   font-family: var(--font-ui);
   font-size: 14px;
   font-weight: 500;
-  background: var(--button-primary-bg);
-  color: var(--button-primary-fg);
-  border: 1px solid transparent;
+  /* A button is the framed one, as the design has it; the primary action says so with .btn-primary. */
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-fg);
+  border: 1px solid var(--button-secondary-border);
   border-radius: var(--radius-control);
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
 }
 
 button:hover {
-  background: var(--button-primary-hover);
+  background: var(--fill-soft);
 }
 
 button:disabled {
@@ -111,6 +112,7 @@ button:disabled {
 .btn.btn-primary {
   background: var(--button-primary-bg);
   color: var(--button-primary-fg);
+  border-color: transparent;
 }
 
 .btn-primary:hover {
@@ -127,12 +129,25 @@ button:disabled {
   background: var(--fill-soft);
 }
 
+/* The quietest button: words, no frame, for what is done to a row ("Remove", "Revoke"). */
+.btn-text {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: transparent;
+}
+
+.btn-text:hover {
+  background: var(--fill-soft);
+}
+
 .btn-danger {
   background: var(--button-danger-bg);
   color: var(--button-danger-fg);
+  border-color: transparent;
 }
 
 .btn-danger:hover {
+  background: var(--button-danger-bg);
   opacity: 0.9;
 }
 
@@ -297,6 +312,7 @@ kbd {
 }
 
 .tab:hover {
+  background: none;
   color: var(--text-primary);
 }
 
@@ -3043,7 +3059,6 @@ dialog.shell-sheet[data-docked] .more {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: 520px;
 }
 
 @container shell (max-width: 720px) {
