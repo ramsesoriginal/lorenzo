@@ -527,7 +527,7 @@ export async function mount() {
               dots,
             );
             chip.setAttribute('aria-pressed', String(shown.key === chosenSegment));
-            chip.addEventListener('click', () => choose(shown.key));
+            chip.addEventListener('click', () => choose?.(shown.key));
             chips.set(shown.key, chip);
             strip.append(chip);
           }
