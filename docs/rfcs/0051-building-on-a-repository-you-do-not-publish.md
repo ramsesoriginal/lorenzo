@@ -1,7 +1,8 @@
 # 0051 - Building on a repository you do not publish: include, protect, hide
 
-Status: proposed (2026-11-06). The options below come from a conversation with the maintainer, who wants all of
-them; the slices, the numbers and rules marked *proposed default* and the open questions are not decided yet. It
+Status: accepted (2026-11-06) and built: slices H1 to H4 (ADR 0431, 0432, 0434, 0437). The options below come from a
+conversation with the maintainer, who wanted all of them; the numbers and rules marked *proposed default* were settled in
+the ADR of each slice. It
 takes up the question [RFC 0038](0038-public-repositories-and-discovery.md) parks under "Later, not now:
 pass-through grants for a private upstream", and replaces that sketch with the design below. It changes nothing
 decided in RFC 0037 or RFC 0038 until a slice is accepted.

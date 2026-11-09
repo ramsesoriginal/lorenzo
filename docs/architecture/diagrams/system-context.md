@@ -7,7 +7,7 @@ C4Context
   Person(gm, "Game Master", "Runs campaigns, owns the secrets")
   Person(player, "Player", "Sees only what they're allowed to")
 
-  System(web, "Web frontend(s)", "Account hub, inventory-web, Beings, Bench, Calendars, Sessions, Writing and Maps")
+  System(web, "Web frontend(s)", "Account hub, inventory-web, Beings, Bench, Calendars, Sessions, Writing, Maps, Social and the legal pages")
   System(bot, "Discord bot(s)", "At least one")
   System(mobile, "Mobile app(s)", "Lorenzo Inventory - native Android and iOS")
   System(cli, "Command line", "lorenzo - imports, repositories, scripts")
