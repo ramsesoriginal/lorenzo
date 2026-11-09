@@ -352,7 +352,6 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0347 - Syntax-aware manuscript splits](0347-syntax-aware-manuscript-splits.md) — RFC 0047 W5d.
 - [0348 - Chapter joins and guarded redirects](0348-chapter-joins-and-guarded-redirects.md) — RFC 0047 W5e.
 
-- [0374 - Join a Chapter into its parent](0374-join-chapter-into-parent.md) — RFC 0047 W5f.
 - [0349 - The entry preview as a package](0349-the-entry-preview-package.md) — `packages/entry-preview`: the open/close timing, the per-page card cache, the card's words, its drawing and listeners and its stylesheet extracted from inventory-web, given what is app-specific (triggers, how an element names an entry, how a card and a picture load); Bench keeps its own card
 - [0350 - Location and Map previews, and the card in Lorenzo Maps](0350-location-and-map-previews.md) — two templates in the preview registry (no stats, inherited description and picture), the words "Location" and "Map", and the card on a mark and a places-list row in `/map/` instead of a bare name; no change to what the route reveals
 - [0351 - Writing placements in bulk](0351-writing-placements-in-bulk.md) — one atomic `POST .../placements/batch` of at most 100 puts and removes through the single write's validator and visibility, one touch and one activity entry; "place the children" is an editor action over it, never a server expansion
@@ -378,6 +377,7 @@ Numbered sequentially. Numbers remain stable except when recovering a collision,
 - [0371 - The periods a date is tied through](0371-the-periods-a-date-is-tied-through.md) — a pure calendar-engine function: a day is contained in its month or festival and its year, a month in its year, never by number
 - [0372 - The date lens on the Maps list](0372-the-date-lens-on-the-maps-list.md) — `tied_*` coordinates on `GET /maps` classify every Map `tied`, `untied` or `other`, ordered by class, with an opt-in exclusion before the page, nothing inferred, and no change without the parameters
 - [0373 - The date lens in Lorenzo Maps](0373-the-date-lens-in-lorenzo-maps.md) — a read-only period picker over the Maps list, empty by default, absent without a calendar, with the words "tied to this date" and faded "tied to other dates"
+- [0374 - Join a Chapter into its parent](0374-join-chapter-into-parent.md) — RFC 0047 W5f.
 - [0376 - The date lens on the Locations list](0376-the-date-lens-on-the-locations-list.md) — the lens of ADR 0372 on `GET /locations` by the same rule and code, flat list only (a date with `root` is a 422), no date inherited through part-of, no dating form — renumbered from 0374 on 2026-10-28: the Writing work on another branch claimed 0374 first (PR #932), same precedent as above.
 - [0377 - The date lens on Locations in Lorenzo Maps](0377-the-date-lens-on-locations-in-lorenzo-maps.md) — the same control and words on the Locations page; the tree gives way to a flat list while a date is chosen and returns on clearing — renumbered from 0375 on 2026-10-28, with 0376 above; 0375 itself stays unused.
 - [0378 - Extract writing into a Scene](0378-extract-writing-into-a-scene.md) — RFC 0047 W5g.

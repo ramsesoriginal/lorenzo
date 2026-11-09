@@ -8,6 +8,7 @@
 - [Hosting Lorenzo Sessions](sessions-setup.md) — the same for apps/sessions: its Cloudflare Pages project, Authgear client, the API's CORS list and `SESSIONS_URL`
 - [Hosting Lorenzo Writing](writing-setup.md) — its Cloudflare Pages project, Authgear client, the API's CORS list and `WRITING_URL`
 - [Hosting Lorenzo Maps](maps-setup.md) — the same for apps/maps: its Cloudflare Pages project, Authgear client, the API's CORS list and `MAPS_URL`
+- [Hosting Lorenzo Social](social-setup.md) — the same for apps/social: its Cloudflare Pages project, Authgear client, the API's CORS list and `SOCIAL_URL`
 - [Legal pages](legal-pages.md) — the Pages project of apps/legal, the operator profile it is built from, what to find out from each provider, and what to re-check when something changes
 - [Local Authgear setup](local-authgear-setup.md) — manual, one-time setup for a real login round-trip against Authgear Cloud during interactive testing
 - [Releasing](releasing.md) — how the release-please automation works
