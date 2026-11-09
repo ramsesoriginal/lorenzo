@@ -29,13 +29,13 @@
     "@lorenzo/lorenzoscript-editor": "workspace:*",
     "@lorenzo/read-cache": "workspace:*",
     "@lorenzo/time-filter": "workspace:*",
-    "astro": "^7.4.5"
+    "astro": "^7.4.7"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
     "@axe-core/playwright": "^4.14.0",
-    "@biomejs/biome": "^2.6.4",
-    "@playwright/test": "^1.64.1",
+    "@biomejs/biome": "^2.6.6",
+    "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
     "@types/pg": "^8.11.10",
     "pg": "^8.23.1",
