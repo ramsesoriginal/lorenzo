@@ -54,7 +54,7 @@ An entry's value is stored in the columns of the stat table next to the other va
 
 Accepted, case-insensitive, spaces around the whole value ignored:
 
-```
+```text
 dice   = [count] die [drop]
 die    = ("d" | "w") sides
 drop   = "d" ["l" | "h"] number
