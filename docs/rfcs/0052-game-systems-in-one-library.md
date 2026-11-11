@@ -225,6 +225,15 @@ Each slice is its own ADR.
 - Resolving an item in a library's catalog, which has no campaign, through a system (RFC 0033 section 9): the `system`
   filter gives a read the system; the catalog's choice is left to its client.
 
+## Suggested future work
+
+Not part of this RFC, and not decided; the CLI's own work, once the slices above exist:
+
+- `lorenzo seed --layer` already sorts a vocabulary into core and a system. It could create the system row and give the
+  layer's groups and templates to it, and `unseed --layer` could remove what the system holds, as
+  [ADR 0168](../adr/0168-lorenzo-unseed.md) does for a layer.
+- Starter vocabularies and templates for a system, shipped as a public vocabulary-only repository.
+
 ## Open questions
 
 None.
