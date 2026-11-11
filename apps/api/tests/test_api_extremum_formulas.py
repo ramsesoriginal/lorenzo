@@ -4,6 +4,7 @@ explanation, dependents, the guard on an enum's order, and RLS on the new tables
 """
 
 import uuid
+
 from _admin_db import admin_session_factory
 from conftest import delete_tenant, make_tenant
 from httpx import AsyncClient
@@ -35,9 +36,7 @@ def _extremum(kind: str, *inputs: dict, round_mode: str = "none") -> dict:
     return {"kind": kind, "inputs": list(inputs), "round_mode": round_mode}
 
 
-async def _add_enum(
-    tenant_id: uuid.UUID, name: str, values: dict[str, int]
-) -> uuid.UUID:
+async def _add_enum(tenant_id: uuid.UUID, name: str, values: dict[str, int]) -> uuid.UUID:
     """An enum stat in the tenant's `abilities` group, its values with the given `sort_order`."""
     async with admin_session_factory() as session:
         group_id = await session.scalar(
@@ -280,12 +279,13 @@ async def test_an_enum_is_its_sort_order_not_its_position(
         await _hold(tenant_id, thing, tier, text_value=label)
         things[label] = thing
 
-    scores = {
-        label: (await _stats(client, tenant_id, thing))
-        for label, thing in things.items()
-    }
+    scores = {label: (await _stats(client, tenant_id, thing)) for label, thing in things.items()}
 
-    assert [(s["rank_score"], s["capped"]) for s in scores.values()] == [(21, 10), (11, 5), (61, 20)]
+    assert [(s["rank_score"], s["capped"]) for s in scores.values()] == [
+        (21, 10),
+        (11, 5),
+        (61, 20),
+    ]
     await delete_tenant(tenant_id)
 
 
@@ -347,7 +347,9 @@ async def test_min_and_max_type_and_shape_checks(
         "a text target": (sheet.formula_url(entity, "label"), _extremum("min", a, b)),
         "int target, fractional constant": (url, _extremum("max", a, _const(0.5))),
     }
-    statuses = {label: (await client.put(u, json=b_)).status_code for label, (u, b_) in cases.items()}
+    statuses = {
+        label: (await client.put(u, json=b_)).status_code for label, (u, b_) in cases.items()
+    }
 
     assert statuses == dict.fromkeys(cases, 422)
     await delete_tenant(tenant_id)
@@ -359,7 +361,9 @@ async def test_min_and_max_cycles_are_rejected(
     tenant_id = await make_tenant(test_user_id)
     sheet = await _sheet(tenant_id, a=StatValueType.INT, b=StatValueType.INT)
     entity = await _entity(tenant_id, "Hero")
-    await _put(client, sheet.formula_url(entity, "a"), _extremum("min", _stat(sheet["b"]), _const(1)))
+    await _put(
+        client, sheet.formula_url(entity, "a"), _extremum("min", _stat(sheet["b"]), _const(1))
+    )
 
     looped = await client.put(
         sheet.formula_url(entity, "b"), json=_extremum("max", _stat(sheet["a"]), _const(1))
@@ -411,9 +415,7 @@ async def test_preview_explanation_and_dependents_know_min_and_max(
         dex_cap=StatValueType.INT,
         dex_bonus=StatValueType.INT,
     )
-    hero = await _entity(
-        tenant_id, "Hero", stats={sheet["dex_modifier"]: 4, sheet["dex_cap"]: 2}
-    )
+    hero = await _entity(tenant_id, "Hero", stats={sheet["dex_modifier"]: 4, sheet["dex_cap"]: 2})
     url = sheet.formula_url(hero, "dex_bonus")
     formula = _extremum("min", _stat(sheet["dex_modifier"]), _stat(sheet["dex_cap"]), _const(9))
 
