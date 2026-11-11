@@ -188,7 +188,7 @@ Each slice carries the preview, the explanation and the dependents of its kinds.
 - Aggregation beyond one level down, over group members, over a relationship's ends, or across the prototype graph.
 - "Missing counts as 0" (decided out).
 - Clamping a computed value by a stat's scale (ADR 0403).
-- Grants, features and the `feature_instance` kind: RFC 0054, which uses `only_kind` and `active`.
+- Grants, features and the `feature_instance` kind: [RFC 0054](0054-features-grants-and-choices.md), which uses `only_kind` and `active`.
 - Apps and the command line: formula panes, pickers and any other drawing of the new kinds are their own work.
 
 ## Open questions

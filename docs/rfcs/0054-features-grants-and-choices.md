@@ -1,7 +1,7 @@
 # 0054 - Features: what an entry has, how it comes to have it, and what it may choose
 
-Status: accepted (2026-11-11), decided with the maintainer, not built; slices F1 to F4, each its own ADR. It builds on RFC 0052 (a system as a thing, and
-templates) and RFC 0053 (formula kinds, including aggregation over what an entry holds and the `active` switch), and on
+Status: accepted (2026-11-11), decided with the maintainer, not built; slices F1 to F4, each its own ADR. It builds on [RFC 0052](0052-game-systems-in-one-library.md) (a system as a thing, and
+templates) and [RFC 0053](0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) (formula kinds, including aggregation over what an entry holds and the `active` switch), and on
 [RFC 0041](0041-entity-kinds-and-author-freedom.md) (kinds are marker tables) and
 [RFC 0030](0030-carrying-holding-binding-and-capacity.md) (holding, binding and capacity). It changes nothing decided about
 how a stat resolves ([ADR 0037](../adr/0037-effective-stat-resolution.md), [ADR 0266](../adr/0266-stat-tie-break-by-parent-order.md)).

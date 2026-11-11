@@ -2,7 +2,7 @@
 
 Status: accepted (2026-11-11), decided with the maintainer, not built; slices D1 to D3, each its own ADR. It adds a value type to what
 [ADR 0014](../adr/0014-stats.md) and [ADR 0103](../adr/0103-stat-tags-enum-values-and-mandatory-groups.md) define, and two
-formula kinds beside those of [RFC 0016](0016-stats-computed-values-and-crud-api.md) and RFC 0053. It changes nothing decided
+formula kinds beside those of [RFC 0016](0016-stats-computed-values-and-crud-api.md) and [RFC 0053](0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md). It changes nothing decided
 about how a stat resolves ([ADR 0037](../adr/0037-effective-stat-resolution.md)).
 
 ## Purpose
