@@ -36,6 +36,8 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
@@ -150,10 +152,17 @@ class Formula:
     false_value: str | None = None
     # A sum's (source, coefficient) terms, in order (ADR 0126).
     terms: list[tuple[uuid.UUID, Decimal]] | None = None
+    # A `min` or `max`'s (stat, constant) operands, in order, one of the two each (ADR 0444); the
+    # kind is `min` or `max`.
+    operands: list[tuple[uuid.UUID | None, Decimal | None]] | None = None
 
     def inputs(self) -> list[uuid.UUID]:
         own = [i for i in (self.source, self.left, self.right) if i is not None]
-        return own + [source for source, _ in self.terms or []]
+        return (
+            own
+            + [source for source, _ in self.terms or []]
+            + [stat for stat, _ in self.operands or [] if stat is not None]
+        )
 
 
 @dataclass
@@ -632,10 +641,35 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             )
         )
     }
+    extrema = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatExtremum).where(ComputedStatExtremum.tenant_id == t)
+            )
+        )
+    }
+    operands: dict[tuple[uuid.UUID, uuid.UUID], list[tuple[uuid.UUID | None, Decimal | None]]] = (
+        defaultdict(list)
+    )
+    for operand in await session.scalars(
+        select(ComputedStatExtremumInput)
+        .where(ComputedStatExtremumInput.tenant_id == t)
+        .order_by(ComputedStatExtremumInput.position)
+    ):
+        operands[(operand.entity_id, operand.stat_definition_id)].append(
+            (operand.source_stat_definition_id, operand.constant)
+        )
     for e, d in await rows(
         ComputedStat.entity_id, ComputedStat.stat_definition_id, where=ComputedStat.tenant_id == t
     ):
-        if (e, d) in linear:
+        if (e, d) in extrema:
+            c.formulas[(e, d)] = Formula(
+                kind=extrema[(e, d)].pick,
+                round_mode=extrema[(e, d)].round_mode,
+                operands=operands[(e, d)],
+            )
+        elif (e, d) in linear:
             lin = linear[(e, d)]
             c.formulas[(e, d)] = Formula(
                 kind="linear",
@@ -1125,6 +1159,19 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "source": name("stat_definition", formula.source),
             "multiplier": str(formula.multiplier),
             "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind in ("min", "max"):
+        assert formula.operands is not None
+        return {
+            "kind": formula.kind,
+            "inputs": [
+                {
+                    "source": None if stat is None else name("stat_definition", stat),
+                    "constant": None if constant is None else str(constant),
+                }
+                for stat, constant in formula.operands
+            ],
             "round_mode": formula.round_mode,
         }
     if formula.kind == "contents":

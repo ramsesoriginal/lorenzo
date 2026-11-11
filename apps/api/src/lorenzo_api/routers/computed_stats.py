@@ -36,6 +36,8 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
@@ -60,6 +62,7 @@ from lorenzo_api.stat_evaluation import (
     MAX_FORMULA_CHAIN,
     ComparisonFormula,
     ContentsFormula,
+    ExtremumFormula,
     Formula,
     LinearFormula,
     SumFormula,
@@ -78,6 +81,9 @@ router = APIRouter(
 )
 
 _NUMERIC = (StatValueType.INT, StatValueType.FLOAT)
+# What a linear, sum, min or max formula reads (ADR 0444): a bool is 1 or 0, an enum is its
+# `sort_order`.
+_READABLE = (StatValueType.INT, StatValueType.FLOAT, StatValueType.BOOL, StatValueType.ENUM)
 
 
 async def _get_stat_definition_or_404(
@@ -139,11 +145,23 @@ def _check_types(
 
     if isinstance(formula, LinearFormula):
         source = inputs[formula.source_stat_definition_id]
-        if source.value_type not in _NUMERIC:
+        if source.value_type not in _READABLE:
             raise invalid(f"a linear formula reads a number, and {source.name!r} isn't one")
         if target.value_type not in _NUMERIC:
             raise invalid("a linear formula produces a number, so the stat must be int or float")
         check_rounding(formula.round_mode, [formula.multiplier], formula.offset, input_ids(formula))
+        return
+
+    if isinstance(formula, ExtremumFormula):
+        word = formula.pick
+        for source_id in input_ids(formula):
+            source = inputs[source_id]
+            if source.value_type not in _READABLE:
+                raise invalid(f"a {word} reads numbers, and {source.name!r} isn't one")
+        if target.value_type not in _NUMERIC:
+            raise invalid(f"a {word} produces a number, so the stat must be int or float")
+        constants = [o.constant for o in formula.inputs if o.constant is not None]
+        check_rounding(formula.round_mode, constants, Decimal(0), input_ids(formula))
         return
 
     if isinstance(formula, ContentsFormula):
@@ -168,7 +186,7 @@ def _check_types(
                     f"a sum reads {source.name!r} more than once; give it one term with a "
                     "coefficient instead"
                 )
-            if source.value_type not in _NUMERIC:
+            if source.value_type not in _READABLE:
                 raise invalid(f"a sum reads numbers, and {source.name!r} isn't one")
         if target.value_type not in _NUMERIC:
             raise invalid("a sum produces a number, so the stat must be int or float")
@@ -308,12 +326,33 @@ def _formula_from_body(body: AnyFormulaBody) -> Formula:
 
 def _concrete_row(
     formula: Formula, *, entity_id: uuid.UUID, stat_definition_id: uuid.UUID, tenant_id: uuid.UUID
-) -> ComputedStatLinear | ComputedStatComparison | ComputedStatSum | ComputedStatContents:
+) -> (
+    ComputedStatLinear
+    | ComputedStatComparison
+    | ComputedStatSum
+    | ComputedStatContents
+    | ComputedStatExtremum
+):
     key = {
         "entity_id": entity_id,
         "stat_definition_id": stat_definition_id,
         "tenant_id": tenant_id,
     }
+    if isinstance(formula, ExtremumFormula):
+        return ComputedStatExtremum(
+            **key,
+            pick=formula.pick,
+            round_mode=formula.round_mode.value,
+            inputs=[
+                ComputedStatExtremumInput(
+                    **key,
+                    position=position,
+                    source_stat_definition_id=operand.stat_definition_id,
+                    constant=operand.constant,
+                )
+                for position, operand in enumerate(formula.inputs)
+            ],
+        )
     if isinstance(formula, LinearFormula):
         return ComputedStatLinear(
             **key,
@@ -420,6 +459,7 @@ async def set_computed_stat(
         existing.comparison = None
         existing.sum = None
         existing.contents = None
+        existing.extremum = None
         await session.flush()
         existing.updated_at = func.now()
     session.add(concrete)
@@ -499,6 +539,9 @@ async def preview_computed_stat(
                 .where(VEffectiveStat.entity_id == entity_id)
                 .options(
                     selectinload(VEffectiveStat.stat_definition),
+                    selectinload(VEffectiveStat.stat_definition).selectinload(
+                        StatDefinition.enum_values
+                    ),
                     *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
                 )
             )
@@ -609,10 +652,36 @@ async def list_stat_dependents(
             )
         )
     ).tuples()
+    picked = (
+        await session.execute(
+            select(
+                ComputedStatExtremum.entity_id,
+                ComputedStatExtremum.stat_definition_id,
+                ComputedStatExtremum.pick,
+            )
+            .join(
+                ComputedStatExtremumInput,
+                (ComputedStatExtremumInput.entity_id == ComputedStatExtremum.entity_id)
+                & (
+                    ComputedStatExtremumInput.stat_definition_id
+                    == ComputedStatExtremum.stat_definition_id
+                ),
+            )
+            .where(
+                ComputedStatExtremumInput.source_stat_definition_id == stat_definition_id,
+                ComputedStatExtremum.tenant_id == tenant_id,
+            )
+            .distinct()
+        )
+    ).tuples()
     dependents = (
         [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="linear")
             for e, s in linear
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind=pick)
+            for e, s, pick in picked
         ]
         + [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="comparison")

@@ -55,6 +55,7 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
     ComputedStatSumTerm,
     Containment,
@@ -875,7 +876,21 @@ class _Planner:
             local_entity = self.local["entity"][e]
             key = {"entity_id": local_entity, "stat_definition_id": target, "tenant_id": tenant_id}
             self.rows["computed_stat"].append(dict(key))
-            if formula.kind == "linear":
+            if formula.kind in ("min", "max"):
+                assert formula.operands is not None
+                self.rows["computed_stat_extremum"].append(
+                    key | {"pick": formula.kind, "round_mode": formula.round_mode}
+                )
+                self.rows["computed_stat_extremum_input"].extend(
+                    key
+                    | {
+                        "position": position,
+                        "source_stat_definition_id": None if stat is None else inputs[stat],
+                        "constant": constant,
+                    }
+                    for position, (stat, constant) in enumerate(formula.operands)
+                )
+            elif formula.kind == "linear":
                 assert formula.source is not None
                 self.rows["computed_stat_linear"].append(
                     key
@@ -1893,6 +1908,16 @@ async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> N
         ).where(ComputedStatSumTerm.tenant_id == tenant_id)
     ):
         edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatExtremumInput.stat_definition_id,
+            ComputedStatExtremumInput.source_stat_definition_id,
+        ).where(
+            ComputedStatExtremumInput.tenant_id == tenant_id,
+            ComputedStatExtremumInput.source_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
     state: dict[uuid.UUID, int] = {}
     for start in list(edges):
         if state.get(start):
@@ -2254,6 +2279,11 @@ async def forget_copy(
                 ComputedStatSumTerm.entity_id == ComputedStat.entity_id,
                 ComputedStatSumTerm.stat_definition_id == ComputedStat.stat_definition_id,
                 ComputedStatSumTerm.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatExtremumInput.entity_id == ComputedStat.entity_id,
+                ComputedStatExtremumInput.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatExtremumInput.source_stat_definition_id.in_(all_definitions),
             ),
             exists().where(
                 ComputedStatContents.entity_id == ComputedStat.entity_id,

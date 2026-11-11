@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.information_visibility import InformationVisibility
-from lorenzo_api.models import Entity, VEffectiveStat, formula_load_options
+from lorenzo_api.models import Entity, StatDefinition, VEffectiveStat, formula_load_options
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.effective_stats import EffectiveStatOut, EntryEffectiveStatsOut
 from lorenzo_api.stat_contents import contents_for_rows
@@ -42,6 +42,9 @@ async def effective_stats_of(
             .where(VEffectiveStat.entity_id.in_(ids), VEffectiveStat.tenant_id == tenant_id)
             .options(
                 selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.stat_definition).selectinload(
+                    StatDefinition.enum_values
+                ),
                 selectinload(VEffectiveStat.source_entity),
                 *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
             )

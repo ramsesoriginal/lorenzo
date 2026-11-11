@@ -98,6 +98,9 @@ async def get_entity_preview(
             selectinload(Entity.effective_stats)
             .selectinload(VEffectiveStat.stat_definition)
             .selectinload(StatDefinition.stat_group),
+            selectinload(Entity.effective_stats)
+            .selectinload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.enum_values),
             # Where an inherited value comes from (ADR 0276).
             selectinload(Entity.effective_stats).selectinload(VEffectiveStat.source_entity),
             *formula_load_options(

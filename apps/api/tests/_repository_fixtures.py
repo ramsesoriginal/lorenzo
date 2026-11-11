@@ -26,6 +26,8 @@ from lorenzo_api.models import (
     ComputedStatComparison,
     ComputedStatContents,
     ComputedStatLinear,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -374,6 +376,7 @@ async def seed_every_content_table(
             ComputedStat(entity_id=sword.id, stat_definition_id=strong.id, tenant_id=tenant_id),
             ComputedStat(entity_id=sword.id, stat_definition_id=might.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=load.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=blade.id, stat_definition_id=load.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
             Ownership(owned_entity_id=blade.id, owner_character_id=guild.id, tenant_id=tenant_id),
         ]
@@ -405,6 +408,14 @@ async def seed_every_content_table(
                 tenant_id=tenant_id,
                 source_stat_definition_id=strength.id,
             ),
+            # The Blade's Load: the smaller of its Strength and 10 (ADR 0444).
+            ComputedStatExtremum(
+                entity_id=blade.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                pick="min",
+                round_mode="none",
+            ),
             # Might = Strength + 2 × Modifier + 1 (ADR 0126).
             ComputedStatSum(
                 entity_id=sword.id,
@@ -415,6 +426,25 @@ async def seed_every_content_table(
             ),
             GroupMember(
                 group_entity_id=guild.id, character_entity_id=elminster.id, tenant_id=tenant_id
+            ),
+        ]
+    )
+    await session.flush()
+    session.add_all(
+        [
+            ComputedStatExtremumInput(
+                entity_id=blade.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                position=0,
+                source_stat_definition_id=strength.id,
+            ),
+            ComputedStatExtremumInput(
+                entity_id=blade.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                position=1,
+                constant=Decimal("10"),
             ),
         ]
     )

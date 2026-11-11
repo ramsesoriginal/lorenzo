@@ -38,6 +38,7 @@ from lorenzo_api.models import (
     Comparator,
     ComputedStat,
     RoundMode,
+    StatDefinition,
     StatValueType,
     VEffectiveStat,
 )
@@ -94,7 +95,25 @@ class ContentsFormula:
     source_stat_definition_id: uuid.UUID
 
 
-Formula = LinearFormula | ComparisonFormula | SumFormula | ContentsFormula
+@dataclass(frozen=True, slots=True)
+class Operand:
+    """One input of a `min` or `max`: a stat of the same entity, or a constant (ADR 0444)."""
+
+    stat_definition_id: uuid.UUID | None
+    constant: Decimal | None
+
+
+@dataclass(frozen=True, slots=True)
+class ExtremumFormula:
+    """The smallest (`min`) or the largest (`max`) of two to five operands, rounded as `sum` is -
+    ADR 0444. `min(a, cap)` is a cap, `max(a, 0)` a floor."""
+
+    pick: str
+    inputs: tuple[Operand, ...]
+    round_mode: RoundMode
+
+
+Formula = LinearFormula | ComparisonFormula | SumFormula | ContentsFormula | ExtremumFormula
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +174,19 @@ def formula_of(computed: ComputedStat) -> Formula | None:
         return ContentsFormula(
             source_stat_definition_id=computed.contents.source_stat_definition_id
         )
+    if computed.extremum is not None:
+        extremum = computed.extremum
+        return ExtremumFormula(
+            pick=extremum.pick,
+            inputs=tuple(
+                Operand(
+                    stat_definition_id=operand.source_stat_definition_id,
+                    constant=operand.constant,
+                )
+                for operand in extremum.inputs
+            ),
+            round_mode=RoundMode(extremum.round_mode),
+        )
     return None
 
 
@@ -165,6 +197,12 @@ def input_ids(formula: Formula) -> list[uuid.UUID]:
         return [formula.source_stat_definition_id]
     if isinstance(formula, SumFormula):
         return [term.source_stat_definition_id for term in formula.terms]
+    if isinstance(formula, ExtremumFormula):
+        return [
+            operand.stat_definition_id
+            for operand in formula.inputs
+            if operand.stat_definition_id is not None
+        ]
     ids = [formula.left_stat_definition_id]
     if formula.right_stat_definition_id is not None:
         ids.append(formula.right_stat_definition_id)
@@ -184,6 +222,39 @@ def stored_value(stat: VEffectiveStat) -> Value | None:
     if value_type is StatValueType.BOOL:
         return stat.value_bool
     return None
+
+
+def numeric_value(value: Value | None, definition: StatDefinition | None) -> Value | None:
+    """What a formula reads of a stat's value (ADR 0444): a bool is 1 or 0 and an enum is the
+    `sort_order` of the value it holds, a value its enum no longer allows has no number. Any other
+    value is as it is. An enum's values are loaded with its definition."""
+    if isinstance(value, bool):
+        return int(value)
+    if not isinstance(value, str):
+        return value
+    if definition is None or definition.value_type is not StatValueType.ENUM:
+        return value
+    return next((row.sort_order for row in definition.enum_values if row.value == value), None)
+
+
+def picked_operand(
+    formula: ExtremumFormula, read: Callable[[uuid.UUID], Value | None]
+) -> int | None:
+    """The position of the operand a `min` or `max` took, the first one when several tie, or None
+    when an input has no value (ADR 0444). `read` is a stat's value as a formula reads it
+    (`numeric_value`)."""
+    numbers: list[Decimal] = []
+    for operand in formula.inputs:
+        number = (
+            operand.constant
+            if operand.stat_definition_id is None
+            else _number(read(operand.stat_definition_id))
+        )
+        if number is None:
+            return None
+        numbers.append(number)
+    target = min(numbers) if formula.pick == "min" else max(numbers)
+    return numbers.index(target)
 
 
 def _number(value: Value | None) -> Decimal | None:
@@ -230,13 +301,38 @@ def apply_sum(
     return _rounded(result, formula.round_mode, target_type)
 
 
+_WHOLE_TYPES = (StatValueType.INT, StatValueType.BOOL, StatValueType.ENUM)
+
+
+def apply_extremum(
+    formula: ExtremumFormula,
+    resolve: Callable[[uuid.UUID], Value | None],
+    target_type: StatValueType,
+) -> Value | None:
+    """Every stat operand must have a value, as a sum's terms must; the result is the smallest or
+    the largest operand, so it is whole when every operand is (ADR 0444)."""
+    numbers: list[Decimal] = []
+    for operand in formula.inputs:
+        if operand.stat_definition_id is None:
+            assert operand.constant is not None
+            numbers.append(operand.constant)
+            continue
+        number = _number(resolve(operand.stat_definition_id))
+        if number is None:
+            return None
+        numbers.append(number)
+    result = min(numbers) if formula.pick == "min" else max(numbers)
+    return _rounded(result, formula.round_mode, target_type)
+
+
 def always_whole(
     coefficients: Iterable[Decimal], offset: Decimal, input_types: Iterable[StatValueType]
 ) -> bool:
     """Whether a linear or sum formula can only ever produce a whole number:
-    every input an int stat, every coefficient (or multiplier) and the
-    offset whole. An int stat needs no rounding mode then (ADR 0126)."""
-    return all(value_type is StatValueType.INT for value_type in input_types) and all(
+    every input a whole stat (an int, or a bool or an enum read as a number, ADR 0444), every
+    coefficient (or multiplier) and the offset whole. An int stat needs no rounding mode then
+    (ADR 0126)."""
+    return all(value_type in _WHOLE_TYPES for value_type in input_types) and all(
         number == number.to_integral_value() for number in (*coefficients, offset)
     )
 
@@ -309,10 +405,12 @@ def longest_formula_chain(edges: Mapping[uuid.UUID, set[uuid.UUID]], through: uu
 
 
 def apply_formula(
-    formula: LinearFormula | ComparisonFormula | SumFormula,
+    formula: LinearFormula | ComparisonFormula | SumFormula | ExtremumFormula,
     resolve: Callable[[uuid.UUID], Value | None],
     target_type: StatValueType,
 ) -> Value | None:
+    if isinstance(formula, ExtremumFormula):
+        return apply_extremum(formula, resolve, target_type)
     if isinstance(formula, LinearFormula):
         return apply_linear(formula, resolve(formula.source_stat_definition_id), target_type)
     if isinstance(formula, SumFormula):
@@ -426,8 +524,14 @@ class _Evaluation:
             resolved = self.resolve(entity_id, input_id)
             if isinstance(resolved, _Cycle):
                 return _CYCLE
-            inputs[input_id] = resolved
+            inputs[input_id] = self._as_number(entity_id, input_id, resolved)
         return apply_formula(formula, inputs.__getitem__, target_type)
+
+    def _as_number(
+        self, entity_id: uuid.UUID | None, stat_definition_id: uuid.UUID, value: Value | None
+    ) -> Value | None:
+        stat = self.rows_of(entity_id).get(stat_definition_id)
+        return numeric_value(value, stat.stat_definition if stat is not None else None)
 
     def _contents(
         self, entity_id: uuid.UUID | None, formula: ContentsFormula, target_type: StatValueType

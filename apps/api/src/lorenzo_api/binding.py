@@ -193,6 +193,7 @@ async def _bindings(
         .where(VEffectiveStat.entity_id.in_(candidates), VEffectiveStat.tenant_id == tenant_id)
         .options(
             selectinload(VEffectiveStat.stat_definition),
+            selectinload(VEffectiveStat.stat_definition).selectinload(StatDefinition.enum_values),
             *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
         )
         # Read again within the write's transaction: a lift just changed it.

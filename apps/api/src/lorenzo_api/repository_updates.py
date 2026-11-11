@@ -39,6 +39,8 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
     ComputedStatSum,
     ComputedStatSumTerm,
@@ -114,7 +116,7 @@ from lorenzo_api.repository_hiding import (
 )
 from lorenzo_api.repository_releases import ReleaseRef
 from lorenzo_api.repository_upstream import load_upstream
-from lorenzo_api.stat_enum_values import enum_value_uses
+from lorenzo_api.stat_enum_values import enum_value_uses, formulas_reading_as_number
 
 RowKind = Literal["entity", "stat_group", "stat_definition"]
 _ROW_KINDS: tuple[RowKind, ...] = ("entity", "stat_group", "stat_definition")
@@ -393,7 +395,10 @@ def _formula_inputs(formula: Any) -> list[str]:
     if not isinstance(formula, dict):
         return []
     inputs = [formula[role] for role in ("source", "left", "right") if formula.get(role)]
-    return inputs + [term["source"] for term in formula.get("terms") or []]
+    inputs += [term["source"] for term in formula.get("terms") or []]
+    return inputs + [
+        operand["source"] for operand in formula.get("inputs") or [] if operand["source"]
+    ]
 
 
 def mentioned(change: FieldChange) -> list[tuple[str, str]]:
@@ -1424,13 +1429,29 @@ class _Applier:
         inputs: dict[str, uuid.UUID | None] = {}
         # A sum's terms, in order: each term's local stat and coefficient (ADR 0126).
         terms: list[tuple[uuid.UUID | None, str]] = []
+        operands: list[tuple[uuid.UUID | None, bool, str | None]] = []
         if formula is not None:
             for role in ("source", "left", "right"):
                 if formula.get(role):
                     inputs[role] = self.resolve("stat_definition", formula[role])
             for term in formula.get("terms") or []:
                 terms.append((self.resolve("stat_definition", term["source"]), term["coefficient"]))
-            if None in inputs.values() or any(source is None for source, _ in terms):
+            # A min or max's inputs, in order: a local stat or a constant (ADR 0444).
+            for operand in formula.get("inputs") or []:
+                operands.append(
+                    (
+                        None
+                        if operand["source"] is None
+                        else self.resolve("stat_definition", operand["source"]),
+                        operand["source"] is None,
+                        operand["constant"],
+                    )
+                )
+            if (
+                None in inputs.values()
+                or any(source is None for source, _ in terms)
+                or any(stat is None and not is_constant for stat, is_constant, _ in operands)
+            ):
                 self.skip(row, name, "a stat its formula uses wasn't copied here")
                 return False
         await s.execute(
@@ -1451,7 +1472,25 @@ class _Applier:
         )
         keys = {"entity_id": e, "stat_definition_id": definition, "tenant_id": t}
         await s.execute(insert(ComputedStat).values(**keys))
-        if formula["kind"] == "linear":
+        if formula["kind"] in ("min", "max"):
+            await s.execute(
+                insert(ComputedStatExtremum).values(
+                    **keys, pick=formula["kind"], round_mode=formula["round_mode"]
+                )
+            )
+            await s.execute(
+                insert(ComputedStatExtremumInput),
+                [
+                    {
+                        **keys,
+                        "position": position,
+                        "source_stat_definition_id": stat,
+                        "constant": constant,
+                    }
+                    for position, (stat, _, constant) in enumerate(operands)
+                ],
+            )
+        elif formula["kind"] == "linear":
             await s.execute(
                 insert(ComputedStatLinear).values(
                     **keys,
@@ -1613,6 +1652,10 @@ class _Applier:
         for value in change.removed or []:
             if await enum_value_uses(s, t, d, value):
                 self.skip(row, "enum_values", f"{value!r} is still in use here")
+                ok = False
+                continue
+            if await formulas_reading_as_number(s, t, d):
+                self.skip(row, "enum_values", "a formula here reads its order as a number")
                 ok = False
                 continue
             await s.execute(

@@ -20,7 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from lorenzo_api.entity_access import recursive_descendants_cte
-from lorenzo_api.models import Containment, Entity, VEffectiveStat, formula_load_options
+from lorenzo_api.models import (
+    Containment,
+    Entity,
+    StatDefinition,
+    VEffectiveStat,
+    formula_load_options,
+)
 from lorenzo_api.stat_evaluation import Contents
 
 
@@ -59,6 +65,7 @@ async def load_contents(
         .where(VEffectiveStat.entity_id.in_(loaded - roots), VEffectiveStat.tenant_id == tenant_id)
         .options(
             selectinload(VEffectiveStat.stat_definition),
+            selectinload(VEffectiveStat.stat_definition).selectinload(StatDefinition.enum_values),
             *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
         )
     ):

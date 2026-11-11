@@ -29,6 +29,7 @@ from lorenzo_api.exceptions import (
     StatDefinitionInUseError,
     StatDefinitionNameTakenError,
     StatDefinitionNotFoundError,
+    StatEnumOrderReadByFormulaError,
     StatEnumValueAlreadyExistsError,
     StatEnumValueInUseError,
     StatEnumValueNotFoundError,
@@ -69,6 +70,7 @@ from lorenzo_api.stat_enum_values import (
     RESERVED_ENUM_VALUES,
     RESERVED_STAT_NAMES,
     enum_value_uses,
+    formulas_reading_as_number,
     rename_enum_value_text,
 )
 
@@ -781,6 +783,23 @@ async def add_stat_enum_value(
     )
 
 
+async def _refuse_while_read_as_a_number(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    stat_definition_id: uuid.UUID,
+    value: str,
+    what: str,
+) -> None:
+    """ADR 0444: an enum counts as the `sort_order` of the value it holds in a formula that reads
+    it as a number, so a value of it is neither moved nor removed while one does."""
+    readers = await formulas_reading_as_number(session, tenant_id, stat_definition_id)
+    if readers:
+        raise StatEnumOrderReadByFormulaError(
+            detail=f"{value!r} cannot be {what}: its enum is read as a number by "
+            + ", ".join(readers)
+        )
+
+
 @router.delete(
     "/stat-definitions/{stat_definition_id}/enum-values/{enum_value_id}",
     dependencies=[Depends(get_tenant_admin_context)],
@@ -805,6 +824,9 @@ async def remove_stat_enum_value(
     uses = await enum_value_uses(session, tenant_id, stat_definition_id, row.value)
     if uses:
         raise StatEnumValueInUseError(detail=uses.describe(row.value))
+    await _refuse_while_read_as_a_number(
+        session, tenant_id, stat_definition_id, row.value, "removed"
+    )
     await session.delete(row)
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
@@ -837,6 +859,10 @@ async def update_stat_enum_value(
     changes = body.model_dump(exclude_unset=True)
     old = row.value
     new = changes.get("value", old)
+    if "sort_order" in changes and changes["sort_order"] != row.sort_order:
+        await _refuse_while_read_as_a_number(
+            session, tenant_id, stat_definition_id, row.value, "moved"
+        )
     if new != old:
         if old in RESERVED_ENUM_VALUES.get(stat_definition.name, frozenset()):
             raise StatNameReservedError(

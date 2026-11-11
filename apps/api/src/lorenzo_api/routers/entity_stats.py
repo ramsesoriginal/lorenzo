@@ -49,6 +49,7 @@ from lorenzo_api.routers.entities import entity_detail_reader, get_entity_detail
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.computed_stats import (
     ContentsExplanationOut,
+    PickedExplanationOut,
     PreviewInputOut,
     StatExplanationOut,
     formula_body_of,
@@ -56,7 +57,15 @@ from lorenzo_api.schemas.computed_stats import (
 from lorenzo_api.schemas.entities import EntityDetailOut, EntityStatWriteOut, PreviousOwnStat
 from lorenzo_api.schemas.stats import SetEntityStatRequest
 from lorenzo_api.stat_contents import load_contents
-from lorenzo_api.stat_evaluation import ContentsFormula, evaluate, formula_of, input_ids
+from lorenzo_api.stat_evaluation import (
+    ContentsFormula,
+    ExtremumFormula,
+    evaluate,
+    formula_of,
+    input_ids,
+    numeric_value,
+    picked_operand,
+)
 
 # get_tenant_or_404 here, not get_tenant_context (mirrors
 # routers/item_instances.py's identical ADR 0032/RFC 0005 precedent) -
@@ -646,6 +655,9 @@ async def explain_entity_stat(
             .where(VEffectiveStat.entity_id == entity_id, VEffectiveStat.tenant_id == tenant_id)
             .options(
                 selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.stat_definition).selectinload(
+                    StatDefinition.enum_values
+                ),
                 selectinload(VEffectiveStat.source_entity),
                 *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
             )
@@ -685,6 +697,29 @@ async def explain_entity_stat(
         }
     visibility = await resolve_information_visibility(session, user_id=user.id, tenant_id=tenant_id)
     own = winner.source_entity_id == entity_id
+    picked = None
+    if isinstance(formula, ExtremumFormula):
+        definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        position = picked_operand(
+            formula, lambda i: numeric_value(values.get(i), definitions.get(i))
+        )
+        if position is not None:
+            operand = formula.inputs[position]
+            source = operand.stat_definition_id
+            constant = operand.constant
+            picked_value: int | float | str | bool | None
+            if source is not None:
+                picked_value = values.get(source)
+            elif constant is not None and constant == constant.to_integral_value():
+                picked_value = int(constant)
+            else:
+                picked_value = None if constant is None else float(constant)
+            picked = PickedExplanationOut(
+                position=position,
+                stat_definition_id=source,
+                name=None if source is None else names.get(source),
+                value=picked_value,
+            )
     return StatExplanationOut(
         stat_definition_id=definition.id,
         name=definition.name,
@@ -713,4 +748,5 @@ async def explain_entity_stat(
             if isinstance(formula, ContentsFormula)
             else None
         ),
+        picked=picked,
     )

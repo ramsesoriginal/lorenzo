@@ -210,6 +210,9 @@ class CapacityCheck:
             )
             .options(
                 selectinload(VEffectiveStat.stat_definition),
+                selectinload(VEffectiveStat.stat_definition).selectinload(
+                    StatDefinition.enum_values
+                ),
                 *formula_load_options(selectinload(VEffectiveStat.computed_stat)),
             )
             # A re-measure in the same transaction reads what the write changed.

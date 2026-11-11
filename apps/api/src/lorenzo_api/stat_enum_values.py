@@ -8,16 +8,25 @@ texts (`computed_stat_comparison.true_value` and `false_value`). So "is this val
 
 import uuid
 
-from sqlalchemy import ColumnElement, func, or_, select, update
+from sqlalchemy import ColumnElement, func, or_, select, union, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.models import ComputedStatComparison, EntityStat
+from lorenzo_api.models import (
+    ComputedStatComparison,
+    ComputedStatExtremumInput,
+    ComputedStatLinear,
+    ComputedStatSumTerm,
+    Entity,
+    EntityStat,
+    StatDefinition,
+)
 
 __all__ = [
     "RESERVED_ENUM_VALUES",
     "RESERVED_STAT_NAMES",
     "EnumValueUses",
     "enum_value_uses",
+    "formulas_reading_as_number",
     "rename_enum_value_text",
 ]
 
@@ -123,3 +132,34 @@ async def rename_enum_value_text(
             )
             .values({column.key: new})
         )
+
+
+async def formulas_reading_as_number(
+    session: AsyncSession, tenant_id: uuid.UUID, stat_definition_id: uuid.UUID
+) -> list[str]:
+    """The formulas that read an enum stat as a number (ADR 0444), each as `stat name of entry
+    name`: an enum counts as the `sort_order` of the value it holds, so moving or removing a value
+    changes what these formulas say. Empty for an enum nothing reads that way."""
+    formulas = union(
+        select(ComputedStatLinear.entity_id, ComputedStatLinear.stat_definition_id).where(
+            ComputedStatLinear.tenant_id == tenant_id,
+            ComputedStatLinear.source_stat_definition_id == stat_definition_id,
+        ),
+        select(ComputedStatSumTerm.entity_id, ComputedStatSumTerm.stat_definition_id).where(
+            ComputedStatSumTerm.tenant_id == tenant_id,
+            ComputedStatSumTerm.source_stat_definition_id == stat_definition_id,
+        ),
+        select(
+            ComputedStatExtremumInput.entity_id, ComputedStatExtremumInput.stat_definition_id
+        ).where(
+            ComputedStatExtremumInput.tenant_id == tenant_id,
+            ComputedStatExtremumInput.source_stat_definition_id == stat_definition_id,
+        ),
+    ).subquery()
+    rows = await session.execute(
+        select(StatDefinition.name, Entity.name)
+        .join(formulas, formulas.c.stat_definition_id == StatDefinition.id)
+        .join(Entity, Entity.id == formulas.c.entity_id)
+        .order_by(StatDefinition.name, Entity.name)
+    )
+    return [f"{stat} of {entry}" for stat, entry in rows.tuples()]

@@ -614,6 +614,8 @@ class Kind6(StrEnum):
     comparison = "comparison"
     sum = "sum"
     contents = "contents"
+    min = "min"
+    max = "max"
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -1150,6 +1152,26 @@ class ExtractionCheckpoint(BaseModel):
     source_id: UUID = Field(..., title="Source Id")
     chapter_id: UUID = Field(..., title="Chapter Id")
     checkpoint: dict[str, Any] = Field(..., title="Checkpoint")
+
+
+class ExtremumInputBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+    constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Constant"
+    )
+
+
+class ExtremumInputBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+    constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Constant"
+    )
 
 
 class FactUpdate(BaseModel):
@@ -2372,6 +2394,13 @@ class PersonalTokenOut(BaseModel):
     last_used_at: AwareDatetime | None = Field(..., title="Last Used At")
     expires_at: AwareDatetime | None = Field(..., title="Expires At")
     is_expired: bool = Field(..., title="Is Expired")
+
+
+class PickedExplanationOut(BaseModel):
+    position: int = Field(..., title="Position")
+    stat_definition_id: UUID | None = Field(..., title="Stat Definition Id")
+    name: str | None = Field(..., title="Name")
+    value: int | float | str | bool | None = Field(..., title="Value")
 
 
 class PictureRefOut(BaseModel):
@@ -4474,6 +4503,18 @@ class MapOut(BaseModel):
     is_public: bool | None = Field(None, title="Is Public")
 
 
+class MaxFormulaBodyInput(BaseModel):
+    inputs: list[ExtremumInputBodyInput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["max"] = Field("max", title="Kind")
+
+
+class MaxFormulaBodyOutput(BaseModel):
+    inputs: list[ExtremumInputBodyOutput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["max"] = Field("max", title="Kind")
+
+
 class MeOut(BaseModel):
     id: UUID = Field(..., title="Id")
     authgear_subject_id: str = Field(..., title="Authgear Subject Id")
@@ -4507,6 +4548,18 @@ class MemberProfileOut(BaseModel):
     delisted: DelistedOut | None = None
     deprecated: DeprecatedOut | None = None
     terms: TermsOut
+
+
+class MinFormulaBodyInput(BaseModel):
+    inputs: list[ExtremumInputBodyInput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["min"] = Field("min", title="Kind")
+
+
+class MinFormulaBodyOutput(BaseModel):
+    inputs: list[ExtremumInputBodyOutput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["min"] = Field("min", title="Kind")
 
 
 class ObservanceCreate(BaseModel):
@@ -5121,6 +5174,8 @@ class ComputedStatOut(BaseModel):
         | ComparisonFormulaBodyOutput
         | SumFormulaBodyOutput
         | ContentsFormulaBody
+        | MinFormulaBodyOutput
+        | MaxFormulaBodyOutput
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -5131,6 +5186,8 @@ class ComputedStatPreviewIn(BaseModel):
         | ComparisonFormulaBodyInput
         | SumFormulaBodyInput
         | ContentsFormulaBody
+        | MinFormulaBodyInput
+        | MaxFormulaBodyInput
         | None
     ) = Field(None, title="Formula")
 
@@ -5362,10 +5419,13 @@ class StatExplanationOut(BaseModel):
         | ComparisonFormulaBodyOutput
         | SumFormulaBodyOutput
         | ContentsFormulaBody
+        | MinFormulaBodyOutput
+        | MaxFormulaBodyOutput
         | None
     ) = Field(..., title="Formula")
     inputs: list[PreviewInputOut] = Field(..., title="Inputs")
     contents: ContentsExplanationOut | None
+    picked: PickedExplanationOut | None = None
 
 
 class UpdatesOut(BaseModel):

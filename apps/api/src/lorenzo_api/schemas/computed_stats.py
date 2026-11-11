@@ -5,15 +5,17 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from lorenzo_api.models import Comparator, ComputedStat, RoundMode
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.stat_evaluation import (
     ComparisonFormula,
     ContentsFormula,
+    ExtremumFormula,
     Formula,
     LinearFormula,
+    Operand,
     SumFormula,
     SumTerm,
 )
@@ -26,8 +28,12 @@ __all__ = [
     "ComputedStatPreviewIn",
     "ComputedStatPreviewOut",
     "ContentsExplanationOut",
+    "ExtremumInputBody",
     "FormulaBody",
     "LinearFormulaBody",
+    "MaxFormulaBody",
+    "MinFormulaBody",
+    "PickedExplanationOut",
     "PreviewInputOut",
     "SumFormulaBody",
     "StatExplanationOut",
@@ -36,6 +42,9 @@ __all__ = [
 
 # ADR 0126: a sum reads at least one stat, and at most this many.
 MAX_SUM_TERMS = 20
+# ADR 0444: a min or a max takes two to five inputs.
+MIN_EXTREMUM_INPUTS = 2
+MAX_EXTREMUM_INPUTS = 5
 
 
 class LinearFormulaBody(BaseModel):
@@ -119,7 +128,66 @@ class ContentsFormulaBody(BaseModel):
         return ContentsFormula(source_stat_definition_id=self.source_stat_definition_id)
 
 
-AnyFormulaBody = LinearFormulaBody | ComparisonFormulaBody | SumFormulaBody | ContentsFormulaBody
+class ExtremumInputBody(BaseModel):
+    """One input of a `min` or `max`: a stat of the same entity or a constant, exactly one of the
+    two - ADR 0444."""
+
+    stat_definition_id: uuid.UUID | None = None
+    constant: Decimal | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> ExtremumInputBody:
+        if (self.stat_definition_id is None) == (self.constant is None):
+            raise ValueError("an input is exactly one of stat_definition_id or constant")
+        return self
+
+
+class _ExtremumBody(BaseModel):
+    inputs: list[ExtremumInputBody] = Field(
+        min_length=MIN_EXTREMUM_INPUTS, max_length=MAX_EXTREMUM_INPUTS
+    )
+    round_mode: RoundMode = RoundMode.NONE
+
+    def _formula(self, pick: str) -> ExtremumFormula:
+        return ExtremumFormula(
+            pick=pick,
+            inputs=tuple(
+                Operand(stat_definition_id=i.stat_definition_id, constant=i.constant)
+                for i in self.inputs
+            ),
+            round_mode=self.round_mode,
+        )
+
+
+class MinFormulaBody(_ExtremumBody):
+    """The smallest of two to five inputs, stats of the same entity or constants - ADR 0444.
+    `min(dexterity_modifier, 2)` is a cap. An int stat takes a rounding mode only when an input
+    is a float stat or a fractional constant."""
+
+    kind: Literal["min"] = "min"
+
+    def to_formula(self) -> ExtremumFormula:
+        return self._formula("min")
+
+
+class MaxFormulaBody(_ExtremumBody):
+    """The largest of two to five inputs, stats of the same entity or constants - ADR 0444.
+    `max(hit_points, 0)` is a floor."""
+
+    kind: Literal["max"] = "max"
+
+    def to_formula(self) -> ExtremumFormula:
+        return self._formula("max")
+
+
+AnyFormulaBody = (
+    LinearFormulaBody
+    | ComparisonFormulaBody
+    | SumFormulaBody
+    | ContentsFormulaBody
+    | MinFormulaBody
+    | MaxFormulaBody
+)
 FormulaBody = Annotated[AnyFormulaBody, Field(discriminator="kind")]
 
 
@@ -133,6 +201,13 @@ def formula_body_of(formula: Formula) -> AnyFormulaBody:
         )
     if isinstance(formula, ContentsFormula):
         return ContentsFormulaBody(source_stat_definition_id=formula.source_stat_definition_id)
+    if isinstance(formula, ExtremumFormula):
+        inputs = [
+            ExtremumInputBody(stat_definition_id=o.stat_definition_id, constant=o.constant)
+            for o in formula.inputs
+        ]
+        extremum_body = MinFormulaBody if formula.pick == "min" else MaxFormulaBody
+        return extremum_body(inputs=inputs, round_mode=formula.round_mode)
     if isinstance(formula, SumFormula):
         return SumFormulaBody(
             terms=[
@@ -208,12 +283,23 @@ class ContentsExplanationOut(BaseModel):
     things: int
 
 
+class PickedExplanationOut(BaseModel):
+    """The input a `min` or a `max` took (ADR 0444): the stat (null for a constant) and the number
+    it counted as, the first of several that tie."""
+
+    position: int
+    stat_definition_id: uuid.UUID | None
+    name: str | None
+    value: int | float | str | bool | None
+
+
 class StatExplanationOut(BaseModel):
     """How an entity's stat came to have its value, for any participant who
     may read the entity (ADR 0276). `formula` is the winning formula, held by
     this entity or inherited (see `from_entity`), null for a stored value;
     `inputs` are the values it read. A contents formula has no inputs of its
-    own: `contents` says what it counted instead."""
+    own: `contents` says what it counted instead. A `min` or `max` says which
+    input it took in `picked`."""
 
     stat_definition_id: uuid.UUID
     name: str
@@ -226,6 +312,7 @@ class StatExplanationOut(BaseModel):
     formula: FormulaBody | None
     inputs: list[PreviewInputOut]
     contents: ContentsExplanationOut | None
+    picked: PickedExplanationOut | None = None
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -233,4 +320,4 @@ class ComputedStatDependentOut(BaseModel):
 
     entity_id: uuid.UUID
     stat_definition_id: uuid.UUID
-    kind: Literal["linear", "comparison", "sum", "contents"]
+    kind: Literal["linear", "comparison", "sum", "contents", "min", "max"]

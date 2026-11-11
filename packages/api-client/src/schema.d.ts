@@ -9102,7 +9102,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison" | "sum" | "contents";
+            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max";
         };
         /**
          * ComputedStatOut
@@ -9121,7 +9121,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"];
             /**
              * Updated At
              * Format: date-time
@@ -9135,7 +9135,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -10536,6 +10536,28 @@ export interface components {
             checkpoint: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * ExtremumInputBody
+         * @description One input of a `min` or `max`: a stat of the same entity or a constant, exactly one of the
+         *     two - ADR 0444.
+         */
+        "ExtremumInputBody-Input": {
+            /** Stat Definition Id */
+            stat_definition_id?: string | null;
+            /** Constant */
+            constant?: number | string | null;
+        };
+        /**
+         * ExtremumInputBody
+         * @description One input of a `min` or `max`: a stat of the same entity or a constant, exactly one of the
+         *     two - ADR 0444.
+         */
+        "ExtremumInputBody-Output": {
+            /** Stat Definition Id */
+            stat_definition_id?: string | null;
+            /** Constant */
+            constant?: string | null;
         };
         /**
          * FactUpdate
@@ -12352,6 +12374,38 @@ export interface components {
             kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
         };
         /**
+         * MaxFormulaBody
+         * @description The largest of two to five inputs, stats of the same entity or constants - ADR 0444.
+         *     `max(hit_points, 0)` is a floor.
+         */
+        "MaxFormulaBody-Input": {
+            /** Inputs */
+            inputs: components["schemas"]["ExtremumInputBody-Input"][];
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "max";
+        };
+        /**
+         * MaxFormulaBody
+         * @description The largest of two to five inputs, stats of the same entity or constants - ADR 0444.
+         *     `max(hit_points, 0)` is a floor.
+         */
+        "MaxFormulaBody-Output": {
+            /** Inputs */
+            inputs: components["schemas"]["ExtremumInputBody-Output"][];
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "max";
+        };
+        /**
          * MeCapabilitiesOut
          * @description What the caller may do on the platform, as opposed to inside one
          *     tenant (ADR 0175). An object so a later capability is one more key; a
@@ -12584,6 +12638,40 @@ export interface components {
              * Format: uuid
              */
             into_entity_id: string;
+        };
+        /**
+         * MinFormulaBody
+         * @description The smallest of two to five inputs, stats of the same entity or constants - ADR 0444.
+         *     `min(dexterity_modifier, 2)` is a cap. An int stat takes a rounding mode only when an input
+         *     is a float stat or a fractional constant.
+         */
+        "MinFormulaBody-Input": {
+            /** Inputs */
+            inputs: components["schemas"]["ExtremumInputBody-Input"][];
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "min";
+        };
+        /**
+         * MinFormulaBody
+         * @description The smallest of two to five inputs, stats of the same entity or constants - ADR 0444.
+         *     `min(dexterity_modifier, 2)` is a cap. An int stat takes a rounding mode only when an input
+         *     is a float stat or a fractional constant.
+         */
+        "MinFormulaBody-Output": {
+            /** Inputs */
+            inputs: components["schemas"]["ExtremumInputBody-Output"][];
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "min";
         };
         /** Moon */
         "Moon-Input": {
@@ -13993,6 +14081,21 @@ export interface components {
             expires_at: string | null;
             /** Is Expired */
             is_expired: boolean;
+        };
+        /**
+         * PickedExplanationOut
+         * @description The input a `min` or a `max` took (ADR 0444): the stat (null for a constant) and the number
+         *     it counted as, the first of several that tie.
+         */
+        PickedExplanationOut: {
+            /** Position */
+            position: number;
+            /** Stat Definition Id */
+            stat_definition_id: string | null;
+            /** Name */
+            name: string | null;
+            /** Value */
+            value: number | string | boolean | null;
         };
         /**
          * PictureRefOut
@@ -16603,7 +16706,8 @@ export interface components {
          *     may read the entity (ADR 0276). `formula` is the winning formula, held by
          *     this entity or inherited (see `from_entity`), null for a stored value;
          *     `inputs` are the values it read. A contents formula has no inputs of its
-         *     own: `contents` says what it counted instead.
+         *     own: `contents` says what it counted instead. A `min` or `max` says which
+         *     input it took in `picked`.
          */
         StatExplanationOut: {
             /**
@@ -16623,10 +16727,11 @@ export interface components {
             /** From Hidden */
             from_hidden?: boolean | null;
             /** Formula */
-            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"]) | null;
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"]) | null;
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
             contents: components["schemas"]["ContentsExplanationOut"] | null;
+            picked?: components["schemas"]["PickedExplanationOut"] | null;
         };
         /**
          * StatGroupCreate
@@ -40970,7 +41075,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"];
             };
         };
         responses: {

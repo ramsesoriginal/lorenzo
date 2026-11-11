@@ -140,6 +140,11 @@ def eager_load_options(
         .selectinload(Entity.effective_stats)
         .joinedload(VEffectiveStat.stat_definition)
         .joinedload(StatDefinition.stat_group),
+        # The numbers of an enum stat's values, for a formula that reads it (ADR 0444).
+        joinedload(view_entity_attr)
+        .selectinload(Entity.effective_stats)
+        .joinedload(VEffectiveStat.stat_definition)
+        .selectinload(StatDefinition.enum_values),
         # A winning formula's parameters, for stat_evaluation (ADR 0104).
         *formula_load_options(
             joinedload(view_entity_attr)

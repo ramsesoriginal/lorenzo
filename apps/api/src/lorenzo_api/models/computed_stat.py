@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Numeric, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, QueryableAttribute, mapped_column, relationship, selectinload
+from sqlalchemy.orm import Mapped, QueryableAttribute, joinedload, mapped_column, relationship
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
 from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, same_tenant_fk
@@ -101,6 +101,12 @@ class ComputedStat(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    extremum: Mapped[ComputedStatExtremum | None] = relationship(
+        foreign_keys="[ComputedStatExtremum.entity_id, ComputedStatExtremum.stat_definition_id]",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def kind(self) -> str:
@@ -109,6 +115,8 @@ class ComputedStat(Base):
             return "linear"
         if self.sum is not None:
             return "sum"
+        if self.extremum is not None:
+            return self.extremum.pick
         return "contents" if self.contents is not None else "comparison"
 
     def source_stat_definition_ids(self) -> list[uuid.UUID]:
@@ -125,6 +133,12 @@ class ComputedStat(Base):
             return ids
         if self.sum is not None:
             return [term.source_stat_definition_id for term in self.sum.terms]
+        if self.extremum is not None:
+            return [
+                operand.source_stat_definition_id
+                for operand in self.extremum.inputs
+                if operand.source_stat_definition_id is not None
+            ]
         return []
 
 
@@ -289,17 +303,92 @@ class ComputedStatContents(Base):
     source_stat_definition_id: Mapped[uuid.UUID] = mapped_column(index=True)
 
 
+class ComputedStatExtremum(Base):
+    """`min` or `max` of two to five inputs, each a stat of the same entity or a
+    constant - ADR 0444. One table for both kinds, `pick` saying which: they hold the same
+    parameters, and a shared table keeps the read of a formula at one row for both."""
+
+    __tablename__ = "computed_stat_extremum"
+    __table_args__ = (
+        *_kind_key("computed_stat_extremum"),
+        # ADR 0117: what its inputs' same-tenant key references.
+        UniqueConstraint(
+            "entity_id",
+            "stat_definition_id",
+            "tenant_id",
+            name="computed_stat_extremum_entity_stat_tenant_key",
+        ),
+        CheckConstraint("pick IN ('min', 'max')", name="computed_stat_extremum_pick"),
+        CheckConstraint(
+            "round_mode IN ('none', 'floor', 'ceil', 'round', 'truncate')",
+            name="computed_stat_extremum_round_mode",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    pick: Mapped[str]
+    round_mode: Mapped[str] = mapped_column(server_default=text("'none'"))
+
+    inputs: Mapped[list[ComputedStatExtremumInput]] = relationship(
+        foreign_keys=(
+            "[ComputedStatExtremumInput.entity_id, ComputedStatExtremumInput.stat_definition_id]"
+        ),
+        order_by="ComputedStatExtremumInput.position",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ComputedStatExtremumInput(Base):
+    """One input of a `min` or `max`: a stat or a constant, in the order written - ADR 0444."""
+
+    __tablename__ = "computed_stat_extremum_input"
+    __table_args__ = (
+        same_tenant_fk(
+            "computed_stat_extremum_input_entity_id_stat_definition_id_fkey",
+            ["entity_id", "stat_definition_id"],
+            "computed_stat_extremum",
+            ["entity_id", "stat_definition_id"],
+            ondelete="CASCADE",
+        ),
+        same_tenant_fk(
+            "computed_stat_extremum_input_source_stat_definition_id_fkey",
+            ["source_stat_definition_id"],
+            "stat_definition",
+        ),
+        CheckConstraint(
+            "num_nonnulls(source_stat_definition_id, constant) = 1",
+            name="computed_stat_extremum_input_one_operand",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    position: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    source_stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    constant: Mapped[Decimal | None] = mapped_column(Numeric())
+
+
 def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoad]:
     """Eager loads for every formula kind's parameters, which evaluation
     and serialization read (ADR 0104, 0126): from a query on ComputedStat
-    itself, or along `path` to its computed_stat."""
+    itself, or along `path` to its computed_stat.
 
-    def load(attr: QueryableAttribute[Any]) -> _AbstractLoad:
-        return path.selectinload(attr) if path is not None else selectinload(attr)
+    A kind with one row per formula is joined into the query for the formula (ADR 0444), a kind
+    with a list of rows is one more statement: a new kind adds a join, not a statement, so a
+    read costs no more than it did before the kinds that came after the four of ADR 0104."""
+
+    def join(attr: QueryableAttribute[Any]) -> _AbstractLoad:
+        return path.joinedload(attr) if path is not None else joinedload(attr)
 
     return [
-        load(ComputedStat.linear),
-        load(ComputedStat.comparison),
-        load(ComputedStat.sum).selectinload(ComputedStatSum.terms),
-        load(ComputedStat.contents),
+        join(ComputedStat.linear),
+        join(ComputedStat.comparison),
+        join(ComputedStat.sum).selectinload(ComputedStatSum.terms),
+        join(ComputedStat.contents),
+        join(ComputedStat.extremum).selectinload(ComputedStatExtremum.inputs),
     ]
