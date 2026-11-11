@@ -38,7 +38,9 @@ from lorenzo_cli.client.models import (
     ItemOut,
     LibraryCountOut,
     LinearFormulaBodyInput,
+    MaxFormulaBodyInput,
     MeOut,
+    MinFormulaBodyInput,
     OwnedByResponse,
     PackGivenOut,
     PageAttachmentRefOut,
@@ -76,7 +78,12 @@ from lorenzo_cli.client.models import (
 
 # What PUT .../computed-stats/{id} accepts: the formula itself, of any kind.
 ComputedStatBody = (
-    LinearFormulaBodyInput | ComparisonFormulaBodyInput | SumFormulaBodyInput | ContentsFormulaBody
+    LinearFormulaBodyInput
+    | ComparisonFormulaBodyInput
+    | SumFormulaBodyInput
+    | ContentsFormulaBody
+    | MinFormulaBodyInput
+    | MaxFormulaBodyInput
 )
 
 
