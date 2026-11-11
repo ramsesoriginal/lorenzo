@@ -1,6 +1,6 @@
 # 0052 - Several game systems in one library: a system as a thing, with its own vocabulary, templates and root
 
-Status: accepted (2026-11-11), decided with the maintainer, not built; slices Y1 to Y7, each its own ADR. It takes up what
+Status: accepted (2026-11-11), decided with the maintainer, not built; slices Y1 to Y6, each its own ADR. It takes up what
 [RFC 0033](0033-item-repositories-common-equipment-rules-and-bridge.md) section 9 leaves as "a follow-up RFC" (resolving
 through the system a campaign names), what [ADR 0037](../adr/0037-effective-stat-resolution.md) names as not built
 (`game_system` as a modelled concept), the three sheet settings of
@@ -37,6 +37,8 @@ candles and text. Lorenzo assumes none of them. Today that library works only by
 12. **A template's filter is the kind and the ancestor** of RFC 0018; the campaign picks the system. A template's
     `system_id` only names its system for that pick and is not part of the filter.
 13. **The slot kinds** are `stats`, `information`, `held` and `tags`; a `features` slot is added by RFC 0054.
+14. **Data model and API only.** No app, frontend or command-line change is part of this RFC, and every existing request and
+    response keeps working as it does now (see Compatibility).
 
 ## What it is like today (tried against the API, 2026-11-10)
 
@@ -174,37 +176,44 @@ for system X" is found. A repository that holds only neutral content has none.
 - Copying a repository whose group belongs to a system the library already has joins that system, by slug; the library's
   own name and root stay.
 - A role is a collision kind of its own: two definitions with one role merge (same type) or one is skipped.
-- Merging two definitions of one name asks for a choice when their units or bounds differ, a check ADR 0119 lacks today,
-  so a unit is never silently reread.
+- Merging two definitions of one name whose units or bounds differ still merges, and keeps the library's own, as today;
+  the copy plan and the copy's response gain a `warnings` list that names each such merge, and a request may send
+  `strict_units: true` to have the copy refuse until each is resolved. A unit is then never reread without being told.
 - A repository may hold several systems, such as a bundle that relates two.
 
-### 8. The seed's layer becomes the system
+## Compatibility
 
-`lorenzo seed --layer` already sorts a vocabulary into core and a system; it creates the system row and gives the layer's
-groups and templates to it. `unseed --layer` removes what the system holds, as ADR 0168 does for a layer.
+This RFC changes the data model and the API, and only those: no app, client or command-line change is part of it. Every
+existing request keeps its path, its body, its response and its status, with these exceptions, each a fix or a relaxation:
 
-### What a person sees
+- A duplicate group or definition name on create answers 409 (`stat-group-name-taken`, `stat-definition-name-taken`) instead
+  of 500, the answers `PATCH` rename already gives.
+- A definition that holds a role can be renamed, which `PATCH` refuses today (409 `stat-name-reserved`).
+- A copy that merges definitions of different units now reports it in `warnings`.
 
-A library with one system sees what it sees today, until a template exists. A library with several has a system picker on
-its sheets and in the Bench vocabulary pane; a campaign's sheets open on its system's template; the vocabulary reads
-"neutral" and one heading per system.
+Everything else is an addition with a default that leaves behaviour as it is: new tables and nullable columns, new fields on
+responses, a `system` query value and a `strict_units` flag that are off unless sent, new endpoints. A library with no
+system and no template reads and writes as it does now, and the sheet draws from the tenant's own settings. A group takes a
+system only when its definitions already carry the prefix, so existing groups stay neutral unless their definitions are
+renamed first.
 
 ## Delivery
 
-Each slice is its own ADR, and the work is not started until the questions below are answered.
+Each slice is its own ADR.
 
 1. **Y1.** The `system` table, `stat_group.system_id`, the prefix check, a 409 on a duplicate group or definition name,
    and the extra fields on stat rows.
 2. **Y2.** Roles: the column, the backfill, the reads that use it, the collision kind.
 3. **Y3.** The `system` filter on the entity and bulk reads.
-4. **Y4.** Templates: tables, authoring, the read and matching endpoints, the registry lines; Beings and Bench draw from them.
+4. **Y4.** Templates: tables, authoring, the read and matching endpoints, the registry lines.
 5. **Y5.** `campaign.system_id`; the sheet read and the sheet settings through templates.
 6. **Y6.** Repositories: copy, update and release carry systems, templates and roles; the profile and Discover facet; the
-   unit check on merge.
-7. **Y7.** The seed layers create systems and their templates.
+   unit warnings on merge.
 
 ## Not in scope
 
+- **Apps and the command line.** Pickers, panes, drawing a template, and mapping the seed's `layer` onto systems are the
+  apps' and the CLI's own work.
 - **Unit conversion and display units**: left out for now.
 - **Features** (a character feature, a spell, a feat, an upgrade, with grants and choices): RFC 0054, which uses a
   template's slots and a system.
