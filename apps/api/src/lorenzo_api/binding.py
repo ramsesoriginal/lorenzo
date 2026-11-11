@@ -215,7 +215,7 @@ async def _bindings(
         if needing
         else Contents(stats={}, children={})
     )
-    contents = Contents(stats={**loaded.stats, **stats}, children=loaded.children)
+    contents = Contents(stats={**loaded.stats, **stats}, children=loaded.children, held=loaded.held)
     result: dict[uuid.UUID, str] = {}
     for entity_id in candidates:
         binding = _binds(

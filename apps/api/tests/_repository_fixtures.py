@@ -355,7 +355,7 @@ async def seed_every_content_table(
     session.add_all([strength, modifier, strong, alignment, might, load])
     session.add_all(
         [
-            Item(entity_id=sword.id, tenant_id=tenant_id),
+            Item(entity_id=sword.id, tenant_id=tenant_id, starts_inactive=True),
             ItemInstance(entity_id=blade.id, tenant_id=tenant_id),
             Item(entity_id=chest.id, tenant_id=tenant_id),
             Being(entity_id=elminster.id, tenant_id=tenant_id),
@@ -383,6 +383,7 @@ async def seed_every_content_table(
             ComputedStat(entity_id=chest.id, stat_definition_id=load.id, tenant_id=tenant_id),
             ComputedStat(entity_id=blade.id, stat_definition_id=load.id, tenant_id=tenant_id),
             ComputedStat(entity_id=blade.id, stat_definition_id=strong.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=guild.id, stat_definition_id=load.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=might.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
@@ -423,6 +424,19 @@ async def seed_every_content_table(
                 tenant_id=tenant_id,
                 pick="min",
                 round_mode="none",
+            ),
+            # The Guild's Load: the largest Strength of what is on and strong inside, 5 for nothing
+            # (ADR 0447).
+            ComputedStatContents(
+                entity_id=guild.id,
+                stat_definition_id=load.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=strength.id,
+                aggregate="max",
+                only_active=True,
+                only_kind="item_instance",
+                where_stat_definition_id=strong.id,
+                if_none=Decimal("5"),
             ),
             # The Blade's Strong: from a Strength of 10, otherwise not (ADR 0446).
             ComputedStatSelect(

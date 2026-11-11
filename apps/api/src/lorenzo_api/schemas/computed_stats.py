@@ -133,15 +133,40 @@ class SumFormulaBody(BaseModel):
 
 
 class ContentsFormulaBody(BaseModel):
-    """`Σ stat × quantity` over what's directly inside - ADR 0127.
-    `contents_weight` is `contents(weight)`: each thing inside's own
-    weight, formulas included, times its stack count."""
+    """An aggregate of a stat over what's directly inside - ADR 0127, and its options, ADR 0447.
+    The default is `Σ stat × quantity`: `contents_weight` is `contents(weight)`, each thing
+    inside's own weight, formulas included, times its stack count. `aggregate` may instead be
+    `min`, `max` or `count`; `count` ignores the stat (leave it out), and `min`, `max` and `count`
+    ignore the stack count. `only_active` skips a held thing whose `active` switch is off,
+    `only_kind` keeps one kind of held thing (`item_instance`), `where_stat_definition_id` is a
+    `bool` stat that must be true on the held thing, and `if_none` is what `min` and `max` of
+    nothing give (no value without it)."""
 
     kind: Literal["contents"] = "contents"
-    source_stat_definition_id: uuid.UUID
+    source_stat_definition_id: uuid.UUID | None = None
+    aggregate: Literal["sum", "min", "max", "count"] = "sum"
+    only_active: bool = False
+    only_kind: Literal["item_instance"] | None = None
+    where_stat_definition_id: uuid.UUID | None = None
+    if_none: Decimal | None = None
+
+    @model_validator(mode="after")
+    def _the_options_fit_the_aggregate(self) -> ContentsFormulaBody:
+        if self.aggregate != "count" and self.source_stat_definition_id is None:
+            raise ValueError("source_stat_definition_id is needed unless the aggregate is count")
+        if self.if_none is not None and self.aggregate not in ("min", "max"):
+            raise ValueError("if_none is for a min or a max")
+        return self
 
     def to_formula(self) -> ContentsFormula:
-        return ContentsFormula(source_stat_definition_id=self.source_stat_definition_id)
+        return ContentsFormula(
+            source_stat_definition_id=self.source_stat_definition_id,
+            aggregate=self.aggregate,
+            only_active=self.only_active,
+            only_kind=self.only_kind,
+            where_stat_definition_id=self.where_stat_definition_id,
+            if_none=self.if_none,
+        )
 
 
 class ExtremumInputBody(BaseModel):
@@ -362,7 +387,14 @@ def formula_body_of(formula: Formula) -> AnyFormulaBody:
             round_mode=formula.round_mode,
         )
     if isinstance(formula, ContentsFormula):
-        return ContentsFormulaBody(source_stat_definition_id=formula.source_stat_definition_id)
+        return ContentsFormulaBody(
+            source_stat_definition_id=formula.source_stat_definition_id,
+            aggregate=formula.aggregate,
+            only_active=formula.only_active,
+            only_kind=formula.only_kind,
+            where_stat_definition_id=formula.where_stat_definition_id,
+            if_none=formula.if_none,
+        )
     if isinstance(formula, SelectFormula):
         return SelectFormulaBody(
             source_stat_definition_id=formula.source,
@@ -468,10 +500,11 @@ class ComputedStatPreviewOut(BaseModel):
 
 class ContentsExplanationOut(BaseModel):
     """What a contents formula counted (ADR 0276): the things directly
-    inside, not one input per thing. The total is the stat's own `value`."""
+    inside it took (after its options, ADR 0447), not one input per thing. The total is the
+    stat's own `value`. The stat is empty for a `count`."""
 
-    source_stat_definition_id: uuid.UUID
-    source_name: str
+    source_stat_definition_id: uuid.UUID | None
+    source_name: str | None
     things: int
 
 

@@ -6372,7 +6372,8 @@ export interface paths {
         head?: never;
         /**
          * Update Item
-         * @description A rename, and putting it in or out of the public catalog (ADR 0116).
+         * @description A rename, putting it in or out of the public catalog (ADR 0116), and saying whether its
+         *     instances start inactive (ADR 0447).
          *     A rename is deliberately not recorded in the activity log (ADR 0084:
          *     descriptive-content edits are excluded; `updated_by` already says who
          *     last touched it); a catalog change is, since it changes who can list
@@ -9134,7 +9135,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"];
             /**
              * Updated At
              * Format: date-time
@@ -9148,7 +9149,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -9256,36 +9257,90 @@ export interface components {
         /**
          * ContentsExplanationOut
          * @description What a contents formula counted (ADR 0276): the things directly
-         *     inside, not one input per thing. The total is the stat's own `value`.
+         *     inside it took (after its options, ADR 0447), not one input per thing. The total is the
+         *     stat's own `value`. The stat is empty for a `count`.
          */
         ContentsExplanationOut: {
-            /**
-             * Source Stat Definition Id
-             * Format: uuid
-             */
-            source_stat_definition_id: string;
+            /** Source Stat Definition Id */
+            source_stat_definition_id: string | null;
             /** Source Name */
-            source_name: string;
+            source_name: string | null;
             /** Things */
             things: number;
         };
         /**
          * ContentsFormulaBody
-         * @description `Σ stat × quantity` over what's directly inside - ADR 0127.
-         *     `contents_weight` is `contents(weight)`: each thing inside's own
-         *     weight, formulas included, times its stack count.
+         * @description An aggregate of a stat over what's directly inside - ADR 0127, and its options, ADR 0447.
+         *     The default is `Σ stat × quantity`: `contents_weight` is `contents(weight)`, each thing
+         *     inside's own weight, formulas included, times its stack count. `aggregate` may instead be
+         *     `min`, `max` or `count`; `count` ignores the stat (leave it out), and `min`, `max` and `count`
+         *     ignore the stack count. `only_active` skips a held thing whose `active` switch is off,
+         *     `only_kind` keeps one kind of held thing (`item_instance`), `where_stat_definition_id` is a
+         *     `bool` stat that must be true on the held thing, and `if_none` is what `min` and `max` of
+         *     nothing give (no value without it).
          */
-        ContentsFormulaBody: {
+        "ContentsFormulaBody-Input": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "contents";
+            /** Source Stat Definition Id */
+            source_stat_definition_id?: string | null;
             /**
-             * Source Stat Definition Id
-             * Format: uuid
+             * Aggregate
+             * @default sum
+             * @enum {string}
              */
-            source_stat_definition_id: string;
+            aggregate: "sum" | "min" | "max" | "count";
+            /**
+             * Only Active
+             * @default false
+             */
+            only_active: boolean;
+            /** Only Kind */
+            only_kind?: "item_instance" | null;
+            /** Where Stat Definition Id */
+            where_stat_definition_id?: string | null;
+            /** If None */
+            if_none?: number | string | null;
+        };
+        /**
+         * ContentsFormulaBody
+         * @description An aggregate of a stat over what's directly inside - ADR 0127, and its options, ADR 0447.
+         *     The default is `Σ stat × quantity`: `contents_weight` is `contents(weight)`, each thing
+         *     inside's own weight, formulas included, times its stack count. `aggregate` may instead be
+         *     `min`, `max` or `count`; `count` ignores the stat (leave it out), and `min`, `max` and `count`
+         *     ignore the stack count. `only_active` skips a held thing whose `active` switch is off,
+         *     `only_kind` keeps one kind of held thing (`item_instance`), `where_stat_definition_id` is a
+         *     `bool` stat that must be true on the held thing, and `if_none` is what `min` and `max` of
+         *     nothing give (no value without it).
+         */
+        "ContentsFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "contents";
+            /** Source Stat Definition Id */
+            source_stat_definition_id?: string | null;
+            /**
+             * Aggregate
+             * @default sum
+             * @enum {string}
+             */
+            aggregate: "sum" | "min" | "max" | "count";
+            /**
+             * Only Active
+             * @default false
+             */
+            only_active: boolean;
+            /** Only Kind */
+            only_kind?: "item_instance" | null;
+            /** Where Stat Definition Id */
+            where_stat_definition_id?: string | null;
+            /** If None */
+            if_none?: string | null;
         };
         /**
          * ContentsResultItem
@@ -9498,6 +9553,8 @@ export interface components {
             slug: string | null;
             /** Bound */
             bound: boolean;
+            /** Active */
+            active: boolean;
             /** Visible To Characters */
             visible_to_characters: boolean;
         };
@@ -11325,6 +11382,8 @@ export interface components {
              * @default false
              */
             in_public_catalog: boolean;
+            /** Starts Inactive */
+            starts_inactive?: boolean | null;
             /** Slug */
             slug?: string | null;
         };
@@ -11366,6 +11425,8 @@ export interface components {
              * @default false
              */
             override: boolean;
+            /** Active */
+            active?: boolean | null;
         };
         /**
          * ItemInstanceOut
@@ -11431,6 +11492,8 @@ export interface components {
             slug: string | null;
             /** Bound */
             bound: boolean;
+            /** Active */
+            active: boolean;
         };
         /**
          * ItemInstanceUpdate
@@ -11444,6 +11507,8 @@ export interface components {
             name?: string | null;
             /** Prototype Id */
             prototype_id?: string | null;
+            /** Active */
+            active?: boolean | null;
         };
         /**
          * ItemOut
@@ -11504,17 +11569,21 @@ export interface components {
             updated_at: string;
             /** In Public Catalog */
             in_public_catalog: boolean;
+            /** Starts Inactive */
+            starts_inactive: boolean;
         };
         /**
          * ItemUpdate
-         * @description PATCH /items/{id} - Entity.name, and the Item row's own
-         *     in_public_catalog (ADR 0116). Either left out stays as it is.
+         * @description PATCH /items/{id} - Entity.name, and the Item row's own in_public_catalog (ADR 0116) and
+         *     starts_inactive (ADR 0447). Any left out stays as it is.
          */
         ItemUpdate: {
             /** Name */
             name?: string | null;
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
+            /** Starts Inactive */
+            starts_inactive?: boolean | null;
         };
         /** JoinAcknowledgement */
         JoinAcknowledgement: {
@@ -16978,7 +17047,7 @@ export interface components {
             /** From Hidden */
             from_hidden?: boolean | null;
             /** Formula */
-            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"]) | null;
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"]) | null;
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
             contents: components["schemas"]["ContentsExplanationOut"] | null;
@@ -41329,7 +41398,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"];
             };
         };
         responses: {

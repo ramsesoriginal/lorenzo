@@ -250,16 +250,20 @@ class ItemCreate(BaseModel):
     name: str
     prototype_ids: list[uuid.UUID] = []
     in_public_catalog: bool = False
+    # ADR 0447: its instances start with the `active` switch off, as an item that needs attunement
+    # does. Left out is false, so a client built before it keeps sending what it did.
+    starts_inactive: bool | None = None
     slug: Slug | None = None
 
 
 class ItemUpdate(BaseModel):
-    """PATCH /items/{id} - Entity.name, and the Item row's own
-    in_public_catalog (ADR 0116). Either left out stays as it is.
+    """PATCH /items/{id} - Entity.name, and the Item row's own in_public_catalog (ADR 0116) and
+    starts_inactive (ADR 0447). Any left out stays as it is.
     """
 
     name: str | None = None
     in_public_catalog: bool | None = None
+    starts_inactive: bool | None = None
 
 
 def _prototype_ids_out(entity: Entity, visibility: InformationReader) -> list[uuid.UUID]:
@@ -377,6 +381,8 @@ class ItemOut(_ItemFields):
     """
 
     in_public_catalog: bool
+    # ADR 0447: its instances start with the `active` switch off.
+    starts_inactive: bool
 
     @classmethod
     def from_v_item(
@@ -391,6 +397,7 @@ class ItemOut(_ItemFields):
         return cls(
             **_common_item_fields(view, request, visibility=visibility, ancestors=ancestors),
             in_public_catalog=item is not None and item.in_public_catalog,
+            starts_inactive=item is not None and item.starts_inactive,
         )
 
 
@@ -416,6 +423,9 @@ class ItemInstanceCreate(BaseModel):
     quantity: int = Field(default=1, ge=1)
     # ADR 0128: a GM creates it inside anyway, past capacity.
     override: bool = False
+    # ADR 0447: the `active` switch; left out, it starts as its prototype says (on, unless the
+    # prototype `starts_inactive`).
+    active: bool | None = None
 
     @model_validator(mode="after")
     def _a_stack_needs_a_container(self) -> Self:
@@ -438,6 +448,15 @@ class ItemInstanceUpdate(BaseModel):
     # What the instance is: replaces its prototype. A manager's alone (ADR 0192),
     # and the name and notes stay.
     prototype_id: uuid.UUID | None = None
+    # ADR 0447: the `active` switch, by the rule that lets someone who holds the instance edit it.
+    # It cannot be null.
+    active: bool | None = None
+
+    @model_validator(mode="after")
+    def _active_is_not_null(self) -> ItemInstanceUpdate:
+        if "active" in self.model_fields_set and self.active is None:
+            raise ValueError("active is on or off, not null")
+        return self
 
 
 class SetOwnerRequest(BaseModel):
@@ -543,6 +562,8 @@ class ItemInstanceOut(_ItemFields):
     slug: str | None
     # ADR 0129: its owner can't change, and it can't leave what binds it.
     bound: bool
+    # ADR 0447: whether it counts where a formula asks for what is switched on; its holder flips it.
+    active: bool
 
     @classmethod
     def from_v_item_instance(
@@ -561,6 +582,7 @@ class ItemInstanceOut(_ItemFields):
             owner_entity_id=view.owner_entity_id,
             slug=view.slug,
             bound=view.bound,
+            active=view.active,
         )
 
 

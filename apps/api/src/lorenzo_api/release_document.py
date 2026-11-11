@@ -47,7 +47,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 39
+FORMAT = 40
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -294,6 +294,12 @@ _SELECT_STEP = _dataclass(
 _FORMULA = _dataclass(
     Formula,
     {
+        # A contents formula (ADR 0447): its aggregate, options and the stat it filters by.
+        "aggregate": _PLAIN,
+        "only_active": _PLAIN,
+        "only_kind": _PLAIN,
+        "where": _optional(_ID),
+        "if_none": _optional(_DECIMAL),
         # A select (ADR 0446): its mode, its steps and the result when none applies.
         "select_mode": _PLAIN,
         "steps": _optional(
@@ -369,6 +375,7 @@ _CONTENT = _dataclass(
         "entities": _id_map(_PLAIN),
         "kinds": _id_map(_TEXT_SET),
         "in_public_catalog": _id_map(_PLAIN),
+        "starts_inactive": _id_map(_PLAIN),
         "slugs": _id_map(_PLAIN),
         "prototypes": _pairs(_ID, _ID),
         "groups": _id_map(
@@ -789,6 +796,27 @@ def _read_v38(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v39(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 40 a contents formula had no options and an item no `starts_inactive`
+    # (ADR 0447): a contents formula is a sum of every thing inside, an item starts active.
+    formulas = [
+        [
+            entity,
+            definition,
+            {
+                "aggregate": "sum" if record["kind"] == "contents" else None,
+                "only_active": False if record["kind"] == "contents" else None,
+                "only_kind": None,
+                "where": None,
+                "if_none": None,
+                **record,
+            },
+        ]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v40({**document, "formulas": formulas, "starts_inactive": {}}, files)
+
+
+def _read_v40(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -835,6 +863,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     37: _read_v37,
     38: _read_v38,
     39: _read_v39,
+    40: _read_v40,
 }
 
 

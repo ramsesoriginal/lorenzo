@@ -179,13 +179,19 @@ class Formula:
     # A `min` or `max`'s (stat, constant) operands, in order, one of the two each (ADR 0444); the
     # kind is `min` or `max`.
     operands: list[tuple[uuid.UUID | None, Decimal | None]] | None = None
+    # A contents formula (ADR 0447): its aggregate, options and the stat it filters by.
+    aggregate: str | None = None
+    only_active: bool | None = None
+    only_kind: str | None = None
+    where: uuid.UUID | None = None
+    if_none: Decimal | None = None
     # A select (ADR 0446): `source` is its source stat; the mode, the steps and `otherwise`.
     select_mode: str | None = None
     steps: list[SelectStepData] | None = None
     otherwise: SelectResultData | None = None
 
     def inputs(self) -> list[uuid.UUID]:
-        own = [i for i in (self.source, self.left, self.right) if i is not None]
+        own = [i for i in (self.source, self.left, self.right, self.where) if i is not None]
         results = [step.result for step in self.steps or []]
         if self.otherwise is not None:
             results.append(self.otherwise)
@@ -245,6 +251,8 @@ class Content:
     entities: dict[uuid.UUID, str] = field(default_factory=dict)
     kinds: dict[uuid.UUID, set[str]] = field(default_factory=lambda: defaultdict(set))
     in_public_catalog: dict[uuid.UUID, bool] = field(default_factory=dict)
+    # An item whose instances start with the `active` switch off (ADR 0447).
+    starts_inactive: dict[uuid.UUID, bool] = field(default_factory=dict)
     slugs: dict[uuid.UUID, str] = field(default_factory=dict)
     prototypes: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     groups: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
@@ -505,11 +513,12 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     c.scenes = dict(await rows(Scene.entity_id, Scene.period_entity_id, where=Scene.tenant_id == t))
     for entity_id in c.scenes:
         c.kinds[entity_id].add("scene")
-    for entity_id, public in await rows(
-        Item.entity_id, Item.in_public_catalog, where=Item.tenant_id == t
+    for entity_id, public, inactive in await rows(
+        Item.entity_id, Item.in_public_catalog, Item.starts_inactive, where=Item.tenant_id == t
     ):
         c.kinds[entity_id].add("item")
         c.in_public_catalog[entity_id] = public
+        c.starts_inactive[entity_id] = inactive
     for kind, model in (
         ("book", Book),
         ("carrier", Carrier),
@@ -666,7 +675,7 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             (term.source_stat_definition_id, term.coefficient)
         )
     contained = {
-        (row.entity_id, row.stat_definition_id): row.source_stat_definition_id
+        (row.entity_id, row.stat_definition_id): row
         for row in (
             await session.scalars(
                 select(ComputedStatContents).where(ComputedStatContents.tenant_id == t)
@@ -813,7 +822,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
                 false_value=cmp.false_value,
             )
         elif (e, d) in contained:
-            c.formulas[(e, d)] = Formula(kind="contents", source=contained[(e, d)])
+            held = contained[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="contents",
+                source=held.source_stat_definition_id,
+                aggregate=held.aggregate,
+                only_active=held.only_active,
+                only_kind=held.only_kind,
+                where=held.where_stat_definition_id,
+                if_none=held.if_none,
+            )
         elif (e, d) in sums:
             c.formulas[(e, d)] = Formula(
                 kind="sum",
@@ -1345,8 +1363,23 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "round_mode": formula.round_mode,
         }
     if formula.kind == "contents":
-        assert formula.source is not None
-        return {"kind": "contents", "source": name("stat_definition", formula.source)}
+        # Only what is not the default is said, so the snapshot of a contents formula that sums
+        # everything is what it was before ADR 0447 and no update is proposed for it.
+        contents: dict[str, Any] = {
+            "kind": "contents",
+            "source": None if formula.source is None else name("stat_definition", formula.source),
+        }
+        if formula.aggregate not in (None, "sum"):
+            contents["aggregate"] = formula.aggregate
+        if formula.only_active:
+            contents["only_active"] = True
+        if formula.only_kind is not None:
+            contents["only_kind"] = formula.only_kind
+        if formula.where is not None:
+            contents["where"] = name("stat_definition", formula.where)
+        if formula.if_none is not None:
+            contents["if_none"] = str(formula.if_none)
+        return contents
     if formula.kind == "sum":
         assert formula.terms is not None
         return {
@@ -1562,6 +1595,9 @@ def entity_snapshot(
         "name": content.entities[entity_id],
         "kinds": sorted(content.kinds.get(entity_id, ())),
         "in_public_catalog": content.in_public_catalog.get(entity_id),
+        # Said only when true, so the snapshot of an item that starts active is what it was
+        # before ADR 0447 (no update is proposed for it).
+        "starts_inactive": content.starts_inactive.get(entity_id) or None,
         "slug": content.slugs.get(entity_id),
         "prototypes": sorted(name("entity", p) for p in index.prototypes.get(entity_id, [])),
         "stat_groups": sorted(name("stat_group", g) for g in index.groups.get(entity_id, [])),

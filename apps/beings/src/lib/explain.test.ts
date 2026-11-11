@@ -137,6 +137,41 @@ describe('explain', () => {
     expect(ratio.text).toBe('Dexterity ÷ 3, rounded down, the division rounded to 28 digits');
   });
 
+  it('says a contents formula by its aggregate and what it keeps', () => {
+    const best = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'contents',
+          source_stat_definition_id: 'armour',
+          aggregate: 'max',
+          only_active: true,
+        },
+        inputs: [],
+        contents: { source_stat_definition_id: 'armour', source_name: 'armour_base', things: 2 },
+      } as Explanation,
+      names,
+    );
+    const attuned = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'contents',
+          source_stat_definition_id: null,
+          aggregate: 'count',
+          only_active: false,
+        },
+        inputs: [],
+        contents: { source_stat_definition_id: null, source_name: null, things: 3 },
+      } as Explanation,
+      names,
+    );
+
+    expect(best.text).toBe('The largest Armour base of what is inside that is switched on');
+    expect(attuned.text).toBe('How many things inside');
+    expect(attuned.parts).toEqual([{ label: 'Things inside', value: '3' }]);
+  });
+
   it('says a cap and a floor by what they compare', () => {
     const cap = explain(
       {
@@ -171,7 +206,12 @@ describe('explain', () => {
     const out = explain(
       {
         ...base,
-        formula: { kind: 'contents', source_stat_definition_id: 'dex' },
+        formula: {
+          kind: 'contents',
+          source_stat_definition_id: 'dex',
+          aggregate: 'sum',
+          only_active: false,
+        },
         inputs: [],
         contents: { source_stat_definition_id: 'dex', source_name: 'dexterity', things: 4 },
       } as Explanation,

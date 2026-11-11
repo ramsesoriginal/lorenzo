@@ -111,7 +111,9 @@ def full_content() -> Content:
             comparator="lt",
             right_constant=Decimal("15.250"),
         ),
-        (chest, load): Formula(kind="contents", source=strength),
+        (chest, load): Formula(
+            kind="contents", source=strength, aggregate="sum", only_active=False
+        ),
         (sword, might): Formula(
             kind="sum",
             offset=Decimal("1"),

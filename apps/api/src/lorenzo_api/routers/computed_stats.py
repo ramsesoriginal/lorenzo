@@ -129,6 +129,40 @@ async def _get_own_formula(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+def _check_contents(
+    formula: ContentsFormula,
+    target: StatDefinition,
+    inputs: dict[uuid.UUID, StatDefinition],
+    invalid: Callable[[str], InvalidComputedStatError],
+) -> None:
+    """ADR 0127 and 0447: what a contents formula reads, and the options that fit it."""
+    if target.value_type not in _NUMERIC:
+        raise invalid("a contents formula produces a number, so the stat must be int or float")
+    source = (
+        None
+        if formula.source_stat_definition_id is None
+        else inputs[formula.source_stat_definition_id]
+    )
+    if source is not None:
+        if source.value_type not in _NUMERIC:
+            raise invalid(f"a contents formula reads numbers, and {source.name!r} isn't one")
+        if target.value_type is StatValueType.INT and source.value_type is not StatValueType.INT:
+            raise invalid(
+                f"an int stat can't take {source.name!r}, a float: the result could be a "
+                "fraction, and a contents formula doesn't round"
+            )
+    if formula.where_stat_definition_id is not None:
+        where = inputs[formula.where_stat_definition_id]
+        if where.value_type is not StatValueType.BOOL:
+            raise invalid(f"where is a bool stat, and {where.name!r} isn't one")
+    if (
+        formula.if_none is not None
+        and target.value_type is StatValueType.INT
+        and formula.if_none != formula.if_none.to_integral_value()
+    ):
+        raise invalid("an int stat takes a whole number as if_none")
+
+
 def _check_select(
     formula: SelectFormula,
     target: StatDefinition,
@@ -276,16 +310,7 @@ def _check_types(
         return
 
     if isinstance(formula, ContentsFormula):
-        source = inputs[formula.source_stat_definition_id]
-        if source.value_type not in _NUMERIC:
-            raise invalid(f"a contents formula adds up numbers, and {source.name!r} isn't one")
-        if target.value_type not in _NUMERIC:
-            raise invalid("a contents formula produces a number, so the stat must be int or float")
-        if target.value_type is StatValueType.INT and source.value_type is not StatValueType.INT:
-            raise invalid(
-                f"an int stat can't add up {source.name!r}, a float: the total could be a "
-                "fraction, and a contents formula doesn't round"
-            )
+        _check_contents(formula, target, inputs, invalid)
         return
 
     if isinstance(formula, SumFormula):
@@ -524,7 +549,13 @@ def _concrete_row(
         )
     if isinstance(formula, ContentsFormula):
         return ComputedStatContents(
-            **key, source_stat_definition_id=formula.source_stat_definition_id
+            **key,
+            source_stat_definition_id=formula.source_stat_definition_id,
+            aggregate=formula.aggregate,
+            only_active=formula.only_active,
+            only_kind=formula.only_kind,
+            where_stat_definition_id=formula.where_stat_definition_id,
+            if_none=formula.if_none,
         )
     if isinstance(formula, SumFormula):
         return ComputedStatSum(
@@ -811,7 +842,8 @@ async def list_stat_dependents(
     contained = (
         await session.execute(
             select(ComputedStatContents.entity_id, ComputedStatContents.stat_definition_id).where(
-                ComputedStatContents.source_stat_definition_id == stat_definition_id,
+                (ComputedStatContents.source_stat_definition_id == stat_definition_id)
+                | (ComputedStatContents.where_stat_definition_id == stat_definition_id),
                 ComputedStatContents.tenant_id == tenant_id,
             )
         )

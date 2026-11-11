@@ -674,7 +674,8 @@ async def explain_entity_stat(
         if any(s.computed_stat is not None and s.computed_stat.contents for s in stats)
         else None
     )
-    values = evaluate(stats, entity_id=entity_id, contents=contents)
+    counted: dict[tuple[uuid.UUID | None, ContentsFormula], int] = {}
+    values = evaluate(stats, entity_id=entity_id, contents=contents, counted=counted)
     winner = next((s for s in stats if s.stat_definition_id == definition.id), None)
     if winner is None or definition.id not in values:
         raise EntityStatNotFoundError(
@@ -689,7 +690,9 @@ async def explain_entity_stat(
     names = {s.stat_definition_id: s.stat_definition.name for s in stats}
     wanted = [] if formula is None else input_ids(formula)
     if isinstance(formula, ContentsFormula):
-        wanted = [formula.source_stat_definition_id]
+        wanted = (
+            [] if formula.source_stat_definition_id is None else [formula.source_stat_definition_id]
+        )
     missing = [i for i in wanted if i not in names]
     if missing:
         names |= {
@@ -771,8 +774,12 @@ async def explain_entity_stat(
         contents=(
             ContentsExplanationOut(
                 source_stat_definition_id=formula.source_stat_definition_id,
-                source_name=names.get(formula.source_stat_definition_id, ""),
-                things=len(contents.children.get(entity_id, ())) if contents is not None else 0,
+                source_name=(
+                    None
+                    if formula.source_stat_definition_id is None
+                    else names.get(formula.source_stat_definition_id, "")
+                ),
+                things=counted.get((entity_id, formula), 0),
             )
             if isinstance(formula, ContentsFormula)
             else None

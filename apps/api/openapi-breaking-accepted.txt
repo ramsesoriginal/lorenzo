@@ -1000,3 +1000,13 @@ GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components
 PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/SelectFormulaBody-Output` to the `formula` response property `oneOf` list for the response status `200`
 GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added `#/components/schemas/SelectFormulaBody-Output` to the `formula/anyOf[subschema #1]` response property `oneOf` list for the response status `200`
 GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `select` enum value to the `items/kind` response property for the response status `200`
+
+# ADR 0447 (RFC 0053): a contents formula takes options, so its body is a different schema for a request and a response, as every
+# formula body with a default is, and a contents explanation may have no stat (a count).
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components/schemas/ContentsFormulaBody-Output` to the `items/formula` response property `oneOf` list for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} removed `#/components/schemas/ContentsFormulaBody` from the request body `anyOf` list
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/ContentsFormulaBody-Output` to the `formula` response property `oneOf` list for the response status `200`
+POST /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id}/preview removed `#/components/schemas/ContentsFormulaBody` from the `anyOf[subschema #1: ComputedStatPreviewIn]/formula/anyOf[subschema #1]/` request property `oneOf` list
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation response property `contents/anyOf[subschema #1: ContentsExplanationOut]/source_name` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation response property `contents/anyOf[subschema #1: ContentsExplanationOut]/source_stat_definition_id` list-of-types was widened by adding types `null` to media type `application/json` of response `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added `#/components/schemas/ContentsFormulaBody-Output` to the `formula/anyOf[subschema #1]` response property `oneOf` list for the response status `200`

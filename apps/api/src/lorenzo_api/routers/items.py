@@ -427,7 +427,12 @@ async def create_item(
     if body.slug is not None:
         session.add(EntitySlug(entity_id=entity.id, tenant_id=tenant_id, slug=body.slug))
     session.add(
-        Item(entity_id=entity.id, tenant_id=tenant_id, in_public_catalog=body.in_public_catalog)
+        Item(
+            entity_id=entity.id,
+            tenant_id=tenant_id,
+            in_public_catalog=body.in_public_catalog,
+            starts_inactive=bool(body.starts_inactive),
+        )
     )
     for position, prototype_id in enumerate(dict.fromkeys(body.prototype_ids)):
         session.add(
@@ -467,7 +472,8 @@ async def update_item(
     user: CurrentUser,
     if_match: Annotated[str | None, Header()] = None,
 ) -> ItemOut:
-    """A rename, and putting it in or out of the public catalog (ADR 0116).
+    """A rename, putting it in or out of the public catalog (ADR 0116), and saying whether its
+    instances start inactive (ADR 0447).
     A rename is deliberately not recorded in the activity log (ADR 0084:
     descriptive-content edits are excluded; `updated_by` already says who
     last touched it); a catalog change is, since it changes who can list
@@ -495,6 +501,22 @@ async def update_item(
             target_type="item",
             target_id=entity_id,
             detail=f"in_public_catalog={public}",
+        )
+    starts_inactive = update.get("starts_inactive")
+    if starts_inactive is not None and starts_inactive != item.starts_inactive:
+        # Whether its instances start with the `active` switch off (ADR 0447): the instances it
+        # already has keep theirs.
+        item.starts_inactive = starts_inactive
+        entity.updated_by = user.id
+        entity.updated_at = func.now()
+        await record_activity(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            action="item.starts_inactive_set",
+            target_type="item",
+            target_id=entity_id,
+            detail=f"starts_inactive={starts_inactive}",
         )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)

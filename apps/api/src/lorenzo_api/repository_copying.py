@@ -704,10 +704,20 @@ class _Planner:
                         "entity_id": new,
                         "tenant_id": tenant_id,
                         "in_public_catalog": c.in_public_catalog.get(e, False),
+                        "starts_inactive": c.starts_inactive.get(e, False),
                     }
                 )
             if "item_instance" in kinds:
-                self.rows["item_instance"].append({"entity_id": new, "tenant_id": tenant_id})
+                # A copy makes a new instance, which starts as its prototypes say (ADR 0447).
+                self.rows["item_instance"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "active": not any(
+                            c.starts_inactive.get(p, False) for p in index.prototypes.get(e, [])
+                        ),
+                    }
+                )
             if "being" in kinds:
                 self.rows["being"].append({"entity_id": new, "tenant_id": tenant_id})
             if "character" in kinds:
@@ -967,9 +977,20 @@ class _Planner:
                     }
                 )
             elif formula.kind == "contents":
-                assert formula.source is not None
                 self.rows["computed_stat_contents"].append(
-                    key | {"source_stat_definition_id": inputs[formula.source]}
+                    key
+                    | {
+                        "source_stat_definition_id": (
+                            inputs[formula.source] if formula.source else None
+                        ),
+                        "aggregate": formula.aggregate or "sum",
+                        "only_active": bool(formula.only_active),
+                        "only_kind": formula.only_kind,
+                        "where_stat_definition_id": (
+                            inputs[formula.where] if formula.where else None
+                        ),
+                        "if_none": formula.if_none,
+                    }
                 )
             elif formula.kind == "sum":
                 assert formula.terms is not None
@@ -2421,7 +2442,10 @@ async def forget_copy(
             exists().where(
                 ComputedStatContents.entity_id == ComputedStat.entity_id,
                 ComputedStatContents.stat_definition_id == ComputedStat.stat_definition_id,
-                ComputedStatContents.source_stat_definition_id.in_(all_definitions),
+                or_(
+                    ComputedStatContents.source_stat_definition_id.in_(all_definitions),
+                    ComputedStatContents.where_stat_definition_id.in_(all_definitions),
+                ),
             ),
         )
         own_formulas = (ComputedStat.tenant_id == t) & ComputedStat.entity_id.not_in(entities)

@@ -22,7 +22,7 @@ from lorenzo_cli.client.models import (
     CalendarImportRequest,
     ComparisonFormulaBodyInput,
     ComputedStatOut,
-    ContentsFormulaBody,
+    ContentsFormulaBodyInput,
     CopyOut,
     CopyPlanOut,
     CopyRequest,
@@ -84,7 +84,7 @@ ComputedStatBody = (
     LinearFormulaBodyInput
     | ComparisonFormulaBodyInput
     | SumFormulaBodyInput
-    | ContentsFormulaBody
+    | ContentsFormulaBodyInput
     | MinFormulaBodyInput
     | MaxFormulaBodyInput
     | ProductFormulaBodyInput

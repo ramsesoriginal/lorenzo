@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from sqlalchemy import true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from lorenzo_api.db import Base, TenantFk, same_tenant_fk
@@ -37,6 +38,9 @@ class ItemInstance(Base):
 
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
+    # Whether it counts where a formula asks for what is switched on (ADR 0447): true unless its
+    # holder says otherwise. It does not move, free or bind the thing.
+    active: Mapped[bool] = mapped_column(server_default=true(), default=True)
 
     entity: Mapped[Entity] = relationship(
         foreign_keys="ItemInstance.entity_id", lazy="raise_on_sql", back_populates="item_instance"

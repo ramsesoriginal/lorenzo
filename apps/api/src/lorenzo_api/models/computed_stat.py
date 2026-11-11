@@ -5,7 +5,14 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Numeric, UniqueConstraint, text
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKeyConstraint,
+    Numeric,
+    UniqueConstraint,
+    false,
+    text,
+)
 from sqlalchemy.orm import Mapped, QueryableAttribute, joinedload, mapped_column, relationship
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
@@ -325,8 +332,12 @@ class ComputedStatSumTerm(Base):
 
 
 class ComputedStatContents(Base):
-    """`Σ stat × quantity` over what's directly inside the entity, the stat
-    resolved on each thing inside - ADR 0127."""
+    """An aggregate of a stat over what's directly inside the entity, the stat resolved on each
+    thing inside - ADR 0127, and its options, ADR 0447. The default, `Σ stat × quantity`, is
+    ADR 0127's; `aggregate` may instead be `min`, `max` or `count` (which ignores the stat, so
+    the source is empty then), `only_active` skips a held thing whose `active` switch is off,
+    `only_kind` keeps one kind of held thing, `where` a `bool` stat that must be true on the
+    held thing, and `if_none` is what `min` and `max` of nothing give."""
 
     __tablename__ = "computed_stat_contents"
     __table_args__ = (
@@ -336,12 +347,37 @@ class ComputedStatContents(Base):
             ["source_stat_definition_id"],
             "stat_definition",
         ),
+        same_tenant_fk(
+            "computed_stat_contents_where_stat_definition_id_fkey",
+            ["where_stat_definition_id"],
+            "stat_definition",
+        ),
+        CheckConstraint(
+            "aggregate IN ('sum', 'min', 'max', 'count')", name="computed_stat_contents_aggregate"
+        ),
+        CheckConstraint(
+            "only_kind IS NULL OR only_kind IN ('item_instance')",
+            name="computed_stat_contents_only_kind",
+        ),
+        CheckConstraint(
+            "aggregate = 'count' OR source_stat_definition_id IS NOT NULL",
+            name="computed_stat_contents_source_unless_count",
+        ),
+        CheckConstraint(
+            "if_none IS NULL OR aggregate IN ('min', 'max')",
+            name="computed_stat_contents_if_none_for_min_max",
+        ),
     )
 
     entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     tenant_id: Mapped[TenantFk]
-    source_stat_definition_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    source_stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    aggregate: Mapped[str] = mapped_column(server_default=text("'sum'"))
+    only_active: Mapped[bool] = mapped_column(server_default=false())
+    only_kind: Mapped[str | None]
+    where_stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    if_none: Mapped[Decimal | None] = mapped_column(Numeric())
 
 
 class ComputedStatExtremum(Base):

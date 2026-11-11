@@ -219,7 +219,9 @@ class CapacityCheck:
             .execution_options(populate_existing=True)
         ):
             own[stat.entity_id].append(stat)
-        contents = Contents(stats={**loaded.stats, **own}, children=loaded.children)
+        contents = Contents(
+            stats={**loaded.stats, **own}, children=loaded.children, held=loaded.held
+        )
         overrides = {
             key: (ContentsFormula(self.known[load_name]), StatValueType.FLOAT)
             for load_name, key in _LOADS.values()

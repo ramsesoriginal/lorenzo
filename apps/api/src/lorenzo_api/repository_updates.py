@@ -396,7 +396,7 @@ class Names:
         return found if isinstance(found, str) and found else None
 
 
-_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator")
+_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator", "where")
 
 
 def _formula_inputs(formula: Any) -> list[str]:
@@ -1336,6 +1336,13 @@ class _Applier:
             return True
         if name == "kinds":
             return await self._kinds(row, change)
+        if name == "starts_inactive":
+            await s.execute(
+                update(Item)
+                .where(Item.entity_id == e, Item.tenant_id == t)
+                .values(starts_inactive=bool(change.upstream))
+            )
+            return True
         if name == "in_public_catalog":
             if change.upstream is None:
                 # The entry stopped being an item upstream: the kind is what is removed, or
@@ -1590,7 +1597,13 @@ class _Applier:
         elif formula["kind"] == "contents":
             await s.execute(
                 insert(ComputedStatContents).values(
-                    **keys, source_stat_definition_id=inputs["source"]
+                    **keys,
+                    source_stat_definition_id=inputs.get("source"),
+                    aggregate=formula.get("aggregate") or "sum",
+                    only_active=bool(formula.get("only_active")),
+                    only_kind=formula.get("only_kind"),
+                    where_stat_definition_id=inputs.get("where"),
+                    if_none=formula.get("if_none"),
                 )
             )
         elif formula["kind"] == "sum":
@@ -1657,6 +1670,7 @@ class _Applier:
                 values: dict[str, Any] = {"entity_id": e, "tenant_id": t}
                 if kind == "item":
                     values["in_public_catalog"] = bool(row.upstream.get("in_public_catalog"))
+                    values["starts_inactive"] = bool(row.upstream.get("starts_inactive"))
                 await s.execute(insert(_MARKER_MODELS[kind]).values(**values))
                 if kind == "fact" and await s.get(EntityAudience, e) is None:
                     s.add(EntityAudience(entity_id=e, tenant_id=t, is_public=False))

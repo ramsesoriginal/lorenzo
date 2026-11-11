@@ -88,8 +88,21 @@ export function explain(explanation: Explanation, names: ReadonlyMap<string, str
     case 'contents': {
       const counted = explanation.contents;
 
+      // What is counted, as the options say (ADR 0447): all of it, or what is switched on.
+      const aggregate = formula.aggregate ?? 'sum';
+      const stat = formula.source_stat_definition_id
+        ? label(formula.source_stat_definition_id)
+        : '';
+      const which = formula.only_active ? ' that is switched on' : '';
+      const text =
+        aggregate === 'count'
+          ? `How many things inside${which}`
+          : aggregate === 'sum'
+            ? `${stat} of what is inside${which}, each times how many`
+            : `The ${aggregate === 'min' ? 'smallest' : 'largest'} ${stat} of what is inside${which}`;
+
       return {
-        text: `${label(formula.source_stat_definition_id)} of what is inside, each times how many`,
+        text,
         parts: counted ? [{ label: 'Things inside', value: String(counted.things) }] : parts,
       };
     }

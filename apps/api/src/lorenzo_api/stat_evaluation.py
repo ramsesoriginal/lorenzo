@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import (
     ROUND_CEILING,
     ROUND_DOWN,
@@ -98,9 +98,19 @@ class SumFormula:
 
 @dataclass(frozen=True, slots=True)
 class ContentsFormula:
-    """`Σ stat × quantity` over what's directly inside - ADR 0127."""
+    """An aggregate of a stat over what's directly inside - ADR 0127, and its options, ADR 0447.
+    The default, `Σ stat × quantity`, is ADR 0127's. `aggregate` may be `min`, `max` or `count`
+    (which ignores the stat, so `source_stat_definition_id` may be empty then); `only_active`
+    skips a held thing whose `active` switch is off, `only_kind` keeps one kind of held thing,
+    `where_stat_definition_id` is a `bool` stat that must be true on the held thing, and
+    `if_none` is what `min` and `max` of nothing give."""
 
-    source_stat_definition_id: uuid.UUID
+    source_stat_definition_id: uuid.UUID | None
+    aggregate: str = "sum"
+    only_active: bool = False
+    only_kind: str | None = None
+    where_stat_definition_id: uuid.UUID | None = None
+    if_none: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,10 +203,21 @@ Formula = (
 class Contents:
     """What contents formulas read (ADR 0127): the effective stats of
     every entity in a containment subtree, and what's directly inside each,
-    with its stack count."""
+    with its stack count. `held` says, of a thing inside, its kind and whether its `active`
+    switch is on (ADR 0447); a thing it does not list has no kind and no switch."""
 
     stats: Mapping[uuid.UUID, Sequence[VEffectiveStat]]
     children: Mapping[uuid.UUID, Sequence[tuple[uuid.UUID, int]]]
+    held: Mapping[uuid.UUID, HeldThing] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class HeldThing:
+    """What a contents formula asks of a thing inside (ADR 0447): its kind, `item_instance` or
+    None for a thing that is not one, and its `active` switch (true for a thing without one)."""
+
+    kind: str | None
+    active: bool
 
 
 class _Cycle:
@@ -244,8 +265,14 @@ def formula_of(computed: ComputedStat) -> Formula | None:
             round_mode=RoundMode(row_sum.round_mode),
         )
     if computed.contents is not None:
+        held = computed.contents
         return ContentsFormula(
-            source_stat_definition_id=computed.contents.source_stat_definition_id
+            source_stat_definition_id=held.source_stat_definition_id,
+            aggregate=held.aggregate,
+            only_active=held.only_active,
+            only_kind=held.only_kind,
+            where_stat_definition_id=held.where_stat_definition_id,
+            if_none=held.if_none,
         )
     if computed.select is not None:
         chosen = computed.select
@@ -319,8 +346,14 @@ def formula_of(computed: ComputedStat) -> Formula | None:
 
 def input_ids(formula: Formula) -> list[uuid.UUID]:
     """The stats a formula reads - for a contents formula, on each thing
-    inside."""
-    if isinstance(formula, LinearFormula | ContentsFormula):
+    inside: its stat, when it has one, and the stat it filters by."""
+    if isinstance(formula, ContentsFormula):
+        return [
+            i
+            for i in (formula.source_stat_definition_id, formula.where_stat_definition_id)
+            if i is not None
+        ]
+    if isinstance(formula, LinearFormula):
         return [formula.source_stat_definition_id]
     if isinstance(formula, SumFormula):
         return [term.source_stat_definition_id for term in formula.terms]
@@ -680,6 +713,7 @@ def evaluate(
     overrides: Mapping[uuid.UUID, tuple[Formula, StatValueType]] | None = None,
     entity_id: uuid.UUID | None = None,
     contents: Contents | None = None,
+    counted: dict[tuple[uuid.UUID | None, ContentsFormula], int] | None = None,
 ) -> dict[uuid.UUID, Value]:
     """Every resolvable stat's value, by stat_definition_id, for the entity
     `stats` belong to. A stat with no value (unset inputs, or caught in a
@@ -689,7 +723,8 @@ def evaluate(
     only, without it being saved: the dry-run preview (ADR 0104).
     `contents` is what a contents formula reads, with `entity_id` naming
     the entity inside it; without them, a contents formula has no value
-    (ADR 0127).
+    (ADR 0127). `counted`, when given, receives how many things each contents formula took, by
+    (entity, formula) (ADR 0447).
     """
     evaluation = _Evaluation(entity_id, stats, overrides or {}, contents)
     for stat_definition_id in [*evaluation.rows_of(entity_id), *(overrides or {})]:
@@ -704,6 +739,8 @@ def evaluate(
             )
             evaluation.visiting.clear()
             evaluation.values[(entity_id, stat_definition_id)] = _CYCLE
+    if counted is not None:
+        counted.update(evaluation.counted)
     return {
         stat_definition_id: value
         for (holder, stat_definition_id), value in evaluation.values.items()
@@ -730,6 +767,9 @@ class _Evaluation:
         }
         self.values: dict[tuple[uuid.UUID | None, uuid.UUID], _Resolved] = {}
         self.visiting: set[tuple[uuid.UUID | None, uuid.UUID]] = set()
+        # How many things each contents formula took, by (entity, formula), for the explanation
+        # (ADR 0447).
+        self.counted: dict[tuple[uuid.UUID | None, ContentsFormula], int] = {}
 
     def rows_of(self, entity_id: uuid.UUID | None) -> dict[uuid.UUID, VEffectiveStat]:
         if entity_id not in self.rows:
@@ -812,16 +852,50 @@ class _Evaluation:
     def _contents(
         self, entity_id: uuid.UUID | None, formula: ContentsFormula, target_type: StatValueType
     ) -> _Resolved:
-        """What's inside without the stat, or without a value, counts as 0;
-        one caught in a cycle makes the total one too (ADR 0127)."""
+        """What's inside without the stat, or without a value, counts as 0 in a sum;
+        one caught in a cycle makes the total one too (ADR 0127). The options keep only what
+        is switched on, of one kind, or true for a stat, and `min`, `max` and `count` ignore
+        the stack count (ADR 0447)."""
         if self.contents is None or entity_id is None:
             return None
         total = Decimal(0)
+        numbers: list[Decimal] = []
+        counted = 0
         for child, quantity in self.contents.children.get(entity_id, ()):
+            held = self.contents.held.get(child)
+            if formula.only_kind is not None and (held is None or held.kind != formula.only_kind):
+                continue
+            if formula.only_active and held is not None and not held.active:
+                continue
+            if formula.where_stat_definition_id is not None:
+                kept = self.resolve(child, formula.where_stat_definition_id)
+                if isinstance(kept, _Cycle):
+                    return _CYCLE
+                if kept is not True:
+                    continue
+            if formula.aggregate == "count":
+                counted += 1
+                continue
+            assert formula.source_stat_definition_id is not None
             resolved = self.resolve(child, formula.source_stat_definition_id)
             if isinstance(resolved, _Cycle):
                 return _CYCLE
             number = _number(resolved)
-            if number is not None:
-                total += number * quantity
-        return _rounded(total, RoundMode.NONE, target_type)
+            if formula.aggregate == "sum":
+                counted += 1
+                if number is not None:
+                    total += number * quantity
+            elif number is not None:
+                counted += 1
+                numbers.append(number)
+        self.counted[(entity_id, formula)] = counted
+        if formula.aggregate == "count":
+            return _rounded(Decimal(counted), RoundMode.NONE, target_type)
+        if formula.aggregate == "sum":
+            return _rounded(total, RoundMode.NONE, target_type)
+        if not numbers:
+            if formula.if_none is None:
+                return None
+            return _rounded(formula.if_none, RoundMode.NONE, target_type)
+        picked = min(numbers) if formula.aggregate == "min" else max(numbers)
+        return _rounded(picked, RoundMode.NONE, target_type)

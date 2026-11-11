@@ -4,7 +4,7 @@ How to say a game's numbers with Lorenzo's stats: what each piece does, the reci
 
 Everything here is as the API behaves today. It was checked against a local API; where a recipe stops working, the section says where.
 
-[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) adds formula kinds in four slices. Built so far: `min` and `max`, and a `bool` or an `enum` as an input of `linear`, `sum`, `min` and `max` ([ADR 0444](../adr/0444-min-max-and-a-bool-or-an-enum-as-a-number-in-a-formula.md)); `product` and `ratio`, which read them too ([ADR 0445](../adr/0445-product-and-ratio-formulas.md)); `select` ([ADR 0446](../adr/0446-select-formulas.md)); accepted and not built: options for `contents` on what is switched on. They make three recipes below unnecessary: the staircase for a table with steps is one `select`, a trait entry that carries a formula for a flag becomes a `product` with the flag, and a container for what is worn becomes `contents` over what is active. When a kind is built, its recipe here is replaced, and "What the formulas do not say" shrinks to what is still missing.
+[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) adds formula kinds in four slices. Built so far: `min` and `max`, and a `bool` or an `enum` as an input of `linear`, `sum`, `min` and `max` ([ADR 0444](../adr/0444-min-max-and-a-bool-or-an-enum-as-a-number-in-a-formula.md)); `product` and `ratio`, which read them too ([ADR 0445](../adr/0445-product-and-ratio-formulas.md)); `select` ([ADR 0446](../adr/0446-select-formulas.md)); and the options of `contents` and the `active` switch of an item instance ([ADR 0447](../adr/0447-contents-options-and-the-active-switch.md)). RFC 0053 is built. It made three recipes unnecessary: the staircase for a table with steps is one `select`, a trait entry that carries a formula for a flag is a `product` with the flag, and a container for what is worn is `contents` over what is active. Where a recipe below is kept, it is for a library that has not moved, or says so.
 
 ## The pieces
 
@@ -95,7 +95,9 @@ A resource that is spent and refilled is easier as **spent and left**: `slots_sp
 
 ### Counting only what is worn or held
 
-`contents` adds up every directly contained entry that has the stat, so a spare item that is only carried counts. Put what counts into its own container, and read the container: a `Worn` item inside the being has `worn_total = contents(armor_bonus)`, and the being has `worn_bonus = contents(worn_total)`. A container has to be an entry that the being directly contains; two levels need two formulas.
+`contents` takes options (RFC 0053 slice K4, [ADR 0447](../adr/0447-contents-options-and-the-active-switch.md)): `aggregate` (`sum`, `min`, `max`, `count`), `only_active`, `only_kind` (`item_instance`), `where_stat_definition_id` (a `bool` stat of the held thing) and `if_none`. Armour class from what is worn is `max` over active item instances of `armor` with `if_none` 10; a dexterity cap is `min` over active armour of its cap; attunement used is `count` over active things `where` `requires_attunement`. An item instance has an `active` switch (on by default; an item with `starts_inactive` makes instances that start off), which its holder flips with `PATCH /item-instances/{id}` and which does not move, free or bind it. `min`, `max` and `count` ignore the stack count; a sum still multiplies by it.
+
+The container recipe below is the way without the options: `contents` adds up every directly contained entry that has the stat, so a spare item that is only carried counts. Put what counts into its own container, and read the container: a `Worn` item inside the being has `worn_total = contents(armor_bonus)`, and the being has `worn_bonus = contents(worn_total)`. A container has to be an entry that the being directly contains; two levels need two formulas.
 
 ### An item with several profiles
 
@@ -124,7 +126,7 @@ A twin stat holds the converted value: `weight_kg = linear(weight, 0.45359237, 0
 
 ## What the formulas do not say
 
-A `ratio` divides two stats and rounds at 28 digits; no `text` as input to arithmetic, and a `comparison` reads only numbers; no condition that gives a number (AND and OR of `bool` stats are `min` and `max`, each condition still its own `comparison`); no dice. The recipes above cover stepped tables, flags and tiers. For the rest, store the value on the entry (a total that depends on two stats) and let the author keep it current.
+Left to the author: a `text` stat as input to arithmetic (a `comparison` reads only numbers, and a `select` matches text), a rule that nests one kind inside another (a longer rule is a chain of named stats, up to 200), and dice. A `ratio` rounds its quotient at 28 digits. For anything else, store the value on the entry and let the author keep it current.
 
 ## What the sheet draws
 

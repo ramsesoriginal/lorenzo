@@ -691,14 +691,60 @@ class ConnectionPut(BaseModel):
 
 
 class ContentsExplanationOut(BaseModel):
-    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
-    source_name: str = Field(..., title="Source Name")
+    source_stat_definition_id: UUID | None = Field(..., title="Source Stat Definition Id")
+    source_name: str | None = Field(..., title="Source Name")
     things: int = Field(..., title="Things")
 
 
-class ContentsFormulaBody(BaseModel):
+class Aggregate(StrEnum):
+    sum = "sum"
+    min = "min"
+    max = "max"
+    count = "count"
+
+
+class OnlyKindEnum(StrEnum):
+    item_instance = "item_instance"
+
+
+class OnlyKind(RootModel[OnlyKindEnum | None]):
+    root: OnlyKindEnum | None = Field(None, title="Only Kind")
+
+
+class ContentsFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
     kind: Literal["contents"] = Field("contents", title="Kind")
-    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
+    aggregate: Aggregate | None = Field("sum", title="Aggregate")
+    only_active: bool | None = Field(False, title="Only Active")
+    only_kind: OnlyKind | None = Field(None, title="Only Kind")
+    where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
+    if_none: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="If None"
+    )
+
+
+class OnlyKind1Enum(StrEnum):
+    item_instance = "item_instance"
+
+
+class OnlyKind1(RootModel[OnlyKind1Enum | None]):
+    root: OnlyKind1Enum | None = Field(None, title="Only Kind")
+
+
+class ContentsFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["contents"] = Field("contents", title="Kind")
+    source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
+    aggregate: Aggregate | None = Field("sum", title="Aggregate")
+    only_active: bool | None = Field(False, title="Only Active")
+    only_kind: OnlyKind1 | None = Field(None, title="Only Kind")
+    where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
+    if_none: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="If None")
 
 
 class Status7(StrEnum):
@@ -1390,6 +1436,7 @@ class ItemCreate(BaseModel):
     name: str = Field(..., title="Name")
     prototype_ids: list[UUID] | None = Field([], title="Prototype Ids")
     in_public_catalog: bool | None = Field(False, title="In Public Catalog")
+    starts_inactive: bool | None = Field(None, title="Starts Inactive")
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
         None, title="Slug"
     )
@@ -1405,16 +1452,19 @@ class ItemInstanceCreate(BaseModel):
     )
     quantity: conint(ge=1) | None = Field(1, title="Quantity")
     override: bool | None = Field(False, title="Override")
+    active: bool | None = Field(None, title="Active")
 
 
 class ItemInstanceUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     prototype_id: UUID | None = Field(None, title="Prototype Id")
+    active: bool | None = Field(None, title="Active")
 
 
 class ItemUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+    starts_inactive: bool | None = Field(None, title="Starts Inactive")
 
 
 class JoinAcknowledgement(BaseModel):
@@ -4446,6 +4496,7 @@ class ItemInstanceOut(BaseModel):
     owner_entity_id: UUID | None = Field(..., title="Owner Entity Id")
     slug: str | None = Field(..., title="Slug")
     bound: bool = Field(..., title="Bound")
+    active: bool = Field(..., title="Active")
 
 
 class ItemOut(BaseModel):
@@ -4472,6 +4523,7 @@ class ItemOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     in_public_catalog: bool = Field(..., title="In Public Catalog")
+    starts_inactive: bool = Field(..., title="Starts Inactive")
 
 
 class LinearFormulaBodyInput(BaseModel):
@@ -5315,7 +5367,7 @@ class ComputedStatOut(BaseModel):
         LinearFormulaBodyOutput
         | ComparisonFormulaBodyOutput
         | SumFormulaBodyOutput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyOutput
         | MinFormulaBodyOutput
         | MaxFormulaBodyOutput
         | ProductFormulaBodyOutput
@@ -5330,7 +5382,7 @@ class ComputedStatPreviewIn(BaseModel):
         LinearFormulaBodyInput
         | ComparisonFormulaBodyInput
         | SumFormulaBodyInput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyInput
         | MinFormulaBodyInput
         | MaxFormulaBodyInput
         | ProductFormulaBodyInput
@@ -5366,6 +5418,7 @@ class ControlledItemInstanceOut(BaseModel):
     owner_entity_id: UUID | None = Field(..., title="Owner Entity Id")
     slug: str | None = Field(..., title="Slug")
     bound: bool = Field(..., title="Bound")
+    active: bool = Field(..., title="Active")
     visible_to_characters: bool = Field(..., title="Visible To Characters")
 
 
@@ -5566,7 +5619,7 @@ class StatExplanationOut(BaseModel):
         LinearFormulaBodyOutput
         | ComparisonFormulaBodyOutput
         | SumFormulaBodyOutput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyOutput
         | MinFormulaBodyOutput
         | MaxFormulaBodyOutput
         | ProductFormulaBodyOutput
