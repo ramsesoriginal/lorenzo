@@ -1,6 +1,6 @@
 # 0054 - Features: what an entry has, how it comes to have it, and what it may choose
 
-Status: proposed (2026-11-11), Decision open on the questions at the end. It builds on RFC 0052 (a system as a thing, and
+Status: accepted (2026-11-11), decided with the maintainer, not built; slices F1 to F4, each its own ADR. It builds on RFC 0052 (a system as a thing, and
 templates) and RFC 0053 (formula kinds, including aggregation over what an entry holds and the `active` switch), and on
 [RFC 0041](0041-entity-kinds-and-author-freedom.md) (kinds are marker tables) and
 [RFC 0030](0030-carrying-holding-binding-and-capacity.md) (holding, binding and capacity). It changes nothing decided about
@@ -32,6 +32,13 @@ from a set, what it keeps as its own state, and what stops it having it.
 10. **Effects are aggregated, not inherited:** a holder reads what its features give with RFC 0053's `contents` options.
 11. **System-agnostic.** Nothing is seeded, nothing assumes a game or a level, and a feature belongs to a system by the system
     root among its ancestors (RFC 0052).
+12. **Revocation happens in the request that removes a source;** granting stays on demand.
+13. **A prerequisite is the same inline comparisons as a rule's conditions.**
+14. **A hidden entry in a choice** (a library's hide, [ADR 0437](../adr/0437-hiding-the-entries-of-a-repository-built-on-another.md))
+    is offered under the label "a hidden entry".
+15. **`repeatable` and `starts_inactive` are columns of `feature`.**
+16. **A revoked record keeps its feature and loses its instance,** which is deleted.
+17. **A holder is a being, an item instance or a group.**
 
 ## What it is like today (tried against the API, 2026-11-10)
 
@@ -58,8 +65,8 @@ rules are in the routes.
   distance, then group priority, then parent order (ADR 0037, 0266).
 - **Rules are data, not code.** A condition is a comparison, a count is a constant or one stat, options are a list or a
   category. No expression, no script.
-- **A read never writes.** Granting and revoking happen in apply, in an award or in a removal, in a transaction, with an
-  activity entry (ADR 0225's pattern).
+- **A read never writes.** Granting happens in apply or in an award; revocation happens in apply, in a removal or in the
+  request that removes a source (section 5). Each is one transaction with an activity entry (ADR 0225's pattern).
 - **A (rule, source) pair grants once.** Applying twice grants nothing new, and a chain of grants stops on that, with a depth
   cap behind it.
 - **A choice is only made from what the rule offers**, within its count and the option's prerequisites, unless a GM
@@ -88,7 +95,9 @@ A **feature type** is not a table. It is a category entry among the feature's pa
 class's feature list), exactly as the seed's taxonomy and the tested spell categories work. A feature is a leaf of that
 taxonomy and carries the kind, so lists of features are leaf-only and the category nodes are not in them.
 
-A holder is a being or an item instance. A feature instance holds nothing: sub-features are grants of the feature.
+A holder is a being, an item instance or a group. A group's features are its own and do not pass to its members, and a
+group's sources are the group entry's ancestors and what it holds, so a party can hold a feature and its grants. A feature
+instance holds nothing: sub-features are grants of the feature.
 
 ### 2. Reading and changing what is held
 
@@ -145,7 +154,11 @@ and no features.
 ### 5. Revocation
 
 A record whose rule `lasts` `while_source` is revoked when its source is gone, its source is inactive or its conditions stop
-holding. The feature instance is deleted, and so is every record whose source reference was that instance, and their
+holding. This happens **in the request that causes it**, not at the next apply: a move of the source out of the holder, a
+change of the holder's parents, a flip of `active`, the deletion of the source, or a write of a stat that a condition of one
+of the holder's active records reads. The check runs only for a holder that has active `while_source` records, and a stat
+write looks up whether any such condition reads that stat before it does more. Granting is never done there; a feature
+that becomes due waits for apply. The feature instance is deleted, and so is every record whose source reference was that instance, and their
 instances in turn: an item that gives a feature that gives a spell choice takes all three with it when it is dropped. A
 `permanent` grant is checked for its conditions only when it is made. A pick of a `changeable` rule can be swapped by the
 holder; any other pick is removed by a GM only.
@@ -196,23 +209,13 @@ Beings and Bench work, a level-up flow and a rule editor, follows as the apps' o
 - Spending a resource or points to take a feature, and swapping one feature for another beyond a changeable pick.
 - Grants derived at read time rather than materialised, and an apply that runs on a stat write.
 - A feature that changes how the holder's formulas compute (RFC 0053's kinds cover the effects).
-- A holder that is a group (a party's features) and a feature that holds features.
+- A feature that holds features, and a group's features passing to its members.
 - An undo of an apply beyond removal and revocation.
 - Physical upgrades, which are items in a container with `active`, and need nothing here.
 
 ## Open questions
 
-1. **When revocation happens.** In the same request as the event that removes a source (a move out of the holder, a parent
-   change, an `active` flip), while granting stays on demand (proposal); or only at apply, which leaves an orphaned feature
-   counting until someone applies.
-2. **The shape of a prerequisite.** The same inline comparisons as a rule's conditions (proposal); or a single `bool` stat
-   on the holder, as first described.
-3. **A hidden entry in a choice.** An option hidden in a library by [ADR 0437](../adr/0437-hiding-the-entries-of-a-repository-built-on-another.md)
-   could be offered under the label "a hidden entry", or left out.
-4. **`repeatable` and `starts_inactive`** as columns of `feature` (proposal), or as stats.
-5. **A deleted instance.** A revoked record keeps the feature and loses the instance (proposal), or the instance is ended and
-   kept.
-6. **Holders.** Beings and item instances (proposal); a group of beings as a holder is left out.
+None.
 
 ## Alternatives considered
 
@@ -235,5 +238,8 @@ Beings and Bench work, a level-up flow and a rule editor, follows as the apps' o
 - Two marker tables (the kinds) and five more tables are added, each a place a rule can be wrong, and each needing RLS, a
   registry line and copy handling.
 - Choices are enforced, so a library that needs a looser rule uses the GM override or leaves the rule out.
+- Revocation in the request that removes a source adds a small check to moves, parent changes, `active` flips and stat
+  writes; it runs only for holders with active `while_source` records, and the slice that adds it carries the
+  statement-count test of [ADR 0285](../adr/0285-api-reads-that-cost-what-they-read.md) for a stat write.
 - A holder's features and their effects need RFC 0053's `contents` options, so F1 is read by a formula only after that
   slice.
