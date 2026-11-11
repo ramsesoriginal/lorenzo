@@ -984,6 +984,13 @@ PUT /tenants/{tenant_id}/subscribers/{subscriber_tenant_id} added the new `hide`
 # ADR 0444 (RFC 0053): computed stats gain the formula kinds `min` and `max`, which formula responses can now carry.
 GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components/schemas/MinFormulaBody-Output, #/components/schemas/MaxFormulaBody-Output` to the `items/formula` response property `oneOf` list for the response status `200`
 PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/MinFormulaBody-Output, #/components/schemas/MaxFormulaBody-Output` to the `formula` response property `oneOf` list for the response status `200`
-GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added `#/components/schemas/MinFormulaBody-Output, #/components/schemas/MaxFormulaBody-Output` to the `formula/anyOf[subschema #1]/` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added `#/components/schemas/MinFormulaBody-Output, #/components/schemas/MaxFormulaBody-Output` to the `formula/anyOf[subschema #1]` response property `oneOf` list for the response status `200`
 GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `min` enum value to the `items/kind` response property for the response status `200`
 GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `max` enum value to the `items/kind` response property for the response status `200`
+
+# ADR 0445 (RFC 0053): computed stats gain the formula kinds `product` and `ratio`, which formula responses can now carry.
+GET /tenants/{tenant_id}/entities/{entity_id}/computed-stats added `#/components/schemas/ProductFormulaBody-Output, #/components/schemas/RatioFormulaBody-Output` to the `items/formula` response property `oneOf` list for the response status `200`
+PUT /tenants/{tenant_id}/entities/{entity_id}/computed-stats/{stat_definition_id} added `#/components/schemas/ProductFormulaBody-Output, #/components/schemas/RatioFormulaBody-Output` to the `formula` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/entities/{entity_id}/stats/{stat_definition_id}/explanation added `#/components/schemas/ProductFormulaBody-Output, #/components/schemas/RatioFormulaBody-Output` to the `formula/anyOf[subschema #1]` response property `oneOf` list for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `product` enum value to the `items/kind` response property for the response status `200`
+GET /tenants/{tenant_id}/stat-definitions/{stat_definition_id}/dependents added the new `ratio` enum value to the `items/kind` response property for the response status `200`

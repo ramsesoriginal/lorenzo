@@ -65,6 +65,73 @@ describe('explain', () => {
     expect(out.text).toBe('Armour base + 2 × Dexterity − 1');
   });
 
+  it('says a product by its factors and a ratio with its rounding', () => {
+    const product = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'product',
+          factors: ['dex', 'armour'],
+          multiplier: '2',
+          offset: '1',
+          round_mode: 'none',
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+    const ratio = explain(
+      {
+        ...base,
+        division_rounded: true,
+        formula: {
+          kind: 'ratio',
+          numerator_stat_definition_id: 'dex',
+          denominator_stat_definition_id: null,
+          denominator_constant: '3',
+          multiplier: '1',
+          offset: '0',
+          round_mode: 'floor',
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+
+    expect(product.text).toBe('Dexterity × Armour base × 2 + 1');
+    expect(ratio.text).toBe('Dexterity ÷ 3, rounded down, the division rounded to 28 digits');
+  });
+
+  it('says a cap and a floor by what they compare', () => {
+    const cap = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'min',
+          inputs: [{ stat_definition_id: 'dex' }, { constant: '2' }],
+          round_mode: 'none',
+        },
+        inputs: [{ stat_definition_id: 'dex', name: 'dexterity', value: 4 }],
+      } as Explanation,
+      names,
+    );
+    const floor = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'max',
+          inputs: [{ stat_definition_id: 'armour' }, { constant: '0' }],
+          round_mode: 'floor',
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+
+    expect(cap.text).toBe('The smaller of Dexterity, 2');
+    expect(floor.text).toBe('The larger of Armour base, 0, rounded down');
+  });
+
   it('says what a contents formula counted', () => {
     const out = explain(
       {

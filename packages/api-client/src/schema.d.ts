@@ -9102,7 +9102,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max";
+            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max" | "product" | "ratio";
         };
         /**
          * ComputedStatOut
@@ -9121,7 +9121,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"];
             /**
              * Updated At
              * Format: date-time
@@ -9135,7 +9135,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -14658,6 +14658,62 @@ export interface components {
             detail?: string | null;
         };
         /**
+         * ProductFormulaBody
+         * @description `round(factor1 x factor2 x ... x multiplier + offset)` over two to five stats of the same
+         *     entity - ADR 0445. A `bool` is a factor of 1 or 0, so hit points from level are
+         *     `product(level, average)` and a bonus that applies when a flag is set is
+         *     `product(flag, bonus)`.
+         */
+        "ProductFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "product";
+            /** Factors */
+            factors: string[];
+            /**
+             * Multiplier
+             * @default 1
+             */
+            multiplier: number | string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number | string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
+         * ProductFormulaBody
+         * @description `round(factor1 x factor2 x ... x multiplier + offset)` over two to five stats of the same
+         *     entity - ADR 0445. A `bool` is a factor of 1 or 0, so hit points from level are
+         *     `product(level, average)` and a bonus that applies when a flag is set is
+         *     `product(flag, bonus)`.
+         */
+        "ProductFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "product";
+            /** Factors */
+            factors: string[];
+            /**
+             * Multiplier
+             * @default 1
+             */
+            multiplier: string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
          * ProfileUpdate
          * @description PATCH /me - see ADR 0054/0060. Replaces the narrower NicknameUpdate:
          *     every field is optional and independently omittable (`exclude_unset`
@@ -14817,6 +14873,76 @@ export interface components {
         PublisherOut: {
             /** Display Name */
             display_name: string;
+        };
+        /**
+         * RatioFormulaBody
+         * @description `round(numerator / denominator x multiplier + offset)`, the numerator a stat of the same
+         *     entity and the denominator a stat or a constant, exactly one of the two - ADR 0445. A zero
+         *     denominator gives no value. The quotient is rounded at 28 digits before the offset and the
+         *     mode apply; an `int` stat needs a rounding mode.
+         */
+        "RatioFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "ratio";
+            /**
+             * Numerator Stat Definition Id
+             * Format: uuid
+             */
+            numerator_stat_definition_id: string;
+            /** Denominator Stat Definition Id */
+            denominator_stat_definition_id?: string | null;
+            /** Denominator Constant */
+            denominator_constant?: number | string | null;
+            /**
+             * Multiplier
+             * @default 1
+             */
+            multiplier: number | string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number | string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
+         * RatioFormulaBody
+         * @description `round(numerator / denominator x multiplier + offset)`, the numerator a stat of the same
+         *     entity and the denominator a stat or a constant, exactly one of the two - ADR 0445. A zero
+         *     denominator gives no value. The quotient is rounded at 28 digits before the offset and the
+         *     mode apply; an `int` stat needs a rounding mode.
+         */
+        "RatioFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "ratio";
+            /**
+             * Numerator Stat Definition Id
+             * Format: uuid
+             */
+            numerator_stat_definition_id: string;
+            /** Denominator Stat Definition Id */
+            denominator_stat_definition_id?: string | null;
+            /** Denominator Constant */
+            denominator_constant?: string | null;
+            /**
+             * Multiplier
+             * @default 1
+             */
+            multiplier: string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
         };
         /** ReadingIn */
         ReadingIn: {
@@ -16727,11 +16853,13 @@ export interface components {
             /** From Hidden */
             from_hidden?: boolean | null;
             /** Formula */
-            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"]) | null;
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"]) | null;
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
             contents: components["schemas"]["ContentsExplanationOut"] | null;
             picked?: components["schemas"]["PickedExplanationOut"] | null;
+            /** Division Rounded */
+            division_rounded?: boolean | null;
         };
         /**
          * StatGroupCreate
@@ -41075,7 +41203,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"];
             };
         };
         responses: {
