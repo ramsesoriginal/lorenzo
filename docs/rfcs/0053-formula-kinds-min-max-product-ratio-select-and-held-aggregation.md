@@ -1,6 +1,6 @@
 # 0053 - Formula kinds: min, max, product, ratio, select, and aggregation over what an entry holds
 
-Status: proposed (2026-11-11), Decision open on the questions at the end. It reopens what
+Status: accepted (2026-11-11), decided with the maintainer, not built; slices K1 to K4, each its own ADR. It reopens what
 [RFC 0016](0016-stats-computed-values-and-crud-api.md) leaves for "a real, concrete need", what
 [ADR 0126](../adr/0126-sum-formulas.md) and [RFC 0030](0030-carrying-holding-binding-and-capacity.md) list as "not in
 scope" (non-additive kinds: max, min, choose), and [ADR 0403](../adr/0403-stat-scales.md)'s exclusion of a clamp on
@@ -24,6 +24,12 @@ switches a bonus, the best or the worst of what an entry holds, and a count of w
 5. **Curated, not general:** each kind stays a fixed, reviewed function with parameters, as RFC 0016 chose. No interpreter.
 6. **"Missing counts as 0" on a sum term is not added**; a lint and a stored default stay the answer to an unset input.
 7. **The limits:** five inputs or factors, 64 steps, one level of aggregation.
+8. **An enum's number is its `sort_order`**, not its position, and a change of order or a removal that a formula reads is
+   refused.
+9. **`ratio` rounds at the default precision** before the offset and the mode apply, and the explanation says so when it
+   does.
+10. **A held-thing aggregation is limited to a kind by `only_kind`**; without it, a stat that a kind does not carry
+    contributes nothing.
 
 ## What the four kinds cannot say (tried against the API, 2026-11-10)
 
@@ -143,7 +149,7 @@ test.
 
 ### The Bench
 
-A pane for each, in the vocabulary of [ADR 0253](../adr/0253-bench-formulas-and-the-stat-vocabulary.md): "Lowest",
+Not a slice of this RFC; the Bench takes these up in its own work. A pane for each, in the vocabulary of [ADR 0253](../adr/0253-bench-formulas-and-the-stat-vocabulary.md): "Lowest",
 "Highest", "Multiply", "Divide", "Pick by", and "Highest/Lowest/Count of what it holds". Pick-by takes a pasted list of
 `from` and result pairs.
 
@@ -161,7 +167,9 @@ Each slice is its own ADR.
 2. **K2.** `product`; `ratio`.
 3. **K3.** `select`, both modes.
 4. **K4.** `contents` options; `active` on item instances.
-5. **K5.** The Bench panes, the preview and explanation, and the guide update.
+
+Each slice carries the preview, the explanation and the dependents of its kinds. The Bench panes and the update of the
+guide are not slices of this RFC.
 
 ## Not in scope
 
@@ -175,13 +183,7 @@ Each slice is its own ADR.
 
 ## Open questions
 
-1. **The enum rank and an enum's order.** The rank is the author's `sort_order` (proposal); the alternative is the position
-   in the list, which moves when a value is inserted. The refusal to reorder or remove a value that a formula reads as a
-   number is part of the proposal.
-2. **`ratio` rounding.** Division is the one operation that is not exact in Decimal; the proposal rounds at the
-   default precision before the offset and the mode apply, and says so in the explanation when it does.
-3. **An aggregation of `min` and `max` over held things of mixed kinds.** `only_kind` is how a rule says which; without it
-   a stat that one kind does not carry simply contributes nothing.
+None.
 
 ## Alternatives considered
 
