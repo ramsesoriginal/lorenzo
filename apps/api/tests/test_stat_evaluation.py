@@ -326,7 +326,14 @@ def _contents_row(
             linear=None,
             comparison=None,
             sum=None,
-            contents=SimpleNamespace(source_stat_definition_id=source),
+            contents=SimpleNamespace(
+                source_stat_definition_id=source,
+                aggregate="sum",
+                only_active=False,
+                only_kind=None,
+                where_stat_definition_id=None,
+                if_none=None,
+            ),
         ),
     )
 
