@@ -99,9 +99,13 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 37
+    assert rd.FORMAT == 38
     assert rd.encode(full_content())[0] == {
         **golden,
+        "formulas": [
+            [entity, definition, {"operands": None, **record}]
+            for entity, definition, record in golden["formulas"]
+        ],
         "definitions": {
             key: {"min_value": None, "max_value": None, **definition}
             for key, definition in golden["definitions"].items()
@@ -593,3 +597,27 @@ def test_a_source_with_a_field_the_format_does_not_write_is_refused() -> None:
 
     with pytest.raises(rd.ContentFieldNotSerialisedError):
         rd.encode(content)
+
+
+def test_a_min_formula_round_trips_with_a_stat_and_a_constant() -> None:
+    """ADR 0444: the operands of a min, max or product are stored with a stat or a constant each,
+    and a document of version 37, which has none, reads with none."""
+    content = full_content()
+    key = (uuid.UUID(int=10), uuid.UUID(int=34))
+    operands = [(uuid.UUID(int=31), None), (None, Decimal("2.50"))]
+    content.formulas[key] = Formula(kind="min", round_mode="none", operands=operands)
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert back.formulas[key].operands == operands
+    assert str(back.formulas[key].operands[1][1]) == "2.50"
+    v37 = {
+        **document,
+        "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
+    }
+    for _, _, record in v37["formulas"]:
+        del record["operands"]
+    assert all(
+        formula.operands is None for formula in rd.decode(v37, files, format=37).formulas.values()
+    )
