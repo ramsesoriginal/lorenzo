@@ -4,7 +4,7 @@ How to say a game's numbers with Lorenzo's stats: what each piece does, the reci
 
 Everything here is as the API behaves today. It was checked against a local API; where a recipe stops working, the section says where.
 
-[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) adds formula kinds in four slices. Built so far: `min` and `max`, and a `bool` or an `enum` as an input of `linear`, `sum`, `min` and `max` ([ADR 0444](../adr/0444-min-max-and-a-bool-or-an-enum-as-a-number-in-a-formula.md)); accepted and not built: `product`, `ratio`, `select`, and options for `contents` on what is switched on. They make three recipes below unnecessary: the staircase for a table with steps becomes one `select`, a trait entry that carries a formula for a flag becomes a `product` with the flag, and a container for what is worn becomes `contents` over what is active. When a kind is built, its recipe here is replaced, and "What the formulas do not say" shrinks to what is still missing.
+[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) adds formula kinds in four slices. Built so far: `min` and `max`, and a `bool` or an `enum` as an input of `linear`, `sum`, `min` and `max` ([ADR 0444](../adr/0444-min-max-and-a-bool-or-an-enum-as-a-number-in-a-formula.md)); `product` and `ratio`, which read them too ([ADR 0445](../adr/0445-product-and-ratio-formulas.md)); accepted and not built: `select`, and options for `contents` on what is switched on. They make three recipes below unnecessary: the staircase for a table with steps becomes one `select`, a trait entry that carries a formula for a flag becomes a `product` with the flag, and a container for what is worn becomes `contents` over what is active. When a kind is built, its recipe here is replaced, and "What the formulas do not say" shrinks to what is still missing.
 
 ## The pieces
 
@@ -74,7 +74,7 @@ Two thresholds are two step stats and a `sum`. Keep the input's minimum and maxi
 
 ### A flag that changes a formula
 
-A flag times a *stat* is not yet a product (that is `product`, RFC 0053 slice K2), so "add the bonus if proficient" where the bonus is itself a stat is still not one formula. Make the flag an **entry that carries the formula**:
+A flag times a stat is a `product`: `skill_bonus = product(trained, proficiency)`, where `trained` is a `bool` (1 or 0) and `proficiency` a stat. That makes the trait entry that carries a formula unnecessary for a flag. A bonus that comes from which trait a being has, rather than a flag on the being, is still an **entry that carries the formula**:
 
 - The base prototype has `stealth = linear(grace_mod, 1)`.
 - A trait entry, `Trained in stealth`, has `stealth = sum(grace_mod, prof_bonus)` and is a parent of the being. Twice the bonus and half the bonus are two more trait entries (`sum` with coefficient 2, or 0.5 with `floor`).
@@ -122,7 +122,7 @@ A twin stat holds the converted value: `weight_kg = linear(weight, 0.45359237, 0
 
 ## What the formulas do not say
 
-No product of two stats; no `text` as input to arithmetic, and a `comparison` reads only numbers; no condition that gives a number (AND and OR of `bool` stats are `min` and `max`, each condition still its own `comparison`); no lookup table; no dice. The recipes above cover stepped tables, flags and tiers. For the rest, store the value on the entry (a total that depends on two stats) and let the author keep it current.
+A `ratio` divides two stats and rounds at 28 digits; no `text` as input to arithmetic, and a `comparison` reads only numbers; no condition that gives a number (AND and OR of `bool` stats are `min` and `max`, each condition still its own `comparison`); no lookup table; no dice. The recipes above cover stepped tables, flags and tiers. For the rest, store the value on the entry (a total that depends on two stats) and let the author keep it current.
 
 ## What the sheet draws
 

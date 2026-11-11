@@ -16,6 +16,8 @@ from lorenzo_api.stat_evaluation import (
     Formula,
     LinearFormula,
     Operand,
+    ProductFormula,
+    RatioFormula,
     SumFormula,
     SumTerm,
 )
@@ -35,6 +37,8 @@ __all__ = [
     "MinFormulaBody",
     "PickedExplanationOut",
     "PreviewInputOut",
+    "ProductFormulaBody",
+    "RatioFormulaBody",
     "SumFormulaBody",
     "StatExplanationOut",
     "SumTermBody",
@@ -45,6 +49,9 @@ MAX_SUM_TERMS = 20
 # ADR 0444: a min or a max takes two to five inputs.
 MIN_EXTREMUM_INPUTS = 2
 MAX_EXTREMUM_INPUTS = 5
+# ADR 0445: a product multiplies two to five stats.
+MIN_PRODUCT_FACTORS = 2
+MAX_PRODUCT_FACTORS = 5
 
 
 class LinearFormulaBody(BaseModel):
@@ -180,6 +187,63 @@ class MaxFormulaBody(_ExtremumBody):
         return self._formula("max")
 
 
+class ProductFormulaBody(BaseModel):
+    """`round(factor1 x factor2 x ... x multiplier + offset)` over two to five stats of the same
+    entity - ADR 0445. A `bool` is a factor of 1 or 0, so hit points from level are
+    `product(level, average)` and a bonus that applies when a flag is set is
+    `product(flag, bonus)`."""
+
+    kind: Literal["product"] = "product"
+    factors: list[uuid.UUID] = Field(min_length=MIN_PRODUCT_FACTORS, max_length=MAX_PRODUCT_FACTORS)
+    multiplier: Decimal = Decimal(1)
+    offset: Decimal = Decimal(0)
+    round_mode: RoundMode = RoundMode.NONE
+
+    def to_formula(self) -> ProductFormula:
+        return ProductFormula(
+            factors=tuple(self.factors),
+            multiplier=self.multiplier,
+            offset=self.offset,
+            round_mode=self.round_mode,
+        )
+
+
+class RatioFormulaBody(BaseModel):
+    """`round(numerator / denominator x multiplier + offset)`, the numerator a stat of the same
+    entity and the denominator a stat or a constant, exactly one of the two - ADR 0445. A zero
+    denominator gives no value. The quotient is rounded at 28 digits before the offset and the
+    mode apply; an `int` stat needs a rounding mode."""
+
+    kind: Literal["ratio"] = "ratio"
+    numerator_stat_definition_id: uuid.UUID
+    denominator_stat_definition_id: uuid.UUID | None = None
+    denominator_constant: Decimal | None = None
+    multiplier: Decimal = Decimal(1)
+    offset: Decimal = Decimal(0)
+    round_mode: RoundMode = RoundMode.NONE
+
+    @model_validator(mode="after")
+    def _exactly_one_denominator(self) -> RatioFormulaBody:
+        if (self.denominator_stat_definition_id is None) == (self.denominator_constant is None):
+            raise ValueError(
+                "a ratio needs exactly one of denominator_stat_definition_id or "
+                "denominator_constant"
+            )
+        return self
+
+    def to_formula(self) -> RatioFormula:
+        return RatioFormula(
+            numerator=self.numerator_stat_definition_id,
+            denominator=Operand(
+                stat_definition_id=self.denominator_stat_definition_id,
+                constant=self.denominator_constant,
+            ),
+            multiplier=self.multiplier,
+            offset=self.offset,
+            round_mode=self.round_mode,
+        )
+
+
 AnyFormulaBody = (
     LinearFormulaBody
     | ComparisonFormulaBody
@@ -187,6 +251,8 @@ AnyFormulaBody = (
     | ContentsFormulaBody
     | MinFormulaBody
     | MaxFormulaBody
+    | ProductFormulaBody
+    | RatioFormulaBody
 )
 FormulaBody = Annotated[AnyFormulaBody, Field(discriminator="kind")]
 
@@ -201,6 +267,22 @@ def formula_body_of(formula: Formula) -> AnyFormulaBody:
         )
     if isinstance(formula, ContentsFormula):
         return ContentsFormulaBody(source_stat_definition_id=formula.source_stat_definition_id)
+    if isinstance(formula, ProductFormula):
+        return ProductFormulaBody(
+            factors=list(formula.factors),
+            multiplier=formula.multiplier,
+            offset=formula.offset,
+            round_mode=formula.round_mode,
+        )
+    if isinstance(formula, RatioFormula):
+        return RatioFormulaBody(
+            numerator_stat_definition_id=formula.numerator,
+            denominator_stat_definition_id=formula.denominator.stat_definition_id,
+            denominator_constant=formula.denominator.constant,
+            multiplier=formula.multiplier,
+            offset=formula.offset,
+            round_mode=formula.round_mode,
+        )
     if isinstance(formula, ExtremumFormula):
         inputs = [
             ExtremumInputBody(stat_definition_id=o.stat_definition_id, constant=o.constant)
@@ -313,6 +395,8 @@ class StatExplanationOut(BaseModel):
     inputs: list[PreviewInputOut]
     contents: ContentsExplanationOut | None
     picked: PickedExplanationOut | None = None
+    # A ratio: whether its division lost digits at 28 (ADR 0445), else null.
+    division_rounded: bool | None = None
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -320,4 +404,4 @@ class ComputedStatDependentOut(BaseModel):
 
     entity_id: uuid.UUID
     stat_definition_id: uuid.UUID
-    kind: Literal["linear", "comparison", "sum", "contents", "min", "max"]
+    kind: Literal["linear", "comparison", "sum", "contents", "min", "max", "product", "ratio"]

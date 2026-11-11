@@ -42,6 +42,9 @@ from lorenzo_api.models import (
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
     ComputedStatSum,
     ComputedStatSumTerm,
     Containment,
@@ -391,11 +394,15 @@ class Names:
         return found if isinstance(found, str) and found else None
 
 
+_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator")
+
+
 def _formula_inputs(formula: Any) -> list[str]:
     if not isinstance(formula, dict):
         return []
-    inputs = [formula[role] for role in ("source", "left", "right") if formula.get(role)]
+    inputs = [formula[role] for role in _FORMULA_ROLES if formula.get(role)]
     inputs += [term["source"] for term in formula.get("terms") or []]
+    inputs += formula.get("factors") or []
     return inputs + [
         operand["source"] for operand in formula.get("inputs") or [] if operand["source"]
     ]
@@ -1430,10 +1437,14 @@ class _Applier:
         # A sum's terms, in order: each term's local stat and coefficient (ADR 0126).
         terms: list[tuple[uuid.UUID | None, str]] = []
         operands: list[tuple[uuid.UUID | None, bool, str | None]] = []
+        factors: list[uuid.UUID | None] = []
         if formula is not None:
-            for role in ("source", "left", "right"):
+            for role in _FORMULA_ROLES:
                 if formula.get(role):
                     inputs[role] = self.resolve("stat_definition", formula[role])
+            # A product's factors, in order (ADR 0445).
+            for factor in formula.get("factors") or []:
+                factors.append(self.resolve("stat_definition", factor))
             for term in formula.get("terms") or []:
                 terms.append((self.resolve("stat_definition", term["source"]), term["coefficient"]))
             # A min or max's inputs, in order: a local stat or a constant (ADR 0444).
@@ -1450,6 +1461,7 @@ class _Applier:
             if (
                 None in inputs.values()
                 or any(source is None for source, _ in terms)
+                or any(factor is None for factor in factors)
                 or any(stat is None and not is_constant for stat, is_constant, _ in operands)
             ):
                 self.skip(row, name, "a stat its formula uses wasn't copied here")
@@ -1472,7 +1484,35 @@ class _Applier:
         )
         keys = {"entity_id": e, "stat_definition_id": definition, "tenant_id": t}
         await s.execute(insert(ComputedStat).values(**keys))
-        if formula["kind"] in ("min", "max"):
+        if formula["kind"] == "product":
+            await s.execute(
+                insert(ComputedStatProduct).values(
+                    **keys,
+                    multiplier=formula["multiplier"],
+                    offset=formula["offset"],
+                    round_mode=formula["round_mode"],
+                )
+            )
+            await s.execute(
+                insert(ComputedStatProductFactor),
+                [
+                    {**keys, "position": position, "source_stat_definition_id": factor}
+                    for position, factor in enumerate(factors)
+                ],
+            )
+        elif formula["kind"] == "ratio":
+            await s.execute(
+                insert(ComputedStatRatio).values(
+                    **keys,
+                    numerator_stat_definition_id=inputs["numerator"],
+                    denominator_stat_definition_id=inputs.get("denominator"),
+                    denominator_constant=formula["denominator_constant"],
+                    multiplier=formula["multiplier"],
+                    offset=formula["offset"],
+                    round_mode=formula["round_mode"],
+                )
+            )
+        elif formula["kind"] in ("min", "max"):
             await s.execute(
                 insert(ComputedStatExtremum).values(
                     **keys, pick=formula["kind"], round_mode=formula["round_mode"]

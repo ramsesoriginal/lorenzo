@@ -39,6 +39,9 @@ from lorenzo_api.models import (
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
     ComputedStatSum,
     ComputedStatSumTerm,
     EntityStat,
@@ -65,6 +68,8 @@ from lorenzo_api.stat_evaluation import (
     ExtremumFormula,
     Formula,
     LinearFormula,
+    ProductFormula,
+    RatioFormula,
     SumFormula,
     always_whole,
     evaluate,
@@ -150,6 +155,29 @@ def _check_types(
         if target.value_type not in _NUMERIC:
             raise invalid("a linear formula produces a number, so the stat must be int or float")
         check_rounding(formula.round_mode, [formula.multiplier], formula.offset, input_ids(formula))
+        return
+
+    if isinstance(formula, ProductFormula):
+        for source_id in input_ids(formula):
+            source = inputs[source_id]
+            if source.value_type not in _READABLE:
+                raise invalid(f"a product multiplies numbers, and {source.name!r} isn't one")
+        if target.value_type not in _NUMERIC:
+            raise invalid("a product produces a number, so the stat must be int or float")
+        check_rounding(formula.round_mode, [formula.multiplier], formula.offset, input_ids(formula))
+        return
+
+    if isinstance(formula, RatioFormula):
+        for source_id in input_ids(formula):
+            source = inputs[source_id]
+            if source.value_type not in _READABLE:
+                raise invalid(f"a ratio divides numbers, and {source.name!r} isn't one")
+        if formula.denominator.constant == 0:
+            raise invalid("a ratio can't divide by a constant 0")
+        if target.value_type not in _NUMERIC:
+            raise invalid("a ratio produces a number, so the stat must be int or float")
+        if target.value_type is StatValueType.INT and formula.round_mode is RoundMode.NONE:
+            raise invalid("an int stat needs a rounding mode other than 'none' for a ratio")
         return
 
     if isinstance(formula, ExtremumFormula):
@@ -332,12 +360,35 @@ def _concrete_row(
     | ComputedStatSum
     | ComputedStatContents
     | ComputedStatExtremum
+    | ComputedStatProduct
+    | ComputedStatRatio
 ):
     key = {
         "entity_id": entity_id,
         "stat_definition_id": stat_definition_id,
         "tenant_id": tenant_id,
     }
+    if isinstance(formula, ProductFormula):
+        return ComputedStatProduct(
+            **key,
+            multiplier=formula.multiplier,
+            offset=formula.offset,
+            round_mode=formula.round_mode.value,
+            factors=[
+                ComputedStatProductFactor(**key, position=position, source_stat_definition_id=f)
+                for position, f in enumerate(formula.factors)
+            ],
+        )
+    if isinstance(formula, RatioFormula):
+        return ComputedStatRatio(
+            **key,
+            numerator_stat_definition_id=formula.numerator,
+            denominator_stat_definition_id=formula.denominator.stat_definition_id,
+            denominator_constant=formula.denominator.constant,
+            multiplier=formula.multiplier,
+            offset=formula.offset,
+            round_mode=formula.round_mode.value,
+        )
     if isinstance(formula, ExtremumFormula):
         return ComputedStatExtremum(
             **key,
@@ -460,6 +511,8 @@ async def set_computed_stat(
         existing.sum = None
         existing.contents = None
         existing.extremum = None
+        existing.product = None
+        existing.ratio = None
         await session.flush()
         existing.updated_at = func.now()
     session.add(concrete)
@@ -674,10 +727,39 @@ async def list_stat_dependents(
             .distinct()
         )
     ).tuples()
+    multiplied = (
+        await session.execute(
+            select(
+                ComputedStatProductFactor.entity_id, ComputedStatProductFactor.stat_definition_id
+            )
+            .where(
+                ComputedStatProductFactor.source_stat_definition_id == stat_definition_id,
+                ComputedStatProductFactor.tenant_id == tenant_id,
+            )
+            .distinct()
+        )
+    ).tuples()
+    divided = (
+        await session.execute(
+            select(ComputedStatRatio.entity_id, ComputedStatRatio.stat_definition_id).where(
+                (ComputedStatRatio.numerator_stat_definition_id == stat_definition_id)
+                | (ComputedStatRatio.denominator_stat_definition_id == stat_definition_id),
+                ComputedStatRatio.tenant_id == tenant_id,
+            )
+        )
+    ).tuples()
     dependents = (
         [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="linear")
             for e, s in linear
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="product")
+            for e, s in multiplied
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="ratio")
+            for e, s in divided
         ]
         + [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind=pick)

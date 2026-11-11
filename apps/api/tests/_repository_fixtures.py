@@ -28,6 +28,9 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatExtremum,
     ComputedStatExtremumInput,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -377,6 +380,8 @@ async def seed_every_content_table(
             ComputedStat(entity_id=sword.id, stat_definition_id=might.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=load.id, tenant_id=tenant_id),
             ComputedStat(entity_id=blade.id, stat_definition_id=load.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=chest.id, stat_definition_id=might.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=chest.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
             Ownership(owned_entity_id=blade.id, owner_character_id=guild.id, tenant_id=tenant_id),
         ]
@@ -416,6 +421,24 @@ async def seed_every_content_table(
                 pick="min",
                 round_mode="none",
             ),
+            # The Chest's Might: Strength x Modifier x 2 (ADR 0445).
+            ComputedStatProduct(
+                entity_id=chest.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                multiplier=Decimal("2"),
+                offset=Decimal("0"),
+                round_mode="none",
+            ),
+            # The Chest's Modifier: Strength over 2, rounded down (ADR 0445).
+            ComputedStatRatio(
+                entity_id=chest.id,
+                stat_definition_id=modifier.id,
+                tenant_id=tenant_id,
+                numerator_stat_definition_id=strength.id,
+                denominator_constant=Decimal("2"),
+                round_mode="floor",
+            ),
             # Might = Strength + 2 × Modifier + 1 (ADR 0126).
             ComputedStatSum(
                 entity_id=sword.id,
@@ -432,6 +455,20 @@ async def seed_every_content_table(
     await session.flush()
     session.add_all(
         [
+            ComputedStatProductFactor(
+                entity_id=chest.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                position=0,
+                source_stat_definition_id=strength.id,
+            ),
+            ComputedStatProductFactor(
+                entity_id=chest.id,
+                stat_definition_id=might.id,
+                tenant_id=tenant_id,
+                position=1,
+                source_stat_definition_id=modifier.id,
+            ),
             ComputedStatExtremumInput(
                 entity_id=blade.id,
                 stat_definition_id=load.id,

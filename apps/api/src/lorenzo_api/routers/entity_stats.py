@@ -60,11 +60,13 @@ from lorenzo_api.stat_contents import load_contents
 from lorenzo_api.stat_evaluation import (
     ContentsFormula,
     ExtremumFormula,
+    RatioFormula,
     evaluate,
     formula_of,
     input_ids,
     numeric_value,
     picked_operand,
+    ratio_was_rounded,
 )
 
 # get_tenant_or_404 here, not get_tenant_context (mirrors
@@ -720,6 +722,12 @@ async def explain_entity_stat(
                 name=None if source is None else names.get(source),
                 value=picked_value,
             )
+    division_rounded = None
+    if isinstance(formula, RatioFormula):
+        definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        division_rounded = ratio_was_rounded(
+            formula, lambda i: numeric_value(values.get(i), definitions.get(i))
+        )
     return StatExplanationOut(
         stat_definition_id=definition.id,
         name=definition.name,
@@ -749,4 +757,5 @@ async def explain_entity_stat(
             else None
         ),
         picked=picked,
+        division_rounded=division_rounded,
     )

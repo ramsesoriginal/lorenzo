@@ -57,6 +57,8 @@ from lorenzo_api.models import (
     ComputedStatContents,
     ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
     ComputedStatSumTerm,
     Containment,
     Entity,
@@ -876,7 +878,37 @@ class _Planner:
             local_entity = self.local["entity"][e]
             key = {"entity_id": local_entity, "stat_definition_id": target, "tenant_id": tenant_id}
             self.rows["computed_stat"].append(dict(key))
-            if formula.kind in ("min", "max"):
+            if formula.kind == "product":
+                assert formula.operands is not None
+                self.rows["computed_stat_product"].append(
+                    key
+                    | {
+                        "multiplier": formula.multiplier,
+                        "offset": formula.offset,
+                        "round_mode": formula.round_mode,
+                    }
+                )
+                self.rows["computed_stat_product_factor"].extend(
+                    key | {"position": position, "source_stat_definition_id": inputs[stat]}
+                    for position, (stat, _) in enumerate(formula.operands)
+                    if stat is not None
+                )
+            elif formula.kind == "ratio":
+                assert formula.left is not None
+                self.rows["computed_stat_ratio"].append(
+                    key
+                    | {
+                        "numerator_stat_definition_id": inputs[formula.left],
+                        "denominator_stat_definition_id": (
+                            inputs[formula.right] if formula.right else None
+                        ),
+                        "denominator_constant": formula.right_constant,
+                        "multiplier": formula.multiplier,
+                        "offset": formula.offset,
+                        "round_mode": formula.round_mode,
+                    }
+                )
+            elif formula.kind in ("min", "max"):
                 assert formula.operands is not None
                 self.rows["computed_stat_extremum"].append(
                     key | {"pick": formula.kind, "round_mode": formula.round_mode}
@@ -1918,6 +1950,23 @@ async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> N
         )
     ):
         edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatProductFactor.stat_definition_id,
+            ComputedStatProductFactor.source_stat_definition_id,
+        ).where(ComputedStatProductFactor.tenant_id == tenant_id)
+    ):
+        edges[target].add(source)
+    for target, numerator, denominator in await session.execute(
+        select(
+            ComputedStatRatio.stat_definition_id,
+            ComputedStatRatio.numerator_stat_definition_id,
+            ComputedStatRatio.denominator_stat_definition_id,
+        ).where(ComputedStatRatio.tenant_id == tenant_id)
+    ):
+        edges[target].add(numerator)
+        if denominator is not None:
+            edges[target].add(denominator)
     state: dict[uuid.UUID, int] = {}
     for start in list(edges):
         if state.get(start):
@@ -2279,6 +2328,19 @@ async def forget_copy(
                 ComputedStatSumTerm.entity_id == ComputedStat.entity_id,
                 ComputedStatSumTerm.stat_definition_id == ComputedStat.stat_definition_id,
                 ComputedStatSumTerm.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatProductFactor.entity_id == ComputedStat.entity_id,
+                ComputedStatProductFactor.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatProductFactor.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatRatio.entity_id == ComputedStat.entity_id,
+                ComputedStatRatio.stat_definition_id == ComputedStat.stat_definition_id,
+                or_(
+                    ComputedStatRatio.numerator_stat_definition_id.in_(all_definitions),
+                    ComputedStatRatio.denominator_stat_definition_id.in_(all_definitions),
+                ),
             ),
             exists().where(
                 ComputedStatExtremumInput.entity_id == ComputedStat.entity_id,

@@ -39,6 +39,9 @@ from lorenzo_api.models import (
     ComputedStatExtremum,
     ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -660,10 +663,55 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         operands[(operand.entity_id, operand.stat_definition_id)].append(
             (operand.source_stat_definition_id, operand.constant)
         )
+    products = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatProduct).where(ComputedStatProduct.tenant_id == t)
+            )
+        )
+    }
+    factors: dict[tuple[uuid.UUID, uuid.UUID], list[tuple[uuid.UUID | None, Decimal | None]]] = (
+        defaultdict(list)
+    )
+    for factor in await session.scalars(
+        select(ComputedStatProductFactor)
+        .where(ComputedStatProductFactor.tenant_id == t)
+        .order_by(ComputedStatProductFactor.position)
+    ):
+        factors[(factor.entity_id, factor.stat_definition_id)].append(
+            (factor.source_stat_definition_id, None)
+        )
+    ratios = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(select(ComputedStatRatio).where(ComputedStatRatio.tenant_id == t))
+        )
+    }
     for e, d in await rows(
         ComputedStat.entity_id, ComputedStat.stat_definition_id, where=ComputedStat.tenant_id == t
     ):
-        if (e, d) in extrema:
+        if (e, d) in products:
+            product = products[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="product",
+                multiplier=product.multiplier,
+                offset=product.offset,
+                round_mode=product.round_mode,
+                operands=factors[(e, d)],
+            )
+        elif (e, d) in ratios:
+            ratio = ratios[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="ratio",
+                left=ratio.numerator_stat_definition_id,
+                right=ratio.denominator_stat_definition_id,
+                right_constant=ratio.denominator_constant,
+                multiplier=ratio.multiplier,
+                offset=ratio.offset,
+                round_mode=ratio.round_mode,
+            )
+        elif (e, d) in extrema:
             c.formulas[(e, d)] = Formula(
                 kind=extrema[(e, d)].pick,
                 round_mode=extrema[(e, d)].round_mode,
@@ -1157,6 +1205,28 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
         return {
             "kind": "linear",
             "source": name("stat_definition", formula.source),
+            "multiplier": str(formula.multiplier),
+            "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "product":
+        assert formula.operands is not None
+        return {
+            "kind": "product",
+            "factors": [name("stat_definition", stat) for stat, _ in formula.operands if stat],
+            "multiplier": str(formula.multiplier),
+            "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "ratio":
+        assert formula.left is not None
+        return {
+            "kind": "ratio",
+            "numerator": name("stat_definition", formula.left),
+            "denominator": name("stat_definition", formula.right) if formula.right else None,
+            "denominator_constant": (
+                str(formula.right_constant) if formula.right_constant is not None else None
+            ),
             "multiplier": str(formula.multiplier),
             "offset": str(formula.offset),
             "round_mode": formula.round_mode,

@@ -107,6 +107,18 @@ class ComputedStat(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    product: Mapped[ComputedStatProduct | None] = relationship(
+        foreign_keys="[ComputedStatProduct.entity_id, ComputedStatProduct.stat_definition_id]",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    ratio: Mapped[ComputedStatRatio | None] = relationship(
+        foreign_keys="[ComputedStatRatio.entity_id, ComputedStatRatio.stat_definition_id]",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def kind(self) -> str:
@@ -117,6 +129,10 @@ class ComputedStat(Base):
             return "sum"
         if self.extremum is not None:
             return self.extremum.pick
+        if self.product is not None:
+            return "product"
+        if self.ratio is not None:
+            return "ratio"
         return "contents" if self.contents is not None else "comparison"
 
     def source_stat_definition_ids(self) -> list[uuid.UUID]:
@@ -139,6 +155,13 @@ class ComputedStat(Base):
                 for operand in self.extremum.inputs
                 if operand.source_stat_definition_id is not None
             ]
+        if self.product is not None:
+            return [factor.source_stat_definition_id for factor in self.product.factors]
+        if self.ratio is not None:
+            ids = [self.ratio.numerator_stat_definition_id]
+            if self.ratio.denominator_stat_definition_id is not None:
+                ids.append(self.ratio.denominator_stat_definition_id)
+            return ids
         return []
 
 
@@ -373,6 +396,110 @@ class ComputedStatExtremumInput(Base):
     constant: Mapped[Decimal | None] = mapped_column(Numeric())
 
 
+class ComputedStatProduct(Base):
+    """`round(factor₁ × factor₂ × … × multiplier + offset)` over two to five stats of the same
+    entity - ADR 0445. A flag is a factor of 1 or 0."""
+
+    __tablename__ = "computed_stat_product"
+    __table_args__ = (
+        *_kind_key("computed_stat_product"),
+        # ADR 0117: what its factors' same-tenant key references.
+        UniqueConstraint(
+            "entity_id",
+            "stat_definition_id",
+            "tenant_id",
+            name="computed_stat_product_entity_stat_tenant_key",
+        ),
+        CheckConstraint(
+            "round_mode IN ('none', 'floor', 'ceil', 'round', 'truncate')",
+            name="computed_stat_product_round_mode",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    multiplier: Mapped[Decimal] = mapped_column(Numeric(), server_default=text("1"))
+    offset: Mapped[Decimal] = mapped_column(Numeric(), server_default=text("0"))
+    round_mode: Mapped[str] = mapped_column(server_default=text("'none'"))
+
+    factors: Mapped[list[ComputedStatProductFactor]] = relationship(
+        foreign_keys=(
+            "[ComputedStatProductFactor.entity_id, ComputedStatProductFactor.stat_definition_id]"
+        ),
+        order_by="ComputedStatProductFactor.position",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ComputedStatProductFactor(Base):
+    """One factor of a product: a stat, in the order written - ADR 0445. A stat may appear
+    twice (`a × a`), which is why the key is the position."""
+
+    __tablename__ = "computed_stat_product_factor"
+    __table_args__ = (
+        same_tenant_fk(
+            "computed_stat_product_factor_entity_id_stat_definition_id_fkey",
+            ["entity_id", "stat_definition_id"],
+            "computed_stat_product",
+            ["entity_id", "stat_definition_id"],
+            ondelete="CASCADE",
+        ),
+        same_tenant_fk(
+            "computed_stat_product_factor_source_stat_definition_id_fkey",
+            ["source_stat_definition_id"],
+            "stat_definition",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    position: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    source_stat_definition_id: Mapped[uuid.UUID] = mapped_column(index=True)
+
+
+class ComputedStatRatio(Base):
+    """`round(numerator ÷ denominator × multiplier + offset)`, the numerator a stat of the same
+    entity and the denominator a stat or a constant - ADR 0445. The quotient is rounded at the
+    default precision before the offset and the rounding mode apply."""
+
+    __tablename__ = "computed_stat_ratio"
+    __table_args__ = (
+        *_kind_key("computed_stat_ratio"),
+        same_tenant_fk(
+            "computed_stat_ratio_numerator_stat_definition_id_fkey",
+            ["numerator_stat_definition_id"],
+            "stat_definition",
+        ),
+        same_tenant_fk(
+            "computed_stat_ratio_denominator_stat_definition_id_fkey",
+            ["denominator_stat_definition_id"],
+            "stat_definition",
+        ),
+        CheckConstraint(
+            "num_nonnulls(denominator_stat_definition_id, denominator_constant) = 1",
+            name="computed_stat_ratio_one_denominator",
+        ),
+        CheckConstraint(
+            "round_mode IN ('none', 'floor', 'ceil', 'round', 'truncate')",
+            name="computed_stat_ratio_round_mode",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    numerator_stat_definition_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    denominator_stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+    denominator_constant: Mapped[Decimal | None] = mapped_column(Numeric())
+    multiplier: Mapped[Decimal] = mapped_column(Numeric(), server_default=text("1"))
+    offset: Mapped[Decimal] = mapped_column(Numeric(), server_default=text("0"))
+    round_mode: Mapped[str] = mapped_column(server_default=text("'none'"))
+
+
 def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoad]:
     """Eager loads for every formula kind's parameters, which evaluation
     and serialization read (ADR 0104, 0126): from a query on ComputedStat
@@ -391,4 +518,6 @@ def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoa
         join(ComputedStat.sum).selectinload(ComputedStatSum.terms),
         join(ComputedStat.contents),
         join(ComputedStat.extremum).selectinload(ComputedStatExtremum.inputs),
+        join(ComputedStat.product).selectinload(ComputedStatProduct.factors),
+        join(ComputedStat.ratio),
     ]

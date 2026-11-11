@@ -15,6 +15,8 @@ from lorenzo_api.models import (
     ComputedStatComparison,
     ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
     ComputedStatSumTerm,
     Entity,
     EntityStat,
@@ -154,6 +156,19 @@ async def formulas_reading_as_number(
         ).where(
             ComputedStatExtremumInput.tenant_id == tenant_id,
             ComputedStatExtremumInput.source_stat_definition_id == stat_definition_id,
+        ),
+        select(
+            ComputedStatProductFactor.entity_id, ComputedStatProductFactor.stat_definition_id
+        ).where(
+            ComputedStatProductFactor.tenant_id == tenant_id,
+            ComputedStatProductFactor.source_stat_definition_id == stat_definition_id,
+        ),
+        select(ComputedStatRatio.entity_id, ComputedStatRatio.stat_definition_id).where(
+            ComputedStatRatio.tenant_id == tenant_id,
+            or_(
+                ComputedStatRatio.numerator_stat_definition_id == stat_definition_id,
+                ComputedStatRatio.denominator_stat_definition_id == stat_definition_id,
+            ),
         ),
     ).subquery()
     rows = await session.execute(

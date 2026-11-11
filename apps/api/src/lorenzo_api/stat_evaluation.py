@@ -30,7 +30,15 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from decimal import ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR, ROUND_HALF_UP, Decimal
+from decimal import (
+    ROUND_CEILING,
+    ROUND_DOWN,
+    ROUND_FLOOR,
+    ROUND_HALF_UP,
+    Context,
+    Decimal,
+    Inexact,
+)
 
 import structlog
 
@@ -113,7 +121,38 @@ class ExtremumFormula:
     round_mode: RoundMode
 
 
-Formula = LinearFormula | ComparisonFormula | SumFormula | ContentsFormula | ExtremumFormula
+@dataclass(frozen=True, slots=True)
+class ProductFormula:
+    """`round(factor₁ × … × factorₙ × multiplier + offset)` - ADR 0445. A flag is a factor of 1
+    or 0."""
+
+    factors: tuple[uuid.UUID, ...]
+    multiplier: Decimal
+    offset: Decimal
+    round_mode: RoundMode
+
+
+@dataclass(frozen=True, slots=True)
+class RatioFormula:
+    """`round(numerator ÷ denominator × multiplier + offset)`, the denominator a stat or a
+    constant - ADR 0445. A zero denominator gives no value."""
+
+    numerator: uuid.UUID
+    denominator: Operand
+    multiplier: Decimal
+    offset: Decimal
+    round_mode: RoundMode
+
+
+Formula = (
+    LinearFormula
+    | ComparisonFormula
+    | SumFormula
+    | ContentsFormula
+    | ExtremumFormula
+    | ProductFormula
+    | RatioFormula
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +213,26 @@ def formula_of(computed: ComputedStat) -> Formula | None:
         return ContentsFormula(
             source_stat_definition_id=computed.contents.source_stat_definition_id
         )
+    if computed.product is not None:
+        product = computed.product
+        return ProductFormula(
+            factors=tuple(factor.source_stat_definition_id for factor in product.factors),
+            multiplier=product.multiplier,
+            offset=product.offset,
+            round_mode=RoundMode(product.round_mode),
+        )
+    if computed.ratio is not None:
+        ratio = computed.ratio
+        return RatioFormula(
+            numerator=ratio.numerator_stat_definition_id,
+            denominator=Operand(
+                stat_definition_id=ratio.denominator_stat_definition_id,
+                constant=ratio.denominator_constant,
+            ),
+            multiplier=ratio.multiplier,
+            offset=ratio.offset,
+            round_mode=RoundMode(ratio.round_mode),
+        )
     if computed.extremum is not None:
         extremum = computed.extremum
         return ExtremumFormula(
@@ -203,6 +262,13 @@ def input_ids(formula: Formula) -> list[uuid.UUID]:
             for operand in formula.inputs
             if operand.stat_definition_id is not None
         ]
+    if isinstance(formula, ProductFormula):
+        return list(formula.factors)
+    if isinstance(formula, RatioFormula):
+        ids = [formula.numerator]
+        if formula.denominator.stat_definition_id is not None:
+            ids.append(formula.denominator.stat_definition_id)
+        return ids
     ids = [formula.left_stat_definition_id]
     if formula.right_stat_definition_id is not None:
         ids.append(formula.right_stat_definition_id)
@@ -325,6 +391,77 @@ def apply_extremum(
     return _rounded(result, formula.round_mode, target_type)
 
 
+def apply_product(
+    formula: ProductFormula,
+    resolve: Callable[[uuid.UUID], Value | None],
+    target_type: StatValueType,
+) -> Value | None:
+    """Every factor must have a value, as a sum's terms must (ADR 0445)."""
+    result = Decimal(1)
+    for factor in formula.factors:
+        number = _number(resolve(factor))
+        if number is None:
+            return None
+        result *= number
+    return _rounded(result * formula.multiplier + formula.offset, formula.round_mode, target_type)
+
+
+_RATIO_PRECISION = 28
+"""The digits a quotient keeps (ADR 0445): Python's default, spelled out so a change of the
+thread's context cannot change what a formula says."""
+
+
+def divide(numerator: Decimal, denominator: Decimal) -> tuple[Decimal, bool] | None:
+    """The quotient at the ratio precision and whether that rounded it, or None for a zero
+    denominator."""
+    if denominator == 0:
+        return None
+    context = Context(prec=_RATIO_PRECISION)
+    quotient = context.divide(numerator, denominator)
+    return quotient, bool(context.flags[Inexact])
+
+
+def ratio_inputs(
+    formula: RatioFormula, resolve: Callable[[uuid.UUID], Value | None]
+) -> tuple[Decimal, Decimal] | None:
+    numerator = _number(resolve(formula.numerator))
+    if formula.denominator.stat_definition_id is None:
+        denominator = formula.denominator.constant
+    else:
+        denominator = _number(resolve(formula.denominator.stat_definition_id))
+    if numerator is None or denominator is None:
+        return None
+    return numerator, denominator
+
+
+def apply_ratio(
+    formula: RatioFormula,
+    resolve: Callable[[uuid.UUID], Value | None],
+    target_type: StatValueType,
+) -> Value | None:
+    """A stat with no value, or a zero denominator, gives no value (ADR 0445). The quotient is
+    rounded at the ratio precision before the multiplier, the offset and the mode apply."""
+    operands = ratio_inputs(formula, resolve)
+    if operands is None:
+        return None
+    divided = divide(*operands)
+    if divided is None:
+        return None
+    return _rounded(
+        divided[0] * formula.multiplier + formula.offset, formula.round_mode, target_type
+    )
+
+
+def ratio_was_rounded(
+    formula: RatioFormula, resolve: Callable[[uuid.UUID], Value | None]
+) -> bool | None:
+    """Whether the division of a ratio lost digits at the ratio precision (ADR 0445), None when
+    it has no value."""
+    operands = ratio_inputs(formula, resolve)
+    divided = None if operands is None else divide(*operands)
+    return None if divided is None else divided[1]
+
+
 def always_whole(
     coefficients: Iterable[Decimal], offset: Decimal, input_types: Iterable[StatValueType]
 ) -> bool:
@@ -405,12 +542,21 @@ def longest_formula_chain(edges: Mapping[uuid.UUID, set[uuid.UUID]], through: uu
 
 
 def apply_formula(
-    formula: LinearFormula | ComparisonFormula | SumFormula | ExtremumFormula,
+    formula: LinearFormula
+    | ComparisonFormula
+    | SumFormula
+    | ExtremumFormula
+    | ProductFormula
+    | RatioFormula,
     resolve: Callable[[uuid.UUID], Value | None],
     target_type: StatValueType,
 ) -> Value | None:
     if isinstance(formula, ExtremumFormula):
         return apply_extremum(formula, resolve, target_type)
+    if isinstance(formula, ProductFormula):
+        return apply_product(formula, resolve, target_type)
+    if isinstance(formula, RatioFormula):
+        return apply_ratio(formula, resolve, target_type)
     if isinstance(formula, LinearFormula):
         return apply_linear(formula, resolve(formula.source_stat_definition_id), target_type)
     if isinstance(formula, SumFormula):
