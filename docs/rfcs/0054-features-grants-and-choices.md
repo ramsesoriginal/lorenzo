@@ -18,7 +18,7 @@ from a set, what it keeps as its own state, and what stops it having it.
 1. **Held instances and rules, not a pile of tables.** A feature is held as an instance with its own state, and a small set of
    grant rules says what a source entitles; nothing duplicates containment, stats, capacity or the repository machinery.
 2. **Two kinds:** `feature` (the prototype) and `feature_instance` (what a holder has). A feature instance has its own
-   `/features` route and no item vocabulary; inventory, the board and the loot bot leave it out by kind.
+   `/features` route and no item vocabulary; the inventory and board reads leave it out by kind.
 3. **A grant has a source, and a source is an ancestor or a held thing.** An ancestor of the holder (a race, a class, a
    background, an archetype) or an instance the holder holds. A held source counts only while its `active` switch is on.
 4. **A rule's conditions are inline comparisons**, all of which must hold; an OR is a separate rule. Each condition names its
@@ -39,6 +39,8 @@ from a set, what it keeps as its own state, and what stops it having it.
 15. **`repeatable` and `starts_inactive` are columns of `feature`.**
 16. **A revoked record keeps its feature and loses its instance,** which is deleted.
 17. **A holder is a being, an item instance or a group.**
+18. **Data model and API only.** No app, frontend or command-line change is part of this RFC, and every existing request and
+    response keeps working as it does now (see Compatibility).
 
 ## What it is like today (tried against the API, 2026-11-10)
 
@@ -180,10 +182,10 @@ entries do. Deleting a rule or a feature is a breaking change, with `grant_rule_
 single kinds join the publishable matrix of [ADR 0217](../adr/0217-entity-kinds-the-routes-the-updates-and-the-publish-check.md).
 A class or a race therefore ships with its grants.
 
-### 8. Templates, hover cards and the feed
+### 8. Templates, link previews and the feed
 
 RFC 0052's templates gain a `features` slot kind: the held features, grouped by type, with columns from a list of stats or a
-group. A feature's hover card reads its description and a few stats. A grant, an award and a revocation write an activity
+group. A feature's link preview reads its description and a few stats. A grant, an award and a revocation write an activity
 entry and reach the player on the change feed ([ADR 0099](../adr/0099-player-facing-change-feed.md)).
 
 ### Who may do what
@@ -201,10 +203,19 @@ Each slice is its own ADR.
 3. **F3.** Records, the grants read, apply with picks, and revocation.
 4. **F4.** The `features` template slot, once RFC 0052's templates exist.
 
-Beings and Bench work, a level-up flow and a rule editor, follows as the apps' own work.
+## Compatibility
+
+This RFC changes the data model and the API, and only those: no app, frontend or command-line change is part of it. Every
+existing request keeps its path, its body, its response and its status, and nothing changes for a library until it creates
+its first feature. The changes are additions: two kinds, new tables, new routes, a `features` template slot, a new reason in
+the release ledger, and a revocation check that runs only for a holder that has active `while_source` records. The inventory
+reads, the board and the held-by listings leave out `feature_instance` by kind, and an existing `contents` formula, whose
+default takes any kind, sees a feature instance only if the library has made one that carries the stat it reads; a rule that
+means features alone says `only_kind`.
 
 ## Not in scope
 
+- **Apps and the command line.** A level-up flow, a rule editor and the display of features in the apps are their own work.
 - Spell slots, preparation limits and rests: stats and formulas, as the guide shows.
 - Spending a resource or points to take a feature, and swapping one feature for another beyond a changeable pick.
 - Grants derived at read time rather than materialised, and an apply that runs on a stat write.
