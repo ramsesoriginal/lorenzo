@@ -463,3 +463,27 @@ async def test_product_and_ratio_tables_are_tenant_isolated(
     finally:
         for tenant_id in tenant_ids:
             await delete_tenant(tenant_id)
+
+
+async def test_a_stat_a_product_or_a_ratio_reads_is_not_deleted(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Deleting a stat that a formula reads is a 409, whatever the kind of formula."""
+    tenant_id = await make_tenant(test_user_id)
+    sheet = await _sheet(
+        tenant_id,
+        a=StatValueType.INT,
+        b=StatValueType.INT,
+        c=StatValueType.INT,
+        product=StatValueType.INT,
+        ratio=StatValueType.FLOAT,
+    )
+    entity = await _entity(tenant_id, "Hero")
+    await _put(client, sheet.formula_url(entity, "product"), _product(sheet["a"], sheet["b"]))
+    await _put(client, sheet.formula_url(entity, "ratio"), _ratio(sheet["b"], by=sheet["c"]))
+
+    by_a = await client.delete(f"/tenants/{tenant_id}/stat-definitions/{sheet['a']}")
+    by_c = await client.delete(f"/tenants/{tenant_id}/stat-definitions/{sheet['c']}")
+
+    assert (by_a.status_code, by_c.status_code) == (409, 409)
+    await delete_tenant(tenant_id)
