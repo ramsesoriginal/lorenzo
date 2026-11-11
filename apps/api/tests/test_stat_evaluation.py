@@ -429,3 +429,21 @@ def test_a_contents_override_evaluates_for_one_call() -> None:
         contents=contents,
     )
     assert values[SAVE] == 12
+
+
+def test_a_chain_too_long_to_follow_from_its_top_has_no_value_and_does_not_raise() -> None:
+    """ADR 0443: the recursion limit is hit when the top of a chain of 600 formulas is reached
+    first, and that stat has no value; reached from the tail instead, every step is shallow and
+    the whole chain resolves. The order of the rows decides, so it is fixed here."""
+    ids = [uuid.uuid4() for _ in range(601)]
+    rows = [
+        _linear_row(ids[i], StatValueType.INT, ids[i + 1], "1", "0", RoundMode.NONE)
+        for i in range(600)
+    ]
+    tail = _stored(ids[600], StatValueType.INT, 1)
+
+    from_the_top = evaluate([*rows, tail])
+    from_the_tail = evaluate([tail, *reversed(rows)])
+
+    assert ids[0] not in from_the_top and from_the_top[ids[600]] == 1
+    assert all(from_the_tail[i] == 1 for i in ids)
