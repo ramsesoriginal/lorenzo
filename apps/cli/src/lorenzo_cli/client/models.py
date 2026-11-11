@@ -616,6 +616,8 @@ class Kind6(StrEnum):
     contents = "contents"
     min = "min"
     max = "max"
+    product = "product"
+    ratio = "ratio"
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -4790,6 +4792,74 @@ class PreviewInformationOut(BaseModel):
     pictures: list[PreviewPictureOut] = Field(..., title="Pictures")
 
 
+class ProductFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["product"] = Field("product", title="Kind")
+    factors: list[UUID] = Field(..., max_length=5, min_length=2, title="Factors")
+    multiplier: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "0", title="Offset"
+    )
+    round_mode: RoundMode | None = "none"
+
+
+class ProductFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["product"] = Field("product", title="Kind")
+    factors: list[UUID] = Field(..., max_length=5, min_length=2, title="Factors")
+    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    round_mode: RoundMode | None = "none"
+
+
+class RatioFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["ratio"] = Field("ratio", title="Kind")
+    numerator_stat_definition_id: UUID = Field(..., title="Numerator Stat Definition Id")
+    denominator_stat_definition_id: UUID | None = Field(
+        None, title="Denominator Stat Definition Id"
+    )
+    denominator_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Denominator Constant"
+    )
+    multiplier: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "0", title="Offset"
+    )
+    round_mode: RoundMode | None = "none"
+
+
+class RatioFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["ratio"] = Field("ratio", title="Kind")
+    numerator_stat_definition_id: UUID = Field(..., title="Numerator Stat Definition Id")
+    denominator_stat_definition_id: UUID | None = Field(
+        None, title="Denominator Stat Definition Id"
+    )
+    denominator_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Denominator Constant"
+    )
+    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    round_mode: RoundMode | None = "none"
+
+
 class ReadingIn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -5176,6 +5246,8 @@ class ComputedStatOut(BaseModel):
         | ContentsFormulaBody
         | MinFormulaBodyOutput
         | MaxFormulaBodyOutput
+        | ProductFormulaBodyOutput
+        | RatioFormulaBodyOutput
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -5188,6 +5260,8 @@ class ComputedStatPreviewIn(BaseModel):
         | ContentsFormulaBody
         | MinFormulaBodyInput
         | MaxFormulaBodyInput
+        | ProductFormulaBodyInput
+        | RatioFormulaBodyInput
         | None
     ) = Field(None, title="Formula")
 
@@ -5421,11 +5495,14 @@ class StatExplanationOut(BaseModel):
         | ContentsFormulaBody
         | MinFormulaBodyOutput
         | MaxFormulaBodyOutput
+        | ProductFormulaBodyOutput
+        | RatioFormulaBodyOutput
         | None
     ) = Field(..., title="Formula")
     inputs: list[PreviewInputOut] = Field(..., title="Inputs")
     contents: ContentsExplanationOut | None
     picked: PickedExplanationOut | None = None
+    division_rounded: bool | None = Field(None, title="Division Rounded")
 
 
 class UpdatesOut(BaseModel):

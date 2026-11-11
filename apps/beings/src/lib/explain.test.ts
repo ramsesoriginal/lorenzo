@@ -65,6 +65,43 @@ describe('explain', () => {
     expect(out.text).toBe('Armour base + 2 × Dexterity − 1');
   });
 
+  it('says a product by its factors and a ratio with its rounding', () => {
+    const product = explain(
+      {
+        ...base,
+        formula: {
+          kind: 'product',
+          factors: ['dex', 'armour'],
+          multiplier: '2',
+          offset: '1',
+          round_mode: 'none',
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+    const ratio = explain(
+      {
+        ...base,
+        division_rounded: true,
+        formula: {
+          kind: 'ratio',
+          numerator_stat_definition_id: 'dex',
+          denominator_stat_definition_id: null,
+          denominator_constant: '3',
+          multiplier: '1',
+          offset: '0',
+          round_mode: 'floor',
+        },
+        inputs: [],
+      } as Explanation,
+      names,
+    );
+
+    expect(product.text).toBe('Dexterity × Armour base × 2 + 1');
+    expect(ratio.text).toBe('Dexterity ÷ 3, rounded down, the division rounded to 28 digits');
+  });
+
   it('says a cap and a floor by what they compare', () => {
     const cap = explain(
       {

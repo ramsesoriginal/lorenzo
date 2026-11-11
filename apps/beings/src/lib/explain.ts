@@ -108,5 +108,32 @@ export function explain(explanation: Explanation, names: ReadonlyMap<string, str
         parts,
       };
     }
+    case 'product': {
+      // ADR 0445: the factors, times a constant, plus an offset.
+      const factors = formula.factors.map((id) => label(id)).join(' × ');
+      const multiplier = Number(formula.multiplier);
+      const times = multiplier === 1 ? '' : ` × ${multiplier}`;
+      const offset = Number(formula.offset);
+      const added = offset === 0 ? '' : offset > 0 ? ` + ${offset}` : ` − ${Math.abs(offset)}`;
+      const rounding = ROUNDING[formula.round_mode] ?? '';
+
+      return { text: `${factors}${times}${added}${rounding}`, parts };
+    }
+    case 'ratio': {
+      const by = formula.denominator_stat_definition_id
+        ? label(formula.denominator_stat_definition_id)
+        : String(formula.denominator_constant ?? '');
+      const multiplier = Number(formula.multiplier);
+      const times = multiplier === 1 ? '' : ` × ${multiplier}`;
+      const offset = Number(formula.offset);
+      const added = offset === 0 ? '' : offset > 0 ? ` + ${offset}` : ` − ${Math.abs(offset)}`;
+      const rounding = ROUNDING[formula.round_mode] ?? '';
+      const lost = explanation.division_rounded ? ', the division rounded to 28 digits' : '';
+
+      return {
+        text: `${label(formula.numerator_stat_definition_id)} ÷ ${by}${times}${added}${rounding}${lost}`,
+        parts,
+      };
+    }
   }
 }

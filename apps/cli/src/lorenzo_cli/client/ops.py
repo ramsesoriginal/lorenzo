@@ -54,8 +54,10 @@ from lorenzo_cli.client.models import (
     PageSubscriberOut,
     PageSubscriptionOut,
     PageTenantSummaryOut,
+    ProductFormulaBodyInput,
     PublishedOut,
     PublishRequest,
+    RatioFormulaBodyInput,
     ResolvedSlugOut,
     SetContainerRequest,
     SetEntityStatRequest,
@@ -84,6 +86,8 @@ ComputedStatBody = (
     | ContentsFormulaBody
     | MinFormulaBodyInput
     | MaxFormulaBodyInput
+    | ProductFormulaBodyInput
+    | RatioFormulaBodyInput
 )
 
 
