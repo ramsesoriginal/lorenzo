@@ -1,4 +1,4 @@
-"""computed_stat_product (with its factors) and computed_stat_ratio: the product and ratio kinds (ADR 0445)
+"""computed_stat_product and computed_stat_ratio: the product and ratio kinds (ADR 0445)
 
 `product` is two to five stats multiplied, then times a constant plus an offset; `ratio` is a stat
 divided by a stat or a constant, times a constant plus an offset. The kind row is keyed and cascades
