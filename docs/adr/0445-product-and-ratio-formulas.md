@@ -30,6 +30,8 @@ said at all.
 - **The cycle check, the chain limit, preview, dependents and the enum guard cover them.** The stat inputs are edges of the
   definition-level graph; `dependents` reports `product` and `ratio`; moving or removing a value of an enum that a product or a
   ratio reads is a 409 `stat-enum-order-read-by-formula` (ADR 0444).
+- **A stat that a `product` or a `ratio` reads is not deleted:** a 409 from `DELETE /stat-definitions/{id}`, as for every
+  other kind (ADR 0444).
 - **Nothing else changes.** Every existing request and response keeps its path, body and status.
 
 ## Design
