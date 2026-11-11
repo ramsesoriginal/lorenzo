@@ -55,4 +55,4 @@ item instance in the list and by id. The statement counts of
   `stat_group_id` to `PATCH` and read the 200 as success gets a 422.
 - A list changes order: a client that relied on alphabetical `prototypes` sees parent order.
 - A very deep chain reads as unset instead of failing the whole read.
-- RFC 0052's first slice relies on the 409; if this lands first, it does not repeat it.
+- [RFC 0052](../rfcs/0052-game-systems-in-one-library.md)'s first slice relies on the 409; if this lands first, it does not repeat it.

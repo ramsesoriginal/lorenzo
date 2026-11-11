@@ -4,7 +4,7 @@ How to say a game's numbers with Lorenzo's stats: what each piece does, the reci
 
 Everything here is as the API behaves today. It was checked against a local API; where a recipe stops working, the section says where.
 
-RFC 0053 (accepted, not built) adds the formula kinds `min`, `max`, `product`, `ratio` and `select`, lets a `bool` or an `enum` be a formula input, and gives `contents` options for what is switched on. It makes three recipes below unnecessary: the staircase for a table with steps becomes one `select`, a trait entry that carries a formula for a flag becomes a `product` with the flag, and a container for what is worn becomes `contents` over what is active. When a kind is built, its recipe here is replaced, and "What the formulas do not say" shrinks to what is still missing.
+[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) (accepted, not built) adds the formula kinds `min`, `max`, `product`, `ratio` and `select`, lets a `bool` or an `enum` be a formula input, and gives `contents` options for what is switched on. It makes three recipes below unnecessary: the staircase for a table with steps becomes one `select`, a trait entry that carries a formula for a flag becomes a `product` with the flag, and a container for what is worn becomes `contents` over what is active. When a kind is built, its recipe here is replaced, and "What the formulas do not say" shrinks to what is still missing.
 
 ## The pieces
 

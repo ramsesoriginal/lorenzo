@@ -36,7 +36,7 @@ candles and text. Lorenzo assumes none of them. Today that library works only by
 11. **Role-holders are neutral:** a system may not hold a role.
 12. **A template's filter is the kind and the ancestor** of RFC 0018; the campaign picks the system. A template's
     `system_id` only names its system for that pick and is not part of the filter.
-13. **The slot kinds** are `stats`, `information`, `held` and `tags`; a `features` slot is added by RFC 0054.
+13. **The slot kinds** are `stats`, `information`, `held` and `tags`; a `features` slot is added by [RFC 0054](0054-features-grants-and-choices.md).
 14. **Data model and API only.** No app, frontend or command-line change is part of this RFC, and every existing request and
     response keeps working as it does now (see Compatibility).
 
@@ -220,7 +220,7 @@ Each slice is its own ADR.
 - **Unit conversion and display units**: left out for now.
 - **Features** (a character feature, a spell, a feat, an upgrade, with grants and choices): RFC 0054, which uses a
   template's slots and a system.
-- **Formula kinds** (min, max, select, product, ratio, aggregation over what an entry holds): RFC 0053.
+- **Formula kinds** (min, max, select, product, ratio, aggregation over what an entry holds): [RFC 0053](0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md).
 - Writing values through a template; nested templates; an OR in a template's filter (RFC 0018's list).
 - Resolving an item in a library's catalog, which has no campaign, through a system (RFC 0033 section 9): the `system`
   filter gives a read the system; the catalog's choice is left to its client.
