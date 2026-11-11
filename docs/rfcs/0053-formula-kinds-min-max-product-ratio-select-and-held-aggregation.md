@@ -30,6 +30,8 @@ switches a bonus, the best or the worst of what an entry holds, and a count of w
    does.
 10. **A held-thing aggregation is limited to a kind by `only_kind`**; without it, a stat that a kind does not carry
     contributes nothing.
+11. **Data model and API only.** No app, frontend or command-line change is part of this RFC, and every existing request
+    and response keeps working as it does now (see Compatibility).
 
 ## What the four kinds cannot say (tried against the API, 2026-11-10)
 
@@ -147,11 +149,19 @@ loads each kind's tables with the formula ([ADR 0285](../adr/0285-api-reads-that
 assert, and if loading each kind separately would, they are loaded in one query. The slice that adds them carries the
 test.
 
-### The Bench
+## Compatibility
 
-Not a slice of this RFC; the Bench takes these up in its own work. A pane for each, in the vocabulary of [ADR 0253](../adr/0253-bench-formulas-and-the-stat-vocabulary.md): "Lowest",
-"Highest", "Multiply", "Divide", "Pick by", and "Highest/Lowest/Count of what it holds". Pick-by takes a pasted list of
-`from` and result pairs.
+This RFC changes the data model and the API, and only those: no app, frontend or command-line change is part of it. Every
+existing request keeps its path, its body, its response and its status, with these relaxations:
+
+- A formula whose input is a `bool` or an `enum` is accepted, where it answered 422.
+- A formula's response may be of a kind that did not exist; only a formula created with a new kind has one, so no stored
+  formula changes.
+
+Everything else is an addition with a default that leaves behaviour as it is: new kinds and tables, the options of `contents`
+whose defaults are today's behaviour (`sum`, every held thing, any kind, no filter), the `active` field on an item instance
+(true, so nothing is skipped until a client sets it false), and the guard on an enum's order, which applies only to an enum
+that a formula reads as a number. Capacity, binding, the board and every existing formula read and write as they do now.
 
 ## Recipes this replaces
 
@@ -168,8 +178,7 @@ Each slice is its own ADR.
 3. **K3.** `select`, both modes.
 4. **K4.** `contents` options; `active` on item instances.
 
-Each slice carries the preview, the explanation and the dependents of its kinds. The Bench panes and the update of the
-guide are not slices of this RFC.
+Each slice carries the preview, the explanation and the dependents of its kinds.
 
 ## Not in scope
 
@@ -179,7 +188,8 @@ guide are not slices of this RFC.
 - Aggregation beyond one level down, over group members, over a relationship's ends, or across the prototype graph.
 - "Missing counts as 0" (decided out).
 - Clamping a computed value by a stat's scale (ADR 0403).
-- Grants, features and the `feature_instance` kind: their own RFC, which uses `only_kind` and `active`.
+- Grants, features and the `feature_instance` kind: RFC 0054, which uses `only_kind` and `active`.
+- Apps and the command line: formula panes, pickers and any other drawing of the new kinds are their own work.
 
 ## Open questions
 
@@ -188,7 +198,7 @@ None.
 ## Alternatives considered
 
 - **A general expression tree** (RFC 0016's option D). It would make every case above one formula, at the price of an
-  interpreter, a validator for it, a Bench editor for it and a new place for bugs. The kinds above cover every case met in
+  interpreter, a validator for it, an authoring surface for it and a new place for bugs. The kinds above cover every case met in
   the tests; the tree is still there to reach for if chaining proves unwieldy.
 - **One `bound` kind with a lower and an upper limit.** Covers min, max and clamp in one table; two kinds were chosen because
   `min` and `max` are the names a person looks for, and a clamp is two formulas either way.
@@ -204,7 +214,7 @@ None.
 
 - Rules that need a cap, a table, a flag or an average are one formula instead of several, with fewer intermediate stats on
   a sheet.
-- Four kinds become nine, each with its tables, schema, evaluator, Bench pane and registry line, and each a place a rule can
+- Four kinds become nine, each with its tables, schema, evaluator and registry line, and each a place a rule can
   be wrong.
 - An enum's order becomes something a formula can depend on, so reordering it is guarded.
 - The response union of a formula gains members, which the OpenAPI breaking-change check reports; the slice records it in
