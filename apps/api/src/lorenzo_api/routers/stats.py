@@ -44,7 +44,10 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
     ComputedStatSumTerm,
     EntityStat,
     EntityStatGroup,
@@ -710,6 +713,19 @@ async def delete_stat_definition(
         + await count(
             ComputedStatContents,
             ComputedStatContents.source_stat_definition_id == stat_definition_id,
+        )
+        + await count(
+            ComputedStatExtremumInput,
+            ComputedStatExtremumInput.source_stat_definition_id == stat_definition_id,
+        )
+        + await count(
+            ComputedStatProductFactor,
+            ComputedStatProductFactor.source_stat_definition_id == stat_definition_id,
+        )
+        + await count(
+            ComputedStatRatio,
+            (ComputedStatRatio.numerator_stat_definition_id == stat_definition_id)
+            | (ComputedStatRatio.denominator_stat_definition_id == stat_definition_id),
         )
     )
     in_use = _in_use_parts(
