@@ -1,6 +1,6 @@
 # 0056 - Dice as a stat value: `2d6`, `W20`, `4d6dl1`
 
-Status: proposed (2026-11-11), Decision open on the questions at the end. It adds a value type to what
+Status: accepted (2026-11-11), decided with the maintainer, not built; slices D1 to D3, each its own ADR. It adds a value type to what
 [ADR 0014](../adr/0014-stats.md) and [ADR 0103](../adr/0103-stat-tags-enum-values-and-mandatory-groups.md) define, and two
 formula kinds beside those of [RFC 0016](0016-stats-computed-values-and-crud-api.md) and RFC 0053. It changes nothing decided
 about how a stat resolves ([ADR 0037](../adr/0037-effective-stat-resolution.md)).
@@ -18,6 +18,10 @@ several integer stats; and let a formula use its minimum, maximum or average.
    highest `z`. `4d6dl1` is four six-sided dice without the lowest.
 4. **Data model and API only.** No app, frontend or command-line change is part of this RFC, and every existing request and
    response keeps working as it does now (see Compatibility).
+5. **The drop marker is `D` alone;** only the die marker takes `W`: `4W6DL1`.
+6. **An average with a drop is exact,** computed within the limits and memoised.
+7. **One die is canonical `d20`,** not `1d20`.
+8. **The read is canonical `d`,** and a client may show `W`.
 
 ## What it is like today
 
@@ -53,7 +57,7 @@ Accepted, case-insensitive, spaces around the whole value ignored:
 ```
 dice   = [count] die [drop]
 die    = ("d" | "w") sides
-drop   = ("d" | "w") ["l" | "h"] number
+drop   = "d" ["l" | "h"] number
 count, sides, number = decimal integers
 ```
 
@@ -61,8 +65,8 @@ count, sides, number = decimal integers
 | --- | --- |
 | `d20`, `W20` | one twenty-sided die |
 | `2d6`, `2W6` | two six-sided dice |
-| `4d6d1`, `4d6dl1`, `4W6WL1` | four six-sided dice, drop the lowest one |
-| `4d6dh1`, `4W6WH1` | four six-sided dice, drop the highest one |
+| `4d6d1`, `4d6dl1`, `4W6DL1` | four six-sided dice, drop the lowest one |
+| `4d6dh1`, `4W6DH1` | four six-sided dice, drop the highest one |
 
 Limits: count 1 to 100, sides 2 to 1000, a drop of 1 up to count minus 1 (so at least one die is kept). Anything else is a
 422 `invalid-dice`, naming the part that failed.
@@ -72,7 +76,7 @@ The **canonical form** is lowercase `d`, the count left out when it is 1, and an
 
 ### 3. Writing and reading
 
-`PUT /tenants/{t}/entities/{e}/stats/{d}` takes either the notation, `{"value": "4W6WL1"}`, or the parts,
+`PUT /tenants/{t}/entities/{e}/stats/{d}` takes either the notation, `{"value": "4W6DL1"}`, or the parts,
 `{"value": {"count": 4, "sides": 6, "drop": {"mode": "lowest", "count": 1}}}`. The stat row of every read (the entity read,
 the bulk read, the explanation) shows `value` as the canonical notation, a string; a row of this type also carries `dice`,
 the parts. Inherited, own and computed stats behave as for any type.
@@ -135,13 +139,7 @@ Each slice is its own ADR.
 
 ## Open questions
 
-1. **The drop marker.** The second letter accepts `D` or `W` as the first does, and `4d6d1` means drop the lowest
-   (proposal); or the second letter is `D` alone and only the die marker takes `W`.
-2. **The cost of an average with a drop.** Exact and memoised within the limits above (proposal), or a drop is limited to a
-   count of 20 or fewer so the computation stays small.
-3. **The canonical count.** `d20` for one die (proposal), or always `1d20`.
-4. **A display letter.** The read is canonical `d` and a client changes it (proposal), or a library setting names the letter
-   its reads use.
+None.
 
 ## Alternatives considered
 
