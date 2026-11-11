@@ -193,13 +193,19 @@ def test_missing_input_leaves_the_stat_without_a_value() -> None:
     assert evaluate(stats) == {}
 
 
-def test_bool_is_not_a_number() -> None:
+def test_bool_is_one_or_zero_in_a_formula() -> None:
+    """ADR 0444: a bool counts as 1 when true and 0 when false."""
     flag = uuid.uuid4()
-    stats = [
+    on = [
         _stored(flag, StatValueType.BOOL, True),
-        _linear_row(MODIFIER, StatValueType.INT, flag, "1", "0", RoundMode.FLOOR),
+        _linear_row(MODIFIER, StatValueType.INT, flag, "3", "0", RoundMode.FLOOR),
     ]
-    assert MODIFIER not in evaluate(stats)
+    off = [
+        _stored(flag, StatValueType.BOOL, False),
+        _linear_row(MODIFIER, StatValueType.INT, flag, "3", "0", RoundMode.FLOOR),
+    ]
+    assert evaluate(on)[MODIFIER] == 3
+    assert evaluate(off)[MODIFIER] == 0
 
 
 def test_a_cycle_resolves_to_nothing_without_raising() -> None:

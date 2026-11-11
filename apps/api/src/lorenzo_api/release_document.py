@@ -45,7 +45,7 @@ from lorenzo_api.repository_content import (
     StatValue,
 )
 
-FORMAT = 37
+FORMAT = 38
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -297,6 +297,19 @@ _FORMULA = _dataclass(
             _Codec(
                 lambda terms, f: [[str(s), str(c)] for s, c in terms],
                 lambda terms, f: [(uuid.UUID(s), Decimal(c)) for s, c in terms],
+            )
+        ),
+        # A min, max or product's inputs: a stat or a constant each (ADR 0444, 0445).
+        "operands": _optional(
+            _Codec(
+                lambda operands, f: [
+                    [None if s is None else str(s), None if c is None else str(c)]
+                    for s, c in operands
+                ],
+                lambda operands, f: [
+                    (None if s is None else uuid.UUID(s), None if c is None else Decimal(c))
+                    for s, c in operands
+                ],
             )
         ),
     },
@@ -731,6 +744,16 @@ def _read_v36(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v37(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 38 a formula had no list of operands: min, max and product came later
+    # (ADR 0444).
+    formulas = [
+        [entity, definition, {"operands": None, **record}]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v38({**document, "formulas": formulas}, files)
+
+
+def _read_v38(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -775,6 +798,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     35: _read_v35,
     36: _read_v36,
     37: _read_v37,
+    38: _read_v38,
 }
 
 
