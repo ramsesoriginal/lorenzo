@@ -1,6 +1,6 @@
 # 0055 - A vocabulary check: what a library's stats get wrong without saying so
 
-Status: proposed (2026-11-11), Decision open on the questions at the end. It reads what
+Status: accepted (2026-11-11), decided with the maintainer, not built; slices V1 to V4, each its own ADR. It reads what
 [RFC 0016](0016-stats-computed-values-and-crud-api.md), [ADR 0037](../adr/0037-effective-stat-resolution.md),
 [ADR 0266](../adr/0266-stat-tie-break-by-parent-order.md), [ADR 0279](../adr/0279-stat-hints.md) and
 [ADR 0403](../adr/0403-stat-scales.md) already decided and changes none of it.
@@ -16,6 +16,10 @@ changed. The resolution rules are decided and stay; what is missing is a way to 
 2. **Data model and API only.** No app, frontend or command-line change is part of this RFC; a lint or a pane is their own
    work, and reads this.
 3. **Every finding is something tested** against the API (2026-11-10), not a style rule.
+4. **A write may answer with warnings** about what it wrote, when asked, without refusing anything.
+5. **`tie` is read for one entry per request.**
+6. **Severity:** `warning` for `unset-input`, `own-value-shadows-formula` and `tie`; `info` for `computed-outside-scale`,
+   `above-hint` and `formula-chain-depth`.
 
 ## What goes wrong today (tried against the API)
 
@@ -63,7 +67,7 @@ Entry-level, per entry and stat, from the same loading as the bulk effective-sta
 | --- | --- | --- |
 | `unset-input` | a computed stat has no value because an input has none | the formula's entry, its kind, the inputs without a value |
 | `own-value-shadows-formula` | the entry's own value wins over a formula an ancestor holds | the own value, the formula's entry |
-| `tie` | two or more candidates for a stat sit at the same distance, and a rule broke the tie | the winner, the others, and the reason: group priority, parent order or id |
+| `tie` | two or more candidates for a stat sit at the same distance, and a rule broke the tie (only with `entry_id`; 422 without) | the winner, the others, and the reason: group priority, parent order or id |
 | `computed-outside-scale` | a computed value is outside the stat's minimum or maximum | the value, the bounds |
 | `above-hint` | a value is above its maximum hint or below its minimum hint | the value, the hinted stat and its value |
 
@@ -79,12 +83,21 @@ A finding names the stats and entries by id; the message is a sentence in the pr
 
 The check is for authors, not a hot path. It scans a page of entries by the bulk read's path, with no query per entry, and
 the slice carries a statement-count test ([ADR 0285](../adr/0285-api-reads-that-cost-what-they-read.md)). `tie` needs the
-candidates a stat had, which the effective-stat view does not return today; the slice that adds it states how it reads
-them (a variant of the view's walk) and measures it before it is exposed.
+candidates a stat had, which the effective-stat view does not return today; it is read for one entry per request, and the
+slice that adds it states how it reads them (a variant of the view's walk) and measures it before it is exposed.
+
+### 4. Warnings on writes
+
+A write of a stat value (`PUT .../stats/{d}`, a tag write) or of a formula (`PUT .../computed-stats/{d}`) answers with a
+`warnings` list when the request carries `warnings=true`: the findings, in the shape above, for the stat written on the
+entry written, of any severity. It refuses nothing and the write is made as before. Without the parameter the response is
+as it is today and no check runs, so a stepper or a bulk script pays nothing. The slice carries a statement-count test for
+the write with and without the parameter.
 
 ## Compatibility
 
-A pure addition: one route, no new table, no change to any existing request or response.
+A pure addition: one route, one optional query value (`warnings`) on the write routes, an optional `warnings` field on their
+responses when it is sent, no new table, and no change to any existing request or response that does not send it.
 
 ## Delivery
 
@@ -92,23 +105,18 @@ Each slice is its own ADR.
 
 1. **V1.** The route, paging and filters; `computed-outside-scale`, `above-hint` and `formula-chain-depth`.
 2. **V2.** `unset-input` and `own-value-shadows-formula`.
-3. **V3.** `tie`.
+3. **V3.** `tie`, for one entry.
+4. **V4.** `warnings` on the writes of a stat and of a formula.
 
 ## Not in scope
 
 - A lint, a pane or any drawing of findings, and a command-line check: the apps' and the CLI's own work.
-- Refusing a write because of a finding, a warning in the response of a write, a stored or scheduled check, and automatic
-  fixes.
+- Refusing a write because of a finding, a stored or scheduled check, and automatic fixes.
 - Findings about style, naming or unused stats.
 
 ## Open questions
 
-1. **Warnings on writes.** A `PUT` of a stat or a formula could answer with the findings for the stat it wrote
-   (`warnings`), without refusing: left out here (proposal), or added in a slice of its own.
-2. **`tie` cost.** If reading every candidate cannot be made cheap, `tie` is limited to one entry or one parent subtree per
-   request (proposal), rather than a page of entries.
-3. **Severity.** `warning` for `unset-input`, `own-value-shadows-formula` and `tie`; `info` for the other three
-   (proposal).
+None.
 
 ## Alternatives considered
 
