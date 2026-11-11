@@ -25,6 +25,7 @@ from lorenzo_api.exceptions import (
     InvalidStatHintError,
     InvalidStatOrderError,
     InvalidStatScaleError,
+    StatDefinitionFieldImmutableError,
     StatDefinitionInUseError,
     StatDefinitionNameTakenError,
     StatDefinitionNotFoundError,
@@ -227,6 +228,12 @@ async def create_stat_group(
     commit" rule (ADR 0032) doesn't apply - it's only needed once a route
     actually re-queries.
     """
+    if await session.scalar(
+        select(StatGroup.id).where(StatGroup.tenant_id == tenant_id, StatGroup.name == body.name)
+    ):
+        raise StatGroupNameTakenError(
+            detail=f"Another stat group in tenant {tenant_id} is already called {body.name!r}"
+        )
     stat_group = StatGroup(
         tenant_id=tenant_id, name=body.name, priority=body.priority, mandatory=body.mandatory
     )
@@ -465,6 +472,15 @@ async def create_stat_definition(
             detail=f"{body.stat_group_id} is not a stat group in tenant {tenant_id}"
         )
 
+    if await session.scalar(
+        select(StatDefinition.id).where(
+            StatDefinition.tenant_id == tenant_id, StatDefinition.name == body.name
+        )
+    ):
+        raise StatDefinitionNameTakenError(
+            detail=f"Another stat in tenant {tenant_id} is already called {body.name!r}"
+        )
+
     enum_values = body.enum_values or []
     if body.value_type is StatValueType.ENUM:
         if not enum_values:
@@ -590,6 +606,12 @@ async def update_stat_definition(
     what exists or who can see it)."""
     stat_definition = await _get_stat_definition_or_404(tenant_id, stat_definition_id, session)
     changes = body.model_dump(exclude_unset=True)
+    for field in ("value_type", "stat_group_id"):
+        if field in changes:
+            raise StatDefinitionFieldImmutableError(
+                detail=f"{field} cannot be changed after a stat is made; a retype or a move is "
+                "breaking for the libraries that copied it (ADR 0443)"
+            )
     if "name" in changes and changes["name"] != stat_definition.name:
         if stat_definition.name in RESERVED_STAT_NAMES:
             raise StatNameReservedError(

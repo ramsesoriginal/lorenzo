@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -140,10 +140,16 @@ class StatDefinitionUpdate(BaseModel):
     # Each bound may be set to null to clear it (ADR 0403).
     min_value: float | None = None
     max_value: float | None = None
+    # Named so the route can refuse them (422 stat-definition-field-immutable, ADR 0443) instead
+    # of ignoring them; they are not editable, whatever the value.
+    value_type: Any = Field(default=None, description="Not editable: carrying it is a 422.")
+    stat_group_id: Any = Field(default=None, description="Not editable: carrying it is a 422.")
 
     @model_validator(mode="after")
     def _no_nulls(self) -> StatDefinitionUpdate:
         clearable = {
+            "value_type",
+            "stat_group_id",
             "unit",
             "max_hint_id",
             "min_hint_id",

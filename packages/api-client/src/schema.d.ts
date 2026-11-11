@@ -16549,6 +16549,16 @@ export interface components {
             min_value?: number | null;
             /** Max Value */
             max_value?: number | null;
+            /**
+             * Value Type
+             * @description Not editable: carrying it is a 422.
+             */
+            value_type?: unknown;
+            /**
+             * Stat Group Id
+             * @description Not editable: carrying it is a 422.
+             */
+            stat_group_id?: unknown;
         };
         /**
          * StatEnumOptionOut

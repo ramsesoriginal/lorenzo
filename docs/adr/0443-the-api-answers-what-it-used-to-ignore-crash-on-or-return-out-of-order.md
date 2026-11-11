@@ -36,6 +36,26 @@ Six things answered wrongly, each reproduced:
 - **A copied item instance is listed and found by id.** The slice starts with a failing test for it. If the cause is a read
   rule (ADR 0040) working as designed, the slice records that and changes nothing.
 
+## Outcome of the slice
+
+Built as decided, with these details:
+
+- The chain a write may not lengthen is counted at the stat-definition level, as the cycle check is: the formulas of the
+  tenant, one reading the next, through the stat being written, above it and below it. A formula for a stat inside a
+  chain that is already longer than 200 is refused too, as it is a write to that chain; a formula elsewhere is not.
+  Evaluation catches the recursion limit per stat: that stat reads as unset, and so does anything that reads it.
+- `PATCH /stat-definitions/{id}` names `value_type` and `stat_group_id` in its body schema so it can refuse them, whatever
+  the value, `null` included. The OpenAPI change is those two documented, not editable, properties and the three new
+  error answers.
+- `PUT .../parents` and `PUT /items/{id}/prototypes` share the check, so both answer the 404; it costs one statement,
+  and none for a library that hides nothing.
+- **The copied item instance is not a defect.** The failing test found the instance in the database and in the entity read
+  of the library, and missing from `GET /item-instances` and 404 by id for the library's plain Owner. The copy carries
+  the instance's ownership (the repository's Blade is owned by an entry), and ADR 0040 shows an owned instance only to
+  whoever can reach the owner: the caller's own characters, a GM's reach, or an ORGA. A plain Owner reaches none of
+  those; an ORGA lists and finds it, and with the ownership removed it is loose loot every participant reads. The rule is
+  working as designed, so nothing changed; `tests/test_copied_item_instance_reads.py` records it.
+
 ## Not in scope
 
 The named `rarity` field of an item reading `null` for an `enum` or a `text` stat (the field is a number; the hover card
