@@ -108,11 +108,14 @@ sheet.
 A definition may carry a `role` and a group a `role`, each from a closed list kept in the API: for definitions `weight`,
 `height`, `price`, `rarity`, `hp`, `armor`, `size`, `carry_capacity`, `containment_capacity`, `max_item_size`, `binding`,
 `is_container`; for groups `physical`, `economic`, `destroyable`, `damaging`, `tags`. `UNIQUE (tenant_id, role)` where the
-role is set; a role fixes the value type (a `weight` is a `float`, a `binding` an `enum` with its reserved values).
+role is set; a new assignment of a role must fit the types that role accepts today (a `weight` a number, a `binding` an
+`enum` with its reserved values; `rarity` a number, a `text` or an `enum`, since the named field reads a number and the hover
+card shows the text).
 
 The capacity checks, `binding`, the named fields of an item read, the named stat lists and the hover cards read the role
-where they read the name today. Existing definitions and groups with those names get the role in the migration, so
-nothing changes for a library. A role-holder is neutral, so one system's choice no longer binds the name: the holder may be
+where they read the name today. The migration gives the role to **every** existing definition and group with the name,
+whatever its type, so each read answers as it does now (the named `rarity` field of an item stays `null` for an `enum`, and
+the hover card still shows it); only a later assignment is checked against the types. A role-holder is neutral, so one system's choice no longer binds the name: the holder may be
 renamed, and a system's own `ds_weight` is an ordinary stat.
 
 **Cost.** The lookup becomes `role = ...` on a partial unique index of the same shape as the `(tenant_id, name)` index it
@@ -135,7 +138,7 @@ walk (ADR 0037's walk, asked for membership). A system's top-level template name
 | --- | --- |
 | `stats` | an ordered list of stat definitions, or a stat group, with a label for each and a list of definitions to leave out |
 | `information` | notes of an information type |
-| `held` | the things the entry holds, as a table: a column for each stat of a list or a group |
+| `held` | the things the entry holds, as a table: a column for each stat of a list or a group; each row carries the thing, its quantity and the typed value of each cell (a `bool` stays a `bool`), in the order the slot names (by name, or by prototype and then name) |
 | `tags` | the `bool` stats that are true |
 
 A label, a hidden stat and the order are the slot's, not the definition's; the intermediate stats of a formula chain are
