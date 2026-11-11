@@ -55,13 +55,13 @@ A modifier that goes up by one for every two points, rounded down, is `linear(so
 
 Several steps of one input stat are a staircase. The step at threshold `t`, over an input from 0 to `X`, is
 
-```
+```text
 linear(input, multiplier = 1/K, offset = 1 - t/K, round_mode = floor)
 ```
 
 which is 0 below `t` and 1 from `t` up, as long as `K` is larger than both `t` and `X - t`. Choose a `K` with a short decimal form (8, 10 or 16). The result is the step, and a second `linear` or `sum` turns it into the values:
 
-```
+```text
 tier   = linear(models, 0.125, 0.375, floor)     # 1 from 5 models, input 0 to 10
 points = sum(tier x 80, offset 90)
 ```
