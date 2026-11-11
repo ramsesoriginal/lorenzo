@@ -552,3 +552,20 @@ async def test_extremum_tables_are_tenant_isolated(
     finally:
         for tenant_id in tenant_ids:
             await delete_tenant(tenant_id)
+
+
+async def test_a_stat_a_min_or_a_max_reads_is_not_deleted(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Deleting a stat that a formula reads is a 409, whatever the kind of formula."""
+    tenant_id = await make_tenant(test_user_id)
+    sheet = await _sheet(tenant_id, a=StatValueType.INT, b=StatValueType.INT)
+    entity = await _entity(tenant_id, "Hero")
+    await _put(
+        client, sheet.formula_url(entity, "b"), _extremum("min", _stat(sheet["a"]), _const(3))
+    )
+
+    refused = await client.delete(f"/tenants/{tenant_id}/stat-definitions/{sheet['a']}")
+
+    assert refused.status_code == 409, refused.text
+    await delete_tenant(tenant_id)

@@ -572,3 +572,36 @@ async def test_select_tables_are_tenant_isolated(
     finally:
         for tenant_id in tenant_ids:
             await delete_tenant(tenant_id)
+
+
+async def test_a_stat_a_select_reads_is_not_deleted(
+    client: AsyncClient, test_user_id: uuid.UUID
+) -> None:
+    """Deleting a stat that a formula reads is a 409, whatever the kind of formula."""
+    tenant_id = await make_tenant(test_user_id)
+    sheet = await _sheet(
+        tenant_id,
+        level=StatValueType.INT,
+        spare=StatValueType.INT,
+        other=StatValueType.INT,
+        bonus=StatValueType.INT,
+    )
+    entity = await _entity(tenant_id, "Hero")
+    await _put(
+        client,
+        sheet.formula_url(entity, "bonus"),
+        _select(
+            sheet["level"],
+            "threshold",
+            _from(1, stat_definition_id=str(sheet["spare"])),
+            otherwise={"stat_definition_id": str(sheet["other"])},
+        ),
+    )
+
+    statuses = [
+        (await client.delete(f"/tenants/{tenant_id}/stat-definitions/{sheet[name]}")).status_code
+        for name in ("level", "spare", "other")
+    ]
+
+    assert statuses == [409, 409, 409]
+    await delete_tenant(tenant_id)

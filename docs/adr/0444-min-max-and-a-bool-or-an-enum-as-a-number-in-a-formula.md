@@ -32,6 +32,8 @@ decided the kinds that say these things; this is the first of its four slices.
 - **Preview, explanation and dependents know the new kinds.** `preview` runs an unsaved `min` or `max`, `dependents` lists the
   formulas that read a stat as `min` or `max`, and the stat explanation gains `picked`: the position of the input taken (the
   first, when several tie), its stat (null for a constant) and the value it counted as.
+- **A stat that a `min` or `max` reads is not deleted.** `DELETE /stat-definitions/{id}` counted what the four old kinds read, so
+  deleting a stat a `min` or `max` read ran into the foreign key and answered 500; it is a 409 as it is for the others.
 - **Nothing else changes.** Every existing request and response keeps its path, body and status. The relaxation is a `linear`
   or `sum` formula with a `bool` or an `enum` input, which answered 422.
 

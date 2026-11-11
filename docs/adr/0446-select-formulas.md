@@ -35,6 +35,8 @@ formulas.
 - **Preview, explanation and dependents know it.** `preview` runs an unsaved select; `dependents` reports `select` for its source
   and every result stat; the stat explanation gains `chosen`: the position and key (the `from` or the value) of the step taken, or
   `otherwise: true` when none applied.
+- **A stat that a `select` reads is not deleted:** its source, a result stat and the `otherwise` stat count in the 409 of
+  `DELETE /stat-definitions/{id}`, as for every other kind (ADR 0444).
 - **Nothing else changes.** Every existing request and response keeps its path, body and status.
 
 ## Design
