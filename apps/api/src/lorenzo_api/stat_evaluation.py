@@ -144,6 +144,39 @@ class RatioFormula:
     round_mode: RoundMode
 
 
+@dataclass(frozen=True, slots=True)
+class SelectResult:
+    """What a select gives: a constant (one of the number, text and flag) or a stat of the same
+    entity - ADR 0446."""
+
+    number: Decimal | None = None
+    text: str | None = None
+    flag: bool | None = None
+    stat_definition_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SelectStep:
+    """One step of a select: a `from` value (`threshold`) or a value (`match_value`), exactly one
+    of the two, and its result - ADR 0446."""
+
+    threshold: Decimal | None
+    match_value: str | None
+    result: SelectResult
+
+
+@dataclass(frozen=True, slots=True)
+class SelectFormula:
+    """A value from a table - ADR 0446. `threshold`: the result of the highest `from` the source
+    reaches. `match`: the result of the step whose value the source holds. When none applies,
+    `otherwise`, or no value without one."""
+
+    source: uuid.UUID
+    mode: str
+    steps: tuple[SelectStep, ...]
+    otherwise: SelectResult | None
+
+
 Formula = (
     LinearFormula
     | ComparisonFormula
@@ -152,6 +185,7 @@ Formula = (
     | ExtremumFormula
     | ProductFormula
     | RatioFormula
+    | SelectFormula
 )
 
 
@@ -213,6 +247,40 @@ def formula_of(computed: ComputedStat) -> Formula | None:
         return ContentsFormula(
             source_stat_definition_id=computed.contents.source_stat_definition_id
         )
+    if computed.select is not None:
+        chosen = computed.select
+        return SelectFormula(
+            source=chosen.source_stat_definition_id,
+            mode=chosen.mode,
+            steps=tuple(
+                SelectStep(
+                    threshold=step.threshold,
+                    match_value=step.match_value,
+                    result=SelectResult(
+                        number=step.result_number,
+                        text=step.result_text,
+                        flag=step.result_bool,
+                        stat_definition_id=step.result_stat_definition_id,
+                    ),
+                )
+                for step in chosen.steps
+            ),
+            otherwise=(
+                SelectResult(
+                    number=chosen.otherwise_number,
+                    text=chosen.otherwise_text,
+                    flag=chosen.otherwise_bool,
+                    stat_definition_id=chosen.otherwise_stat_definition_id,
+                )
+                if (
+                    chosen.otherwise_number is not None
+                    or chosen.otherwise_text is not None
+                    or chosen.otherwise_bool is not None
+                    or chosen.otherwise_stat_definition_id is not None
+                )
+                else None
+            ),
+        )
     if computed.product is not None:
         product = computed.product
         return ProductFormula(
@@ -264,6 +332,13 @@ def input_ids(formula: Formula) -> list[uuid.UUID]:
         ]
     if isinstance(formula, ProductFormula):
         return list(formula.factors)
+    if isinstance(formula, SelectFormula):
+        results = [step.result for step in formula.steps]
+        if formula.otherwise is not None:
+            results.append(formula.otherwise)
+        return [formula.source] + [
+            r.stat_definition_id for r in results if r.stat_definition_id is not None
+        ]
     if isinstance(formula, RatioFormula):
         ids = [formula.numerator]
         if formula.denominator.stat_definition_id is not None:
@@ -389,6 +464,32 @@ def apply_extremum(
         numbers.append(number)
     result = min(numbers) if formula.pick == "min" else max(numbers)
     return _rounded(result, formula.round_mode, target_type)
+
+
+def choose_step(
+    formula: SelectFormula, raw: Value | None, definition: StatDefinition | None
+) -> int | None:
+    """The position of the step a select takes for the value its source holds, or None when no
+    step applies (ADR 0446). `threshold`: the step with the highest `from` the source's number
+    reaches (a bool is 1 or 0, an enum its `sort_order`, ADR 0444). `match`: the step whose value
+    the source holds."""
+    if raw is None:
+        return None
+    if formula.mode == "match":
+        for position, step in enumerate(formula.steps):
+            if step.match_value is not None and step.match_value == raw:
+                return position
+        return None
+    number = _number(numeric_value(raw, definition))
+    if number is None:
+        return None
+    best: int | None = None
+    for position, step in enumerate(formula.steps):
+        if step.threshold is None or step.threshold > number:
+            continue
+        if best is None or step.threshold > (formula.steps[best].threshold or Decimal(0)):
+            best = position
+    return best
 
 
 def apply_product(
@@ -665,6 +766,8 @@ class _Evaluation:
     ) -> _Resolved:
         if isinstance(formula, ContentsFormula):
             return self._contents(entity_id, formula, target_type)
+        if isinstance(formula, SelectFormula):
+            return self._select(entity_id, formula, target_type)
         inputs: dict[uuid.UUID, Value | None] = {}
         for input_id in input_ids(formula):
             resolved = self.resolve(entity_id, input_id)
@@ -672,6 +775,33 @@ class _Evaluation:
                 return _CYCLE
             inputs[input_id] = self._as_number(entity_id, input_id, resolved)
         return apply_formula(formula, inputs.__getitem__, target_type)
+
+    def _select(
+        self, entity_id: uuid.UUID | None, formula: SelectFormula, target_type: StatValueType
+    ) -> _Resolved:
+        """The result of the step the source selects, or `otherwise`; a source with no value, or
+        a result stat with none, gives none, and a cycle makes the formula one (ADR 0446)."""
+        raw = self.resolve(entity_id, formula.source)
+        if isinstance(raw, _Cycle):
+            return _CYCLE
+        stat = self.rows_of(entity_id).get(formula.source)
+        position = choose_step(formula, raw, stat.stat_definition if stat is not None else None)
+        result = formula.steps[position].result if position is not None else formula.otherwise
+        if result is None or raw is None:
+            return None
+        if result.stat_definition_id is not None:
+            resolved = self.resolve(entity_id, result.stat_definition_id)
+            if isinstance(resolved, _Cycle):
+                return _CYCLE
+            number = _number(self._as_number(entity_id, result.stat_definition_id, resolved))
+            return None if number is None else _rounded(number, RoundMode.NONE, target_type)
+        if target_type is StatValueType.BOOL:
+            return result.flag
+        if target_type in (StatValueType.TEXT, StatValueType.ENUM):
+            return result.text
+        if result.number is None:
+            return None
+        return _rounded(result.number, RoundMode.NONE, target_type)
 
     def _as_number(
         self, entity_id: uuid.UUID | None, stat_definition_id: uuid.UUID, value: Value | None

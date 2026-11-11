@@ -48,6 +48,7 @@ from lorenzo_api.models import (
 from lorenzo_api.routers.entities import entity_detail_reader, get_entity_detail_or_404
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.computed_stats import (
+    ChosenStepExplanationOut,
     ContentsExplanationOut,
     PickedExplanationOut,
     PreviewInputOut,
@@ -61,6 +62,8 @@ from lorenzo_api.stat_evaluation import (
     ContentsFormula,
     ExtremumFormula,
     RatioFormula,
+    SelectFormula,
+    choose_step,
     evaluate,
     formula_of,
     input_ids,
@@ -722,6 +725,24 @@ async def explain_entity_stat(
                 name=None if source is None else names.get(source),
                 value=picked_value,
             )
+    chosen = None
+    if isinstance(formula, SelectFormula):
+        chosen_definitions = {s.stat_definition_id: s.stat_definition for s in stats}
+        step = choose_step(
+            formula, values.get(formula.source), chosen_definitions.get(formula.source)
+        )
+        key: int | float | str | None = None
+        if step is not None:
+            threshold = formula.steps[step].threshold
+            if threshold is None:
+                key = formula.steps[step].match_value
+            else:
+                key = (
+                    int(threshold)
+                    if threshold == threshold.to_integral_value()
+                    else float(threshold)
+                )
+        chosen = ChosenStepExplanationOut(position=step, otherwise=step is None, key=key)
     division_rounded = None
     if isinstance(formula, RatioFormula):
         definitions = {s.stat_definition_id: s.stat_definition for s in stats}
@@ -758,4 +779,5 @@ async def explain_entity_stat(
         ),
         picked=picked,
         division_rounded=division_rounded,
+        chosen=chosen,
     )

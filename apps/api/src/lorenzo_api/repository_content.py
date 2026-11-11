@@ -42,6 +42,8 @@ from lorenzo_api.models import (
     ComputedStatProduct,
     ComputedStatProductFactor,
     ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -139,6 +141,25 @@ class StatValue:
 
 
 @dataclass
+class SelectResultData:
+    """What a select gives (ADR 0446): a number, a text, a flag or a stat, exactly one."""
+
+    number: Decimal | None = None
+    text: str | None = None
+    flag: bool | None = None
+    stat: uuid.UUID | None = None
+
+
+@dataclass
+class SelectStepData:
+    """One step of a select (ADR 0446): a `from` value or a value to match, and its result."""
+
+    threshold: Decimal | None
+    match_value: str | None
+    result: SelectResultData
+
+
+@dataclass
 class Formula:
     """A computed stat's formula (ADR 0104), with its input definitions."""
 
@@ -158,13 +179,21 @@ class Formula:
     # A `min` or `max`'s (stat, constant) operands, in order, one of the two each (ADR 0444); the
     # kind is `min` or `max`.
     operands: list[tuple[uuid.UUID | None, Decimal | None]] | None = None
+    # A select (ADR 0446): `source` is its source stat; the mode, the steps and `otherwise`.
+    select_mode: str | None = None
+    steps: list[SelectStepData] | None = None
+    otherwise: SelectResultData | None = None
 
     def inputs(self) -> list[uuid.UUID]:
         own = [i for i in (self.source, self.left, self.right) if i is not None]
+        results = [step.result for step in self.steps or []]
+        if self.otherwise is not None:
+            results.append(self.otherwise)
         return (
             own
             + [source for source, _ in self.terms or []]
             + [stat for stat, _ in self.operands or [] if stat is not None]
+            + [r.stat for r in results if r.stat is not None]
         )
 
 
@@ -688,10 +717,56 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             await session.scalars(select(ComputedStatRatio).where(ComputedStatRatio.tenant_id == t))
         )
     }
+    selects = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatSelect).where(ComputedStatSelect.tenant_id == t)
+            )
+        )
+    }
+    select_steps: dict[tuple[uuid.UUID, uuid.UUID], list[SelectStepData]] = defaultdict(list)
+    for step in await session.scalars(
+        select(ComputedStatSelectStep)
+        .where(ComputedStatSelectStep.tenant_id == t)
+        .order_by(ComputedStatSelectStep.position)
+    ):
+        select_steps[(step.entity_id, step.stat_definition_id)].append(
+            SelectStepData(
+                threshold=step.threshold,
+                match_value=step.match_value,
+                result=SelectResultData(
+                    number=step.result_number,
+                    text=step.result_text,
+                    flag=step.result_bool,
+                    stat=step.result_stat_definition_id,
+                ),
+            )
+        )
     for e, d in await rows(
         ComputedStat.entity_id, ComputedStat.stat_definition_id, where=ComputedStat.tenant_id == t
     ):
-        if (e, d) in products:
+        if (e, d) in selects:
+            chosen = selects[(e, d)]
+            otherwise = SelectResultData(
+                number=chosen.otherwise_number,
+                text=chosen.otherwise_text,
+                flag=chosen.otherwise_bool,
+                stat=chosen.otherwise_stat_definition_id,
+            )
+            c.formulas[(e, d)] = Formula(
+                kind="select",
+                source=chosen.source_stat_definition_id,
+                select_mode=chosen.mode,
+                steps=select_steps[(e, d)],
+                otherwise=otherwise
+                if any(
+                    v is not None
+                    for v in (otherwise.number, otherwise.text, otherwise.flag, otherwise.stat)
+                )
+                else None,
+            )
+        elif (e, d) in products:
             product = products[(e, d)]
             c.formulas[(e, d)] = Formula(
                 kind="product",
@@ -1208,6 +1283,31 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "multiplier": str(formula.multiplier),
             "offset": str(formula.offset),
             "round_mode": formula.round_mode,
+        }
+    if formula.kind == "select":
+        assert formula.source is not None and formula.steps is not None
+
+        def result_json(result: SelectResultData) -> dict[str, Any]:
+            return {
+                "number": None if result.number is None else str(result.number),
+                "text": result.text,
+                "flag": result.flag,
+                "stat": None if result.stat is None else name("stat_definition", result.stat),
+            }
+
+        return {
+            "kind": "select",
+            "source": name("stat_definition", formula.source),
+            "mode": formula.select_mode,
+            "steps": [
+                {
+                    "from": None if step.threshold is None else str(step.threshold),
+                    "value": step.match_value,
+                    "result": result_json(step.result),
+                }
+                for step in formula.steps
+            ],
+            "otherwise": None if formula.otherwise is None else result_json(formula.otherwise),
         }
     if formula.kind == "product":
         assert formula.operands is not None

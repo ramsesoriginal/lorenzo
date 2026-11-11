@@ -42,10 +42,12 @@ from lorenzo_api.repository_content import (
     InformationData,
     Links,
     PayloadData,
+    SelectResultData,
+    SelectStepData,
     StatValue,
 )
 
-FORMAT = 38
+FORMAT = 39
 
 Document = dict[str, Any]
 Files = dict[str, bytes]
@@ -279,9 +281,28 @@ _STAT_VALUE = _dataclass(
     },
 )
 
+_SELECT_RESULT = _dataclass(
+    SelectResultData,
+    {"number": _optional(_DECIMAL), "text": _PLAIN, "flag": _PLAIN, "stat": _optional(_ID)},
+)
+
+_SELECT_STEP = _dataclass(
+    SelectStepData,
+    {"threshold": _optional(_DECIMAL), "match_value": _PLAIN, "result": _SELECT_RESULT},
+)
+
 _FORMULA = _dataclass(
     Formula,
     {
+        # A select (ADR 0446): its mode, its steps and the result when none applies.
+        "select_mode": _PLAIN,
+        "steps": _optional(
+            _Codec(
+                lambda steps, f: [_SELECT_STEP.encode(step, f) for step in steps],
+                lambda steps, f: [_SELECT_STEP.decode(step, f) for step in steps],
+            )
+        ),
+        "otherwise": _optional(_SELECT_RESULT),
         "kind": _PLAIN,
         "source": _optional(_ID),
         "multiplier": _optional(_DECIMAL),
@@ -754,6 +775,20 @@ def _read_v37(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v38(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 39 a formula had no select mode, steps or otherwise: select came later
+    # (ADR 0446).
+    formulas = [
+        [
+            entity,
+            definition,
+            {"select_mode": None, "steps": None, "otherwise": None, **record},
+        ]
+        for entity, definition, record in document["formulas"]
+    ]
+    return _read_v39({**document, "formulas": formulas}, files)
+
+
+def _read_v39(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -799,6 +834,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     36: _read_v36,
     37: _read_v37,
     38: _read_v38,
+    39: _read_v39,
 }
 
 

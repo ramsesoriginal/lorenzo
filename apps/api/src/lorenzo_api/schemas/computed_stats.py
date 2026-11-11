@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from lorenzo_api.models import Comparator, ComputedStat, RoundMode
 from lorenzo_api.schemas.common import EntitySummary
@@ -18,6 +18,9 @@ from lorenzo_api.stat_evaluation import (
     Operand,
     ProductFormula,
     RatioFormula,
+    SelectFormula,
+    SelectResult,
+    SelectStep,
     SumFormula,
     SumTerm,
 )
@@ -35,10 +38,14 @@ __all__ = [
     "LinearFormulaBody",
     "MaxFormulaBody",
     "MinFormulaBody",
+    "ChosenStepExplanationOut",
     "PickedExplanationOut",
     "PreviewInputOut",
     "ProductFormulaBody",
     "RatioFormulaBody",
+    "SelectFormulaBody",
+    "SelectResultBody",
+    "SelectStepBody",
     "SumFormulaBody",
     "StatExplanationOut",
     "SumTermBody",
@@ -52,6 +59,8 @@ MAX_EXTREMUM_INPUTS = 5
 # ADR 0445: a product multiplies two to five stats.
 MIN_PRODUCT_FACTORS = 2
 MAX_PRODUCT_FACTORS = 5
+# ADR 0446: a select has one to this many steps.
+MAX_SELECT_STEPS = 64
 
 
 class LinearFormulaBody(BaseModel):
@@ -244,6 +253,92 @@ class RatioFormulaBody(BaseModel):
         )
 
 
+class SelectResultBody(BaseModel):
+    """What a select gives: exactly one of a number, a text, a flag (a bool), or a stat of the
+    same entity - ADR 0446. A stat is for a numeric target, and a constant is of the target's
+    type."""
+
+    number: Decimal | None = None
+    text: str | None = None
+    flag: bool | None = None
+    stat_definition_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> SelectResultBody:
+        given = [
+            v for v in (self.number, self.text, self.flag, self.stat_definition_id) if v is not None
+        ]
+        if len(given) != 1:
+            raise ValueError("a result is exactly one of number, text, flag or stat_definition_id")
+        return self
+
+    def to_result(self) -> SelectResult:
+        return SelectResult(
+            number=self.number,
+            text=self.text,
+            flag=self.flag,
+            stat_definition_id=self.stat_definition_id,
+        )
+
+    @classmethod
+    def of(cls, result: SelectResult) -> SelectResultBody:
+        return cls(
+            number=result.number,
+            text=result.text,
+            flag=result.flag,
+            stat_definition_id=result.stat_definition_id,
+        )
+
+
+class SelectStepBody(BaseModel):
+    """One step of a select: in `threshold` mode a `from` value, in `match` mode a `value`, and
+    the result - ADR 0446."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: Decimal | None = Field(default=None, alias="from")
+    value: str | None = None
+    result: SelectResultBody
+
+
+class SelectFormulaBody(BaseModel):
+    """A value from a table - ADR 0446. `threshold`: the source is a number (a `bool` is 1 or 0, an
+    `enum` its `sort_order`) and the result is that of the highest `from` it reaches; the
+    `from` values rise. `match`: the source is a `text` or an `enum` and the result is that of the
+    step whose `value` it holds; the values differ. `otherwise` is the result when none
+    applies, no value without it. One to 64 steps."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    kind: Literal["select"] = "select"
+    source_stat_definition_id: uuid.UUID
+    mode: Literal["threshold", "match"]
+    steps: list[SelectStepBody] = Field(min_length=1, max_length=MAX_SELECT_STEPS)
+    otherwise: SelectResultBody | None = None
+
+    @model_validator(mode="after")
+    def _steps_fit_the_mode(self) -> SelectFormulaBody:
+        for step in self.steps:
+            if self.mode == "threshold" and (step.from_ is None or step.value is not None):
+                raise ValueError("a threshold step has a from and no value")
+            if self.mode == "match" and (step.value is None or step.from_ is not None):
+                raise ValueError("a match step has a value and no from")
+        return self
+
+    def to_formula(self) -> SelectFormula:
+        return SelectFormula(
+            source=self.source_stat_definition_id,
+            mode=self.mode,
+            steps=tuple(
+                SelectStep(
+                    threshold=step.from_, match_value=step.value, result=step.result.to_result()
+                )
+                for step in self.steps
+            ),
+            otherwise=None if self.otherwise is None else self.otherwise.to_result(),
+        )
+
+
 AnyFormulaBody = (
     LinearFormulaBody
     | ComparisonFormulaBody
@@ -253,6 +348,7 @@ AnyFormulaBody = (
     | MaxFormulaBody
     | ProductFormulaBody
     | RatioFormulaBody
+    | SelectFormulaBody
 )
 FormulaBody = Annotated[AnyFormulaBody, Field(discriminator="kind")]
 
@@ -267,6 +363,20 @@ def formula_body_of(formula: Formula) -> AnyFormulaBody:
         )
     if isinstance(formula, ContentsFormula):
         return ContentsFormulaBody(source_stat_definition_id=formula.source_stat_definition_id)
+    if isinstance(formula, SelectFormula):
+        return SelectFormulaBody(
+            source_stat_definition_id=formula.source,
+            mode=formula.mode,
+            steps=[
+                SelectStepBody(
+                    from_=step.threshold,
+                    value=step.match_value,
+                    result=SelectResultBody.of(step.result),
+                )
+                for step in formula.steps
+            ],
+            otherwise=None if formula.otherwise is None else SelectResultBody.of(formula.otherwise),
+        )
     if isinstance(formula, ProductFormula):
         return ProductFormulaBody(
             factors=list(formula.factors),
@@ -375,6 +485,15 @@ class PickedExplanationOut(BaseModel):
     value: int | float | str | bool | None
 
 
+class ChosenStepExplanationOut(BaseModel):
+    """The step a select took (ADR 0446): its position and key (a `from` or a value), or that none
+    applied and `otherwise` gave the result."""
+
+    position: int | None
+    otherwise: bool
+    key: int | float | str | None
+
+
 class StatExplanationOut(BaseModel):
     """How an entity's stat came to have its value, for any participant who
     may read the entity (ADR 0276). `formula` is the winning formula, held by
@@ -397,6 +516,8 @@ class StatExplanationOut(BaseModel):
     picked: PickedExplanationOut | None = None
     # A ratio: whether its division lost digits at 28 (ADR 0445), else null.
     division_rounded: bool | None = None
+    # A select: the step it took (ADR 0446), else null.
+    chosen: ChosenStepExplanationOut | None = None
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -404,4 +525,6 @@ class ComputedStatDependentOut(BaseModel):
 
     entity_id: uuid.UUID
     stat_definition_id: uuid.UUID
-    kind: Literal["linear", "comparison", "sum", "contents", "min", "max", "product", "ratio"]
+    kind: Literal[
+        "linear", "comparison", "sum", "contents", "min", "max", "product", "ratio", "select"
+    ]

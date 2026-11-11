@@ -8,6 +8,7 @@ not a per-character edit.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from decimal import Decimal
 from typing import Annotated
 
@@ -42,6 +43,8 @@ from lorenzo_api.models import (
     ComputedStatProduct,
     ComputedStatProductFactor,
     ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     EntityStat,
@@ -70,6 +73,8 @@ from lorenzo_api.stat_evaluation import (
     LinearFormula,
     ProductFormula,
     RatioFormula,
+    SelectFormula,
+    SelectResult,
     SumFormula,
     always_whole,
     evaluate,
@@ -124,6 +129,80 @@ async def _get_own_formula(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+def _check_select(
+    formula: SelectFormula,
+    target: StatDefinition,
+    inputs: dict[uuid.UUID, StatDefinition],
+    invalid: Callable[[str], InvalidComputedStatError],
+) -> None:
+    """ADR 0446's rules for a select: the source and the steps fit the mode, and every result
+    fits the target."""
+    source = inputs[formula.source]
+    if formula.mode == "threshold":
+        if source.value_type not in _READABLE:
+            raise invalid(f"a threshold select reads a number, and {source.name!r} isn't one")
+        keys = [step.threshold for step in formula.steps]
+        if any(a is None or b is None or a >= b for a, b in zip(keys, keys[1:], strict=False)):
+            raise invalid("the `from` values of a threshold select must rise, step after step")
+    else:
+        if source.value_type not in (StatValueType.TEXT, StatValueType.ENUM):
+            raise invalid(f"a match select reads a text or an enum, and {source.name!r} isn't one")
+        values = [step.match_value for step in formula.steps]
+        if len(set(values)) != len(values):
+            raise invalid("the values of a match select must differ")
+        if source.value_type is StatValueType.ENUM:
+            allowed = {row.value for row in source.enum_values}
+            for value in values:
+                if value not in allowed:
+                    raise invalid(f"{value!r} is not one of the values of {source.name!r}")
+
+    results: list[SelectResult] = [step.result for step in formula.steps]
+    if formula.otherwise is not None:
+        results.append(formula.otherwise)
+    allowed_targets = {
+        StatValueType.INT: "a number",
+        StatValueType.FLOAT: "a number",
+        StatValueType.BOOL: "a flag",
+        StatValueType.TEXT: "a text",
+        StatValueType.ENUM: "a text",
+    }
+    for result in results:
+        if result.stat_definition_id is not None:
+            result_stat = inputs[result.stat_definition_id]
+            if target.value_type not in _NUMERIC:
+                raise invalid("a result that is a stat is for an int or float stat")
+            if result_stat.value_type not in _READABLE:
+                raise invalid(f"a result stat is a number, and {result_stat.name!r} isn't one")
+            if (
+                target.value_type is StatValueType.INT
+                and result_stat.value_type is StatValueType.FLOAT
+            ):
+                raise invalid(
+                    f"an int stat can't take {result_stat.name!r}, a float: a select does not round"
+                )
+            continue
+        kind = (
+            "a number"
+            if result.number is not None
+            else "a flag"
+            if result.flag is not None
+            else "a text"
+        )
+        if allowed_targets[target.value_type] != kind:
+            raise invalid(
+                f"a {target.value_type.value} stat takes "
+                f"{allowed_targets[target.value_type]} as a result, not {kind}"
+            )
+        if target.value_type is StatValueType.INT and (
+            result.number is not None and result.number != result.number.to_integral_value()
+        ):
+            raise invalid("an int stat takes a whole number as a result")
+        if target.value_type is StatValueType.ENUM:
+            allowed_values = {row.value for row in target.enum_values}
+            if result.text not in allowed_values:
+                raise invalid(f"{result.text!r} is not one of its allowed values")
+
+
 def _check_types(
     formula: Formula, target: StatDefinition, inputs: dict[uuid.UUID, StatDefinition]
 ) -> None:
@@ -155,6 +234,10 @@ def _check_types(
         if target.value_type not in _NUMERIC:
             raise invalid("a linear formula produces a number, so the stat must be int or float")
         check_rounding(formula.round_mode, [formula.multiplier], formula.offset, input_ids(formula))
+        return
+
+    if isinstance(formula, SelectFormula):
+        _check_select(formula, target, inputs, invalid)
         return
 
     if isinstance(formula, ProductFormula):
@@ -321,9 +404,9 @@ async def _validate(
         raise InvalidComputedStatError(detail=f"Stat {target.name!r} can't read itself")
     rows = (
         await session.execute(
-            select(StatDefinition).where(
-                StatDefinition.id.in_(ids), StatDefinition.tenant_id == tenant_id
-            )
+            select(StatDefinition)
+            .where(StatDefinition.id.in_(ids), StatDefinition.tenant_id == tenant_id)
+            .options(selectinload(StatDefinition.enum_values))
         )
     ).scalars()
     inputs = {row.id: row for row in rows}
@@ -362,12 +445,39 @@ def _concrete_row(
     | ComputedStatExtremum
     | ComputedStatProduct
     | ComputedStatRatio
+    | ComputedStatSelect
 ):
     key = {
         "entity_id": entity_id,
         "stat_definition_id": stat_definition_id,
         "tenant_id": tenant_id,
     }
+    if isinstance(formula, SelectFormula):
+        otherwise = formula.otherwise
+        return ComputedStatSelect(
+            **key,
+            source_stat_definition_id=formula.source,
+            mode=formula.mode,
+            otherwise_number=None if otherwise is None else otherwise.number,
+            otherwise_text=None if otherwise is None else otherwise.text,
+            otherwise_bool=None if otherwise is None else otherwise.flag,
+            otherwise_stat_definition_id=None
+            if otherwise is None
+            else otherwise.stat_definition_id,
+            steps=[
+                ComputedStatSelectStep(
+                    **key,
+                    position=position,
+                    threshold=step.threshold,
+                    match_value=step.match_value,
+                    result_number=step.result.number,
+                    result_text=step.result.text,
+                    result_bool=step.result.flag,
+                    result_stat_definition_id=step.result.stat_definition_id,
+                )
+                for position, step in enumerate(formula.steps)
+            ],
+        )
     if isinstance(formula, ProductFormula):
         return ComputedStatProduct(
             **key,
@@ -513,6 +623,7 @@ async def set_computed_stat(
         existing.extremum = None
         existing.product = None
         existing.ratio = None
+        existing.select = None
         await session.flush()
         existing.updated_at = func.now()
     session.add(concrete)
@@ -748,10 +859,34 @@ async def list_stat_dependents(
             )
         )
     ).tuples()
+    selecting = (
+        await session.execute(
+            select(ComputedStatSelect.entity_id, ComputedStatSelect.stat_definition_id)
+            .outerjoin(
+                ComputedStatSelectStep,
+                (ComputedStatSelectStep.entity_id == ComputedStatSelect.entity_id)
+                & (
+                    ComputedStatSelectStep.stat_definition_id
+                    == ComputedStatSelect.stat_definition_id
+                ),
+            )
+            .where(
+                ComputedStatSelect.tenant_id == tenant_id,
+                (ComputedStatSelect.source_stat_definition_id == stat_definition_id)
+                | (ComputedStatSelect.otherwise_stat_definition_id == stat_definition_id)
+                | (ComputedStatSelectStep.result_stat_definition_id == stat_definition_id),
+            )
+            .distinct()
+        )
+    ).tuples()
     dependents = (
         [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="linear")
             for e, s in linear
+        ]
+        + [
+            ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="select")
+            for e, s in selecting
         ]
         + [
             ComputedStatDependentOut(entity_id=e, stat_definition_id=s, kind="product")

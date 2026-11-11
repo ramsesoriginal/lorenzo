@@ -31,6 +31,8 @@ from lorenzo_api.models import (
     ComputedStatProduct,
     ComputedStatProductFactor,
     ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -380,6 +382,7 @@ async def seed_every_content_table(
             ComputedStat(entity_id=sword.id, stat_definition_id=might.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=load.id, tenant_id=tenant_id),
             ComputedStat(entity_id=blade.id, stat_definition_id=load.id, tenant_id=tenant_id),
+            ComputedStat(entity_id=blade.id, stat_definition_id=strong.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=might.id, tenant_id=tenant_id),
             ComputedStat(entity_id=chest.id, stat_definition_id=modifier.id, tenant_id=tenant_id),
             Containment(child_entity_id=blade.id, parent_entity_id=chest.id, tenant_id=tenant_id),
@@ -421,6 +424,15 @@ async def seed_every_content_table(
                 pick="min",
                 round_mode="none",
             ),
+            # The Blade's Strong: from a Strength of 10, otherwise not (ADR 0446).
+            ComputedStatSelect(
+                entity_id=blade.id,
+                stat_definition_id=strong.id,
+                tenant_id=tenant_id,
+                source_stat_definition_id=strength.id,
+                mode="threshold",
+                otherwise_bool=False,
+            ),
             # The Chest's Might: Strength x Modifier x 2 (ADR 0445).
             ComputedStatProduct(
                 entity_id=chest.id,
@@ -455,6 +467,14 @@ async def seed_every_content_table(
     await session.flush()
     session.add_all(
         [
+            ComputedStatSelectStep(
+                entity_id=blade.id,
+                stat_definition_id=strong.id,
+                tenant_id=tenant_id,
+                position=0,
+                threshold=Decimal("10"),
+                result_bool=True,
+            ),
             ComputedStatProductFactor(
                 entity_id=chest.id,
                 stat_definition_id=might.id,

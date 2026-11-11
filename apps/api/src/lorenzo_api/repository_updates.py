@@ -45,6 +45,8 @@ from lorenzo_api.models import (
     ComputedStatProduct,
     ComputedStatProductFactor,
     ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Containment,
@@ -403,6 +405,11 @@ def _formula_inputs(formula: Any) -> list[str]:
     inputs = [formula[role] for role in _FORMULA_ROLES if formula.get(role)]
     inputs += [term["source"] for term in formula.get("terms") or []]
     inputs += formula.get("factors") or []
+    # A select's result stats (ADR 0446): in its steps and in `otherwise`.
+    results = [step["result"] for step in formula.get("steps") or []]
+    if formula.get("otherwise"):
+        results.append(formula["otherwise"])
+    inputs += [result["stat"] for result in results if result.get("stat")]
     return inputs + [
         operand["source"] for operand in formula.get("inputs") or [] if operand["source"]
     ]
@@ -1438,6 +1445,7 @@ class _Applier:
         terms: list[tuple[uuid.UUID | None, str]] = []
         operands: list[tuple[uuid.UUID | None, bool, str | None]] = []
         factors: list[uuid.UUID | None] = []
+        select_stats: dict[str, uuid.UUID | None] = {}
         if formula is not None:
             for role in _FORMULA_ROLES:
                 if formula.get(role):
@@ -1445,6 +1453,12 @@ class _Applier:
             # A product's factors, in order (ADR 0445).
             for factor in formula.get("factors") or []:
                 factors.append(self.resolve("stat_definition", factor))
+            # A select's result stats by name, each resolved to a local stat (ADR 0446).
+            for result in [s["result"] for s in formula.get("steps") or []] + (
+                [formula["otherwise"]] if formula.get("otherwise") else []
+            ):
+                if result.get("stat"):
+                    select_stats[result["stat"]] = self.resolve("stat_definition", result["stat"])
             for term in formula.get("terms") or []:
                 terms.append((self.resolve("stat_definition", term["source"]), term["coefficient"]))
             # A min or max's inputs, in order: a local stat or a constant (ADR 0444).
@@ -1462,6 +1476,7 @@ class _Applier:
                 None in inputs.values()
                 or any(source is None for source, _ in terms)
                 or any(factor is None for factor in factors)
+                or None in select_stats.values()
                 or any(stat is None and not is_constant for stat, is_constant, _ in operands)
             ):
                 self.skip(row, name, "a stat its formula uses wasn't copied here")
@@ -1484,7 +1499,39 @@ class _Applier:
         )
         keys = {"entity_id": e, "stat_definition_id": definition, "tenant_id": t}
         await s.execute(insert(ComputedStat).values(**keys))
-        if formula["kind"] == "product":
+        if formula["kind"] == "select":
+
+            def result_columns(prefix: str, result: dict[str, Any] | None) -> dict[str, Any]:
+                result = result or {}
+                return {
+                    f"{prefix}_number": result.get("number"),
+                    f"{prefix}_text": result.get("text"),
+                    f"{prefix}_bool": result.get("flag"),
+                    f"{prefix}_stat_definition_id": select_stats.get(result.get("stat") or ""),
+                }
+
+            await s.execute(
+                insert(ComputedStatSelect).values(
+                    **keys,
+                    source_stat_definition_id=inputs["source"],
+                    mode=formula["mode"],
+                    **result_columns("otherwise", formula.get("otherwise")),
+                )
+            )
+            await s.execute(
+                insert(ComputedStatSelectStep),
+                [
+                    {
+                        **keys,
+                        "position": position,
+                        "threshold": step["from"],
+                        "match_value": step["value"],
+                        **result_columns("result", step["result"]),
+                    }
+                    for position, step in enumerate(formula["steps"])
+                ],
+            )
+        elif formula["kind"] == "product":
             await s.execute(
                 insert(ComputedStatProduct).values(
                     **keys,

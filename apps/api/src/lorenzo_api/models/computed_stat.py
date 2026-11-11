@@ -119,6 +119,12 @@ class ComputedStat(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    select: Mapped[ComputedStatSelect | None] = relationship(
+        foreign_keys="[ComputedStatSelect.entity_id, ComputedStatSelect.stat_definition_id]",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def kind(self) -> str:
@@ -133,6 +139,8 @@ class ComputedStat(Base):
             return "product"
         if self.ratio is not None:
             return "ratio"
+        if self.select is not None:
+            return "select"
         return "contents" if self.contents is not None else "comparison"
 
     def source_stat_definition_ids(self) -> list[uuid.UUID]:
@@ -161,6 +169,16 @@ class ComputedStat(Base):
             ids = [self.ratio.numerator_stat_definition_id]
             if self.ratio.denominator_stat_definition_id is not None:
                 ids.append(self.ratio.denominator_stat_definition_id)
+            return ids
+        if self.select is not None:
+            ids = [self.select.source_stat_definition_id]
+            ids += [
+                step.result_stat_definition_id
+                for step in self.select.steps
+                if step.result_stat_definition_id is not None
+            ]
+            if self.select.otherwise_stat_definition_id is not None:
+                ids.append(self.select.otherwise_stat_definition_id)
             return ids
         return []
 
@@ -500,6 +518,102 @@ class ComputedStatRatio(Base):
     round_mode: Mapped[str] = mapped_column(server_default=text("'none'"))
 
 
+class ComputedStatSelect(Base):
+    """A value from a table - ADR 0446. The source is a stat of the same entity; in `threshold`
+    mode the steps are `from` values and the result is that of the highest one the source
+    reaches, in `match` mode the steps are values and the result is that of the one the source
+    holds. When none applies the formula gives `otherwise`, or no value when that is empty. A
+    result is a constant (one of the number, text and bool columns) or a stat of the same
+    entity, exactly one of the four."""
+
+    __tablename__ = "computed_stat_select"
+    __table_args__ = (
+        *_kind_key("computed_stat_select"),
+        # ADR 0117: what its steps' same-tenant key references.
+        UniqueConstraint(
+            "entity_id",
+            "stat_definition_id",
+            "tenant_id",
+            name="computed_stat_select_entity_stat_tenant_key",
+        ),
+        same_tenant_fk(
+            "computed_stat_select_source_stat_definition_id_fkey",
+            ["source_stat_definition_id"],
+            "stat_definition",
+        ),
+        same_tenant_fk(
+            "computed_stat_select_otherwise_stat_definition_id_fkey",
+            ["otherwise_stat_definition_id"],
+            "stat_definition",
+        ),
+        CheckConstraint("mode IN ('threshold', 'match')", name="computed_stat_select_mode"),
+        CheckConstraint(
+            "num_nonnulls(otherwise_number, otherwise_text, otherwise_bool,"
+            " otherwise_stat_definition_id) <= 1",
+            name="computed_stat_select_one_otherwise",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    source_stat_definition_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    mode: Mapped[str]
+    otherwise_number: Mapped[Decimal | None] = mapped_column(Numeric())
+    otherwise_text: Mapped[str | None]
+    otherwise_bool: Mapped[bool | None]
+    otherwise_stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+
+    steps: Mapped[list[ComputedStatSelectStep]] = relationship(
+        foreign_keys=(
+            "[ComputedStatSelectStep.entity_id, ComputedStatSelectStep.stat_definition_id]"
+        ),
+        order_by="ComputedStatSelectStep.position",
+        lazy="raise_on_sql",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class ComputedStatSelectStep(Base):
+    """One step of a select, in the order written - ADR 0446: a `from` value (`threshold`) or a
+    value to match (`match_value`), and its result."""
+
+    __tablename__ = "computed_stat_select_step"
+    __table_args__ = (
+        same_tenant_fk(
+            "computed_stat_select_step_entity_id_stat_definition_id_fkey",
+            ["entity_id", "stat_definition_id"],
+            "computed_stat_select",
+            ["entity_id", "stat_definition_id"],
+            ondelete="CASCADE",
+        ),
+        same_tenant_fk(
+            "computed_stat_select_step_result_stat_definition_id_fkey",
+            ["result_stat_definition_id"],
+            "stat_definition",
+        ),
+        CheckConstraint(
+            "num_nonnulls(threshold, match_value) = 1", name="computed_stat_select_step_one_key"
+        ),
+        CheckConstraint(
+            "num_nonnulls(result_number, result_text, result_bool, result_stat_definition_id) = 1",
+            name="computed_stat_select_step_one_result",
+        ),
+    )
+
+    entity_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    stat_definition_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    position: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[TenantFk]
+    threshold: Mapped[Decimal | None] = mapped_column(Numeric())
+    match_value: Mapped[str | None]
+    result_number: Mapped[Decimal | None] = mapped_column(Numeric())
+    result_text: Mapped[str | None]
+    result_bool: Mapped[bool | None]
+    result_stat_definition_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
+
+
 def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoad]:
     """Eager loads for every formula kind's parameters, which evaluation
     and serialization read (ADR 0104, 0126): from a query on ComputedStat
@@ -520,4 +634,5 @@ def formula_load_options(path: _AbstractLoad | None = None) -> list[_AbstractLoa
         join(ComputedStat.extremum).selectinload(ComputedStatExtremum.inputs),
         join(ComputedStat.product).selectinload(ComputedStatProduct.factors),
         join(ComputedStat.ratio),
+        join(ComputedStat.select).selectinload(ComputedStatSelect.steps),
     ]

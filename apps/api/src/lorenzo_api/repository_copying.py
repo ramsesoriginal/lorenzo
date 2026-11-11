@@ -59,6 +59,8 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatProductFactor,
     ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSumTerm,
     Containment,
     Entity,
@@ -878,7 +880,38 @@ class _Planner:
             local_entity = self.local["entity"][e]
             key = {"entity_id": local_entity, "stat_definition_id": target, "tenant_id": tenant_id}
             self.rows["computed_stat"].append(dict(key))
-            if formula.kind == "product":
+            if formula.kind == "select":
+                assert formula.source is not None and formula.steps is not None
+                other = formula.otherwise
+                self.rows["computed_stat_select"].append(
+                    key
+                    | {
+                        "source_stat_definition_id": inputs[formula.source],
+                        "mode": formula.select_mode,
+                        "otherwise_number": None if other is None else other.number,
+                        "otherwise_text": None if other is None else other.text,
+                        "otherwise_bool": None if other is None else other.flag,
+                        "otherwise_stat_definition_id": (
+                            inputs[other.stat] if other is not None and other.stat else None
+                        ),
+                    }
+                )
+                self.rows["computed_stat_select_step"].extend(
+                    key
+                    | {
+                        "position": position,
+                        "threshold": step.threshold,
+                        "match_value": step.match_value,
+                        "result_number": step.result.number,
+                        "result_text": step.result.text,
+                        "result_bool": step.result.flag,
+                        "result_stat_definition_id": (
+                            inputs[step.result.stat] if step.result.stat else None
+                        ),
+                    }
+                    for position, step in enumerate(formula.steps)
+                )
+            elif formula.kind == "product":
                 assert formula.operands is not None
                 self.rows["computed_stat_product"].append(
                     key
@@ -1957,6 +1990,31 @@ async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> N
         ).where(ComputedStatProductFactor.tenant_id == tenant_id)
     ):
         edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelect.stat_definition_id, ComputedStatSelect.source_stat_definition_id
+        ).where(ComputedStatSelect.tenant_id == tenant_id)
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelect.stat_definition_id, ComputedStatSelect.otherwise_stat_definition_id
+        ).where(
+            ComputedStatSelect.tenant_id == tenant_id,
+            ComputedStatSelect.otherwise_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelectStep.stat_definition_id,
+            ComputedStatSelectStep.result_stat_definition_id,
+        ).where(
+            ComputedStatSelectStep.tenant_id == tenant_id,
+            ComputedStatSelectStep.result_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
     for target, numerator, denominator in await session.execute(
         select(
             ComputedStatRatio.stat_definition_id,
@@ -2333,6 +2391,19 @@ async def forget_copy(
                 ComputedStatProductFactor.entity_id == ComputedStat.entity_id,
                 ComputedStatProductFactor.stat_definition_id == ComputedStat.stat_definition_id,
                 ComputedStatProductFactor.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatSelect.entity_id == ComputedStat.entity_id,
+                ComputedStatSelect.stat_definition_id == ComputedStat.stat_definition_id,
+                or_(
+                    ComputedStatSelect.source_stat_definition_id.in_(all_definitions),
+                    ComputedStatSelect.otherwise_stat_definition_id.in_(all_definitions),
+                ),
+            ),
+            exists().where(
+                ComputedStatSelectStep.entity_id == ComputedStat.entity_id,
+                ComputedStatSelectStep.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatSelectStep.result_stat_definition_id.in_(all_definitions),
             ),
             exists().where(
                 ComputedStatRatio.entity_id == ComputedStat.entity_id,

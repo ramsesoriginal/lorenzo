@@ -1,14 +1,16 @@
 """Where an enum value's text is held, and what renames it - ADR 0390.
 
 An enum value has no foreign key to its row: an entry's value of an enum stat is the text
-(`entity_stat.value_text`), and a comparison formula whose target is the enum returns one of two
-texts (`computed_stat_comparison.true_value` and `false_value`). So "is this value in use" and
+(`entity_stat.value_text`), a comparison formula whose target is the enum returns one of two
+texts (`computed_stat_comparison.true_value` and `false_value`), and a select formula returns
+texts or matches them (ADR 0446). So "is this value in use" and
 "rename it" are the same two places, and live here once for the routes and for the update engine.
 """
 
 import uuid
+from typing import Any
 
-from sqlalchemy import ColumnElement, func, or_, select, union, update
+from sqlalchemy import ColumnElement, func, or_, select, tuple_, union, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.models import (
@@ -17,6 +19,8 @@ from lorenzo_api.models import (
     ComputedStatLinear,
     ComputedStatProductFactor,
     ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSumTerm,
     Entity,
     EntityStat,
@@ -87,6 +91,40 @@ def _comparison_returns(
     )
 
 
+def _selects_naming(tenant_id: uuid.UUID, stat_definition_id: uuid.UUID, value: str) -> Any:
+    """The select formulas (as entity and stat) that name one value of an enum stat as text
+    (ADR 0446): a step or `otherwise` that returns it, when the enum is the formula's target, and
+    a step that matches it, when the enum is the source."""
+    returns_in_a_step = select(
+        ComputedStatSelectStep.entity_id, ComputedStatSelectStep.stat_definition_id
+    ).where(
+        ComputedStatSelectStep.tenant_id == tenant_id,
+        ComputedStatSelectStep.stat_definition_id == stat_definition_id,
+        ComputedStatSelectStep.result_text == value,
+    )
+    returns_otherwise = select(
+        ComputedStatSelect.entity_id, ComputedStatSelect.stat_definition_id
+    ).where(
+        ComputedStatSelect.tenant_id == tenant_id,
+        ComputedStatSelect.stat_definition_id == stat_definition_id,
+        ComputedStatSelect.otherwise_text == value,
+    )
+    matches = (
+        select(ComputedStatSelectStep.entity_id, ComputedStatSelectStep.stat_definition_id)
+        .join(
+            ComputedStatSelect,
+            (ComputedStatSelect.entity_id == ComputedStatSelectStep.entity_id)
+            & (ComputedStatSelect.stat_definition_id == ComputedStatSelectStep.stat_definition_id),
+        )
+        .where(
+            ComputedStatSelectStep.tenant_id == tenant_id,
+            ComputedStatSelect.source_stat_definition_id == stat_definition_id,
+            ComputedStatSelectStep.match_value == value,
+        )
+    )
+    return union(returns_in_a_step, returns_otherwise, matches)
+
+
 async def enum_value_uses(
     session: AsyncSession, tenant_id: uuid.UUID, stat_definition_id: uuid.UUID, value: str
 ) -> EnumValueUses:
@@ -104,7 +142,12 @@ async def enum_value_uses(
         .select_from(ComputedStatComparison)
         .where(*_comparison_returns(tenant_id, stat_definition_id, value))
     )
-    return EnumValueUses(entries or 0, formulas or 0)
+    selecting = await session.scalar(
+        select(func.count()).select_from(
+            _selects_naming(tenant_id, stat_definition_id, value).subquery()
+        )
+    )
+    return EnumValueUses(entries or 0, (formulas or 0) + (selecting or 0))
 
 
 async def rename_enum_value_text(
@@ -134,6 +177,40 @@ async def rename_enum_value_text(
             )
             .values({column.key: new})
         )
+    # A select formula that returns the value, or matches it (ADR 0446).
+    await session.execute(
+        update(ComputedStatSelectStep)
+        .where(
+            ComputedStatSelectStep.tenant_id == tenant_id,
+            ComputedStatSelectStep.stat_definition_id == stat_definition_id,
+            ComputedStatSelectStep.result_text == old,
+        )
+        .values(result_text=new)
+    )
+    await session.execute(
+        update(ComputedStatSelect)
+        .where(
+            ComputedStatSelect.tenant_id == tenant_id,
+            ComputedStatSelect.stat_definition_id == stat_definition_id,
+            ComputedStatSelect.otherwise_text == old,
+        )
+        .values(otherwise_text=new)
+    )
+    matching = select(ComputedStatSelect.entity_id, ComputedStatSelect.stat_definition_id).where(
+        ComputedStatSelect.tenant_id == tenant_id,
+        ComputedStatSelect.source_stat_definition_id == stat_definition_id,
+    )
+    await session.execute(
+        update(ComputedStatSelectStep)
+        .where(
+            ComputedStatSelectStep.tenant_id == tenant_id,
+            ComputedStatSelectStep.match_value == old,
+            tuple_(ComputedStatSelectStep.entity_id, ComputedStatSelectStep.stat_definition_id).in_(
+                matching
+            ),
+        )
+        .values(match_value=new)
+    )
 
 
 async def formulas_reading_as_number(
@@ -169,6 +246,18 @@ async def formulas_reading_as_number(
                 ComputedStatRatio.numerator_stat_definition_id == stat_definition_id,
                 ComputedStatRatio.denominator_stat_definition_id == stat_definition_id,
             ),
+        ),
+        select(ComputedStatSelect.entity_id, ComputedStatSelect.stat_definition_id).where(
+            ComputedStatSelect.tenant_id == tenant_id,
+            or_(
+                (ComputedStatSelect.mode == "threshold")
+                & (ComputedStatSelect.source_stat_definition_id == stat_definition_id),
+                ComputedStatSelect.otherwise_stat_definition_id == stat_definition_id,
+            ),
+        ),
+        select(ComputedStatSelectStep.entity_id, ComputedStatSelectStep.stat_definition_id).where(
+            ComputedStatSelectStep.tenant_id == tenant_id,
+            ComputedStatSelectStep.result_stat_definition_id == stat_definition_id,
         ),
     ).subquery()
     rows = await session.execute(

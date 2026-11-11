@@ -4,7 +4,7 @@ How to say a game's numbers with Lorenzo's stats: what each piece does, the reci
 
 Everything here is as the API behaves today. It was checked against a local API; where a recipe stops working, the section says where.
 
-[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) adds formula kinds in four slices. Built so far: `min` and `max`, and a `bool` or an `enum` as an input of `linear`, `sum`, `min` and `max` ([ADR 0444](../adr/0444-min-max-and-a-bool-or-an-enum-as-a-number-in-a-formula.md)); `product` and `ratio`, which read them too ([ADR 0445](../adr/0445-product-and-ratio-formulas.md)); accepted and not built: `select`, and options for `contents` on what is switched on. They make three recipes below unnecessary: the staircase for a table with steps becomes one `select`, a trait entry that carries a formula for a flag becomes a `product` with the flag, and a container for what is worn becomes `contents` over what is active. When a kind is built, its recipe here is replaced, and "What the formulas do not say" shrinks to what is still missing.
+[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) adds formula kinds in four slices. Built so far: `min` and `max`, and a `bool` or an `enum` as an input of `linear`, `sum`, `min` and `max` ([ADR 0444](../adr/0444-min-max-and-a-bool-or-an-enum-as-a-number-in-a-formula.md)); `product` and `ratio`, which read them too ([ADR 0445](../adr/0445-product-and-ratio-formulas.md)); `select` ([ADR 0446](../adr/0446-select-formulas.md)); accepted and not built: options for `contents` on what is switched on. They make three recipes below unnecessary: the staircase for a table with steps is one `select`, a trait entry that carries a formula for a flag becomes a `product` with the flag, and a container for what is worn becomes `contents` over what is active. When a kind is built, its recipe here is replaced, and "What the formulas do not say" shrinks to what is still missing.
 
 ## The pieces
 
@@ -52,6 +52,8 @@ One bonus stat shared by several sources is read from the closest one only: a fe
 A modifier that goes up by one for every two points, rounded down, is `linear(source, 0.5, -5, floor)`: 17 gives 3, 9 gives -1. A bonus that rises one step every four levels is `linear(level, 0.25, 1.75, floor)`: level 1 gives 2, level 5 gives 3. A level below the domain gives a result outside the rule, so give the source a minimum.
 
 ### A table with steps
+
+`select` says a table in one formula (RFC 0053 slice K3, [ADR 0446](../adr/0446-select-formulas.md)): `proficiency = select(level, threshold, from 1 gives 2, from 5 gives 3, from 9 gives 4, otherwise 0)`, or by category `dex_bonus = select(armour, match, light gives dex_modifier, medium gives 2, heavy gives 0)`. The staircase below is how a table is said without it.
 
 Several steps of one input stat are a staircase. The step at threshold `t`, over an input from 0 to `X`, is
 
@@ -122,7 +124,7 @@ A twin stat holds the converted value: `weight_kg = linear(weight, 0.45359237, 0
 
 ## What the formulas do not say
 
-A `ratio` divides two stats and rounds at 28 digits; no `text` as input to arithmetic, and a `comparison` reads only numbers; no condition that gives a number (AND and OR of `bool` stats are `min` and `max`, each condition still its own `comparison`); no lookup table; no dice. The recipes above cover stepped tables, flags and tiers. For the rest, store the value on the entry (a total that depends on two stats) and let the author keep it current.
+A `ratio` divides two stats and rounds at 28 digits; no `text` as input to arithmetic, and a `comparison` reads only numbers; no condition that gives a number (AND and OR of `bool` stats are `min` and `max`, each condition still its own `comparison`); no dice. The recipes above cover stepped tables, flags and tiers. For the rest, store the value on the entry (a total that depends on two stats) and let the author keep it current.
 
 ## What the sheet draws
 

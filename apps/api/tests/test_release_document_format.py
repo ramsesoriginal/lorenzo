@@ -17,7 +17,12 @@ from _content_compare import differences
 from _content_fixtures import DOCUMENT, PICTURE, full_content
 
 from lorenzo_api import release_document as rd
-from lorenzo_api.repository_content import Content, Formula
+from lorenzo_api.repository_content import (
+    Content,
+    Formula,
+    SelectResultData,
+    SelectStepData,
+)
 
 GOLDEN = Path(__file__).parent / "data" / "release_document_v1.json"
 
@@ -92,6 +97,11 @@ def test_decimals_keep_their_scale_and_floats_their_last_digit() -> None:
     assert isinstance(number, Decimal) and str(number) == "2.50"
 
 
+# What a formula record of a later version holds that version 1 did not: operands (format 38,
+# ADR 0444) and a select (format 39, ADR 0446).
+_NEW_FORMULA_FIELDS = {"operands": None, "select_mode": None, "steps": None, "otherwise": None}
+
+
 def test_version_one_is_read_as_it_was_written() -> None:
     """The golden file is a version 1 document. A change that cannot read it is a new version
     with a reader of its own, and the old reader stays (ADR 0214)."""
@@ -99,11 +109,11 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 38
+    assert rd.FORMAT == 39
     assert rd.encode(full_content())[0] == {
         **golden,
         "formulas": [
-            [entity, definition, {"operands": None, **record}]
+            [entity, definition, {**_NEW_FORMULA_FIELDS, **record}]
             for entity, definition, record in golden["formulas"]
         ],
         "definitions": {
@@ -617,7 +627,47 @@ def test_a_min_formula_round_trips_with_a_stat_and_a_constant() -> None:
         "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
     }
     for _, _, record in v37["formulas"]:
-        del record["operands"]
+        for field in _NEW_FORMULA_FIELDS:
+            del record[field]
     assert all(
         formula.operands is None for formula in rd.decode(v37, files, format=37).formulas.values()
+    )
+
+
+def test_a_select_formula_round_trips_every_kind_of_result() -> None:
+    """ADR 0446: a select's steps and its otherwise are stored, a result being a number, a text, a
+    flag or a stat, and a document of version 38 reads with none."""
+    content = full_content()
+    key = (uuid.UUID(int=10), uuid.UUID(int=35))
+    steps = [
+        SelectStepData(Decimal("1"), None, SelectResultData(number=Decimal("2.50"))),
+        SelectStepData(Decimal("5"), None, SelectResultData(stat=uuid.UUID(int=31))),
+        SelectStepData(None, "heavy", SelectResultData(text="slow")),
+        SelectStepData(None, "light", SelectResultData(flag=False)),
+    ]
+    otherwise = SelectResultData(text="none")
+    content.formulas[key] = Formula(
+        kind="select",
+        source=uuid.UUID(int=31),
+        select_mode="threshold",
+        steps=steps,
+        otherwise=otherwise,
+    )
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert back.formulas[key].steps == steps
+    assert back.formulas[key].otherwise == otherwise
+    assert str(back.formulas[key].steps[0].result.number) == "2.50"
+    v38 = {
+        **document,
+        "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
+    }
+    for _, _, record in v38["formulas"]:
+        for field in ("select_mode", "steps", "otherwise"):
+            del record[field]
+    assert all(
+        formula.steps is None and formula.otherwise is None
+        for formula in rd.decode(v38, files, format=38).formulas.values()
     )
