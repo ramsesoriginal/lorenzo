@@ -93,5 +93,20 @@ export function explain(explanation: Explanation, names: ReadonlyMap<string, str
         parts: counted ? [{ label: 'Things inside', value: String(counted.things) }] : parts,
       };
     }
+    case 'min':
+    case 'max': {
+      // A cap or a floor (ADR 0444): what it compares, the way it is said.
+      const operands = formula.inputs
+        .map((input) =>
+          input.stat_definition_id ? label(input.stat_definition_id) : String(input.constant ?? ''),
+        )
+        .join(', ');
+      const rounding = ROUNDING[formula.round_mode] ?? '';
+
+      return {
+        text: `The ${formula.kind === 'min' ? 'smaller' : 'larger'} of ${operands}${rounding}`,
+        parts,
+      };
+    }
   }
 }
