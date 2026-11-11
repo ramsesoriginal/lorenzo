@@ -59,6 +59,7 @@ from lorenzo_cli.client.models import (
     PublishRequest,
     RatioFormulaBodyInput,
     ResolvedSlugOut,
+    SelectFormulaBodyInput,
     SetContainerRequest,
     SetEntityStatRequest,
     SetPrototypesRequest,
@@ -88,6 +89,7 @@ ComputedStatBody = (
     | MaxFormulaBodyInput
     | ProductFormulaBodyInput
     | RatioFormulaBodyInput
+    | SelectFormulaBodyInput
 )
 
 

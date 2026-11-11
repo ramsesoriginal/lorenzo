@@ -65,6 +65,41 @@ describe('explain', () => {
     expect(out.text).toBe('Armour base + 2 × Dexterity − 1');
   });
 
+  it('says a select by the step it took, or that none applied', () => {
+    const select = {
+      kind: 'select',
+      source_stat_definition_id: 'dex',
+      mode: 'threshold',
+      steps: [
+        { from: '1', result: { number: '2' } },
+        { from: '5', result: { number: '3' } },
+      ],
+      otherwise: null,
+    };
+    const took = explain(
+      {
+        ...base,
+        formula: select,
+        inputs: [],
+        chosen: { position: 1, otherwise: false, key: 5 },
+      } as Explanation,
+      names,
+    );
+    const fell = explain(
+      {
+        ...base,
+        formula: select,
+        inputs: [],
+        chosen: { position: null, otherwise: true, key: null },
+      } as Explanation,
+      names,
+    );
+
+    expect(took.text).toBe('Dexterity looked up in a table of 2 steps');
+    expect(took.parts).toEqual([{ label: 'Step taken', value: 'step 2 (5)' }]);
+    expect(fell.parts).toEqual([{ label: 'Step taken', value: 'none matched, so the default' }]);
+  });
+
   it('says a product by its factors and a ratio with its rounding', () => {
     const product = explain(
       {

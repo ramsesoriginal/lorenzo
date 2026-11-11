@@ -135,5 +135,20 @@ export function explain(explanation: Explanation, names: ReadonlyMap<string, str
         parts,
       };
     }
+    case 'select': {
+      // A value from a table (ADR 0446): which step the source reached.
+      const chosen = explanation.chosen;
+      const step =
+        chosen === null || chosen === undefined
+          ? null
+          : chosen.position === null
+            ? 'none matched, so the default'
+            : `step ${chosen.position + 1} (${chosen.key})`;
+
+      return {
+        text: `${label(formula.source_stat_definition_id)} looked up in a table of ${formula.steps.length} steps`,
+        parts: step === null ? parts : [...parts, { label: 'Step taken', value: step }],
+      };
+    }
   }
 }

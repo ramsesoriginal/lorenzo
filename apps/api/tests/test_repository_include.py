@@ -298,7 +298,7 @@ async def test_the_release_format_is_the_new_one_and_a_private_release_carries_n
                     "licence_url": None,
                 }
             ]
-        assert FORMAT == 38
+        assert FORMAT == 39
     finally:
         await w.done()
 

@@ -8774,6 +8774,19 @@ export interface components {
             /** Owner Player Id */
             owner_player_id?: string | null;
         };
+        /**
+         * ChosenStepExplanationOut
+         * @description The step a select took (ADR 0446): its position and key (a `from` or a value), or that none
+         *     applied and `otherwise` gave the result.
+         */
+        ChosenStepExplanationOut: {
+            /** Position */
+            position: number | null;
+            /** Otherwise */
+            otherwise: boolean;
+            /** Key */
+            key: number | string | null;
+        };
         /** ClockCandidate */
         ClockCandidate: {
             /**
@@ -9102,7 +9115,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max" | "product" | "ratio";
+            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max" | "product" | "ratio" | "select";
         };
         /**
          * ComputedStatOut
@@ -9121,7 +9134,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"];
             /**
              * Updated At
              * Format: date-time
@@ -9135,7 +9148,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -16118,6 +16131,118 @@ export interface components {
             /** Days */
             days: components["schemas"]["DayPreview"][];
         };
+        /**
+         * SelectFormulaBody
+         * @description A value from a table - ADR 0446. `threshold`: the source is a number (a `bool` is 1 or 0, an
+         *     `enum` its `sort_order`) and the result is that of the highest `from` it reaches; the
+         *     `from` values rise. `match`: the source is a `text` or an `enum` and the result is that of the
+         *     step whose `value` it holds; the values differ. `otherwise` is the result when none
+         *     applies, no value without it. One to 64 steps.
+         */
+        "SelectFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "select";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "threshold" | "match";
+            /** Steps */
+            steps: components["schemas"]["SelectStepBody-Input"][];
+            otherwise?: components["schemas"]["SelectResultBody-Input"] | null;
+        };
+        /**
+         * SelectFormulaBody
+         * @description A value from a table - ADR 0446. `threshold`: the source is a number (a `bool` is 1 or 0, an
+         *     `enum` its `sort_order`) and the result is that of the highest `from` it reaches; the
+         *     `from` values rise. `match`: the source is a `text` or an `enum` and the result is that of the
+         *     step whose `value` it holds; the values differ. `otherwise` is the result when none
+         *     applies, no value without it. One to 64 steps.
+         */
+        "SelectFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "select";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "threshold" | "match";
+            /** Steps */
+            steps: components["schemas"]["SelectStepBody-Output"][];
+            otherwise?: components["schemas"]["SelectResultBody-Output"] | null;
+        };
+        /**
+         * SelectResultBody
+         * @description What a select gives: exactly one of a number, a text, a flag (a bool), or a stat of the
+         *     same entity - ADR 0446. A stat is for a numeric target, and a constant is of the target's
+         *     type.
+         */
+        "SelectResultBody-Input": {
+            /** Number */
+            number?: number | string | null;
+            /** Text */
+            text?: string | null;
+            /** Flag */
+            flag?: boolean | null;
+            /** Stat Definition Id */
+            stat_definition_id?: string | null;
+        };
+        /**
+         * SelectResultBody
+         * @description What a select gives: exactly one of a number, a text, a flag (a bool), or a stat of the
+         *     same entity - ADR 0446. A stat is for a numeric target, and a constant is of the target's
+         *     type.
+         */
+        "SelectResultBody-Output": {
+            /** Number */
+            number?: string | null;
+            /** Text */
+            text?: string | null;
+            /** Flag */
+            flag?: boolean | null;
+            /** Stat Definition Id */
+            stat_definition_id?: string | null;
+        };
+        /**
+         * SelectStepBody
+         * @description One step of a select: in `threshold` mode a `from` value, in `match` mode a `value`, and
+         *     the result - ADR 0446.
+         */
+        "SelectStepBody-Input": {
+            /** From */
+            from?: number | string | null;
+            /** Value */
+            value?: string | null;
+            result: components["schemas"]["SelectResultBody-Input"];
+        };
+        /**
+         * SelectStepBody
+         * @description One step of a select: in `threshold` mode a `from` value, in `match` mode a `value`, and
+         *     the result - ADR 0446.
+         */
+        "SelectStepBody-Output": {
+            /** From */
+            from?: string | null;
+            /** Value */
+            value?: string | null;
+            result: components["schemas"]["SelectResultBody-Output"];
+        };
         /** SessionCreate */
         SessionCreate: {
             /**
@@ -16853,13 +16978,14 @@ export interface components {
             /** From Hidden */
             from_hidden?: boolean | null;
             /** Formula */
-            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"]) | null;
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"]) | null;
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
             contents: components["schemas"]["ContentsExplanationOut"] | null;
             picked?: components["schemas"]["PickedExplanationOut"] | null;
             /** Division Rounded */
             division_rounded?: boolean | null;
+            chosen?: components["schemas"]["ChosenStepExplanationOut"] | null;
         };
         /**
          * StatGroupCreate
@@ -41203,7 +41329,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"];
             };
         };
         responses: {

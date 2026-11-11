@@ -460,6 +460,12 @@ class CharacterUpdate(BaseModel):
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
 
 
+class ChosenStepExplanationOut(BaseModel):
+    position: int | None = Field(..., title="Position")
+    otherwise: bool = Field(..., title="Otherwise")
+    key: int | float | str | None = Field(..., title="Key")
+
+
 class Kind3(StrEnum):
     reading = "reading"
     duration = "duration"
@@ -618,6 +624,7 @@ class Kind6(StrEnum):
     max = "max"
     product = "product"
     ratio = "ratio"
+    select = "select"
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -3237,6 +3244,55 @@ class SegmentPreview(BaseModel):
     days: list[DayPreview] = Field(..., title="Days")
 
 
+class Mode4(StrEnum):
+    threshold = "threshold"
+    match = "match"
+
+
+class SelectResultBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    number: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Number"
+    )
+    text: str | None = Field(None, title="Text")
+    flag: bool | None = Field(None, title="Flag")
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+
+
+class SelectResultBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    number: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="Number")
+    text: str | None = Field(None, title="Text")
+    flag: bool | None = Field(None, title="Flag")
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+
+
+class SelectStepBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    from_: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, alias="from", title="From"
+    )
+    value: str | None = Field(None, title="Value")
+    result: SelectResultBodyInput
+
+
+class SelectStepBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    from_: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, alias="from", title="From"
+    )
+    value: str | None = Field(None, title="Value")
+    result: SelectResultBodyOutput
+
+
 class SessionCreate(BaseModel):
     id: UUID | None = Field(None, title="Id")
     name: constr(min_length=1, max_length=300) = Field(..., title="Name")
@@ -5021,6 +5077,22 @@ class RowRefOut(BaseModel):
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
 
 
+class SelectFormulaBodyInput(BaseModel):
+    kind: Literal["select"] = Field("select", title="Kind")
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    mode: Mode4 = Field(..., title="Mode")
+    steps: list[SelectStepBodyInput] = Field(..., max_length=64, min_length=1, title="Steps")
+    otherwise: SelectResultBodyInput | None = None
+
+
+class SelectFormulaBodyOutput(BaseModel):
+    kind: Literal["select"] = Field("select", title="Kind")
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    mode: Mode4 = Field(..., title="Mode")
+    steps: list[SelectStepBodyOutput] = Field(..., max_length=64, min_length=1, title="Steps")
+    otherwise: SelectResultBodyOutput | None = None
+
+
 class SheetWeaponOut(BaseModel):
     entity_id: UUID = Field(..., title="Entity Id")
     name: str = Field(..., title="Name")
@@ -5248,6 +5320,7 @@ class ComputedStatOut(BaseModel):
         | MaxFormulaBodyOutput
         | ProductFormulaBodyOutput
         | RatioFormulaBodyOutput
+        | SelectFormulaBodyOutput
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -5262,6 +5335,7 @@ class ComputedStatPreviewIn(BaseModel):
         | MaxFormulaBodyInput
         | ProductFormulaBodyInput
         | RatioFormulaBodyInput
+        | SelectFormulaBodyInput
         | None
     ) = Field(None, title="Formula")
 
@@ -5497,12 +5571,14 @@ class StatExplanationOut(BaseModel):
         | MaxFormulaBodyOutput
         | ProductFormulaBodyOutput
         | RatioFormulaBodyOutput
+        | SelectFormulaBodyOutput
         | None
     ) = Field(..., title="Formula")
     inputs: list[PreviewInputOut] = Field(..., title="Inputs")
     contents: ContentsExplanationOut | None
     picked: PickedExplanationOut | None = None
     division_rounded: bool | None = Field(None, title="Division Rounded")
+    chosen: ChosenStepExplanationOut | None = None
 
 
 class UpdatesOut(BaseModel):
