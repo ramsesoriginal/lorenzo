@@ -28,6 +28,7 @@ from lorenzo_api.exceptions import (
     ComputedStatConflictError,
     ComputedStatCycleError,
     ComputedStatNotFoundError,
+    FormulaChainTooDeepError,
     InvalidComputedStatError,
     StatDefinitionNotFoundError,
 )
@@ -56,6 +57,7 @@ from lorenzo_api.schemas.computed_stats import (
 )
 from lorenzo_api.stat_contents import load_contents
 from lorenzo_api.stat_evaluation import (
+    MAX_FORMULA_CHAIN,
     ComparisonFormula,
     ContentsFormula,
     Formula,
@@ -65,6 +67,7 @@ from lorenzo_api.stat_evaluation import (
     evaluate,
     formula_of,
     input_ids,
+    longest_formula_chain,
     same_entity_input_ids,
 )
 
@@ -242,6 +245,16 @@ async def _check_no_cycle(
             if successor not in seen:
                 seen.add(successor)
                 stack.append((successor, [*path, successor]))
+
+    # ADR 0443: evaluation follows a chain one formula at a time, so a write may not make one
+    # longer than MAX_FORMULA_CHAIN. Only a chain through this stat is this write's doing; a
+    # longer one already stored stays as it is.
+    length = longest_formula_chain(edges, target_id)
+    if length > MAX_FORMULA_CHAIN:
+        raise FormulaChainTooDeepError(
+            detail=f"That formula would make a chain of {length} formulas, one reading the next; "
+            f"the limit is {MAX_FORMULA_CHAIN}"
+        )
 
 
 async def _validate(

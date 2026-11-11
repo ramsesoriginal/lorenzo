@@ -13,7 +13,12 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from lorenzo_api.exceptions import EntityPrototypeCycleError, InvalidPrototypeError
+from lorenzo_api.entry_visibility import hidden_among
+from lorenzo_api.exceptions import (
+    EntityNotFoundError,
+    EntityPrototypeCycleError,
+    InvalidPrototypeError,
+)
 from lorenzo_api.models import Entity, EntityPrototype
 
 
@@ -33,8 +38,9 @@ async def replace_parents(
     are part of what the entry is, since they decide its resolved stats (ADR 0037/0039).
 
     Raises EntityPrototypeCycleError for the entry itself or a loop (the BEFORE INSERT trigger of
-    ADR 0015 finds a transitive one) and InvalidPrototypeError for an id that is not an entry of
-    this tenant. The flush happens here, so the caller's commit is the only thing left to do.
+    ADR 0015 finds a transitive one), InvalidPrototypeError for an id that is not an entry of
+    this tenant, and EntityNotFoundError for one the library hides (ADR 0437, ADR 0443). The
+    flush happens here, so the caller's commit is the only thing left to do.
     """
     entity_id = entity.id
     ordered = list(dict.fromkeys(parent_ids))
@@ -57,6 +63,12 @@ async def replace_parents(
                     f"Parent id(s) {sorted(str(i) for i in missing)} do not exist "
                     f"in tenant {tenant_id}"
                 )
+            )
+        # An entry the library hides is not found by its id here, as a read by address finds
+        # none (ADR 0437, ADR 0443).
+        if hidden := await hidden_among(session, tenant_id=tenant_id, entity_ids=wanted):
+            raise EntityNotFoundError(
+                detail=f"No entity with id {sorted(hidden, key=str)[0]} in tenant {tenant_id}"
             )
 
     current = list(

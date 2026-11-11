@@ -454,6 +454,13 @@ class StatDefinitionNameTakenError(ConflictProblem):
     title = "A stat with this name already exists"
 
 
+class StatDefinitionFieldImmutableError(UnprocessableProblem):
+    """PATCH /stat-definitions/{id} - the body carries `value_type` or `stat_group_id`, which a
+    stat cannot change once made (ADR 0443; it used to answer 200 and change nothing)."""
+
+    title = "That field of a stat cannot be changed"
+
+
 class StatNameReservedError(ConflictProblem):
     """PATCH of a stat the API reads by name, or of the value `none` of `binding` - renaming it
     would change what the API does (ADR 0390)."""
@@ -537,6 +544,13 @@ class InvalidComputedStatError(UnprocessableProblem):
     """
 
     title = "Invalid formula"
+
+
+class FormulaChainTooDeepError(UnprocessableProblem):
+    """PUT/preview .../computed-stats/{id} - the formula would make a chain of more than 200
+    formulas, one reading the next (ADR 0443); `detail` names the length."""
+
+    title = "Formula chain too deep"
 
 
 class ComputedStatCycleError(UnprocessableProblem):

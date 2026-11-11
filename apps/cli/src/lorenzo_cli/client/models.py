@@ -3461,6 +3461,12 @@ class StatDefinitionUpdate(BaseModel):
     resolved_hint_id: UUID | None = Field(None, title="Resolved Hint Id")
     min_value: float | None = Field(None, title="Min Value")
     max_value: float | None = Field(None, title="Max Value")
+    value_type: Any | None = Field(
+        None, description="Not editable: carrying it is a 422.", title="Value Type"
+    )
+    stat_group_id: Any | None = Field(
+        None, description="Not editable: carrying it is a 422.", title="Stat Group Id"
+    )
 
 
 class StatEnumOptionOut(BaseModel):

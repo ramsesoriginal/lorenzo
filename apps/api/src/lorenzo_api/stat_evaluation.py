@@ -12,7 +12,8 @@ parameters. Formulas can read other computed stats, so evaluation follows
 dependencies, memoized. A computed stat whose inputs don't resolve has no
 value, like an unset stat. Evaluation never raises on bad data: a cycle
 that slipped past the write-time check (routers/computed_stats.py) just
-leaves the stats involved without a value.
+leaves the stats involved without a value, and so does a chain of formulas
+too long to follow (ADR 0443).
 
 A contents formula (ADR 0127) reads a stat of each thing directly inside
 the entity, so evaluation can span entities: the caller hands over a
@@ -31,6 +32,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 
+import structlog
+
 from lorenzo_api.models import (
     Comparator,
     ComputedStat,
@@ -38,6 +41,8 @@ from lorenzo_api.models import (
     StatValueType,
     VEffectiveStat,
 )
+
+logger = structlog.get_logger(__name__)
 
 Value = int | float | str | bool
 
@@ -267,6 +272,42 @@ def same_entity_input_ids(formula: Formula) -> list[uuid.UUID]:
     return [] if isinstance(formula, ContentsFormula) else input_ids(formula)
 
 
+MAX_FORMULA_CHAIN = 200
+"""The most formulas a write may chain, one reading the next (ADR 0443). Evaluation recurses
+through the chain, so an unbounded one cannot be read."""
+
+
+def longest_formula_chain(edges: Mapping[uuid.UUID, set[uuid.UUID]], through: uuid.UUID) -> int:
+    """The number of formulas in the longest chain of the definition-level graph that runs through
+    `through`: a path of k edges is k formulas, the last stat on it being one that is read, not
+    computed. Iterative, since the graph it is asked about may hold a chain too deep to recurse
+    (ADR 0443); a stat caught in a cycle that slipped past the write-time check adds nothing."""
+    readers: dict[uuid.UUID, list[uuid.UUID]] = {}
+    unread = {node: len(sources) for node, sources in edges.items()}
+    for node, sources in edges.items():
+        for source in sources:
+            readers.setdefault(source, []).append(node)
+            unread.setdefault(source, 0)
+    # Topological order, a stat after everything it reads: Kahn's walk from the stats that read
+    # nothing, so `below[n]` (the longest chain starting at n) is final when n comes up.
+    below: dict[uuid.UUID, int] = {}
+    ready = [node for node, count in unread.items() if count == 0]
+    while ready:
+        node = ready.pop()
+        below[node] = max((below[source] + 1 for source in edges.get(node, ())), default=0)
+        for reader in readers.get(node, ()):
+            unread[reader] -= 1
+            if unread[reader] == 0:
+                ready.append(reader)
+    # `above[n]` is the longest chain ending at n, from the readers' side.
+    above: dict[uuid.UUID, int] = {}
+    for node in sorted(below, key=below.__getitem__, reverse=True):
+        above[node] = max(
+            (above[reader] + 1 for reader in readers.get(node, ()) if reader in above), default=0
+        )
+    return above.get(through, 0) + below.get(through, 0)
+
+
 def apply_formula(
     formula: LinearFormula | ComparisonFormula | SumFormula,
     resolve: Callable[[uuid.UUID], Value | None],
@@ -307,7 +348,17 @@ def evaluate(
     """
     evaluation = _Evaluation(entity_id, stats, overrides or {}, contents)
     for stat_definition_id in [*evaluation.rows_of(entity_id), *(overrides or {})]:
-        evaluation.resolve(entity_id, stat_definition_id)
+        try:
+            evaluation.resolve(entity_id, stat_definition_id)
+        except RecursionError:
+            # A chain of formulas too long to follow (ADR 0443; the write-time limit is
+            # MAX_FORMULA_CHAIN, but a longer one may be stored): this stat has no value, as one
+            # caught in a cycle has none, and the read goes on.
+            logger.warning(
+                "formula chain too deep to evaluate", stat_definition_id=str(stat_definition_id)
+            )
+            evaluation.visiting.clear()
+            evaluation.values[(entity_id, stat_definition_id)] = _CYCLE
     return {
         stat_definition_id: value
         for (holder, stat_definition_id), value in evaluation.values.items()

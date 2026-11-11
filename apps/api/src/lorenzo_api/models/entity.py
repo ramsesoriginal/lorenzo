@@ -334,6 +334,8 @@ class Entity(Base):
         secondary="entity_prototype",
         primaryjoin="Entity.id == EntityPrototype.entity_id",
         secondaryjoin="Entity.id == EntityPrototype.prototype_id",
+        # In parent order, the one a stat's tie-break uses (ADR 0266, ADR 0443).
+        order_by="EntityPrototype.position, EntityPrototype.prototype_id",
         viewonly=True,
     )
     instances: Mapped[list[Entity]] = relationship(
