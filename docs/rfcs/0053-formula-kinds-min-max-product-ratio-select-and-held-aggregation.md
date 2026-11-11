@@ -1,6 +1,8 @@
 # 0053 - Formula kinds: min, max, product, ratio, select, and aggregation over what an entry holds
 
-Status: accepted (2026-11-11), decided with the maintainer, not built; slices K1 to K4, each its own ADR. It reopens what
+Status: accepted (2026-11-11), decided with the maintainer, built as slices K1 to K4 (2026-11-11), each its own ADR:
+[0444](../adr/0444-min-max-and-a-bool-or-an-enum-as-a-number-in-a-formula.md), [0445](../adr/0445-product-and-ratio-formulas.md),
+[0446](../adr/0446-select-formulas.md) and [0447](../adr/0447-contents-options-and-the-active-switch.md). It reopens what
 [RFC 0016](0016-stats-computed-values-and-crud-api.md) leaves for "a real, concrete need", what
 [ADR 0126](../adr/0126-sum-formulas.md) and [RFC 0030](0030-carrying-holding-binding-and-capacity.md) list as "not in
 scope" (non-additive kinds: max, min, choose), and [ADR 0403](../adr/0403-stat-scales.md)'s exclusion of a clamp on

@@ -699,6 +699,10 @@ async def get_entity_detail_or_404(
             selectinload(Entity.effective_stats)
             .joinedload(VEffectiveStat.stat_definition)
             .joinedload(StatDefinition.stat_group),
+            # The numbers of an enum stat's values, for a formula that reads it (ADR 0444).
+            selectinload(Entity.effective_stats)
+            .joinedload(VEffectiveStat.stat_definition)
+            .selectinload(StatDefinition.enum_values),
             # Where an inherited value comes from (ADR 0276).
             selectinload(Entity.effective_stats).joinedload(VEffectiveStat.source_entity),
             # A winning formula's parameters, for stat_evaluation (ADR 0104).

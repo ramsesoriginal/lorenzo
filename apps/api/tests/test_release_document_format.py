@@ -17,7 +17,12 @@ from _content_compare import differences
 from _content_fixtures import DOCUMENT, PICTURE, full_content
 
 from lorenzo_api import release_document as rd
-from lorenzo_api.repository_content import Content, Formula
+from lorenzo_api.repository_content import (
+    Content,
+    Formula,
+    SelectResultData,
+    SelectStepData,
+)
 
 GOLDEN = Path(__file__).parent / "data" / "release_document_v1.json"
 
@@ -92,6 +97,26 @@ def test_decimals_keep_their_scale_and_floats_their_last_digit() -> None:
     assert isinstance(number, Decimal) and str(number) == "2.50"
 
 
+# What a formula record of a later version holds that version 1 did not: operands (format 38,
+# ADR 0444) and a select (format 39, ADR 0446).
+_NEW_FORMULA_FIELDS = {
+    "operands": None,
+    "select_mode": None,
+    "steps": None,
+    "otherwise": None,
+    "aggregate": None,
+    "only_active": None,
+    "only_kind": None,
+    "where": None,
+    "if_none": None,
+}
+
+
+def _contents_defaults(record: dict) -> dict:
+    """A contents formula of a version before 40 reads as the sum of everything inside."""
+    return {"aggregate": "sum", "only_active": False} if record["kind"] == "contents" else {}
+
+
 def test_version_one_is_read_as_it_was_written() -> None:
     """The golden file is a version 1 document. A change that cannot read it is a new version
     with a reader of its own, and the old reader stays (ADR 0214)."""
@@ -99,9 +124,14 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 37
+    assert rd.FORMAT == 40
     assert rd.encode(full_content())[0] == {
         **golden,
+        "formulas": [
+            [entity, definition, {**_NEW_FORMULA_FIELDS, **_contents_defaults(record), **record}]
+            for entity, definition, record in golden["formulas"]
+        ],
+        "starts_inactive": {},
         "definitions": {
             key: {"min_value": None, "max_value": None, **definition}
             for key, definition in golden["definitions"].items()
@@ -593,3 +623,108 @@ def test_a_source_with_a_field_the_format_does_not_write_is_refused() -> None:
 
     with pytest.raises(rd.ContentFieldNotSerialisedError):
         rd.encode(content)
+
+
+def test_a_min_formula_round_trips_with_a_stat_and_a_constant() -> None:
+    """ADR 0444: the operands of a min, max or product are stored with a stat or a constant each,
+    and a document of version 37, which has none, reads with none."""
+    content = full_content()
+    key = (uuid.UUID(int=10), uuid.UUID(int=34))
+    operands = [(uuid.UUID(int=31), None), (None, Decimal("2.50"))]
+    content.formulas[key] = Formula(kind="min", round_mode="none", operands=operands)
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert back.formulas[key].operands == operands
+    assert str(back.formulas[key].operands[1][1]) == "2.50"
+    v37 = {
+        **document,
+        "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
+    }
+    for _, _, record in v37["formulas"]:
+        for field in _NEW_FORMULA_FIELDS:
+            del record[field]
+    assert all(
+        formula.operands is None for formula in rd.decode(v37, files, format=37).formulas.values()
+    )
+
+
+def test_a_select_formula_round_trips_every_kind_of_result() -> None:
+    """ADR 0446: a select's steps and its otherwise are stored, a result being a number, a text, a
+    flag or a stat, and a document of version 38 reads with none."""
+    content = full_content()
+    key = (uuid.UUID(int=10), uuid.UUID(int=35))
+    steps = [
+        SelectStepData(Decimal("1"), None, SelectResultData(number=Decimal("2.50"))),
+        SelectStepData(Decimal("5"), None, SelectResultData(stat=uuid.UUID(int=31))),
+        SelectStepData(None, "heavy", SelectResultData(text="slow")),
+        SelectStepData(None, "light", SelectResultData(flag=False)),
+    ]
+    otherwise = SelectResultData(text="none")
+    content.formulas[key] = Formula(
+        kind="select",
+        source=uuid.UUID(int=31),
+        select_mode="threshold",
+        steps=steps,
+        otherwise=otherwise,
+    )
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert back.formulas[key].steps == steps
+    assert back.formulas[key].otherwise == otherwise
+    assert str(back.formulas[key].steps[0].result.number) == "2.50"
+    v38 = {
+        **document,
+        "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
+    }
+    for _, _, record in v38["formulas"]:
+        for field in ("select_mode", "steps", "otherwise"):
+            del record[field]
+    assert all(
+        formula.steps is None and formula.otherwise is None
+        for formula in rd.decode(v38, files, format=38).formulas.values()
+    )
+
+
+def test_the_options_of_a_contents_formula_and_an_items_switch_round_trip() -> None:
+    """ADR 0447: a contents formula's aggregate and options, and which items start their instances
+    inactive, are stored; a document of version 39 reads a contents formula as a sum of every
+    thing inside and every item as starting active."""
+    content = full_content()
+    key = (uuid.UUID(int=10), uuid.UUID(int=36))
+    content.formulas[key] = Formula(
+        kind="contents",
+        aggregate="max",
+        only_active=True,
+        only_kind="item_instance",
+        where=uuid.UUID(int=31),
+        if_none=Decimal("10"),
+    )
+    content.starts_inactive = {uuid.UUID(int=10): True}
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    formula = back.formulas[key]
+    assert (formula.aggregate, formula.only_active, formula.only_kind) == (
+        "max",
+        True,
+        "item_instance",
+    )
+    assert formula.where == uuid.UUID(int=31) and formula.if_none == Decimal("10")
+    assert back.starts_inactive == {uuid.UUID(int=10): True}
+    v39 = {
+        **document,
+        "formulas": [row for row in document["formulas"] if row[:2] != [str(key[0]), str(key[1])]],
+    }
+    del v39["starts_inactive"]
+    for _, _, record in v39["formulas"]:
+        for field in ("aggregate", "only_active", "only_kind", "where", "if_none"):
+            del record[field]
+    old = rd.decode(v39, files, format=39)
+    contents = [f for f in old.formulas.values() if f.kind == "contents"]
+    assert contents and all(f.aggregate == "sum" and f.only_active is False for f in contents)
+    assert old.starts_inactive == {}

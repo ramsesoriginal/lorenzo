@@ -55,7 +55,12 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSumTerm,
     Containment,
     Entity,
@@ -699,10 +704,20 @@ class _Planner:
                         "entity_id": new,
                         "tenant_id": tenant_id,
                         "in_public_catalog": c.in_public_catalog.get(e, False),
+                        "starts_inactive": c.starts_inactive.get(e, False),
                     }
                 )
             if "item_instance" in kinds:
-                self.rows["item_instance"].append({"entity_id": new, "tenant_id": tenant_id})
+                # A copy makes a new instance, which starts as its prototypes say (ADR 0447).
+                self.rows["item_instance"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "active": not any(
+                            c.starts_inactive.get(p, False) for p in index.prototypes.get(e, [])
+                        ),
+                    }
+                )
             if "being" in kinds:
                 self.rows["being"].append({"entity_id": new, "tenant_id": tenant_id})
             if "character" in kinds:
@@ -875,7 +890,82 @@ class _Planner:
             local_entity = self.local["entity"][e]
             key = {"entity_id": local_entity, "stat_definition_id": target, "tenant_id": tenant_id}
             self.rows["computed_stat"].append(dict(key))
-            if formula.kind == "linear":
+            if formula.kind == "select":
+                assert formula.source is not None and formula.steps is not None
+                other = formula.otherwise
+                self.rows["computed_stat_select"].append(
+                    key
+                    | {
+                        "source_stat_definition_id": inputs[formula.source],
+                        "mode": formula.select_mode,
+                        "otherwise_number": None if other is None else other.number,
+                        "otherwise_text": None if other is None else other.text,
+                        "otherwise_bool": None if other is None else other.flag,
+                        "otherwise_stat_definition_id": (
+                            inputs[other.stat] if other is not None and other.stat else None
+                        ),
+                    }
+                )
+                self.rows["computed_stat_select_step"].extend(
+                    key
+                    | {
+                        "position": position,
+                        "threshold": step.threshold,
+                        "match_value": step.match_value,
+                        "result_number": step.result.number,
+                        "result_text": step.result.text,
+                        "result_bool": step.result.flag,
+                        "result_stat_definition_id": (
+                            inputs[step.result.stat] if step.result.stat else None
+                        ),
+                    }
+                    for position, step in enumerate(formula.steps)
+                )
+            elif formula.kind == "product":
+                assert formula.operands is not None
+                self.rows["computed_stat_product"].append(
+                    key
+                    | {
+                        "multiplier": formula.multiplier,
+                        "offset": formula.offset,
+                        "round_mode": formula.round_mode,
+                    }
+                )
+                self.rows["computed_stat_product_factor"].extend(
+                    key | {"position": position, "source_stat_definition_id": inputs[stat]}
+                    for position, (stat, _) in enumerate(formula.operands)
+                    if stat is not None
+                )
+            elif formula.kind == "ratio":
+                assert formula.left is not None
+                self.rows["computed_stat_ratio"].append(
+                    key
+                    | {
+                        "numerator_stat_definition_id": inputs[formula.left],
+                        "denominator_stat_definition_id": (
+                            inputs[formula.right] if formula.right else None
+                        ),
+                        "denominator_constant": formula.right_constant,
+                        "multiplier": formula.multiplier,
+                        "offset": formula.offset,
+                        "round_mode": formula.round_mode,
+                    }
+                )
+            elif formula.kind in ("min", "max"):
+                assert formula.operands is not None
+                self.rows["computed_stat_extremum"].append(
+                    key | {"pick": formula.kind, "round_mode": formula.round_mode}
+                )
+                self.rows["computed_stat_extremum_input"].extend(
+                    key
+                    | {
+                        "position": position,
+                        "source_stat_definition_id": None if stat is None else inputs[stat],
+                        "constant": constant,
+                    }
+                    for position, (stat, constant) in enumerate(formula.operands)
+                )
+            elif formula.kind == "linear":
                 assert formula.source is not None
                 self.rows["computed_stat_linear"].append(
                     key
@@ -887,9 +977,20 @@ class _Planner:
                     }
                 )
             elif formula.kind == "contents":
-                assert formula.source is not None
                 self.rows["computed_stat_contents"].append(
-                    key | {"source_stat_definition_id": inputs[formula.source]}
+                    key
+                    | {
+                        "source_stat_definition_id": (
+                            inputs[formula.source] if formula.source else None
+                        ),
+                        "aggregate": formula.aggregate or "sum",
+                        "only_active": bool(formula.only_active),
+                        "only_kind": formula.only_kind,
+                        "where_stat_definition_id": (
+                            inputs[formula.where] if formula.where else None
+                        ),
+                        "if_none": formula.if_none,
+                    }
                 )
             elif formula.kind == "sum":
                 assert formula.terms is not None
@@ -1893,6 +1994,58 @@ async def check_formula_cycles(session: AsyncSession, tenant_id: uuid.UUID) -> N
         ).where(ComputedStatSumTerm.tenant_id == tenant_id)
     ):
         edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatExtremumInput.stat_definition_id,
+            ComputedStatExtremumInput.source_stat_definition_id,
+        ).where(
+            ComputedStatExtremumInput.tenant_id == tenant_id,
+            ComputedStatExtremumInput.source_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatProductFactor.stat_definition_id,
+            ComputedStatProductFactor.source_stat_definition_id,
+        ).where(ComputedStatProductFactor.tenant_id == tenant_id)
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelect.stat_definition_id, ComputedStatSelect.source_stat_definition_id
+        ).where(ComputedStatSelect.tenant_id == tenant_id)
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelect.stat_definition_id, ComputedStatSelect.otherwise_stat_definition_id
+        ).where(
+            ComputedStatSelect.tenant_id == tenant_id,
+            ComputedStatSelect.otherwise_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
+    for target, source in await session.execute(
+        select(
+            ComputedStatSelectStep.stat_definition_id,
+            ComputedStatSelectStep.result_stat_definition_id,
+        ).where(
+            ComputedStatSelectStep.tenant_id == tenant_id,
+            ComputedStatSelectStep.result_stat_definition_id.is_not(None),
+        )
+    ):
+        edges[target].add(source)
+    for target, numerator, denominator in await session.execute(
+        select(
+            ComputedStatRatio.stat_definition_id,
+            ComputedStatRatio.numerator_stat_definition_id,
+            ComputedStatRatio.denominator_stat_definition_id,
+        ).where(ComputedStatRatio.tenant_id == tenant_id)
+    ):
+        edges[target].add(numerator)
+        if denominator is not None:
+            edges[target].add(denominator)
     state: dict[uuid.UUID, int] = {}
     for start in list(edges):
         if state.get(start):
@@ -2256,9 +2409,43 @@ async def forget_copy(
                 ComputedStatSumTerm.source_stat_definition_id.in_(all_definitions),
             ),
             exists().where(
+                ComputedStatProductFactor.entity_id == ComputedStat.entity_id,
+                ComputedStatProductFactor.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatProductFactor.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatSelect.entity_id == ComputedStat.entity_id,
+                ComputedStatSelect.stat_definition_id == ComputedStat.stat_definition_id,
+                or_(
+                    ComputedStatSelect.source_stat_definition_id.in_(all_definitions),
+                    ComputedStatSelect.otherwise_stat_definition_id.in_(all_definitions),
+                ),
+            ),
+            exists().where(
+                ComputedStatSelectStep.entity_id == ComputedStat.entity_id,
+                ComputedStatSelectStep.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatSelectStep.result_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
+                ComputedStatRatio.entity_id == ComputedStat.entity_id,
+                ComputedStatRatio.stat_definition_id == ComputedStat.stat_definition_id,
+                or_(
+                    ComputedStatRatio.numerator_stat_definition_id.in_(all_definitions),
+                    ComputedStatRatio.denominator_stat_definition_id.in_(all_definitions),
+                ),
+            ),
+            exists().where(
+                ComputedStatExtremumInput.entity_id == ComputedStat.entity_id,
+                ComputedStatExtremumInput.stat_definition_id == ComputedStat.stat_definition_id,
+                ComputedStatExtremumInput.source_stat_definition_id.in_(all_definitions),
+            ),
+            exists().where(
                 ComputedStatContents.entity_id == ComputedStat.entity_id,
                 ComputedStatContents.stat_definition_id == ComputedStat.stat_definition_id,
-                ComputedStatContents.source_stat_definition_id.in_(all_definitions),
+                or_(
+                    ComputedStatContents.source_stat_definition_id.in_(all_definitions),
+                    ComputedStatContents.where_stat_definition_id.in_(all_definitions),
+                ),
             ),
         )
         own_formulas = (ComputedStat.tenant_id == t) & ComputedStat.entity_id.not_in(entities)

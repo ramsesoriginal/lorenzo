@@ -39,7 +39,14 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Containment,
@@ -114,7 +121,7 @@ from lorenzo_api.repository_hiding import (
 )
 from lorenzo_api.repository_releases import ReleaseRef
 from lorenzo_api.repository_upstream import load_upstream
-from lorenzo_api.stat_enum_values import enum_value_uses
+from lorenzo_api.stat_enum_values import enum_value_uses, formulas_reading_as_number
 
 RowKind = Literal["entity", "stat_group", "stat_definition"]
 _ROW_KINDS: tuple[RowKind, ...] = ("entity", "stat_group", "stat_definition")
@@ -389,11 +396,23 @@ class Names:
         return found if isinstance(found, str) and found else None
 
 
+_FORMULA_ROLES = ("source", "left", "right", "numerator", "denominator", "where")
+
+
 def _formula_inputs(formula: Any) -> list[str]:
     if not isinstance(formula, dict):
         return []
-    inputs = [formula[role] for role in ("source", "left", "right") if formula.get(role)]
-    return inputs + [term["source"] for term in formula.get("terms") or []]
+    inputs = [formula[role] for role in _FORMULA_ROLES if formula.get(role)]
+    inputs += [term["source"] for term in formula.get("terms") or []]
+    inputs += formula.get("factors") or []
+    # A select's result stats (ADR 0446): in its steps and in `otherwise`.
+    results = [step["result"] for step in formula.get("steps") or []]
+    if formula.get("otherwise"):
+        results.append(formula["otherwise"])
+    inputs += [result["stat"] for result in results if result.get("stat")]
+    return inputs + [
+        operand["source"] for operand in formula.get("inputs") or [] if operand["source"]
+    ]
 
 
 def mentioned(change: FieldChange) -> list[tuple[str, str]]:
@@ -1317,6 +1336,13 @@ class _Applier:
             return True
         if name == "kinds":
             return await self._kinds(row, change)
+        if name == "starts_inactive":
+            await s.execute(
+                update(Item)
+                .where(Item.entity_id == e, Item.tenant_id == t)
+                .values(starts_inactive=bool(change.upstream))
+            )
+            return True
         if name == "in_public_catalog":
             if change.upstream is None:
                 # The entry stopped being an item upstream: the kind is what is removed, or
@@ -1424,13 +1450,42 @@ class _Applier:
         inputs: dict[str, uuid.UUID | None] = {}
         # A sum's terms, in order: each term's local stat and coefficient (ADR 0126).
         terms: list[tuple[uuid.UUID | None, str]] = []
+        operands: list[tuple[uuid.UUID | None, bool, str | None]] = []
+        factors: list[uuid.UUID | None] = []
+        select_stats: dict[str, uuid.UUID | None] = {}
         if formula is not None:
-            for role in ("source", "left", "right"):
+            for role in _FORMULA_ROLES:
                 if formula.get(role):
                     inputs[role] = self.resolve("stat_definition", formula[role])
+            # A product's factors, in order (ADR 0445).
+            for factor in formula.get("factors") or []:
+                factors.append(self.resolve("stat_definition", factor))
+            # A select's result stats by name, each resolved to a local stat (ADR 0446).
+            for result in [s["result"] for s in formula.get("steps") or []] + (
+                [formula["otherwise"]] if formula.get("otherwise") else []
+            ):
+                if result.get("stat"):
+                    select_stats[result["stat"]] = self.resolve("stat_definition", result["stat"])
             for term in formula.get("terms") or []:
                 terms.append((self.resolve("stat_definition", term["source"]), term["coefficient"]))
-            if None in inputs.values() or any(source is None for source, _ in terms):
+            # A min or max's inputs, in order: a local stat or a constant (ADR 0444).
+            for operand in formula.get("inputs") or []:
+                operands.append(
+                    (
+                        None
+                        if operand["source"] is None
+                        else self.resolve("stat_definition", operand["source"]),
+                        operand["source"] is None,
+                        operand["constant"],
+                    )
+                )
+            if (
+                None in inputs.values()
+                or any(source is None for source, _ in terms)
+                or any(factor is None for factor in factors)
+                or None in select_stats.values()
+                or any(stat is None and not is_constant for stat, is_constant, _ in operands)
+            ):
                 self.skip(row, name, "a stat its formula uses wasn't copied here")
                 return False
         await s.execute(
@@ -1451,7 +1506,85 @@ class _Applier:
         )
         keys = {"entity_id": e, "stat_definition_id": definition, "tenant_id": t}
         await s.execute(insert(ComputedStat).values(**keys))
-        if formula["kind"] == "linear":
+        if formula["kind"] == "select":
+
+            def result_columns(prefix: str, result: dict[str, Any] | None) -> dict[str, Any]:
+                result = result or {}
+                return {
+                    f"{prefix}_number": result.get("number"),
+                    f"{prefix}_text": result.get("text"),
+                    f"{prefix}_bool": result.get("flag"),
+                    f"{prefix}_stat_definition_id": select_stats.get(result.get("stat") or ""),
+                }
+
+            await s.execute(
+                insert(ComputedStatSelect).values(
+                    **keys,
+                    source_stat_definition_id=inputs["source"],
+                    mode=formula["mode"],
+                    **result_columns("otherwise", formula.get("otherwise")),
+                )
+            )
+            await s.execute(
+                insert(ComputedStatSelectStep),
+                [
+                    {
+                        **keys,
+                        "position": position,
+                        "threshold": step["from"],
+                        "match_value": step["value"],
+                        **result_columns("result", step["result"]),
+                    }
+                    for position, step in enumerate(formula["steps"])
+                ],
+            )
+        elif formula["kind"] == "product":
+            await s.execute(
+                insert(ComputedStatProduct).values(
+                    **keys,
+                    multiplier=formula["multiplier"],
+                    offset=formula["offset"],
+                    round_mode=formula["round_mode"],
+                )
+            )
+            await s.execute(
+                insert(ComputedStatProductFactor),
+                [
+                    {**keys, "position": position, "source_stat_definition_id": factor}
+                    for position, factor in enumerate(factors)
+                ],
+            )
+        elif formula["kind"] == "ratio":
+            await s.execute(
+                insert(ComputedStatRatio).values(
+                    **keys,
+                    numerator_stat_definition_id=inputs["numerator"],
+                    denominator_stat_definition_id=inputs.get("denominator"),
+                    denominator_constant=formula["denominator_constant"],
+                    multiplier=formula["multiplier"],
+                    offset=formula["offset"],
+                    round_mode=formula["round_mode"],
+                )
+            )
+        elif formula["kind"] in ("min", "max"):
+            await s.execute(
+                insert(ComputedStatExtremum).values(
+                    **keys, pick=formula["kind"], round_mode=formula["round_mode"]
+                )
+            )
+            await s.execute(
+                insert(ComputedStatExtremumInput),
+                [
+                    {
+                        **keys,
+                        "position": position,
+                        "source_stat_definition_id": stat,
+                        "constant": constant,
+                    }
+                    for position, (stat, _, constant) in enumerate(operands)
+                ],
+            )
+        elif formula["kind"] == "linear":
             await s.execute(
                 insert(ComputedStatLinear).values(
                     **keys,
@@ -1464,7 +1597,13 @@ class _Applier:
         elif formula["kind"] == "contents":
             await s.execute(
                 insert(ComputedStatContents).values(
-                    **keys, source_stat_definition_id=inputs["source"]
+                    **keys,
+                    source_stat_definition_id=inputs.get("source"),
+                    aggregate=formula.get("aggregate") or "sum",
+                    only_active=bool(formula.get("only_active")),
+                    only_kind=formula.get("only_kind"),
+                    where_stat_definition_id=inputs.get("where"),
+                    if_none=formula.get("if_none"),
                 )
             )
         elif formula["kind"] == "sum":
@@ -1531,6 +1670,7 @@ class _Applier:
                 values: dict[str, Any] = {"entity_id": e, "tenant_id": t}
                 if kind == "item":
                     values["in_public_catalog"] = bool(row.upstream.get("in_public_catalog"))
+                    values["starts_inactive"] = bool(row.upstream.get("starts_inactive"))
                 await s.execute(insert(_MARKER_MODELS[kind]).values(**values))
                 if kind == "fact" and await s.get(EntityAudience, e) is None:
                     s.add(EntityAudience(entity_id=e, tenant_id=t, is_public=False))
@@ -1613,6 +1753,10 @@ class _Applier:
         for value in change.removed or []:
             if await enum_value_uses(s, t, d, value):
                 self.skip(row, "enum_values", f"{value!r} is still in use here")
+                ok = False
+                continue
+            if await formulas_reading_as_number(s, t, d):
+                self.skip(row, "enum_values", "a formula here reads its order as a number")
                 ok = False
                 continue
             await s.execute(

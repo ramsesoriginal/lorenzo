@@ -604,6 +604,16 @@ class StatEnumValueAlreadyExistsError(ConflictProblem):
     title = "This value is already allowed for this stat"
 
 
+class StatEnumOrderReadByFormulaError(ConflictProblem):
+    """PATCH .../enum-values/{id} moving a value (`sort_order`), or DELETE removing one, while a
+    formula reads the enum as a number: an enum counts as the `sort_order` of the value it holds,
+    so a change of order or a removal would change what those formulas say (ADR 0444). The
+    detail names the formulas.
+    """
+
+    title = "A formula reads this enum as a number"
+
+
 class StatEnumValueInUseError(ConflictProblem):
     """DELETE .../enum-values/{id} while an entity directly holds that
     value - removing it would leave stored values outside the allowed set

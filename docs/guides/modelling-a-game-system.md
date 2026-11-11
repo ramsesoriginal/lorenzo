@@ -4,7 +4,7 @@ How to say a game's numbers with Lorenzo's stats: what each piece does, the reci
 
 Everything here is as the API behaves today. It was checked against a local API; where a recipe stops working, the section says where.
 
-[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) (accepted, not built) adds the formula kinds `min`, `max`, `product`, `ratio` and `select`, lets a `bool` or an `enum` be a formula input, and gives `contents` options for what is switched on. It makes three recipes below unnecessary: the staircase for a table with steps becomes one `select`, a trait entry that carries a formula for a flag becomes a `product` with the flag, and a container for what is worn becomes `contents` over what is active. When a kind is built, its recipe here is replaced, and "What the formulas do not say" shrinks to what is still missing.
+[RFC 0053](../rfcs/0053-formula-kinds-min-max-product-ratio-select-and-held-aggregation.md) adds formula kinds in four slices. Built so far: `min` and `max`, and a `bool` or an `enum` as an input of `linear`, `sum`, `min` and `max` ([ADR 0444](../adr/0444-min-max-and-a-bool-or-an-enum-as-a-number-in-a-formula.md)); `product` and `ratio`, which read them too ([ADR 0445](../adr/0445-product-and-ratio-formulas.md)); `select` ([ADR 0446](../adr/0446-select-formulas.md)); and the options of `contents` and the `active` switch of an item instance ([ADR 0447](../adr/0447-contents-options-and-the-active-switch.md)). RFC 0053 is built. It made three recipes unnecessary: the staircase for a table with steps is one `select`, a trait entry that carries a formula for a flag is a `product` with the flag, and a container for what is worn is `contents` over what is active. Where a recipe below is kept, it is for a library that has not moved, or says so.
 
 ## The pieces
 
@@ -53,6 +53,8 @@ A modifier that goes up by one for every two points, rounded down, is `linear(so
 
 ### A table with steps
 
+`select` says a table in one formula (RFC 0053 slice K3, [ADR 0446](../adr/0446-select-formulas.md)): `proficiency = select(level, threshold, from 1 gives 2, from 5 gives 3, from 9 gives 4, otherwise 0)`, or by category `dex_bonus = select(armour, match, light gives dex_modifier, medium gives 2, heavy gives 0)`. The staircase below is how a table is said without it.
+
 Several steps of one input stat are a staircase. The step at threshold `t`, over an input from 0 to `X`, is
 
 ```text
@@ -68,9 +70,13 @@ points = sum(tier x 80, offset 90)
 
 Two thresholds are two step stats and a `sum`. Keep the input's minimum and maximum tight, since a value outside them breaks the steps. A table of irregular values, or one that depends on two inputs, is not reachable: store the values.
 
+### A cap and a floor
+
+`min` is a cap and `max` is a floor, each of two to five stats or constants: `dex_bonus = min(dex_modifier, dex_cap)`, `hit_points_shown = max(hit_points, 0)`. A clamp is two formulas, one reading the other. A `bool` is 1 or 0 in these and in `linear` and `sum`, so a flag that adds a fixed bonus is a `sum` term with the bonus as its coefficient (`total = sum(proficient x 3, base)`), and `max(a, b)` of two flags is OR. An `enum` is the `sort_order` of its value: number the values as the rule needs them, and know that a formula that reads an enum stops its values being moved or removed (409).
+
 ### A flag that changes a formula
 
-A `bool` cannot be a formula input, and a coefficient is a constant, so "add the bonus if proficient" is not a product. Make the flag an **entry that carries the formula**:
+A flag times a stat is a `product`: `skill_bonus = product(trained, proficiency)`, where `trained` is a `bool` (1 or 0) and `proficiency` a stat. That makes the trait entry that carries a formula unnecessary for a flag. A bonus that comes from which trait a being has, rather than a flag on the being, is still an **entry that carries the formula**:
 
 - The base prototype has `stealth = linear(grace_mod, 1)`.
 - A trait entry, `Trained in stealth`, has `stealth = sum(grace_mod, prof_bonus)` and is a parent of the being. Twice the bonus and half the bonus are two more trait entries (`sum` with coefficient 2, or 0.5 with `floor`).
@@ -89,7 +95,9 @@ A resource that is spent and refilled is easier as **spent and left**: `slots_sp
 
 ### Counting only what is worn or held
 
-`contents` adds up every directly contained entry that has the stat, so a spare item that is only carried counts. Put what counts into its own container, and read the container: a `Worn` item inside the being has `worn_total = contents(armor_bonus)`, and the being has `worn_bonus = contents(worn_total)`. A container has to be an entry that the being directly contains; two levels need two formulas.
+`contents` takes options (RFC 0053 slice K4, [ADR 0447](../adr/0447-contents-options-and-the-active-switch.md)): `aggregate` (`sum`, `min`, `max`, `count`), `only_active`, `only_kind` (`item_instance`), `where_stat_definition_id` (a `bool` stat of the held thing) and `if_none`. Armour class from what is worn is `max` over active item instances of `armor` with `if_none` 10; a dexterity cap is `min` over active armour of its cap; attunement used is `count` over active things `where` `requires_attunement`. An item instance has an `active` switch (on by default; an item with `starts_inactive` makes instances that start off), which its holder flips with `PATCH /item-instances/{id}` and which does not move, free or bind it. `min`, `max` and `count` ignore the stack count; a sum still multiplies by it.
+
+The container recipe below is the way without the options: `contents` adds up every directly contained entry that has the stat, so a spare item that is only carried counts. Put what counts into its own container, and read the container: a `Worn` item inside the being has `worn_total = contents(armor_bonus)`, and the being has `worn_bonus = contents(worn_total)`. A container has to be an entry that the being directly contains; two levels need two formulas.
 
 ### An item with several profiles
 
@@ -114,11 +122,11 @@ A twin stat holds the converted value: `weight_kg = linear(weight, 0.45359237, 0
 - **A direct value shadows an inherited formula.** Writing a stat on a being that has a formula only on a prototype stores an own value, and the formula no longer shows.
 - **A computed value is never held to a minimum or maximum.** Bounds check what is written.
 - **Equal-distance parents tie by order.** Two parents that give the same stat at the same distance give the first one's value.
-- **A very long chain.** Rules a few steps deep are fine; a chain of hundreds of formulas can fail on read.
+- **A very long chain.** Rules a few steps deep are fine; a write that would chain more than 200 formulas is refused, and a stat at the end of a longer stored chain has no value ([ADR 0443](../adr/0443-the-api-answers-what-it-used-to-ignore-crash-on-or-return-out-of-order.md)).
 
 ## What the formulas do not say
 
-No `min`, `max` or clamp; no product of two stats; no `bool`, `enum` or `text` as input to arithmetic; no condition that gives a number; no AND or OR of conditions; no lookup table; no dice. The recipes above cover stepped tables, flags and tiers. For the rest, store the value on the entry (a cap, a total that depends on two stats) and let the author keep it current.
+Left to the author: a `text` stat as input to arithmetic (a `comparison` reads only numbers, and a `select` matches text), a rule that nests one kind inside another (a longer rule is a chain of named stats, up to 200), and dice. A `ratio` rounds its quotient at 28 digits. For anything else, store the value on the entry and let the author keep it current.
 
 ## What the sheet draws
 

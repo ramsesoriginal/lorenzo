@@ -54,7 +54,7 @@ class ReadWorld(World):
             return httpx.Response(200, json=page([]))
         if request.url.path == f"{base}/item-instances/{self.entity['id']}":
             found = item(UUID(self.entity["id"]), "Old rope")
-            found.update(owner_entity_id=str(ASHFANG), slug=None, bound=False)
+            found.update(owner_entity_id=str(ASHFANG), slug=None, bound=False, active=True)
             return httpx.Response(200, json=found)
         return super().handler(request)
 

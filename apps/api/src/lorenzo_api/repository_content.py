@@ -36,7 +36,14 @@ from lorenzo_api.models import (
     ComputedStat,
     ComputedStatComparison,
     ComputedStatContents,
+    ComputedStatExtremum,
+    ComputedStatExtremumInput,
     ComputedStatLinear,
+    ComputedStatProduct,
+    ComputedStatProductFactor,
+    ComputedStatRatio,
+    ComputedStatSelect,
+    ComputedStatSelectStep,
     ComputedStatSum,
     ComputedStatSumTerm,
     Connection,
@@ -134,6 +141,25 @@ class StatValue:
 
 
 @dataclass
+class SelectResultData:
+    """What a select gives (ADR 0446): a number, a text, a flag or a stat, exactly one."""
+
+    number: Decimal | None = None
+    text: str | None = None
+    flag: bool | None = None
+    stat: uuid.UUID | None = None
+
+
+@dataclass
+class SelectStepData:
+    """One step of a select (ADR 0446): a `from` value or a value to match, and its result."""
+
+    threshold: Decimal | None
+    match_value: str | None
+    result: SelectResultData
+
+
+@dataclass
 class Formula:
     """A computed stat's formula (ADR 0104), with its input definitions."""
 
@@ -150,10 +176,31 @@ class Formula:
     false_value: str | None = None
     # A sum's (source, coefficient) terms, in order (ADR 0126).
     terms: list[tuple[uuid.UUID, Decimal]] | None = None
+    # A `min` or `max`'s (stat, constant) operands, in order, one of the two each (ADR 0444); the
+    # kind is `min` or `max`.
+    operands: list[tuple[uuid.UUID | None, Decimal | None]] | None = None
+    # A contents formula (ADR 0447): its aggregate, options and the stat it filters by.
+    aggregate: str | None = None
+    only_active: bool | None = None
+    only_kind: str | None = None
+    where: uuid.UUID | None = None
+    if_none: Decimal | None = None
+    # A select (ADR 0446): `source` is its source stat; the mode, the steps and `otherwise`.
+    select_mode: str | None = None
+    steps: list[SelectStepData] | None = None
+    otherwise: SelectResultData | None = None
 
     def inputs(self) -> list[uuid.UUID]:
-        own = [i for i in (self.source, self.left, self.right) if i is not None]
-        return own + [source for source, _ in self.terms or []]
+        own = [i for i in (self.source, self.left, self.right, self.where) if i is not None]
+        results = [step.result for step in self.steps or []]
+        if self.otherwise is not None:
+            results.append(self.otherwise)
+        return (
+            own
+            + [source for source, _ in self.terms or []]
+            + [stat for stat, _ in self.operands or [] if stat is not None]
+            + [r.stat for r in results if r.stat is not None]
+        )
 
 
 @dataclass
@@ -204,6 +251,8 @@ class Content:
     entities: dict[uuid.UUID, str] = field(default_factory=dict)
     kinds: dict[uuid.UUID, set[str]] = field(default_factory=lambda: defaultdict(set))
     in_public_catalog: dict[uuid.UUID, bool] = field(default_factory=dict)
+    # An item whose instances start with the `active` switch off (ADR 0447).
+    starts_inactive: dict[uuid.UUID, bool] = field(default_factory=dict)
     slugs: dict[uuid.UUID, str] = field(default_factory=dict)
     prototypes: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     groups: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
@@ -464,11 +513,12 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     c.scenes = dict(await rows(Scene.entity_id, Scene.period_entity_id, where=Scene.tenant_id == t))
     for entity_id in c.scenes:
         c.kinds[entity_id].add("scene")
-    for entity_id, public in await rows(
-        Item.entity_id, Item.in_public_catalog, where=Item.tenant_id == t
+    for entity_id, public, inactive in await rows(
+        Item.entity_id, Item.in_public_catalog, Item.starts_inactive, where=Item.tenant_id == t
     ):
         c.kinds[entity_id].add("item")
         c.in_public_catalog[entity_id] = public
+        c.starts_inactive[entity_id] = inactive
     for kind, model in (
         ("book", Book),
         ("carrier", Carrier),
@@ -625,17 +675,133 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
             (term.source_stat_definition_id, term.coefficient)
         )
     contained = {
-        (row.entity_id, row.stat_definition_id): row.source_stat_definition_id
+        (row.entity_id, row.stat_definition_id): row
         for row in (
             await session.scalars(
                 select(ComputedStatContents).where(ComputedStatContents.tenant_id == t)
             )
         )
     }
+    extrema = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatExtremum).where(ComputedStatExtremum.tenant_id == t)
+            )
+        )
+    }
+    operands: dict[tuple[uuid.UUID, uuid.UUID], list[tuple[uuid.UUID | None, Decimal | None]]] = (
+        defaultdict(list)
+    )
+    for operand in await session.scalars(
+        select(ComputedStatExtremumInput)
+        .where(ComputedStatExtremumInput.tenant_id == t)
+        .order_by(ComputedStatExtremumInput.position)
+    ):
+        operands[(operand.entity_id, operand.stat_definition_id)].append(
+            (operand.source_stat_definition_id, operand.constant)
+        )
+    products = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatProduct).where(ComputedStatProduct.tenant_id == t)
+            )
+        )
+    }
+    factors: dict[tuple[uuid.UUID, uuid.UUID], list[tuple[uuid.UUID | None, Decimal | None]]] = (
+        defaultdict(list)
+    )
+    for factor in await session.scalars(
+        select(ComputedStatProductFactor)
+        .where(ComputedStatProductFactor.tenant_id == t)
+        .order_by(ComputedStatProductFactor.position)
+    ):
+        factors[(factor.entity_id, factor.stat_definition_id)].append(
+            (factor.source_stat_definition_id, None)
+        )
+    ratios = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(select(ComputedStatRatio).where(ComputedStatRatio.tenant_id == t))
+        )
+    }
+    selects = {
+        (row.entity_id, row.stat_definition_id): row
+        for row in (
+            await session.scalars(
+                select(ComputedStatSelect).where(ComputedStatSelect.tenant_id == t)
+            )
+        )
+    }
+    select_steps: dict[tuple[uuid.UUID, uuid.UUID], list[SelectStepData]] = defaultdict(list)
+    for step in await session.scalars(
+        select(ComputedStatSelectStep)
+        .where(ComputedStatSelectStep.tenant_id == t)
+        .order_by(ComputedStatSelectStep.position)
+    ):
+        select_steps[(step.entity_id, step.stat_definition_id)].append(
+            SelectStepData(
+                threshold=step.threshold,
+                match_value=step.match_value,
+                result=SelectResultData(
+                    number=step.result_number,
+                    text=step.result_text,
+                    flag=step.result_bool,
+                    stat=step.result_stat_definition_id,
+                ),
+            )
+        )
     for e, d in await rows(
         ComputedStat.entity_id, ComputedStat.stat_definition_id, where=ComputedStat.tenant_id == t
     ):
-        if (e, d) in linear:
+        if (e, d) in selects:
+            chosen = selects[(e, d)]
+            otherwise = SelectResultData(
+                number=chosen.otherwise_number,
+                text=chosen.otherwise_text,
+                flag=chosen.otherwise_bool,
+                stat=chosen.otherwise_stat_definition_id,
+            )
+            c.formulas[(e, d)] = Formula(
+                kind="select",
+                source=chosen.source_stat_definition_id,
+                select_mode=chosen.mode,
+                steps=select_steps[(e, d)],
+                otherwise=otherwise
+                if any(
+                    v is not None
+                    for v in (otherwise.number, otherwise.text, otherwise.flag, otherwise.stat)
+                )
+                else None,
+            )
+        elif (e, d) in products:
+            product = products[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="product",
+                multiplier=product.multiplier,
+                offset=product.offset,
+                round_mode=product.round_mode,
+                operands=factors[(e, d)],
+            )
+        elif (e, d) in ratios:
+            ratio = ratios[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="ratio",
+                left=ratio.numerator_stat_definition_id,
+                right=ratio.denominator_stat_definition_id,
+                right_constant=ratio.denominator_constant,
+                multiplier=ratio.multiplier,
+                offset=ratio.offset,
+                round_mode=ratio.round_mode,
+            )
+        elif (e, d) in extrema:
+            c.formulas[(e, d)] = Formula(
+                kind=extrema[(e, d)].pick,
+                round_mode=extrema[(e, d)].round_mode,
+                operands=operands[(e, d)],
+            )
+        elif (e, d) in linear:
             lin = linear[(e, d)]
             c.formulas[(e, d)] = Formula(
                 kind="linear",
@@ -656,7 +822,16 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
                 false_value=cmp.false_value,
             )
         elif (e, d) in contained:
-            c.formulas[(e, d)] = Formula(kind="contents", source=contained[(e, d)])
+            held = contained[(e, d)]
+            c.formulas[(e, d)] = Formula(
+                kind="contents",
+                source=held.source_stat_definition_id,
+                aggregate=held.aggregate,
+                only_active=held.only_active,
+                only_kind=held.only_kind,
+                where=held.where_stat_definition_id,
+                if_none=held.if_none,
+            )
         elif (e, d) in sums:
             c.formulas[(e, d)] = Formula(
                 kind="sum",
@@ -1127,9 +1302,84 @@ def _formula_json(formula: Formula, name: Namer) -> dict[str, Any]:
             "offset": str(formula.offset),
             "round_mode": formula.round_mode,
         }
+    if formula.kind == "select":
+        assert formula.source is not None and formula.steps is not None
+
+        def result_json(result: SelectResultData) -> dict[str, Any]:
+            return {
+                "number": None if result.number is None else str(result.number),
+                "text": result.text,
+                "flag": result.flag,
+                "stat": None if result.stat is None else name("stat_definition", result.stat),
+            }
+
+        return {
+            "kind": "select",
+            "source": name("stat_definition", formula.source),
+            "mode": formula.select_mode,
+            "steps": [
+                {
+                    "from": None if step.threshold is None else str(step.threshold),
+                    "value": step.match_value,
+                    "result": result_json(step.result),
+                }
+                for step in formula.steps
+            ],
+            "otherwise": None if formula.otherwise is None else result_json(formula.otherwise),
+        }
+    if formula.kind == "product":
+        assert formula.operands is not None
+        return {
+            "kind": "product",
+            "factors": [name("stat_definition", stat) for stat, _ in formula.operands if stat],
+            "multiplier": str(formula.multiplier),
+            "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind == "ratio":
+        assert formula.left is not None
+        return {
+            "kind": "ratio",
+            "numerator": name("stat_definition", formula.left),
+            "denominator": name("stat_definition", formula.right) if formula.right else None,
+            "denominator_constant": (
+                str(formula.right_constant) if formula.right_constant is not None else None
+            ),
+            "multiplier": str(formula.multiplier),
+            "offset": str(formula.offset),
+            "round_mode": formula.round_mode,
+        }
+    if formula.kind in ("min", "max"):
+        assert formula.operands is not None
+        return {
+            "kind": formula.kind,
+            "inputs": [
+                {
+                    "source": None if stat is None else name("stat_definition", stat),
+                    "constant": None if constant is None else str(constant),
+                }
+                for stat, constant in formula.operands
+            ],
+            "round_mode": formula.round_mode,
+        }
     if formula.kind == "contents":
-        assert formula.source is not None
-        return {"kind": "contents", "source": name("stat_definition", formula.source)}
+        # Only what is not the default is said, so the snapshot of a contents formula that sums
+        # everything is what it was before ADR 0447 and no update is proposed for it.
+        contents: dict[str, Any] = {
+            "kind": "contents",
+            "source": None if formula.source is None else name("stat_definition", formula.source),
+        }
+        if formula.aggregate not in (None, "sum"):
+            contents["aggregate"] = formula.aggregate
+        if formula.only_active:
+            contents["only_active"] = True
+        if formula.only_kind is not None:
+            contents["only_kind"] = formula.only_kind
+        if formula.where is not None:
+            contents["where"] = name("stat_definition", formula.where)
+        if formula.if_none is not None:
+            contents["if_none"] = str(formula.if_none)
+        return contents
     if formula.kind == "sum":
         assert formula.terms is not None
         return {
@@ -1345,6 +1595,9 @@ def entity_snapshot(
         "name": content.entities[entity_id],
         "kinds": sorted(content.kinds.get(entity_id, ())),
         "in_public_catalog": content.in_public_catalog.get(entity_id),
+        # Said only when true, so the snapshot of an item that starts active is what it was
+        # before ADR 0447 (no update is proposed for it).
+        "starts_inactive": content.starts_inactive.get(entity_id) or None,
         "slug": content.slugs.get(entity_id),
         "prototypes": sorted(name("entity", p) for p in index.prototypes.get(entity_id, [])),
         "stat_groups": sorted(name("stat_group", g) for g in index.groups.get(entity_id, [])),

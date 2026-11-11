@@ -6372,7 +6372,8 @@ export interface paths {
         head?: never;
         /**
          * Update Item
-         * @description A rename, and putting it in or out of the public catalog (ADR 0116).
+         * @description A rename, putting it in or out of the public catalog (ADR 0116), and saying whether its
+         *     instances start inactive (ADR 0447).
          *     A rename is deliberately not recorded in the activity log (ADR 0084:
          *     descriptive-content edits are excluded; `updated_by` already says who
          *     last touched it); a catalog change is, since it changes who can list
@@ -8774,6 +8775,19 @@ export interface components {
             /** Owner Player Id */
             owner_player_id?: string | null;
         };
+        /**
+         * ChosenStepExplanationOut
+         * @description The step a select took (ADR 0446): its position and key (a `from` or a value), or that none
+         *     applied and `otherwise` gave the result.
+         */
+        ChosenStepExplanationOut: {
+            /** Position */
+            position: number | null;
+            /** Otherwise */
+            otherwise: boolean;
+            /** Key */
+            key: number | string | null;
+        };
         /** ClockCandidate */
         ClockCandidate: {
             /**
@@ -9102,7 +9116,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "linear" | "comparison" | "sum" | "contents";
+            kind: "linear" | "comparison" | "sum" | "contents" | "min" | "max" | "product" | "ratio" | "select";
         };
         /**
          * ComputedStatOut
@@ -9121,7 +9135,7 @@ export interface components {
              */
             stat_definition_id: string;
             /** Formula */
-            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"];
+            formula: components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"];
             /**
              * Updated At
              * Format: date-time
@@ -9135,7 +9149,7 @@ export interface components {
          */
         ComputedStatPreviewIn: {
             /** Formula */
-            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"]) | null;
+            formula?: (components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"]) | null;
         };
         /**
          * ComputedStatPreviewOut
@@ -9243,36 +9257,90 @@ export interface components {
         /**
          * ContentsExplanationOut
          * @description What a contents formula counted (ADR 0276): the things directly
-         *     inside, not one input per thing. The total is the stat's own `value`.
+         *     inside it took (after its options, ADR 0447), not one input per thing. The total is the
+         *     stat's own `value`. The stat is empty for a `count`.
          */
         ContentsExplanationOut: {
-            /**
-             * Source Stat Definition Id
-             * Format: uuid
-             */
-            source_stat_definition_id: string;
+            /** Source Stat Definition Id */
+            source_stat_definition_id: string | null;
             /** Source Name */
-            source_name: string;
+            source_name: string | null;
             /** Things */
             things: number;
         };
         /**
          * ContentsFormulaBody
-         * @description `Σ stat × quantity` over what's directly inside - ADR 0127.
-         *     `contents_weight` is `contents(weight)`: each thing inside's own
-         *     weight, formulas included, times its stack count.
+         * @description An aggregate of a stat over what's directly inside - ADR 0127, and its options, ADR 0447.
+         *     The default is `Σ stat × quantity`: `contents_weight` is `contents(weight)`, each thing
+         *     inside's own weight, formulas included, times its stack count. `aggregate` may instead be
+         *     `min`, `max` or `count`; `count` ignores the stat (leave it out), and `min`, `max` and `count`
+         *     ignore the stack count. `only_active` skips a held thing whose `active` switch is off,
+         *     `only_kind` keeps one kind of held thing (`item_instance`), `where_stat_definition_id` is a
+         *     `bool` stat that must be true on the held thing, and `if_none` is what `min` and `max` of
+         *     nothing give (no value without it).
          */
-        ContentsFormulaBody: {
+        "ContentsFormulaBody-Input": {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             kind: "contents";
+            /** Source Stat Definition Id */
+            source_stat_definition_id?: string | null;
             /**
-             * Source Stat Definition Id
-             * Format: uuid
+             * Aggregate
+             * @default sum
+             * @enum {string}
              */
-            source_stat_definition_id: string;
+            aggregate: "sum" | "min" | "max" | "count";
+            /**
+             * Only Active
+             * @default false
+             */
+            only_active: boolean;
+            /** Only Kind */
+            only_kind?: "item_instance" | null;
+            /** Where Stat Definition Id */
+            where_stat_definition_id?: string | null;
+            /** If None */
+            if_none?: number | string | null;
+        };
+        /**
+         * ContentsFormulaBody
+         * @description An aggregate of a stat over what's directly inside - ADR 0127, and its options, ADR 0447.
+         *     The default is `Σ stat × quantity`: `contents_weight` is `contents(weight)`, each thing
+         *     inside's own weight, formulas included, times its stack count. `aggregate` may instead be
+         *     `min`, `max` or `count`; `count` ignores the stat (leave it out), and `min`, `max` and `count`
+         *     ignore the stack count. `only_active` skips a held thing whose `active` switch is off,
+         *     `only_kind` keeps one kind of held thing (`item_instance`), `where_stat_definition_id` is a
+         *     `bool` stat that must be true on the held thing, and `if_none` is what `min` and `max` of
+         *     nothing give (no value without it).
+         */
+        "ContentsFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "contents";
+            /** Source Stat Definition Id */
+            source_stat_definition_id?: string | null;
+            /**
+             * Aggregate
+             * @default sum
+             * @enum {string}
+             */
+            aggregate: "sum" | "min" | "max" | "count";
+            /**
+             * Only Active
+             * @default false
+             */
+            only_active: boolean;
+            /** Only Kind */
+            only_kind?: "item_instance" | null;
+            /** Where Stat Definition Id */
+            where_stat_definition_id?: string | null;
+            /** If None */
+            if_none?: string | null;
         };
         /**
          * ContentsResultItem
@@ -9485,6 +9553,8 @@ export interface components {
             slug: string | null;
             /** Bound */
             bound: boolean;
+            /** Active */
+            active: boolean;
             /** Visible To Characters */
             visible_to_characters: boolean;
         };
@@ -10538,6 +10608,28 @@ export interface components {
             };
         };
         /**
+         * ExtremumInputBody
+         * @description One input of a `min` or `max`: a stat of the same entity or a constant, exactly one of the
+         *     two - ADR 0444.
+         */
+        "ExtremumInputBody-Input": {
+            /** Stat Definition Id */
+            stat_definition_id?: string | null;
+            /** Constant */
+            constant?: number | string | null;
+        };
+        /**
+         * ExtremumInputBody
+         * @description One input of a `min` or `max`: a stat of the same entity or a constant, exactly one of the
+         *     two - ADR 0444.
+         */
+        "ExtremumInputBody-Output": {
+            /** Stat Definition Id */
+            stat_definition_id?: string | null;
+            /** Constant */
+            constant?: string | null;
+        };
+        /**
          * FactUpdate
          * @description The name of a canonical fact; information and audiences have their own writes.
          */
@@ -11290,6 +11382,8 @@ export interface components {
              * @default false
              */
             in_public_catalog: boolean;
+            /** Starts Inactive */
+            starts_inactive?: boolean | null;
             /** Slug */
             slug?: string | null;
         };
@@ -11331,6 +11425,8 @@ export interface components {
              * @default false
              */
             override: boolean;
+            /** Active */
+            active?: boolean | null;
         };
         /**
          * ItemInstanceOut
@@ -11396,6 +11492,8 @@ export interface components {
             slug: string | null;
             /** Bound */
             bound: boolean;
+            /** Active */
+            active: boolean;
         };
         /**
          * ItemInstanceUpdate
@@ -11409,6 +11507,8 @@ export interface components {
             name?: string | null;
             /** Prototype Id */
             prototype_id?: string | null;
+            /** Active */
+            active?: boolean | null;
         };
         /**
          * ItemOut
@@ -11469,17 +11569,21 @@ export interface components {
             updated_at: string;
             /** In Public Catalog */
             in_public_catalog: boolean;
+            /** Starts Inactive */
+            starts_inactive: boolean;
         };
         /**
          * ItemUpdate
-         * @description PATCH /items/{id} - Entity.name, and the Item row's own
-         *     in_public_catalog (ADR 0116). Either left out stays as it is.
+         * @description PATCH /items/{id} - Entity.name, and the Item row's own in_public_catalog (ADR 0116) and
+         *     starts_inactive (ADR 0447). Any left out stays as it is.
          */
         ItemUpdate: {
             /** Name */
             name?: string | null;
             /** In Public Catalog */
             in_public_catalog?: boolean | null;
+            /** Starts Inactive */
+            starts_inactive?: boolean | null;
         };
         /** JoinAcknowledgement */
         JoinAcknowledgement: {
@@ -12352,6 +12456,38 @@ export interface components {
             kinds: ("item" | "item_instance" | "being" | "character" | "fact" | "calendar" | "clock" | "location" | "map" | "connection" | "relationship" | "social_web" | "calendar_period" | "event" | "observance" | "book" | "carrier" | "edition" | "chapter" | "scene_telling" | "scene" | "scene_appearance" | "session")[];
         };
         /**
+         * MaxFormulaBody
+         * @description The largest of two to five inputs, stats of the same entity or constants - ADR 0444.
+         *     `max(hit_points, 0)` is a floor.
+         */
+        "MaxFormulaBody-Input": {
+            /** Inputs */
+            inputs: components["schemas"]["ExtremumInputBody-Input"][];
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "max";
+        };
+        /**
+         * MaxFormulaBody
+         * @description The largest of two to five inputs, stats of the same entity or constants - ADR 0444.
+         *     `max(hit_points, 0)` is a floor.
+         */
+        "MaxFormulaBody-Output": {
+            /** Inputs */
+            inputs: components["schemas"]["ExtremumInputBody-Output"][];
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "max";
+        };
+        /**
          * MeCapabilitiesOut
          * @description What the caller may do on the platform, as opposed to inside one
          *     tenant (ADR 0175). An object so a later capability is one more key; a
@@ -12584,6 +12720,40 @@ export interface components {
              * Format: uuid
              */
             into_entity_id: string;
+        };
+        /**
+         * MinFormulaBody
+         * @description The smallest of two to five inputs, stats of the same entity or constants - ADR 0444.
+         *     `min(dexterity_modifier, 2)` is a cap. An int stat takes a rounding mode only when an input
+         *     is a float stat or a fractional constant.
+         */
+        "MinFormulaBody-Input": {
+            /** Inputs */
+            inputs: components["schemas"]["ExtremumInputBody-Input"][];
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "min";
+        };
+        /**
+         * MinFormulaBody
+         * @description The smallest of two to five inputs, stats of the same entity or constants - ADR 0444.
+         *     `min(dexterity_modifier, 2)` is a cap. An int stat takes a rounding mode only when an input
+         *     is a float stat or a fractional constant.
+         */
+        "MinFormulaBody-Output": {
+            /** Inputs */
+            inputs: components["schemas"]["ExtremumInputBody-Output"][];
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "min";
         };
         /** Moon */
         "Moon-Input": {
@@ -13995,6 +14165,21 @@ export interface components {
             is_expired: boolean;
         };
         /**
+         * PickedExplanationOut
+         * @description The input a `min` or a `max` took (ADR 0444): the stat (null for a constant) and the number
+         *     it counted as, the first of several that tie.
+         */
+        PickedExplanationOut: {
+            /** Position */
+            position: number;
+            /** Stat Definition Id */
+            stat_definition_id: string | null;
+            /** Name */
+            name: string | null;
+            /** Value */
+            value: number | string | boolean | null;
+        };
+        /**
          * PictureRefOut
          * @description A picture reference - a `url` pointing at the existing payload-content
          *     endpoint, plus `file_type`. `_picture_refs` below walks
@@ -14555,6 +14740,62 @@ export interface components {
             detail?: string | null;
         };
         /**
+         * ProductFormulaBody
+         * @description `round(factor1 x factor2 x ... x multiplier + offset)` over two to five stats of the same
+         *     entity - ADR 0445. A `bool` is a factor of 1 or 0, so hit points from level are
+         *     `product(level, average)` and a bonus that applies when a flag is set is
+         *     `product(flag, bonus)`.
+         */
+        "ProductFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "product";
+            /** Factors */
+            factors: string[];
+            /**
+             * Multiplier
+             * @default 1
+             */
+            multiplier: number | string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number | string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
+         * ProductFormulaBody
+         * @description `round(factor1 x factor2 x ... x multiplier + offset)` over two to five stats of the same
+         *     entity - ADR 0445. A `bool` is a factor of 1 or 0, so hit points from level are
+         *     `product(level, average)` and a bonus that applies when a flag is set is
+         *     `product(flag, bonus)`.
+         */
+        "ProductFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "product";
+            /** Factors */
+            factors: string[];
+            /**
+             * Multiplier
+             * @default 1
+             */
+            multiplier: string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
          * ProfileUpdate
          * @description PATCH /me - see ADR 0054/0060. Replaces the narrower NicknameUpdate:
          *     every field is optional and independently omittable (`exclude_unset`
@@ -14714,6 +14955,76 @@ export interface components {
         PublisherOut: {
             /** Display Name */
             display_name: string;
+        };
+        /**
+         * RatioFormulaBody
+         * @description `round(numerator / denominator x multiplier + offset)`, the numerator a stat of the same
+         *     entity and the denominator a stat or a constant, exactly one of the two - ADR 0445. A zero
+         *     denominator gives no value. The quotient is rounded at 28 digits before the offset and the
+         *     mode apply; an `int` stat needs a rounding mode.
+         */
+        "RatioFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "ratio";
+            /**
+             * Numerator Stat Definition Id
+             * Format: uuid
+             */
+            numerator_stat_definition_id: string;
+            /** Denominator Stat Definition Id */
+            denominator_stat_definition_id?: string | null;
+            /** Denominator Constant */
+            denominator_constant?: number | string | null;
+            /**
+             * Multiplier
+             * @default 1
+             */
+            multiplier: number | string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number | string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
+        };
+        /**
+         * RatioFormulaBody
+         * @description `round(numerator / denominator x multiplier + offset)`, the numerator a stat of the same
+         *     entity and the denominator a stat or a constant, exactly one of the two - ADR 0445. A zero
+         *     denominator gives no value. The quotient is rounded at 28 digits before the offset and the
+         *     mode apply; an `int` stat needs a rounding mode.
+         */
+        "RatioFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "ratio";
+            /**
+             * Numerator Stat Definition Id
+             * Format: uuid
+             */
+            numerator_stat_definition_id: string;
+            /** Denominator Stat Definition Id */
+            denominator_stat_definition_id?: string | null;
+            /** Denominator Constant */
+            denominator_constant?: string | null;
+            /**
+             * Multiplier
+             * @default 1
+             */
+            multiplier: string;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: string;
+            /** @default none */
+            round_mode: components["schemas"]["RoundMode"];
         };
         /** ReadingIn */
         ReadingIn: {
@@ -15889,6 +16200,118 @@ export interface components {
             /** Days */
             days: components["schemas"]["DayPreview"][];
         };
+        /**
+         * SelectFormulaBody
+         * @description A value from a table - ADR 0446. `threshold`: the source is a number (a `bool` is 1 or 0, an
+         *     `enum` its `sort_order`) and the result is that of the highest `from` it reaches; the
+         *     `from` values rise. `match`: the source is a `text` or an `enum` and the result is that of the
+         *     step whose `value` it holds; the values differ. `otherwise` is the result when none
+         *     applies, no value without it. One to 64 steps.
+         */
+        "SelectFormulaBody-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "select";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "threshold" | "match";
+            /** Steps */
+            steps: components["schemas"]["SelectStepBody-Input"][];
+            otherwise?: components["schemas"]["SelectResultBody-Input"] | null;
+        };
+        /**
+         * SelectFormulaBody
+         * @description A value from a table - ADR 0446. `threshold`: the source is a number (a `bool` is 1 or 0, an
+         *     `enum` its `sort_order`) and the result is that of the highest `from` it reaches; the
+         *     `from` values rise. `match`: the source is a `text` or an `enum` and the result is that of the
+         *     step whose `value` it holds; the values differ. `otherwise` is the result when none
+         *     applies, no value without it. One to 64 steps.
+         */
+        "SelectFormulaBody-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "select";
+            /**
+             * Source Stat Definition Id
+             * Format: uuid
+             */
+            source_stat_definition_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "threshold" | "match";
+            /** Steps */
+            steps: components["schemas"]["SelectStepBody-Output"][];
+            otherwise?: components["schemas"]["SelectResultBody-Output"] | null;
+        };
+        /**
+         * SelectResultBody
+         * @description What a select gives: exactly one of a number, a text, a flag (a bool), or a stat of the
+         *     same entity - ADR 0446. A stat is for a numeric target, and a constant is of the target's
+         *     type.
+         */
+        "SelectResultBody-Input": {
+            /** Number */
+            number?: number | string | null;
+            /** Text */
+            text?: string | null;
+            /** Flag */
+            flag?: boolean | null;
+            /** Stat Definition Id */
+            stat_definition_id?: string | null;
+        };
+        /**
+         * SelectResultBody
+         * @description What a select gives: exactly one of a number, a text, a flag (a bool), or a stat of the
+         *     same entity - ADR 0446. A stat is for a numeric target, and a constant is of the target's
+         *     type.
+         */
+        "SelectResultBody-Output": {
+            /** Number */
+            number?: string | null;
+            /** Text */
+            text?: string | null;
+            /** Flag */
+            flag?: boolean | null;
+            /** Stat Definition Id */
+            stat_definition_id?: string | null;
+        };
+        /**
+         * SelectStepBody
+         * @description One step of a select: in `threshold` mode a `from` value, in `match` mode a `value`, and
+         *     the result - ADR 0446.
+         */
+        "SelectStepBody-Input": {
+            /** From */
+            from?: number | string | null;
+            /** Value */
+            value?: string | null;
+            result: components["schemas"]["SelectResultBody-Input"];
+        };
+        /**
+         * SelectStepBody
+         * @description One step of a select: in `threshold` mode a `from` value, in `match` mode a `value`, and
+         *     the result - ADR 0446.
+         */
+        "SelectStepBody-Output": {
+            /** From */
+            from?: string | null;
+            /** Value */
+            value?: string | null;
+            result: components["schemas"]["SelectResultBody-Output"];
+        };
         /** SessionCreate */
         SessionCreate: {
             /**
@@ -16603,7 +17026,8 @@ export interface components {
          *     may read the entity (ADR 0276). `formula` is the winning formula, held by
          *     this entity or inherited (see `from_entity`), null for a stored value;
          *     `inputs` are the values it read. A contents formula has no inputs of its
-         *     own: `contents` says what it counted instead.
+         *     own: `contents` says what it counted instead. A `min` or `max` says which
+         *     input it took in `picked`.
          */
         StatExplanationOut: {
             /**
@@ -16623,10 +17047,14 @@ export interface components {
             /** From Hidden */
             from_hidden?: boolean | null;
             /** Formula */
-            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody"]) | null;
+            formula: (components["schemas"]["LinearFormulaBody-Output"] | components["schemas"]["ComparisonFormulaBody-Output"] | components["schemas"]["SumFormulaBody-Output"] | components["schemas"]["ContentsFormulaBody-Output"] | components["schemas"]["MinFormulaBody-Output"] | components["schemas"]["MaxFormulaBody-Output"] | components["schemas"]["ProductFormulaBody-Output"] | components["schemas"]["RatioFormulaBody-Output"] | components["schemas"]["SelectFormulaBody-Output"]) | null;
             /** Inputs */
             inputs: components["schemas"]["PreviewInputOut"][];
             contents: components["schemas"]["ContentsExplanationOut"] | null;
+            picked?: components["schemas"]["PickedExplanationOut"] | null;
+            /** Division Rounded */
+            division_rounded?: boolean | null;
+            chosen?: components["schemas"]["ChosenStepExplanationOut"] | null;
         };
         /**
          * StatGroupCreate
@@ -40970,7 +41398,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody"];
+                "application/json": components["schemas"]["LinearFormulaBody-Input"] | components["schemas"]["ComparisonFormulaBody-Input"] | components["schemas"]["SumFormulaBody-Input"] | components["schemas"]["ContentsFormulaBody-Input"] | components["schemas"]["MinFormulaBody-Input"] | components["schemas"]["MaxFormulaBody-Input"] | components["schemas"]["ProductFormulaBody-Input"] | components["schemas"]["RatioFormulaBody-Input"] | components["schemas"]["SelectFormulaBody-Input"];
             };
         };
         responses: {

@@ -88,9 +88,79 @@ export function explain(explanation: Explanation, names: ReadonlyMap<string, str
     case 'contents': {
       const counted = explanation.contents;
 
+      // What is counted, as the options say (ADR 0447): all of it, or what is switched on.
+      const aggregate = formula.aggregate ?? 'sum';
+      const stat = formula.source_stat_definition_id
+        ? label(formula.source_stat_definition_id)
+        : '';
+      const which = formula.only_active ? ' that is switched on' : '';
+      const text =
+        aggregate === 'count'
+          ? `How many things inside${which}`
+          : aggregate === 'sum'
+            ? `${stat} of what is inside${which}, each times how many`
+            : `The ${aggregate === 'min' ? 'smallest' : 'largest'} ${stat} of what is inside${which}`;
+
       return {
-        text: `${label(formula.source_stat_definition_id)} of what is inside, each times how many`,
+        text,
         parts: counted ? [{ label: 'Things inside', value: String(counted.things) }] : parts,
+      };
+    }
+    case 'min':
+    case 'max': {
+      // A cap or a floor (ADR 0444): what it compares, the way it is said.
+      const operands = formula.inputs
+        .map((input) =>
+          input.stat_definition_id ? label(input.stat_definition_id) : String(input.constant ?? ''),
+        )
+        .join(', ');
+      const rounding = ROUNDING[formula.round_mode] ?? '';
+
+      return {
+        text: `The ${formula.kind === 'min' ? 'smaller' : 'larger'} of ${operands}${rounding}`,
+        parts,
+      };
+    }
+    case 'product': {
+      // ADR 0445: the factors, times a constant, plus an offset.
+      const factors = formula.factors.map((id) => label(id)).join(' × ');
+      const multiplier = Number(formula.multiplier);
+      const times = multiplier === 1 ? '' : ` × ${multiplier}`;
+      const offset = Number(formula.offset);
+      const added = offset === 0 ? '' : offset > 0 ? ` + ${offset}` : ` − ${Math.abs(offset)}`;
+      const rounding = ROUNDING[formula.round_mode] ?? '';
+
+      return { text: `${factors}${times}${added}${rounding}`, parts };
+    }
+    case 'ratio': {
+      const by = formula.denominator_stat_definition_id
+        ? label(formula.denominator_stat_definition_id)
+        : String(formula.denominator_constant ?? '');
+      const multiplier = Number(formula.multiplier);
+      const times = multiplier === 1 ? '' : ` × ${multiplier}`;
+      const offset = Number(formula.offset);
+      const added = offset === 0 ? '' : offset > 0 ? ` + ${offset}` : ` − ${Math.abs(offset)}`;
+      const rounding = ROUNDING[formula.round_mode] ?? '';
+      const lost = explanation.division_rounded ? ', the division rounded to 28 digits' : '';
+
+      return {
+        text: `${label(formula.numerator_stat_definition_id)} ÷ ${by}${times}${added}${rounding}${lost}`,
+        parts,
+      };
+    }
+    case 'select': {
+      // A value from a table (ADR 0446): which step the source reached.
+      const chosen = explanation.chosen;
+      const step =
+        chosen === null || chosen === undefined
+          ? null
+          : chosen.position === null
+            ? 'none matched, so the default'
+            : `step ${chosen.position + 1} (${chosen.key})`;
+
+      return {
+        text: `${label(formula.source_stat_definition_id)} looked up in a table of ${formula.steps.length} steps`,
+        parts: step === null ? parts : [...parts, { label: 'Step taken', value: step }],
       };
     }
   }

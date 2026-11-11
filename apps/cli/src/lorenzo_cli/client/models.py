@@ -460,6 +460,12 @@ class CharacterUpdate(BaseModel):
     owner_player_id: UUID | None = Field(None, title="Owner Player Id")
 
 
+class ChosenStepExplanationOut(BaseModel):
+    position: int | None = Field(..., title="Position")
+    otherwise: bool = Field(..., title="Otherwise")
+    key: int | float | str | None = Field(..., title="Key")
+
+
 class Kind3(StrEnum):
     reading = "reading"
     duration = "duration"
@@ -614,6 +620,11 @@ class Kind6(StrEnum):
     comparison = "comparison"
     sum = "sum"
     contents = "contents"
+    min = "min"
+    max = "max"
+    product = "product"
+    ratio = "ratio"
+    select = "select"
 
 
 class ComputedStatDependentOut(BaseModel):
@@ -680,14 +691,60 @@ class ConnectionPut(BaseModel):
 
 
 class ContentsExplanationOut(BaseModel):
-    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
-    source_name: str = Field(..., title="Source Name")
+    source_stat_definition_id: UUID | None = Field(..., title="Source Stat Definition Id")
+    source_name: str | None = Field(..., title="Source Name")
     things: int = Field(..., title="Things")
 
 
-class ContentsFormulaBody(BaseModel):
+class Aggregate(StrEnum):
+    sum = "sum"
+    min = "min"
+    max = "max"
+    count = "count"
+
+
+class OnlyKindEnum(StrEnum):
+    item_instance = "item_instance"
+
+
+class OnlyKind(RootModel[OnlyKindEnum | None]):
+    root: OnlyKindEnum | None = Field(None, title="Only Kind")
+
+
+class ContentsFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
     kind: Literal["contents"] = Field("contents", title="Kind")
-    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
+    aggregate: Aggregate | None = Field("sum", title="Aggregate")
+    only_active: bool | None = Field(False, title="Only Active")
+    only_kind: OnlyKind | None = Field(None, title="Only Kind")
+    where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
+    if_none: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="If None"
+    )
+
+
+class OnlyKind1Enum(StrEnum):
+    item_instance = "item_instance"
+
+
+class OnlyKind1(RootModel[OnlyKind1Enum | None]):
+    root: OnlyKind1Enum | None = Field(None, title="Only Kind")
+
+
+class ContentsFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["contents"] = Field("contents", title="Kind")
+    source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
+    aggregate: Aggregate | None = Field("sum", title="Aggregate")
+    only_active: bool | None = Field(False, title="Only Active")
+    only_kind: OnlyKind1 | None = Field(None, title="Only Kind")
+    where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
+    if_none: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="If None")
 
 
 class Status7(StrEnum):
@@ -1152,6 +1209,26 @@ class ExtractionCheckpoint(BaseModel):
     checkpoint: dict[str, Any] = Field(..., title="Checkpoint")
 
 
+class ExtremumInputBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+    constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Constant"
+    )
+
+
+class ExtremumInputBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+    constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Constant"
+    )
+
+
 class FactUpdate(BaseModel):
     name: constr(min_length=1) = Field(..., title="Name")
 
@@ -1359,6 +1436,7 @@ class ItemCreate(BaseModel):
     name: str = Field(..., title="Name")
     prototype_ids: list[UUID] | None = Field([], title="Prototype Ids")
     in_public_catalog: bool | None = Field(False, title="In Public Catalog")
+    starts_inactive: bool | None = Field(None, title="Starts Inactive")
     slug: constr(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$", max_length=100) | None = Field(
         None, title="Slug"
     )
@@ -1374,16 +1452,19 @@ class ItemInstanceCreate(BaseModel):
     )
     quantity: conint(ge=1) | None = Field(1, title="Quantity")
     override: bool | None = Field(False, title="Override")
+    active: bool | None = Field(None, title="Active")
 
 
 class ItemInstanceUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     prototype_id: UUID | None = Field(None, title="Prototype Id")
+    active: bool | None = Field(None, title="Active")
 
 
 class ItemUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+    starts_inactive: bool | None = Field(None, title="Starts Inactive")
 
 
 class JoinAcknowledgement(BaseModel):
@@ -2374,6 +2455,13 @@ class PersonalTokenOut(BaseModel):
     is_expired: bool = Field(..., title="Is Expired")
 
 
+class PickedExplanationOut(BaseModel):
+    position: int = Field(..., title="Position")
+    stat_definition_id: UUID | None = Field(..., title="Stat Definition Id")
+    name: str | None = Field(..., title="Name")
+    value: int | float | str | bool | None = Field(..., title="Value")
+
+
 class PictureRefOut(BaseModel):
     url: str = Field(..., title="Url")
     file_type: str = Field(..., title="File Type")
@@ -3204,6 +3292,55 @@ class SegmentPreview(BaseModel):
     kind: Kind41 = Field(..., title="Kind")
     month_ordinal: int | None = Field(..., title="Month Ordinal")
     days: list[DayPreview] = Field(..., title="Days")
+
+
+class Mode4(StrEnum):
+    threshold = "threshold"
+    match = "match"
+
+
+class SelectResultBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    number: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Number"
+    )
+    text: str | None = Field(None, title="Text")
+    flag: bool | None = Field(None, title="Flag")
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+
+
+class SelectResultBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    number: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="Number")
+    text: str | None = Field(None, title="Text")
+    flag: bool | None = Field(None, title="Flag")
+    stat_definition_id: UUID | None = Field(None, title="Stat Definition Id")
+
+
+class SelectStepBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    from_: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, alias="from", title="From"
+    )
+    value: str | None = Field(None, title="Value")
+    result: SelectResultBodyInput
+
+
+class SelectStepBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    from_: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, alias="from", title="From"
+    )
+    value: str | None = Field(None, title="Value")
+    result: SelectResultBodyOutput
 
 
 class SessionCreate(BaseModel):
@@ -4359,6 +4496,7 @@ class ItemInstanceOut(BaseModel):
     owner_entity_id: UUID | None = Field(..., title="Owner Entity Id")
     slug: str | None = Field(..., title="Slug")
     bound: bool = Field(..., title="Bound")
+    active: bool = Field(..., title="Active")
 
 
 class ItemOut(BaseModel):
@@ -4385,6 +4523,7 @@ class ItemOut(BaseModel):
     updated_by: UUID | None = Field(..., title="Updated By")
     updated_at: AwareDatetime = Field(..., title="Updated At")
     in_public_catalog: bool = Field(..., title="In Public Catalog")
+    starts_inactive: bool = Field(..., title="Starts Inactive")
 
 
 class LinearFormulaBodyInput(BaseModel):
@@ -4474,6 +4613,18 @@ class MapOut(BaseModel):
     is_public: bool | None = Field(None, title="Is Public")
 
 
+class MaxFormulaBodyInput(BaseModel):
+    inputs: list[ExtremumInputBodyInput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["max"] = Field("max", title="Kind")
+
+
+class MaxFormulaBodyOutput(BaseModel):
+    inputs: list[ExtremumInputBodyOutput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["max"] = Field("max", title="Kind")
+
+
 class MeOut(BaseModel):
     id: UUID = Field(..., title="Id")
     authgear_subject_id: str = Field(..., title="Authgear Subject Id")
@@ -4507,6 +4658,18 @@ class MemberProfileOut(BaseModel):
     delisted: DelistedOut | None = None
     deprecated: DeprecatedOut | None = None
     terms: TermsOut
+
+
+class MinFormulaBodyInput(BaseModel):
+    inputs: list[ExtremumInputBodyInput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["min"] = Field("min", title="Kind")
+
+
+class MinFormulaBodyOutput(BaseModel):
+    inputs: list[ExtremumInputBodyOutput] = Field(..., max_length=5, min_length=2, title="Inputs")
+    round_mode: RoundMode | None = "none"
+    kind: Literal["min"] = Field("min", title="Kind")
 
 
 class ObservanceCreate(BaseModel):
@@ -4737,6 +4900,74 @@ class PreviewInformationOut(BaseModel):
     pictures: list[PreviewPictureOut] = Field(..., title="Pictures")
 
 
+class ProductFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["product"] = Field("product", title="Kind")
+    factors: list[UUID] = Field(..., max_length=5, min_length=2, title="Factors")
+    multiplier: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "0", title="Offset"
+    )
+    round_mode: RoundMode | None = "none"
+
+
+class ProductFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["product"] = Field("product", title="Kind")
+    factors: list[UUID] = Field(..., max_length=5, min_length=2, title="Factors")
+    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    round_mode: RoundMode | None = "none"
+
+
+class RatioFormulaBodyInput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["ratio"] = Field("ratio", title="Kind")
+    numerator_stat_definition_id: UUID = Field(..., title="Numerator Stat Definition Id")
+    denominator_stat_definition_id: UUID | None = Field(
+        None, title="Denominator Stat Definition Id"
+    )
+    denominator_constant: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Denominator Constant"
+    )
+    multiplier: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: float | constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "0", title="Offset"
+    )
+    round_mode: RoundMode | None = "none"
+
+
+class RatioFormulaBodyOutput(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    kind: Literal["ratio"] = Field("ratio", title="Kind")
+    numerator_stat_definition_id: UUID = Field(..., title="Numerator Stat Definition Id")
+    denominator_stat_definition_id: UUID | None = Field(
+        None, title="Denominator Stat Definition Id"
+    )
+    denominator_constant: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        None, title="Denominator Constant"
+    )
+    multiplier: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(
+        "1", title="Multiplier"
+    )
+    offset: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field("0", title="Offset")
+    round_mode: RoundMode | None = "none"
+
+
 class ReadingIn(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -4896,6 +5127,22 @@ class RowRefOut(BaseModel):
     name: str = Field(..., title="Name")
     state: State5 | None = Field(..., title="State")
     breaking: list[BreakingNoteOut] = Field(..., title="Breaking")
+
+
+class SelectFormulaBodyInput(BaseModel):
+    kind: Literal["select"] = Field("select", title="Kind")
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    mode: Mode4 = Field(..., title="Mode")
+    steps: list[SelectStepBodyInput] = Field(..., max_length=64, min_length=1, title="Steps")
+    otherwise: SelectResultBodyInput | None = None
+
+
+class SelectFormulaBodyOutput(BaseModel):
+    kind: Literal["select"] = Field("select", title="Kind")
+    source_stat_definition_id: UUID = Field(..., title="Source Stat Definition Id")
+    mode: Mode4 = Field(..., title="Mode")
+    steps: list[SelectStepBodyOutput] = Field(..., max_length=64, min_length=1, title="Steps")
+    otherwise: SelectResultBodyOutput | None = None
 
 
 class SheetWeaponOut(BaseModel):
@@ -5120,7 +5367,12 @@ class ComputedStatOut(BaseModel):
         LinearFormulaBodyOutput
         | ComparisonFormulaBodyOutput
         | SumFormulaBodyOutput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyOutput
+        | MinFormulaBodyOutput
+        | MaxFormulaBodyOutput
+        | ProductFormulaBodyOutput
+        | RatioFormulaBodyOutput
+        | SelectFormulaBodyOutput
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
 
@@ -5130,7 +5382,12 @@ class ComputedStatPreviewIn(BaseModel):
         LinearFormulaBodyInput
         | ComparisonFormulaBodyInput
         | SumFormulaBodyInput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyInput
+        | MinFormulaBodyInput
+        | MaxFormulaBodyInput
+        | ProductFormulaBodyInput
+        | RatioFormulaBodyInput
+        | SelectFormulaBodyInput
         | None
     ) = Field(None, title="Formula")
 
@@ -5161,6 +5418,7 @@ class ControlledItemInstanceOut(BaseModel):
     owner_entity_id: UUID | None = Field(..., title="Owner Entity Id")
     slug: str | None = Field(..., title="Slug")
     bound: bool = Field(..., title="Bound")
+    active: bool = Field(..., title="Active")
     visible_to_characters: bool = Field(..., title="Visible To Characters")
 
 
@@ -5361,11 +5619,19 @@ class StatExplanationOut(BaseModel):
         LinearFormulaBodyOutput
         | ComparisonFormulaBodyOutput
         | SumFormulaBodyOutput
-        | ContentsFormulaBody
+        | ContentsFormulaBodyOutput
+        | MinFormulaBodyOutput
+        | MaxFormulaBodyOutput
+        | ProductFormulaBodyOutput
+        | RatioFormulaBodyOutput
+        | SelectFormulaBodyOutput
         | None
     ) = Field(..., title="Formula")
     inputs: list[PreviewInputOut] = Field(..., title="Inputs")
     contents: ContentsExplanationOut | None
+    picked: PickedExplanationOut | None = None
+    division_rounded: bool | None = Field(None, title="Division Rounded")
+    chosen: ChosenStepExplanationOut | None = None
 
 
 class UpdatesOut(BaseModel):

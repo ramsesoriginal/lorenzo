@@ -191,6 +191,9 @@ async def test_explaining_a_stored_value(client: AsyncClient, test_user_id: uuid
         "formula": None,
         "inputs": [],
         "contents": None,
+        "picked": None,
+        "division_rounded": None,
+        "chosen": None,
     }
     assert inherited.json()["from_entity"]["name"] == "Dwarf"
     assert inherited.json()["own"] is False
