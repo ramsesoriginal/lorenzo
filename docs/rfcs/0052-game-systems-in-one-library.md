@@ -1,6 +1,6 @@
 # 0052 - Several game systems in one library: a system as a thing, with its own vocabulary, templates and root
 
-Status: proposed (2026-11-11), Decision open on the questions at the end. It takes up what
+Status: accepted (2026-11-11), decided with the maintainer, not built; slices Y1 to Y7, each its own ADR. It takes up what
 [RFC 0033](0033-item-repositories-common-equipment-rules-and-bridge.md) section 9 leaves as "a follow-up RFC" (resolving
 through the system a campaign names), what [ADR 0037](../adr/0037-effective-stat-resolution.md) names as not built
 (`game_system` as a modelled concept), the three sheet settings of
@@ -29,6 +29,14 @@ candles and text. Lorenzo assumes none of them. Today that library works only by
 6. **The shared repositories are system-neutral:** Core holds what every system can use; each system has its own
    vocabulary repository; the data of a system sits behind them.
 7. **Unit conversion is left out** until a table asks for it.
+8. **The prefix rule is enforced** on create and rename: a definition in a system starts with the system's slug and an
+   underscore.
+9. **A definition stays in one group.** A template lists a stat under several systems.
+10. **The sheet settings live in templates,** not on the system row.
+11. **Role-holders are neutral:** a system may not hold a role.
+12. **A template's filter is the kind and the ancestor** of RFC 0018; the campaign picks the system. A template's
+    `system_id` only names its system for that pick and is not part of the filter.
+13. **The slot kinds** are `stats`, `information`, `held` and `tags`; a `features` slot is added by RFC 0054.
 
 ## What it is like today (tried against the API, 2026-11-10)
 
@@ -198,23 +206,16 @@ Each slice is its own ADR, and the work is not started until the questions below
 ## Not in scope
 
 - **Unit conversion and display units**: left out for now.
-- **Features** (a character feature, a spell, a feat, an upgrade, with grants and choices): their own RFC; a template's
-  `held` slot and a system are what they would use.
-- **Formula kinds** (min, max, select, product, aggregation over what an entry holds): their own RFC.
+- **Features** (a character feature, a spell, a feat, an upgrade, with grants and choices): RFC 0054, which uses a
+  template's slots and a system.
+- **Formula kinds** (min, max, select, product, ratio, aggregation over what an entry holds): RFC 0053.
 - Writing values through a template; nested templates; an OR in a template's filter (RFC 0018's list).
 - Resolving an item in a library's catalog, which has no campaign, through a system (RFC 0033 section 9): the `system`
   filter gives a read the system; the catalog's choice is left to its client.
 
 ## Open questions
 
-1. **The prefix rule** (section 2): enforced on create and rename, which is the proposal, or a convention with a lint.
-2. **One group per definition** (section 2): kept, as proposed, with the templates listing a stat under several systems.
-3. **Where the sheet settings live** (section 4): in templates, as proposed, or on the system row.
-4. **Role-holders neutral**: a system may not hold a role, so a system's own `weight` is an ordinary stat; the proposal.
-5. **A template's filter**: the kind and the ancestor of RFC 0018, with the system picked by the campaign, or a `system_id`
-   on the filter as well.
-6. **The slot kinds** of section 4: the four above are enough for a character, an item and a datasheet in the tests; a
-   `features` slot waits for the features RFC.
+None.
 
 ## Alternatives considered
 
