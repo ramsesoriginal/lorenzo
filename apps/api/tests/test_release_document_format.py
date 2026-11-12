@@ -124,9 +124,10 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 42
+    assert rd.FORMAT == 43
     assert rd.encode(full_content())[0] == {
         **golden,
+        "repeatable": {},
         "groups": {
             key: {"role": None, "system": None, **group} for key, group in golden["groups"].items()
         },
@@ -817,3 +818,27 @@ def test_systems_and_templates_round_trip_and_an_old_document_has_none() -> None
     old = rd.decode(v41, files, format=41)
     assert old.systems == {} and old.templates == {}
     assert all(g["system"] is None for g in old.groups.values())
+
+
+def test_features_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0454: an entry of the kind `feature` says whether it is `repeatable` and whether its
+    instances start inactive; a document of version 42, which had no features, reads none as
+    repeatable."""
+    content = full_content()
+    feature, instance = uuid.UUID(int=90), uuid.UUID(int=91)
+    content.entities[feature] = "Fireball"
+    content.entities[instance] = "Fireball"
+    content.kinds[feature] = {"feature"}
+    content.kinds[instance] = {"feature_instance"}
+    content.repeatable = {feature: True}
+    content.starts_inactive = {feature: True}
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.repeatable == {feature: True}
+    assert back.kinds[feature] == {"feature"} and back.kinds[instance] == {"feature_instance"}
+    v42 = {key: value for key, value in document.items() if key != "repeatable"}
+    old = rd.decode(v42, files, format=42)
+    assert old.repeatable == {}

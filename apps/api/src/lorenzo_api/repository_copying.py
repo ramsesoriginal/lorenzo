@@ -849,6 +849,26 @@ class _Planner:
                         ),
                     }
                 )
+            if "feature" in kinds:
+                self.rows["feature"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "repeatable": c.repeatable.get(e, False),
+                        "starts_inactive": c.starts_inactive.get(e, False),
+                    }
+                )
+            if "feature_instance" in kinds:
+                # Like an item instance (ADR 0447), it starts as its feature says (ADR 0454).
+                self.rows["feature_instance"].append(
+                    {
+                        "entity_id": new,
+                        "tenant_id": tenant_id,
+                        "active": not any(
+                            c.starts_inactive.get(p, False) for p in index.prototypes.get(e, [])
+                        ),
+                    }
+                )
             if "being" in kinds:
                 self.rows["being"].append({"entity_id": new, "tenant_id": tenant_id})
             if "character" in kinds:

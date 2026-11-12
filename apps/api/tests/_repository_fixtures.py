@@ -55,6 +55,8 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Feature,
+    FeatureInstance,
     Frame,
     GroupMember,
     Information,
@@ -146,6 +148,8 @@ async def seed_every_content_table(
     bond = entity("Fixture bond")
     second_bond = entity("Fixture second bond")
     web = entity("Fixture web")
+    feature = entity("Fixture feature")
+    feature_held = entity("Fixture feature held")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     # A game system, which a repository holds as content (ADR 0448).
@@ -366,6 +370,8 @@ async def seed_every_content_table(
             ItemInstance(entity_id=blade.id, tenant_id=tenant_id),
             Item(entity_id=chest.id, tenant_id=tenant_id),
             Being(entity_id=elminster.id, tenant_id=tenant_id),
+            Feature(entity_id=feature.id, tenant_id=tenant_id, repeatable=True),
+            FeatureInstance(entity_id=feature_held.id, tenant_id=tenant_id),
         ]
     )
     await session.flush()

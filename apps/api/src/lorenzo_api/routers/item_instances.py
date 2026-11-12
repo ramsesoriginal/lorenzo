@@ -63,6 +63,7 @@ from lorenzo_api.exceptions import (
     SelfServiceDisabledError,
     StackNeedsContainerError,
 )
+from lorenzo_api.features import delete_held_features
 from lorenzo_api.identical import signatures
 from lorenzo_api.information_visibility import (
     InformationVisibility,
@@ -1584,6 +1585,8 @@ async def delete_item_instance(
         session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
     )
     await require_no_learning(session, tenant_id, entity_id=entity_id)
+    # The features it has go with it, before what is inside moves out (ADR 0454).
+    await delete_held_features(session, tenant_id=tenant_id, holder_ids={entity_id})
     kept = await _keep_contents(
         session, tenant_id=tenant_id, actor_id=user.id, container=entity, split=split
     )

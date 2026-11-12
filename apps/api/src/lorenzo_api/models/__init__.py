@@ -111,6 +111,8 @@ __all__ = [
     "SocialWeb",
     "SocialWebEntry",
     "SocialWebType",
+    "Feature",
+    "FeatureInstance",
     "EntityFrame",
     "Frame",
     "Location",
@@ -241,6 +243,7 @@ from lorenzo_api.models.carrier import Carrier as Carrier
 from lorenzo_api.models.carrier import CarrierCoverage as CarrierCoverage
 from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship, EventClockReading
 from lorenzo_api.models.connection import Connection
+from lorenzo_api.models.feature import Feature, FeatureInstance
 from lorenzo_api.models.frame import EntityFrame, Frame
 from lorenzo_api.models.lived_order import LivedBefore
 from lorenzo_api.models.location import EntityLocation, Location, LocationPart

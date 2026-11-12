@@ -76,6 +76,8 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Feature,
+    FeatureInstance,
     Frame,
     GroupMember,
     Information,
@@ -253,6 +255,9 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(FactAbout, "fact_about", counted_on_purge=True),
     _rows(Item, "item", carried_by="entity"),
     _rows(ItemInstance, "item_instance", carried_by="entity"),
+    # A feature and what a holder has of one (ADR 0454): markers of an entry, like an item.
+    _rows(Feature, "feature", carried_by="entity"),
+    _rows(FeatureInstance, "feature_instance", carried_by="entity"),
     _rows(Being, "being", carried_by="entity"),
     _rows(EventParticipant, "event_participant", counted_on_purge=True),
     _rows(Character, "character", carried_by="entity"),

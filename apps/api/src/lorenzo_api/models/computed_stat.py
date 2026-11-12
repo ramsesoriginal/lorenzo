@@ -356,7 +356,7 @@ class ComputedStatContents(Base):
             "aggregate IN ('sum', 'min', 'max', 'count')", name="computed_stat_contents_aggregate"
         ),
         CheckConstraint(
-            "only_kind IS NULL OR only_kind IN ('item_instance')",
+            "only_kind IS NULL OR only_kind IN ('item_instance', 'feature_instance')",
             name="computed_stat_contents_only_kind",
         ),
         CheckConstraint(

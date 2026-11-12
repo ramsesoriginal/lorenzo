@@ -150,6 +150,8 @@ class Kind1(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -673,6 +675,8 @@ class Kind7(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -708,12 +712,9 @@ class Aggregate(StrEnum):
     count = "count"
 
 
-class OnlyKindEnum(StrEnum):
+class OnlyKind(StrEnum):
     item_instance = "item_instance"
-
-
-class OnlyKind(RootModel[OnlyKindEnum | None]):
-    root: OnlyKindEnum | None = Field(None, title="Only Kind")
+    feature_instance = "feature_instance"
 
 
 class ContentsFormulaBodyInput(BaseModel):
@@ -731,14 +732,6 @@ class ContentsFormulaBodyInput(BaseModel):
     )
 
 
-class OnlyKind1Enum(StrEnum):
-    item_instance = "item_instance"
-
-
-class OnlyKind1(RootModel[OnlyKind1Enum | None]):
-    root: OnlyKind1Enum | None = Field(None, title="Only Kind")
-
-
 class ContentsFormulaBodyOutput(BaseModel):
     model_config = ConfigDict(
         regex_engine="python-re",
@@ -747,7 +740,7 @@ class ContentsFormulaBodyOutput(BaseModel):
     source_stat_definition_id: UUID | None = Field(None, title="Source Stat Definition Id")
     aggregate: Aggregate | None = Field("sum", title="Aggregate")
     only_active: bool | None = Field(False, title="Only Active")
-    only_kind: OnlyKind1 | None = Field(None, title="Only Kind")
+    only_kind: OnlyKind | None = Field(None, title="Only Kind")
     where_stat_definition_id: UUID | None = Field(None, title="Where Stat Definition Id")
     if_none: constr(pattern=r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$") | None = Field(None, title="If None")
 
@@ -1011,6 +1004,7 @@ class Kind11(StrEnum):
     being = "being"
     fact = "fact"
     event = "event"
+    feature = "feature"
 
 
 class Visibility(StrEnum):
@@ -1028,6 +1022,8 @@ class EntityCreate(BaseModel):
     kinds: list[Kind11] | None = Field([], title="Kinds")
     parents: list[UUID] | None = Field([], title="Parents")
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
+    repeatable: bool | None = Field(None, title="Repeatable")
+    starts_inactive: bool | None = Field(None, title="Starts Inactive")
     visibility: Visibility | None = Field(None, title="Visibility")
 
 
@@ -1044,6 +1040,8 @@ class Kind12(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -1066,6 +1064,8 @@ class EntityExportStatOut(BaseModel):
 class EntityKindPut(BaseModel):
     in_public_catalog: bool | None = Field(None, title="In Public Catalog")
     system: dict[str, Any] | None = Field(None, title="System")
+    repeatable: bool | None = Field(None, title="Repeatable")
+    starts_inactive: bool | None = Field(None, title="Starts Inactive")
 
 
 class EntityListOut(BaseModel):
@@ -1126,6 +1126,8 @@ class Kind17(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -1236,6 +1238,22 @@ class ExtremumInputBodyOutput(BaseModel):
 
 class FactUpdate(BaseModel):
     name: constr(min_length=1) = Field(..., title="Name")
+
+
+class FeatureActiveIn(BaseModel):
+    active: bool = Field(..., title="Active")
+
+
+class FeatureAwardIn(BaseModel):
+    feature_id: UUID = Field(..., title="Feature Id")
+    active: bool | None = Field(None, title="Active")
+
+
+class FeatureColumnsOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    repeatable: bool = Field(..., title="Repeatable")
+    starts_inactive: bool = Field(..., title="Starts Inactive")
 
 
 class State4(StrEnum):
@@ -1635,6 +1653,8 @@ class Kind19(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -2849,6 +2869,8 @@ class Kind29(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -2987,6 +3009,8 @@ class Kind32(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -3142,6 +3166,8 @@ class Kind36(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -3486,6 +3512,8 @@ class Kind43(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -3836,6 +3864,8 @@ class RequiredKind(StrEnum):
     connection = "connection"
     relationship = "relationship"
     social_web = "social_web"
+    feature = "feature"
+    feature_instance = "feature_instance"
     calendar_period = "calendar_period"
     event = "event"
     observance = "observance"
@@ -4550,6 +4580,20 @@ class HTTPValidationError(BaseModel):
     type: str = Field(..., title="Problem type")
     status: int = Field(..., title="Status code")
     errors: list[ValidationError]
+
+
+class HeldFeatureOut(BaseModel):
+    id: UUID = Field(..., title="Id")
+    name: str = Field(..., title="Name")
+    feature: EntitySummary
+    types: list[EntitySummary] = Field(..., title="Types")
+    active: bool = Field(..., title="Active")
+    stats: list[EntityStatValueOut] = Field(..., title="Stats")
+
+
+class HeldFeaturesOut(BaseModel):
+    holder: EntitySummary
+    features: list[HeldFeatureOut] = Field(..., title="Features")
 
 
 class HubCreate(BaseModel):

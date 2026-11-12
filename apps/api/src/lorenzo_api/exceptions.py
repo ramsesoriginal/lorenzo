@@ -1753,3 +1753,38 @@ class InvalidTemplateError(UnprocessableProblem):
     group or stat that does not resolve in this tenant (ADR 0451)."""
 
     title = "Invalid template"
+
+
+class FeatureNotFoundError(NotFoundProblem):
+    """.../features/{id} - no such feature instance in this tenant, or none the caller reaches
+    (ADR 0454)."""
+
+    title = "Feature not found"
+
+
+class InvalidFeatureError(UnprocessableProblem):
+    """POST .../entities/{holder}/features - the entry named is not a feature of this tenant
+    (a hidden one is answered as an unknown one, ADR 0437)."""
+
+    title = "Invalid feature"
+
+
+class InvalidFeatureHolderError(UnprocessableProblem):
+    """.../entities/{holder}/features - the entry is not a being, an item instance or a group, the
+    three things that hold features (ADR 0454)."""
+
+    title = "Not a holder of features"
+
+
+class FeatureAlreadyHeldError(ConflictProblem):
+    """POST .../entities/{holder}/features - the holder has this feature and it is not
+    `repeatable` (ADR 0454)."""
+
+    title = "The holder already has this feature"
+
+
+class FeatureManagementForbiddenError(ForbiddenProblem):
+    """Awarding or removing a feature, or flipping its switch, by someone who does not manage
+    the holder (ADR 0454)."""
+
+    title = "Not allowed to manage this holder's features"

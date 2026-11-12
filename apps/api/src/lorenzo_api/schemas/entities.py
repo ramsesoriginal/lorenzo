@@ -51,6 +51,8 @@ EntityKind = Literal[
     "connection",
     "relationship",
     "social_web",
+    "feature",
+    "feature_instance",
     "calendar_period",
     "event",
     "observance",
@@ -86,15 +88,25 @@ class EntityCreate(BaseModel):
     id: uuid.UUID | None = None
     name: str
     slug: Slug | None = None
-    kinds: list[Literal["item", "being", "fact", "event"]] = []
+    kinds: list[Literal["item", "being", "fact", "event", "feature"]] = []
     parents: list[uuid.UUID] = []
     in_public_catalog: bool | None = None
+    # The columns of a `feature` (ADR 0454): a holder may hold it twice; its instances begin
+    # with `active` off.
+    repeatable: bool | None = None
+    starts_inactive: bool | None = None
     visibility: Literal["restricted", "participants", "library"] | None = None
 
     @model_validator(mode="after")
     def _catalog_needs_item(self) -> EntityCreate:
         if self.in_public_catalog is not None and "item" not in self.kinds:
             raise ValueError("in_public_catalog is only for an entry of the kind item")
+        if (
+            self.repeatable is not None or self.starts_inactive is not None
+        ) and "feature" not in self.kinds:
+            raise ValueError(
+                "repeatable and starts_inactive are only for an entry of the kind feature"
+            )
         if self.visibility is not None:
             if set(self.kinds) not in ({"event"}, {"fact"}):
                 raise ValueError("Creation visibility is for Events and Facts")
@@ -110,6 +122,9 @@ class EntityKindPut(BaseModel):
 
     in_public_catalog: bool | None = None
     system: dict[str, Any] | None = None
+    # The columns of a `feature` (ADR 0454); a column left out stays as it is.
+    repeatable: bool | None = None
+    starts_inactive: bool | None = None
 
 
 class EntityParentsRequest(BaseModel):
@@ -375,6 +390,10 @@ def _kinds_out(entity: Entity) -> list[EntityKind]:
         kinds.append("relationship")
     if entity.__dict__.get("social_web_marker") is not None:
         kinds.append("social_web")
+    if entity.__dict__.get("feature_marker") is not None:
+        kinds.append("feature")
+    if entity.__dict__.get("feature_instance_marker") is not None:
+        kinds.append("feature_instance")
     return kinds
 
 

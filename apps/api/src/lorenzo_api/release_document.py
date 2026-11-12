@@ -48,7 +48,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 42
+FORMAT = 43
 _DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
 _GROUP_ROLES = frozenset(GROUP_ROLES)
 
@@ -387,6 +387,7 @@ _CONTENT = _dataclass(
         "kinds": _id_map(_TEXT_SET),
         "in_public_catalog": _id_map(_PLAIN),
         "starts_inactive": _id_map(_PLAIN),
+        "repeatable": _id_map(_PLAIN),
         "slugs": _id_map(_PLAIN),
         "prototypes": _pairs(_ID, _ID),
         "groups": _id_map(
@@ -886,6 +887,11 @@ def _read_v41(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v42(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 43 there were no features (ADR 0454): no entry is one, and none is repeatable.
+    return _read_v43({**document, "repeatable": {}}, files)
+
+
+def _read_v43(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -935,6 +941,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     40: _read_v40,
     41: _read_v41,
     42: _read_v42,
+    43: _read_v43,
 }
 
 

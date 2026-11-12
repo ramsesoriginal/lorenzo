@@ -65,6 +65,8 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Feature,
+    FeatureInstance,
     Frame,
     GroupMember,
     Information,
@@ -125,6 +127,8 @@ KINDS = (
     "connection",
     "relationship",
     "social_web",
+    "feature",
+    "feature_instance",
     "calendar_period",
     "event",
     "observance",
@@ -256,8 +260,10 @@ class Content:
     entities: dict[uuid.UUID, str] = field(default_factory=dict)
     kinds: dict[uuid.UUID, set[str]] = field(default_factory=lambda: defaultdict(set))
     in_public_catalog: dict[uuid.UUID, bool] = field(default_factory=dict)
-    # An item whose instances start with the `active` switch off (ADR 0447).
+    # An item or a feature whose instances start with the `active` switch off (ADR 0447, 0454).
     starts_inactive: dict[uuid.UUID, bool] = field(default_factory=dict)
+    # A feature a holder may have twice (ADR 0454).
+    repeatable: dict[uuid.UUID, bool] = field(default_factory=dict)
     slugs: dict[uuid.UUID, str] = field(default_factory=dict)
     prototypes: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     groups: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
@@ -578,7 +584,17 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
         c.kinds[entity_id].add("item")
         c.in_public_catalog[entity_id] = public
         c.starts_inactive[entity_id] = inactive
+    for entity_id, repeatable, inactive in await rows(
+        Feature.entity_id,
+        Feature.repeatable,
+        Feature.starts_inactive,
+        where=Feature.tenant_id == t,
+    ):
+        c.kinds[entity_id].add("feature")
+        c.repeatable[entity_id] = repeatable
+        c.starts_inactive[entity_id] = inactive
     for kind, model in (
+        ("feature_instance", FeatureInstance),
         ("book", Book),
         ("carrier", Carrier),
         ("edition", Edition),
@@ -1678,6 +1694,8 @@ def entity_snapshot(
         # Said only when true, so the snapshot of an item that starts active is what it was
         # before ADR 0447 (no update is proposed for it).
         "starts_inactive": content.starts_inactive.get(entity_id) or None,
+        # Likewise said only when true (ADR 0454): an entry that is no feature has none.
+        "repeatable": content.repeatable.get(entity_id) or None,
         "slug": content.slugs.get(entity_id),
         "prototypes": sorted(name("entity", p) for p in index.prototypes.get(entity_id, [])),
         "stat_groups": sorted(name("stat_group", g) for g in index.groups.get(entity_id, [])),

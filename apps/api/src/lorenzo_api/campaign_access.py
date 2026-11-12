@@ -132,6 +132,7 @@ async def entry_in_author_reach(
         Connection,
         Edition,
         Fact,
+        Feature,
         Location,
         Map,
         Relationship,
@@ -153,6 +154,7 @@ async def entry_in_author_reach(
             for model in (
                 Item,
                 Fact,
+                Feature,
                 Calendar,
                 Clock,
                 Location,

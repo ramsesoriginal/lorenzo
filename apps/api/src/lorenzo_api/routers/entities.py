@@ -65,6 +65,7 @@ from lorenzo_api.exceptions import (
     InventoryItemParentsError,
     StatDefinitionNotFoundError,
 )
+from lorenzo_api.features import delete_held_features
 from lorenzo_api.information_visibility import (
     InformationReader,
     InformationVisibility,
@@ -92,6 +93,8 @@ from lorenzo_api.models import (
     EntitySlug,
     Fact,
     FactAbout,
+    Feature,
+    FeatureInstance,
     Information,
     InformationType,
     Item,
@@ -180,6 +183,8 @@ _KINDS: tuple[
             | Connection
             | Relationship
             | SocialWeb
+            | Feature
+            | FeatureInstance
             | CalendarPeriod
             | StoryEvent
             | CalendarObservance
@@ -218,6 +223,8 @@ _KINDS: tuple[
     ("connection", Connection),
     ("relationship", Relationship),
     ("social_web", SocialWeb),
+    ("feature", Feature),
+    ("feature_instance", FeatureInstance),
 )
 
 
@@ -493,6 +500,8 @@ async def create_entity(
         parents=body.parents,
         in_public_catalog=bool(body.in_public_catalog),
         entity_id=body.id,
+        repeatable=bool(body.repeatable),
+        starts_inactive=bool(body.starts_inactive),
     )
     if body.visibility is not None:
         audience = await session.get(EntityAudience, entity.id)
@@ -557,6 +566,12 @@ async def add_entity_kind(
     system = body.system if body is not None else None
     if system is not None and kind != "map":
         raise InvalidKindRequestError(detail=f"system is a column of map, not {kind}")
+    repeatable = body.repeatable if body is not None else None
+    starts_inactive = body.starts_inactive if body is not None else None
+    if (repeatable is not None or starts_inactive is not None) and kind != "feature":
+        raise InvalidKindRequestError(
+            detail=f"repeatable and starts_inactive are columns of feature, not {kind}"
+        )
     result = await add_kind(
         session,
         tenant_id=tenant_id,
@@ -565,6 +580,8 @@ async def add_entity_kind(
         user_id=user.id,
         in_public_catalog=in_public_catalog,
         system=system,
+        repeatable=repeatable,
+        starts_inactive=starts_inactive,
     )
     if result != "unchanged":
         await record_activity(
@@ -667,6 +684,8 @@ async def delete_entity(
         detail=f"kinds={'+'.join(sorted(kinds)) or 'none'}"
         + libraries_note(await count_libraries(session, tenant_id, "entity", entity_id)),
     )
+    # What the entry holds as features has no life of its own (ADR 0454).
+    await delete_held_features(session, tenant_id=tenant_id, holder_ids={entity_id})
     await session.delete(entity)
     await session.commit()
 
@@ -763,6 +782,8 @@ async def get_entity_detail_or_404(
             joinedload(Entity.connection),
             joinedload(Entity.relationship_marker),
             joinedload(Entity.social_web_marker),
+            joinedload(Entity.feature_marker),
+            joinedload(Entity.feature_instance_marker),
             joinedload(Entity.calendar_period),
             joinedload(Entity.calendar_observance),
             joinedload(Entity.story_event),

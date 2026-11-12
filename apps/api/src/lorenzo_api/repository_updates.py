@@ -23,7 +23,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.activity_log import record_activity
-from lorenzo_api.entity_kinds import inventory_items_inherit
+from lorenzo_api.entity_kinds import feature_is_held, inventory_items_inherit
 from lorenzo_api.exceptions import (
     InvalidRepositoryUpdateError,
     RepositoryCopyNeedsChoicesError,
@@ -57,6 +57,7 @@ from lorenzo_api.models import (
     EntitySlug,
     EntityStat,
     EntityStatGroup,
+    Feature,
     Item,
     ItemInstance,
     Location,
@@ -148,6 +149,7 @@ _MARKER_MODELS: dict[str, Any] = {
     "being": Being,
     "fact": Fact,
     "location": Location,
+    "feature": Feature,
 }
 
 _LINK_MODELS: dict[str, Any] = {
@@ -1342,6 +1344,18 @@ class _Applier:
                 .where(Item.entity_id == e, Item.tenant_id == t)
                 .values(starts_inactive=bool(change.upstream))
             )
+            await s.execute(
+                update(Feature)
+                .where(Feature.entity_id == e, Feature.tenant_id == t)
+                .values(starts_inactive=bool(change.upstream))
+            )
+            return True
+        if name == "repeatable":
+            await s.execute(
+                update(Feature)
+                .where(Feature.entity_id == e, Feature.tenant_id == t)
+                .values(repeatable=bool(change.upstream))
+            )
             return True
         if name == "in_public_catalog":
             if change.upstream is None:
@@ -1656,6 +1670,9 @@ class _Applier:
             elif kind == "being" and await s.get(Character, e) is not None:
                 self.skip(row, "kinds", "it is a character here")
                 ok = False
+            elif kind == "feature" and await feature_is_held(s, tenant_id=t, feature_id=e):
+                self.skip(row, "kinds", "a holder still has it here")
+                ok = False
             else:
                 marker = _MARKER_MODELS[kind]
                 await s.execute(delete(marker).where(marker.entity_id == e, marker.tenant_id == t))
@@ -1670,6 +1687,9 @@ class _Applier:
                 values: dict[str, Any] = {"entity_id": e, "tenant_id": t}
                 if kind == "item":
                     values["in_public_catalog"] = bool(row.upstream.get("in_public_catalog"))
+                    values["starts_inactive"] = bool(row.upstream.get("starts_inactive"))
+                if kind == "feature":
+                    values["repeatable"] = bool(row.upstream.get("repeatable"))
                     values["starts_inactive"] = bool(row.upstream.get("starts_inactive"))
                 await s.execute(insert(_MARKER_MODELS[kind]).values(**values))
                 if kind == "fact" and await s.get(EntityAudience, e) is None:
