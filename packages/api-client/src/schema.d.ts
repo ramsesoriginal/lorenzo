@@ -9640,6 +9640,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Warnings */
+            warnings?: components["schemas"]["FindingOut"][] | null;
         };
         /**
          * ComputedStatPreviewIn
@@ -11033,6 +11035,8 @@ export interface components {
             /** Children */
             children: components["schemas"]["EntitySummary"][];
             previous: components["schemas"]["PreviousOwnStat"];
+            /** Warnings */
+            warnings?: components["schemas"]["FindingOut"][] | null;
         };
         /**
          * EntitySummary
@@ -42518,7 +42522,10 @@ export interface operations {
     };
     set_entity_stat: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Answer with `warnings`: what the vocabulary check says of the stat just written on this entry (ADR 0461). Without it no check runs and the answer is as it was. */
+                warnings?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };
@@ -42660,7 +42667,10 @@ export interface operations {
     };
     set_entity_tag: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Answer with `warnings`: what the vocabulary check says of the stat just written on this entry (ADR 0461). Without it no check runs and the answer is as it was. */
+                warnings?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };
@@ -42798,7 +42808,10 @@ export interface operations {
     };
     unset_entity_tag: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Answer with `warnings`: what the vocabulary check says of the stat just written on this entry (ADR 0461). Without it no check runs and the answer is as it was. */
+                warnings?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };
@@ -43000,7 +43013,10 @@ export interface operations {
     };
     set_computed_stat: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Answer with `warnings`: what the vocabulary check says of the stat just written on this entry (ADR 0461). Without it no check runs and the answer is as it was. */
+                warnings?: boolean;
+            };
             header?: {
                 "if-match"?: string | null;
             };

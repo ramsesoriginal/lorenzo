@@ -5933,6 +5933,7 @@ class ComputedStatOut(BaseModel):
         | SelectFormulaBodyOutput
     ) = Field(..., discriminator="kind", title="Formula")
     updated_at: AwareDatetime = Field(..., title="Updated At")
+    warnings: list[FindingOut] | None = Field(None, title="Warnings")
 
 
 class ComputedStatPreviewIn(BaseModel):
@@ -6045,6 +6046,7 @@ class EntityStatWriteOut(BaseModel):
     quantity: int | None = Field(..., title="Quantity")
     children: list[EntitySummary] = Field(..., title="Children")
     previous: PreviousOwnStat
+    warnings: list[FindingOut] | None = Field(None, title="Warnings")
 
 
 class GrantsOut(BaseModel):

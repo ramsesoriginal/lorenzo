@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lorenzo_api.effective_stats import load_effective_rows
 from lorenzo_api.grants import ancestors_of
-from lorenzo_api.information_visibility import InformationVisibility
+from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
 from lorenzo_api.models import (
     ComputedStat,
     Entity,
@@ -29,6 +29,7 @@ from lorenzo_api.models import (
     VEffectiveStat,
     formula_load_options,
 )
+from lorenzo_api.schemas.vocabulary_check import FindingOut
 from lorenzo_api.stat_evaluation import evaluate, formula_chains_below
 
 Code = Literal[
@@ -461,3 +462,66 @@ async def tie_findings(
             )
         )
     return out
+
+
+# --- warnings on a write (ADR 0461) ---------------------------------------------------------
+
+WARNINGS_HELP = (
+    "Answer with `warnings`: what the vocabulary check says of the stat just written on this entry "
+    "(ADR 0461). Without it no check runs and the answer is as it was."
+)
+
+ALL_CODES: tuple[str, ...] = (
+    "computed-outside-scale",
+    "above-hint",
+    "formula-chain-depth",
+    "unset-input",
+    "own-value-shadows-formula",
+    "tie",
+)
+
+
+def finding_out(finding: Finding) -> FindingOut:
+    return FindingOut(
+        code=finding.code,
+        severity=finding.severity,
+        entry_id=finding.entry_id,
+        stat_definition_id=finding.stat_definition_id,
+        message=finding.message,
+        details=finding.details,
+    )
+
+
+async def warnings_for_write(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    stat_definition_id: uuid.UUID,
+) -> list[FindingOut]:
+    """The findings, of any severity, for the stat that was just written on the entry it was
+    written on (RFC 0055 section 4): what `GET .../vocabulary-check` would say of that entry and
+    stat. Asked for by the write with `warnings=true`; without it nothing here runs."""
+    visibility = await resolve_information_visibility(session, user_id=user_id, tenant_id=tenant_id)
+    entity = await session.get_one(Entity, entity_id)
+    codes = list(ALL_CODES)
+    found = await scan_entries(
+        session,
+        tenant_id=tenant_id,
+        entities=[entity],
+        visibility=visibility,
+        codes=codes,
+        stat_definition_id=stat_definition_id,
+    )
+    found += await tie_findings(
+        session,
+        tenant_id=tenant_id,
+        entity=entity,
+        visibility=visibility,
+        stat_definition_id=stat_definition_id,
+    )
+    found += await vocabulary_findings(
+        session, tenant_id=tenant_id, codes=codes, stat_definition_id=stat_definition_id
+    )
+    return [finding_out(f) for f in found]
