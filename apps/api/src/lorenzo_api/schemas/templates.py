@@ -14,6 +14,8 @@ __all__ = [
     "SlotKind",
     "TemplateCellOut",
     "TemplateColumnOut",
+    "TemplateFeatureGroupOut",
+    "TemplateFeatureRowOut",
     "TemplateHeldRowOut",
     "TemplateIn",
     "TemplateOut",
@@ -27,7 +29,7 @@ __all__ = [
     "TemplateViewSlotOut",
 ]
 
-SlotKind = Literal["stats", "information", "held", "tags"]
+SlotKind = Literal["stats", "information", "held", "tags", "features"]
 HeldOrder = Literal["name", "prototype"]
 LabelText = Annotated[str, Field(min_length=1, max_length=200)]
 
@@ -47,6 +49,8 @@ class TemplateSlotIn(BaseModel):
     - `held`: the things the entry holds, a column for each stat of a group or a list, as `stats`;
       `held_order` is `name` (the default) or `prototype` (by the name of the thing's prototype,
       then its name).
+    - `features`: the features the entry holds, grouped by type, a column for each stat of a group
+      or a list, as `held` has them (ADR 0457).
     - `information`: the entry's notes of `information_type`.
     - `tags`: the `bool` stats that are true, of `stat_group_id` or, left out, of any group.
     """
@@ -62,7 +66,7 @@ class TemplateSlotIn(BaseModel):
     @model_validator(mode="after")
     def _fits_its_kind(self) -> Self:
         kind = self.kind
-        if kind in ("stats", "held"):
+        if kind in ("stats", "held", "features"):
             if (self.stat_group_id is None) == (not self.stats):
                 raise ValueError(f"a {kind} slot has a stat group or a list of stats, one of them")
             if self.exclude and self.stat_group_id is None:
@@ -178,11 +182,30 @@ class TemplateHeldRowOut(BaseModel):
     cells: list[TemplateCellOut]
 
 
+class TemplateFeatureRowOut(BaseModel):
+    """One feature the entry has: the instance, the feature, its switch and a cell for each column
+    (ADR 0457)."""
+
+    id: uuid.UUID
+    name: str
+    feature: EntitySummary
+    active: bool
+    cells: list[TemplateCellOut]
+
+
+class TemplateFeatureGroupOut(BaseModel):
+    """The features of one type (the first category entry among a feature's parents), by name; the
+    group of the features with no type has none, and comes last (ADR 0457)."""
+
+    type: EntitySummary | None
+    features: list[TemplateFeatureRowOut]
+
+
 class TemplateViewSlotOut(BaseModel):
     """A slot of the assembled view, in its position. Only the fields of its kind are filled:
-    `stats` for a stats slot, `columns` and `rows` for a held slot, `information` for an
-    information slot, `tags` for a tags slot. A slot the caller may not read is left out of the
-    view."""
+    `stats` for a stats slot, `columns` and `rows` for a held slot, `columns` and `feature_groups`
+    for a features slot, `information` for an information slot, `tags` for a tags slot. A slot the
+    caller may not read is left out of the view."""
 
     position: int
     kind: SlotKind
@@ -191,6 +214,7 @@ class TemplateViewSlotOut(BaseModel):
     information: list[InformationOut] | None = None
     columns: list[TemplateColumnOut] | None = None
     rows: list[TemplateHeldRowOut] | None = None
+    feature_groups: list[TemplateFeatureGroupOut] | None = None
     tags: list[TemplateStatOut] | None = None
 
 

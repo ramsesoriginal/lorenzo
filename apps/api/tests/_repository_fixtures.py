@@ -55,7 +55,14 @@ from lorenzo_api.models import (
     EventRelationship,
     Fact,
     FactAbout,
+    Feature,
+    FeatureInstance,
+    FeaturePrerequisite,
     Frame,
+    GrantRecord,
+    GrantRule,
+    GrantRuleCondition,
+    GrantRuleOption,
     GroupMember,
     Information,
     Item,
@@ -146,6 +153,8 @@ async def seed_every_content_table(
     bond = entity("Fixture bond")
     second_bond = entity("Fixture second bond")
     web = entity("Fixture web")
+    feature = entity("Fixture feature")
+    feature_held = entity("Fixture feature held")
     group = StatGroup(tenant_id=tenant_id, name="Abilities")
     session.add(group)
     # A game system, which a repository holds as content (ADR 0448).
@@ -366,6 +375,52 @@ async def seed_every_content_table(
             ItemInstance(entity_id=blade.id, tenant_id=tenant_id),
             Item(entity_id=chest.id, tenant_id=tenant_id),
             Being(entity_id=elminster.id, tenant_id=tenant_id),
+            Feature(entity_id=feature.id, tenant_id=tenant_id, repeatable=True),
+            FeatureInstance(entity_id=feature_held.id, tenant_id=tenant_id),
+        ]
+    )
+    await session.flush()
+    rule = GrantRule(
+        tenant_id=tenant_id,
+        entry_id=guild.id,
+        label="Fixture rule",
+        position=0,
+        mode="choose",
+        max_count=1,
+    )
+    session.add(rule)
+    await session.flush()
+    session.add_all(
+        [
+            GrantRuleCondition(
+                tenant_id=tenant_id,
+                rule_id=rule.id,
+                position=0,
+                subject="holder",
+                stat_definition_id=strength.id,
+                comparator="ge",
+                right_constant=Decimal(10),
+            ),
+            GrantRuleOption(
+                rule_id=rule.id, option_entry_id=feature.id, tenant_id=tenant_id, position=0
+            ),
+            FeaturePrerequisite(
+                tenant_id=tenant_id,
+                feature_id=feature.id,
+                position=0,
+                stat_definition_id=strength.id,
+                comparator="ge",
+                right_constant=Decimal(10),
+            ),
+            GrantRecord(
+                tenant_id=tenant_id,
+                holder_id=elminster.id,
+                rule_id=rule.id,
+                source_ref_id=guild.id,
+                feature_id=feature.id,
+                feature_instance_id=feature_held.id,
+                state="active",
+            ),
         ]
     )
     await session.flush()

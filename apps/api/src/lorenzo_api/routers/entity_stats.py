@@ -32,6 +32,7 @@ from lorenzo_api.exceptions import (
     InvalidStatValueTypeError,
     StatDefinitionNotFoundError,
 )
+from lorenzo_api.grants import revoke_after_stat_write
 from lorenzo_api.information_visibility import resolve_information_visibility
 from lorenzo_api.models import (
     ComputedStat,
@@ -329,6 +330,15 @@ async def _write_own_value(
             )
     if changed:
         _touch(entity, user)
+        await session.flush()
+        # A condition of a grant that lasts while its source does may read this stat (ADR 0456).
+        await revoke_after_stat_write(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition.id,
+        )
     return previous
 
 
@@ -581,6 +591,14 @@ async def clear_entity_stat(
         )
         await session.delete(existing)
         _touch(entity, user)
+        await session.flush()
+        await revoke_after_stat_write(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _write_out(
@@ -626,6 +644,14 @@ async def clear_entity_tag(
         previous = PreviousOwnStat(had_own_value=True, value=existing.value_bool)
         await session.delete(existing)
         _touch(entity, user)
+        await session.flush()
+        await revoke_after_stat_write(
+            session,
+            tenant_id=tenant_id,
+            actor_id=user.id,
+            entity_id=entity_id,
+            stat_definition_id=stat_definition_id,
+        )
         await session.commit()
         await set_tenant_rls_context(session, tenant_id)
     return await _write_out(

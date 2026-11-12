@@ -9,7 +9,7 @@ from lorenzo_api.db import Base, CreatedAt, TenantFk, UpdatedAt, UuidPk, same_te
 
 __all__ = ["Template", "TemplateSlot", "TemplateSlotExclusion", "TemplateSlotStat"]
 
-SLOT_KINDS = ("stats", "information", "held", "tags")
+SLOT_KINDS = ("stats", "information", "held", "tags", "features")
 
 
 class Template(Base):
@@ -60,7 +60,8 @@ class TemplateSlot(Base):
     """One block of a template, in the order written - ADR 0451. `kind` says what it shows:
     `stats` (a stat group, or an ordered list of stats with a label each), `information` (the
     entry's notes of a type), `held` (the things the entry holds, a column for each stat of a group
-    or list) or `tags` (the `bool` stats that are true, of a group or of any).
+    or list), `features` (the features it holds, by type, with the same columns; ADR 0457) or
+    `tags` (the `bool` stats that are true, of a group or of any).
     """
 
     __tablename__ = "template_slot"
@@ -73,7 +74,8 @@ class TemplateSlot(Base):
         # Deleting a stat group a slot uses is refused by the API.
         same_tenant_fk("template_slot_stat_group_id_fkey", ["stat_group_id"], "stat_group"),
         CheckConstraint(
-            "kind IN ('stats', 'information', 'held', 'tags')", name="template_slot_kind"
+            "kind IN ('stats', 'information', 'held', 'tags', 'features')",
+            name="template_slot_kind",
         ),
         CheckConstraint(
             "held_order IS NULL OR held_order IN ('name', 'prototype')",

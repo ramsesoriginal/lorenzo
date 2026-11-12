@@ -63,6 +63,8 @@ from lorenzo_api.exceptions import (
     SelfServiceDisabledError,
     StackNeedsContainerError,
 )
+from lorenzo_api.features import delete_held_features
+from lorenzo_api.grants import revoke_by_sources, revoke_orphans
 from lorenzo_api.identical import signatures
 from lorenzo_api.information_visibility import (
     InformationVisibility,
@@ -1531,6 +1533,15 @@ async def update_item_instance(
             instance.active = update["active"]
             entity.updated_by = user.id
             entity.updated_at = func.now()
+            # What it gave its holder while it was on goes when it is switched off (ADR 0456).
+            await session.flush()
+            holder = await session.scalar(
+                select(Containment.parent_entity_id).where(Containment.child_entity_id == entity_id)
+            )
+            if holder is not None:
+                await revoke_orphans(
+                    session, tenant_id=tenant_id, actor_id=user.id, holder_ids={holder}
+                )
     if "prototype_id" in update:
         await _change_prototype(
             session,
@@ -1584,6 +1595,10 @@ async def delete_item_instance(
         session, tenant_id=tenant_id, user=user, entity_id=entity_id, kind="give"
     )
     await require_no_learning(session, tenant_id, entity_id=entity_id)
+    # What it gave goes with it, and the features it has, before what is inside moves out
+    # (ADR 0454, 0456).
+    await revoke_by_sources(session, tenant_id=tenant_id, actor_id=user.id, source_ids={entity_id})
+    await delete_held_features(session, tenant_id=tenant_id, holder_ids={entity_id})
     kept = await _keep_contents(
         session, tenant_id=tenant_id, actor_id=user.id, container=entity, split=split
     )
@@ -2080,6 +2095,7 @@ async def _contain(
     checks - _perform_set_container's and _HandOver's shared tail, so the two
     can't drift."""
     await require_physical_container(session, container_entity_id)
+    previous = existing.parent_entity_id if existing is not None else None
     if existing is not None:
         existing.parent_entity_id = container_entity_id
     else:
@@ -2094,6 +2110,15 @@ async def _contain(
         await binding.finish()
     if check is not None:
         await check.finish(moved_ids=[entity_id])
+    if previous is not None and previous != container_entity_id:
+        # What it gave the one it was taken from goes with it (ADR 0456).
+        await session.flush()
+        await revoke_orphans(
+            session,
+            tenant_id=tenant_id,
+            actor_id=session.info.get("entry_reader_user_id"),
+            holder_ids={previous},
+        )
 
 
 async def _merge_identical(
@@ -2280,9 +2305,15 @@ async def clear_item_instance_container(
         detail = f"container={existing.parent_entity_id}"
         if pieces:
             detail += f"; split into {existing.quantity}"
+        set_down_from = existing.parent_entity_id
         await session.delete(existing)
         if binding is not None:
             await binding.finish()
+        # What it gave its holder while held goes with it (ADR 0456).
+        await session.flush()
+        await revoke_orphans(
+            session, tenant_id=tenant_id, actor_id=user.id, holder_ids={set_down_from}
+        )
         await record_activity(
             session,
             tenant_id=tenant_id,
