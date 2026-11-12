@@ -69,6 +69,7 @@ from lorenzo_api.models import (
     FeatureInstance,
     FeaturePrerequisite,
     Frame,
+    GrantRecord,
     GrantRule,
     GrantRuleCondition,
     GrantRuleOption,
@@ -284,6 +285,9 @@ class Content:
     # right_stat}], in order).
     grant_rules: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     prerequisites: dict[uuid.UUID, list[dict[str, Any]]] = field(default_factory=dict)
+    # How the holders have what they have (ADR 0456): the active records, id -> {holder, rule,
+    # source, feature, instance}. `rule` and `source` are empty for an award.
+    grant_records: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     definitions: dict[uuid.UUID, dict[str, Any]] = field(default_factory=dict)
     enum_values: dict[uuid.UUID, list[tuple[str, int]]] = field(
         default_factory=lambda: defaultdict(list)
@@ -524,6 +528,19 @@ async def _load_grant_rules(session: AsyncSession, c: Content, t: uuid.UUID) -> 
                 "right_stat": prerequisite.right_stat_definition_id,
             }
         )
+    for record in await session.scalars(
+        select(GrantRecord)
+        .where(GrantRecord.tenant_id == t, GrantRecord.state == "active")
+        .order_by(GrantRecord.created_at, GrantRecord.id)
+    ):
+        assert record.feature_instance_id is not None
+        c.grant_records[record.id] = {
+            "holder": record.holder_id,
+            "rule": record.rule_id,
+            "source": record.source_ref_id,
+            "feature": record.feature_id,
+            "instance": record.feature_instance_id,
+        }
 
 
 async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:

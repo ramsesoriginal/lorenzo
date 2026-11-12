@@ -66,6 +66,7 @@ from lorenzo_api.exceptions import (
     StatDefinitionNotFoundError,
 )
 from lorenzo_api.features import delete_held_features
+from lorenzo_api.grants import revoke_by_sources
 from lorenzo_api.information_visibility import (
     InformationReader,
     InformationVisibility,
@@ -685,6 +686,7 @@ async def delete_entity(
         + libraries_note(await count_libraries(session, tenant_id, "entity", entity_id)),
     )
     # What the entry holds as features has no life of its own (ADR 0454).
+    await revoke_by_sources(session, tenant_id=tenant_id, actor_id=user.id, source_ids={entity_id})
     await delete_held_features(session, tenant_id=tenant_id, holder_ids={entity_id})
     await session.delete(entity)
     await session.commit()

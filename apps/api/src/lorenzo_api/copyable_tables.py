@@ -80,6 +80,7 @@ from lorenzo_api.models import (
     FeatureInstance,
     FeaturePrerequisite,
     Frame,
+    GrantRecord,
     GrantRule,
     GrantRuleCondition,
     GrantRuleOption,
@@ -273,6 +274,8 @@ REGISTRY: tuple[CopyableTable, ...] = (
     _rows(GrantRuleCondition, "grant_rule_condition", carried_by="grant_rule"),
     _rows(GrantRuleOption, "grant_rule_option", carried_by="grant_rule"),
     _rows(FeaturePrerequisite, "feature_prerequisite", counted_on_purge=True),
+    # How a holder came to have a feature (ADR 0456): after the instance, the rule and the source.
+    _rows(GrantRecord, "grant_record"),
     _rows(EntityStatGroup, "entity_stat_group", counted_on_purge=True),
     _rows(EntityStat, "entity_stat", counted_on_purge=True),
     _rows(ComputedStat, "computed_stat", counted_on_purge=True),

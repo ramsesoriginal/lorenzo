@@ -114,6 +114,7 @@ __all__ = [
     "Feature",
     "FeatureInstance",
     "FeaturePrerequisite",
+    "GrantRecord",
     "GrantRule",
     "GrantRuleCondition",
     "GrantRuleOption",
@@ -249,6 +250,7 @@ from lorenzo_api.models.clock import CalendarReckoning, Clock, ClockRelationship
 from lorenzo_api.models.connection import Connection
 from lorenzo_api.models.feature import Feature, FeatureInstance
 from lorenzo_api.models.frame import EntityFrame, Frame
+from lorenzo_api.models.grant_record import GrantRecord
 from lorenzo_api.models.grant_rule import (
     FeaturePrerequisite,
     GrantRule,

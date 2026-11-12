@@ -124,12 +124,13 @@ def test_version_one_is_read_as_it_was_written() -> None:
 
     assert differences(full_content(), rd.decode(golden, _files(), format=1)) == []
     # V3 adds calendars; V1 and V2 remain readable unchanged.
-    assert rd.FORMAT == 44
+    assert rd.FORMAT == 45
     assert rd.encode(full_content())[0] == {
         **golden,
         "repeatable": {},
         "grant_rules": {},
         "prerequisites": {},
+        "grant_records": {},
         "groups": {
             key: {"role": None, "system": None, **group} for key, group in golden["groups"].items()
         },
@@ -899,3 +900,39 @@ def test_grant_rules_and_prerequisites_round_trip_and_an_old_document_has_none()
     v43 = {k: v for k, v in document.items() if k not in ("grant_rules", "prerequisites")}
     old = rd.decode(v43, files, format=43)
     assert old.grant_rules == {} and old.prerequisites == {}
+
+
+def test_grant_records_round_trip_and_an_old_document_has_none() -> None:
+    """ADR 0456: how a holder came to have a feature (its rule and source, or an award) is in the
+    document; a document of version 44, which had none, reads none."""
+    content = full_content()
+    holder, feature, instance, rule, source, record, award = (
+        uuid.UUID(int=n) for n in (96, 97, 98, 99, 100, 101, 102)
+    )
+    content.entities.update(
+        {holder: "Hero", feature: "Second Wind", instance: "Second Wind", source: "Fighter"}
+    )
+    content.grant_records = {
+        record: {
+            "holder": holder,
+            "rule": rule,
+            "source": source,
+            "feature": feature,
+            "instance": instance,
+        },
+        award: {
+            "holder": holder,
+            "rule": None,
+            "source": None,
+            "feature": feature,
+            "instance": instance,
+        },
+    }
+
+    document, files = rd.encode(content)
+    back = rd.decode(rd.loads(rd.dumps(document)), files)
+
+    assert differences(content, back) == []
+    assert back.grant_records[award]["rule"] is None
+    v44 = {k: v for k, v in document.items() if k != "grant_records"}
+    assert rd.decode(v44, files, format=44).grant_records == {}

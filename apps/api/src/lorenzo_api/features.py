@@ -30,6 +30,8 @@ from lorenzo_api.models import (
     EntityPrototype,
     Feature,
     FeatureInstance,
+    GrantRecord,
+    GrantRule,
     GroupMember,
     ItemInstance,
     Ownership,
@@ -40,7 +42,8 @@ from lorenzo_api.models import (
 )
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.entities import _stats_out
-from lorenzo_api.schemas.features import HeldFeatureOut
+from lorenzo_api.schemas.features import GrantedByOut, HeldFeatureOut
+from lorenzo_api.schemas.grant_rules import RuleOptionOut
 from lorenzo_api.stat_contents import attach_contents
 
 HolderKind = Literal["being", "item_instance", "group"]
@@ -192,6 +195,112 @@ async def held_instance_ids(
     )
 
 
+async def create_instance(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    holder_id: uuid.UUID,
+    feature: Feature,
+    active: bool | None = None,
+) -> Entity:
+    """The instance of a feature a holder has: an entry named as the feature (no slug), the marker,
+    the feature as its one prototype, and the holder as its container; switched on unless the
+    feature starts its instances inactive or `active` says. Flushed, not committed."""
+    feature_entity = await session.get_one(Entity, feature.entity_id)
+    instance = Entity(
+        tenant_id=tenant_id, name=feature_entity.name, created_by=actor_id, updated_by=actor_id
+    )
+    session.add(instance)
+    await session.flush()
+    session.add(
+        FeatureInstance(
+            entity_id=instance.id,
+            tenant_id=tenant_id,
+            active=active if active is not None else not feature.starts_inactive,
+        )
+    )
+    session.add(
+        EntityPrototype(
+            entity_id=instance.id, prototype_id=feature.entity_id, tenant_id=tenant_id, position=0
+        )
+    )
+    session.add(
+        Containment(
+            child_entity_id=instance.id, parent_entity_id=holder_id, tenant_id=tenant_id, quantity=1
+        )
+    )
+    await session.flush()
+    return instance
+
+
+async def granted_by(
+    session: AsyncSession,
+    *,
+    tenant_id: uuid.UUID,
+    instance_ids: Collection[uuid.UUID],
+    visibility: InformationVisibility,
+) -> dict[uuid.UUID, GrantedByOut]:
+    """For each instance a rule gave, the rule and the source it was given from (ADR 0456): what
+    `GET .../features` calls `granted_by`. An award has none. An entry the caller may not see (a
+    library's hide, ADR 0437) is named `a hidden entry`, with no id."""
+    if not instance_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(GrantRecord, GrantRule.label, Entity.name)
+            .join(GrantRule, GrantRule.id == GrantRecord.rule_id)
+            .outerjoin(Entity, Entity.id == GrantRecord.source_ref_id)
+            .where(
+                GrantRecord.tenant_id == tenant_id,
+                GrantRecord.feature_instance_id.in_(set(instance_ids)),
+                GrantRecord.state == "active",
+            )
+        )
+    ).all()
+    instances = set(
+        await session.scalars(
+            select(FeatureInstance.entity_id).where(
+                FeatureInstance.tenant_id == tenant_id,
+                FeatureInstance.entity_id.in_(
+                    {r.source_ref_id for r, _, _ in rows if r.source_ref_id}
+                ),
+            )
+        )
+    ) | set(
+        await session.scalars(
+            select(ItemInstance.entity_id).where(
+                ItemInstance.tenant_id == tenant_id,
+                ItemInstance.entity_id.in_(
+                    {r.source_ref_id for r, _, _ in rows if r.source_ref_id}
+                ),
+            )
+        )
+    )
+    out: dict[uuid.UUID, GrantedByOut] = {}
+    for record, label, source_name in rows:
+        assert record.feature_instance_id is not None
+        source = record.source_ref_id
+        out[record.feature_instance_id] = GrantedByOut(
+            record_id=record.id,
+            rule_id=record.rule_id,
+            label=label,
+            source=(
+                None
+                if source is None
+                else (
+                    RuleOptionOut(id=source, name=source_name or "")
+                    if visibility.can_see_entry(source)
+                    else RuleOptionOut(id=None, name="a hidden entry", hidden=True)
+                )
+            ),
+            source_kind=None
+            if source is None
+            else ("instance" if source in instances else "ancestor"),
+        )
+    return out
+
+
 async def delete_held_features(
     session: AsyncSession, *, tenant_id: uuid.UUID, holder_ids: Collection[uuid.UUID]
 ) -> list[uuid.UUID]:
@@ -329,6 +438,9 @@ async def held_feature_outs(
             )
         )
     }
+    given = await granted_by(
+        session, tenant_id=tenant_id, instance_ids=instance_ids, visibility=visibility
+    )
     out: list[HeldFeatureOut] = []
     for entity in entities:
         feature_id = feature_by_instance.get(entity.id)
@@ -343,6 +455,7 @@ async def held_feature_outs(
                 types=[EntitySummary.from_entity(parents[p]) for p in type_ids.get(feature.id, [])],
                 active=entity.feature_instance_marker.active,
                 stats=_stats_out(entity, visibility),
+                granted_by=given.get(entity.id),
             )
         )
     return out

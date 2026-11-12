@@ -7580,6 +7580,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant_id}/entities/{entity_id}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Grants
+         * @description What the holder has through rules and awards, what is due (automatic grants whose
+         *     conditions hold and that have no record), the open choices (a rule's minimum, maximum, what is
+         *     picked and the options that pass their prerequisites) and what is orphaned. A read never
+         *     writes. Readable as the holder's features are: whoever reaches it, and its managers.
+         */
+        get: operations["get_grants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant_id}/entities/{entity_id}/grants/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Grants Route
+         * @description Makes the automatic grants that are due, records the picks and revokes what is orphaned,
+         *     and repeats until nothing more is due, since a granted feature is itself a source. A pick is
+         *     refused (`422`) outside the rule's options, with no open choice behind it, below the minimum
+         *     where the apply carries picks for it, above the maximum or past a prerequisite, and `409` for
+         *     a feature the holder has and that is not repeatable; a GM's `override` lifts the three limits.
+         *     `dry_run` reports what would happen and writes nothing. The holder's controller applies, and
+         *     any GM (`403` otherwise); `override` is a GM's alone.
+         */
+        post: operations["apply_grants_route"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant_id}/entities/{entity_id}/features": {
         parameters: {
             query?: never;
@@ -7813,6 +7862,46 @@ export interface components {
         AppearanceUpdate: {
             /** Is Shared */
             is_shared: boolean;
+        };
+        /**
+         * ApplyIn
+         * @description POST .../grants/apply. `picks` fill open choices; `dry_run` reports what would happen and
+         *     writes nothing; `override` (a GM's) lets a pick go below the minimum, above the maximum or past
+         *     a prerequisite.
+         */
+        ApplyIn: {
+            /**
+             * Picks
+             * @default []
+             */
+            picks: components["schemas"]["PickIn"][];
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+            /**
+             * Override
+             * @default false
+             */
+            override: boolean;
+        };
+        /**
+         * ApplyOut
+         * @description What `apply` did (or, with `dry_run`, would do): the grants it made, the records it
+         *     revoked, the choices still open, and whether the chain of grants was cut at the depth cap.
+         */
+        ApplyOut: {
+            /** Created */
+            created: components["schemas"]["HeldGrantOut"][];
+            /** Revoked */
+            revoked: components["schemas"]["RevokedOut"][];
+            /** Open Choices */
+            open_choices: components["schemas"]["OpenChoiceOut"][];
+            /** Dry Run */
+            dry_run: boolean;
+            /** Truncated */
+            truncated: boolean;
         };
         /**
          * ApplyUpdatesOut
@@ -10498,6 +10587,21 @@ export interface components {
             reason: string;
         };
         /**
+         * DueGrantOut
+         * @description An automatic grant whose conditions hold and that has no record yet: what `apply` makes.
+         */
+        DueGrantOut: {
+            /**
+             * Rule Id
+             * Format: uuid
+             */
+            rule_id: string;
+            /** Label */
+            label: string | null;
+            source: components["schemas"]["GrantSourceOut"];
+            feature: components["schemas"]["RuleOptionOut"];
+        };
+        /**
          * DuplicateGroupRequest
          * @description POST /groups/{id}/duplicate - name defaults to the source group's
          *     own name when omitted.
@@ -11580,6 +11684,62 @@ export interface components {
             position?: number | null;
         };
         /**
+         * GrantSourceOut
+         * @description The source a rule applies through: an entry on the holder's prototype walk
+         *     (`ancestor`), or an active instance the holder holds (`instance`).
+         */
+        GrantSourceOut: {
+            /** Id */
+            id: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "ancestor" | "instance";
+            /**
+             * Hidden
+             * @default false
+             */
+            hidden: boolean;
+        };
+        /**
+         * GrantedByOut
+         * @description What gave a feature to its holder (ADR 0456): the record, the rule (and its label), and the
+         *     source it was given from, an ancestor entry of the holder or an instance it holds.
+         */
+        GrantedByOut: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Rule Id */
+            rule_id: string | null;
+            /** Label */
+            label: string | null;
+            source: components["schemas"]["RuleOptionOut"] | null;
+            /** Source Kind */
+            source_kind: ("ancestor" | "instance") | null;
+        };
+        /**
+         * GrantsOut
+         * @description GET .../entities/{holder}/grants - what is held through rules and awards, what is due,
+         *     the choices still open and what is orphaned (ADR 0456). A read never writes.
+         */
+        GrantsOut: {
+            holder: components["schemas"]["EntitySummary"];
+            /** Held */
+            held: components["schemas"]["HeldGrantOut"][];
+            /** Due */
+            due: components["schemas"]["DueGrantOut"][];
+            /** Open Choices */
+            open_choices: components["schemas"]["OpenChoiceOut"][];
+            /** Orphaned */
+            orphaned: components["schemas"]["OrphanOut"][];
+        };
+        /**
          * GroupCreate
          * @description POST /groups - see ADR 0064. Creates a fresh bare Entity to serve as
          *     the group, plus one GroupMember row per being id in the legacy member_character_ids
@@ -11669,6 +11829,7 @@ export interface components {
             active: boolean;
             /** Stats */
             stats: components["schemas"]["EntityStatValueOut"][];
+            granted_by?: components["schemas"]["GrantedByOut"] | null;
         };
         /**
          * HeldFeaturesOut
@@ -11678,6 +11839,33 @@ export interface components {
             holder: components["schemas"]["EntitySummary"];
             /** Features */
             features: components["schemas"]["HeldFeatureOut"][];
+        };
+        /**
+         * HeldGrantOut
+         * @description A feature the holder has through a rule (or, with no rule, by an award).
+         */
+        HeldGrantOut: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /**
+             * Instance Id
+             * Format: uuid
+             */
+            instance_id: string;
+            feature: components["schemas"]["EntitySummary"];
+            /** Rule Id */
+            rule_id: string | null;
+            /** Label */
+            label: string | null;
+            source: components["schemas"]["GrantSourceOut"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * HeldGroupOut
@@ -13862,6 +14050,32 @@ export interface components {
             name: string;
             date: components["schemas"]["CalendarDate"];
         };
+        /**
+         * OpenChoiceOut
+         * @description A choose rule that holds and still has room (ADR 0456): how many the holder must and may
+         *     pick, what it has picked, and the options that pass their prerequisites. An option that does
+         *     not pass is left out; one the library hides is `a hidden entry`.
+         */
+        OpenChoiceOut: {
+            /**
+             * Rule Id
+             * Format: uuid
+             */
+            rule_id: string;
+            /** Label */
+            label: string | null;
+            source: components["schemas"]["GrantSourceOut"];
+            /** Minimum */
+            minimum: number;
+            /** Maximum */
+            maximum: number;
+            /** Picked */
+            picked: components["schemas"]["RuleOptionOut"][];
+            /** Options */
+            options: components["schemas"]["RuleOptionOut"][];
+            /** Changeable */
+            changeable: boolean;
+        };
         /** OrderedSession */
         OrderedSession: {
             /**
@@ -13873,6 +14087,30 @@ export interface components {
             name: string;
             /** Can Manage */
             can_manage: boolean;
+        };
+        /**
+         * OrphanOut
+         * @description An active record whose source is gone or inactive, or whose conditions no longer hold:
+         *     what the next request that checks, or an `apply`, revokes.
+         */
+        OrphanOut: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Rule Id */
+            rule_id: string | null;
+            /** Label */
+            label: string | null;
+            feature: components["schemas"]["RuleOptionOut"];
+            /** Instance Id */
+            instance_id: string | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "source" | "conditions" | "removed";
         };
         /** OutlineOrder */
         OutlineOrder: {
@@ -14958,6 +15196,26 @@ export interface components {
             expires_at: string | null;
             /** Is Expired */
             is_expired: boolean;
+        };
+        /**
+         * PickIn
+         * @description A holder's pick for one open choice of `apply` (ADR 0456): the rule, the source it is
+         *     open through (`source_id`, an ancestor entry or an instance the holder holds), and the
+         *     features chosen.
+         */
+        PickIn: {
+            /**
+             * Rule Id
+             * Format: uuid
+             */
+            rule_id: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Options */
+            options: string[];
         };
         /**
          * PickedExplanationOut
@@ -16837,6 +17095,29 @@ export interface components {
             user_id: string;
             /** Name */
             name: string;
+        };
+        /**
+         * RevokedOut
+         * @description A record `apply` revoked: its instance is deleted.
+         */
+        RevokedOut: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Rule Id */
+            rule_id: string | null;
+            /** Label */
+            label: string | null;
+            feature: components["schemas"]["RuleOptionOut"];
+            /** Instance Id */
+            instance_id: string | null;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "source" | "conditions" | "removed";
         };
         /**
          * RoundMode
@@ -49553,6 +49834,142 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_grants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrantsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "client-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 400,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "server-error-type",
+                     *       "title": "User facing error message.",
+                     *       "status": 500,
+                     *       "detail": "Additional error context."
+                     *     }
+                     */
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    apply_grants_route: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyOut"];
+                };
             };
             /** @description Validation Error */
             422: {

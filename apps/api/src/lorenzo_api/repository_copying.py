@@ -472,6 +472,8 @@ class _Planner:
         # templates (ADR 0453).
         self.system_ids: dict[str, uuid.UUID] = {}
         self.template_names: set[str] = set()
+        # The library's id for each grant rule this plan makes, by the repository's (ADR 0456).
+        self.rule_ids: dict[uuid.UUID, uuid.UUID] = {}
         self.definitions: dict[str, tuple[uuid.UUID, Any, set[str]]] = {}
         # Who holds each role in the library, and what the stat holders are (ADR 0449): the
         # library's own, then every one this plan gives a role to.
@@ -1849,6 +1851,7 @@ class _Planner:
             )
 
         self._plan_grant_rules(step)
+        self._plan_grant_records(step)
         if only is None:
             self._plan_templates(step)
             self._plan_attachments(step)
@@ -2081,6 +2084,7 @@ class _Planner:
                 drop("a stat one of its conditions reads wasn't copied")
                 continue
             new = uuid.uuid4()
+            self.rule_ids[rule_id] = new
             self.rows["grant_rule"].append(
                 {
                     "id": new,
@@ -2144,6 +2148,51 @@ class _Planner:
                     }
                 )
                 position += 1
+
+    def _plan_grant_records(self, step: Step) -> None:
+        """Plans how the holders of a repository came to have their features (ADR 0456): a record
+        for each instance this plan makes, with its rule (as the library's own copy of it) and its
+        source. A record whose rule or source was not copied is left out, and the instance stays as
+        if it had been awarded. Copied once and never changed by an update, as an instance is."""
+        c = step.content
+        assert c is not None
+        created = {row["id"] for row in self.rows["entity"]}
+        for record_id in sorted(c.grant_records, key=str):
+            record = c.grant_records[record_id]
+            holder = self._local(c, "entity", record["holder"])
+            instance = self._local(c, "entity", record["instance"])
+            feature = self._local(c, "entity", record["feature"])
+            if (
+                holder is None
+                or instance is None
+                or feature is None
+                or instance not in created
+                or not c.own("entity", record["instance"])
+            ):
+                continue
+            rule = None
+            if record["rule"] is not None:
+                rule = self.rule_ids.get(record["rule"])
+                if rule is None:
+                    continue
+            source = None
+            if record["source"] is not None:
+                source = self._local(c, "entity", record["source"])
+                if source is None:
+                    continue
+            self.rows["grant_record"].append(
+                {
+                    "id": uuid.uuid4(),
+                    "tenant_id": self.tenant_id,
+                    "holder_id": holder,
+                    "rule_id": rule,
+                    "source_ref_id": source,
+                    "feature_id": feature,
+                    "feature_instance_id": instance,
+                    "state": "active",
+                    "created_by": self.user_id,
+                }
+            )
 
     def _plan_attachments(self, step: Step) -> None:
         """Plans the parents the repository added to its copies of other rows

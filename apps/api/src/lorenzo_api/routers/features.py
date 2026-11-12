@@ -43,13 +43,9 @@ from lorenzo_api.features import (
     require_manager,
     usable_feature,
 )
+from lorenzo_api.grants import grant, revoke, revoke_by_sources, revoke_orphans
 from lorenzo_api.information_visibility import InformationVisibility, resolve_information_visibility
-from lorenzo_api.models import (
-    Containment,
-    Entity,
-    EntityPrototype,
-    FeatureInstance,
-)
+from lorenzo_api.models import Entity, FeatureInstance, GrantRecord, GrantRule
 from lorenzo_api.routers.item_instances import caller_reach
 from lorenzo_api.schemas.common import EntitySummary
 from lorenzo_api.schemas.features import (
@@ -170,57 +166,22 @@ async def award_feature(
         raise FeatureAlreadyHeldError(
             detail=f"{holder.name} already has this feature, which is not repeatable"
         )
-    feature_entity = await session.get_one(Entity, feature.entity_id)
-    instance = Entity(
-        tenant_id=tenant_id, name=feature_entity.name, created_by=user.id, updated_by=user.id
-    )
-    session.add(instance)
-    await session.flush()
-    session.add(
-        FeatureInstance(
-            entity_id=instance.id,
-            tenant_id=tenant_id,
-            active=body.active if body.active is not None else not feature.starts_inactive,
-        )
-    )
-    session.add(
-        EntityPrototype(
-            entity_id=instance.id,
-            prototype_id=feature.entity_id,
-            tenant_id=tenant_id,
-            position=0,
-        )
-    )
-    session.add(
-        Containment(
-            child_entity_id=instance.id,
-            parent_entity_id=entity_id,
-            tenant_id=tenant_id,
-            quantity=1,
-        )
-    )
-    await session.flush()
-    await record_activity(
+    granted = await grant(
         session,
         tenant_id=tenant_id,
         actor_id=user.id,
-        action="feature.awarded",
-        target_type="feature_instance",
-        target_id=instance.id,
-        detail=f"holder={entity_id},feature={feature.entity_id}",
-    )
-    await record_change(
-        session,
-        tenant_id=tenant_id,
-        actor_id=user.id,
-        changes=[Change(entity_id=instance.id, before=frozenset(), both_kind=None)],
+        holder_id=entity_id,
+        feature=feature,
+        rule_id=None,
+        source_ref_id=None,
+        active=body.active,
     )
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     response.headers["Location"] = str(
-        request.url_for("get_held_feature", tenant_id=tenant_id, instance_id=instance.id)
+        request.url_for("get_held_feature", tenant_id=tenant_id, instance_id=granted.instance_id)
     )
-    return await _one(session, tenant_id=tenant_id, instance_id=instance.id, user=user)
+    return await _one(session, tenant_id=tenant_id, instance_id=granted.instance_id, user=user)
 
 
 @router.get("/prototypes/{feature_id}")
@@ -321,6 +282,9 @@ async def set_feature_active(
         entity = await session.get_one(Entity, instance_id)
         entity.updated_by = user.id
         entity.updated_at = func.now()
+        await session.flush()
+        # What it gave while it was on goes when it is switched off, and what that gave (ADR 0456).
+        await revoke_orphans(session, tenant_id=tenant_id, actor_id=user.id, holder_ids={holder_id})
     await session.commit()
     await set_tenant_rls_context(session, tenant_id)
     return await _one(session, tenant_id=tenant_id, instance_id=instance_id, user=user)
@@ -337,8 +301,44 @@ async def remove_feature(
     kind = await holder_kind(session, tenant_id=tenant_id, entity_id=holder_id)
     if kind is None:
         raise FeatureNotFoundError(detail=f"No feature with id {instance_id} in tenant {tenant_id}")
-    await require_manager(
-        session, tenant_id=tenant_id, user_id=user.id, holder_id=holder_id, kind=kind
+    record = await session.scalar(
+        select(GrantRecord).where(
+            GrantRecord.tenant_id == tenant_id,
+            GrantRecord.feature_instance_id == instance_id,
+            GrantRecord.state == "active",
+        )
+    )
+    # A pick of a changeable rule can be swapped by the holder; any other grant is removed by a
+    # GM only (RFC 0054 section 5).
+    swappable = (
+        record is not None
+        and record.rule_id is not None
+        and bool(
+            await session.scalar(select(GrantRule.changeable).where(GrantRule.id == record.rule_id))
+        )
+        and await may_flip(
+            session,
+            tenant_id=tenant_id,
+            user_id=user.id,
+            holder_id=holder_id,
+            instance_id=instance_id,
+            kind=kind,
+        )
+    )
+    if not swappable:
+        await require_manager(
+            session, tenant_id=tenant_id, user_id=user.id, holder_id=holder_id, kind=kind
+        )
+    if record is not None:
+        # It keeps a revoked record, so an automatic grant removed by hand is not made again, and
+        # what it gave goes with it.
+        await revoke(
+            session, tenant_id=tenant_id, actor_id=user.id, records=[record], reason="removed"
+        )
+        await session.commit()
+        return
+    await revoke_by_sources(
+        session, tenant_id=tenant_id, actor_id=user.id, source_ids={instance_id}
     )
     entity = await session.get_one(Entity, instance_id)
     feature_id = await feature_of(session, tenant_id=tenant_id, instance_id=instance_id)

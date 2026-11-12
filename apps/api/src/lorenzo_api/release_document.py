@@ -48,7 +48,7 @@ from lorenzo_api.repository_content import (
 )
 from lorenzo_api.roles import DEFINITION_ROLES, GROUP_ROLES
 
-FORMAT = 44
+FORMAT = 45
 _DEFINITION_ROLES = frozenset(DEFINITION_ROLES)
 _GROUP_ROLES = frozenset(GROUP_ROLES)
 
@@ -473,6 +473,18 @@ _CONTENT = _dataclass(
                     },
                     name="Content.prerequisites",
                 )
+            )
+        ),
+        "grant_records": _id_map(
+            _record(
+                {
+                    "holder": _ID,
+                    "rule": _optional(_ID),
+                    "source": _optional(_ID),
+                    "feature": _ID,
+                    "instance": _ID,
+                },
+                name="Content.grant_records",
             )
         ),
         "definitions": _id_map(
@@ -940,6 +952,11 @@ def _read_v43(document: Document, files: Mapping[str, bytes]) -> Content:
 
 
 def _read_v44(document: Document, files: Mapping[str, bytes]) -> Content:
+    # Before format 45 there were no grant records (ADR 0456): a feature instance has no record.
+    return _read_v45({**document, "grant_records": {}}, files)
+
+
+def _read_v45(document: Document, files: Mapping[str, bytes]) -> Content:
     content: Content = _CONTENT.decode(document, dict(files))
     return content
 
@@ -991,6 +1008,7 @@ READERS: dict[int, Callable[[Document, Mapping[str, bytes]], Content]] = {
     42: _read_v42,
     43: _read_v43,
     44: _read_v44,
+    45: _read_v45,
 }
 
 

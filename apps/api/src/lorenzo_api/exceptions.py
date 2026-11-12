@@ -1802,3 +1802,23 @@ class InvalidGrantRuleError(UnprocessableProblem):
     answered as an unknown one, ADR 0437), or a condition on a stat that is text (ADR 0455)."""
 
     title = "Invalid grant rule"
+
+
+class InvalidGrantPickError(UnprocessableProblem):
+    """POST .../grants/apply - a pick outside what the rule offers, with no open choice behind it,
+    below its minimum, above its maximum, or of a feature whose prerequisites do not hold, where
+    no GM overrode it (ADR 0456)."""
+
+    title = "Invalid pick"
+
+
+class GrantApplyForbiddenError(ForbiddenProblem):
+    """POST .../grants/apply by someone who neither controls the holder nor manages it."""
+
+    title = "Not allowed to apply this holder's grants"
+
+
+class GrantOverrideForbiddenError(ForbiddenProblem):
+    """POST .../grants/apply with `override` by someone who is not a GM of the holder (ADR 0456)."""
+
+    title = "Only a GM can override a grant's limits"

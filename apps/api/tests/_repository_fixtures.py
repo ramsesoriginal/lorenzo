@@ -59,6 +59,7 @@ from lorenzo_api.models import (
     FeatureInstance,
     FeaturePrerequisite,
     Frame,
+    GrantRecord,
     GrantRule,
     GrantRuleCondition,
     GrantRuleOption,
@@ -410,6 +411,15 @@ async def seed_every_content_table(
                 stat_definition_id=strength.id,
                 comparator="ge",
                 right_constant=Decimal(10),
+            ),
+            GrantRecord(
+                tenant_id=tenant_id,
+                holder_id=elminster.id,
+                rule_id=rule.id,
+                source_ref_id=guild.id,
+                feature_id=feature.id,
+                feature_instance_id=feature_held.id,
+                state="active",
             ),
         ]
     )
