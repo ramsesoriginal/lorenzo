@@ -5149,8 +5149,9 @@ export interface paths {
          *     whether each entry holds it itself and the entry it comes from (ADR 0387, RFC 0041 §7): a
          *     compare grid is the list plus these columns in one request a page. The entries and their
          *     order are `GET /entities`'s, with the same filters (q, kind, parent_id, recursive). A stat an
-         *     entry has no value for is left out of its row. A stat definition that is not the library's is
-         *     a 404.
+         *     entry has no value for is left out of its row. `system` (a slug) leaves out the stats of the
+         *     library's other game systems, formulas still evaluated (ADR 0450; an unknown slug is a 404).
+         *     A stat definition that is not the library's is a 404.
          */
         get: operations["list_effective_stats"];
         put?: never;
@@ -5200,7 +5201,9 @@ export interface paths {
         };
         /**
          * Get Entity
-         * @description The full detail shape, with every relationship eager-loaded up front.
+         * @description The full detail shape, with every relationship eager-loaded up front. `system` (a slug)
+         *     narrows `stats` to those of no game system and of that one (ADR 0450); the values are
+         *     resolved as without it, and an unknown slug is a 404.
          */
         get: operations["get_entity"];
         put?: never;
@@ -39231,6 +39234,8 @@ export interface operations {
                 parent_id?: string | null;
                 /** @description With parent_id, also include entries that inherit from it transitively, not just directly. */
                 recursive?: boolean;
+                /** @description The slug of a game system of the library: only the stats that belong to no system and that system's. Left out, every stat. An unknown slug is a 404. */
+                system?: string | null;
                 page?: number;
                 size?: number;
             };
@@ -39440,7 +39445,10 @@ export interface operations {
     };
     get_entity: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The slug of a game system of the library: only the stats that belong to no system and that system's. Left out, every stat. An unknown slug is a 404. */
+                system?: string | null;
+            };
             header?: never;
             path: {
                 tenant_id: string;
@@ -39779,7 +39787,10 @@ export interface operations {
     };
     get_entity_by_slug: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The slug of a game system of the library: only the stats that belong to no system and that system's. Left out, every stat. An unknown slug is a 404. */
+                system?: string | null;
+            };
             header?: never;
             path: {
                 tenant_id: string;

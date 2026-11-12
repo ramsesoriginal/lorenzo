@@ -36,10 +36,13 @@ async def effective_stats_of(
     entities: Sequence[Entity],
     wanted: Sequence[uuid.UUID],
     visibility: InformationVisibility,
+    system: str | None = None,
 ) -> list[EntryEffectiveStatsOut]:
     """For each of `entities`, the effective value of each of `wanted` it has, in the order
     asked: whether it holds the value itself, which entry it comes from (null for a source the
-    caller may not see, as on the entry's own read), and whether a formula decided it."""
+    caller may not see, as on the entry's own read), and whether a formula decided it. With
+    `system`, a stat of another game system is left out (ADR 0450): after the evaluation, so a
+    formula still reads it."""
     ids = [entity.id for entity in entities]
     rows: dict[uuid.UUID, list[VEffectiveStat]] = {entity_id: [] for entity_id in ids}
     if ids:
@@ -69,6 +72,8 @@ async def effective_stats_of(
             if stat_definition_id not in values:
                 continue
             winner = winners[stat_definition_id]
+            if system is not None and winner.system_slug() not in (None, system):
+                continue
             own = winner.source_entity_id == entity.id
             stats.append(
                 EffectiveStatOut(
