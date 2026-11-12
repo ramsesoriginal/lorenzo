@@ -530,8 +530,8 @@ async def test_a_release_at_five_thousand_libraries_costs_the_snapshot_and_not_t
         assert len([s for s in seen if "set_config('app.tenant_id'" in s]) < 5
         # The release's own, fixed number of statements (54 before this change at no libraries,
         # and 20,054 at 5,000 libraries); the snapshot adds one.
-        # 145: the reach of a protected repository (ADR 0434) adds a few fixed statements, and each table a
-        # release reads (the feature tables, the grant rules and records) one more.
+        # 145: the reach of a protected repository (ADR 0434) adds a few fixed statements, and
+        # each table a release reads (the feature tables, the grant tables) one more.
         assert len(seen) < 145, len(seen)
         # And the time of it, which was 21 s: the machine this runs on is not the one that measured.
         assert elapsed < 10, elapsed
