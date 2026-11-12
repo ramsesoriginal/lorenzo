@@ -351,6 +351,8 @@ async def test_skipping_drops_what_depends_on_it(
             "computed_stat",
             "entity_stat_group",
             "template",
+            "grant_rule",
+            "feature_prerequisite",
         }
         assert copied.json()["steps"][0]["stat_definitions"] == 0
         assert await _count(StatDefinition, table) == 0

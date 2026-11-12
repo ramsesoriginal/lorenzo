@@ -2036,7 +2036,7 @@ class _Planner:
                 step.dropped.append(Dropped("grant_rule", rule_id, reason))
 
             entry = self._local(c, "entity", rule["entry"])
-            if entry is None or entry not in created:
+            if entry is None or entry not in created or not c.own("entity", rule["entry"]):
                 continue
             category = None
             if rule["category"] is not None:
@@ -2112,7 +2112,7 @@ class _Planner:
                 )
         for feature_id in sorted(c.prerequisites, key=str):
             feature = self._local(c, "entity", feature_id)
-            if feature is None or feature not in created:
+            if feature is None or feature not in created or not c.own("entity", feature_id):
                 continue
             position = 0
             for prerequisite in c.prerequisites[feature_id]:
