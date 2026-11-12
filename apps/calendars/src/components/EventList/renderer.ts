@@ -5,6 +5,7 @@ import {
   button,
   disclosure,
   el,
+  emptyState,
   entryHref,
   feedback,
   field,
@@ -38,6 +39,13 @@ export async function mount() {
   host.append(iconLink('All calendars', `/?tenant=${encodeURIComponent(tenantId)}`, 'back'), head);
   const status = feedback();
   const list = el('ol', '', 'list event-list');
+  // Nothing to show: the shared mascot state (`empty-entries`); the status line keeps its words.
+  const none = emptyState(
+    'No Events to show',
+    'Change the filters, or add an Event from a day in a calendar.',
+    'empty-entries',
+  );
+  none.hidden = true;
   list.dataset.eventList = '';
   const nav = el('div', '', 'row');
   const q = field('Search Event names', initial.get('q') ?? '');
@@ -159,6 +167,7 @@ export async function mount() {
       if (turn !== generation || !host?.isConnected) return;
       list.replaceChildren();
       list.hidden = !response.items.length;
+      none.hidden = response.items.length > 0;
       for (const [index, entry] of response.items.entries()) {
         rememberEntryAddress(tenantId, entry);
         const row = el('li', '', 'event-row');
@@ -266,6 +275,7 @@ export async function mount() {
       if (turn === generation) {
         list.replaceChildren();
         list.hidden = true;
+        none.hidden = true;
         status.fail(message(error));
       }
     }
@@ -500,6 +510,7 @@ export async function mount() {
     ),
     status.node,
     list,
+    none,
     nav,
   );
   showChoices();
