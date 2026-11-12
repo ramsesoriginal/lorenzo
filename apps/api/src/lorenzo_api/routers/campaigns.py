@@ -25,6 +25,7 @@ from lorenzo_api.exceptions import (
     CampaignManagementForbiddenError,
     CampaignNotEmptyError,
     CampaignNotFoundError,
+    InvalidSystemError,
     InvalidUserError,
     RepositoryHasNoCampaignsError,
 )
@@ -33,6 +34,7 @@ from lorenzo_api.models import (
     CampaignGm,
     Entity,
     Player,
+    System,
     Tenant,
     TenantAdminCampaignOptOut,
     TenantKind,
@@ -147,6 +149,16 @@ async def _require_can_manage(
         )
 
 
+async def _require_system(
+    session: SessionDep, tenant_id: uuid.UUID, system_id: uuid.UUID | None
+) -> None:
+    """The game system a campaign names is one of the library's (ADR 0452)."""
+    if system_id is not None and not await session.scalar(
+        select(System.id).where(System.id == system_id, System.tenant_id == tenant_id)
+    ):
+        raise InvalidSystemError(detail=f"{system_id} is not a system of tenant {tenant_id}")
+
+
 @router.post("", status_code=201)
 async def create_campaign(
     tenant_id: Annotated[uuid.UUID, Depends(get_tenant_admin_context)],
@@ -166,6 +178,7 @@ async def create_campaign(
         raise RepositoryHasNoCampaignsError(
             detail="A repository is a setting other tenants copy from; nobody plays in it."
         )
+    await _require_system(session, tenant_id, body.system_id)
     entity = Entity(tenant_id=tenant_id, name=body.name, created_by=user.id, updated_by=user.id)
     session.add(entity)
     await session.flush()
@@ -173,6 +186,7 @@ async def create_campaign(
         tenant_id=tenant_id,
         name=body.name,
         game_system=body.game_system,
+        system_id=body.system_id,
         slug=body.slug,
         description=body.description,
         secret=body.secret,
@@ -213,6 +227,8 @@ async def update_campaign(
     await _require_can_manage(session, tenant_id=tenant_id, campaign_id=campaign_id, user=user)
 
     update = body.model_dump(exclude_unset=True)
+    if update.get("system_id") is not None:
+        await _require_system(session, tenant_id, update["system_id"])
     if "gm_title" in update or "gm_title_plural" in update:
         # ADR 0294: both or neither, trimmed; empty puts both back to the default.
         update["gm_title"], update["gm_title_plural"] = normalise_gm_titles(
@@ -224,6 +240,7 @@ async def update_campaign(
         for field in (
             "name",
             "game_system",
+            "system_id",
             "slug",
             "description",
             "secret",

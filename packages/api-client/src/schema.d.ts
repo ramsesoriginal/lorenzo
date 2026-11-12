@@ -3400,6 +3400,12 @@ export interface paths {
          *     holds directly (contained by it), with the stats of the tenant's weapon group; what the
          *     caller may see of them is ADR 0040's, so another player's being shows none. The abilities
          *     are the being's information of the tenant's ability type, as the caller can see it.
+         *
+         *     With a template (named by `template_id`, or the one of the campaign's game system that matches
+         *     the being) those three settings come from it instead: the first `stats` slot's group, the
+         *     columns of the first `held` slot and the type of the first `information` slot (ADR 0452). A
+         *     slot it has not is a section not configured. `templates` lists the matches of the campaign's
+         *     system, so a client can offer the choice when there are several.
          */
         get: operations["get_being_sheet"];
         put?: never;
@@ -7323,7 +7329,7 @@ export interface paths {
         post?: never;
         /**
          * Delete System
-         * @description Deletes a system nothing uses (409 while a stat group or a template belongs to it).
+         * @description Deletes a system nothing uses (409 while a stat group, a template or a campaign has it).
          */
         delete: operations["delete_system"];
         options?: never;
@@ -8679,6 +8685,8 @@ export interface components {
             name: string;
             /** Game System */
             game_system: string;
+            /** System Id */
+            system_id?: string | null;
             /** Slug */
             slug: string;
             /** Description */
@@ -8717,6 +8725,8 @@ export interface components {
             description: string;
             /** Game System */
             game_system: string;
+            /** System Id */
+            system_id: string | null;
             /** Secret */
             secret: boolean;
             /** Player Self Service */
@@ -8758,6 +8768,8 @@ export interface components {
             name: string;
             /** Game System */
             game_system: string;
+            /** System Id */
+            system_id: string | null;
             /** Secret */
             secret: boolean;
             /** Gm Title */
@@ -8778,6 +8790,8 @@ export interface components {
             name?: string | null;
             /** Game System */
             game_system?: string | null;
+            /** System Id */
+            system_id?: string | null;
             /** Slug */
             slug?: string | null;
             /** Description */
@@ -16703,6 +16717,12 @@ export interface components {
             weapons: components["schemas"]["SheetWeaponOut"][];
             /** Abilities */
             abilities: components["schemas"]["InformationOut"][];
+            template?: components["schemas"]["TemplateSummaryOut"] | null;
+            /**
+             * Templates
+             * @default []
+             */
+            templates: components["schemas"]["TemplateSummaryOut"][];
         };
         /**
          * SheetWeaponOut
@@ -31529,8 +31549,10 @@ export interface operations {
     get_being_sheet: {
         parameters: {
             query?: {
-                /** @description A campaign of the tenant the caller can read. Accepted so a campaign can later override the library's sheet settings; it changes nothing today. */
+                /** @description A campaign of the tenant the caller can read. When it names a game system, the sheet is drawn from that system's template for the being, if exactly one matches (ADR 0452). */
                 campaign_id?: string | null;
+                /** @description A template of the library the being matches: the sheet is drawn from it, whatever the campaign names (409 when it is not for the being). */
+                template_id?: string | null;
             };
             header?: never;
             path: {

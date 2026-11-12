@@ -661,3 +661,78 @@ async def read_through_template(
             )
         slots.append(view)
     return TemplateViewOut(template=summary, entity=EntitySummary.from_entity(entity), slots=slots)
+
+
+# --- the template a sheet is drawn from ----------------------------------------------------------
+
+
+async def pick_sheet_template(
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    entity_id: uuid.UUID,
+    *,
+    system_id: uuid.UUID | None,
+    template_id: uuid.UUID | None,
+) -> tuple[Template | None, list[Template]]:
+    """The template a being's sheet is drawn from and the ones it could be (ADR 0452).
+
+    The candidates are the templates of the campaign's game system whose filter matches the being
+    (none when the campaign names no system). A template asked for by id is used, whichever
+    system it belongs to, and must match the being (404, 409); with none asked for, the sheet is
+    drawn from the one candidate there is, and from the library's own settings when there are none
+    or several: nothing is chosen for the caller when two match (ADR 0451)."""
+    kinds = (await kinds_of(session, [entity_id]))[entity_id]
+    ancestors = await _prototype_ancestors(session, tenant_id, entity_id)
+    candidates: list[Template] = []
+    if system_id is not None:
+        found = (
+            await session.scalars(
+                select(Template)
+                .where(Template.tenant_id == tenant_id, Template.system_id == system_id)
+                .options(*_SLOT_LOAD)
+                .order_by(Template.name, Template.id)
+            )
+        ).all()
+        candidates = [t for t in found if _matches(t, kinds, ancestors)]
+    if template_id is not None:
+        chosen = await _get_or_404(session, tenant_id, template_id)
+        if not _matches(chosen, kinds, ancestors):
+            raise TemplateDoesNotMatchError(
+                detail=f"Template {chosen.name!r} is not for entry {entity_id}"
+            )
+        return chosen, candidates
+    return (candidates[0] if len(candidates) == 1 else None), candidates
+
+
+async def held_column_names(
+    session: SessionDep, tenant_id: uuid.UUID, slot: TemplateSlot
+) -> set[str]:
+    """The names of the stats a `held` slot has a column for: its group less what it leaves out,
+    or the stats it lists."""
+    if slot.stat_group_id is not None:
+        left_out = {e.stat_definition_id for e in slot.exclusions}
+        rows = await session.execute(
+            select(StatDefinition.id, StatDefinition.name).where(
+                StatDefinition.tenant_id == tenant_id,
+                StatDefinition.stat_group_id == slot.stat_group_id,
+            )
+        )
+        return {name for definition_id, name in rows.tuples() if definition_id not in left_out}
+    listed = [x.stat_definition_id for x in slot.stats]
+    if not listed:
+        return set()
+    return set(
+        await session.scalars(
+            select(StatDefinition.name).where(
+                StatDefinition.tenant_id == tenant_id, StatDefinition.id.in_(listed)
+            )
+        )
+    )
+
+
+def template_summary(template: Template, slugs: dict[uuid.UUID, str]) -> TemplateSummaryOut:
+    return _summary(template, slugs)
+
+
+async def system_slugs(session: SessionDep, tenant_id: uuid.UUID) -> dict[uuid.UUID, str]:
+    return await _slugs(session, tenant_id)

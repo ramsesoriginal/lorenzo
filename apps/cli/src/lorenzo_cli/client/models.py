@@ -392,6 +392,7 @@ class CalendarSummary(BaseModel):
 class CampaignCreate(BaseModel):
     name: str = Field(..., title="Name")
     game_system: str = Field(..., title="Game System")
+    system_id: UUID | None = Field(None, title="System Id")
     slug: str = Field(..., title="Slug")
     description: str = Field(..., title="Description")
     secret: bool | None = Field(False, title="Secret")
@@ -404,6 +405,7 @@ class CampaignOut(BaseModel):
     name: str = Field(..., title="Name")
     description: str = Field(..., title="Description")
     game_system: str = Field(..., title="Game System")
+    system_id: UUID | None = Field(..., title="System Id")
     secret: bool = Field(..., title="Secret")
     player_self_service: bool = Field(..., title="Player Self Service")
     gm_title: str = Field(..., title="Gm Title")
@@ -419,6 +421,7 @@ class CampaignSummaryOut(BaseModel):
     slug: str = Field(..., title="Slug")
     name: str = Field(..., title="Name")
     game_system: str = Field(..., title="Game System")
+    system_id: UUID | None = Field(..., title="System Id")
     secret: bool = Field(..., title="Secret")
     gm_title: str = Field(..., title="Gm Title")
     gm_title_plural: str = Field(..., title="Gm Title Plural")
@@ -427,6 +430,7 @@ class CampaignSummaryOut(BaseModel):
 class CampaignUpdate(BaseModel):
     name: str | None = Field(None, title="Name")
     game_system: str | None = Field(None, title="Game System")
+    system_id: UUID | None = Field(None, title="System Id")
     slug: str | None = Field(None, title="Slug")
     description: str | None = Field(None, title="Description")
     secret: bool | None = Field(None, title="Secret")
@@ -5805,6 +5809,8 @@ class SheetOut(BaseModel):
     abilities_configured: bool = Field(..., title="Abilities Configured")
     weapons: list[SheetWeaponOut] = Field(..., title="Weapons")
     abilities: list[InformationOut] = Field(..., title="Abilities")
+    template: TemplateSummaryOut | None = None
+    templates: list[TemplateSummaryOut] | None = Field([], title="Templates", validate_default=True)
 
 
 class StatExplanationOut(BaseModel):
