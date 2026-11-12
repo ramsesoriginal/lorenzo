@@ -551,7 +551,11 @@ async def load_content(session: AsyncSession, tenant_id: uuid.UUID) -> Content:
     async def rows(*columns: Any, where: Any, order_by: tuple[Any, ...] = ()) -> Any:
         return (await session.execute(select(*columns).where(where).order_by(*order_by))).all()
 
-    for entity_id, name in await rows(Entity.id, Entity.name, where=Entity.tenant_id == t):
+    # By id: a load is the same whenever it is made (the heap order of a table moves when rows are
+    # updated), so a release document and a later read of the same content agree on their order.
+    for entity_id, name in await rows(
+        Entity.id, Entity.name, where=Entity.tenant_id == t, order_by=(Entity.id,)
+    ):
         c.entities[entity_id] = name
     excluded = set(
         await session.scalars(select(StorySession.entity_id).where(StorySession.tenant_id == t))
